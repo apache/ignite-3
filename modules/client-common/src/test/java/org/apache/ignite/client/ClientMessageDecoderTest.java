@@ -21,6 +21,7 @@ import io.netty.buffer.Unpooled;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -52,8 +53,8 @@ public class ClientMessageDecoderTest {
 
         assertEquals(1, res.size());
 
-        var resBuf = (byte[])res.get(0);
-        assertArrayEquals(new byte[]{33, 44}, resBuf);
+        var resBuf = (ByteBuffer)res.get(0);
+        assertArrayEquals(new byte[]{33, 44}, resBuf.array());
     }
 
     @Test
@@ -75,13 +76,22 @@ public class ClientMessageDecoderTest {
         var decoder = new ClientMessageDecoder();
         var res = new ArrayList<>();
 
-        for (byte b : getMagicWithPayload())
-            decoder.decode(null, Unpooled.wrappedBuffer(new byte[]{b}), res);
+        byte[] data = getMagicWithPayload();
 
+        decoder.decode(null, Unpooled.wrappedBuffer(data, 0, 4), res);
+        assertEquals(0, res.size());
+
+        decoder.decode(null, Unpooled.wrappedBuffer(data, 4, 1), res);
+        assertEquals(0, res.size());
+
+        decoder.decode(null, Unpooled.wrappedBuffer(data, 5, 1), res);
+        assertEquals(0, res.size());
+
+        decoder.decode(null, Unpooled.wrappedBuffer(data, 6, 1), res);
         assertEquals(1, res.size());
 
-        var resBuf = (byte[])res.get(0);
-        assertArrayEquals(new byte[]{33, 44}, resBuf);
+        var resBuf = (ByteBuffer) res.get(0);
+        assertArrayEquals(new byte[]{33, 44}, resBuf.array());
     }
 
     private byte[] getMagicWithPayload() {
