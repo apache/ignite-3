@@ -17,14 +17,9 @@
 
 package org.apache.ignite.client;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufOutputStream;
-import org.apache.ignite.lang.IgniteException;
+import org.msgpack.core.MessageBufferPacker;
 import org.msgpack.core.MessagePack;
-import org.msgpack.core.MessagePacker;
 import org.msgpack.core.buffer.ArrayBufferOutput;
-import org.msgpack.core.buffer.MessageBuffer;
-import org.msgpack.core.buffer.OutputStreamBufferOutput;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -34,26 +29,9 @@ import java.util.UUID;
 /**
  * Ignite-specific MsgPack extension.
  */
-public class ClientMessagePacker extends MessagePacker {
-    public ClientMessagePacker(ByteBuf buf) {
-        super(new OutputStreamBufferOutput(new ByteBufOutputStream(buf)), MessagePack.DEFAULT_PACKER_CONFIG);
-    }
-
+public class ClientMessagePacker extends MessageBufferPacker {
     public ClientMessagePacker() {
         super(new ArrayBufferOutput(), MessagePack.DEFAULT_PACKER_CONFIG);
-    }
-
-    public byte[] toByteArray() {
-        flushNoEx();
-
-        return getArrayBufferOut().toByteArray();
-    }
-
-    public MessageBuffer toMessageBuffer()
-    {
-        flushNoEx();
-
-        return getArrayBufferOut().toMessageBuffer();
     }
 
     public ClientMessagePacker packUuid(UUID v) throws IOException {
@@ -69,27 +47,5 @@ public class ClientMessagePacker extends MessagePacker {
         writePayload(bytes);
 
         return this;
-    }
-
-    @Override public void clear()
-    {
-        super.clear();
-
-        if (out instanceof ArrayBufferOutput)
-            getArrayBufferOut().clear();
-    }
-
-    private ArrayBufferOutput getArrayBufferOut()
-    {
-        return (ArrayBufferOutput) out;
-    }
-
-    private void flushNoEx() {
-        try {
-            flush();
-        } catch (IOException ex) {
-            // IOException must not happen because underlying ArrayBufferOutput never throws IOException
-            throw new RuntimeException(ex);
-        }
     }
 }
