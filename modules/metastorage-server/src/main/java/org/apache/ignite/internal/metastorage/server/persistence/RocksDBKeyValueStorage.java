@@ -703,19 +703,24 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     @Override public void compact() {
         rwLock.writeLock().lock();
 
-        try {
+        try (WriteBatch batch = new WriteBatch()) {
             NavigableMap<byte[], List<Long>> compactedKeysIdx = new TreeMap<>(CMP);
 
             keysIdx.forEach((key, revs) -> {
                 try {
-                    compactForKey(key, revs, compactedKeysIdx);
+                    compactForKey(batch, key, revs, compactedKeysIdx);
                 }
                 catch (RocksDBException e) {
                     throw new IgniteInternalException(e);
                 }
             });
 
+            fillAndWriteBatch(batch, rev, updCntr);
+
             keysIdx = compactedKeysIdx;
+        }
+        catch (RocksDBException e) {
+            throw new IgniteInternalException(e);
         }
         finally {
             rwLock.writeLock().unlock();
@@ -747,12 +752,14 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
      * Compacts all entries by the given key, removing all previous revisions and deleting the last entry if it is
      * a tombstone.
      *
+     * @param batch Write batch.
      * @param key Target key.
      * @param revs Revision.
      * @param compactedKeysIdx Keys index.
      * @throws RocksDBException If failed.
      */
     private void compactForKey(
+        WriteBatch batch,
         byte[] key,
         List<Long> revs,
         NavigableMap<byte[], List<Long>> compactedKeysIdx
@@ -760,7 +767,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         long lastRev = lastRevision(revs);
 
         for (int i = 0; i < revs.size() - 1; i++)
-            this.db.delete(keyToRocksKey(revs.get(i), key));
+            batch.delete(keyToRocksKey(revs.get(i), key));
 
         byte[] rocksKey = keyToRocksKey(lastRev, key);
 
@@ -774,7 +781,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
             compactedKeysIdx.put(key, revisions);
         }
         else
-            this.db.delete(rocksKey);
+            batch.delete(rocksKey);
     }
 
     /**
