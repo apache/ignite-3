@@ -30,9 +30,6 @@ import java.time.LocalTime;
  * @see org.apache.ignite.internal.schema.RowAssembler
  */
 public class TemporalTypesHelper {
-    /** Year field length. */
-    public static final int YEAR_FIELD_LENGTH = 15;
-
     /** Month field length. */
     public static final int MONTH_FIELD_LENGTH = 4;
 
@@ -49,7 +46,7 @@ public class TemporalTypesHelper {
     public static final int SECONDS_FIELD_LENGTH = 6;
 
     /** Milliseconds field length. */
-    public static final int MILLIS_FIELD_LENGTH = 10;
+    public static final int MIRCOS_FIELD_LENGTH = 20;
 
     /**
      * @param len Mask length in bits.
@@ -65,11 +62,11 @@ public class TemporalTypesHelper {
      * @param time Time.
      * @return Encoded time.
      */
-    public static int compactTime(LocalTime time) {
-        int val = time.getHour() << MINUTES_FIELD_LENGTH;
-        val = (val | time.getMinute()) << SECONDS_FIELD_LENGTH;
-        val = (val | time.getSecond()) << MILLIS_FIELD_LENGTH;
-        val |= time.getNano() / 1_000_000; // Conver to millis.
+    public static long compactTime(LocalTime time) {
+        long val = (long)time.getHour() << MINUTES_FIELD_LENGTH;
+        val = (val | (long)time.getMinute()) << SECONDS_FIELD_LENGTH;
+        val = (val | (long)time.getSecond()) << MIRCOS_FIELD_LENGTH;
+        val |= (long)time.getNano() / 1_000; // Conver to millis.
 
         return val;
     }
@@ -94,13 +91,13 @@ public class TemporalTypesHelper {
      * @param time Encoded time.
      * @return LocalTime instance.
      */
-    public static LocalTime decodeTime(int time) {
-        int millis = time & mask(MILLIS_FIELD_LENGTH);
-        int sec = (time >>>= MILLIS_FIELD_LENGTH) & mask(SECONDS_FIELD_LENGTH);
-        int min = (time >>>= SECONDS_FIELD_LENGTH) & mask(MINUTES_FIELD_LENGTH);
-        int hour = (time >>> MINUTES_FIELD_LENGTH) & mask(HOUR_FIELD_LENGTH);
+    public static LocalTime decodeTime(long time) {
+        int millis = (int)(time & mask(MIRCOS_FIELD_LENGTH));
+        int sec = (int)((time >>>= MIRCOS_FIELD_LENGTH) & mask(SECONDS_FIELD_LENGTH));
+        int min = (int)((time >>>= SECONDS_FIELD_LENGTH) & mask(MINUTES_FIELD_LENGTH));
+        int hour = (int)((time >>> MINUTES_FIELD_LENGTH) & mask(HOUR_FIELD_LENGTH));
 
-        return LocalTime.of(hour, min, sec, millis * 1_000_000 /* to nanos */);
+        return LocalTime.of(hour, min, sec, millis * 1_000 /* to nanos */);
     }
 
     /**

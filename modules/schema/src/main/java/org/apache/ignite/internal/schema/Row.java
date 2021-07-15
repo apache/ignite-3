@@ -441,7 +441,8 @@ public class Row implements BinaryRow {
      * @return LocalTime value.
      */
     private LocalTime readTime(int off) {
-        int time = readInteger(off);
+        long time = Integer.toUnsignedLong(readInteger(off)) << 8;
+        time |= Byte.toUnsignedLong(readByte(off + 4));
 
         return TemporalTypesHelper.decodeTime(time);
     }

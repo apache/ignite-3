@@ -454,8 +454,7 @@ public class RowAssembler {
 
         int date = TemporalTypesHelper.encodeDate(val);
 
-        buf.putShort(curOff, (short)(date >>> 8));
-        buf.put(curOff + 2, (byte)(date & 0xFF));
+        writeDate(curOff, date);
 
         if (isKeyColumn())
             keyHash += 31 * keyHash + val.hashCode();
@@ -464,7 +463,6 @@ public class RowAssembler {
 
         return this;
     }
-
     /**
      * Appends LocalTime value for the current column to the chunk.
      *
@@ -474,7 +472,9 @@ public class RowAssembler {
     public RowAssembler appendTime(LocalTime val) {
         checkType(NativeTypes.TIME);
 
-        buf.putInt(curOff, TemporalTypesHelper.compactTime(val));
+        long time = TemporalTypesHelper.compactTime(val);
+
+        writeTime(curOff, time);
 
         if (isKeyColumn())
             keyHash += 31 * keyHash + val.hashCode();
@@ -494,10 +494,10 @@ public class RowAssembler {
         checkType(NativeTypes.DATETIME);
 
         int date = TemporalTypesHelper.encodeDate(val.toLocalDate());
+        long time = TemporalTypesHelper.compactTime(val.toLocalTime());
 
-        buf.putShort(curOff, (short)(date >>> 8));
-        buf.put(curOff + 2, (byte)(date & 0xFF));
-        buf.putInt(curOff + 3, TemporalTypesHelper.compactTime(val.toLocalTime()));
+        writeDate(curOff, date);
+        writeTime(curOff + 3, time);
 
         if (isKeyColumn())
             keyHash += 31 * keyHash + val.hashCode();
@@ -566,6 +566,28 @@ public class RowAssembler {
             "Illegal writing of varlen when 'omit vartable' flag is set for a chunk.";
 
         buf.putShort(varlenTblChunkOff + Row.varlenItemOffset(tblEntryIdx), (short)off);
+    }
+
+    /**
+     * Writes date.
+     *
+     * @param off Offset.
+     * @param date Compacted date.
+     */
+    private void writeDate(int off, int date) {
+        buf.putShort(off, (short)(date >>> 8));
+        buf.put(off + 2, (byte)(date & 0xFF));
+    }
+
+    /**
+     * Writes time.
+     *
+     * @param off Offset.
+     * @param time Compacted time.
+     */
+    private void writeTime(int off, long time) {
+        buf.putInt(off, (int)(time >> 8));
+        buf.put(off + 4, (byte)(time & 0xFF));
     }
 
     /**

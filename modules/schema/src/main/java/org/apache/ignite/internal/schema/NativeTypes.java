@@ -55,13 +55,13 @@ public class NativeTypes {
     public static final NativeType DATE = new NativeType(NativeTypeSpec.DATE, 3);
 
     /** Timezone-free three-part value representing a time of day in hours, minutes, and seconds. */
-    public static final NativeType TIME = new NativeType(NativeTypeSpec.TIME, 4);
+    public static final NativeType TIME = new NativeType(NativeTypeSpec.TIME, 5);
 
     /** Timezone-free datetime encoded as (date, time). */
-    public static final NativeType DATETIME = new NativeType(NativeTypeSpec.DATETIME, 7);
+    public static final NativeType DATETIME = new NativeType(NativeTypeSpec.DATETIME, 8);
 
     /** Number of milliseconds since Jan 1, 1970 00:00:00.000 (with no timezone). */
-    public static final NativeType TIMESTAMP = new NativeType(NativeTypeSpec.TIMESTAMP, 8);
+    public static final NativeType TIMESTAMP = new NativeType(NativeTypeSpec.TIMESTAMP, 10);
 
     /** Don't allow to create an instance. */
     private NativeTypes() {
