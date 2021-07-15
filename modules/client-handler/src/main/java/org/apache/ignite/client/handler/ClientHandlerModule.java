@@ -98,8 +98,8 @@ public class ClientHandlerModule {
                 protected void initChannel(Channel ch) {
                     ch.pipeline().addLast(
                             new ClientMessageDecoder(),
-                            new ClientMessageHandler(ignite, log),
-                            new ClientMessageEncoder());
+                            new ClientMessageEncoder(),
+                            new ClientMessageHandler(ignite, log));
                 }
             })
             .childOption(ChannelOption.SO_KEEPALIVE, true)
