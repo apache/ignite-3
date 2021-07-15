@@ -31,7 +31,10 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Decodes full client messages.
+ * Decodes full client messages:
+ * 1. MAGIC for first message.
+ * 2. Payload length (varint).
+ * 3. Payload (bytes).
  */
 public class ClientMessageDecoder extends ByteToMessageDecoder {
     /** Magic bytes before handshake. */

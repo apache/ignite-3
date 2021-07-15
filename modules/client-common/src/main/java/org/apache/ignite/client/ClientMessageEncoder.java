@@ -23,12 +23,28 @@ import io.netty.handler.codec.MessageToByteEncoder;
 
 import java.nio.ByteBuffer;
 
+/**
+ * Encodes client messages:
+ * 1. MAGIC for first message.
+ * 2. Payload length (varint).
+ * 3. Payload (bytes).
+ */
 public class ClientMessageEncoder extends MessageToByteEncoder<ByteBuffer> {
-    @Override protected void encode(ChannelHandlerContext channelHandlerContext, ByteBuffer byteBuffer, ByteBuf byteBuf)
+    /** */
+    private boolean magicEncoded;
+
+    @Override protected void encode(ChannelHandlerContext ctx, ByteBuffer message, ByteBuf target)
             throws Exception {
-        // TODO:
-        // 1. MAGIC for first message
-        // 2. Message length
-        // 3. Payload
+        if (!magicEncoded) {
+            target.writeBytes(ClientMessageDecoder.MAGIC_BYTES);
+
+            magicEncoded = true;
+        }
+
+        var packer = new ClientMessagePacker(target);
+
+        packer.packInt(message.limit() - message.position());
+
+        target.writeBytes(message);
     }
 }

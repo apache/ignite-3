@@ -17,9 +17,13 @@
 
 package org.apache.ignite.client;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufOutputStream;
 import org.msgpack.core.MessageBufferPacker;
 import org.msgpack.core.MessagePack;
+import org.msgpack.core.MessagePacker;
 import org.msgpack.core.buffer.ArrayBufferOutput;
+import org.msgpack.core.buffer.OutputStreamBufferOutput;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -29,7 +33,11 @@ import java.util.UUID;
 /**
  * Ignite-specific MsgPack extension.
  */
-public class ClientMessagePacker extends MessageBufferPacker {
+public class ClientMessagePacker extends MessagePacker {
+    public ClientMessagePacker(ByteBuf buf) {
+        super(new OutputStreamBufferOutput(new ByteBufOutputStream(buf)), MessagePack.DEFAULT_PACKER_CONFIG);
+    }
+
     public ClientMessagePacker() {
         super(new ArrayBufferOutput(), MessagePack.DEFAULT_PACKER_CONFIG);
     }
