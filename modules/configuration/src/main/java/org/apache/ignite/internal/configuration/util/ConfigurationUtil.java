@@ -18,21 +18,16 @@
 package org.apache.ignite.internal.configuration.util;
 
 import java.io.Serializable;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Objects;
 import java.util.RandomAccess;
-import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
@@ -255,11 +250,11 @@ public class ConfigurationUtil {
 
             /** {@inheritDoc} */
             @Override public void descend(ConstructableTreeNode node) {
-                boolean nodeIsNamedList = node instanceof NamedListNode;
+                if (node instanceof NamedListNode) {
+                    descendToNamedListNode((NamedListNode<?>)node);
 
-                List<String> orderedKeys = nodeIsNamedList
-                    ? new ArrayList<>(((NamedListView<?>)node).namedListKeys())
-                    : null;
+                    return;
+                }
 
                 for (Map.Entry<String, ?> entry : map.entrySet()) {
                     String key = entry.getKey();
@@ -271,41 +266,63 @@ public class ConfigurationUtil {
                     if (key.equals(NamedListNode.ORDER_IDX))
                         continue;
 
+                    if (val == null)
+                        node.construct(key, null);
+                    else if (val instanceof Map)
+                        node.construct(key, new InnerConfigurationSource((Map<String, ?>)val));
+                    else {
+                        assert val instanceof Serializable;
+
+                        node.construct(key, new LeafConfigurationSource((Serializable)val));
+                    }
+                }
+            }
+
+            /**
+             * Specific implementation of {@link #descend(ConstructableTreeNode)} that descends into named list node and
+             * sets a proper ordering to named list elements.
+             *
+             * @param node Named list node under construction.
+             */
+            private void descendToNamedListNode(NamedListNode<?> node) {
+                // This list must be mutable and RandomAccess.
+                var orderedKeys = new ArrayList<>(((NamedListView<?>)node).namedListKeys());
+
+                for (Map.Entry<String, ?> entry : map.entrySet()) {
+                    String key = entry.getKey();
+                    Object val = entry.getValue();
+
+                    assert val == null || val instanceof Map || val instanceof Serializable;
+
                     if (val == null) {
-                        if (nodeIsNamedList) {
-                            // Given that this particular method is applied to modify existing trees rather than
-                            // creating new trees, a "hack" is required in this place. "construct" is designed to create
-                            // "change" objects, thus it would just nullify named list element instead of deleting it.
-                            ((NamedListNode<?>)node).forceDelete(key);
-                        }
-                        else
-                            node.construct(key, null);
+                        // Given that this particular method is applied to modify existing trees rather than
+                        // creating new trees, a "hack" is required in this place. "construct" is designed to create
+                        // "change" objects, thus it would just nullify named list element instead of deleting it.
+                        node.forceDelete(key);
                     }
                     else if (val instanceof Map) {
-                        if (nodeIsNamedList) {
-                            // For every named list entry modification we must take its index into account.
-                            // We do this by modifying "orderedKeys" when index is explicitly passed.
-                            Object idxObj = ((Map<?, ?>)val).get(NamedListNode.ORDER_IDX);
+                        // For every named list entry modification we must take its index into account.
+                        // We do this by modifying "orderedKeys" when index is explicitly passed.
+                        Object idxObj = ((Map<?, ?>)val).get(NamedListNode.ORDER_IDX);
 
-                            if (idxObj != null) {
-                                assert idxObj instanceof Integer : val;
+                        if (idxObj != null) {
+                            assert idxObj instanceof Integer : val;
 
-                                int idx = (Integer)idxObj;
+                            int idx = (Integer)idxObj;
 
-                                if (idx >= orderedKeys.size()) {
-                                    // Updates can come in arbitrary order. This means that array may be too small
-                                    // during batch creation. In this case we have to insert enough nulls before
-                                    // invoking "add" method for actual key.
-                                    ((ArrayList<?>)orderedKeys).ensureCapacity(idx + 1);
+                            if (idx >= orderedKeys.size()) {
+                                // Updates can come in arbitrary order. This means that array may be too small
+                                // during batch creation. In this case we have to insert enough nulls before
+                                // invoking "add" method for actual key.
+                                orderedKeys.ensureCapacity(idx + 1);
 
-                                    while (idx != orderedKeys.size())
-                                        orderedKeys.add(null);
+                                while (idx != orderedKeys.size())
+                                    orderedKeys.add(null);
 
-                                    orderedKeys.add(idx, key);
-                                }
-                                else
-                                    orderedKeys.set(idx, key);
+                                orderedKeys.add(idx, key);
                             }
+                            else
+                                orderedKeys.set(idx, key);
                         }
 
                         node.construct(key, new InnerConfigurationSource((Map<String, ?>)val));
@@ -317,178 +334,16 @@ public class ConfigurationUtil {
                     }
                 }
 
-                if (nodeIsNamedList) {
-                    NamedListNode<?> namedListNode = (NamedListNode<?>)node;
-
-                    if (orderedKeys.size() > namedListNode.size())
-                        orderedKeys = orderedKeys.subList(0, namedListNode.size());
-
-                    namedListNode.reorderKeys(orderedKeys);
-                }
+                node.reorderKeys(orderedKeys.size() > node.size()
+                    ? orderedKeys.subList(0, node.size())
+                    : orderedKeys
+                );
             }
         }
 
         var src = new InnerConfigurationSource(prefixMap);
 
         src.descend(node);
-    }
-
-    /**
-     * Convert a traversable tree to a map of qualified keys to values.
-     *
-     * @param curRoot Current root tree.
-     * @param updates Tree with updates.
-     * @return Map of changes.
-     */
-    public static Map<String, Serializable> createFlattenedUpdatesMap(SuperRoot curRoot, SuperRoot updates) {
-        // Resulting map.
-        Map<String, Serializable> values = new HashMap<>();
-
-        // Current methods traverses two trees at the same time. In order to reuse visitor object it's decided to
-        // use explicit stack for the left tree. We need to reuse visitor object because it accumulates full keys.
-        Deque<InnerNode> oldInnerNodesStack = new ArrayDeque<>(Set.of(curRoot));
-
-        updates.traverseChildren(new KeysTrackingConfigurationVisitor<>() {
-            /** Flag indicates that "old" and "new" trees are literally the same at the moment. */
-            private boolean singleTreeTraversal;
-
-            /**
-             * Makes sense only if {@link #singleTreeTraversal} is {@code true}. Helps distinguishing creation from
-             * deletion. Always {@code false} if {@link #singleTreeTraversal} is {@code false}.
-             */
-            private boolean deletion;
-
-            /** {@inheritDoc} */
-            @Override public Void doVisitLeafNode(String key, Serializable newVal) {
-                // Read same value from old tree.
-                Serializable oldVal = oldInnerNodesStack.peek().traverseChild(key, leafNodeVisitor());
-
-                // Do not put duplicates into the resulting map.
-                if (singleTreeTraversal || !Objects.deepEquals(oldVal, newVal))
-                    values.put(currentKey(), deletion ? null : newVal);
-
-                return null;
-            }
-
-            /** {@inheritDoc} */
-            @Override public Void doVisitInnerNode(String key, InnerNode newNode) {
-                // Read same node from old tree.
-                InnerNode oldNode = oldInnerNodesStack.peek().traverseChild(key, innerNodeVisitor());
-
-                // Skip subtree that has not changed.
-                if (oldNode == newNode && !singleTreeTraversal)
-                    return null;
-
-                if (oldNode == null)
-                    visitAsymmetricInnerNode(newNode, false);
-                else {
-                    oldInnerNodesStack.push(oldNode);
-
-                    newNode.traverseChildren(this);
-
-                    oldInnerNodesStack.pop();
-                }
-
-                return null;
-            }
-
-            /** {@inheritDoc} */
-            @Override public <N extends InnerNode> Void doVisitNamedListNode(String key, NamedListNode<N> newNode) {
-                // Read same named list node from old tree.
-                NamedListNode<?> oldNode = oldInnerNodesStack.peek().traverseChild(key, namedListNodeVisitor());
-
-                // Skip subtree that has not changed.
-                if (oldNode == newNode && !singleTreeTraversal)
-                    return null;
-
-                // Old keys ordering can be ignored if we either create or delete everything.
-                Map<String, Integer> oldKeysToOrderIdxMap = singleTreeTraversal ? null
-                    : keysToOrderIdx(oldNode);
-
-                // New keys ordering can be ignored if we delete everything.
-                Map<String, Integer> newKeysToOrderIdxMap = deletion ? null
-                    : keysToOrderIdx(newNode);
-
-                for (String namedListKey : newNode.namedListKeys()) {
-                    withTracking(namedListKey, true, false, () -> {
-                        InnerNode oldNamedElement = oldNode.get(namedListKey);
-                        InnerNode newNamedElement = newNode.get(namedListKey);
-
-                        // Deletion of nonexistent element.
-                        if (oldNamedElement == null && newNamedElement == null)
-                            return null;
-
-                        // Skip element that has not changed.
-                        // Its index can be different though, so we don't "continue" straight away.
-                        if (singleTreeTraversal || oldNamedElement != newNamedElement) {
-                            if (newNamedElement == null)
-                                visitAsymmetricInnerNode(oldNamedElement, true);
-                            else if (oldNamedElement == null)
-                                visitAsymmetricInnerNode(newNamedElement, false);
-                            else {
-                                oldInnerNodesStack.push(oldNamedElement);
-
-                                newNamedElement.traverseChildren(this);
-
-                                oldInnerNodesStack.pop();
-                            }
-                        }
-
-                        Integer newIdx = newKeysToOrderIdxMap == null ? null : newKeysToOrderIdxMap.get(namedListKey);
-                        Integer oldIdx = oldKeysToOrderIdxMap == null ? null : oldKeysToOrderIdxMap.get(namedListKey);
-
-                        // We should "persist" changed indexes only.
-                        if (newIdx != oldIdx || singleTreeTraversal || newNamedElement == null) {
-                            String orderKey = currentKey() + NamedListNode.ORDER_IDX;
-
-                            values.put(orderKey, deletion || newNamedElement == null ? null : newIdx);
-                        }
-
-                        return null;
-                    });
-                }
-
-                return null;
-            }
-
-            /**
-             * Here we must list all joined keys belonging to deleted or created element. The only way to do it is to
-             * traverse the entire configuration tree unconditionally.
-             */
-            private void visitAsymmetricInnerNode(InnerNode node, boolean delete) {
-                assert !singleTreeTraversal;
-                assert node != null;
-
-                oldInnerNodesStack.push(node);
-                singleTreeTraversal = true;
-                deletion = delete;
-
-                node.traverseChildren(this);
-
-                deletion = false;
-                singleTreeTraversal = false;
-                oldInnerNodesStack.pop();
-            }
-        });
-
-        return values;
-    }
-
-    /**
-     * @param node Named list node.
-     * @return Map that contains same keys and their positions as values.
-     */
-    private static Map<String, Integer> keysToOrderIdx(NamedListNode<?> node) {
-        Map<String, Integer> res = new HashMap<>();
-
-        int idx = 0;
-
-        for (String key : node.namedListKeys()) {
-            if (node.get(key) != null)
-                res.put(key, idx++);
-        }
-
-        return res;
     }
 
     /**

@@ -31,7 +31,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
     public static final String ORDER_IDX = "<idx>";
 
     /** */
-    public final Supplier<N> valSupplier;
+    private final Supplier<N> valSupplier;
 
     /** */
     private final OrderedMap<N> map;
@@ -114,19 +114,19 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
     }
 
     /** {@inheritDoc} */
-    @Override public NamedListChange<N> createAfter(String base, String key, Consumer<N> valConsumer) {
+    @Override public NamedListChange<N> createAfter(String precedingKey, String key, Consumer<N> valConsumer) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
 
-        if (!map.containsKey(base))
-            throw new IllegalArgumentException("Element with name " + base + " doesn't exist.");
+        if (!map.containsKey(precedingKey))
+            throw new IllegalArgumentException("Element with name " + precedingKey + " doesn't exist.");
 
         if (map.containsKey(key))
             throw new IllegalArgumentException("Element with name " + key + " already exists.");
 
         N val = valSupplier.get();
 
-        map.putAfter(base, key, val);
+        map.putAfter(precedingKey, key, val);
 
         valConsumer.accept(val);
 
@@ -172,6 +172,11 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
         map.remove(key);
     }
 
+    /**
+     * Reorders keys in the map.
+     *
+     * @param orderedKeys List of keys in new order. Must have the same set of keys in it.
+     */
     public void reorderKeys(List<String> orderedKeys) {
         map.reorderKeys(orderedKeys);
     }

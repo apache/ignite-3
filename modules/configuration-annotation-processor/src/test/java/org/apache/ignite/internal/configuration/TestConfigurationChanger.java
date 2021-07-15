@@ -23,10 +23,14 @@ import org.apache.ignite.internal.configuration.tree.InnerNode;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
+/** Implementation of {@link ConfigurationChanger} to be used in tests. Has no support of listeners. */
 public class TestConfigurationChanger extends ConfigurationChanger {
-
+    /** Runtime implementations generator for node classes. */
     private final ConfigurationAsmGenerator cgen;
 
+    /**
+     * @param cgen Runtime implementations generator for node classes. Will be used to instantiate nodes objects.
+     */
     public TestConfigurationChanger(ConfigurationAsmGenerator cgen) {
         super((oldRoot, newRoot, revision) -> completedFuture(null));
 

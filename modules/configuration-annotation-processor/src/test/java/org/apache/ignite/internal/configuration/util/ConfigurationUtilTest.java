@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.configuration.util;
 
 import java.io.Serializable;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -41,7 +40,13 @@ import org.junit.jupiter.api.Test;
 
 import static java.util.Collections.singletonMap;
 import static org.apache.ignite.internal.configuration.tree.NamedListNode.ORDER_IDX;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.createFlattenedUpdatesMap;
+import static org.apache.ignite.internal.configuration.util.ConfigurationFlattener.createFlattenedUpdatesMap;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.anEmptyMap;
+import static org.hamcrest.Matchers.hasEntry;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -278,50 +283,61 @@ public class ConfigurationUtilTest {
     public void flattenedUpdatesMap() {
         var superRoot = new SuperRoot(key -> null, Map.of(ParentConfiguration.KEY, newParentInstance()));
 
-        assertEquals(
-            Map.of(),
-            flattenedMap(superRoot, parent -> {})
-        );
+        assertThat(flattenedMap(superRoot, parent -> {}), is(anEmptyMap()));
 
-        assertEquals(
-            Map.of(
-                "root.elements.name.child.str", "foo",
-                "root.elements.name.<idx>", 0
-            ),
+        assertThat(
             flattenedMap(superRoot, parent -> parent
                 .changeElements(elements -> elements
                     .create("name", element -> element
                         .changeChild(child -> child.changeStr("foo"))
                     )
                 )
-            )
+            ),
+            is(allOf(
+                aMapWithSize(2),
+                hasEntry("root.elements.name.child.str", (Serializable)"foo"),
+                hasEntry("root.elements.name.<idx>", 0)
+            ))
         );
 
-        assertEquals(
-            Map.of(),
+        assertThat(
             flattenedMap(superRoot, parent -> parent
                 .changeElements(elements1 -> elements1.delete("void"))
-            )
+            ),
+            is(anEmptyMap())
         );
 
-        assertEquals(
-            new HashMap<>() {{
-                put("root.elements.name.child.str", null);
-                put("root.elements.name.<idx>", null);
-            }},
+        assertThat(
             flattenedMap(superRoot, parent -> parent
                 .changeElements(elements -> elements.delete("name"))
-            )
+            ),
+            is(allOf(
+                aMapWithSize(2),
+                hasEntry("root.elements.name.child.str", null),
+                hasEntry("root.elements.name.<idx>", null)
+            ))
         );
     }
 
+    /**
+     * Patches super root and returns flat representation of the changes. Passed {@code superRoot} object will contain
+     * patched tree when method execution is completed.
+     *
+     * @param superRoot Super root to patch.
+     * @param patch Closure to cnahge parent node.
+     * @return Flat map with all changes from the patch.
+     */
     @NotNull private Map<String, Serializable> flattenedMap(SuperRoot superRoot, Consumer<ParentChange> patch) {
+        // Preserve a copy of the super root to use it as a golden source of data.
         SuperRoot originalSuperRoot = superRoot.copy();
 
+        // Make a copy of the root insode of the superRoot. This copy will be used for further patching.
         superRoot.construct(ParentConfiguration.KEY.key(), new ConfigurationSource() {});
 
+        // Patch root node.
         patch.accept((ParentChange)superRoot.getRoot(ParentConfiguration.KEY));
 
+        // Create flat diff between two super trees.
         return createFlattenedUpdatesMap(originalSuperRoot, superRoot);
     }
 
