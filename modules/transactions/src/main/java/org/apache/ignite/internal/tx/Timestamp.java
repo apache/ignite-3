@@ -61,6 +61,7 @@ public class Timestamp implements Comparable<Timestamp> {
     }
 
     /**
+     * TODO https://issues.apache.org/jira/browse/IGNITE-15129
      * @return Next timestamp (monotonically increasing).
      */
     public static synchronized Timestamp nextVersion() {

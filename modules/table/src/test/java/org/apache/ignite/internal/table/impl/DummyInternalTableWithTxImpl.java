@@ -33,6 +33,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.impl.TransactionImpl;
+import org.apache.ignite.schema.SchemaMode;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -110,6 +111,15 @@ public class DummyInternalTableWithTxImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override public @NotNull String tableName() {
         return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull SchemaMode schemaMode() {
+        return SchemaMode.STRICT_SCHEMA;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void schema(SchemaMode schemaMode) {
     }
 
     /** {@inheritDoc} */

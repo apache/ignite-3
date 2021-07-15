@@ -28,7 +28,9 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.schema.SchemaMode;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.KeyValueView;
@@ -50,17 +52,23 @@ public class TableImpl extends AbstractTableView implements Table {
     /** Marshaller. */
     private final TupleMarshallerImpl marsh;
 
+    /** Table manager. */
+    private final TableManager tblMgr;
+
     /**
      * Constructor.
      *
      * @param tbl Table.
      * @param schemaReg Table schema registry.
+     * @param tblMgr Table manager.
      * @param tx The transaction.
      */
-    public TableImpl(InternalTable tbl, SchemaRegistry schemaReg, @Nullable Transaction tx) {
+    public TableImpl(InternalTable tbl, SchemaRegistry schemaReg, TableManager tblMgr, @Nullable Transaction tx) {
         super(tbl, schemaReg, tx);
 
         marsh = new TupleMarshallerImpl(schemaReg);
+
+        this.tblMgr = tblMgr;
     }
 
     /**
@@ -98,12 +106,12 @@ public class TableImpl extends AbstractTableView implements Table {
 
     /** {@inheritDoc} */
     @Override public KeyValueBinaryView kvView() {
-        return new KVBinaryViewImpl(tbl, schemaReg, tx);
+        return new KVBinaryViewImpl(tbl, schemaReg, tblMgr, tx);
     }
 
     /** {@inheritDoc} */
     @Override public TableImpl withTx(Transaction tx) {
-        return new TableImpl(tbl, schemaReg, tx);
+        return new TableImpl(tbl, schemaReg, tblMgr, tx);
     }
 
     /** {@inheritDoc} */
@@ -384,7 +392,13 @@ public class TableImpl extends AbstractTableView implements Table {
 
     /** {@inheritDoc} */
     @Override public TupleBuilder tupleBuilder() {
-        return new TupleBuilderImpl(schemaReg.schema());
+        switch (tbl.schemaMode()) {
+            case STRICT_SCHEMA:
+                return new TupleBuilderImpl(schemaReg.schema());
+            case LIVE_SCHEMA:
+                return new LiveSchemaTupleBuilderImpl(schemaReg, tbl.tableName(), tblMgr);
+        }
+        throw new IllegalArgumentException("Unknown schema type: " + tbl.schemaMode());
     }
 
     /**
@@ -416,5 +430,12 @@ public class TableImpl extends AbstractTableView implements Table {
             return null;
 
         return rows.stream().map(this::wrap).collect(Collectors.toSet());
+    }
+
+    /**
+     * @param schemaMode New schema type.
+     */
+    public void schemaType(SchemaMode schemaMode) {
+        this.tbl.schema(schemaMode);
     }
 }

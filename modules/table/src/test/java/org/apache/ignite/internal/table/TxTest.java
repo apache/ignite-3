@@ -82,7 +82,7 @@ public class TxTest {
             new Column[]{new Column("balance", NativeTypes.DOUBLE, false)}
         );
 
-        accounts = new TableImpl(new DummyInternalTableWithTxImpl(), new DummySchemaManagerImpl(schema), null);
+        accounts = new TableImpl(new DummyInternalTableWithTxImpl(), new DummySchemaManagerImpl(schema), null, null);
         Tuple r1 = accounts.tupleBuilder().set("accountNumber", 1L).set("balance", BALANCE_1).build();
         Tuple r2 = accounts.tupleBuilder().set("accountNumber", 2L).set("balance", BALANCE_2).build();
 

@@ -15,25 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
-
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+package org.apache.ignite.schema;
 
 /**
- * This exception is thrown when a lock cannot be acquired due to conflict.
+ * Schema mode.
+ *
+ * Defines the way inserting data will be validated against the schema and schema evolution capabilities.
  */
-public class LockException extends IgniteInternalCheckedException {
-    /**
-     * @param msg The message.
-     */
-    public LockException(String msg) {
-        super(msg);
-    }
+public enum SchemaMode {
+    /** Normal mode offers strong validation for the inserting data. Explicit schema changes only are allowed. */
+    STRICT_SCHEMA,
 
-    /**
-     * @param waiter Conflicting waiter.
-     */
-    public LockException(Waiter waiter) {
-        super("Failed to acquire a lock due to a conflict with: " + waiter);
-    }
+    /** Extended mode that allows the schema to be fit the inserting data automatically. Only safe implicit schema changes are allowed, e.g. adding extra columns and widening column type. Changes like column removal or narrowing column type won't be applied implicitly. */
+    LIVE_SCHEMA
 }
