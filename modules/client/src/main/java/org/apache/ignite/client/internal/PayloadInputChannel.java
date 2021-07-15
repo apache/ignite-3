@@ -35,8 +35,8 @@ class PayloadInputChannel {
     /**
      * Constructor.
      */
-    PayloadInputChannel(ClientChannel ch, ByteBuffer payload) {
-        in = new ClientMessageUnpacker(new ByteBufferInput(payload));
+    PayloadInputChannel(ClientChannel ch, ClientMessageUnpacker in) {
+        this.in = in;
         this.ch = ch;
     }
 

@@ -107,6 +107,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
 
             packer.packInt(ClientMessageType.RESPONSE);
             packer.packInt(requestId);
+            packer.packInt(ClientErrorCode.SUCCESS);
 
             processOperation(unpacker, packer, opCode);
         }
@@ -149,7 +150,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                 case ClientOp.TABLES_GET: {
                     List<Table> tables = ignite.tables().tables();
 
-                    packer.packInt(tables.size());
+                    packer.packMapHeader(tables.size());
 
                     for (var table : tables) {
                         var tableImpl = (TableImpl) table;

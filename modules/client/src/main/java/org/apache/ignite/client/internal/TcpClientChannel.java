@@ -160,7 +160,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     /**
-     * @param op Operation.
+     * @param opCode Operation code.
      * @param payloadWriter Payload writer to stream or {@code null} if request has no payload.
      * @return Request future.
      */
@@ -205,7 +205,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private <T> T receive(ClientRequestFuture pendingReq, PayloadReader<T> payloadReader)
             throws IgniteClientException {
         try {
-            ByteBuffer payload = timeout > 0 ? pendingReq.get(timeout, TimeUnit.MILLISECONDS) : pendingReq.get();
+            var payload = timeout > 0 ? pendingReq.get(timeout, TimeUnit.MILLISECONDS) : pendingReq.get();
 
             if (payload == null || payloadReader == null)
                 return null;
@@ -260,34 +260,35 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * Process next message from the input stream and complete corresponding future.
      */
     private void processNextMessage(ByteBuffer buf) throws IgniteClientException, IOException {
-        try (var unpacker = new ClientMessageUnpacker(new ByteBufferInput(buf))) {
-            if (protocolCtx == null) {
-                // Process handshake.
-                pendingReqs.remove(-1L).complete(buf);
-                return;
-            }
+        // TODO: Close unpacker after handling the message.
+        var unpacker = new ClientMessageUnpacker(new ByteBufferInput(buf));
 
-            var type = unpacker.unpackInt();
+        if (protocolCtx == null) {
+            // Process handshake.
+            pendingReqs.remove(-1L).complete(unpacker);
+            return;
+        }
 
-            if (type != ClientMessageType.RESPONSE)
-                throw new IgniteClientException("Unexpected message type: " + type);
+        var type = unpacker.unpackInt();
 
-            Long resId = unpacker.unpackLong();
+        if (type != ClientMessageType.RESPONSE)
+            throw new IgniteClientException("Unexpected message type: " + type);
 
-            int status = unpacker.unpackInt();
+        Long resId = unpacker.unpackLong();
 
-            ClientRequestFuture pendingReq = pendingReqs.remove(resId);
+        int status = unpacker.unpackInt();
 
-            if (pendingReq == null)
-                throw new IgniteClientException(String.format("Unexpected response ID [%s]", resId));
+        ClientRequestFuture pendingReq = pendingReqs.remove(resId);
 
-            if (status == 0) {
-                pendingReq.complete(buf);
-            } else {
-                var errMsg = unpacker.unpackString();
-                var err = new IgniteClientException(errMsg, status);
-                pendingReq.completeExceptionally(err);
-            }
+        if (pendingReq == null)
+            throw new IgniteClientException(String.format("Unexpected response ID [%s]", resId));
+
+        if (status == 0) {
+            pendingReq.complete(unpacker);
+        } else {
+            var errMsg = unpacker.unpackString();
+            var err = new IgniteClientException(errMsg, status);
+            pendingReq.completeExceptionally(err);
         }
     }
 
@@ -324,7 +325,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         try {
             handshakeReq(ver);
 
-            ByteBuffer res = timeout > 0 ? fut.get(timeout, TimeUnit.MILLISECONDS) : fut.get();
+            var res = timeout > 0 ? fut.get(timeout, TimeUnit.MILLISECONDS) : fut.get();
             handshakeRes(res, ver);
         }
         catch (Throwable e) {
@@ -359,9 +360,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     /** Receive and handle handshake response. */
-    private void handshakeRes(ByteBuffer buf, ProtocolVersion proposedVer)
+    private void handshakeRes(ClientMessageUnpacker unpacker, ProtocolVersion proposedVer)
             throws IgniteClientConnectionException, IgniteClientAuthenticationException {
-        try (var unpacker = new ClientMessageUnpacker(new ByteBufferInput(buf))) {
+        try {
             ProtocolVersion srvVer = new ProtocolVersion(unpacker.unpackShort(), unpacker.unpackShort(),
                     unpacker.unpackShort());
 
@@ -430,6 +431,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /**
      *
      */
-    private static class ClientRequestFuture extends CompletableFuture<ByteBuffer> {
+    private static class ClientRequestFuture extends CompletableFuture<ClientMessageUnpacker> {
     }
 }
