@@ -452,7 +452,7 @@ public class Row implements BinaryRow {
      * @return LocalDate value.
      */
     private LocalDate readDate(int off) {
-        int date =  Short.toUnsignedInt(readShort(off)) << 8;
+        int date = Short.toUnsignedInt(readShort(off)) << 8;
         date |= Byte.toUnsignedInt(readByte(off + 2));
 
         return TemporalTypesHelper.decodeDate(date);
