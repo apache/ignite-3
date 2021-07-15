@@ -56,7 +56,7 @@ public class ConfigCommandTest extends AbstractCliTest {
         out = new ByteArrayOutputStream();
     }
 
-    // TODO: IGNITE-XXXXX Node must be stopped here.
+    // TODO: IGNITE-14581 Node must be stopped here.
     @AfterEach
     private void tearDown() {
         ctx.stop();
