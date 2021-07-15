@@ -88,7 +88,8 @@ public class ClientTablesTest {
         assertEquals(0, tables.size());
     }
 
-    @Test public void testCreateTable() {
+    @Test
+    public void testCreateTable() {
         var clientTable = client.tables().createTable("t1", t -> t.changeReplicas(2));
         assertEquals("t1", clientTable.tableName());
 
@@ -98,6 +99,30 @@ public class ClientTablesTest {
         var serverTable = serverTables.get(0);
         assertEquals("t1", serverTable.tableName());
         assertEquals(((TableImpl) serverTable).tableId(), ((TableImpl) clientTable).tableId());
+    }
+
+    @Test
+    public void testGetOrCreateTable() {
+        // TODO
+    }
+
+    @Test
+    public void testGetTableByName() {
+        // TODO
+    }
+
+    @Test
+    public void testDropTable() {
+        server.tables().createTable("t", t -> t.changeReplicas(0));
+
+        client.tables().dropTable("t");
+
+        assertEquals(0, server.tables().tables().size());
+    }
+
+    @Test
+    public void testDropTableInvalidName() {
+        client.tables().dropTable("foo");
     }
 
     private static Ignite startClient() {
