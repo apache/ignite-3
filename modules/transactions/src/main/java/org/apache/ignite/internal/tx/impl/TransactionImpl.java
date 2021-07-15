@@ -22,32 +22,44 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 
+/** */
 public class TransactionImpl implements InternalTransaction {
+    /** The timestamp. */
     private final Timestamp timestamp;
 
+    /** TX manager. */
     private final TxManager txManager;
 
+    /**
+     * @param txManager The tx managert.
+     * @param timestamp The timestamp.
+     */
     public TransactionImpl(TxManager txManager, Timestamp timestamp) {
         this.txManager = txManager;
         this.timestamp = timestamp;
     }
 
+    /** {@inheritDoc} */
     @Override public Timestamp timestamp() {
         return timestamp;
     }
 
+    /** {@inheritDoc} */
     @Override public void commit() {
         // txManager.commit(timestamp);
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Void> commitAsync() {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public void rollback() {
 
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Void> rollbackAsync() {
         return null;
     }

@@ -110,7 +110,7 @@ public class TxTest {
     @Test
     public void testTxSync() {
         igniteTransactions.runInTransaction(tx -> {
-            Table txAcc = accounts.withTx(tx);
+            Table txAcc = accounts.withTransaction(tx);
 
             CompletableFuture<Tuple> read1 = txAcc.getAsync(makeKey(1));
             CompletableFuture<Tuple> read2 = txAcc.getAsync(makeKey(2));
@@ -129,7 +129,7 @@ public class TxTest {
     @Test
     public void testTxSyncKeyValue() {
         igniteTransactions.runInTransaction(tx -> {
-            KeyValueBinaryView txAcc = accounts.withTx(tx).kvView();
+            KeyValueBinaryView txAcc = accounts.kvView().withTransaction(tx);
 
             CompletableFuture<Tuple> read1 = txAcc.getAsync(makeKey(1));
             CompletableFuture<Tuple> read2 = txAcc.getAsync(makeKey(2));
@@ -147,16 +147,16 @@ public class TxTest {
      */
     @Test
     public void testTxAsync() {
-        igniteTransactions.beginAsync().thenApply(tx -> accounts.withTx(tx)).
+        igniteTransactions.beginAsync().thenApply(tx -> accounts.withTransaction(tx)).
             thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
-            .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
-            .thenCompose(pair -> allOf(
-                txAcc.upsertAsync(makeValue(1, pair.getFirst().doubleValue("balance") - DELTA)),
-                txAcc.upsertAsync(makeValue(2, pair.getSecond().doubleValue("balance") + DELTA))
+                .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
+                .thenCompose(pair -> allOf(
+                    txAcc.upsertAsync(makeValue(1, pair.getFirst().doubleValue("balance") - DELTA)),
+                    txAcc.upsertAsync(makeValue(2, pair.getSecond().doubleValue("balance") + DELTA))
+                    )
                 )
-            )
-            .thenApply(ignore -> txAcc.transaction())
-        ).thenCompose(Transaction::commitAsync).join();
+                .thenApply(ignore -> txAcc.transaction())
+            ).thenCompose(Transaction::commitAsync).join();
 
         assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
         assertEquals(BALANCE_2 + DELTA, accounts.get(makeKey(2)).doubleValue("balance"));
@@ -167,16 +167,16 @@ public class TxTest {
      */
     @Test
     public void testTxAsyncKeyValue() {
-        igniteTransactions.beginAsync().thenApply(tx -> accounts.withTx(tx).kvView()).
+        igniteTransactions.beginAsync().thenApply(tx -> accounts.withTransaction(tx).kvView()).
             thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
-            .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
-            .thenCompose(pair -> allOf(
-                txAcc.putAsync(makeKey(1), makeValue(1, pair.getFirst().doubleValue("balance") - DELTA)),
-                txAcc.putAsync(makeKey(2), makeValue(2, pair.getSecond().doubleValue("balance") + DELTA))
+                .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
+                .thenCompose(pair -> allOf(
+                    txAcc.putAsync(makeKey(1), makeValue(1, pair.getFirst().doubleValue("balance") - DELTA)),
+                    txAcc.putAsync(makeKey(2), makeValue(2, pair.getSecond().doubleValue("balance") + DELTA))
+                    )
                 )
-            )
-            .thenApply(ignore -> txAcc.transaction())
-        ).thenCompose(Transaction::commitAsync).join();
+                .thenApply(ignore -> txAcc.transaction())
+            ).thenCompose(Transaction::commitAsync).join();
 
         assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
         assertEquals(BALANCE_2 + DELTA, accounts.get(makeKey(2)).doubleValue("balance"));
@@ -185,7 +185,7 @@ public class TxTest {
     @Test
     public void testSingleKeyCompositeTx() {
         igniteTransactions.runInTransaction(tx -> {
-            Table txAcc = accounts.withTx(tx);
+            Table txAcc = accounts.withTransaction(tx);
 
             Tuple current = txAcc.get(makeKey(1));
 

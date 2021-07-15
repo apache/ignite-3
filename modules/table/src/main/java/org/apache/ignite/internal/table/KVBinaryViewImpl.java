@@ -321,6 +321,11 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinar
         throw new IllegalArgumentException("Unknown schema type: " + tbl.schemaMode());
     }
 
+    /** {@inheritDoc} */
+    @Override public KVBinaryViewImpl withTransaction(Transaction tx) {
+        return new KVBinaryViewImpl(tbl, schemaReg, tx);
+    }
+
     /**
      * @return Marshaller.
      */

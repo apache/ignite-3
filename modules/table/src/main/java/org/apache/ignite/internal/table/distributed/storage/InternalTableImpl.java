@@ -296,6 +296,7 @@ public class InternalTableImpl implements InternalTable {
                 .collect(Collectors.toList()));
     }
 
+    /** {@inheritDoc} */
     @Override public void commit(Timestamp timestamp) {
         // No-op.
     }

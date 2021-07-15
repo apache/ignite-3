@@ -355,7 +355,15 @@ public interface TableView<R> {
         InvokeProcessor<R, R, T> proc);
 
     /**
-     * @return Current transaction or null if a table is not enlisted in any transaction.
+     * @return Current transaction or null if a table is not enlisted in a transaction.
      */
     @Nullable Transaction transaction();
+
+    /**
+     * Enslists a view into the transaction.
+     *
+     * @param tx The transaction.
+     * @return Transactional view.
+     */
+    TableView<R> withTransaction(Transaction tx);
 }

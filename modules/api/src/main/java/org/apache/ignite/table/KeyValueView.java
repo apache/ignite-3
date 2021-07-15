@@ -383,7 +383,15 @@ public interface KeyValueView<K, V> {
         Serializable... args);
 
     /**
-     * @return Current transaction.
+     * @return Current transaction or null if the view is not enlisted in a transaction.
      */
     @Nullable Transaction transaction();
+
+    /**
+     * Enslists a view into the transaction.
+     *
+     * @param tx The transaction.
+     * @return Transactional view.
+     */
+    KeyValueView<K, V> withTransaction(Transaction tx);
 }
