@@ -17,13 +17,9 @@
 
 package org.apache.ignite.internal.processors.query.calcite.exec;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 import com.google.common.collect.ImmutableMap;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.Inbox;
