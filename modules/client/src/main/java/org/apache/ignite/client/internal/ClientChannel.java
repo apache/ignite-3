@@ -32,26 +32,9 @@ import org.apache.ignite.client.IgniteClientException;
  */
 interface ClientChannel extends AutoCloseable {
     /**
-     * Send request and handle response for client operation.
-     *
-     * @param op Operation.
-     * @param payloadWriter Payload writer to stream or {@code null} if request has no payload.
-     * @param payloadReader Payload reader from stream.
-     * @return Received operation payload or {@code null} if response has no payload.
-     * @throws IgniteClientException Thrown by {@code payloadWriter} or {@code payloadReader}.
-     * @throws IgniteClientAuthorizationException When user has no permission to perform operation.
-     * @throws IgniteClientConnectionException In case of IO errors.
-     */
-    public <T> T service(
-            int opCode,
-            PayloadWriter payloadWriter,
-            PayloadReader<T> payloadReader
-    ) throws IgniteClientException, IgniteClientAuthorizationException, IgniteClientConnectionException;
-
-    /**
      * Send request and handle response asynchronously for client operation.
      *
-     * @param op Operation.
+     * @param opCode Operation code.
      * @param payloadWriter Payload writer to stream or {@code null} if request has no payload.
      * @param payloadReader Payload reader from stream.
      * @return Future for the operation.
@@ -64,11 +47,6 @@ interface ClientChannel extends AutoCloseable {
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader
     );
-
-    /**
-     * @return Server node ID.
-     */
-    public UUID serverNodeId();
 
     /**
      * @return {@code True} channel is closed.

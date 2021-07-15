@@ -39,7 +39,6 @@ import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -47,7 +46,6 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-
 
 /**
  * Implements {@link ClientChannel} over TCP.
@@ -63,9 +61,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** Protocol context. */
     private volatile ProtocolContext protocolCtx;
-
-    /** Server node ID. */
-    private volatile UUID srvNodeId;
 
     /** Channel. */
     private final ClientConnection sock;
@@ -127,17 +122,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T service(
-            int opCode,
-            PayloadWriter payloadWriter,
-            PayloadReader<T> payloadReader
-    ) throws IgniteClientException {
-        ClientRequestFuture fut = send(opCode, payloadWriter);
-
-        return receive(fut, payloadReader);
-    }
-
-    /** {@inheritDoc} */
     @Override public <T> CompletableFuture<T> serviceAsync(
             int opCode,
             PayloadWriter payloadWriter,
@@ -193,26 +177,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     /**
-     * @param pendingReq Request future.
-     * @param payloadReader Payload reader from stream.
-     * @return Received operation payload or {@code null} if response has no payload.
-     */
-    private <T> T receive(ClientRequestFuture pendingReq, PayloadReader<T> payloadReader)
-            throws IgniteClientException {
-        try {
-            var payload = timeout > 0 ? pendingReq.get(timeout, TimeUnit.MILLISECONDS) : pendingReq.get();
-
-            if (payload == null || payloadReader == null)
-                return null;
-
-            return payloadReader.apply(new PayloadInputChannel(this, payload));
-        }
-        catch (Throwable e) {
-            throw convertException(e);
-        }
-    }
-
-    /**
      * Receives the response asynchronously.
      *
      * @param pendingReq Request future.
@@ -220,16 +184,16 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @return Future for the operation.
      */
     private <T> CompletableFuture<T> receiveAsync(ClientRequestFuture pendingReq, PayloadReader<T> payloadReader) {
-        return pendingReq.thenApply(payload -> {
+        return pendingReq.thenApplyAsync(payload -> {
             if (payload == null || payloadReader == null)
                 return null;
 
             try {
                 return payloadReader.apply(new PayloadInputChannel(this, payload));
             } catch (Exception e) {
-                throw new IgniteException("Failed to serialize client request: " + e.getMessage(), e);
+                throw new IgniteException("Failed to deserialize server response: " + e.getMessage(), e);
             }
-        });
+        }, asyncContinuationExecutor);
     }
 
     /**
@@ -285,11 +249,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             var err = new IgniteClientException(errMsg, status);
             pendingReq.completeExceptionally(err);
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override public UUID serverNodeId() {
-        return srvNodeId;
     }
 
     /** {@inheritDoc} */
