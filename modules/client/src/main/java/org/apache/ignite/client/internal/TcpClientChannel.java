@@ -21,7 +21,6 @@ import org.apache.ignite.client.ClientErrorCode;
 import org.apache.ignite.client.ClientMessagePacker;
 import org.apache.ignite.client.ClientMessageType;
 import org.apache.ignite.client.ClientMessageUnpacker;
-import org.apache.ignite.client.ClientOp;
 import org.apache.ignite.client.IgniteClientAuthenticationException;
 import org.apache.ignite.client.IgniteClientAuthorizationException;
 import org.apache.ignite.client.IgniteClientConnectionException;
@@ -48,8 +47,6 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
 
 /**
@@ -184,9 +181,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             if (payloadWriter != null)
                 payloadWriter.accept(payloadCh);
 
-            // TODO: We don't deal with message lengths here, it is the responsibility of the encoder.
-            byte[] bytes = req.toByteArray();
-            write(bytes, bytes.length);
+            write(req);
 
             return fut;
         }
@@ -335,19 +330,17 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** Send handshake request. */
     private void handshakeReq(ProtocolVersion proposedVer) throws IOException {
-        try (var packer = new ClientMessagePacker()) {
-            packer.packInt(proposedVer.major());
-            packer.packInt(proposedVer.minor());
-            packer.packInt(proposedVer.patch());
+        try (var req = new ClientMessagePacker()) {
+            req.packInt(proposedVer.major());
+            req.packInt(proposedVer.minor());
+            req.packInt(proposedVer.patch());
 
-            packer.packInt(2); // Client type: general purpose.
+            req.packInt(2); // Client type: general purpose.
 
-            packer.packBinaryHeader(0); // Features.
-            packer.packMapHeader(0); // Extensions.
+            req.packBinaryHeader(0); // Features.
+            req.packMapHeader(0); // Extensions.
 
-            var bytes = packer.toByteArray();
-
-            write(bytes, bytes.length);
+            write(req);
         }
     }
 
@@ -402,8 +395,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     /** Write bytes to the output stream. */
-    private void write(byte[] bytes, int len) throws IgniteClientConnectionException {
-        ByteBuffer buf = ByteBuffer.wrap(bytes, 0, len);
+    private void write(ClientMessagePacker packer) throws IgniteClientConnectionException {
+        var buf = packer.toMessageBuffer().sliceAsByteBuffer();
 
         try {
             sock.send(buf);
