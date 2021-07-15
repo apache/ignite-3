@@ -42,13 +42,30 @@ public class StripedDisruptor<T extends GroupAware> {
     /** The logger. */
     private static final Logger LOG = LoggerFactory.getLogger(StripedDisruptor.class);
 
+    /** Array of disruptors. Each Disruptor in the appropriate stripe. */
     private final Disruptor<T>[] disruptors;
+
+    /** Array of Ring buffer. It placed according to disruptors in the array. */
     private final RingBuffer<T>[] queues;
+
+    /** Disruptor event handler array. It placed according to disruptors in the array.*/
     private final ArrayList<StripeEntryHandler> eventHandlers;
+
+    /** Disruptor error handler array. It placed according to disruptors in the array.*/
     private final ArrayList<StripeExceptionHandler> exceptionHandlers;
+
+    /** Amount of stripes. */
     private final int stripes;
+
+    /** The Striped disruptor name. */
     private final String name;
 
+    /**
+     * @param name Name of the Striped disruptor.
+     * @param bufferSize Buffer size for each Disruptor.
+     * @param eventFactory Event factory for the Striped disruptor.
+     * @param stripes Amount of stripes.
+     */
     public StripedDisruptor(String name, int bufferSize, EventFactory<T> eventFactory, int stripes) {
         disruptors = new Disruptor[stripes];
         queues = new RingBuffer[stripes];
@@ -91,10 +108,21 @@ public class StripedDisruptor<T extends GroupAware> {
         LOG.info("Striped disruptor stopped [name={}]", name);
     }
 
+    /**
+     * @param group Group id.
+     * @param handler Event handler for the group specified.
+     * @return Disruptor queue appropriate to the group.
+     */
     public RingBuffer<T> subscribe(String group, EventHandler<T> handler) {
         return subscribe(group, handler, null);
     }
 
+    /**
+     * @param group Group id.
+     * @param handler Event handler for the group specified.
+     * @param exceptionHandler Exception handler for the group specified.
+     * @return Disruptor queue appropriate to the group.
+     */
     public RingBuffer<T> subscribe(String group, EventHandler<T> handler, BiConsumer<T, Throwable> exceptionHandler) {
         eventHandlers.get(getStripe(group)).subscribe(group, handler);
 
@@ -106,6 +134,9 @@ public class StripedDisruptor<T extends GroupAware> {
         return queues[getStripe(group)];
     }
 
+    /**
+     * @param group Group id.
+     */
     public void unsubscribe(String group) {
         eventHandlers.get(getStripe(group)).unsubscribe(group);
         exceptionHandlers.get(getStripe(group)).unsubscribe(group);
@@ -113,29 +144,56 @@ public class StripedDisruptor<T extends GroupAware> {
         LOG.info("Consumer unsubscribe [poolName={}, group={}]", name, group);
     }
 
+    /**
+     * @param group Group id.
+     * @return Stripe of the Striped disruptor.
+     */
     private int getStripe(String group) {
         return Math.abs(group.hashCode() % stripes);
     }
 
+    /**
+     * @param groupId Group id.
+     * @return Disruptor queue appropriate to the group.
+     */
     public RingBuffer<T> queue(String groupId) {
         return queues[getStripe(groupId)];
     }
 
+    /**
+     * Event handler for stripe of the Striped disruptor.
+     * It routs an event to the event handler for a group.
+     */
     private class StripeEntryHandler implements EventHandler<T> {
         private final ConcurrentHashMap<String, EventHandler<T>> subscrivers;
 
+        /**
+         * The constructor.
+         */
         StripeEntryHandler() {
             subscrivers = new ConcurrentHashMap<>();
         }
 
+        /**
+         * Subscribes a group to appropriate events for it.
+         *
+         * @param group Group id.
+         * @param handler Event handler for the group specified.
+         */
         void subscribe(String group, EventHandler<T> handler) {
             subscrivers.put(group, handler);
         }
 
+        /**
+         * Unsubscribes a group for any event.
+         *
+         * @param group Group id.
+         */
         void unsubscribe(String group) {
             subscrivers.remove(group);
         }
 
+        /** {@inheritDoc} */
         @Override public void onEvent(T event, long sequence, boolean endOfBatch) throws Exception {
             EventHandler<T> handler = subscrivers.get(event.groupId());
 
@@ -145,32 +203,56 @@ public class StripedDisruptor<T extends GroupAware> {
         }
     }
 
+    /**
+     * Striped disruptor exxception handler.
+     * It prints into log when an exception has occurred and route it to the handler for group.
+     */
     private class StripeExceptionHandler implements ExceptionHandler<T> {
+        /** Name of the Disruptor instance. */
         private final String name;
+
+        /** There are exception handlers per group. */
         private final ConcurrentHashMap<String, BiConsumer<T, Throwable>> subscrivers;
 
+        /**
+         * @param name Name of the Disruptor instance.
+         */
         StripeExceptionHandler(String name) {
             this.name = name;
             this.subscrivers = new ConcurrentHashMap<>();
         }
 
+        /**
+         * Subscribes a group to an exception, that might happen during handling an event for the group.
+         *
+         * @param group Group id.
+         * @param handler Exception handler.
+         */
         void subscribe(String group, BiConsumer<T, Throwable> handler) {
             subscrivers.put(group, handler);
         }
 
+        /**
+         * Unsubscribes a group for any exception.
+         *
+         * @param group Group id.
+         */
         void unsubscribe(String group) {
             subscrivers.remove(group);
         }
 
+        /** {@inheritDoc} */
         @Override public void handleOnStartException(Throwable ex) {
             LOG.error("Fail to start disruptor [name={}]", name, ex);
         }
 
+        /** {@inheritDoc} */
         @Override public void handleOnShutdownException(Throwable ex) {
             LOG.error("Fail to shutdown disruptor [name={}]", name, ex);
 
         }
 
+        /** {@inheritDoc} */
         @Override public void handleEventException(Throwable ex, long sequence, T event) {
             BiConsumer<T, Throwable> handler = subscrivers.get(event.groupId());
 
@@ -181,6 +263,7 @@ public class StripedDisruptor<T extends GroupAware> {
         }
     }
 
+    /** {@inheritDoc} */
     @Override public String toString() {
         return format("{} [name={}]", StripedDisruptor.class.getSimpleName(), name);
     }

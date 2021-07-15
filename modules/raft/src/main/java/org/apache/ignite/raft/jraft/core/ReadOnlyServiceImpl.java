@@ -98,6 +98,7 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
         CountDownLatch shutdownLatch;
         long startTime;
 
+        /** {@inheritDoc} */
         @Override public String groupId() {
             return groupId;
         }

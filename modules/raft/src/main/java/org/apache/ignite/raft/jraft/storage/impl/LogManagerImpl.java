@@ -111,6 +111,7 @@ public class LogManagerImpl implements LogManager {
         StableClosure done;
         EventType type;
 
+        /** {@inheritDoc} */
         @Override public String groupId() {
             return groupId;
         }

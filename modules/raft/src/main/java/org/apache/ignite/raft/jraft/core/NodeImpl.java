@@ -255,11 +255,7 @@ public class NodeImpl implements Node, RaftServerService {
         long expectedTerm;
         CountDownLatch shutdownLatch;
 
-        /**
-         * Gets group id.
-         *
-         * @return Group id.
-         */
+        /** {@inheritDoc} */
         @Override public String groupId() {
             return groupId;
         }

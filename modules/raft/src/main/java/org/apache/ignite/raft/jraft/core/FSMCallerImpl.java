@@ -105,11 +105,7 @@ public class FSMCallerImpl implements FSMCaller {
         Closure done;
         CountDownLatch shutdownLatch;
 
-        /**
-         * Gets group id.
-         *
-         * @return group id.
-         */
+        /** {@inheritDoc} */
         @Override public String groupId() {
             return groupId;
         }
