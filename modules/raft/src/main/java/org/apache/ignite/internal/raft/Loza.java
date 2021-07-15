@@ -50,9 +50,6 @@ public class Loza {
     /** Raft server. */
     private final RaftServer raftServer;
 
-    /** Started groups. */
-    private ConcurrentMap<String, RaftGroupServiceImpl> groups = new ConcurrentHashMap<>();
-
     /**
      * Constructor.
      *
