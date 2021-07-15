@@ -32,12 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Message decoding tests.
  */
 public class ClientMessageDecoderTest {
-    /** Magic bytes. */
-    private static final byte[] MAGIC = new byte[]{0x49, 0x47, 0x4E, 0x49};
-
     @Test
     void testEmptyBufferReturnsNoResults() throws Exception {
-
         var buf = new byte[0];
         var res = new ArrayList<>();
 
@@ -58,7 +54,7 @@ public class ClientMessageDecoderTest {
     }
 
     @Test
-    void testInvalidMagicThrowsException() throws Exception {
+    void testInvalidMagicThrowsException() {
         byte[] buf = {66, 69, 69, 70, 1, 2, 3};
 
         var t = assertThrows(IgniteException.class,
@@ -98,7 +94,7 @@ public class ClientMessageDecoderTest {
         var buf = new byte[7];
 
         // Magic.
-        System.arraycopy(MAGIC, 0, buf, 0, 4);
+        System.arraycopy(ClientMessageDecoder.MAGIC_BYTES, 0, buf, 0, 4);
 
         // Message size.
         buf[4] = 2;
