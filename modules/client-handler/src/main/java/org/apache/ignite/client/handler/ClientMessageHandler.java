@@ -70,8 +70,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
         this.log = log;
     }
 
-    @Override
-    public void channelRead(ChannelHandlerContext ctx, Object msg) throws IOException {
+    @Override public void channelRead(ChannelHandlerContext ctx, Object msg) throws IOException {
         var buf = (ByteBuffer) msg;
 
         var unpacker = getUnpacker(buf);
@@ -93,9 +92,6 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
             unpacker.skipValue(extensionsLen);
 
             // Response.
-            packer.writePayload(ClientMessageDecoder.MAGIC_BYTES);
-            packer.packInt(7); // Length.
-
             // TODO: Protocol version check.
             packer.packInt(3); // Major.
             packer.packInt(0); // Minor.
@@ -115,8 +111,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
             processOperation(unpacker, packer, opCode);
         }
 
-        // TODO: Pooled buffers.
-        ByteBuf response = Unpooled.copiedBuffer(packer.toByteArray());
+        ByteBuffer response = packer.toMessageBuffer().sliceAsByteBuffer();
 
         ctx.write(response);
     }
@@ -396,13 +391,12 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
         return (TableImpl)ignite.tables().createTable(name, tableChangeConsumer);
     }
 
-    @Override
-    public void channelReadComplete(ChannelHandlerContext ctx) {
+    @Override public void channelReadComplete(ChannelHandlerContext ctx) {
+        // TODO: ???
         ctx.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE);
     }
 
-    @Override
-    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+    @Override public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         // TODO: Logging
         cause.printStackTrace();
         ctx.close();

@@ -44,7 +44,7 @@ public class ClientMessageDecoder extends ByteToMessageDecoder {
     private int cnt = -4;
 
     /** */
-    private int msgSize;
+    private int msgSize = -1;
 
     /** */
     private boolean magicDecoded;
@@ -54,6 +54,9 @@ public class ClientMessageDecoder extends ByteToMessageDecoder {
 
     /** */
     private MessageFormat sizeFormat = null;
+
+    /** */
+    private byte firstByte;
 
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf byteBuf, List<Object> list)
@@ -72,11 +75,10 @@ public class ClientMessageDecoder extends ByteToMessageDecoder {
         if (magicDecoded)
             return true;
 
-        for (; cnt < 0 && byteBuf.readableBytes() > 0; cnt++)
-            data[4 + cnt] = byteBuf.readByte();
-
-        if (cnt < 0)
+        if (byteBuf.readableBytes() < MAGIC_BYTES.length)
             return false;
+
+        byteBuf.readBytes(data, 0, MAGIC_BYTES.length);
 
         magicDecoded = true;
         cnt = -1;
@@ -104,54 +106,55 @@ public class ClientMessageDecoder extends ByteToMessageDecoder {
         if (cnt < 0) {
             // Read varint message size.
             if (sizeFormat == null) {
-                byte firstByte = buf.readByte();
+                firstByte = buf.readByte();
                 sizeFormat = MessageFormat.valueOf(firstByte);
-
-                switch (sizeFormat) {
-                    case POSFIXINT:
-                        cnt = 0;
-                        msgSize = firstByte;
-                        break;
-
-                    case INT8:
-                    case UINT8:
-                        cnt = -1;
-                        data = new byte[] {firstByte, 0};  // TODO: Reuse array for length decoding.
-                        break;
-
-                    case INT16:
-                    case UINT16:
-                        cnt = -2;
-                        data = new byte[] {firstByte, 0, 0};
-                        break;
-
-                    case INT32:
-                    case UINT32:
-                        cnt = -4;
-                        data = new byte[] {firstByte, 0, 0, 0, 0};
-                        break;
-
-                    default:
-                        throw new IgniteException("Unexpected message length format: " + sizeFormat);
-                }
             }
 
-            for (; cnt < 0 && buf.readableBytes() > 0; cnt++) {
-                data[data.length + cnt] = buf.readByte();
+            switch (sizeFormat) {
+                case POSFIXINT:
+                    msgSize = firstByte;
+                    break;
+
+                case INT8:
+                case UINT8:
+                    if (buf.readableBytes() < 1)
+                        return false;
+
+                    msgSize = buf.readUnsignedByte();
+                    break;
+
+                case INT16:
+                case UINT16:
+                    if (buf.readableBytes() < 2)
+                        return false;
+
+                    msgSize = buf.readUnsignedShort();
+                    break;
+
+                case INT32:
+                case UINT32:
+                    if (buf.readableBytes() < 4)
+                        return false;
+
+                    var size = buf.readUnsignedInt();
+
+                    if (size > Integer.MAX_VALUE)
+                        throw new IgniteException("Message too long: " + size);
+
+                    msgSize = (int) size;
+                    break;
+
+                default:
+                    throw new IgniteException("Unexpected message length format: " + sizeFormat);
             }
 
-            if (cnt < 0)
-                return false;
-
-            if (msgSize == 0)
-                msgSize = MessagePack.newDefaultUnpacker(data).unpackInt(); // TODO: Cache unpacker.
-
+            assert msgSize >= 0;
             data = new byte[msgSize];
+            cnt = 0;
         }
 
         assert data != null;
-        assert cnt >= 0;
-        assert msgSize > 0;
+        assert msgSize >= 0;
 
         int remaining = buf.readableBytes();
 
@@ -169,7 +172,7 @@ public class ClientMessageDecoder extends ByteToMessageDecoder {
 
         if (cnt == msgSize) {
             cnt = -1;
-            msgSize = 0;
+            msgSize = -1;
             sizeFormat = null;
 
             return true;
