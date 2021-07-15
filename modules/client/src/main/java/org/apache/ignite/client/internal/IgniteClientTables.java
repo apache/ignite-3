@@ -24,6 +24,7 @@ import org.apache.ignite.table.manager.IgniteTables;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
@@ -39,7 +40,12 @@ public class IgniteClientTables implements IgniteTables {
 
     /** {@inheritDoc} */
     @Override public Table createTable(String name, Consumer<TableChange> tableInitChange) {
-        return ch.service(ClientOp.TABLE_CREATE, w -> {
+        return createTableAsync(name, tableInitChange).join();
+    }
+
+    /** {@inheritDoc} */
+    public CompletableFuture<Table> createTableAsync(String name, Consumer<TableChange> tableInitChange) {
+        return ch.serviceAsync(ClientOp.TABLE_CREATE, w -> {
             // TODO: other settings
             w.out().packMapHeader(1);
             w.out().packString("name");
@@ -59,12 +65,22 @@ public class IgniteClientTables implements IgniteTables {
 
     /** {@inheritDoc} */
     @Override public void dropTable(String name) {
-        ch.request(ClientOp.TABLE_DROP, w -> w.out().packString(name));
+        dropTableAsync(name).join();
+    }
+
+    /** {@inheritDoc} */
+    public CompletableFuture<Void> dropTableAsync(String name) {
+        return ch.requestAsync(ClientOp.TABLE_DROP, w -> w.out().packString(name));
     }
 
     /** {@inheritDoc} */
     @Override public List<Table> tables() {
-        return ch.service(ClientOp.TABLES_GET, r -> {
+        return tablesAsync().join();
+    }
+
+    /** {@inheritDoc} */
+    public CompletableFuture<List<Table>> tablesAsync() {
+        return ch.serviceAsync(ClientOp.TABLES_GET, r -> {
             var in = r.in();
             var cnt = in.unpackMapHeader();
             var res = new ArrayList<Table>(cnt);
@@ -78,7 +94,12 @@ public class IgniteClientTables implements IgniteTables {
 
     /** {@inheritDoc} */
     @Override public Table table(String name) {
-        return ch.service(ClientOp.TABLE_GET, w -> w.out().packString(name),
+        return tableAsync(name).join();
+    }
+
+    /** {@inheritDoc} */
+    public CompletableFuture<Table> tableAsync(String name) {
+        return ch.serviceAsync(ClientOp.TABLE_GET, w -> w.out().packString(name),
                 r -> new ClientTable(ch, r.in().unpackUuid(), name));
     }
 }
