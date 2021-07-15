@@ -766,7 +766,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
         Value value = bytesToValue(db.get(rocksKey));
 
-        if (!value.tombstone()) {
+        if (!value.isTombstone()) {
             List<Long> revisions = new ArrayList<>();
 
             revisions.add(lastRev);
@@ -955,7 +955,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
         Value lastVal = bytesToValue(valueBytes);
 
-        if (lastVal.tombstone())
+        if (lastVal.isTombstone())
             return Entry.tombstone(key, revision, lastVal.updateCounter());
 
         return new Entry(key, lastVal.bytes(), revision, lastVal.updateCounter());

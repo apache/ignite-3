@@ -371,7 +371,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
         Value lastVal = kv.get(key);
 
-        if (!lastVal.tombstone()) {
+        if (!lastVal.isTombstone()) {
             compactedKeysIdx.put(key, listOf(lastRev));
 
             NavigableMap<byte[], Value> compactedKv = compactedRevsIdx.computeIfAbsent(
@@ -460,7 +460,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
         Value lastVal = lastRevVals.get(key);
 
-        if (lastVal.tombstone())
+        if (lastVal.isTombstone())
             return Entry.tombstone(key, lastRev, lastVal.updateCounter());
 
         return new Entry(key, lastVal.bytes(), lastRev, lastVal.updateCounter());
@@ -763,7 +763,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                                     if (p.test(key)) {
                                         Entry newEntry;
 
-                                        if (val.tombstone())
+                                        if (val.isTombstone())
                                             newEntry = Entry.tombstone(key, nextRetRev, val.updateCounter());
                                         else
                                             newEntry = new Entry(key, val.bytes(), nextRetRev, val.updateCounter());
