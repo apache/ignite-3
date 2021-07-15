@@ -15,28 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.util;
+package org.apache.ignite.internal.configuration.tree;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
- * Simplified map interfaces with better control over the keys order.
+ * Simplified map class that preserves keys order.
  *
  * @param <V> Type of the value.
  */
-public class OrderedMap<V> {
+class OrderedMap<V> {
     /** Underlying hash map. */
-    private final Map<String, V> map = new HashMap<>();
+    private final Map<String, V> map;
 
     /** Ordered keys. */
-    private final List<String> orderedKeys = new ArrayList<>();
+    private final List<String> orderedKeys;
 
     /** Default constructor. */
-    public OrderedMap() {
+    OrderedMap() {
+        map = new HashMap<>();
+        orderedKeys = new ArrayList<>();
     }
 
     /**
@@ -44,9 +46,9 @@ public class OrderedMap<V> {
      *
      * @param other Source of keys/values to copy from.
      */
-    public OrderedMap(OrderedMap<V> other) {
-        map.putAll(other.map);
-        orderedKeys.addAll(other.orderedKeys);
+    OrderedMap(OrderedMap<V> other) {
+        map = new HashMap<>(other.map);
+        orderedKeys = new ArrayList<>(other.orderedKeys);
     }
 
     /**
@@ -90,24 +92,20 @@ public class OrderedMap<V> {
      * @param value Value associated with the key.
      */
     public void put(String key, V value) {
-        if (!map.containsKey(key))
+        if (map.put(key, value) == null)
             orderedKeys.add(key);
-
-        map.put(key, value);
     }
 
     /**
-     * Inserts a value into the map under the specified key. The key will be positioned at the given index, shifting any existing values at that position to the right. 
+     * Inserts a value into the map under the specified key. The key will be positioned at the given index, shifting any
+     * existing values at that position to the right. Key must not be present in the map when the method is called.
      *
-     * @param idx Ordering index for the key. Treated as {@code 0} if negative. Treated as last index if out of bounds.
+     * @param idx Ordering index for the key. Must be in {@code [0 .. size()]} range.
      * @param key Key to put.
      * @param value Value associated with the key.
-     *
-     * @throws IllegalArgumentException If the key is already present in the map.
      */
     public void putByIndex(int idx, String key, V value) {
-        if (map.containsKey(key))
-            throw new IllegalArgumentException("Key " + key + " already exists.");
+        assert !map.containsKey(key) : key + " " + map;
 
         if (idx >= orderedKeys.size())
             orderedKeys.add(key);
@@ -118,19 +116,17 @@ public class OrderedMap<V> {
     }
 
     /**
-     * Put value to the map.
+     * Put value to the map at the position after the {@code precedingKey}. Key must not be present in the map when the
+     * method is called.
      *
-     * @param base Previous key for the new key. Last key will be used if this one is missing from the map.
+     * @param precedingKey Previous key for the new key. Last key will be used if this one is missing from the map.
      * @param key Key to put.
      * @param value Value associated with the key.
-     *
-     * @throws IllegalArgumentException If key already exists in the map.
      */
-    public void putAfter(String base, String key, V value) {
-        if (map.containsKey(key))
-            throw new IllegalArgumentException("Key " + key + " already exists.");
+    public void putAfter(String precedingKey, String key, V value) {
+        assert !map.containsKey(key) : key + " " + map;
 
-        int idx = orderedKeys.indexOf(base);
+        int idx = orderedKeys.indexOf(precedingKey);
 
         putByIndex(idx < 0 ? orderedKeys.size() : idx + 1, key, value);
     }
@@ -174,7 +170,7 @@ public class OrderedMap<V> {
      * @param orderedKeys List of keys in new order. Must have the same set of keys in it.
      */
     public void reorderKeys(List<String> orderedKeys) {
-        assert map.keySet().equals(new HashSet<>(orderedKeys)) : map.keySet() + " : " + orderedKeys;
+        assert map.keySet().equals(Set.copyOf(orderedKeys)) : map.keySet() + " : " + orderedKeys;
 
         this.orderedKeys.clear();
 

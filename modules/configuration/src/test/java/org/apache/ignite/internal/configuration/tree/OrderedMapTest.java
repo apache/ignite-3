@@ -15,18 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.util;
+package org.apache.ignite.internal.configuration.tree;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 /** Test with basic {@link OrderedMap} invariants. */
 public class OrderedMapTest {
     /** Map instance. */
-    private OrderedMap<String> map = new OrderedMap<>();
+    private final OrderedMap<String> map = new OrderedMap<>();
 
     /** Tests put/get/remove consistency on a single key. */
     @Test
@@ -123,6 +124,8 @@ public class OrderedMapTest {
         map.rename("key2", "key4");
 
         assertEquals("value2", map.get("key4"));
+
+        assertFalse(map.containsKey("key2"));
 
         assertEquals(List.of("key1", "key4", "key3"), map.keys());
     }

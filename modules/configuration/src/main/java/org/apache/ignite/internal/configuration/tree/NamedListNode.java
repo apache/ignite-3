@@ -23,7 +23,6 @@ import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.NamedListChange;
-import org.apache.ignite.internal.configuration.util.OrderedMap;
 
 /** */
 public final class NamedListNode<N extends InnerNode> implements NamedListChange<N>, TraversableTreeNode, ConstructableTreeNode {
@@ -115,6 +114,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
 
     /** {@inheritDoc} */
     @Override public NamedListChange<N> createAfter(String precedingKey, String key, Consumer<N> valConsumer) {
+        Objects.requireNonNull(precedingKey, "precedingKey");
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
 
