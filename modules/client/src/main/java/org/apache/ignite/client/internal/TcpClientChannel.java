@@ -19,6 +19,7 @@ package org.apache.ignite.client.internal;
 
 import org.apache.ignite.client.ClientErrorCode;
 import org.apache.ignite.client.ClientMessagePacker;
+import org.apache.ignite.client.ClientMessageType;
 import org.apache.ignite.client.ClientMessageUnpacker;
 import org.apache.ignite.client.ClientOp;
 import org.apache.ignite.client.IgniteClientAuthenticationException;
@@ -265,6 +266,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 pendingReqs.remove(-1L).complete(buf);
                 return;
             }
+
+            var type = unpacker.unpackInt();
+
+            if (type != ClientMessageType.RESPONSE)
+                throw new IgniteClientException("Unexpected message type: " + type);
 
             Long resId = unpacker.unpackLong();
 

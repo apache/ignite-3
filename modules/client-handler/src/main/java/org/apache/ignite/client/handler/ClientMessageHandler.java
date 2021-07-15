@@ -393,7 +393,8 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
 
     @Override public void channelReadComplete(ChannelHandlerContext ctx) {
         // TODO: ???
-        ctx.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE);
+        ctx.flush();
+        // ctx.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE);
     }
 
     @Override public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
