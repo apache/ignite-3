@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
@@ -126,9 +127,9 @@ public class MetaStorageListener implements RaftGroupListener {
             else if (clo.command() instanceof CursorHasNextCommand) {
                 CursorHasNextCommand cursorHasNextCmd = (CursorHasNextCommand) clo.command();
 
-                assert cursors.containsKey(cursorHasNextCmd.cursorId());
+                IgniteBiTuple<Cursor<?>, CursorMeta> cursorDesc = cursors.get(cursorHasNextCmd.cursorId());
 
-                clo.result(cursors.get(cursorHasNextCmd.cursorId()).getKey().hasNext());
+                clo.result(!(cursorDesc == null) && cursorDesc.getKey().hasNext());
             }
             else
                 assert false : "Command was not found [cmd=" + clo.command() + ']';
@@ -244,9 +245,13 @@ public class MetaStorageListener implements RaftGroupListener {
             else if (clo.command() instanceof CursorNextCommand) {
                 CursorNextCommand cursorNextCmd = (CursorNextCommand) clo.command();
 
-                assert cursors.containsKey(cursorNextCmd.cursorId());
-
                 IgniteBiTuple<Cursor<?>, CursorMeta> cursorDesc = cursors.get(cursorNextCmd.cursorId());
+
+                if (cursorDesc == null) {
+                    clo.result(new NoSuchElementException());
+
+                    return;
+                }
 
                 if (cursorDesc.getValue().type() == CursorType.RANGE) {
                     Entry e = (Entry) cursorDesc.getKey().next();
@@ -274,16 +279,17 @@ public class MetaStorageListener implements RaftGroupListener {
             else if (clo.command() instanceof CursorCloseCommand) {
                 CursorCloseCommand cursorCloseCmd = (CursorCloseCommand) clo.command();
 
-                IgniteBiTuple<Cursor<?>, CursorMeta> val = cursors.get(cursorCloseCmd.cursorId());
+                IgniteBiTuple<Cursor<?>, CursorMeta> cursorDesc = cursors.get(cursorCloseCmd.cursorId());
 
-                if (val == null) {
+
+                if (cursorDesc == null) {
                     clo.result(null);
 
                     return;
                 }
 
                 try {
-                    val.getKey().close();
+                    cursorDesc.getKey().close();
                 }
                 catch (Exception e) {
                     throw new IgniteInternalException(e);
@@ -345,6 +351,8 @@ public class MetaStorageListener implements RaftGroupListener {
                     }
 
                 }
+
+                clo.result(null);
             }
             else
                 assert false : "Command was not found [cmd=" + clo.command() + ']';
