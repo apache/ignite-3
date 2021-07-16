@@ -212,29 +212,21 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                 var table = readTable(unpacker);
                 var tuple = readTuple(unpacker, table);
 
-                table.upsert(tuple);
-
-                break;
+                return table.upsertAsync(tuple);
             }
 
             case ClientOp.TUPLE_UPSERT_SCHEMALESS: {
                 var table = readTable(unpacker);
                 var tuple = readTupleSchemaless(unpacker, table);
 
-                table.upsert(tuple);
-
-                break;
+                return table.upsertAsync(tuple);
             }
 
             case ClientOp.TUPLE_GET: {
                 var table = readTable(unpacker);
                 var keyTuple = readTuple(unpacker, table);
 
-                // TODO: getAsync
-                Tuple tuple = table.get(keyTuple);
-                writeTuple(packer, tuple);
-
-                break;
+                return table.getAsync(keyTuple).thenAccept(t -> writeTuple(packer, t));
             }
 
             default:
@@ -244,22 +236,26 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
         return null;
     }
 
-    private void writeTuple(ClientMessagePacker packer, Tuple tuple) throws IOException {
-        var schema = ((SchemaAware) tuple).schema();
+    private void writeTuple(ClientMessagePacker packer, Tuple tuple) {
+        try {
+            var schema = ((SchemaAware) tuple).schema();
 
-        packer.packInt(schema.version());
-        packer.packArrayHeader(schema.length());
+            packer.packInt(schema.version());
+            packer.packArrayHeader(schema.length());
 
-        for (var col : schema.keyColumns().columns()) {
-            var val = tuple.value(col.name());
+            for (var col : schema.keyColumns().columns()) {
+                var val = tuple.value(col.name());
 
-            if (val == null) {
-                packer.packNil();
-                continue;
+                if (val == null) {
+                    packer.packNil();
+                    continue;
+                }
+
+                // TODO: Switch on type or on column type?
+                packer.packInt((int) val);
             }
-
-            // TODO: Switch on type or on column type?
-            packer.packInt((int)val);
+        } catch (Throwable t) {
+            throw new IgniteException("Failed to serialize tuple", t);
         }
     }
 
