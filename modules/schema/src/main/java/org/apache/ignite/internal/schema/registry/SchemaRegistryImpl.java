@@ -17,16 +17,17 @@
 
 package org.apache.ignite.internal.schema.registry;
 
-import java.util.NoSuchElementException;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.Columns;
-import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.mapping.ColumnMapper;
+import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -37,7 +38,10 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     public static final int INITIAL_SCHEMA_VERSION = -1;
 
     /** Cached schemas. */
-    private final ConcurrentSkipListMap<Integer, SchemaDescriptor> schemaCache = new ConcurrentSkipListMap<>();
+    private final ConcurrentNavigableMap<Integer, SchemaDescriptor> schemaCache = new ConcurrentSkipListMap<>();
+
+    /** Column mappers cache. */
+    private final Map<Long, ColumnMapper> mappingCache = new ConcurrentHashMap<>();
 
     /** Last registered version. */
     private volatile int lastVer;
@@ -110,40 +114,35 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         if (curSchema.version() == rowSchema.version())
             return new Row(rowSchema, row);
 
-        return new UpgradingRowAdapter(curSchema, row, columnMapper(curSchema, rowSchema));
+        ColumnMapper mapping = resolveMapping(curSchema, rowSchema);
+
+        return new UpgradingRowAdapter(curSchema, row, mapping);
     }
 
     /**
-     * Create column mapping for schemas.
-     *
-     * @param src Source schema of newer version.
-     * @param dst Target schema of older version.
-     * @return Column mapping.
+     * @param curSchema Target schema.
+     * @param rowSchema Row schema.
+     * @return Column mapper for target schema.
      */
-    private ColumnMapping columnMapper(SchemaDescriptor src, SchemaDescriptor dst) {
-        assert src.version() > dst.version();
-        assert src.version() == dst.version() + 1; // TODO: IGNITE-14863 implement merged mapper for arbitraty schema versions.
+    ColumnMapper resolveMapping(SchemaDescriptor curSchema, SchemaDescriptor rowSchema) {
+        assert curSchema.version() > rowSchema.version();
 
-        final Columns srcCols = src.valueColumns();
-        final Columns dstCols = dst.valueColumns();
+        if (curSchema.version() == rowSchema.version() + 1)
+            return curSchema.columnMapping();
 
-        final ColumnMapping mapping = new ColumnMapping(src);
+        final long mappingKey = (((long)curSchema.version()) << 32) | (rowSchema.version());
 
-        for (int i = 0; i < srcCols.columns().length; i++) {
-            final Column col = srcCols.column(i);
+        ColumnMapper mapping;
 
-            try {
-                final int idx = dstCols.columnIndex(col.name());
+        if ((mapping = mappingCache.get(mappingKey)) != null)
+            return mapping;
 
-                if (!col.equals(dstCols.column(idx)))
-                    throw new InvalidTypeException("Column of incompatible type: [colIdx=" + col.schemaIndex() + ", schemaVer=" + src.version());
+        mapping = schema(rowSchema.version() + 1).columnMapping();
 
-                mapping.add(col.schemaIndex(), dst.keyColumns().length() + idx);
-            }
-            catch (NoSuchElementException ex) {
-                mapping.add(col.schemaIndex(), -1);
-            }
-        }
+        for (int i = rowSchema.version() + 2; i <= curSchema.version(); i++)
+            mapping = ColumnMapping.mergeMapping(mapping, schema(i));
+
+        mappingCache.putIfAbsent(mappingKey, mapping);
 
         return mapping;
     }
@@ -182,6 +181,16 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         if (ver >= lastVer || ver <= 0 || schemaCache.keySet().first() < ver)
             throw new SchemaRegistryException("Incorrect schema version to clean up to: " + ver);
 
-        schemaCache.remove(ver);
+        if (schemaCache.remove(ver) != null)
+            mappingCache.keySet().removeIf(k -> (k & 0xFFFF_FFFFL) == ver);
+    }
+
+    /**
+     * For test purposes only.
+     *
+     * @return ColumnMapping cache.
+     */
+    Map<Long, ColumnMapper> mappingCache() {
+        return mappingCache;
     }
 }

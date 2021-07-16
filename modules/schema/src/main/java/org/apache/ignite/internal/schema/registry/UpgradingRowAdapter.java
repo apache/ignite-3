@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema.registry;
 
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.Row;
@@ -28,25 +29,22 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
  */
 class UpgradingRowAdapter extends Row {
     /** Column mapper. */
-    private final ColumnMapping mapping;
+    private final ColumnMapper mapper;
 
     /**
      * @param schema Schema descriptor of new version.
      * @param row Row.
-     * @param mapping Column mapping.
+     * @param mapper Column mapper.
      */
-    UpgradingRowAdapter(SchemaDescriptor schema, BinaryRow row, ColumnMapping mapping) {
+    UpgradingRowAdapter(SchemaDescriptor schema, BinaryRow row, ColumnMapper mapper) {
         super(schema, row);
 
-        this.mapping = mapping;
+        this.mapper = mapper;
     }
 
     /** {@inheritDoc} */
     @Override protected long findColumn(int colIdx, NativeTypeSpec type) throws InvalidTypeException {
-        if (schema.isKeyColumn(colIdx))
-            return super.findColumn(colIdx, type);
-
-        int mapIdx = mapping.map(colIdx);
+        int mapIdx = mapper.map(colIdx);
 
         return (mapIdx < 0) ? Long.MIN_VALUE : super.findColumn(mapIdx, type);
     }

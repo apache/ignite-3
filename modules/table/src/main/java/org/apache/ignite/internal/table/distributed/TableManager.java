@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -32,17 +33,17 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityManager;
 import org.apache.ignite.internal.affinity.event.AffinityEvent;
 import org.apache.ignite.internal.affinity.event.AffinityEventParameters;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.manager.EventListener;
-import org.apache.ignite.internal.manager.ListenerRemovedException;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.Conditions;
@@ -50,6 +51,7 @@ import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.metastorage.client.Operations;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaModificationException;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
@@ -62,9 +64,12 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.apache.ignite.schema.PrimaryIndex;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
@@ -125,7 +130,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.raftMgr = raftMgr;
         this.schemaMgr = schemaMgr;
 
-        listenForTableChange();
+        //TODO: IGNITE-14652 Change a metastorage update in listeners to multi-invoke
+        configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().listen(ctx -> {
+            return onConfigurationChanged(ctx.storageRevision(), ctx.oldValue(), ctx.newValue());
+        });
     }
 
     /**
@@ -156,7 +164,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         InternalTableImpl internalTable = new InternalTableImpl(name, tblId, partitionMap, partitions);
 
-        var table = new TableImpl(internalTable, schemaReg);
+        var table = new TableImpl(internalTable, schemaReg, this, null);
 
         tables.put(name, table);
 
@@ -195,47 +203,78 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Listens on a drop or create table.
+     * Table configuration changed callback.
+     *
+     * @param rev Storage revision.
+     * @param oldCfg Old configuration.
+     * @param newCfg New configuration.
+     * @return Operation future.
      */
-    private void listenForTableChange() {
-        //TODO: IGNITE-14652 Change a metastorage update in listeners to multi-invoke
-        configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().listen(ctx -> {
-            Set<String> tablesToStart = (ctx.newValue() == null || ctx.newValue().namedListKeys() == null) ?
-                Collections.emptySet() :
-                ctx.newValue().namedListKeys().stream().filter(t -> !ctx.oldValue().namedListKeys().contains(t)).collect(Collectors.toSet());
+    @NotNull private CompletableFuture<?> onConfigurationChanged(
+        long rev,
+        @Nullable NamedListView<TableView> oldCfg,
+        @Nullable NamedListView<TableView> newCfg
+    ) {
+        Set<String> tablesToStart = (newCfg == null || newCfg.namedListKeys() == null) ?
+            Collections.emptySet() :
+            newCfg.namedListKeys().stream().filter(t -> !oldCfg.namedListKeys().contains(t)).collect(Collectors.toSet());
 
-            Set<String> tablesToStop = (ctx.oldValue() == null || ctx.oldValue().namedListKeys() == null) ?
-                Collections.emptySet() :
-                ctx.oldValue().namedListKeys().stream().filter(t -> !ctx.newValue().namedListKeys().contains(t)).collect(Collectors.toSet());
+        Set<String> tablesToStop = (oldCfg == null || oldCfg.namedListKeys() == null) ?
+            Collections.emptySet() :
+            oldCfg.namedListKeys().stream().filter(t -> !newCfg.namedListKeys().contains(t)).collect(Collectors.toSet());
 
-            List<CompletableFuture<Boolean>> futs = new ArrayList<>();
+        List<CompletableFuture<Boolean>> futs = new ArrayList<>();
 
-            final Set<String> schemaChanged =
-                (ctx.oldValue() != null && ctx.oldValue().namedListKeys() != null && ctx.newValue() != null && ctx.newValue().namedListKeys() != null) ?
-                    ctx.oldValue().namedListKeys().stream()
-                        .filter(tblName -> ctx.newValue().namedListKeys().contains(tblName)) // Filter changed tables.
-                        .filter(tblName -> {
-                            final TableView newTbl = ctx.newValue().get(tblName);
-                            final TableView oldTbl = ctx.oldValue().get(tblName);
+        final Set<String> schemaChanged =
+            (oldCfg != null && oldCfg.namedListKeys() != null && newCfg != null && newCfg.namedListKeys() != null) ?
+                oldCfg.namedListKeys().stream()
+                    .filter(tblName -> newCfg.namedListKeys().contains(tblName)) // Filter changed tables.
+                    .filter(tblName -> {
+                        final TableView newTbl = newCfg.get(tblName);
+                        final TableView oldTbl = oldCfg.get(tblName);
 
-                            assert newTbl.columns().namedListKeys() != null && oldTbl.columns().namedListKeys() != null;
+                        assert newTbl.columns().namedListKeys() != null && oldTbl.columns().namedListKeys() != null;
 
-                            return newTbl.columns().namedListKeys().stream().anyMatch(c -> !oldTbl.columns().namedListKeys().contains(c)) ||
-                                oldTbl.columns().namedListKeys().stream().anyMatch(c -> !newTbl.columns().namedListKeys().contains(c));
-                        }).collect(Collectors.toSet()) :
-                    Collections.emptySet();
+                        if (!newTbl.columns().namedListKeys().equals(oldTbl.columns().namedListKeys()))
+                            return true;
 
-            if (!tablesToStart.isEmpty())
-                futs.addAll(startTables(tablesToStart, ctx.storageRevision(), ctx.newValue()));
+                        return newTbl.columns().namedListKeys().stream().anyMatch(k -> {
+                            final ColumnView newCol = newTbl.columns().get(k);
+                            final ColumnView oldCol = oldTbl.columns().get(k);
 
-            if (!schemaChanged.isEmpty())
-                futs.addAll(changeSchema(schemaChanged));
+                            assert oldCol != null;
 
-            if (!tablesToStop.isEmpty())
-                futs.addAll(stopTables(tablesToStop));
+                            if (!Objects.equals(newCol.type(), oldCol.type()))
+                                throw new SchemaModificationException("Columns type change is not supported.");
 
-            return CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new));
-        });
+                            if (!Objects.equals(newCol.nullable(), oldCol.nullable()))
+                                throw new SchemaModificationException("Column nullability change is not supported");
+
+                            if (!Objects.equals(newCol.name(), oldCol.name()) &&
+                                oldTbl.indices().namedListKeys().stream()
+                                    .map(n -> oldTbl.indices().get(n))
+                                    .filter(idx -> PrimaryIndex.PRIMARY_KEY_INDEX_NAME.equals(idx.name()))
+                                    .anyMatch(idx -> idx.columns().namedListKeys().stream()
+                                        .anyMatch(c -> idx.columns().get(c).name().equals(oldCol.name()))
+                                    ))
+                                throw new SchemaModificationException("Key column rename is not supported");
+
+                            return !Objects.equals(newCol.name(), oldCol.name()) ||
+                                !Objects.equals(newCol.defaultValue(), oldCol.defaultValue());
+                        });
+                    }).collect(Collectors.toSet()) :
+                Collections.emptySet();
+
+        if (!tablesToStart.isEmpty())
+            futs.addAll(startTables(tablesToStart, rev, newCfg));
+
+        if (!schemaChanged.isEmpty())
+            futs.addAll(changeSchema(schemaChanged, oldCfg, newCfg));
+
+        if (!tablesToStop.isEmpty())
+            futs.addAll(stopTables(tablesToStop));
+
+        return CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new));
     }
 
     /**
@@ -374,12 +413,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Start tables routine.
+     * Change tables schemas.
      *
-     * @param tbls Tables to start.
-     * @return Table creation futures.
+     * @param tbls Tables.
+     * @param oldCfg Old configuration.
+     * @param newCfg New configuration.
+     * @return Schema change futures.
      */
-    private List<CompletableFuture<Boolean>> changeSchema(Set<String> tbls) {
+    private List<CompletableFuture<Boolean>> changeSchema(
+        Set<String> tbls,
+        @NotNull NamedListView<TableView> oldCfg,
+        @NotNull NamedListView<TableView> newCfg
+    ) {
         boolean hasMetastorageLocally = metaStorageMgr.hasMetastorageLocally(configurationMgr);
 
         List<CompletableFuture<Boolean>> futs = new ArrayList<>();
@@ -392,7 +437,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             final int ver = tbl.schemaView().lastSchemaVersion() + 1;
 
             if (hasMetastorageLocally)
-                futs.add(schemaMgr.updateSchemaForTable(tblId, tblName));
+                futs.add(schemaMgr.updateSchemaForTable(tblId, oldCfg.get(tblName), newCfg.get(tblName)));
 
             final CompletableFuture<SchemaEventParameters> schemaReadyFut = new CompletableFuture<>();
 
@@ -432,9 +477,27 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override public Table createTable(String name, Consumer<TableChange> tableInitChange) {
+        return createTable(name, tableInitChange, true);
+    }
+
+    /** {@inheritDoc} */
+    @Override public Table getOrCreateTable(String name, Consumer<TableChange> tableInitChange) {
+        return createTable(name, tableInitChange, false);
+    }
+
+    /**
+     * Creates a new table with the specified name or returns an existing table with the same name.
+     *
+     * @param name Table name.
+     * @param tableInitChange Table configuration.
+     * @param exceptionWhenExist If the value is {@code true}, an exception will be thrown when the table already exists,
+     * {@code false} means the existing table will be returned.
+     * @return A table instance.
+     */
+    public Table createTable(String name, Consumer<TableChange> tableInitChange, boolean exceptionWhenExist) {
         CompletableFuture<Table> tblFut = new CompletableFuture<>();
 
-        listen(TableEvent.CREATE, new EventListener<>() {
+        EventListener<TableEventParameters> clo = new EventListener<>() {
             @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
                 String tableName = parameters.tableName();
 
@@ -452,17 +515,34 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             @Override public void remove(@NotNull Throwable e) {
                 tblFut.completeExceptionally(e);
             }
-        });
+        };
 
-        try {
-            configurationMgr.configurationRegistry()
-                .getConfiguration(TablesConfiguration.KEY).tables().change(change ->
-                change.create(name, tableInitChange)).get();
+        listen(TableEvent.CREATE, clo);
+
+        Table tbl = table(name, true);
+
+        if (tbl != null) {
+            if (exceptionWhenExist) {
+                removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(
+                    LoggerMessageHelper.format("Table already exists [name={}]", name)));
+            }
+            else if (tblFut.complete(tbl))
+                removeListener(TableEvent.CREATE, clo);
         }
-        catch (InterruptedException | ExecutionException e) {
-            LOG.error("Table wasn't created [name=" + name + ']', e);
+        else {
+            try {
+                configurationMgr
+                    .configurationRegistry()
+                    .getConfiguration(TablesConfiguration.KEY)
+                    .tables()
+                    .change(change -> change.create(name, tableInitChange))
+                    .get();
+            }
+            catch (InterruptedException | ExecutionException e) {
+                LOG.error("Table wasn't created [name=" + name + ']', e);
 
-            tblFut.completeExceptionally(e);
+                removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(e));
+            }
         }
 
         return tblFut.join();
@@ -479,9 +559,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 if (!name.equals(tableName))
                     return false;
 
-                if (e == null) {
+                if (e == null)
                     tblFut.complete(null);
-                }
                 else
                     tblFut.completeExceptionally(e);
 
@@ -511,7 +590,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     @Override public void dropTable(String name) {
         CompletableFuture<Void> dropTblFut = new CompletableFuture<>();
 
-        listen(TableEvent.DROP, new EventListener<>() {
+        EventListener<TableEventParameters> clo = new EventListener<>() {
             @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
                 String tableName = parameters.tableName();
 
@@ -534,19 +613,28 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             @Override public void remove(@NotNull Throwable e) {
                 dropTblFut.completeExceptionally(e);
             }
-        });
+        };
 
-        try {
-            configurationMgr
-                .configurationRegistry()
-                .getConfiguration(TablesConfiguration.KEY)
-                .tables()
-                .change(change -> change.delete(name)).get();
+        listen(TableEvent.DROP, clo);
+
+        if (!isTableConfigured(name)) {
+            if (dropTblFut.complete(null))
+                removeListener(TableEvent.DROP, clo, null);
         }
-        catch (InterruptedException | ExecutionException e) {
-            LOG.error("Table wasn't dropped [name=" + name + ']', e);
+        else {
+            try {
+                configurationMgr
+                    .configurationRegistry()
+                    .getConfiguration(TablesConfiguration.KEY)
+                    .tables()
+                    .change(change -> change.delete(name))
+                    .get();
+            }
+            catch (InterruptedException | ExecutionException e) {
+                LOG.error("Table wasn't dropped [name=" + name + ']', e);
 
-            dropTblFut.completeExceptionally(e);
+                removeListener(TableEvent.DROP, clo, new IgniteInternalCheckedException(e));
+            }
         }
 
         dropTblFut.join();
@@ -626,12 +714,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         EventListener<TableEventParameters> clo = new EventListener<>() {
             @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
-                if (e instanceof ListenerRemovedException) {
-                    getTblFut.completeExceptionally(e);
-
-                    return true;
-                }
-
                 String tableName = parameters.tableName();
 
                 if (!name.equals(tableName))
@@ -656,7 +738,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         if (tbl != null && getTblFut.complete(tbl) ||
             !isTableConfigured(name) && getTblFut.complete(null))
-            removeListener(TableEvent.CREATE, clo);
+            removeListener(TableEvent.CREATE, clo, null);
 
         return getTblFut.join();
     }
@@ -668,7 +750,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return True if table configured, false otherwise.
      */
     private boolean isTableConfigured(String name) {
-        return metaStorageMgr.get(new ByteArray(PUBLIC_PREFIX + ConfigurationUtil.escape(name) + ".name")).join() != null;
+        return metaStorageMgr.invoke(Conditions.exists(
+            new ByteArray(PUBLIC_PREFIX + ConfigurationUtil.escape(name) + ".name")),
+            Operations.noop(),
+            Operations.noop()
+        ).join();
     }
 
     /**

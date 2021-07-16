@@ -23,24 +23,21 @@ import org.apache.ignite.raft.jraft.storage.BaseStorageTest;
 import org.apache.ignite.raft.jraft.storage.snapshot.Snapshot;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class LocalSnapshotStorageTest extends BaseStorageTest {
     private LocalSnapshotStorage snapshotStorage;
     private LocalSnapshotMetaTable table;
     private int lastSnapshotIndex = 99;
 
-    @Override
-    @Before
+    @BeforeEach
     public void setup() throws Exception {
-        super.setup();
-
         String snapshotPath = this.path + File.separator + Snapshot.JRAFT_SNAPSHOT_PREFIX + lastSnapshotIndex;
         new File(snapshotPath).mkdirs();
         this.table = new LocalSnapshotMetaTable(new RaftOptions());
@@ -48,14 +45,12 @@ public class LocalSnapshotStorageTest extends BaseStorageTest {
             .setLastIncludedTerm(1).build());
         this.table.saveToFile(snapshotPath + File.separator + Snapshot.JRAFT_SNAPSHOT_META_FILE);
 
-        this.snapshotStorage = new LocalSnapshotStorage(path, new RaftOptions());
+        this.snapshotStorage = new LocalSnapshotStorage(path.toString(), new RaftOptions());
         assertTrue(this.snapshotStorage.init(null));
     }
 
-    @Override
-    @After
+    @AfterEach
     public void teardown() throws Exception {
-        super.teardown();
         this.snapshotStorage.shutdown();
     }
 
