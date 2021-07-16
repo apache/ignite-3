@@ -281,7 +281,6 @@ public class MetaStorageListener implements RaftGroupListener {
 
                 IgniteBiTuple<Cursor<?>, CursorMeta> cursorDesc = cursors.get(cursorCloseCmd.cursorId());
 
-
                 if (cursorDesc == null) {
                     clo.result(null);
 
@@ -445,8 +444,11 @@ public class MetaStorageListener implements RaftGroupListener {
             return requesterNodeId;
         }
     }
+
     /** Cursor type. */
     private enum CursorType {
-        RANGE, WATCH;
+        RANGE,
+
+        WATCH;
     }
 }
