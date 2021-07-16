@@ -21,75 +21,59 @@ import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import java.net.ConnectException;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Checks if it can connect to a valid address from the node address list.
  */
-public class ConnectionTest {
-    /** IPv4 default host. */
-    public static final String IPv4_HOST = "127.0.0.1";
-
-    /** IPv6 default host. */
-    public static final String IPv6_HOST = "::1";
-
+public class ConnectionTest extends AbstractClientTest {
     /** */
     @Test
     public void testEmptyNodeAddress() {
-        var ex = assertThrows(IgniteException.class, () -> testConnection(IPv4_HOST, ""));
+        var ex = assertThrows(IgniteException.class, () -> testConnection(""));
         assertEquals("Failed to parse Ignite server address (Address is empty): ", ex.getMessage());
     }
 
     /** */
     @Test
-    public void testNullNodeAddresses() throws Exception {
-        var ex = assertThrows(IgniteException.class, () -> testConnection(IPv4_HOST, null, null));
+    public void testNullNodeAddresses() {
+        var ex = assertThrows(IgniteException.class, () -> testConnection(null, null));
         assertEquals("Failed to parse Ignite server address (Address is empty): null", ex.getMessage());
     }
 
     /** */
     @Test
     public void testValidNodeAddresses() throws Exception {
-        testConnection(IPv4_HOST, "127.0.0.1:10800");
+        testConnection("127.0.0.1:10800");
     }
 
     /** */
     @Test
     public void testInvalidNodeAddresses() throws Exception {
-        var ex = assertThrows(ConnectException.class,
-                () -> testConnection(IPv4_HOST, "127.0.0.1:47500"));
+        var ex = assertThrows(IgniteClientConnectionException.class,
+                () -> testConnection("127.0.0.1:47500"));
 
-        assertEquals("Connection refused: /127.0.0.1:47500", ex.getMessage());
+        assertEquals("Connection refused: /127.0.0.1:47500", ex.getCause().getMessage());
     }
 
     /** */
     @Test
     public void testValidInvalidNodeAddressesMix() throws Exception {
-        testConnection(IPv4_HOST, "127.0.0.1:47500", "127.0.0.1:10801", "127.0.0.1:10800");
+        testConnection("127.0.0.1:47500", "127.0.0.1:10801", "127.0.0.1:10800");
     }
 
     /** */
     @Disabled("IPv6 is not enabled by default on some systems.")
     @Test
     public void testIPv6NodeAddresses() throws Exception {
-        testConnection(IPv6_HOST, "[::1]:10800");
+        testConnection("[::1]:10800");
     }
 
     /**
      * @param addrs Addresses to connect.
-     * @param host LocalIgniteCluster host.
      */
-    private void testConnection(String host, String... addrs) throws Exception {
-        var serverFuture = AbstractClientTest.startServer(host);
-
-        try {
-            AbstractClientTest.startClient(addrs).close();
-        } finally {
-            serverFuture.cancel(true);
-            serverFuture.await();
-        }
+    private void testConnection(String... addrs) throws Exception {
+        AbstractClientTest.startClient(addrs).close();
     }
 }

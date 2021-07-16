@@ -486,7 +486,7 @@ final class ReliableChannel implements AutoCloseable {
             }
         }
 
-        throw new IgniteClientException("Failed to connect", failure);
+        throw new IgniteClientConnectionException("Failed to connect", failure);
     }
 
     /** Get retry limit. */
