@@ -164,52 +164,68 @@ public class ITMetaStorageServicePersistenceTest {
         ByteArray firstKey = ByteArray.fromString("first");
         byte[] firstValue = "firstValue".getBytes(StandardCharsets.UTF_8);
 
+        // Setup a metastorage raft service
         RaftGroupService metaStorageSvc = prepareMetaStorage();
 
         MetaStorageServiceImpl metaStorage = new MetaStorageServiceImpl(metaStorageSvc);
 
+        // Put some data in the metastorage
         metaStorage.put(firstKey, firstValue).get();
 
-        Peer leader = metaStorageSvc.leader();
+        // Check that data has been written successfully
+        check(metaStorage, new EntryImpl(firstKey, firstValue, 1, 1));;
 
-        check(metaStorage, new EntryImpl(firstKey, firstValue, 1, 1));
-
+        // Select any node that is not the leader of the group
         JRaftServerImpl toStop = servers.stream()
-            .filter(server -> !server.localPeer(METASTORAGE_RAFT_GROUP_NAME).equals(leader))
+            .filter(server -> !server.localPeer(METASTORAGE_RAFT_GROUP_NAME).equals(metaStorageSvc.leader()))
             .findAny()
             .orElseThrow();
 
+        // Get the path to that node's raft directory
         String serverDataPath = toStop.getServerDataPath(METASTORAGE_RAFT_GROUP_NAME);
 
+        // Get the path to that node's RocksDB key-value storage
         Path dbPath = getStorage(toStop).getDbPath();
 
         int stopIdx = servers.indexOf(toStop);
 
+        // Remove that node from the list of servers
         servers.remove(stopIdx);
 
+        // Shutdown that node
         toStop.shutdown();
 
+        // Create a raft snapshot of the metastorage service
         metaStorageSvc.snapshot(metaStorageSvc.leader()).get();
 
+        // Remove the first key from the metastorage
         metaStorage.remove(firstKey).get();
 
+        // Check that data has been removed
         check(metaStorage, new EntryImpl(firstKey, null, 2, 2));
 
+        // Put same data again
         metaStorage.put(firstKey, firstValue).get();
 
+        // Check that it has been written
         check(metaStorage, new EntryImpl(firstKey, firstValue, 3, 3));
 
+        // Create another raft snapshot
         metaStorageSvc.snapshot(metaStorageSvc.leader()).get();
 
         byte[] lastKey = firstKey.bytes();
         byte[] lastValue = firstValue;
 
         if (testData.deleteFolder) {
+            // Delete stopped node's raft directory and key-value storage directory
+            // to check if snapshot could be restored by the restarted node
             IgniteUtils.deleteIfExists(dbPath);
             IgniteUtils.deleteIfExists(Paths.get(serverDataPath));
         }
 
         if (testData.writeAfterSnapshot) {
+            // Put new data after the second snapshot to check if after
+            // the snapshot restore operation restarted node will receive it
             ByteArray secondKey = ByteArray.fromString("second");
             byte[] secondValue = "secondValue".getBytes(StandardCharsets.UTF_8);
 
@@ -219,28 +235,35 @@ public class ITMetaStorageServicePersistenceTest {
             lastValue = secondValue;
         }
 
+        // Restart the node
         JRaftServerImpl restarted = startServer(stopIdx, new RocksDBKeyValueStorage(dbPath));
 
         assertTrue(waitForTopology(cluster.get(0), servers.size(), 3_000));
 
         KeyValueStorage storage = getStorage(restarted);
 
-        byte[] finalLastValue = lastValue;
         byte[] finalLastKey = lastKey;
-
-        boolean success = waitForCondition(() -> {
-            org.apache.ignite.internal.metastorage.server.Entry e = storage.get(finalLastKey);
-            return !e.empty() && Arrays.equals(finalLastValue, e.value());
-        }, 10_000);
-
-        assertTrue(success);
-
-        MetaStorageServiceImpl metaStorage2 = new MetaStorageServiceImpl(metaStorageSvc);
 
         int expectedRevision = testData.writeAfterSnapshot ? 4 : 3;
         int expectedUpdateCounter = testData.writeAfterSnapshot ? 4 : 3;
 
-        check(metaStorage2, new EntryImpl(new ByteArray(lastKey), lastValue, expectedRevision, expectedUpdateCounter));
+        EntryImpl expectedLastEntry = new EntryImpl(new ByteArray(lastKey), lastValue, expectedRevision, expectedUpdateCounter);
+
+        // Wait until the snapshot is restored
+        boolean success = waitForCondition(() -> {
+            org.apache.ignite.internal.metastorage.server.Entry e = storage.get(finalLastKey);
+            return e.empty() == expectedLastEntry.empty()
+                && e.tombstone() == expectedLastEntry.tombstone()
+                && e.revision() == expectedLastEntry.revision()
+                && e.updateCounter() == expectedLastEntry.revision()
+                && Arrays.equals(e.key(), expectedLastEntry.key().bytes())
+                && Arrays.equals(e.value(), expectedLastEntry.value());
+        }, 3_000);
+
+        assertTrue(success);
+
+        // Check that the last value has been written successfully
+        check(metaStorage, expectedLastEntry);
     }
 
     /**

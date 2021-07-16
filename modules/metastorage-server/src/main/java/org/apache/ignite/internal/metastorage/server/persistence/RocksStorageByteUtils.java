@@ -28,8 +28,7 @@ import org.rocksdb.RocksIterator;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 
 /**
- * Utility class that handles the conversion of the keys and values for {@link RocksDBKeyValueStorage} from and to
- * the array of bytes.
+ * Utility class for {@link RocksDBKeyValueStorage}.
  */
 class RocksStorageByteUtils {
     /**
@@ -135,7 +134,17 @@ class RocksStorageByteUtils {
         }
     }
 
+    /**
+     * BiConsumer that can throw {@link RocksDBException}.
+     */
     interface RocksBiConsumer {
+        /**
+         * Accepts the key and the value of the entry.
+         *
+         * @param key Key.
+         * @param value Value.
+         * @throws RocksDBException If failed to process the key-value pair.
+         */
         void accept(byte[] key, byte[] value) throws RocksDBException;
     }
 }
