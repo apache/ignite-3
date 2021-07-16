@@ -20,17 +20,13 @@ package org.apache.ignite.client.internal;
 import java.util.UUID;
 
 public class ClientSchema {
-    /** Table identifier. */
-    private final UUID tableId;
-
     /** Schema version. Incremented on each schema modification. */
     private final int ver;
 
     /** Columns. */
     private final ClientColumn[] columns;
 
-    public ClientSchema(UUID tableId, int ver, ClientColumn[] columns) {
-        this.tableId = tableId;
+    public ClientSchema(int ver, ClientColumn[] columns) {
         this.ver = ver;
         this.columns = columns;
     }

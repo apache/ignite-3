@@ -7,63 +7,51 @@ import java.util.BitSet;
 import java.util.UUID;
 
 public class ClientTuple implements Tuple {
-    @Override
-    public boolean contains(String colName) {
+    @Override public boolean contains(String colName) {
         return false;
     }
 
-    @Override
-    public <T> T value(String colName) {
+    @Override public <T> T value(String colName) {
         return null;
     }
 
-    @Override
-    public BinaryObject binaryObjectField(String colName) {
+    @Override public BinaryObject binaryObjectField(String colName) {
         return null;
     }
 
-    @Override
-    public byte byteValue(String colName) {
+    @Override public byte byteValue(String colName) {
         return 0;
     }
 
-    @Override
-    public short shortValue(String colName) {
+    @Override public short shortValue(String colName) {
         return 0;
     }
 
-    @Override
-    public int intValue(String colName) {
+    @Override public int intValue(String colName) {
         return 0;
     }
 
-    @Override
-    public long longValue(String colName) {
+    @Override public long longValue(String colName) {
         return 0;
     }
 
-    @Override
-    public float floatValue(String colName) {
+    @Override public float floatValue(String colName) {
         return 0;
     }
 
-    @Override
-    public double doubleValue(String colName) {
+    @Override public double doubleValue(String colName) {
         return 0;
     }
 
-    @Override
-    public String stringValue(String colName) {
+    @Override public String stringValue(String colName) {
         return null;
     }
 
-    @Override
-    public UUID uuidValue(String colName) {
+    @Override public UUID uuidValue(String colName) {
         return null;
     }
 
-    @Override
-    public BitSet bitmaskValue(String colName) {
+    @Override public BitSet bitmaskValue(String colName) {
         return null;
     }
 }

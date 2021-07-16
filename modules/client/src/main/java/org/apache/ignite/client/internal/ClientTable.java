@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.internal;
 
+import org.apache.ignite.client.ClientMessageUnpacker;
 import org.apache.ignite.client.ClientOp;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.table.InvokeProcessor;
@@ -31,11 +32,13 @@ import org.apache.ignite.table.mapper.RecordMapper;
 import org.apache.ignite.table.mapper.ValueMapper;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ClientTable implements Table {
     /** */
@@ -46,6 +49,9 @@ public class ClientTable implements Table {
 
     /** */
     private final ReliableChannel ch;
+
+    /** */
+    private final ConcurrentHashMap<Integer, ClientSchema> schemas = new ConcurrentHashMap<>();
 
     public ClientTable(ReliableChannel ch, UUID id, String name) {
         assert ch != null;
@@ -258,6 +264,42 @@ public class ClientTable implements Table {
     @Override
     public @NotNull <T extends Serializable> CompletableFuture<Map<Tuple, T>> invokeAllAsync(@NotNull Collection<Tuple> keyRecs, InvokeProcessor<Tuple, Tuple, T> proc) {
         return null;
+    }
+
+    private CompletableFuture<ClientSchema> loadSchema(int version) {
+        return ch.serviceAsync(ClientOp.SCHEMAS_GET, w -> {
+            w.out().packUuid(id);
+            w.out().packArrayHeader(1);
+            w.out().packInt(version);
+        }, r -> {
+           int schemaCnt = r.in().unpackMapHeader();
+
+           if (schemaCnt == 0)
+               return null;
+
+           assert schemaCnt == 1;
+
+            return readSchema(r.in());
+        });
+    }
+
+    private ClientSchema readSchema(ClientMessageUnpacker in) throws IOException {
+        var schemaId = in.unpackInt();
+        var colCnt = in.unpackArrayHeader();
+
+        var columns = new ClientColumn[colCnt];
+
+        for (int i = 0; i < colCnt; i++) {
+            var name = in.unpackString();
+            var type = in.unpackString();
+            var isKey = in.unpackBoolean();
+            var isNullable = in.unpackBoolean();
+
+            var column = new ClientColumn(name, type, isNullable, isKey, i);
+            columns[i] = column;
+        }
+
+        return new ClientSchema(schemaId, columns);
     }
 
     @Override public String toString() {
