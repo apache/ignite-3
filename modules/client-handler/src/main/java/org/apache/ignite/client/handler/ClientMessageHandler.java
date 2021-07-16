@@ -195,6 +195,38 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                 break;
             }
 
+            case ClientOp.SCHEMAS_GET: {
+                var table = readTable(unpacker);
+
+                if (unpacker.getNextFormat() == MessageFormat.NIL) {
+                    // Return all schemas.
+                    throw new IgniteException("TODO");
+                } else {
+                    var cnt = unpacker.unpackArrayHeader();
+                    packer.packInt(cnt);
+
+                    for (var i = 0; i < cnt; i++) {
+                        var schemaId = unpacker.unpackInt();
+                        var schema = table.schemaView().schema(schemaId);
+                        packer.packInt(schemaId);
+
+                        var colCnt = schema.columnNames().size();
+                        packer.packInt(colCnt);
+
+                        for (var colIdx = 0; colIdx < colCnt; colIdx++) {
+                            var col = schema.column(colIdx);
+
+                            packer.packString(col.name());
+                            packer.packString(col.type().spec().name());
+                            packer.packBoolean(schema.isKeyColumn(colIdx));
+                            packer.packBoolean(col.nullable());
+                        }
+                    }
+                }
+
+                break;
+            }
+
             case ClientOp.TABLE_GET: {
                 String tableName = unpacker.unpackString();
                 Table table = ignite.tables().table(tableName);
