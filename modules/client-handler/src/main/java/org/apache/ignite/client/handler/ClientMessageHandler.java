@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.ignite.app.Ignite;
@@ -44,11 +45,13 @@ import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
  * https://netty.io/wiki/user-guide-for-4.x.html
  */
+@SuppressWarnings({"rawtypes", "unchecked"})
 public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
     private final Logger log;
 
@@ -95,6 +98,8 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
 
             packer.packBinaryHeader(0); // Features.
             packer.packMapHeader(0); // Extensions.
+
+            write(packer, ctx);
         } else {
             var opCode = unpacker.unpackInt();
             var requestId = unpacker.unpackInt();
@@ -104,20 +109,45 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
             packer.packInt(ClientErrorCode.SUCCESS);
 
             try {
-                processOperation(unpacker, packer, opCode);
-            } catch (Throwable t) {
-                packer = getPacker();
+                var fut = processOperation(unpacker, packer, opCode);
 
-                packer.packInt(ClientMessageType.RESPONSE);
-                packer.packInt(requestId);
-                packer.packInt(ClientErrorCode.FAILED);
-                packer.packString(t.getMessage());
+                if (fut == null) {
+                    // Operation completed synchronously.
+                    write(packer, ctx);
+                } else {
+                    fut.whenComplete((Object res, Object err) -> {
+                        if (err != null)
+                            writeError(requestId, (Throwable) err, ctx);
+                        else
+                            write(packer, ctx);
+                    });
+                }
+
+            } catch (Throwable t) {
+                writeError(requestId, t, ctx);
             }
         }
+    }
 
-        ByteBuffer response = packer.toMessageBuffer().sliceAsByteBuffer();
+    private void write(ClientMessagePacker packer, ChannelHandlerContext ctx) {
+        var buf = packer.toMessageBuffer().sliceAsByteBuffer();
 
-        ctx.write(response);
+        ctx.writeAndFlush(buf);
+    }
+
+    private void writeError(int requestId, Throwable err, ChannelHandlerContext ctx) {
+        try {
+            ClientMessagePacker packer = getPacker();
+            packer.packInt(ClientMessageType.RESPONSE);
+            packer.packInt(requestId);
+            packer.packInt(ClientErrorCode.FAILED);
+            packer.packString(err.getMessage());
+
+            ctx.write(packer);
+
+        } catch (Throwable t) {
+            exceptionCaught(ctx, t);
+        }
     }
 
     private ClientMessagePacker getPacker() {
@@ -130,8 +160,9 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
         return new ClientMessageUnpacker(new ByteBufferInput(buf));
     }
 
-    private void processOperation(ClientMessageUnpacker unpacker, ClientMessagePacker packer, int opCode) throws IOException {
-        // TODO: Handle operations asynchronously.
+    private CompletableFuture processOperation(ClientMessageUnpacker unpacker, ClientMessagePacker packer, int opCode)
+            throws IOException {
+        // TODO: Handle all operations asynchronously.
         switch (opCode) {
             case ClientOp.TABLE_CREATE: {
                 TableImpl table = createTable(unpacker);
@@ -210,6 +241,8 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
             default:
                 throw new IgniteException("Unexpected operation code: " + opCode);
         }
+
+        return null;
     }
 
     private void writeTuple(ClientMessagePacker packer, Tuple tuple) throws IOException {
