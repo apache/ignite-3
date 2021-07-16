@@ -30,7 +30,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -71,12 +70,6 @@ final class ReliableChannel implements AutoCloseable {
 
     /** Channels reinit was scheduled. */
     private final AtomicBoolean scheduledChannelsReinit = new AtomicBoolean();
-
-    /** Timestamp of start of channels reinitialization. */
-    private volatile long startChannelsReInit;
-
-    /** Timestamp of finish of channels reinitialization. */
-    private volatile long finishChannelsReInit;
 
     /** Channel is closed. */
     private volatile boolean closed;
@@ -340,8 +333,6 @@ final class ReliableChannel implements AutoCloseable {
     synchronized boolean initChannelHolders() {
         List<ClientChannelHolder> holders = channels;
 
-        startChannelsReInit = System.currentTimeMillis();
-
         // Enable parallel threads to schedule new init of channel holders.
         scheduledChannelsReinit.set(false);
 
@@ -360,11 +351,8 @@ final class ReliableChannel implements AutoCloseable {
         } else if (holders == null)
             newAddrs = parsedAddresses(clientCfg.getAddresses());
 
-        if (newAddrs == null) {
-            finishChannelsReInit = System.currentTimeMillis();
-
+        if (newAddrs == null)
             return true;
-        }
 
         Map<InetSocketAddress, ClientChannelHolder> curAddrs = new HashMap<>();
         Set<InetSocketAddress> allAddrs = new HashSet<>(newAddrs.keySet());
@@ -435,8 +423,6 @@ final class ReliableChannel implements AutoCloseable {
             curChannelsGuard.writeLock().unlock();
         }
 
-        finishChannelsReInit = System.currentTimeMillis();
-
         return true;
     }
 
@@ -501,37 +487,6 @@ final class ReliableChannel implements AutoCloseable {
         }
 
         throw new IgniteClientException("Failed to connect", failure);
-    }
-
-    /**
-     * Try apply specified {@code function} on a channel corresponding to {@code tryNodeId}.
-     * If failed then apply the function on any available channel.
-     */
-    private <T> T applyOnNodeChannelWithFallback(UUID tryNodeId, Function<ClientChannel, T> function) {
-        ClientChannelHolder hld = nodeChannels.get(tryNodeId);
-
-        int retryLimit = getRetryLimit();
-
-        if (hld != null) {
-            ClientChannel channel = null;
-
-            try {
-                channel = hld.getOrCreateChannel();
-
-                if (channel != null)
-                    return function.apply(channel);
-
-            } catch (IgniteClientConnectionException e) {
-                onChannelFailure(hld, channel);
-
-                retryLimit -= 1;
-
-                if (retryLimit == 0)
-                    throw e;
-            }
-        }
-
-        return applyOnDefaultChannel(function, retryLimit, DO_NOTHING);
     }
 
     /** Get retry limit. */
@@ -652,42 +607,5 @@ final class ReliableChannel implements AutoCloseable {
 
             closeChannel();
         }
-
-        /**
-         * Wheteher the holder is closed. For test purposes.
-         */
-        boolean isClosed() {
-            return close;
-        }
-
-        /**
-         * Get address of the channel. For test purposes.
-         */
-        InetSocketAddress getAddress() {
-            return chCfg.getAddress();
-        }
-    }
-
-    /**
-     * Get holders reference. For test purposes.
-     */
-    @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType") // For tests.
-    List<ClientChannelHolder> getChannelHolders() {
-        return channels;
-    }
-
-    /**
-     * Get node channels reference. For test purposes.
-     */
-    @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType") // For tests.
-    Map<UUID, ClientChannelHolder> getNodeChannels() {
-        return nodeChannels;
-    }
-
-    /**
-     * Get scheduledChannelsReinit reference. For test purposes.
-     */
-    AtomicBoolean getScheduledChannelsReinit() {
-        return scheduledChannelsReinit;
     }
 }
