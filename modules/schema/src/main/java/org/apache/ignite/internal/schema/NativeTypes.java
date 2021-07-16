@@ -102,6 +102,7 @@ public class NativeTypes {
      *
      * @param precision Precision.
      * @param scale Scale.
+     * @return Native type.
      */
     public static NativeType decimalOf(int precision, int scale) {
         return new NumericNativeType(precision, scale);

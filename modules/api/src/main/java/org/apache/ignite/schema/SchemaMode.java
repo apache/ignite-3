@@ -15,26 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.app;
-
-import org.apache.ignite.table.manager.IgniteTables;
-import org.apache.ignite.tx.IgniteTransactions;
+package org.apache.ignite.schema;
 
 /**
- * Ignite node interface. Main entry-point for all Ignite APIs.
+ * Schema mode.
+ *
+ * Defines the way inserting data will be validated against the schema and schema evolution capabilities.
  */
-public interface Ignite extends AutoCloseable {
-    /**
-     * Gets an object for manipulate Ignite tables.
-     *
-     * @return Ignite tables.
-     */
-    IgniteTables tables();
+public enum SchemaMode {
+    /** Normal mode offers strong validation for the inserting data. Explicit schema changes only are allowed. */
+    STRICT_SCHEMA,
 
-    /**
-     * Returns a transaction facade.
-     *
-     * @return Ignite transactions.
-     */
-    IgniteTransactions transactions();
+    /** Extended mode that allows the schema to be fit the inserting data automatically. Only safe implicit schema changes are allowed, e.g. adding extra columns and widening column type. Changes like column removal or narrowing column type won't be applied implicitly. */
+    LIVE_SCHEMA
 }

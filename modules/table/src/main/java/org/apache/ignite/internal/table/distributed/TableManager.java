@@ -164,7 +164,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         InternalTableImpl internalTable = new InternalTableImpl(name, tblId, partitionMap, partitions);
 
-        var table = new TableImpl(internalTable, schemaReg);
+        var table = new TableImpl(internalTable, schemaReg, this, null);
 
         tables.put(name, table);
 
@@ -437,7 +437,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             final int ver = tbl.schemaView().lastSchemaVersion() + 1;
 
             if (hasMetastorageLocally)
-                futs.add(schemaMgr.updateSchemaForTable(tblId, tblName, oldCfg.get(tblName), newCfg.get(tblName)));
+                futs.add(schemaMgr.updateSchemaForTable(tblId, oldCfg.get(tblName), newCfg.get(tblName)));
 
             final CompletableFuture<SchemaEventParameters> schemaReadyFut = new CompletableFuture<>();
 

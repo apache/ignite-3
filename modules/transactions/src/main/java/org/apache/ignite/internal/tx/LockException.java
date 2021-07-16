@@ -15,26 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.app;
+package org.apache.ignite.internal.tx;
 
-import org.apache.ignite.table.manager.IgniteTables;
-import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Ignite node interface. Main entry-point for all Ignite APIs.
+ * This exception is thrown when a lock cannot be acquired due to conflict.
  */
-public interface Ignite extends AutoCloseable {
+public class LockException extends IgniteInternalCheckedException {
     /**
-     * Gets an object for manipulate Ignite tables.
-     *
-     * @return Ignite tables.
+     * @param msg The message.
      */
-    IgniteTables tables();
+    public LockException(String msg) {
+        super(msg);
+    }
 
     /**
-     * Returns a transaction facade.
-     *
-     * @return Ignite transactions.
+     * @param waiter Conflicting waiter.
      */
-    IgniteTransactions transactions();
+    public LockException(Waiter waiter) {
+        super("Failed to acquire a lock due to a conflict with: " + waiter);
+    }
 }
