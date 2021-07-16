@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -32,6 +33,9 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
+import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
@@ -48,12 +52,12 @@ import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.server.RaftServer;
-import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -69,6 +73,7 @@ import static org.mockito.Mockito.verify;
  * Meta storage client tests.
  */
 @SuppressWarnings("WeakerAccess")
+@ExtendWith(WorkDirectoryExtension.class)
 public class ITMetaStorageServiceTest {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(ITMetaStorageServiceTest.class);
@@ -81,9 +86,6 @@ public class ITMetaStorageServiceTest {
 
     /** */
     private static final String METASTORAGE_RAFT_GROUP_NAME = "METASTORAGE_RAFT_GROUP";
-
-    /** */
-    public static final int LATEST_REVISION = -1;
 
     /** Factory. */
     private static final RaftClientMessagesFactory FACTORY = new RaftClientMessagesFactory();
@@ -122,6 +124,10 @@ public class ITMetaStorageServiceTest {
 
     /**  Meta storage raft server. */
     private RaftServer metaStorageRaftSrv;
+
+    /** */
+    @WorkDirectory
+    private Path dataPath;
 
     static {
         EXPECTED_RESULT_MAP = new TreeMap<>();
@@ -1010,7 +1016,7 @@ public class ITMetaStorageServiceTest {
     private MetaStorageService prepareMetaStorage(KeyValueStorage keyValStorageMock) {
         List<Peer> peers = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
 
-        metaStorageRaftSrv = new RaftServerImpl(cluster.get(0), FACTORY);
+        metaStorageRaftSrv = new JRaftServerImpl(cluster.get(0), dataPath.toString(), FACTORY);
 
         metaStorageRaftSrv.
             startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(keyValStorageMock), peers);
