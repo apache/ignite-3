@@ -21,6 +21,8 @@ import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import java.net.ConnectException;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -57,8 +59,8 @@ public class ConnectionTest {
     /** */
     @Test
     public void testInvalidNodeAddresses() throws Exception {
-        var ex = assertThrows(RuntimeException.class,
-                () -> testConnection(IPv4_HOST, "127.0.0.1:47500", "127.0.0.1:10801"));
+        var ex = assertThrows(ConnectException.class,
+                () -> testConnection(IPv4_HOST, "127.0.0.1:47500"));
 
         assertEquals("Connection refused: /127.0.0.1:47500", ex.getMessage());
     }

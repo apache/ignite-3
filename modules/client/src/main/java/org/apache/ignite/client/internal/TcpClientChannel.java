@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.internal;
 
+import io.netty.channel.ChannelFuture;
 import org.apache.ignite.client.ClientErrorCode;
 import org.apache.ignite.client.ClientMessagePacker;
 import org.apache.ignite.client.ClientMessageType;
@@ -165,7 +166,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             if (payloadWriter != null)
                 payloadWriter.accept(payloadCh);
 
-            write(req);
+            write(req).addListener(f -> {
+                if (!f.isSuccess())
+                    fut.completeExceptionally(new IgniteClientConnectionException("Failed to send request", f.cause()));
+            });
 
             return fut;
         }
@@ -299,7 +303,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             req.packBinaryHeader(0); // Features.
             req.packMapHeader(0); // Extensions.
 
-            write(req);
+            write(req).syncUninterruptibly();
         }
     }
 
@@ -354,15 +358,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     /** Write bytes to the output stream. */
-    private void write(ClientMessagePacker packer) throws IgniteClientConnectionException {
+    private ChannelFuture write(ClientMessagePacker packer) throws IgniteClientConnectionException {
         var buf = packer.toMessageBuffer().sliceAsByteBuffer();
 
-        try {
-            sock.send(buf);
-        }
-        catch (IgniteException e) {
-            throw new IgniteClientConnectionException(e.getMessage(), e);
-        }
+        return sock.send(buf);
     }
 
     /**
