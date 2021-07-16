@@ -121,7 +121,7 @@ public class TupleMarshallerVarlenOnlyBenchmark {
                 .toArray(Column[]::new)
         );
 
-        marshaller = new TupleMarshallerImpl(new SchemaRegistryImpl() {
+        marshaller = new TupleMarshallerImpl(new SchemaRegistryImpl(v -> null) {
             @Override public SchemaDescriptor schema() {
                 return schema;
             }

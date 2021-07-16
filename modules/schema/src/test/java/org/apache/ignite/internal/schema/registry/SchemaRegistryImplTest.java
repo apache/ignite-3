@@ -60,7 +60,7 @@ public class SchemaRegistryImplTest {
             new Column[] {new Column("keyLongCol", INT64, true)},
             new Column[] {new Column("valBytesCol", BYTES, true)});
 
-        final SchemaRegistryImpl reg = new SchemaRegistryImpl();
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null);
 
         assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
         assertNull(reg.schema());
@@ -114,7 +114,7 @@ public class SchemaRegistryImplTest {
                 new Column("valStringCol", STRING, true)
             });
 
-        final SchemaRegistryImpl reg = new SchemaRegistryImpl();
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null);
 
         assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
         assertNull(reg.schema());
@@ -170,7 +170,7 @@ public class SchemaRegistryImplTest {
                 new Column("valStringCol", STRING, true)
             });
 
-        final SchemaRegistryImpl reg = new SchemaRegistryImpl();
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null);
 
         assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
 
@@ -240,7 +240,7 @@ public class SchemaRegistryImplTest {
                 new Column("valStringCol", STRING, true)
             });
 
-        final SchemaRegistryImpl reg = new SchemaRegistryImpl();
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null);
 
         assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
 
@@ -553,7 +553,7 @@ public class SchemaRegistryImplTest {
                 new Column("valStringCol", STRING, true)
             });
 
-        final SchemaRegistryImpl reg = new SchemaRegistryImpl();
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null);
 
         Map<Long, ColumnMapper> cache = reg.mappingCache();
 
