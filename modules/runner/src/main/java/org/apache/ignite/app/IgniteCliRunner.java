@@ -32,10 +32,9 @@ public class IgniteCliRunner {
      * Main method for run new Ignite node.
      *
      * Usage:
-     * <main class> [--config=configPath] --work-dir=workDir nodeName
+     * IgniteCliRunner [--config=configPath] --work-dir=workDir nodeName
      *
      * @param args CLI args to start new node.
-     * @throws IOException if any issues with reading config file.
      */
     public static void main(String[] args) {
         try {
