@@ -267,7 +267,7 @@ public class RowAssembler {
 
         setNull(curCol);
 
-        if (isKeyColumn())
+        if (isKeyChunk())
             keyHash *= 31;
 
         shiftColumn(0);
@@ -286,7 +286,7 @@ public class RowAssembler {
 
         buf.put(curOff, val);
 
-        if (isKeyColumn())
+        if (isKeyChunk())
             keyHash = 31 * keyHash + Byte.hashCode(val);
 
         shiftColumn(NativeTypes.INT8.sizeInBytes());
@@ -305,7 +305,7 @@ public class RowAssembler {
 
         buf.putShort(curOff, val);
 
-        if (isKeyColumn())
+        if (isKeyChunk())
             keyHash = 31 * keyHash + Short.hashCode(val);
 
         shiftColumn(NativeTypes.INT16.sizeInBytes());
@@ -324,7 +324,7 @@ public class RowAssembler {
 
         buf.putInt(curOff, val);
 
-        if (isKeyColumn())
+        if (isKeyChunk())
             keyHash = 31 * keyHash + Integer.hashCode(val);
 
         shiftColumn(NativeTypes.INT32.sizeInBytes());
@@ -343,7 +343,7 @@ public class RowAssembler {
 
         buf.putLong(curOff, val);
 
-        if (isKeyColumn())
+        if (isKeyChunk())
             keyHash = 31 * keyHash + Long.hashCode(val);
 
         shiftColumn(NativeTypes.INT64.sizeInBytes());
@@ -362,7 +362,7 @@ public class RowAssembler {
 
         buf.putFloat(curOff, val);
 
-        if (isKeyColumn())
+        if (isKeyChunk())
             keyHash = 31 * keyHash + Float.hashCode(val);
 
         shiftColumn(NativeTypes.FLOAT.sizeInBytes());
@@ -381,7 +381,7 @@ public class RowAssembler {
 
         buf.putDouble(curOff, val);
 
-        if (isKeyColumn())
+        if (isKeyChunk())
             keyHash = 31 * keyHash + Double.hashCode(val);
 
         shiftColumn(NativeTypes.DOUBLE.sizeInBytes());
@@ -401,7 +401,7 @@ public class RowAssembler {
         buf.putLong(curOff, uuid.getLeastSignificantBits());
         buf.putLong(curOff + 8, uuid.getMostSignificantBits());
 
-        if (isKeyColumn())
+        if (isKeyChunk())
             keyHash = 31 * keyHash + uuid.hashCode();
 
         shiftColumn(NativeTypes.UUID.sizeInBytes());
@@ -425,7 +425,7 @@ public class RowAssembler {
 
             curVartblEntry++;
 
-            if (isKeyColumn())
+            if (isKeyChunk())
                 keyHash = 31 * keyHash + val.hashCode();
 
             shiftColumn(written);
@@ -448,7 +448,7 @@ public class RowAssembler {
 
         buf.putBytes(curOff, val);
 
-        if (isKeyColumn())
+        if (isKeyChunk())
             keyHash = 31 * keyHash + Arrays.hashCode(val);
 
         writeVarlenOffset(curVartblEntry, curOff - dataOff);
@@ -484,7 +484,7 @@ public class RowAssembler {
         for (int i = 0; i < maskType.sizeInBytes() - arr.length; i++)
             buf.put(curOff + arr.length + i, (byte)0);
 
-        if (isKeyColumn())
+        if (isKeyChunk())
             keyHash = 31 * keyHash + bitSet.hashCode();
 
         shiftColumn(maskType.sizeInBytes());
@@ -598,32 +598,44 @@ public class RowAssembler {
         curCol++;
         curOff += size;
 
-        if (curCol == curCols.length()) {
-            if (curVartblEntry > 1) {
-                assert varTblOff < dataOff : "Illegal writing of varlen when 'omit vartable' flag is set for a chunk.";
-                assert varTblOff + varTableChunkLength(curVartblEntry, Integer.BYTES) == dataOff : "Vartable overlow: size=" + curVartblEntry;
+        if (curCol == curCols.length())
+            finishChunk();
+    }
 
-                final VarTableFormat format = VarTableFormat.format(curOff - dataOff);
+    /**
+     * Write chunk meta.
+     */
+    private void finishChunk() {
+        if (curVartblEntry > 1) {
+            assert varTblOff < dataOff : "Illegal writing of varlen when 'omit vartable' flag is set for a chunk.";
+            assert varTblOff + varTableChunkLength(curVartblEntry, Integer.BYTES) == dataOff : "Vartable overlow: size=" + curVartblEntry;
 
-                curOff -= format.compactVarTable(buf, varTblOff, curVartblEntry - 1);
+            final VarTableFormat format = VarTableFormat.format(curOff - dataOff);
 
-                flags |= format.formatFlags() << (isKeyColumn() ? KEY_FLAGS_OFFSET : VAL_FLAGS_OFFSET);
-            }
+            curOff -= format.compactVarTable(buf, varTblOff, curVartblEntry - 1);
 
-            // Write sizes.
-            final int chunkLen = curOff - baseOff;
-
-            buf.putInt(baseOff, chunkLen);
-
-            if (schema.valueColumns() == curCols)
-                return; // No more columns.
-
-            // Switch key->value columns.
-            curCols = schema.valueColumns();
-
-            // Create value chunk writer.
-            initChunk(BinaryRow.HEADER_SIZE + chunkLen/* Key chunk size */, curCols.nullMapSize(), valVartblLen);
+            flags |= format.formatFlags() << (isKeyChunk() ? KEY_FLAGS_OFFSET : VAL_FLAGS_OFFSET);
         }
+
+        // Write sizes.
+        final int chunkLen = curOff - baseOff;
+
+        buf.putInt(baseOff, chunkLen);
+
+        if (schema.keyColumns() == curCols)
+            switchToValuChunk(BinaryRow.HEADER_SIZE + chunkLen);
+    }
+
+    /**
+     * @param baseOff Chunk base offset.
+     */
+    private void switchToValuChunk(int baseOff) {
+        // Switch key->value columns.
+        curCols = schema.valueColumns();
+        curCol = 0;
+
+        // Create value chunk writer.
+        initChunk(baseOff, curCols.nullMapSize(), valVartblLen);
     }
 
     /**
@@ -641,7 +653,6 @@ public class RowAssembler {
         dataOff = varTblOff + vartblLen;
         curOff = dataOff;
         curVartblEntry = 0;
-        curCol = 0;
 
         int flags = 0;
 
@@ -651,13 +662,13 @@ public class RowAssembler {
         if (vartblLen == 0)
             flags |= VarTableFormat.OMIT_VARTBL_FLAG;
 
-        this.flags |= flags << (baseOff == BinaryRow.KEY_CHUNK_OFFSET ? KEY_FLAGS_OFFSET : VAL_FLAGS_OFFSET);
+        this.flags |= flags << (isKeyChunk() ? KEY_FLAGS_OFFSET : VAL_FLAGS_OFFSET);
     }
 
     /**
-     * @return {@code true} if current column is a key column, {@code false} otherwise.
+     * @return {@code true} if current chunk is a key chunk, {@code false} otherwise.
      */
-    private boolean isKeyColumn() {
+    private boolean isKeyChunk() {
         return baseOff == BinaryRow.KEY_CHUNK_OFFSET;
     }
 }
