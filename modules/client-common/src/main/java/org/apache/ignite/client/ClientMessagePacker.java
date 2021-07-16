@@ -21,7 +21,9 @@ import org.msgpack.core.MessageBufferPacker;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.buffer.ArrayBufferOutput;
 
+import javax.naming.OperationNotSupportedException;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.UUID;
@@ -47,5 +49,9 @@ public class ClientMessagePacker extends MessageBufferPacker {
         writePayload(bytes);
 
         return this;
+    }
+
+    public ClientMessagePacker packDecimal(BigDecimal v) throws IOException {
+        throw new IOException("TODO");
     }
 }

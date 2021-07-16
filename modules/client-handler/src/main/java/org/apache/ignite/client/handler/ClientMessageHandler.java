@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.handler;
 
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.ignite.app.Ignite;
@@ -40,11 +39,13 @@ import org.msgpack.core.buffer.ByteBufferInput;
 import org.slf4j.Logger;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
@@ -243,17 +244,8 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
             packer.packInt(schema.version());
             packer.packArrayHeader(schema.length());
 
-            for (var col : schema.keyColumns().columns()) {
-                var val = tuple.value(col.name());
-
-                if (val == null) {
-                    packer.packNil();
-                    continue;
-                }
-
-                // TODO: Switch on type or on column type?
-                packer.packInt((int) val);
-            }
+            for (var col : schema.keyColumns().columns())
+                writeColumnValue(packer, tuple, col);
         } catch (Throwable t) {
             throw new IgniteException("Failed to serialize tuple", t);
         }
@@ -350,6 +342,62 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                 throw new UnsupportedOperationException("Unsupported data type: " + col.type().spec());
         }
     }
+
+    private void writeColumnValue(ClientMessagePacker packer, Tuple tuple, Column col) throws IOException {
+        var val = tuple.value(col.name());
+
+        if (val == null) {
+            packer.packNil();
+            return;
+        }
+
+        switch (col.type().spec()) {
+            case INT8:
+                packer.packByte((byte) val);
+                break;
+
+            case INT16:
+                packer.packShort((short) val);
+                break;
+
+            case INT32:
+                packer.packInt((int) val);
+                break;
+            case INT64:
+                packer.packLong((long) val);
+                break;
+
+            case FLOAT:
+                packer.packFloat((float) val);
+                break;
+
+            case DOUBLE:
+                packer.packDouble((double) val);
+                break;
+
+            case DECIMAL:
+                packer.packDecimal((BigDecimal) val);
+                break;
+
+            case UUID:
+                packer.packUuid((UUID) val);
+                break;
+
+            case STRING:
+                packer.packString((String) val);
+                break;
+
+            case BYTES:
+                byte[] bytes = (byte[]) val;
+                packer.packBinaryHeader(bytes.length);
+                packer.writePayload(bytes);
+                break;
+
+            default:
+                throw new IgniteException("Data type not supported: " + col.type());
+        }
+    }
+
 
     private TableImpl createTable(ClientMessageUnpacker unpacker) throws IOException {
         var size = unpacker.unpackMapHeader();
