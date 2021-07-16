@@ -320,29 +320,6 @@ final class ReliableChannel implements AutoCloseable {
     }
 
     /**
-     * Asynchronously try to establish a connection to all configured servers.
-     */
-    private void initAllChannelsAsync() {
-        ForkJoinPool.commonPool().submit(
-                () -> {
-                    List<ClientChannelHolder> holders = channels;
-
-                    for (ClientChannelHolder hld : holders) {
-                        if (closed || (startChannelsReInit > finishChannelsReInit))
-                            return; // New reinit task scheduled or channel is closed.
-
-                        try {
-                            hld.getOrCreateChannel(true);
-                        }
-                        catch (Exception ignore) {
-                            // No-op.
-                        }
-                    }
-                }
-        );
-    }
-
-    /**
      * @param chFailLsnr Listener for the channel fail (disconnect).
      */
     public void addChannelFailListener(Runnable chFailLsnr) {
@@ -487,7 +464,7 @@ final class ReliableChannel implements AutoCloseable {
     private <T> T applyOnDefaultChannel(Function<ClientChannel, T> function,
                                         int attemptsLimit,
                                         Consumer<Integer> attemptsCallback) {
-        RuntimeException failure = null;
+        Throwable failure = null;
 
         for (int attempt = 0; attempt < attemptsLimit; attempt++) {
             ClientChannelHolder hld = null;
@@ -513,7 +490,7 @@ final class ReliableChannel implements AutoCloseable {
                     return function.apply(c);
                 }
             }
-            catch (RuntimeException e) {
+            catch (Throwable e) {
                 if (failure == null)
                     failure = e;
                 else
@@ -523,10 +500,7 @@ final class ReliableChannel implements AutoCloseable {
             }
         }
 
-        if (failure != null)
-            throw failure;
-
-        throw new IgniteClientException("Failed to connect");
+        throw new IgniteClientException("Failed to connect", failure);
     }
 
     /**
