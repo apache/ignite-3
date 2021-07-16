@@ -272,7 +272,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                 if (mapper == null)
                     mapper = ColumnMapping.mapperBuilder(newDesc);
 
-                mapper.add(newCol.schemaIndex(), -1, newCol); // New column added.
+                mapper.add(newCol); // New column added.
             }
             else {
                 final Column newCol = newDesc.column(newColView.name());

@@ -15,36 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.mapping;
+package org.apache.ignite.tx;
 
-import org.apache.ignite.internal.schema.Column;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 /**
- * Column mapper builder interface.
+ * Ignite Transactions facade.
  */
-public interface ColumnMapperBuilder {
+public interface IgniteTransactions {
     /**
-     * Add new column.
+     * Begins a transaction.
      *
-     * @param col Column descriptor.
-     * @return {@code this} for chaining.
+     * @return The future.
      */
-    public ColumnMapperBuilder add(@NotNull Column col);
+    CompletableFuture<Transaction> beginAsync();
 
     /**
-     * Remap column.
+     * Synchronously executes a closure within a transaction.
+     * <p>
+     * If the closure is executed normally (no exceptions), the transaction is automatically committed.
      *
-     * @param from Source column index.
-     * @param to Target column index.
-     * @param col Target column descriptor.
-     * @return {@code this} for chaining.
+     * @param clo The closure.
      */
-    public ColumnMapperBuilder add(int from, int to, @Nullable Column col);
-
-    /**
-     * @return Column mapper.
-     */
-    ColumnMapper build();
+    void runInTransaction(Consumer<Transaction> clo);
 }

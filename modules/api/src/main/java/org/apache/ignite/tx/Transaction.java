@@ -15,36 +15,39 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.mapping;
+package org.apache.ignite.tx;
 
-import org.apache.ignite.internal.schema.Column;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * Column mapper builder interface.
+ * The transaction.
  */
-public interface ColumnMapperBuilder {
+public interface Transaction {
     /**
-     * Add new column.
-     *
-     * @param col Column descriptor.
-     * @return {@code this} for chaining.
+     * Synchronously commits a transaction.
+     * Does nothing if it's already finished by commiting or rolling back.
      */
-    public ColumnMapperBuilder add(@NotNull Column col);
+    void commit();
 
     /**
-     * Remap column.
+     * Asynchronously commits a transaction.
+     * Does nothing if it's already finished by commiting or rolling back.
      *
-     * @param from Source column index.
-     * @param to Target column index.
-     * @param col Target column descriptor.
-     * @return {@code this} for chaining.
+     * @return The future.
      */
-    public ColumnMapperBuilder add(int from, int to, @Nullable Column col);
+    CompletableFuture<Void> commitAsync();
 
     /**
-     * @return Column mapper.
+     * Synchronously rolls back a transaction.
+     * Does nothing if it's already finished by commiting or rolling back.
      */
-    ColumnMapper build();
+    void rollback();
+
+    /**
+     * Asynchronously rolls back a transaction.
+     * Does nothing if it's already finished by commiting or rolling back.
+     *
+     * @return The future.
+     */
+    CompletableFuture<Void> rollbackAsync();
 }

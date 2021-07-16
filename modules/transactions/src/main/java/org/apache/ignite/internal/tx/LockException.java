@@ -15,36 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.mapping;
+package org.apache.ignite.internal.tx;
 
-import org.apache.ignite.internal.schema.Column;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Column mapper builder interface.
+ * This exception is thrown when a lock cannot be acquired due to conflict.
  */
-public interface ColumnMapperBuilder {
+public class LockException extends IgniteInternalCheckedException {
     /**
-     * Add new column.
-     *
-     * @param col Column descriptor.
-     * @return {@code this} for chaining.
+     * @param msg The message.
      */
-    public ColumnMapperBuilder add(@NotNull Column col);
+    public LockException(String msg) {
+        super(msg);
+    }
 
     /**
-     * Remap column.
-     *
-     * @param from Source column index.
-     * @param to Target column index.
-     * @param col Target column descriptor.
-     * @return {@code this} for chaining.
+     * @param waiter Conflicting waiter.
      */
-    public ColumnMapperBuilder add(int from, int to, @Nullable Column col);
-
-    /**
-     * @return Column mapper.
-     */
-    ColumnMapper build();
+    public LockException(Waiter waiter) {
+        super("Failed to acquire a lock due to a conflict with: " + waiter);
+    }
 }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema.mapping;
 
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Column mapper implementation.
@@ -44,22 +45,28 @@ class ColumnMapperImpl implements ColumnMapper, ColumnMapperBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public void add(int from, int to, Column col) {
+    @Override public ColumnMapperImpl add(@NotNull Column col) {
+        add(col.schemaIndex(), -1 , col);
+
+        return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override public ColumnMapperImpl add(int from, int to, Column col) {
         mapping[from] = to;
         cols[from] = col;
+
+        return this;
     }
 
     /** {@inheritDoc} */
     @Override public int map(int idx) {
-        if (idx > mapping.length)
-            return -1;
-
-        return mapping[idx];
+        return idx < mapping.length ? mapping[idx] : -1;
     }
 
     /** {@inheritDoc} */
     @Override public Column mappedColumn(int idx) {
-        return cols[idx];
+        return idx < cols.length ? cols[idx] : null;
     }
 
     /** {@inheritDoc} */

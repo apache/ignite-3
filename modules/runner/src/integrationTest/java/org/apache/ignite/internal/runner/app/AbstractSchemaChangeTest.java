@@ -108,8 +108,6 @@ abstract class AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        SchemaBuilders.column("valInt", ColumnType.string()).build();
-
         Assertions.assertThrows(InvalidTypeException.class, () -> {
             grid.get(0).tables().alterTable(TABLE,
                 tblChanger -> tblChanger.changeColumns(cols -> {
@@ -138,8 +136,6 @@ abstract class AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        SchemaBuilders.column("valInt", ColumnType.string()).build();
-
         Assertions.assertThrows(InvalidTypeException.class, () -> {
             grid.get(0).tables().alterTable(TABLE,
                 tblChanger -> tblChanger.changeColumns(cols -> {
@@ -167,8 +163,6 @@ abstract class AbstractSchemaChangeTest {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
-
-        SchemaBuilders.column("valInt", ColumnType.string()).build();
 
         Assertions.assertThrows(InvalidTypeException.class, () -> {
             grid.get(0).tables().alterTable(TABLE,

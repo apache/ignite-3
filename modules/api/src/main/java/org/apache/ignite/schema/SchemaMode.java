@@ -15,36 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.mapping;
-
-import org.apache.ignite.internal.schema.Column;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+package org.apache.ignite.schema;
 
 /**
- * Column mapper builder interface.
+ * Schema mode.
+ *
+ * Defines the way inserting data will be validated against the schema and schema evolution capabilities.
  */
-public interface ColumnMapperBuilder {
-    /**
-     * Add new column.
-     *
-     * @param col Column descriptor.
-     * @return {@code this} for chaining.
-     */
-    public ColumnMapperBuilder add(@NotNull Column col);
+public enum SchemaMode {
+    /** Normal mode offers strong validation for the inserting data. Explicit schema changes only are allowed. */
+    STRICT_SCHEMA,
 
-    /**
-     * Remap column.
-     *
-     * @param from Source column index.
-     * @param to Target column index.
-     * @param col Target column descriptor.
-     * @return {@code this} for chaining.
-     */
-    public ColumnMapperBuilder add(int from, int to, @Nullable Column col);
-
-    /**
-     * @return Column mapper.
-     */
-    ColumnMapper build();
+    /** Extended mode that allows the schema to be fit the inserting data automatically. Only safe implicit schema changes are allowed, e.g. adding extra columns and widening column type. Changes like column removal or narrowing column type won't be applied implicitly. */
+    LIVE_SCHEMA
 }

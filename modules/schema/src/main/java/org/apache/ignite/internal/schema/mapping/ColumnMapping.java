@@ -60,7 +60,7 @@ public class ColumnMapping {
             int idx = schemaMapper.map(i);
 
             if (idx < 0)
-                builder.add(i, -1, schema.column(i));
+                builder.add(schema.column(i));
             else
                 builder.add(i, mapping.map(idx), mapping.mappedColumn(idx));
         }

@@ -114,23 +114,23 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         if (curSchema.version() == rowSchema.version())
             return new Row(rowSchema, row);
 
-        assert curSchema.version() >= rowSchema.version();
-
-        ColumnMapper mapping = resolveMapping(rowSchema, curSchema);
+        ColumnMapper mapping = resolveMapping(curSchema, rowSchema);
 
         return new UpgradingRowAdapter(curSchema, rowSchema, row, mapping);
     }
 
     /**
-     * @param rowSchema Row schema.
      * @param curSchema Target schema.
+     * @param rowSchema Row schema.
      * @return Column mapper for target schema.
      */
-    public ColumnMapper resolveMapping(SchemaDescriptor rowSchema, SchemaDescriptor curSchema) {
+    ColumnMapper resolveMapping(SchemaDescriptor curSchema, SchemaDescriptor rowSchema) {
+        assert curSchema.version() > rowSchema.version();
+
         if (curSchema.version() == rowSchema.version() + 1)
             return curSchema.columnMapping();
 
-        final long mappingKey = (((long)curSchema.version()) << 32) & (rowSchema.version());
+        final long mappingKey = (((long)curSchema.version()) << 32) | (rowSchema.version());
 
         ColumnMapper mapping;
 
@@ -181,6 +181,16 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         if (ver >= lastVer || ver <= 0 || schemaCache.keySet().first() < ver)
             throw new SchemaRegistryException("Incorrect schema version to clean up to: " + ver);
 
-        schemaCache.remove(ver);
+        if (schemaCache.remove(ver) != null)
+            mappingCache.keySet().removeIf(k -> (k & 0xFFFF_FFFFL) == ver);
+    }
+
+    /**
+     * For test purposes only.
+     *
+     * @return ColumnMapping cache.
+     */
+    Map<Long, ColumnMapper> mappingCache() {
+        return mappingCache;
     }
 }
