@@ -46,7 +46,7 @@ class ColumnMapperImpl implements ColumnMapper, ColumnMapperBuilder {
 
     /** {@inheritDoc} */
     @Override public ColumnMapperImpl add(@NotNull Column col) {
-        add(col.schemaIndex(), -1 , col);
+        add(col.schemaIndex(), -1, col);
 
         return this;
     }
