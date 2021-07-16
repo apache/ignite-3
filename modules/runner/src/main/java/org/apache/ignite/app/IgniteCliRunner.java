@@ -17,7 +17,6 @@
 
 package org.apache.ignite.app;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import org.apache.ignite.internal.app.IgnitionImpl;
 import picocli.CommandLine;
