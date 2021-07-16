@@ -143,8 +143,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
             packer.packInt(ClientErrorCode.FAILED);
             packer.packString(err.getMessage());
 
-            ctx.write(packer);
-
+            write(packer, ctx);
         } catch (Throwable t) {
             exceptionCaught(ctx, t);
         }
