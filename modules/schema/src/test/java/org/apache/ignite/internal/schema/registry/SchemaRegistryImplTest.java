@@ -553,7 +553,7 @@ public class SchemaRegistryImplTest {
                 new Column("valStringCol", STRING, true)
             });
 
-        final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null);
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl();
 
         Map<Long, ColumnMapper> cache = reg.mappingCache();
 
