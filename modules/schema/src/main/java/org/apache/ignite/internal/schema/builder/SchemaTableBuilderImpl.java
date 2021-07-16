@@ -122,8 +122,8 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
     /**
      * Validate indices.
      *
-     * @param indices Indices.
-     * @param columns Columns.
+     * @param indices Table indices.
+     * @param columns Table columns.
      */
     public static void validateIndices(Collection<TableIndex> indices, Collection<Column> columns) {
         Set<String> colNames = columns.stream().map(Column::name).collect(Collectors.toSet());
