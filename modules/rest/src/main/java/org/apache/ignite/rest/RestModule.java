@@ -92,7 +92,6 @@ public class RestModule {
 
     /**
      * @return REST channel future.
-     * @throws InterruptedException If thread has been interupted during the start.
      */
     public ChannelFuture start() {
         var router = new Router();
