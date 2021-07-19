@@ -15,18 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.internal.network.processor;
 
-/**
- * Invalid tuple invocation exception is thrown when tuple doesn't match the table schema.
- */
-public class ColumnNotFoundException extends SchemaMismatchException {
-    /**
-     * Creates a new exception with the given error message.
-     *
-     * @param msg Error message.
-     */
-    public ColumnNotFoundException(String msg) {
-        super(msg);
-    }
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
+
+/** */
+@Transferable(TestMessageGroup.EMPTY_MESSAGE)
+interface EmptyMessage extends NetworkMessage {
 }
