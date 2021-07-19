@@ -15,14 +15,39 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.server;
+package org.apache.ignite.internal.metastorage.server.persistence;
+
+import java.nio.charset.StandardCharsets;
+import org.rocksdb.RocksDB;
 
 /**
- * Tests for in-memory key-value storage implementation.
+ * A type of the column family.
  */
-class SimpleInMemoryKeyValueStorageTest extends AbstractKeyValueStorageTest {
-    /** {@inheritDoc} */
-    @Override KeyValueStorage storage() {
-        return new SimpleInMemoryKeyValueStorage();
+enum StorageColumnFamilyType {
+    /** Column family for the data. */
+    DATA(RocksDB.DEFAULT_COLUMN_FAMILY),
+
+    /** Column family for the index. */
+    INDEX("INDEX".getBytes(StandardCharsets.UTF_8));
+
+    /** Byte representation of the column family's name. */
+    private final byte[] nameAsBytes;
+
+    /**
+     * Constructor.
+     *
+     * @param bytes Column family name's bytes.
+     */
+    StorageColumnFamilyType(byte[] bytes) {
+        nameAsBytes = bytes;
+    }
+
+    /**
+     * Gets column family name's bytes.
+     *
+     * @return Column family name's bytes.
+     */
+    public byte[] nameAsBytes() {
+        return nameAsBytes;
     }
 }

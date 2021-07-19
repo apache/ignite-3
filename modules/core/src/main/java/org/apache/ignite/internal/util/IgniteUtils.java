@@ -24,6 +24,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -449,14 +450,16 @@ public class IgniteUtils {
      * thrown exception will be propagated to the caller, after all other objects are closed, similar to
      * the try-with-resources block.
      *
-     * @param closeables collection of objects to close
+     * @param closeables Collection of objects to close.
+     * @throws Exception If failed to close.
      */
     public static void closeAll(Collection<? extends AutoCloseable> closeables) throws Exception {
         Exception ex = null;
 
         for (AutoCloseable closeable : closeables) {
             try {
-                closeable.close();
+                if (closeable != null)
+                    closeable.close();
             }
             catch (Exception e) {
                 if (ex == null)
@@ -468,5 +471,17 @@ public class IgniteUtils {
 
         if (ex != null)
             throw ex;
+    }
+
+    /**
+     * Closes all provided objects.
+     *
+     * @param closeables Array of closeable objects to close.
+     * @throws Exception If failed to close.
+     *
+     * @see #closeAll(Collection)
+     */
+    public static void closeAll(AutoCloseable... closeables) throws Exception {
+        closeAll(Arrays.asList(closeables));
     }
 }
