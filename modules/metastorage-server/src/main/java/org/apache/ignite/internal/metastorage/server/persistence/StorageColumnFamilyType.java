@@ -20,18 +20,33 @@ package org.apache.ignite.internal.metastorage.server.persistence;
 import java.nio.charset.StandardCharsets;
 import org.rocksdb.RocksDB;
 
+/**
+ * A type of the column family.
+ */
 enum StorageColumnFamilyType {
-
+    /** Column family for the data. */
     DATA(RocksDB.DEFAULT_COLUMN_FAMILY),
 
+    /** Column family for the index. */
     INDEX("INDEX".getBytes(StandardCharsets.UTF_8));
 
+    /** Byte representation of the column family's name. */
     private final byte[] nameAsBytes;
 
+    /**
+     * Constructor.
+     *
+     * @param bytes Column family name's bytes.
+     */
     StorageColumnFamilyType(byte[] bytes) {
         nameAsBytes = bytes;
     }
 
+    /**
+     * Gets column family name's bytes.
+     *
+     * @return Column family name's bytes.
+     */
     public byte[] nameAsBytes() {
         return nameAsBytes;
     }

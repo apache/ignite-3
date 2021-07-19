@@ -17,11 +17,17 @@
 
 package org.apache.ignite.internal.metastorage.server.persistence;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import org.apache.ignite.internal.metastorage.server.Value;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.jetbrains.annotations.NotNull;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 
@@ -30,7 +36,10 @@ import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 /**
  * Utility class for {@link RocksDBKeyValueStorage}.
  */
-class RocksStorageByteUtils {
+class RocksStorageUtils {
+    /** VarHandle that gives the access to the elements of a {@code byte[]} array viewed as if it were a {@code long[]} array. */
+    private static final VarHandle LONG_ARRAY_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.nativeOrder());
+
     /**
      * Adds a revision to a key.
      *
@@ -105,7 +114,31 @@ class RocksStorageByteUtils {
     }
 
     /**
-     * Iterates over the given iterator passing key-values pairs to the given consumer and checks the iterator's status
+     * Gets a list of longs from the byte array of longs.
+     *
+     * @param bytes Byte array of longs.
+     * @return List of longs.
+     */
+    @NotNull
+    static List<Long> getAsLongs(byte[] bytes) {
+        // Value must be divisible by a size of a long, because it's a list of longs
+        assert (bytes.length % Long.BYTES) == 0;
+
+        int listSize = bytes.length / Long.BYTES;
+
+        var revisionsList = new ArrayList<Long>(listSize);
+
+        for (int i = 0; i < listSize; i++) {
+            long l = (long) LONG_ARRAY_HANDLE.get(bytes, i * Long.BYTES);
+
+            revisionsList.add(l);
+        }
+
+        return revisionsList;
+    }
+
+    /**
+     * Iterates over the given iterator passing key-value pairs to the given consumer and checks the iterator's status
      * afterwards.
      *
      * @param iterator Iterator.
@@ -119,9 +152,18 @@ class RocksStorageByteUtils {
         checkIterator(iterator);
     }
 
+    /**
+     * Iterates over the given iterator testing key-value pairs with the given predicate and checks the iterator's status
+     * afterwards.
+     *
+     * @param iterator Iterator.
+     * @param consumer Consumer of key-value pairs.
+     * @return {@code true} if a matching key-value pair has been found, {@code false} otherwise.
+     * @throws RocksDBException If failed.
+     */
     static boolean find(RocksIterator iterator, RocksBiPredicate consumer) throws RocksDBException {
         for (; iterator.isValid(); iterator.next()) {
-            boolean result = consumer.apply(iterator.key(), iterator.value());
+            boolean result = consumer.test(iterator.key(), iterator.value());
 
             if (result) {
                 checkIterator(iterator);
@@ -164,14 +206,18 @@ class RocksStorageByteUtils {
         void accept(byte[] key, byte[] value) throws RocksDBException;
     }
 
+    /**
+     * BiPredicate that can throw {@link RocksDBException}.
+     */
     interface RocksBiPredicate {
         /**
-         * Accepts the key and the value of the entry.
+         * Evaluates the predicate on the given key and the given value.
          *
          * @param key Key.
          * @param value Value.
-         * @throws RocksDBException If failed to process the key-value pair.
+         * @return {@code true} if the input argument matches the predicate, otherwise {@code false}.
+         * @throws RocksDBException If failed to test the key-value pair.
          */
-        boolean apply(byte[] key, byte[] value) throws RocksDBException;
+        boolean test(byte[] key, byte[] value) throws RocksDBException;
     }
 }

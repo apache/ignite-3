@@ -35,9 +35,9 @@ import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 
-import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageByteUtils.bytesToValue;
-import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageByteUtils.checkIterator;
-import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageByteUtils.rocksKeyToBytes;
+import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.bytesToValue;
+import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.checkIterator;
+import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.rocksKeyToBytes;
 
 /**
  * Subscription on updates of entries corresponding to the given keys range (where the upper bound is unlimited)
@@ -80,7 +80,7 @@ class WatchCursor implements Cursor<WatchEvent> {
         this.storage = storage;
         this.p = p;
         this.lastRetRev = rev - 1;
-        this.nativeIterator = storage.newWatchIterator(options);
+        this.nativeIterator = storage.newDataIterator(options);
         this.it = createIterator();
     }
 
@@ -185,7 +185,7 @@ class WatchCursor implements Cursor<WatchEvent> {
                         List<EntryEvent> evts = new ArrayList<>();
 
                         // Iterate over the keys of the current revision and get all matching entries.
-                        RocksStorageByteUtils.forEach(nativeIterator, (k, v) -> {
+                        RocksStorageUtils.forEach(nativeIterator, (k, v) -> {
                             ref.noItemsInRevision = false;
 
                             byte[] key = rocksKeyToBytes(k);

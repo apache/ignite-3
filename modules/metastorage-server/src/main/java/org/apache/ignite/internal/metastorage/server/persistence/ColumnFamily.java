@@ -31,62 +31,128 @@ import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.WriteBatch;
 
+/**
+ * Wrapper for the column family that encapsulates {@link ColumnFamilyHandle} and RocksDB's operations with it.
+ */
 public class ColumnFamily implements AutoCloseable {
-
+    /** RocksDB instance. */
     private final RocksDB db;
 
-    private final StorageColumnFamilyType family;
+    /** Column family type. */
+    private final StorageColumnFamilyType cfType;
 
-    private final ColumnFamilyHandle columnFamilyHandle;
+    /** Column family handle. */
+    private final ColumnFamilyHandle cfHandle;
 
+    /** Column family options. */
     private final ColumnFamilyOptions cfOptions;
 
+    /** Options for the column family options. */
     private final Options options;
 
-    public ColumnFamily(RocksDB db, ColumnFamilyHandle handle, StorageColumnFamilyType family, ColumnFamilyOptions cfOptions, Options options)
-        throws RocksDBException {
+    /**
+     * Constructor.
+     *
+     * @param db Db.
+     * @param handle Column family handle.
+     * @param cfType Column family type.
+     * @param cfOptions Column family options.
+     * @param options Options for the column family options.
+     * @throws RocksDBException If failed.
+     */
+    public ColumnFamily(
+        RocksDB db,
+        ColumnFamilyHandle handle,
+        StorageColumnFamilyType cfType,
+        ColumnFamilyOptions cfOptions,
+        Options options
+    )throws RocksDBException {
         this.db = db;
-        this.family = family;
+        this.cfType = cfType;
         this.cfOptions = cfOptions;
         this.options = options;
-
-        this.columnFamilyHandle = handle;
+        this.cfHandle = handle;
     }
 
     /** {@inheritDoc} */
     @Override public void close() throws Exception {
-        IgniteUtils.closeAll(columnFamilyHandle, cfOptions, options);
+        IgniteUtils.closeAll(cfHandle, cfOptions, options);
     }
 
+    /**
+     * Gets the value associated with the key from this column family.
+     *
+     * @param key Key.
+     * @return Value.
+     * @throws RocksDBException If failed.
+     * @see RocksDB#get(ColumnFamilyHandle, byte[])
+     */
     public byte @Nullable [] get(byte @NotNull [] key) throws RocksDBException {
-        return db.get(columnFamilyHandle, key);
+        return db.get(cfHandle, key);
     }
 
+    /**
+     * Puts a key-value pair into this column family within the write batch.
+     *
+     * @param batch Write batch.
+     * @param key Key.
+     * @param value Value.
+     * @throws RocksDBException If failed.
+     * @see WriteBatch#put(ColumnFamilyHandle, byte[], byte[])
+     */
     public void put(WriteBatch batch, byte @NotNull [] key, byte @NotNull [] value) throws RocksDBException {
-        batch.put(columnFamilyHandle, key, value);
+        batch.put(cfHandle, key, value);
     }
 
+    /**
+     * Deletes the entry mapped by the key and associated with this column family within the write batch.
+     *
+     * @param batch Write batch.
+     * @param key Key.
+     * @throws RocksDBException If failed.
+     * @see WriteBatch#delete(ColumnFamilyHandle, byte[])
+     */
     public void delete(WriteBatch batch, byte @NotNull [] key) throws RocksDBException {
-        batch.delete(columnFamilyHandle, key);
+        batch.delete(cfHandle, key);
     }
 
-    public ColumnFamilyHandle handle() {
-        return columnFamilyHandle;
-    }
-
+    /**
+     * Creates a new iterator over this column family.
+     *
+     * @return Iterator.
+     * @see RocksDB#newIterator(ColumnFamilyHandle)
+     */
     public RocksIterator newIterator() {
-        return db.newIterator(columnFamilyHandle);
+        return db.newIterator(cfHandle);
     }
 
+    /**
+     * Creates a new iterator with given read options over this column family.
+     *
+     * @param options Read options.
+     * @return Iterator.
+     * @see RocksDB#newIterator(ColumnFamilyHandle, ReadOptions)
+     */
     public RocksIterator newIterator(ReadOptions options) {
-        return db.newIterator(columnFamilyHandle, options);
+        return db.newIterator(cfHandle, options);
     }
 
+    /**
+     * Ingests external files into this column family.
+     *
+     * @param paths Paths to the external files.
+     * @param options Ingestion options.
+     * @throws RocksDBException If failed.
+     * @see RocksDB#ingestExternalFile(ColumnFamilyHandle, List, IngestExternalFileOptions)
+     */
     public void ingestExternalFile(List<String> paths, IngestExternalFileOptions options) throws RocksDBException {
-        db.ingestExternalFile(columnFamilyHandle, paths, options);
+        db.ingestExternalFile(cfHandle, paths, options);
     }
 
+    /**
+     * @return Name of the column family.
+     */
     public String name() {
-        return family.name();
+        return cfType.name();
     }
 }
