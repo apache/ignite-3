@@ -15,94 +15,49 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.client.internal.table;
+
+import org.apache.ignite.binary.BinaryObject;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.TupleBuilder;
 
 import java.util.BitSet;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
-import java.util.Objects;
-import org.apache.ignite.binary.BinaryObject;
-import org.apache.ignite.binary.BinaryObjects;
-import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.SchemaAware;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.TupleBuilder;
 
 /**
  * Buildable tuple.
  */
-public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
+public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     /** Columns values. */
-    protected Map<String, Object> map;
+    private final HashMap<String, Object> map = new HashMap<>();
 
-    /** Current schema descriptor. */
-    private SchemaDescriptor schemaDesc;
-
-    /**
-     * Creates tuple builder.
-     *
-     * @param schemaDesc Schema descriptor.
-     */
-    public TupleBuilderImpl(SchemaDescriptor schemaDesc) {
-        Objects.requireNonNull(schemaDesc);
-
-        this.schemaDesc = schemaDesc;
-        map = new HashMap<>(schemaDesc.length());
-    }
-
-    /** {@inheritDoc} */
-    @Override public TupleBuilder set(String colName, Object val) {
-        Column col = schema().column(colName);
-
-        if (col == null)
-            throw new ColumnNotFoundException("Column not found [col=" + colName + "schema=" + schemaDesc + ']');
-
-        col.validate(val);
-
-        map.put(colName, val);
+    @Override public TupleBuilder set(String colName, Object value) {
+        map.put(colName, value);
 
         return this;
     }
 
-    /**
-     * Sets column value.
-     *
-     * @param col Column.
-     * @param value Value to set.
-     * @return {@code this} for chaining.
-     */
-    public TupleBuilder set(Column col, Object value) {
-        assert col != null;
-
-        col.validate(value);
-
-        map.put(col.name(), value);
-
-        return this;
-    }
-
-    /** {@inheritDoc} */
     @Override public Tuple build() {
         return this;
     }
 
     /** {@inheritDoc} */
+    @SuppressWarnings("unchecked")
     @Override public <T> T valueOrDefault(String colName, T def) {
         return (T)map.getOrDefault(colName, def);
     }
 
     /** {@inheritDoc} */
+    @SuppressWarnings("unchecked")
     @Override public <T> T value(String colName) {
         return (T)map.get(colName);
     }
 
     /** {@inheritDoc} */
     @Override public BinaryObject binaryObjectField(String colName) {
-        byte[] data = value(colName);
-
-        return BinaryObjects.wrap(data);
+        throw new IgniteException("Not supported");
     }
 
     /** {@inheritDoc} */
@@ -148,21 +103,5 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
     /** {@inheritDoc} */
     @Override public BitSet bitmaskValue(String colName) {
         return value(colName);
-    }
-
-    /**
-     * Get schema descriptor.
-     *
-     * @return Schema descriptor.
-     */
-    public SchemaDescriptor schema() {
-        return schemaDesc;
-    }
-
-    /**
-     * @param schemaDesc New current schema descriptor.
-     */
-    protected void schema(SchemaDescriptor schemaDesc) {
-        this.schemaDesc = schemaDesc;
     }
 }
