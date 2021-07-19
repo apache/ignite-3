@@ -30,7 +30,9 @@ import org.apache.ignite.table.TupleBuilder;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.RecordMapper;
 import org.apache.ignite.table.mapper.ValueMapper;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -81,8 +83,11 @@ public class ClientTable implements Table {
         return null;
     }
 
-    @Override
-    public KeyValueBinaryView kvView() {
+    @Override public KeyValueBinaryView kvView() {
+        return null;
+    }
+
+    @Override public Table withTransaction(Transaction tx) {
         return null;
     }
 
@@ -263,6 +268,11 @@ public class ClientTable implements Table {
 
     @Override
     public @NotNull <T extends Serializable> CompletableFuture<Map<Tuple, T>> invokeAllAsync(@NotNull Collection<Tuple> keyRecs, InvokeProcessor<Tuple, Tuple, T> proc) {
+        return null;
+    }
+
+    @Override
+    public @Nullable Transaction transaction() {
         return null;
     }
 

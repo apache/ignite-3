@@ -23,6 +23,7 @@ import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.client.internal.io.ClientConnectionMultiplexer;
+import org.apache.ignite.tx.IgniteTransactions;
 
 import java.util.function.BiFunction;
 
@@ -78,6 +79,11 @@ public class TcpIgniteClient implements Ignite {
     /** {@inheritDoc} */
     @Override public IgniteTables tables() {
         return new IgniteClientTables(ch);
+    }
+
+    /** {@inheritDoc} */
+    @Override public IgniteTransactions transactions() {
+        return null;
     }
 
     /** {@inheritDoc} */

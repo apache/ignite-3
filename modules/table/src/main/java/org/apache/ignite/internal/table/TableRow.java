@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table;
 
 import java.util.Objects;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;

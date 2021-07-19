@@ -291,9 +291,9 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
 
         if (cnt > schema.length())
             throw new IgniteException(
-                "Incorrect number of tuple values. Expected: " + schema.length() + ", but got: " + cnt);
+                    "Incorrect number of tuple values. Expected: " + schema.length() + ", but got: " + cnt);
 
-        var builder = table.tupleBuilderInternal();
+        var builder = (TupleBuilderImpl) table.tupleBuilder();
 
         for (int i = 0; i < cnt; i++) {
             if (unpacker.getNextFormat() == MessageFormat.NIL) {
@@ -309,7 +309,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
 
     private Tuple readTupleSchemaless(ClientMessageUnpacker unpacker, TableImpl table) throws IOException {
         var cnt = unpacker.unpackMapHeader();
-        var builder = table.tupleBuilderInternal();
+        var builder = table.tupleBuilder();
 
         for (int i = 0; i < cnt; i++) {
             var colName = unpacker.unpackString();

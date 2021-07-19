@@ -7,8 +7,8 @@ import java.util.BitSet;
 import java.util.UUID;
 
 public class ClientTuple implements Tuple {
-    @Override public boolean contains(String colName) {
-        return false;
+    @Override public <T> T valueOrDefault(String colName, T def) {
+        return null;
     }
 
     @Override public <T> T value(String colName) {
