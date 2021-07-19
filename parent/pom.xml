@@ -1050,6 +1050,7 @@
                     <version>false</version>
                     <additionalJOptions>${javadoc.opts}</additionalJOptions>
                     <excludePackageNames>com.facebook.presto.*;org.apache.ignite.internal.generated.*</excludePackageNames>
+                    <sourcepath>src/main/java:target/generated-sources/annotations:target/generated-sources/javacc</sourcepath>
                     <links>
                         <link>https://ignite.apache.org/releases/latest/javadoc/</link>
                     </links>
