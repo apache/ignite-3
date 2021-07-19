@@ -66,7 +66,7 @@ public class Value {
      *
      * @return {@code True} if value is tombstone, otherwise - {@code false}.
      */
-    public boolean isTombstone() {
+    public boolean tombstone() {
         return bytes == TOMBSTONE;
     }
 }

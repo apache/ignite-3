@@ -25,7 +25,6 @@ import org.apache.ignite.internal.metastorage.server.Entry;
 import org.apache.ignite.internal.metastorage.server.EntryEvent;
 import org.apache.ignite.internal.metastorage.server.Value;
 import org.apache.ignite.internal.metastorage.server.WatchEvent;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -35,9 +34,10 @@ import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 
-import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageByteUtils.bytesToValue;
-import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageByteUtils.checkIterator;
-import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageByteUtils.rocksKeyToBytes;
+import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.bytesToValue;
+import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.checkIterator;
+import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.longToBytes;
+import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.rocksKeyToBytes;
 
 /**
  * Subscription on updates of entries corresponding to the given keys range (where the upper bound is unlimited)
@@ -80,7 +80,7 @@ class WatchCursor implements Cursor<WatchEvent> {
         this.storage = storage;
         this.p = p;
         this.lastRetRev = rev - 1;
-        this.nativeIterator = storage.db().newIterator(options);
+        this.nativeIterator = storage.newDataIterator(options);
         this.it = createIterator();
     }
 
@@ -127,17 +127,18 @@ class WatchCursor implements Cursor<WatchEvent> {
                     while (true) {
                         long curRev = lastRetRev + 1;
 
-                        byte[] revisionPrefix = ByteUtils.longToBytes(curRev);
+                        byte[] revisionPrefix = longToBytes(curRev);
 
                         boolean empty = true;
 
-                        if (!nativeIterator.isValid())
+                        if (!nativeIterator.isValid()) {
                             try {
                                 nativeIterator.refresh();
                             }
                             catch (RocksDBException e) {
                                 throw new IgniteInternalException(e);
                             }
+                        }
 
                         // Check all keys by the revision to see if any one of them match the predicate.
                         for (nativeIterator.seek(revisionPrefix); nativeIterator.isValid(); nativeIterator.next()) {
@@ -184,7 +185,7 @@ class WatchCursor implements Cursor<WatchEvent> {
                         List<EntryEvent> evts = new ArrayList<>();
 
                         // Iterate over the keys of the current revision and get all matching entries.
-                        RocksStorageByteUtils.forEach(nativeIterator, (k, v) -> {
+                        RocksStorageUtils.forEach(nativeIterator, (k, v) -> {
                             ref.noItemsInRevision = false;
 
                             byte[] key = rocksKeyToBytes(k);
@@ -194,7 +195,7 @@ class WatchCursor implements Cursor<WatchEvent> {
                             if (p.test(key)) {
                                 Entry newEntry;
 
-                                if (val.isTombstone())
+                                if (val.tombstone())
                                     newEntry = Entry.tombstone(key, nextRetRev, val.updateCounter());
                                 else
                                     newEntry = new Entry(key, val.bytes(), nextRetRev, val.updateCounter());
