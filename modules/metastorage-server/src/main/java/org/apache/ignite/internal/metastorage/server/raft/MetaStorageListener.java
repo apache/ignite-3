@@ -59,7 +59,6 @@ import org.apache.ignite.internal.metastorage.server.RevisionCondition;
 import org.apache.ignite.internal.metastorage.server.ValueCondition;
 import org.apache.ignite.internal.metastorage.server.WatchEvent;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.ReadCommand;
@@ -345,7 +344,7 @@ public class MetaStorageListener implements RaftGroupListener {
 
                 Iterator<CursorMeta> cursorsIter = cursors.values().iterator();
 
-                while(cursorsIter.hasNext()) {
+                while (cursorsIter.hasNext()) {
                     CursorMeta cursorDesc = cursorsIter.next();
 
                     if (cursorDesc.requesterNodeId().equals(cursorsCloseCmd.nodeId())) {
