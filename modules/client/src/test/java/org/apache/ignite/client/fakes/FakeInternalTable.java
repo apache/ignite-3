@@ -30,7 +30,7 @@ public class FakeInternalTable implements InternalTable {
     }
 
     @Override public @NotNull SchemaMode schemaMode() {
-        return null;
+        return SchemaMode.STRICT_SCHEMA;
     }
 
     @Override public void schema(SchemaMode schemaMode) {

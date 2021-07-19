@@ -132,6 +132,7 @@ public class ClientTable implements Table {
                 vals[col.schemaIndex()] = entry.getValue();
             }
 
+            w.out().packUuid(id);
             w.out().packInt(schema.version());
             w.out().packArrayHeader(vals.length);
 

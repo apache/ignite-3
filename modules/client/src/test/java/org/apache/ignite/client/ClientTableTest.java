@@ -21,15 +21,27 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.CompletionException;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ClientTableTest extends AbstractClientTest {
     @Test
-    public void testPutGet() {
-        server.tables().createTable(DEFAULT_TABLE, tbl -> tbl.changeReplicas(1));
+    public void testGetWithNullInNotNullableKeyColumnThrowsException() {
+        Table table = getDefaultTable();
 
-        var table = client.tables().table(DEFAULT_TABLE);
+        var key = table.tupleBuilder().set("foo", "123").build();
+
+        var ex = assertThrows(CompletionException.class, () -> table.get(key));
+
+        assertTrue(ex.getMessage().contains("Failed to set column (null was passed, but column is not nullable)"));
+    }
+
+    @Test
+    public void testPutGet() {
+        Table table = getDefaultTable();
 
         var tuple = table.tupleBuilder()
                 .set("accountNumber", "123")
@@ -48,5 +60,11 @@ public class ClientTableTest extends AbstractClientTest {
     @Test
     public void testPutGetAsync() {
         // TODO
+    }
+
+    private Table getDefaultTable() {
+        server.tables().getOrCreateTable(DEFAULT_TABLE, tbl -> tbl.changeReplicas(1));
+
+        return client.tables().table(DEFAULT_TABLE);
     }
 }
