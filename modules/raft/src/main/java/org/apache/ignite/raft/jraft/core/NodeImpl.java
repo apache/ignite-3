@@ -1141,12 +1141,12 @@ public class NodeImpl implements Node, RaftServerService {
                 done.request = raftOptions.getRaftMessagesFactory()
                     .requestVoteRequest()
                     .preVote(false) // It's not a pre-vote request.
-                    .groupId(this.groupId) //
-                    .serverId(this.serverId.toString()) //
-                    .peerId(peer.toString()) //
-                    .term(this.currTerm) //
-                    .lastLogIndex(lastLogId.getIndex()) //
-                    .lastLogTerm(lastLogId.getTerm()) //
+                    .groupId(this.groupId)
+                    .serverId(this.serverId.toString())
+                    .peerId(peer.toString())
+                    .term(this.currTerm)
+                    .lastLogIndex(lastLogId.getIndex())
+                    .lastLogTerm(lastLogId.getTerm())
                     .build();
                 this.rpcClientService.requestVote(peer.getEndpoint(), done.request, done);
             }
