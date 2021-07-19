@@ -290,7 +290,7 @@ public class ClientTable implements Table {
         if (latestSchemaVer >= 0)
             return CompletableFuture.completedFuture(schemas.get(latestSchemaVer));
 
-        return loadSchemas().thenApply(unused -> schemas.get(latestSchemaVer));
+        return loadSchemas();
     }
 
     private CompletableFuture<ClientSchema> getSchema(int ver) {
@@ -299,41 +299,33 @@ public class ClientTable implements Table {
         if (schema != null)
             return CompletableFuture.completedFuture(schema);
 
-        return loadSchema(ver);
+        return loadSchemas(ver);
     }
 
-    private CompletableFuture<ClientSchema> loadSchema(int ver) {
+    private CompletableFuture<ClientSchema> loadSchemas(int... vers) {
         return ch.serviceAsync(ClientOp.SCHEMAS_GET, w -> {
             w.out().packUuid(id);
-            w.out().packArrayHeader(1);
-            w.out().packInt(ver);
+
+            if (vers == null || vers.length == 0)
+                w.out().packNil();
+            else {
+                w.out().packArrayHeader(vers.length);
+
+                for (var ver : vers)
+                    w.out().packInt(ver);
+            }
         }, r -> {
             int schemaCnt = r.in().unpackMapHeader();
 
             if (schemaCnt == 0)
                 return null;
 
-            assert schemaCnt == 1;
-
-            return readSchema(r.in());
-        });
-    }
-
-    private CompletableFuture<Void> loadSchemas() {
-        return ch.serviceAsync(ClientOp.SCHEMAS_GET, w -> {
-            w.out().packUuid(id);
-            w.out().packArrayHeader(1);
-            w.out().packNil();
-        }, r -> {
-            int schemaCnt = r.in().unpackMapHeader();
-
-            if (schemaCnt == 0)
-                return null;
+            ClientSchema last = null;
 
             for (var i = 0; i < schemaCnt; i++)
-                readSchema(r.in());
+                last = readSchema(r.in());
 
-            return null;
+            return last;
         });
     }
 

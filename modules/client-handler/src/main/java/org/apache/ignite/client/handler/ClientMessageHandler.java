@@ -208,7 +208,8 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                 var table = readTable(unpacker);
 
                 if (unpacker.getNextFormat() == MessageFormat.NIL) {
-                    // Return all schemas.
+                    // Return latest schema.
+                    table.schemaView().schema()
                     throw new IgniteException("TODO");
                 } else {
                     var cnt = unpacker.unpackArrayHeader();
