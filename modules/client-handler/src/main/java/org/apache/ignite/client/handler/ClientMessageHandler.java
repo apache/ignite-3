@@ -208,17 +208,23 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                 var table = readTable(unpacker);
 
                 if (unpacker.getNextFormat() == MessageFormat.NIL) {
-                    // Return latest schema.
-                    table.schemaView().schema()
-                    throw new IgniteException("TODO");
+                    // Return the latest schema.
+                    packer.packMapHeader(1);
+
+                    var schema = table.schemaView().schema();
+
+                    if (schema == null)
+                        throw new IgniteException("Schema registry is not initialized.");
+
+                    writeSchema(packer, schema.version(), schema);
                 } else {
                     var cnt = unpacker.unpackArrayHeader();
-                    packer.packInt(cnt);
+                    packer.packMapHeader(cnt);
 
                     for (var i = 0; i < cnt; i++) {
                         var schemaVer = unpacker.unpackInt();
                         var schema = table.schemaView().schema(schemaVer);
-                        writeSchema(packer, schema);
+                        writeSchema(packer, schemaVer, schema);
                     }
                 }
 
@@ -267,15 +273,21 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
         return null;
     }
 
-    private void writeSchema(ClientMessagePacker packer, SchemaDescriptor schema) throws IOException {
-        packer.packInt(schema.version());
+    private void writeSchema(ClientMessagePacker packer, int schemaVer, SchemaDescriptor schema) throws IOException {
+        packer.packInt(schemaVer);
+
+        if (schema == null) {
+            packer.packNil();
+            return;
+        }
 
         var colCnt = schema.columnNames().size();
-        packer.packInt(colCnt);
+        packer.packArrayHeader(colCnt);
 
         for (var colIdx = 0; colIdx < colCnt; colIdx++) {
             var col = schema.column(colIdx);
 
+            packer.packArrayHeader(4);
             packer.packString(col.name());
             packer.packString(col.type().spec().name());
             packer.packBoolean(schema.isKeyColumn(colIdx));
