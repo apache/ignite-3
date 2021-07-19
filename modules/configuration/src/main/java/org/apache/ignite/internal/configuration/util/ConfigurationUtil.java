@@ -319,7 +319,7 @@ public class ConfigurationUtil {
                                 while (idx != orderedKeys.size())
                                     orderedKeys.add(null);
 
-                                orderedKeys.add(idx, key);
+                                orderedKeys.add(key);
                             }
                             else
                                 orderedKeys.set(idx, key);
