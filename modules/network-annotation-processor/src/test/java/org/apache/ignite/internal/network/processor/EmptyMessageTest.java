@@ -15,18 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.internal.network.processor;
 
-/**
- * Invalid tuple invocation exception is thrown when tuple doesn't match the table schema.
- */
-public class ColumnNotFoundException extends SchemaMismatchException {
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+
+/** */
+public class EmptyMessageTest {
+    /** */
+    private final TestMessagesFactory factory = new TestMessagesFactory();
+
     /**
-     * Creates a new exception with the given error message.
-     *
-     * @param msg Error message.
+     * Test that {@code hashCode} and {@code equals} are generated correctly for empty messages.
      */
-    public ColumnNotFoundException(String msg) {
-        super(msg);
+    @Test
+    public void testEqualsAndHashCode() {
+        EmptyMessage msg = factory.emptyMessage().build();
+
+        assertEquals(msg, msg);
+        assertNotEquals(factory.serializationOrderMessage().build(), msg);
+
+        assertEquals(EmptyMessageImpl.class.hashCode(), msg.hashCode());
     }
 }
