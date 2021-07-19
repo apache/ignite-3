@@ -18,6 +18,11 @@
 package org.apache.ignite.client.fakes;
 
 import org.apache.ignite.configuration.schemas.table.TableChange;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypeSpec;
+import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
@@ -85,7 +90,23 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
     }
 
     @NotNull private TableImpl getNewTable(String name) {
-        return new TableImpl(new FakeInternalTable(name, UUID.randomUUID()), new SchemaRegistryImpl(v -> null), null, null);
+        UUID tableId = UUID.randomUUID();
+        return new TableImpl(new FakeInternalTable(name, tableId), getSchemaReg(tableId), null, null);
+    }
+
+    @NotNull private SchemaRegistryImpl getSchemaReg(UUID tableId) {
+        return new SchemaRegistryImpl(1, v -> getSchema(v, tableId));
+    }
+
+    private SchemaDescriptor getSchema(Integer v, UUID tableId) {
+        if (v != 1)
+            return null;
+
+        return new SchemaDescriptor(
+                tableId,
+                1,
+                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("name", NativeTypes.STRING, true)});
     }
 
     @Override public TableImpl table(UUID id, boolean checkConfiguration) {

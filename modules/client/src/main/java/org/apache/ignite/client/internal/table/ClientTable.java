@@ -357,7 +357,7 @@ public class ClientTable implements Table {
         var columns = new ClientColumn[colCnt];
 
         for (int i = 0; i < colCnt; i++) {
-            var propCnt = in.unpackInt();
+            var propCnt = in.unpackArrayHeader();
 
             assert propCnt >= 4;
 
