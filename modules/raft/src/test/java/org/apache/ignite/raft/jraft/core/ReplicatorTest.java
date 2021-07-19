@@ -857,9 +857,9 @@ public class ReplicatorTest {
     private RpcRequests.InstallSnapshotRequest createInstallSnapshotRequest() {
         final String uri = "remote://localhost:8081/99";
         final RaftOutter.SnapshotMeta meta = raftOptions.getRaftMessagesFactory()
-            .snapshotMeta() //
-            .lastIncludedIndex(11) //
-            .lastIncludedTerm(1) //
+            .snapshotMeta()
+            .lastIncludedIndex(11)
+            .lastIncludedTerm(1)
             .build();
         return raftOptions.getRaftMessagesFactory().installSnapshotRequest()
             .term(this.opts.getTerm())
