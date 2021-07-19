@@ -336,10 +336,17 @@ public class ClientTable implements Table {
         var columns = new ClientColumn[colCnt];
 
         for (int i = 0; i < colCnt; i++) {
+            var propCnt = in.unpackInt();
+
+            assert propCnt >= 4;
+
             var name = in.unpackString();
             var type = in.unpackString();
             var isKey = in.unpackBoolean();
             var isNullable = in.unpackBoolean();
+
+            // Skip unknown extra properties, if any.
+            in.skipValue(propCnt - 4);
 
             var column = new ClientColumn(name, type, isNullable, isKey, i);
             columns[i] = column;
