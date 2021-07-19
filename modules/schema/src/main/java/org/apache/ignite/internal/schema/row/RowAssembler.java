@@ -51,8 +51,6 @@ import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.VAL_FLAGS_OFF
  * <p>
  * Natively supported temporal types are encoded automatically with preserving sort order before writing.
  *
- * @see #rowSize(Columns, int, int, Columns, int, int)
- * @see #rowChunkSize(Columns, int, int)
  * @see #utf8EncodedLength(CharSequence)
  * @see TemporalTypesHelper
  */

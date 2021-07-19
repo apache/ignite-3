@@ -27,8 +27,8 @@ import java.time.temporal.ChronoUnit;
  * Provides methods to encode/decode temporal types in a compact way  for futher writing to row.
  * Conversion preserves natural type order.
  *
- * @see org.apache.ignite.internal.schema.Row
- * @see org.apache.ignite.internal.schema.RowAssembler
+ * @see org.apache.ignite.internal.schema.row.Row
+ * @see org.apache.ignite.internal.schema.row.RowAssembler
  */
 public class TemporalTypesHelper {
     /** Month field length. */
