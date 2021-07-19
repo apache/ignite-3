@@ -19,6 +19,7 @@ package org.apache.ignite.client.internal.table;
 
 import org.apache.ignite.client.ClientMessageUnpacker;
 import org.apache.ignite.client.ClientOp;
+import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.client.internal.ReliableChannel;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.table.InvokeProcessor;
@@ -114,11 +115,31 @@ public class ClientTable implements Table {
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Tuple> getAsync(@NotNull Tuple keyRec) {
         // TODO: Implement shared logic for tuple serialization and schema handling.
-        return ch.serviceAsync(ClientOp.TUPLE_GET, w -> {
+        return getLatestSchema().thenCompose(schema -> ch.serviceAsync(ClientOp.TUPLE_GET, w -> {
+            // TODO: We should accept any Tuple implementation, but this requires extending the Tuple interface
+            // with methods to retrieve column list.
+            var tuple = (ClientTupleBuilder) keyRec;
 
+            // TODO: Match columns to schema and write in schema order.
+            var vals = new Object[schema.keyColumns().size()];
+
+            for (var entry : tuple.map().entrySet()) {
+                var col = schema.keyColumns().get(entry.getKey());
+
+                if (col == null)
+                    continue; // Not a key column.
+
+                vals[col.schemaIndex()] = entry.getValue();
+            }
+
+            w.out().packInt(schema.version());
+            w.out().packArrayHeader(vals.length);
+
+            for (var val : vals)
+                w.out().packObject(val);
         }, r -> {
             return null;
-        });
+        }));
     }
 
     /** {@inheritDoc} */

@@ -17,6 +17,9 @@
 
 package org.apache.ignite.client.internal.table;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class ClientSchema {
     /** Schema version. Incremented on each schema modification. */
     private final int ver;
@@ -24,8 +27,38 @@ public class ClientSchema {
     /** Columns. */
     private final ClientColumn[] columns;
 
+    private final Map<String, ClientColumn> keyColumns = new HashMap<>();
+
+    private final Map<String, ClientColumn> valColumns = new HashMap<>();
+
     public ClientSchema(int ver, ClientColumn[] columns) {
+        assert ver >= 0;
+        assert columns != null;
+
         this.ver = ver;
         this.columns = columns;
+
+        for (var col : columns) {
+            if (col.key())
+                keyColumns.put(col.name(), col);
+            else
+                valColumns.put(col.name(), col);
+        }
+    }
+
+    public int version() {
+        return ver;
+    }
+
+    public ClientColumn[] columns() {
+        return columns;
+    }
+
+    public Map<String, ClientColumn> keyColumns() {
+        return keyColumns;
+    }
+
+    public Map<String, ClientColumn> valColumns() {
+        return valColumns;
     }
 }

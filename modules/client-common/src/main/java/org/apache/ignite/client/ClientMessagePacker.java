@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import org.apache.ignite.lang.IgniteException;
 import org.msgpack.core.MessageBufferPacker;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.buffer.ArrayBufferOutput;
@@ -53,5 +54,26 @@ public class ClientMessagePacker extends MessageBufferPacker {
 
     public ClientMessagePacker packDecimal(BigDecimal v) throws IOException {
         throw new IOException("TODO");
+    }
+
+    public ClientMessagePacker packObject(Object val) throws IOException {
+        if (val == null)
+            return (ClientMessagePacker) packNil();
+
+        if (val instanceof Integer)
+            return (ClientMessagePacker) packInt((int) val);
+
+        if (val instanceof String)
+            return (ClientMessagePacker) packString((String) val);
+
+        if (val instanceof byte[]) {
+            byte[] bytes = (byte[]) val;
+            packBinaryHeader(bytes.length);
+            writePayload(bytes);
+
+            return this;
+        }
+
+        throw new IgniteException("TODO: Support all types");
     }
 }

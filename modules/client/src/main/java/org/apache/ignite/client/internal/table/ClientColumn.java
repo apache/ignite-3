@@ -38,4 +38,24 @@ public class ClientColumn {
         this.isKey = isKey;
         this.schemaIndex = schemaIndex;
     }
+
+    public String name() {
+        return name;
+    }
+
+    public String type() {
+        return type;
+    }
+
+    public boolean nullable() {
+        return nullable;
+    }
+
+    public boolean key() {
+        return isKey;
+    }
+
+    public int schemaIndex() {
+        return schemaIndex;
+    }
 }
