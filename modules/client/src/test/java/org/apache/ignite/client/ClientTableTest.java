@@ -40,18 +40,18 @@ public class ClientTableTest extends AbstractClientTest {
     }
 
     @Test
-    public void testPutGet() {
+    public void testInsertGet() {
         Table table = getDefaultTable();
 
         var tuple = table.tupleBuilder()
-                .set("accountNumber", "123")
-                .set("firstName", "John")
+                .set("id", 123)
+                .set("name", "John")
                 .build();
 
         var insertRes = table.insert(tuple);
 
-        Tuple keyTuple = table.tupleBuilder().set("accountNumber", "123").build();
-        var resTuple = table.get(keyTuple);
+        Tuple key = table.tupleBuilder().set("id", 123).build();
+        var resTuple = table.get(key);
 
         assertTrue(insertRes);
         assertEquals(tuple, resTuple);
