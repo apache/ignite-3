@@ -138,11 +138,19 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
 
     private void writeError(int requestId, Throwable err, ChannelHandlerContext ctx) {
         try {
+            assert err != null;
+
             ClientMessagePacker packer = getPacker();
             packer.packInt(ClientMessageType.RESPONSE);
             packer.packInt(requestId);
             packer.packInt(ClientErrorCode.FAILED);
-            packer.packString(err.getMessage());
+
+            String msg = err.getMessage();
+
+            if (msg == null)
+                msg = err.getClass().getName();
+
+            packer.packString(msg);
 
             write(packer, ctx);
         } catch (Throwable t) {
