@@ -21,7 +21,6 @@ import java.util.List;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.IngestExternalFileOptions;
@@ -44,14 +43,14 @@ public class ColumnFamily implements AutoCloseable {
 
     private final Options options;
 
-    public ColumnFamily(RocksDB db, StorageColumnFamilyType family, ColumnFamilyOptions cfOptions, Options options)
+    public ColumnFamily(RocksDB db, ColumnFamilyHandle handle, StorageColumnFamilyType family, ColumnFamilyOptions cfOptions, Options options)
         throws RocksDBException {
         this.db = db;
         this.family = family;
         this.cfOptions = cfOptions;
         this.options = options;
 
-        this.columnFamilyHandle = db.createColumnFamily(new ColumnFamilyDescriptor(family.nameAsBytes(), cfOptions));
+        this.columnFamilyHandle = handle;
     }
 
     /** {@inheritDoc} */

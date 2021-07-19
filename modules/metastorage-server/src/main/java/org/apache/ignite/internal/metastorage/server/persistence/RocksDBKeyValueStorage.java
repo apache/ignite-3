@@ -55,8 +55,10 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
+import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
+import org.rocksdb.DBOptions;
 import org.rocksdb.EnvOptions;
 import org.rocksdb.IngestExternalFileOptions;
 import org.rocksdb.Options;
@@ -113,7 +115,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     }
 
     /** RockDB options. */
-    private final Options options;
+    private final DBOptions options;
 
     /** RocksDb instance. */
     private final RocksDB db;
@@ -153,14 +155,11 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
      */
     public RocksDBKeyValueStorage(Path dbPath) {
         try {
-            options = new Options()
-                .setCreateIfMissing(true)
-                // The prefix is the revision of an entry, so prefix length is the size of a long
-                .useFixedLengthPrefixExtractor(Long.BYTES);
+            options = new DBOptions()
+                .setCreateMissingColumnFamilies(true)
+                .setCreateIfMissing(true);
 
             this.dbPath = dbPath;
-
-            this.db = RocksDB.open(options, dbPath.toAbsolutePath().toString());
 
             Options dataOptions = new Options().setCreateIfMissing(true)
                 // The prefix is the revision of an entry, so prefix length is the size of a long
@@ -168,13 +167,25 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
             ColumnFamilyOptions dataFamilyOptions = new ColumnFamilyOptions(dataOptions);
 
-            data = new ColumnFamily(db, DATA, dataFamilyOptions, dataOptions);
-
             Options indexOptions = new Options().setCreateIfMissing(true);
 
             ColumnFamilyOptions indexFamilyOptions = new ColumnFamilyOptions(indexOptions);
 
-            index = new ColumnFamily(db, INDEX, indexFamilyOptions, indexOptions);
+            List<ColumnFamilyDescriptor> descriptors = Arrays.asList(
+                new ColumnFamilyDescriptor(DATA.nameAsBytes(), dataFamilyOptions),
+                new ColumnFamilyDescriptor(INDEX.nameAsBytes(), indexFamilyOptions)
+            );
+
+            var handles = new ArrayList<ColumnFamilyHandle>();
+
+            // Delete existing data, relying on the raft's snapshot and log playback
+            destroyRocksDB();
+
+            this.db = RocksDB.open(options, dbPath.toAbsolutePath().toString(), descriptors, handles);
+
+            data = new ColumnFamily(db, handles.get(0), DATA, dataFamilyOptions, dataOptions);
+
+            index = new ColumnFamily(db, handles.get(1), INDEX, indexFamilyOptions, indexOptions);
         }
         catch (Exception e) {
             try {
@@ -185,6 +196,17 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
             }
 
             throw new IgniteInternalException("Failed to start the storage", e);
+        }
+    }
+
+    private void destroyRocksDB() throws RocksDBException {
+        // The major difference with directly deleting the DB directory manually is that
+        // DestroyDB() will take care of the case where the RocksDB database is stored
+        // in multiple directories. For instance, a single DB can be configured to store
+        // its data in multiple directories by specifying different paths to
+        // DBOptions::db_paths, DBOptions::db_log_dir, and DBOptions::wal_dir.
+        try (final Options opt = new Options()) {
+            RocksDB.destroyDB(dbPath.toString(), opt);
         }
     }
 
