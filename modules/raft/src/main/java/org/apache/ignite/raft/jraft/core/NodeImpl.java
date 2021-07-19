@@ -1519,7 +1519,7 @@ public class NodeImpl implements Node, RaftServerService {
             .serverId(request.serverId())
             .peerId(request.peerId())
             .entriesList(request.entriesList())
-            .peerId(this.leaderId.toString()) //
+            .peerId(this.leaderId.toString())
             .build();
         this.rpcClientService.readIndex(this.leaderId.getEndpoint(), newRequest, -1, closure);
     }
