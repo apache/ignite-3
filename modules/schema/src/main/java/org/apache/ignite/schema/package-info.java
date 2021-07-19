@@ -16,8 +16,6 @@
  */
 
 /**
- * Contains internal classes for schema definition and row assembling,
- * schema manipulation and schema history maintaning logic,
- * user object marshallers.
+ * Contains public schema definition helpers.
  */
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.schema;
