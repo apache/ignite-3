@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client;
 
+import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -25,15 +27,33 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class ClientTableTest extends AbstractClientTest {
     @Test
     public void testPutGet() {
-        var table = client.tables().createTable("t", t -> t.changeReplicas(0));
+        Table serverTable = server.tables().createTable(DEFAULT_TABLE, tbl -> tbl
+                .changeColumns(cols -> cols
+                        .create("0", c -> c.changeName("accountNumber").changeType(t -> t.changeType("int32")).changeNullable(false))
+                        .create("1", c -> c.changeName("firstName").changeType(t -> t.changeType("string")).changeNullable(true))
+                        .create("2", c -> c.changeName("lastName").changeType(t -> t.changeType("string")).changeNullable(true))
+                        .create("3", c -> c.changeName("balance").changeType(t -> t.changeType("double")).changeNullable(true))
+                )
+                .changeIndices(idxs -> idxs
+                        .create("PK", idx -> idx
+                                .changeName("PK")
+                                .changeType("PK")
+                                .changeColumns(cols -> cols.create("0", c -> c.changeName("accountNumber").changeAsc(true)))
+                        )
+                )
+        );
+
+        var table = client.tables().table(DEFAULT_TABLE);
 
         var tuple = table.tupleBuilder()
-                .set("key", "k")
-                .set("name", "John")
+                .set("accountNumber", "123")
+                .set("firstName", "John")
                 .build();
 
         var insertRes = table.insert(tuple);
-        var resTuple = table.get(table.tupleBuilder().set("key", "k").build());
+
+        Tuple keyTuple = table.tupleBuilder().set("accountNumber", "123").build();
+        var resTuple = table.get(keyTuple);
 
         assertTrue(insertRes);
         assertEquals(tuple, resTuple);
