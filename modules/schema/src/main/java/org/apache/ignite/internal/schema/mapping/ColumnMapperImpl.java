@@ -20,11 +20,12 @@ package org.apache.ignite.internal.schema.mapping;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Column mapper implementation.
  */
-class ColumnMapperImpl implements ColumnMapper, ColumnMapperBuilder {
+class ColumnMapperImpl implements ColumnMapper {
     /** Mapping. */
     private final int[] mapping;
 
@@ -38,25 +39,32 @@ class ColumnMapperImpl implements ColumnMapper, ColumnMapperBuilder {
         mapping = new int[schema.length()];
         cols = new Column[schema.length()];
 
-        for (int i = 0; i < mapping.length; i++) {
+        for (int i = 0; i < mapping.length; i++)
             mapping[i] = i;
-            cols[i] = schema.column(i);
-        }
     }
 
     /** {@inheritDoc} */
     @Override public ColumnMapperImpl add(@NotNull Column col) {
-        add(col.schemaIndex(), -1, col);
+        add0(col.schemaIndex(), -1, col);
 
         return this;
     }
 
     /** {@inheritDoc} */
-    @Override public ColumnMapperImpl add(int from, int to, Column col) {
-        mapping[from] = to;
-        cols[from] = col;
+    @Override public ColumnMapperImpl add(int from, int to) {
+        add0(from, to, null);
 
         return this;
+    }
+
+    /**
+     * @param from Source column index.
+     * @param to Target column index.
+     * @param col Target column descriptor.
+     */
+    void add0(int from, int to, @Nullable Column col) {
+        mapping[from] = to;
+        cols[from] = col;
     }
 
     /** {@inheritDoc} */
@@ -67,10 +75,5 @@ class ColumnMapperImpl implements ColumnMapper, ColumnMapperBuilder {
     /** {@inheritDoc} */
     @Override public Column mappedColumn(int idx) {
         return idx < cols.length ? cols[idx] : null;
-    }
-
-    /** {@inheritDoc} */
-    @Override public ColumnMapper build() {
-        return this;
     }
 }

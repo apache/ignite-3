@@ -19,11 +19,29 @@ package org.apache.ignite.internal.schema.mapping;
 
 import java.io.Serializable;
 import org.apache.ignite.internal.schema.Column;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Column mapper interface.
  */
 public interface ColumnMapper extends Serializable {
+    /**
+     * Add new column.
+     *
+     * @param col Column descriptor.
+     * @return {@code this} for chaining.
+     */
+    public ColumnMapper add(@NotNull Column col);
+
+    /**
+     * Remap column with new index.
+     *
+     * @param from Source column index.
+     * @param to Target column index.
+     * @return {@code this} for chaining.
+     */
+    public ColumnMapper add(int from, int to);
+
     /**
      * Map column idx in source schema to column idx in target schema.
      *
@@ -33,10 +51,11 @@ public interface ColumnMapper extends Serializable {
     int map(int idx);
 
     /**
-     * Column descriptor for given column idx.
+     * Returns a column descriptor with proper default for the given column idx
+     * if column doesn't exists in target schema ({@link #map(int)} returns {@code -1}).
      *
      * @param idx Column index in source schema.
-     * @return Column descriptor.
+     * @return Column descriptor or {@code null}.
      */
     Column mappedColumn(int idx);
 }

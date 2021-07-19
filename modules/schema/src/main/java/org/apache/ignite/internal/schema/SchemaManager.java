@@ -44,7 +44,6 @@ import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
-import org.apache.ignite.internal.schema.mapping.ColumnMapperBuilder;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
@@ -258,7 +257,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         TableView oldTbl,
         SchemaDescriptor newDesc,
         TableView newTbl) {
-        ColumnMapperBuilder mapper = null;
+        ColumnMapper mapper = null;
 
         for (String s : newTbl.columns().namedListKeys()) {
             final ColumnView newColView = newTbl.columns().get(s);
@@ -270,7 +269,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                 assert !newDesc.isKeyColumn(newCol.schemaIndex());
 
                 if (mapper == null)
-                    mapper = ColumnMapping.mapperBuilder(newDesc);
+                    mapper = ColumnMapping.createMapper(newDesc);
 
                 mapper.add(newCol); // New column added.
             }
@@ -285,9 +284,9 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                     continue;
 
                 if (mapper == null)
-                    mapper = ColumnMapping.mapperBuilder(newDesc);
+                    mapper = ColumnMapping.createMapper(newDesc);
 
-                mapper.add(newCol.schemaIndex(), oldCol.schemaIndex(), null);
+                mapper.add(newCol.schemaIndex(), oldCol.schemaIndex());
             }
         }
 
@@ -300,7 +299,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         if (droppedKeyCol.isPresent())
             throw new SchemaModificationException("Dropping of key column is forbidden: [schemaVer=" + newDesc.version() + ", col=" + droppedKeyCol.get());
 
-        return mapper == null ? ColumnMapping.identityMapping() : mapper.build();
+        return mapper == null ? ColumnMapping.identityMapping() : mapper;
     }
 
     /**

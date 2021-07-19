@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.INT64;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
-import static org.apache.ignite.internal.schema.mapping.ColumnMapping.mapperBuilder;
+import static org.apache.ignite.internal.schema.mapping.ColumnMapping.createMapper;
 import static org.apache.ignite.internal.schema.registry.SchemaRegistryImpl.INITIAL_SCHEMA_VERSION;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -541,7 +541,7 @@ public class SchemaRegistryImplTest {
                 new Column("valStringCol", STRING, true)
             });
 
-        schemaV2.columnMapping(mapperBuilder(schemaV2).add(schemaV2.column("valStringCol")).build());
+        schemaV2.columnMapping(createMapper(schemaV2).add(schemaV2.column("valStringCol")));
 
         final SchemaDescriptor schemaV3 = new SchemaDescriptor(tableId, 3,
             new Column[]{new Column("keyLongCol", INT64, true)},
@@ -549,10 +549,9 @@ public class SchemaRegistryImplTest {
                 new Column("valStringCol", STRING, true)
             });
 
-        schemaV3.columnMapping(mapperBuilder(schemaV3).add(
+        schemaV3.columnMapping(createMapper(schemaV3).add(
             schemaV3.column("valStringCol").schemaIndex(),
-            schemaV2.column("valStringCol").schemaIndex(),
-            null).build()
+            schemaV2.column("valStringCol").schemaIndex())
         );
 
         final SchemaDescriptor schemaV4 = new SchemaDescriptor(tableId, 4,
@@ -562,7 +561,7 @@ public class SchemaRegistryImplTest {
                 new Column("valStringCol", STRING, true)
             });
 
-        schemaV4.columnMapping(mapperBuilder(schemaV4).add(schemaV4.column("valBytesCol")).build());
+        schemaV4.columnMapping(createMapper(schemaV4).add(schemaV4.column("valBytesCol")));
 
         final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null);
 

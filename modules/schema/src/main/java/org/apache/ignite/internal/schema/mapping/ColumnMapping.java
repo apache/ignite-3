@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema.mapping;
 import java.io.Serializable;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Column mapping helper.
@@ -39,7 +40,7 @@ public class ColumnMapping {
      * @param schema Schema descriptor.
      * @return Column mapper builder.
      */
-    public static ColumnMapperBuilder mapperBuilder(SchemaDescriptor schema) {
+    public static ColumnMapper createMapper(SchemaDescriptor schema) {
         return new ColumnMapperImpl(schema);
     }
 
@@ -52,7 +53,7 @@ public class ColumnMapping {
      * @return Merged column mapper.
      */
     public static ColumnMapper mergeMapping(ColumnMapper mapping, SchemaDescriptor schema) {
-        ColumnMapperBuilder builder = mapperBuilder(schema);
+        ColumnMapperImpl newMapper = new ColumnMapperImpl(schema);
 
         ColumnMapper schemaMapper = schema.columnMapping();
 
@@ -60,12 +61,12 @@ public class ColumnMapping {
             int idx = schemaMapper.map(i);
 
             if (idx < 0)
-                builder.add(schema.column(i));
+                newMapper.add(schema.column(i));
             else
-                builder.add(i, mapping.map(idx), mapping.mappedColumn(idx));
+                newMapper.add0(i, mapping.map(idx), mapping.mappedColumn(idx)); // Remap.
         }
 
-        return builder.build();
+        return newMapper;
     }
 
     /**
@@ -78,6 +79,16 @@ public class ColumnMapping {
      * Identity column mapper.
      */
     private static class IdentityMapper implements ColumnMapper, Serializable {
+        /** {@inheritDoc} */
+        @Override public ColumnMapper add(@NotNull Column col) {
+            throw new IllegalStateException("Immutable identity column mapper.");
+        }
+
+        /** {@inheritDoc} */
+        @Override public ColumnMapper add(int from, int to) {
+            throw new IllegalStateException("Immutable identity column mapper.");
+        }
+
         /** {@inheritDoc} */
         @Override public int map(int idx) {
             return idx;
