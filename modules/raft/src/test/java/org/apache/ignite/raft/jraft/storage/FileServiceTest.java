@@ -146,9 +146,9 @@ public class FileServiceTest {
         while (true) {
             final RpcRequests.GetFileRequest request = msgFactory.getFileRequest()
                 .count(4096)
-                .filename("data") //
-                .offset(fileOffset) //
-                .readerId(readerId) //
+                .filename("data")
+                .offset(fileOffset)
+                .readerId(readerId)
                 .build();
             final RpcContext asyncContext = Mockito.mock(RpcContext.class);
 

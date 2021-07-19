@@ -109,7 +109,7 @@ public class CliServiceImpl implements CliService {
             return new Status(-1, "Fail to init channel to leader %s", leaderId);
         }
 
-        AddPeerRequest rb = cliOptions.getRaftMessagesFactory()
+        AddPeerRequest req = cliOptions.getRaftMessagesFactory()
             .addPeerRequest()
             .groupId(groupId)
             .leaderId(leaderId.toString())
@@ -117,7 +117,7 @@ public class CliServiceImpl implements CliService {
             .build();
 
         try {
-            final Message result = this.cliClientService.addPeer(leaderId.getEndpoint(), rb, null).get();
+            final Message result = this.cliClientService.addPeer(leaderId.getEndpoint(), req, null).get();
             if (result instanceof AddPeerResponse) {
                 final AddPeerResponse resp = (AddPeerResponse) result;
                 final Configuration oldConf = new Configuration();
@@ -168,7 +168,7 @@ public class CliServiceImpl implements CliService {
             return new Status(-1, "Fail to init channel to leader %s", leaderId);
         }
 
-        RemovePeerRequest rb = cliOptions.getRaftMessagesFactory()
+        RemovePeerRequest req = cliOptions.getRaftMessagesFactory()
             .removePeerRequest()
             .groupId(groupId)
             .leaderId(leaderId.toString())
@@ -176,7 +176,7 @@ public class CliServiceImpl implements CliService {
             .build();
 
         try {
-            final Message result = this.cliClientService.removePeer(leaderId.getEndpoint(), rb, null).get();
+            final Message result = this.cliClientService.removePeer(leaderId.getEndpoint(), req, null).get();
             if (result instanceof RemovePeerResponse) {
                 final RemovePeerResponse resp = (RemovePeerResponse) result;
                 final Configuration oldConf = new Configuration();
@@ -222,7 +222,7 @@ public class CliServiceImpl implements CliService {
             return new Status(-1, "Fail to init channel to leader %s", leaderId);
         }
 
-        ChangePeersRequest rb = cliOptions.getRaftMessagesFactory()
+        ChangePeersRequest req = cliOptions.getRaftMessagesFactory()
             .changePeersRequest()
             .groupId(groupId)
             .leaderId(leaderId.toString())
@@ -230,7 +230,7 @@ public class CliServiceImpl implements CliService {
             .build();
 
         try {
-            final Message result = this.cliClientService.changePeers(leaderId.getEndpoint(), rb, null).get();
+            final Message result = this.cliClientService.changePeers(leaderId.getEndpoint(), req, null).get();
             if (result instanceof ChangePeersResponse) {
                 final ChangePeersResponse resp = (ChangePeersResponse) result;
                 final Configuration oldConf = new Configuration();
@@ -269,7 +269,7 @@ public class CliServiceImpl implements CliService {
             return new Status(-1, "Fail to init channel to %s", peerId);
         }
 
-        ResetPeerRequest rb = cliOptions.getRaftMessagesFactory()
+        ResetPeerRequest req = cliOptions.getRaftMessagesFactory()
             .resetPeerRequest()
             .groupId(groupId)
             .peerId(peerId.toString())
@@ -277,7 +277,7 @@ public class CliServiceImpl implements CliService {
             .build();
 
         try {
-            final Message result = this.cliClientService.resetPeer(peerId.getEndpoint(), rb, null).get();
+            final Message result = this.cliClientService.resetPeer(peerId.getEndpoint(), req, null).get();
             return statusFromResponse(result);
         }
         catch (final Exception e) {
@@ -307,7 +307,7 @@ public class CliServiceImpl implements CliService {
 
         AddLearnersRequest rb = cliOptions.getRaftMessagesFactory()
             .addLearnersRequest()
-            .groupId(groupId) //
+            .groupId(groupId)
             .leaderId(leaderId.toString())
             .learnersList(learners.stream().map(Object::toString).collect(toList()))
             .build();
@@ -369,15 +369,15 @@ public class CliServiceImpl implements CliService {
             return new Status(-1, "Fail to init channel to leader %s", leaderId);
         }
 
-        RemoveLearnersRequest rb = cliOptions.getRaftMessagesFactory()
+        RemoveLearnersRequest req = cliOptions.getRaftMessagesFactory()
             .removeLearnersRequest()
-            .groupId(groupId) //
+            .groupId(groupId)
             .leaderId(leaderId.toString())
             .learnersList(learners.stream().map(Object::toString).collect(toList()))
             .build();
 
         try {
-            final Message result = this.cliClientService.removeLearners(leaderId.getEndpoint(), rb, null).get();
+            final Message result = this.cliClientService.removeLearners(leaderId.getEndpoint(), req, null).get();
             return processLearnersOpResponse(groupId, result, "removing learners: %s", learners);
 
         }
@@ -400,7 +400,7 @@ public class CliServiceImpl implements CliService {
             return new Status(-1, "Fail to init channel to leader %s", leaderId);
         }
 
-        ResetLearnersRequest rb = cliOptions.getRaftMessagesFactory()
+        ResetLearnersRequest req = cliOptions.getRaftMessagesFactory()
             .resetLearnersRequest()
             .groupId(groupId)
             .leaderId(leaderId.toString())
@@ -408,7 +408,7 @@ public class CliServiceImpl implements CliService {
             .build();
 
         try {
-            final Message result = this.cliClientService.resetLearners(leaderId.getEndpoint(), rb, null).get();
+            final Message result = this.cliClientService.resetLearners(leaderId.getEndpoint(), req, null).get();
             return processLearnersOpResponse(groupId, result, "resetting learners: %s", learners);
 
         }
@@ -435,7 +435,7 @@ public class CliServiceImpl implements CliService {
 
         TransferLeaderRequest rb = cliOptions.getRaftMessagesFactory()
             .transferLeaderRequest()
-            .groupId(groupId) //
+            .groupId(groupId)
             .leaderId(leaderId.toString())
             .peerId(peer.isEmpty() ? null : peer.toString())
             .build();
@@ -458,14 +458,14 @@ public class CliServiceImpl implements CliService {
             return new Status(-1, "Fail to init channel to %s", peer);
         }
 
-        SnapshotRequest rb = cliOptions.getRaftMessagesFactory()
+        SnapshotRequest req = cliOptions.getRaftMessagesFactory()
             .snapshotRequest()
             .groupId(groupId)
             .peerId(peer.toString())
             .build();
 
         try {
-            final Message result = this.cliClientService.snapshot(peer.getEndpoint(), rb, null).get();
+            final Message result = this.cliClientService.snapshot(peer.getEndpoint(), req, null).get();
             return statusFromResponse(result);
         }
         catch (final Exception e) {
@@ -651,7 +651,7 @@ public class CliServiceImpl implements CliService {
             throw new IllegalStateException("Fail to init channel to leader " + leaderId);
         }
 
-        GetPeersRequest rb = cliOptions.getRaftMessagesFactory()
+        GetPeersRequest req = cliOptions.getRaftMessagesFactory()
             .getPeersRequest()
             .groupId(groupId)
             .leaderId(leaderId.toString())
@@ -659,7 +659,7 @@ public class CliServiceImpl implements CliService {
             .build();
 
         try {
-            final Message result = this.cliClientService.getPeers(leaderId.getEndpoint(), rb, null).get(
+            final Message result = this.cliClientService.getPeers(leaderId.getEndpoint(), req, null).get(
                 this.cliOptions.getTimeoutMs() <= 0 ? this.cliOptions.getRpcDefaultTimeout()
                     : this.cliOptions.getTimeoutMs(), TimeUnit.MILLISECONDS);
             if (result instanceof GetPeersResponse) {
