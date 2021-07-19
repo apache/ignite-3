@@ -248,6 +248,9 @@ public class MetaStorageListener implements RaftGroupListener {
 
                 CursorMeta cursorDesc = cursors.get(cursorNextCmd.cursorId());
 
+                // In real life we should never get here, cause it's only possible to get null if we try to retrieve
+                // next element for a cursor of a node that has already left topology.
+                // However testing with such an approach is much easier and we still respect the cursor's contract.
                 if (cursorDesc == null) {
                     clo.result(new NoSuchElementException());
 
@@ -282,6 +285,9 @@ public class MetaStorageListener implements RaftGroupListener {
 
                 CursorMeta cursorDesc = cursors.get(cursorCloseCmd.cursorId());
 
+                // In real life we should never get here, cause it's only possible to get null if we try to retrieve
+                // next element for a cursor of a node that has already left topology.
+                // However testing with such an approach is much easier and we still respect the cursor's contract.
                 if (cursorDesc == null) {
                     clo.result(null);
 
