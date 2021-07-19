@@ -239,12 +239,12 @@ public class AppendEntriesBenchmark {
     }
 
     private static void fillCommonFields(final AppendEntriesRequestBuilder rb) {
-        rb.term(1) //
-            .groupId("1") //
-            .serverId("test") //
-            .peerId("127.0.0.1:8080") //
-            .prevLogIndex(2) //
-            .prevLogTerm(3) //
+        rb.term(1)
+            .groupId("1")
+            .serverId("test")
+            .peerId("127.0.0.1:8080")
+            .prevLogIndex(2)
+            .prevLogTerm(3)
             .committedIndex(4);
     }
 }
