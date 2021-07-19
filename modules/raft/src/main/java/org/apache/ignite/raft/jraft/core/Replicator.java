@@ -1645,7 +1645,7 @@ public class Replicator implements ThreadId.OnError {
     }
 
     private void sendTimeoutNow(final boolean unlockId, final boolean stopAfterFinish, final int timeoutMs) {
-        TimeoutNowRequest rb = raftOptions.getRaftMessagesFactory()
+        TimeoutNowRequest req = raftOptions.getRaftMessagesFactory()
             .timeoutNowRequest()
             .term(options.getTerm())
             .groupId(options.getGroupId())
@@ -1657,11 +1657,11 @@ public class Replicator implements ThreadId.OnError {
             if (!stopAfterFinish) {
                 // This RPC is issued by transfer_leadership, save this call_id so that
                 // the RPC can be cancelled by stop.
-                this.timeoutNowInFly = timeoutNow(rb, false, timeoutMs);
+                this.timeoutNowInFly = timeoutNow(req, false, timeoutMs);
                 this.timeoutNowIndex = 0;
             }
             else {
-                timeoutNow(rb, true, timeoutMs);
+                timeoutNow(req, true, timeoutMs);
             }
         }
         finally {

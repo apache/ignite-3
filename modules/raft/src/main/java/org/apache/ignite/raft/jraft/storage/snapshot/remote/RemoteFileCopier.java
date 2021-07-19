@@ -153,7 +153,7 @@ public class RemoteFileCopier {
     private CopySession newCopySession(final String source) {
         final GetFileRequestBuilder reqBuilder = raftOptions.getRaftMessagesFactory()
             .getFileRequest()
-            .filename(source) //
+            .filename(source)
             .readerId(this.readId);
         return new CopySession(this.rpcService, this.timerManager, this.snapshotThrottle, this.raftOptions, this.nodeOptions, reqBuilder,
             this.endpoint);

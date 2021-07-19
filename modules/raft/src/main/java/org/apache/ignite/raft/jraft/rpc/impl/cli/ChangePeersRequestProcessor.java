@@ -72,12 +72,12 @@ public class ChangePeersRequestProcessor extends BaseCliRequestProcessor<ChangeP
                 done.run(status);
             }
             else {
-                ChangePeersResponse rb = msgFactory().changePeersResponse()
+                ChangePeersResponse req = msgFactory().changePeersResponse()
                     .oldPeersList(oldConf.stream().map(Object::toString).collect(toList()))
                     .newPeersList(conf.getPeers().stream().map(Object::toString).collect(toList()))
                     .build();
 
-                done.sendResponse(rb);
+                done.sendResponse(req);
             }
         });
         return null;

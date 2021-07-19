@@ -84,12 +84,12 @@ public class AddLearnersRequestProcessor extends BaseCliRequestProcessor<AddLear
                     }
                 }
 
-                LearnersOpResponse rb = msgFactory().learnersOpResponse()
+                LearnersOpResponse req = msgFactory().learnersOpResponse()
                     .oldLearnersList(oldLearnersList)
                     .newLearnersList(newLearnersList)
                     .build();
 
-                done.sendResponse(rb);
+                done.sendResponse(req);
             }
         });
 

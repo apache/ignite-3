@@ -1531,7 +1531,7 @@ public class NodeImpl implements Node, RaftServerService {
         if (quorum <= 1) {
             // Only one peer, fast path.
             respBuilder
-                .success(true) //
+                .success(true)
                 .index(this.ballotBox.getLastCommittedIndex());
             closure.setResponse(respBuilder.build());
             closure.run(Status.OK());
@@ -1695,8 +1695,8 @@ public class NodeImpl implements Node, RaftServerService {
 
             return raftOptions.getRaftMessagesFactory()
                 .requestVoteResponse()
-                .term(this.currTerm) //
-                .granted(granted) //
+                .term(this.currTerm)
+                .granted(granted)
                 .build();
         }
         finally {
@@ -1799,8 +1799,8 @@ public class NodeImpl implements Node, RaftServerService {
 
             return raftOptions.getRaftMessagesFactory()
                 .requestVoteResponse()
-                .term(this.currTerm) //
-                .granted(request.term() == this.currTerm && candidateId.equals(this.votedId)) //
+                .term(this.currTerm)
+                .granted(request.term() == this.currTerm && candidateId.equals(this.votedId))
                 .build();
         }
         finally {
@@ -1907,8 +1907,8 @@ public class NodeImpl implements Node, RaftServerService {
                     request.serverId(), request.term(), this.currTerm);
                 return raftOptions.getRaftMessagesFactory()
                     .appendEntriesResponse()
-                    .success(false) //
-                    .term(this.currTerm) //
+                    .success(false)
+                    .term(this.currTerm)
                     .build();
             }
 
@@ -1950,9 +1950,9 @@ public class NodeImpl implements Node, RaftServerService {
 
                 return raftOptions.getRaftMessagesFactory()
                     .appendEntriesResponse()
-                    .success(false) //
-                    .term(this.currTerm) //
-                    .lastLogIndex(lastLogIndex) //
+                    .success(false)
+                    .term(this.currTerm)
+                    .lastLogIndex(lastLogIndex)
                     .build();
             }
 
@@ -1960,8 +1960,8 @@ public class NodeImpl implements Node, RaftServerService {
                 // heartbeat or probe request
                 final AppendEntriesResponseBuilder respBuilder = raftOptions.getRaftMessagesFactory()
                     .appendEntriesResponse()
-                    .success(true) //
-                    .term(this.currTerm) //
+                    .success(true)
+                    .term(this.currTerm)
                     .lastLogIndex(this.logManager.getLastLogIndex());
                 doUnlock = false;
                 this.writeLock.unlock();
@@ -2695,12 +2695,12 @@ public class NodeImpl implements Node, RaftServerService {
                 done.request = raftOptions.getRaftMessagesFactory()
                     .requestVoteRequest()
                     .preVote(true) // it's a pre-vote request.
-                    .groupId(this.groupId) //
-                    .serverId(this.serverId.toString()) //
-                    .peerId(peer.toString()) //
+                    .groupId(this.groupId)
+                    .serverId(this.serverId.toString())
+                    .peerId(peer.toString())
                     .term(this.currTerm + 1) // next term
-                    .lastLogIndex(lastLogId.getIndex()) //
-                    .lastLogTerm(lastLogId.getTerm()) //
+                    .lastLogIndex(lastLogId.getIndex())
+                    .lastLogTerm(lastLogId.getTerm())
                     .build();
                 this.rpcClientService.preVote(peer.getEndpoint(), done.request, done);
             }
@@ -3262,8 +3262,8 @@ public class NodeImpl implements Node, RaftServerService {
                     getNodeId(), request.peerId(), savedCurrTerm, request.term());
                 return raftOptions.getRaftMessagesFactory()
                     .timeoutNowResponse()
-                    .term(this.currTerm) //
-                    .success(false) //
+                    .term(this.currTerm)
+                    .success(false)
                     .build();
             }
             if (this.state != State.STATE_FOLLOWER) {
@@ -3271,8 +3271,8 @@ public class NodeImpl implements Node, RaftServerService {
                     request.serverId(), this.state, this.currTerm);
                 return raftOptions.getRaftMessagesFactory()
                     .timeoutNowResponse()
-                    .term(this.currTerm) //
-                    .success(false) //
+                    .term(this.currTerm)
+                    .success(false)
                     .build();
             }
 

@@ -76,12 +76,12 @@ public class AddPeerRequestProcessor extends BaseCliRequestProcessor<AddPeerRequ
                         newPeersList.add(addingPeerIdStr);
                     }
 
-                    AddPeerResponse rb = msgFactory().addPeerResponse()
+                    AddPeerResponse req = msgFactory().addPeerResponse()
                         .newPeersList(newPeersList)
                         .oldPeersList(oldPeersList)
                         .build();
 
-                    done.sendResponse(rb);
+                    done.sendResponse(req);
                 }
             });
         }

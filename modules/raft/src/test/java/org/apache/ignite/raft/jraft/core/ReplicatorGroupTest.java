@@ -281,14 +281,14 @@ public class ReplicatorGroupTest {
     private RpcRequests.AppendEntriesRequest createEmptyEntriesRequestToPeer(final PeerId peerId) {
         return raftOptions.getRaftMessagesFactory()
             .appendEntriesRequest()
-            .groupId("test") //
-            .serverId(new PeerId("localhost", 8081).toString()) //
-            .peerId(peerId.toString()) //
-            .term(1) //
-            .prevLogIndex(10) //
-            .prevLogTerm(1) //
-            .committedIndex(0) //
-            .data(ByteString.EMPTY) //
+            .groupId("test")
+            .serverId(new PeerId("localhost", 8081).toString())
+            .peerId(peerId.toString())
+            .term(1)
+            .prevLogIndex(10)
+            .prevLogTerm(1)
+            .committedIndex(0)
+            .data(ByteString.EMPTY)
             .build();
     }
 }

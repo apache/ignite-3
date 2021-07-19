@@ -206,7 +206,7 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
 
         ReadIndexRequestBuilder rb = raftOptions.getRaftMessagesFactory()
             .readIndexRequest()
-            .groupId(this.node.getGroupId()) //
+            .groupId(this.node.getGroupId())
             .serverId(this.node.getServerId().toString());
 
         List<ReadIndexState> states = new ArrayList<>(events.size());
