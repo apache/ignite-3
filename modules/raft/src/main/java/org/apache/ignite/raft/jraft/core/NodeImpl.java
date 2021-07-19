@@ -1514,7 +1514,7 @@ public class NodeImpl implements Node, RaftServerService {
         }
         // send request to leader.
         final ReadIndexRequest newRequest = raftOptions.getRaftMessagesFactory()
-            .readIndexRequest() //
+            .readIndexRequest()
             .groupId(request.groupId())
             .serverId(request.serverId())
             .peerId(request.peerId())
