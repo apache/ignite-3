@@ -40,7 +40,7 @@ public class ClientTableTest extends AbstractClientTest {
     }
 
     @Test
-    public void testInsertGet() {
+    public void testUpsertGet() {
         Table table = getDefaultTable();
 
         var tuple = table.tupleBuilder()
@@ -48,12 +48,11 @@ public class ClientTableTest extends AbstractClientTest {
                 .set("name", "John")
                 .build();
 
-        var insertRes = table.insert(tuple);
+        table.upsert(tuple);
 
         Tuple key = table.tupleBuilder().set("id", 123).build();
         var resTuple = table.get(key);
 
-        assertTrue(insertRes);
         assertEquals(tuple, resTuple);
     }
 

@@ -35,6 +35,7 @@ import org.apache.ignite.table.mapper.ValueMapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.msgpack.core.MessageFormat;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -139,6 +140,12 @@ public class ClientTable implements Table {
             for (var val : vals)
                 w.out().packObject(val);
         }, r -> {
+            if (r.in().getNextFormat() == MessageFormat.NIL)
+                return null;
+
+            var schemaId = r.in().unpackInt();
+
+            // TODO: Request schema if necessary, unpack values accordingly.
             return null;
         }));
     }
@@ -155,12 +162,12 @@ public class ClientTable implements Table {
 
     /** {@inheritDoc} */
     @Override public void upsert(@NotNull Tuple rec) {
-
+        upsertAsync(rec).join();
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> upsertAsync(@NotNull Tuple rec) {
-        return null;
+        return CompletableFuture.completedFuture(null);
     }
 
     /** {@inheritDoc} */

@@ -297,6 +297,12 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
 
     private void writeTuple(ClientMessagePacker packer, Tuple tuple) {
         try {
+            if (tuple == null) {
+                packer.packNil();
+
+                return;
+            }
+
             var schema = ((SchemaAware) tuple).schema();
 
             packer.packInt(schema.version());

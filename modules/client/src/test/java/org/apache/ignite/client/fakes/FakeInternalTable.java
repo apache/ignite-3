@@ -7,14 +7,18 @@ import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class FakeInternalTable implements InternalTable {
     private final String tableName;
 
     private final UUID tableId;
+
+    private final ConcurrentHashMap<ByteBuffer, BinaryRow> data = new ConcurrentHashMap<>();
 
     public FakeInternalTable(String tableName, UUID tableId) {
         this.tableName = tableName;
@@ -38,7 +42,7 @@ public class FakeInternalTable implements InternalTable {
     }
 
     @Override public CompletableFuture<BinaryRow> get(BinaryRow keyRow, @Nullable Transaction tx) {
-        return null;
+        return CompletableFuture.completedFuture(data.get(keyRow.keySlice()));
     }
 
     @Override public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows, @Nullable Transaction tx) {
@@ -46,7 +50,9 @@ public class FakeInternalTable implements InternalTable {
     }
 
     @Override public CompletableFuture<Void> upsert(BinaryRow row, @Nullable Transaction tx) {
-        return null;
+        data.put(row.keySlice(), row);
+
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override public CompletableFuture<Void> upsertAll(Collection<BinaryRow> rows, @Nullable Transaction tx) {
