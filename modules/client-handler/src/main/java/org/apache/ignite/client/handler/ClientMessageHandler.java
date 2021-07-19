@@ -29,9 +29,9 @@ import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TupleBuilderImpl;
-import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -348,7 +348,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
 
     private TableImpl readTable(ClientMessageUnpacker unpacker) throws IOException {
         var tableId = unpacker.unpackUuid();
-        return ((TableManager)ignite.tables()).table(tableId, true);
+        return ((IgniteTablesInternal)ignite.tables()).table(tableId, true);
     }
 
     private void readAndSetColumnValue(ClientMessageUnpacker unpacker, TupleBuilderImpl builder, Column col)

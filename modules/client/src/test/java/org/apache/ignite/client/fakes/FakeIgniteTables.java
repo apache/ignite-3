@@ -19,6 +19,7 @@ package org.apache.ignite.client.fakes;
 
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
+import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
@@ -31,10 +32,12 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
-public class FakeIgniteTables implements IgniteTables {
+public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
     public static final String TABLE_EXISTS = "Table exists";
 
-    private final ConcurrentHashMap<String, Table> tables = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, TableImpl> tables = new ConcurrentHashMap<>();
+
+    private final ConcurrentHashMap<UUID, TableImpl> tablesById = new ConcurrentHashMap<>();
 
     @Override public Table createTable(String name, Consumer<TableChange> tableInitChange) {
         var newTable = getNewTable(name);
@@ -43,6 +46,8 @@ public class FakeIgniteTables implements IgniteTables {
 
         if (oldTable != null)
             throw new IgniteException(TABLE_EXISTS);
+
+        tablesById.put(newTable.tableId(), newTable);
 
         return newTable;
     }
@@ -56,11 +61,19 @@ public class FakeIgniteTables implements IgniteTables {
 
         var oldTable = tables.putIfAbsent(name, newTable);
 
-        return oldTable != null ? oldTable : newTable;
+        if (oldTable != null)
+            return oldTable;
+
+        tablesById.put(newTable.tableId(), newTable);
+
+        return newTable;
     }
 
     @Override public void dropTable(String name) {
-        tables.remove(name);
+        var table = tables.remove(name);
+
+        if (table != null)
+            tablesById.remove(table.tableId());
     }
 
     @Override public List<Table> tables() {
@@ -71,7 +84,11 @@ public class FakeIgniteTables implements IgniteTables {
         return tables.get(name);
     }
 
-    @NotNull private Table getNewTable(String name) {
+    @NotNull private TableImpl getNewTable(String name) {
         return new TableImpl(new FakeInternalTable(name, UUID.randomUUID()), new SchemaRegistryImpl(v -> null), null, null);
+    }
+
+    @Override public TableImpl table(UUID id, boolean checkConfiguration) {
+        return tablesById.get(id);
     }
 }
