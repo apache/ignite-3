@@ -163,8 +163,8 @@ public class AbstractClientServiceTest {
         final ArgumentCaptor<InvokeCallback> callbackArg = ArgumentCaptor.forClass(InvokeCallback.class);
         final CliRequests.GetPeersRequest request = rpcOptions.getRaftMessagesFactory()
             .getPeersRequest()
-            .groupId("id") //
-            .leaderId("127.0.0.1:8001") //
+            .groupId("id")
+            .leaderId("127.0.0.1:8001")
             .build();
 
         MockRpcResponseClosure<ErrorResponse> done = new MockRpcResponseClosure<>();
