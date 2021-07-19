@@ -15,14 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema;
-
 /**
- * Schema object.
+ * Contains table schema definition interfaces and classes.
  */
-public interface SchemaObject {
-    /**
-     * @return Schema object name.
-     */
-    String name();
-}
+package org.apache.ignite.schema;
