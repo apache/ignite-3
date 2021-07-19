@@ -17,10 +17,17 @@
 
 package org.apache.ignite.internal.tx;
 
-import org.apache.ignite.lang.IgniteInternalException;
-
 /**
- * This exception is thrown when lock cannot be acquired due to wrong locking order.
+ * The waiter.
  */
-public class LockOrderException extends IgniteInternalException {
+public interface Waiter {
+    /**
+     * @return Associated timestamp.
+     */
+    Timestamp timestamp();
+
+    /**
+     * @return {@code True} if the waiter holds the lock.
+     */
+    boolean locked();
 }
