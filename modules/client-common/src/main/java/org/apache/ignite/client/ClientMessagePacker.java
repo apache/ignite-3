@@ -74,6 +74,7 @@ public class ClientMessagePacker extends MessageBufferPacker {
             return this;
         }
 
-        throw new IgniteException("TODO: Support all types");
+        // TODO: Support all basic types.
+        throw new IgniteException("Unsupported type, can't serialize: " + val.getClass());
     }
 }

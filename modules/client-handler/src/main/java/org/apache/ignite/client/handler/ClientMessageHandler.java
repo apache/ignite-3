@@ -353,6 +353,8 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
 
     private void readAndSetColumnValue(ClientMessageUnpacker unpacker, TupleBuilderImpl builder, Column col)
             throws IOException {
+
+        // TODO: Use unpacker.unpackObject()
         switch (col.type().spec()) {
             case INT8:
                 builder.set(col, unpacker.unpackByte());
@@ -409,6 +411,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
             return;
         }
 
+        // TODO: Use packer.packObject();
         switch (col.type().spec()) {
             case INT8:
                 packer.packByte((byte) val);
