@@ -1,4 +1,4 @@
-package org.apache.ignite.client.internal;
+package org.apache.ignite.client.internal.table;
 
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.table.Tuple;

@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.internal;
+package org.apache.ignite.client.internal.table;
 
 import org.apache.ignite.client.ClientOp;
+import org.apache.ignite.client.internal.ReliableChannel;
+import org.apache.ignite.client.internal.table.ClientTable;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -30,11 +32,11 @@ import java.util.function.Consumer;
 /**
  *
  */
-public class IgniteClientTables implements IgniteTables {
+public class ClientTables implements IgniteTables {
     /** */
     private final ReliableChannel ch;
 
-    public IgniteClientTables(ReliableChannel ch) {
+    public ClientTables(ReliableChannel ch) {
         this.ch = ch;
     }
 

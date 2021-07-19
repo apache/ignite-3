@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.internal;
+package org.apache.ignite.client.internal.table;
 
 import org.apache.ignite.client.ClientMessageUnpacker;
 import org.apache.ignite.client.ClientOp;
+import org.apache.ignite.client.internal.ReliableChannel;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;

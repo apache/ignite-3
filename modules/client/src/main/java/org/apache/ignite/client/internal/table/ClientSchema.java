@@ -15,27 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.internal;
+package org.apache.ignite.client.internal.table;
 
-public class ClientColumn {
-    private final String name;
+public class ClientSchema {
+    /** Schema version. Incremented on each schema modification. */
+    private final int ver;
 
-    private final String type;
+    /** Columns. */
+    private final ClientColumn[] columns;
 
-    private final boolean nullable;
-
-    private final boolean isKey;
-
-    private final int schemaIndex;
-
-    public ClientColumn(String name, String type, boolean nullable, boolean isKey, int schemaIndex) {
-        assert name != null;
-        assert schemaIndex >= 0;
-
-        this.name = name;
-        this.type = type;
-        this.nullable = nullable;
-        this.isKey = isKey;
-        this.schemaIndex = schemaIndex;
+    public ClientSchema(int ver, ClientColumn[] columns) {
+        this.ver = ver;
+        this.columns = columns;
     }
 }

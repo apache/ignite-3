@@ -21,6 +21,7 @@ import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientException;
+import org.apache.ignite.client.internal.table.ClientTables;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.client.internal.io.ClientConnectionMultiplexer;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -36,7 +37,7 @@ public class TcpIgniteClient implements Ignite {
     private final ReliableChannel ch;
 
     /** Tables. */
-    private final IgniteClientTables tables;
+    private final ClientTables tables;
 
     /**
      * Private constructor.
@@ -63,7 +64,7 @@ public class TcpIgniteClient implements Ignite {
             throw e;
         }
 
-        tables = new IgniteClientTables(ch);
+        tables = new ClientTables(ch);
     }
 
     /**
@@ -78,7 +79,7 @@ public class TcpIgniteClient implements Ignite {
 
     /** {@inheritDoc} */
     @Override public IgniteTables tables() {
-        return new IgniteClientTables(ch);
+        return new ClientTables(ch);
     }
 
     /** {@inheritDoc} */

@@ -25,7 +25,7 @@ import org.msgpack.core.buffer.ByteBufferInput;
 /**
  * Thin client payload input channel.
  */
-class PayloadInputChannel {
+public class PayloadInputChannel {
     /** Client channel. */
     private final ClientChannel ch;
 

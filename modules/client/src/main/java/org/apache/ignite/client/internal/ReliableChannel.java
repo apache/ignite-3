@@ -49,7 +49,7 @@ import org.apache.ignite.client.internal.io.netty.NettyClientConnectionMultiplex
 /**
  * Communication channel with failover and partition awareness.
  */
-final class ReliableChannel implements AutoCloseable {
+public final class ReliableChannel implements AutoCloseable {
     /** Do nothing helper function. */
     private static final Consumer<Integer> DO_NOTHING = (v) -> {};
 
