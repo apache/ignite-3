@@ -80,7 +80,7 @@ class WatchCursor implements Cursor<WatchEvent> {
         this.storage = storage;
         this.p = p;
         this.lastRetRev = rev - 1;
-        this.nativeIterator = storage.db().newIterator(options);
+        this.nativeIterator = storage.newWatchIterator(options);
         this.it = createIterator();
     }
 
@@ -131,13 +131,14 @@ class WatchCursor implements Cursor<WatchEvent> {
 
                         boolean empty = true;
 
-                        if (!nativeIterator.isValid())
+                        if (!nativeIterator.isValid()) {
                             try {
                                 nativeIterator.refresh();
                             }
                             catch (RocksDBException e) {
                                 throw new IgniteInternalException(e);
                             }
+                        }
 
                         // Check all keys by the revision to see if any one of them match the predicate.
                         for (nativeIterator.seek(revisionPrefix); nativeIterator.isValid(); nativeIterator.next()) {
@@ -194,7 +195,7 @@ class WatchCursor implements Cursor<WatchEvent> {
                             if (p.test(key)) {
                                 Entry newEntry;
 
-                                if (val.isTombstone())
+                                if (val.tombstone())
                                     newEntry = Entry.tombstone(key, nextRetRev, val.updateCounter());
                                 else
                                     newEntry = new Entry(key, val.bytes(), nextRetRev, val.updateCounter());

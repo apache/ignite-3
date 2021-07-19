@@ -119,6 +119,22 @@ class RocksStorageByteUtils {
         checkIterator(iterator);
     }
 
+    static boolean find(RocksIterator iterator, RocksBiPredicate consumer) throws RocksDBException {
+        for (; iterator.isValid(); iterator.next()) {
+            boolean result = consumer.apply(iterator.key(), iterator.value());
+
+            if (result) {
+                checkIterator(iterator);
+
+                return true;
+            }
+        }
+
+        checkIterator(iterator);
+
+        return false;
+    }
+
     /**
      * Checks the status of the iterator and throw an exception if it is not correct.
      *
@@ -146,5 +162,16 @@ class RocksStorageByteUtils {
          * @throws RocksDBException If failed to process the key-value pair.
          */
         void accept(byte[] key, byte[] value) throws RocksDBException;
+    }
+
+    interface RocksBiPredicate {
+        /**
+         * Accepts the key and the value of the entry.
+         *
+         * @param key Key.
+         * @param value Value.
+         * @throws RocksDBException If failed to process the key-value pair.
+         */
+        boolean apply(byte[] key, byte[] value) throws RocksDBException;
     }
 }
