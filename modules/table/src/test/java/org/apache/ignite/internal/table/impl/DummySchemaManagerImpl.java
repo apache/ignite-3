@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.table.impl;
 
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.row.Row;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -51,5 +53,17 @@ public class DummySchemaManagerImpl implements SchemaRegistry {
         assert schema.version() == ver;
 
         return schema;
+    }
+
+    /** {@inheritDoc} */
+    @Override public int lastSchemaVersion() {
+        return schema.version();
+    }
+
+    /** {@inheritDoc} */
+    @Override public Row resolve(BinaryRow row) {
+        assert row.schemaVersion() == schema.version();
+
+        return new Row(schema, row);
     }
 }

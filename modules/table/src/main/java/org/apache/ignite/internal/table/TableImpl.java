@@ -26,10 +26,11 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.Row;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.schema.SchemaMode;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.KeyValueView;
@@ -40,7 +41,9 @@ import org.apache.ignite.table.TupleBuilder;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.RecordMapper;
 import org.apache.ignite.table.mapper.ValueMapper;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Table view implementation for binary objects.
@@ -49,16 +52,23 @@ public class TableImpl extends AbstractTableView implements Table {
     /** Marshaller. */
     private final TupleMarshallerImpl marsh;
 
+    /** Table manager. */
+    private final TableManager tblMgr;
+
     /**
      * Constructor.
      *
      * @param tbl Table.
      * @param schemaReg Table schema registry.
+     * @param tblMgr Table manager.
+     * @param tx The transaction.
      */
-    public TableImpl(InternalTable tbl, SchemaRegistry schemaReg) {
-        super(tbl, schemaReg);
+    public TableImpl(InternalTable tbl, SchemaRegistry schemaReg, TableManager tblMgr, @Nullable Transaction tx) {
+        super(tbl, schemaReg, tx);
 
         marsh = new TupleMarshallerImpl(schemaReg);
+
+        this.tblMgr = tblMgr;
     }
 
     /**
@@ -86,17 +96,22 @@ public class TableImpl extends AbstractTableView implements Table {
 
     /** {@inheritDoc} */
     @Override public <R> RecordView<R> recordView(RecordMapper<R> recMapper) {
-        return new RecordViewImpl<>(tbl, schemaReg, recMapper);
+        return new RecordViewImpl<>(tbl, schemaReg, recMapper, tx);
     }
 
     /** {@inheritDoc} */
     @Override public <K, V> KeyValueView<K, V> kvView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper) {
-        return new KVViewImpl<>(tbl, schemaReg, keyMapper, valMapper);
+        return new KVViewImpl<>(tbl, schemaReg, keyMapper, valMapper, tx);
     }
 
     /** {@inheritDoc} */
     @Override public KeyValueBinaryView kvView() {
-        return new KVBinaryViewImpl(tbl, schemaReg);
+        return new KVBinaryViewImpl(tbl, schemaReg, tblMgr, tx);
+    }
+
+    /** {@inheritDoc} */
+    @Override public TableImpl withTransaction(Transaction tx) {
+        return new TableImpl(tbl, schemaReg, tblMgr, tx);
     }
 
     /** {@inheritDoc} */
@@ -110,7 +125,7 @@ public class TableImpl extends AbstractTableView implements Table {
 
         final Row keyRow = marshaller().marshal(keyRec, null); // Convert to portable format to pass TX/storage layer.
 
-        return tbl.get(keyRow).thenApply(this::wrap);
+        return tbl.get(keyRow, tx).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -130,7 +145,7 @@ public class TableImpl extends AbstractTableView implements Table {
             keys.add(keyRow);
         }
 
-        return tbl.getAll(keys).thenApply(this::wrap);
+        return tbl.getAll(keys, tx).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -144,7 +159,7 @@ public class TableImpl extends AbstractTableView implements Table {
 
         final Row keyRow = marshaller().marshal(rec);
 
-        return tbl.upsert(keyRow);
+        return tbl.upsert(keyRow, tx);
     }
 
     /** {@inheritDoc} */
@@ -164,7 +179,7 @@ public class TableImpl extends AbstractTableView implements Table {
             keys.add(keyRow);
         }
 
-        return tbl.upsertAll(keys);
+        return tbl.upsertAll(keys, tx);
     }
 
     /** {@inheritDoc} */
@@ -178,7 +193,7 @@ public class TableImpl extends AbstractTableView implements Table {
 
         final Row keyRow = marshaller().marshal(rec);
 
-        return tbl.getAndUpsert(keyRow).thenApply(this::wrap);
+        return tbl.getAndUpsert(keyRow, tx).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -192,7 +207,7 @@ public class TableImpl extends AbstractTableView implements Table {
 
         final Row keyRow = marshaller().marshal(rec);
 
-        return tbl.insert(keyRow);
+        return tbl.insert(keyRow, tx);
     }
 
     /** {@inheritDoc} */
@@ -212,7 +227,7 @@ public class TableImpl extends AbstractTableView implements Table {
             keys.add(keyRow);
         }
 
-        return tbl.insertAll(keys).thenApply(this::wrap);
+        return tbl.insertAll(keys, tx).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -226,7 +241,7 @@ public class TableImpl extends AbstractTableView implements Table {
 
         final Row keyRow = marshaller().marshal(rec);
 
-        return tbl.replace(keyRow);
+        return tbl.replace(keyRow, tx);
     }
 
     /** {@inheritDoc} */
@@ -242,7 +257,7 @@ public class TableImpl extends AbstractTableView implements Table {
         final Row oldRow = marshaller().marshal(oldRec);
         final Row newRow = marshaller().marshal(newRec);
 
-        return tbl.replace(oldRow, newRow);
+        return tbl.replace(oldRow, newRow, tx);
     }
 
     /** {@inheritDoc} */
@@ -256,7 +271,7 @@ public class TableImpl extends AbstractTableView implements Table {
 
         final Row keyRow = marshaller().marshal(rec);
 
-        return tbl.getAndReplace(keyRow).thenApply(this::wrap);
+        return tbl.getAndReplace(keyRow, tx).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -270,7 +285,7 @@ public class TableImpl extends AbstractTableView implements Table {
 
         final Row keyRow = marshaller().marshal(keyRec, null);
 
-        return tbl.delete(keyRow);
+        return tbl.delete(keyRow, tx);
     }
 
     /** {@inheritDoc} */
@@ -284,7 +299,7 @@ public class TableImpl extends AbstractTableView implements Table {
 
         final Row row = marshaller().marshal(rec);
 
-        return tbl.deleteExact(row);
+        return tbl.deleteExact(row, tx);
     }
 
     /** {@inheritDoc} */
@@ -298,7 +313,7 @@ public class TableImpl extends AbstractTableView implements Table {
 
         final Row row = marshaller().marshal(rec);
 
-        return tbl.getAndDelete(row).thenApply(this::wrap);
+        return tbl.getAndDelete(row, tx).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -318,7 +333,7 @@ public class TableImpl extends AbstractTableView implements Table {
             keys.add(keyRow);
         }
 
-        return tbl.deleteAll(keys).thenApply(this::wrap);
+        return tbl.deleteAll(keys, tx).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -340,7 +355,7 @@ public class TableImpl extends AbstractTableView implements Table {
             keys.add(keyRow);
         }
 
-        return tbl.deleteAllExact(keys).thenApply(this::wrap);
+        return tbl.deleteAllExact(keys, tx).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -377,7 +392,13 @@ public class TableImpl extends AbstractTableView implements Table {
 
     /** {@inheritDoc} */
     @Override public TupleBuilder tupleBuilder() {
-        return new TupleBuilderImpl(schemaReg.schema());
+        switch (tbl.schemaMode()) {
+            case STRICT_SCHEMA:
+                return new TupleBuilderImpl(schemaReg.schema());
+            case LIVE_SCHEMA:
+                return new LiveSchemaTupleBuilderImpl(schemaReg, tbl.tableName(), tblMgr);
+        }
+        throw new IllegalArgumentException("Unknown schema type: " + tbl.schemaMode());
     }
 
     /**
@@ -395,9 +416,9 @@ public class TableImpl extends AbstractTableView implements Table {
         if (row == null)
             return null;
 
-        final SchemaDescriptor schema = schemaReg.schema(row.schemaVersion());
+        final Row wrapped = schemaReg.resolve(row);
 
-        return new TableRow(schema, new Row(schema, row));
+        return new TableRow(wrapped.rowSchema(), wrapped);
     }
 
     /**
@@ -409,5 +430,12 @@ public class TableImpl extends AbstractTableView implements Table {
             return null;
 
         return rows.stream().map(this::wrap).collect(Collectors.toSet());
+    }
+
+    /**
+     * @param schemaMode New schema type.
+     */
+    public void schemaType(SchemaMode schemaMode) {
+        this.tbl.schema(schemaMode);
     }
 }

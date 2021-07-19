@@ -30,17 +30,35 @@ import org.apache.ignite.table.Table;
  */
 public interface IgniteTables {
     /**
-     * Creates a cluster table.
-     * The table changes if already exists.
+     * Creates a new table with the given {@code name}.
+     * If a table with the same name already exists, an exception will be thrown.
      *
      * @param name Table name.
      * @param tableInitChange Table changer.
-     * @return Table.
+     * @return Newly created table.
      */
     Table createTable(String name, Consumer<TableChange> tableInitChange);
 
     /**
+     * Alter a cluster table.
+     *
+     * @param name Table name.
+     * @param tableChange Table changer.
+     */
+    void alterTable(String name, Consumer<TableChange> tableChange);
+
+    /**
+     * Creates a new table with the given {@code name} or returns an existing one with the same {@code name}.
+     *
+     * @param name Table name.
+     * @param tableInitChange Table changer.
+     * @return Existing or newly created table.
+     */
+    Table getOrCreateTable(String name, Consumer<TableChange> tableInitChange);
+
+    /**
      * Drops a table with the name specified.
+     * If a table with the specified name does not exist in the cluster, the operation has no effect.
      *
      * @param name Table name.
      */

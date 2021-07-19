@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,17 +25,21 @@ import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
-import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.table.SchemaMismatchException;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -44,52 +49,62 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Ignition interface tests.
  */
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-14581")
+@ExtendWith(WorkDirectoryExtension.class)
 class DynamicTableCreationTest {
-    /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(SchemaManager.class);
-
     /** Nodes bootstrap configuration. */
     private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {{
-            put("node0", "{\n" +
-                "  \"node\": {\n" +
-                "    \"metastorageNodes\":[ \"node0\" ]\n" +
-                "  },\n" +
-                "  \"network\": {\n" +
-                "    \"port\":3344,\n" +
-                "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-                "  }\n" +
-                "}");
+        put("node0", "{\n" +
+            "  \"node\": {\n" +
+            "    \"metastorageNodes\":[ \"node0\" ]\n" +
+            "  },\n" +
+            "  \"network\": {\n" +
+            "    \"port\":3344,\n" +
+            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+            "  }\n" +
+            "}");
 
-            put("node1", "{\n" +
-                "  \"node\": {\n" +
-                "    \"metastorageNodes\":[ \"node0\" ]\n" +
-                "  },\n" +
-                "  \"network\": {\n" +
-                "    \"port\":3345,\n" +
-                "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-                "  }\n" +
-                "}");
+        put("node1", "{\n" +
+            "  \"node\": {\n" +
+            "    \"metastorageNodes\":[ \"node0\" ]\n" +
+            "  },\n" +
+            "  \"network\": {\n" +
+            "    \"port\":3345,\n" +
+            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+            "  }\n" +
+            "}");
 
-            put("node2", "{\n" +
-                "  \"node\": {\n" +
-                "    \"metastorageNodes\":[ \"node0\"]\n" +
-                "  },\n" +
-                "  \"network\": {\n" +
-                "    \"port\":3346,\n" +
-                "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-                "  }\n" +
-                "}");
-        }};
+        put("node2", "{\n" +
+            "  \"node\": {\n" +
+            "    \"metastorageNodes\":[ \"node0\"]\n" +
+            "  },\n" +
+            "  \"network\": {\n" +
+            "    \"port\":3346,\n" +
+            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+            "  }\n" +
+            "}");
+    }};
+
+    /** */
+    private final List<Ignite> clusterNodes = new ArrayList<>();
+
+    /** */
+    @WorkDirectory
+    private Path workDir;
+
+    /** */
+    @AfterEach
+    void tearDown() throws Exception {
+        IgniteUtils.closeAll(clusterNodes);
+    }
 
     /**
      * Check dynamic table creation.
      */
     @Test
     void testDynamicSimpleTableCreation() {
-        List<Ignite> clusterNodes = new ArrayList<>();
-
-        for (Map.Entry<String, String> nodeBootstrapCfg : nodesBootstrapCfg.entrySet())
-            clusterNodes.add(IgnitionManager.start(nodeBootstrapCfg.getKey(), nodeBootstrapCfg.getValue()));
+        nodesBootstrapCfg.forEach((nodeName, configStr) ->
+            clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
+        );
 
         assertEquals(3, clusterNodes.size());
 
@@ -119,8 +134,8 @@ class DynamicTableCreationTest {
         final Tuple keyTuple1 = tbl2.tupleBuilder().set("key", 1L).build();
         final Tuple keyTuple2 = kvView2.tupleBuilder().set("key", 2L).build();
 
-        assertThrows(IllegalArgumentException.class, () -> kvView2.get(keyTuple1).value("key"));
-        assertThrows(IllegalArgumentException.class, () -> kvView2.get(keyTuple1).value("key"));
+        assertThrows(SchemaMismatchException.class, () -> kvView2.get(keyTuple1).value("key"));
+        assertThrows(SchemaMismatchException.class, () -> kvView2.get(keyTuple1).value("key"));
         assertEquals(1, (Long)tbl2.get(keyTuple1).value("key"));
         assertEquals(2, (Long)tbl2.get(keyTuple2).value("key"));
 
@@ -128,6 +143,11 @@ class DynamicTableCreationTest {
         assertEquals(111, (Integer)kvView2.get(keyTuple1).value("val"));
         assertEquals(222, (Integer)tbl2.get(keyTuple2).value("val"));
         assertEquals(222, (Integer)kvView2.get(keyTuple2).value("val"));
+
+        assertThrows(SchemaMismatchException.class, () -> tbl1.get(keyTuple1).value("key"));
+        assertThrows(SchemaMismatchException.class, () -> kvView1.get(keyTuple1).value("key"));
+        assertThrows(SchemaMismatchException.class, () -> tbl1.get(keyTuple1).value("val"));
+        assertThrows(SchemaMismatchException.class, () -> kvView1.get(keyTuple1).value("val"));
     }
 
     /**
@@ -135,10 +155,9 @@ class DynamicTableCreationTest {
      */
     @Test
     void testDynamicTableCreation() {
-        List<Ignite> clusterNodes = new ArrayList<>();
-
-        for (Map.Entry<String, String> nodeBootstrapCfg : nodesBootstrapCfg.entrySet())
-            clusterNodes.add(IgnitionManager.start(nodeBootstrapCfg.getKey(), nodeBootstrapCfg.getValue()));
+        nodesBootstrapCfg.forEach((nodeName, configStr) ->
+            clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
+        );
 
         assertEquals(3, clusterNodes.size());
 
@@ -183,10 +202,10 @@ class DynamicTableCreationTest {
         final Tuple keyTuple2 = tbl2.tupleBuilder().set("key", uuid2).set("affKey", 4242L).build();
 
         // KV view must NOT return key columns in value.
-        assertThrows(IllegalArgumentException.class, () -> kvView2.get(keyTuple1).value("key"));
-        assertThrows(IllegalArgumentException.class, () -> kvView2.get(keyTuple1).value("affKey"));
-        assertThrows(IllegalArgumentException.class, () -> kvView2.get(keyTuple2).value("key"));
-        assertThrows(IllegalArgumentException.class, () -> kvView2.get(keyTuple2).value("affKey"));
+        assertThrows(SchemaMismatchException.class, () -> kvView2.get(keyTuple1).value("key"));
+        assertThrows(SchemaMismatchException.class, () -> kvView2.get(keyTuple1).value("affKey"));
+        assertThrows(SchemaMismatchException.class, () -> kvView2.get(keyTuple2).value("key"));
+        assertThrows(SchemaMismatchException.class, () -> kvView2.get(keyTuple2).value("affKey"));
 
         // Record binary view MUST return key columns in value.
         assertEquals(uuid, tbl2.get(keyTuple1).value("key"));

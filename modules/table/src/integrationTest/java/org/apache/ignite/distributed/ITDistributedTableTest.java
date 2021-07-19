@@ -28,11 +28,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.Row;
-import org.apache.ignite.internal.schema.RowAssembler;
+import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.TableImpl;
@@ -100,8 +101,8 @@ public class ITDistributedTableTest {
     /** Schema. */
     public static SchemaDescriptor SCHEMA = new SchemaDescriptor(UUID.randomUUID(),
         1,
-        new Column[] {new Column("key", NativeTypes.LONG, false)},
-        new Column[] {new Column("value", NativeTypes.LONG, false)}
+        new Column[] {new Column("key", NativeTypes.INT64, false)},
+        new Column[] {new Column("value", NativeTypes.INT64, false)}
     );
 
     /** Cluster. */
@@ -186,11 +187,11 @@ public class ITDistributedTableTest {
      * @return Row.
      */
     @NotNull private Row getTestKey() {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 4096, 0, 0);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
 
         rowBuilder.appendLong(1L);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.build()));
+        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
     }
 
     /**
@@ -199,12 +200,12 @@ public class ITDistributedTableTest {
      * @return Row.
      */
     @NotNull private Row getTestRow() {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 4096, 0, 0);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
 
         rowBuilder.appendLong(1L);
         rowBuilder.appendLong(10L);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.build()));
+        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
     }
 
     /**
@@ -253,10 +254,18 @@ public class ITDistributedTableTest {
                 return SCHEMA;
             }
 
+            @Override public int lastSchemaVersion() {
+                return SCHEMA.version();
+            }
+
             @Override public SchemaDescriptor schema(int ver) {
                 return SCHEMA;
             }
-        });
+
+            @Override public Row resolve(BinaryRow row) {
+                return new Row(SCHEMA, row);
+            }
+        }, null, null);
 
         partitionedTableView(tbl, PARTS * 10);
 

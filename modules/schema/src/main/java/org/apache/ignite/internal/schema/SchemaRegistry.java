@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema;
 
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
+import org.apache.ignite.internal.schema.row.Row;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -25,14 +26,29 @@ import org.jetbrains.annotations.NotNull;
  */
 public interface SchemaRegistry {
     /**
-     * @return Current schema.
+     * Gets schema descriptor for the latest version if initialized.
+     *
+     * @return Schema descriptor if initialized, {@code null} otherwise.
      */
     SchemaDescriptor schema();
 
     /**
-     * @param ver Schema version.
-     * @return Schema of given version.
-     * @throws SchemaRegistryException If schema was not found.
+     * @return Last registereg schema version.
+     */
+    public int lastSchemaVersion();
+
+    /**
+     * Gets schema descriptor for given version.
+     *
+     * @param ver Schema version to get descriptor for.
+     * @return Schema descriptor of given version.
+     * @throws SchemaRegistryException If no schema found for given version.
      */
     @NotNull SchemaDescriptor schema(int ver) throws SchemaRegistryException;
+
+    /**
+     * @param row Binary row.
+     * @return Schema-aware row.
+     */
+    Row resolve(BinaryRow row);
 }

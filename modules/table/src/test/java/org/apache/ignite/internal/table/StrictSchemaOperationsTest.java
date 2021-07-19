@@ -43,11 +43,11 @@ public class StrictSchemaOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[] {new Column("id", NativeTypes.LONG, false)},
-            new Column[] {new Column("val", NativeTypes.LONG, false)}
+            new Column[] {new Column("id", NativeTypes.INT64, false)},
+            new Column[] {new Column("val", NativeTypes.INT64, false)}
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
+        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         assertThrows(ColumnNotFoundException.class, () -> tbl.tupleBuilder().set("invalidCol", 0));
     }
@@ -60,14 +60,14 @@ public class StrictSchemaOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[] {new Column("id", NativeTypes.LONG, false)},
+            new Column[] {new Column("id", NativeTypes.INT64, false)},
             new Column[] {
                 new Column("valString", NativeTypes.stringOf(3), true),
                 new Column("valBytes", NativeTypes.blobOf(3), true)
             }
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
+        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         // Check not-nullable column.
         assertThrows(IllegalArgumentException.class, () -> tbl.tupleBuilder().set("id", null));
@@ -87,13 +87,13 @@ public class StrictSchemaOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[] {new Column("id", NativeTypes.LONG, false)},
+            new Column[] {new Column("id", NativeTypes.INT64, false)},
             new Column[] {
                 new Column("valString", NativeTypes.stringOf(3), true)
             }
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
+        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         tbl.tupleBuilder().set("valString", "qwe");
         tbl.tupleBuilder().set("valString", "qw");
@@ -113,13 +113,13 @@ public class StrictSchemaOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[] {new Column("id", NativeTypes.LONG, false)},
+            new Column[] {new Column("id", NativeTypes.INT64, false)},
             new Column[] {
                 new Column("valUnlimited", NativeTypes.BYTES, true),
                 new Column("valLimited", NativeTypes.blobOf(2), true)
             });
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
+        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         tbl.tupleBuilder().set("valUnlimited", null);
         tbl.tupleBuilder().set("valLimited", null);

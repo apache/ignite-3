@@ -17,12 +17,17 @@
 
 package org.apache.ignite.internal.app;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-import io.netty.util.internal.StringUtil;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.Ignition;
 import org.apache.ignite.configuration.RootKey;
@@ -43,7 +48,9 @@ import org.apache.ignite.internal.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.impl.VaultServiceImpl;
+import org.apache.ignite.internal.vault.VaultService;
+import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterLocalConfiguration;
@@ -62,6 +69,11 @@ import org.jetbrains.annotations.Nullable;
 public class IgnitionImpl implements Ignition {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(IgnitionImpl.class);
+
+    /**
+     * Path to the persistent storage used by the {@link VaultService} component.
+     */
+    private static final Path VAULT_DB_PATH = Paths.get("vault");
 
     /** */
     private static final String[] BANNER = {
@@ -84,15 +96,55 @@ public class IgnitionImpl implements Ignition {
     private static final String VER_KEY = "version";
 
     /** {@inheritDoc} */
-    @Override public synchronized Ignite start(@NotNull String nodeName, @Nullable String jsonStrBootstrapCfg) {
-        assert !StringUtil.isNullOrEmpty(nodeName) : "Node local name is empty";
+    @Override public Ignite start(@NotNull String nodeName, @Nullable Path cfgPath, @NotNull Path workDir) {
+        try {
+            return doStart(
+                nodeName,
+                cfgPath == null ? null : Files.readString(cfgPath),
+                workDir
+            );
+        }
+        catch (IOException e) {
+            LOG.warn("Unable to read user specific configuration, default configuration will be used: " + e.getMessage());
+            return start(nodeName, workDir);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public Ignite start(@NotNull String name, @Nullable InputStream config, @NotNull Path workDir) {
+        try {
+            return doStart(
+                name,
+                config == null ? null : new String(config.readAllBytes(), StandardCharsets.UTF_8),
+                workDir
+            );
+        }
+        catch (IOException e) {
+            LOG.warn("Unable to read user specific configuration, default configuration will be used: " + e.getMessage());
+            return start(name, workDir);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public Ignite start(@NotNull String name, @NotNull Path workDir) {
+        return doStart(name, null, workDir);
+    }
+
+    /**
+     * Starts an Ignite node with an optional bootstrap configuration from a HOCON file.
+     *
+     * @param nodeName Name of the node. Must not be {@code null}.
+     * @param cfgContent Node configuration in the HOCON format. Can be {@code null}.
+     * @param workDir Work directory for the started node. Must not be {@code null}.
+     * @return Started Ignite node.
+     */
+    private static Ignite doStart(String nodeName, @Nullable String cfgContent, Path workDir) {
+        if (nodeName.isEmpty())
+            throw new IllegalArgumentException("Node name must not be null or empty.");
 
         ackBanner();
 
-        // Vault Component startup.
-        VaultManager vaultMgr = new VaultManager(new VaultServiceImpl());
-
-        vaultMgr.putName(nodeName).join();
+        VaultManager vaultMgr = createVault(nodeName, workDir);
 
         boolean cfgBootstrappedFromPds = vaultMgr.bootstrapped();
 
@@ -109,14 +161,14 @@ public class IgnitionImpl implements Ignition {
         // Bootstrap local configuration manager.
         ConfigurationManager locConfigurationMgr = new ConfigurationManager(rootKeys, cfgStorages);
 
-        if (!cfgBootstrappedFromPds && jsonStrBootstrapCfg != null)
+        if (!cfgBootstrappedFromPds && cfgContent != null)
             try {
-                locConfigurationMgr.bootstrap(jsonStrBootstrapCfg, ConfigurationType.LOCAL);
+                locConfigurationMgr.bootstrap(cfgContent, ConfigurationType.LOCAL);
             }
             catch (Exception e) {
-                LOG.warn("Unable to parse user specific configuration, default configuration will be used: {}", e.getMessage());
+                LOG.warn("Unable to parse user-specific configuration, default configuration will be used: {}", e.getMessage());
             }
-        else if (jsonStrBootstrapCfg != null)
+        else if (cfgContent != null)
             LOG.warn("User specific configuration will be ignored, cause vault was bootstrapped with pds configuration");
         else
             locConfigurationMgr.configurationRegistry().startStorageConfigurations(ConfigurationType.LOCAL);
@@ -184,7 +236,27 @@ public class IgnitionImpl implements Ignition {
 
         ackSuccessStart();
 
-        return new IgniteImpl(distributedTblMgr);
+        return new IgniteImpl(distributedTblMgr, vaultMgr);
+    }
+
+    /**
+     * Starts the Vault component.
+     */
+    private static VaultManager createVault(String nodeName, Path workDir) {
+        Path vaultPath = workDir.resolve(VAULT_DB_PATH);
+
+        try {
+            Files.createDirectories(vaultPath);
+        }
+        catch (IOException e) {
+            throw new IgniteInternalException(e);
+        }
+
+        var vaultMgr = new VaultManager(new PersistentVaultService(vaultPath));
+
+        vaultMgr.putName(nodeName).join();
+
+        return vaultMgr;
     }
 
     /** */
