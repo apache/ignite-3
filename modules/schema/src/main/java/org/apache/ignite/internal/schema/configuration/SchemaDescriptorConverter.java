@@ -19,6 +19,10 @@ package org.apache.ignite.internal.schema.configuration;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -156,6 +160,14 @@ public class SchemaDescriptorConverter {
                 return dflt;
             case UUID:
                 return java.util.UUID.fromString(dflt);
+            case DATE:
+                return LocalDate.parse(dflt);
+            case TIME:
+                return LocalTime.parse(dflt);
+            case DATETIME:
+                return LocalDateTime.parse(dflt);
+            case TIMESTAMP:
+                return Instant.parse(dflt);
             default:
                 throw new SchemaException("Default value is not supported for type: type=" + type.toString());
         }

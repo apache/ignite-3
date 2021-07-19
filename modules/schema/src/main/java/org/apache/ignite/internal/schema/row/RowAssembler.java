@@ -20,6 +20,10 @@ package org.apache.ignite.internal.schema.row;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.UUID;
@@ -41,8 +45,14 @@ import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.VAL_FLAGS_OFF
 /**
  * Utility class to build rows using column appending pattern. The external user of this class must consult
  * with the schema and provide the columns in strict internal column sort order during the row construction.
+ * <p>
  * Additionally, the user of this class should pre-calculate the resulting row size when possible to avoid
- * unnecessary data copies and allow some size-optimizations can be applied.
+ * unnecessary data copies  and allow some size-optimizations can be applied.
+ * <p>
+ * Natively supported temporal types are encoded automatically with preserving sort order before writing.
+ *
+ * @see #utf8EncodedLength(CharSequence)
+ * @see TemporalTypesHelper
  */
 public class RowAssembler {
     /** Schema. */
@@ -493,6 +503,91 @@ public class RowAssembler {
     }
 
     /**
+     * Appends LocalDate value for the current column to the chunk.
+     *
+     * @param val Column value.
+     * @return {@code this} for chaining.
+     */
+    public RowAssembler appendDate(LocalDate val) {
+        checkType(NativeTypes.DATE);
+
+        int date = TemporalTypesHelper.encodeDate(val);
+
+        writeDate(curOff, date);
+
+        if (isKeyChunk())
+            keyHash += 31 * keyHash + val.hashCode();
+
+        shiftColumn(NativeTypes.DATE.sizeInBytes());
+
+        return this;
+    }
+
+    /**
+     * Appends LocalTime value for the current column to the chunk.
+     *
+     * @param val Column value.
+     * @return {@code this} for chaining.
+     */
+    public RowAssembler appendTime(LocalTime val) {
+        checkType(NativeTypes.TIME);
+
+        long time = TemporalTypesHelper.compactTime(val);
+
+        writeTime(curOff, time);
+
+        if (isKeyChunk())
+            keyHash += 31 * keyHash + val.hashCode();
+
+        shiftColumn(NativeTypes.TIME.sizeInBytes());
+
+        return this;
+    }
+
+    /**
+     * Appends LocalDateTime value for the current column to the chunk.
+     *
+     * @param val Column value.
+     * @return {@code this} for chaining.
+     */
+    public RowAssembler appendDateTime(LocalDateTime val) {
+        checkType(NativeTypes.DATETIME);
+
+        int date = TemporalTypesHelper.encodeDate(val.toLocalDate());
+        long time = TemporalTypesHelper.compactTime(val.toLocalTime());
+
+        writeDate(curOff, date);
+        writeTime(curOff + 3, time);
+
+        if (isKeyChunk())
+            keyHash += 31 * keyHash + val.hashCode();
+
+        shiftColumn(NativeTypes.DATETIME.sizeInBytes());
+
+        return this;
+    }
+
+    /**
+     * Appends Instant value for the current column to the chunk.
+     *
+     * @param val Column value.
+     * @return {@code this} for chaining.
+     */
+    public RowAssembler appendTimestamp(Instant val) {
+        checkType(NativeTypes.TIMESTAMP);
+
+        buf.putLong(curOff, val.toEpochMilli());
+        buf.putShort(curOff + 8, (short)(val.getNano() / 1000 % 1000));
+
+        if (isKeyChunk())
+            keyHash += 31 * keyHash + val.hashCode();
+
+        shiftColumn(NativeTypes.TIMESTAMP.sizeInBytes());
+
+        return this;
+    }
+
+    /**
      * @return Serialized row.
      */
     public BinaryRow build() {
@@ -550,6 +645,28 @@ public class RowAssembler {
             return; // Omit offset for very first varlen.
 
         buf.putInt(varTblOff + Short.BYTES + (entryIdx - 1) * Integer.BYTES, off);
+    }
+
+    /**
+     * Writes date.
+     *
+     * @param off Offset.
+     * @param date Compacted date.
+     */
+    private void writeDate(int off, int date) {
+        buf.putShort(off, (short)(date >>> 8));
+        buf.put(off + 2, (byte)(date & 0xFF));
+    }
+
+    /**
+     * Writes time.
+     *
+     * @param off Offset.
+     * @param time Compacted time.
+     */
+    private void writeTime(int off, long time) {
+        buf.putInt(off, (int)(time >> 8));
+        buf.put(off + 4, (byte)(time & 0xFF));
     }
 
     /**

@@ -88,6 +88,10 @@ public class SchemaConfigurationConverter {
         putType(ColumnType.FLOAT);
         putType(ColumnType.DOUBLE);
         putType(ColumnType.UUID);
+        putType(ColumnType.DATE);
+        putType(ColumnType.TIME);
+        putType(ColumnType.DATETIME);
+        putType(ColumnType.TIMESTAMP);
     }
 
     /** */

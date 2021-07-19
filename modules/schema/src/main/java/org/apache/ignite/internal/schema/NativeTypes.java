@@ -51,6 +51,18 @@ public class NativeTypes {
     /** */
     public static final NativeType BYTES = new VarlenNativeType(NativeTypeSpec.BYTES, Integer.MAX_VALUE);
 
+    /** Timezone-free three-part value representing a year, month, and day. */
+    public static final NativeType DATE = new NativeType(NativeTypeSpec.DATE, 3);
+
+    /** Timezone-free three-part value representing a time of day in hours, minutes, and seconds. */
+    public static final NativeType TIME = new NativeType(NativeTypeSpec.TIME, 5);
+
+    /** Timezone-free datetime encoded as (date, time). */
+    public static final NativeType DATETIME = new NativeType(NativeTypeSpec.DATETIME, 8);
+
+    /** Number of milliseconds since Jan 1, 1970 00:00:00.000 (with no timezone). */
+    public static final NativeType TIMESTAMP = new NativeType(NativeTypeSpec.TIMESTAMP, 10);
+
     /** Don't allow to create an instance. */
     private NativeTypes() {
     }
@@ -130,6 +142,18 @@ public class NativeTypes {
             case UUID:
                 return UUID;
 
+            case DATE:
+                return DATE;
+
+            case TIME:
+                return TIME;
+
+            case DATETIME:
+                return DATETIME;
+
+            case TIMESTAMP:
+                return TIMESTAMP;
+
             case STRING:
                 return stringOf(((CharSequence)val).length());
 
@@ -184,6 +208,18 @@ public class NativeTypes {
 
             case UUID:
                 return UUID;
+
+            case DATE:
+                return DATE;
+
+            case TIME:
+                return TIME;
+
+            case DATETIME:
+                return DATETIME;
+
+            case TIMESTAMP:
+                return TIMESTAMP;
 
             case BITMASK:
                 return new BitmaskNativeType(((ColumnType.VarLenColumnType)type).length());
