@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
-import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
+import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.raft.server.RaftServer;
@@ -1097,7 +1097,7 @@ public class ITMetaStorageServiceTest {
     private MetaStorageService prepareMetaStorage(KeyValueStorage keyValStorageMock) {
         List<Peer> peers = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
 
-        metaStorageRaftSrv = new JRaftServerImpl(cluster.get(0), dataPath.toString(), FACTORY);
+        metaStorageRaftSrv = new RaftServerImpl(cluster.get(0), FACTORY);
 
         metaStorageRaftSrv.
             startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(keyValStorageMock), peers);
