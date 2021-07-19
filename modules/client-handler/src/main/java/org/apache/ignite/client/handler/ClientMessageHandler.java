@@ -28,6 +28,7 @@ import org.apache.ignite.client.ClientOp;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaAware;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TupleBuilderImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -214,21 +215,9 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                     packer.packInt(cnt);
 
                     for (var i = 0; i < cnt; i++) {
-                        var schemaId = unpacker.unpackInt();
-                        var schema = table.schemaView().schema(schemaId);
-                        packer.packInt(schemaId);
-
-                        var colCnt = schema.columnNames().size();
-                        packer.packInt(colCnt);
-
-                        for (var colIdx = 0; colIdx < colCnt; colIdx++) {
-                            var col = schema.column(colIdx);
-
-                            packer.packString(col.name());
-                            packer.packString(col.type().spec().name());
-                            packer.packBoolean(schema.isKeyColumn(colIdx));
-                            packer.packBoolean(col.nullable());
-                        }
+                        var schemaVer = unpacker.unpackInt();
+                        var schema = table.schemaView().schema(schemaVer);
+                        writeSchema(packer, schema);
                     }
                 }
 
@@ -275,6 +264,22 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
         }
 
         return null;
+    }
+
+    private void writeSchema(ClientMessagePacker packer, SchemaDescriptor schema) throws IOException {
+        packer.packInt(schema.version());
+
+        var colCnt = schema.columnNames().size();
+        packer.packInt(colCnt);
+
+        for (var colIdx = 0; colIdx < colCnt; colIdx++) {
+            var col = schema.column(colIdx);
+
+            packer.packString(col.name());
+            packer.packString(col.type().spec().name());
+            packer.packBoolean(schema.isKeyColumn(colIdx));
+            packer.packBoolean(col.nullable());
+        }
     }
 
     private void writeTuple(ClientMessagePacker packer, Tuple tuple) {

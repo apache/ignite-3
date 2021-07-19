@@ -56,6 +56,12 @@ public class ClientTable implements Table {
     /** */
     private final ConcurrentHashMap<Integer, ClientSchema> schemas = new ConcurrentHashMap<>();
 
+    /** */
+    private volatile int latestSchemaVer = -1;
+
+    /** */
+    private final Object latestSchemaLock = new Object();
+
     public ClientTable(ReliableChannel ch, UUID id, String name) {
         assert ch != null;
         assert id != null;
@@ -280,25 +286,59 @@ public class ClientTable implements Table {
         return null;
     }
 
-    private CompletableFuture<ClientSchema> loadSchema(int version) {
+    private CompletableFuture<ClientSchema> getLatestSchema() {
+        if (latestSchemaVer >= 0)
+            return CompletableFuture.completedFuture(schemas.get(latestSchemaVer));
+
+        return loadSchemas().thenApply(unused -> schemas.get(latestSchemaVer));
+    }
+
+    private CompletableFuture<ClientSchema> getSchema(int ver) {
+        var schema = schemas.get(ver);
+
+        if (schema != null)
+            return CompletableFuture.completedFuture(schema);
+
+        return loadSchema(ver);
+    }
+
+    private CompletableFuture<ClientSchema> loadSchema(int ver) {
         return ch.serviceAsync(ClientOp.SCHEMAS_GET, w -> {
             w.out().packUuid(id);
             w.out().packArrayHeader(1);
-            w.out().packInt(version);
+            w.out().packInt(ver);
         }, r -> {
-           int schemaCnt = r.in().unpackMapHeader();
+            int schemaCnt = r.in().unpackMapHeader();
 
-           if (schemaCnt == 0)
-               return null;
+            if (schemaCnt == 0)
+                return null;
 
-           assert schemaCnt == 1;
+            assert schemaCnt == 1;
 
             return readSchema(r.in());
         });
     }
 
+    private CompletableFuture<Void> loadSchemas() {
+        return ch.serviceAsync(ClientOp.SCHEMAS_GET, w -> {
+            w.out().packUuid(id);
+            w.out().packArrayHeader(1);
+            w.out().packNil();
+        }, r -> {
+            int schemaCnt = r.in().unpackMapHeader();
+
+            if (schemaCnt == 0)
+                return null;
+
+            for (var i = 0; i < schemaCnt; i++)
+                readSchema(r.in());
+
+            return null;
+        });
+    }
+
     private ClientSchema readSchema(ClientMessageUnpacker in) throws IOException {
-        var schemaId = in.unpackInt();
+        var schemaVer = in.unpackInt();
         var colCnt = in.unpackArrayHeader();
 
         var columns = new ClientColumn[colCnt];
@@ -313,7 +353,17 @@ public class ClientTable implements Table {
             columns[i] = column;
         }
 
-        return new ClientSchema(schemaId, columns);
+        var schema = new ClientSchema(schemaVer, columns);
+
+        schemas.put(schemaVer, schema);
+
+        synchronized (latestSchemaLock) {
+            if (schemaVer > latestSchemaVer) {
+                latestSchemaVer = schemaVer;
+            }
+        }
+
+        return schema;
     }
 
     /** {@inheritDoc} */
