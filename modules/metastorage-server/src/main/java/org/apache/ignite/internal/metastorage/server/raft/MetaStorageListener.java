@@ -76,7 +76,7 @@ public class MetaStorageListener implements RaftGroupListener {
     private final KeyValueStorage storage;
 
     /** Cursors map. */
-    private final Map<IgniteUuid, IgniteBiTuple<Cursor<?>, CursorMeta>> cursors;
+    private final Map<IgniteUuid, CursorMeta> cursors;
 
     /**
      * @param storage Storage.
@@ -127,9 +127,9 @@ public class MetaStorageListener implements RaftGroupListener {
             else if (clo.command() instanceof CursorHasNextCommand) {
                 CursorHasNextCommand cursorHasNextCmd = (CursorHasNextCommand) clo.command();
 
-                IgniteBiTuple<Cursor<?>, CursorMeta> cursorDesc = cursors.get(cursorHasNextCmd.cursorId());
+                CursorMeta cursorDesc = cursors.get(cursorHasNextCmd.cursorId());
 
-                clo.result(!(cursorDesc == null) && cursorDesc.getKey().hasNext());
+                clo.result(!(cursorDesc == null) && cursorDesc.cursor().hasNext());
             }
             else
                 assert false : "Command was not found [cmd=" + clo.command() + ']';
@@ -234,9 +234,10 @@ public class MetaStorageListener implements RaftGroupListener {
 
                 cursors.put(
                     cursorId,
-                    new IgniteBiTuple<>(
+                    new CursorMeta(
                         cursor,
-                        new CursorMeta(CursorType.RANGE, rangeCmd.requesterNodeId())
+                        CursorType.RANGE,
+                        rangeCmd.requesterNodeId()
                     )
                 );
 
@@ -245,7 +246,7 @@ public class MetaStorageListener implements RaftGroupListener {
             else if (clo.command() instanceof CursorNextCommand) {
                 CursorNextCommand cursorNextCmd = (CursorNextCommand) clo.command();
 
-                IgniteBiTuple<Cursor<?>, CursorMeta> cursorDesc = cursors.get(cursorNextCmd.cursorId());
+                CursorMeta cursorDesc = cursors.get(cursorNextCmd.cursorId());
 
                 if (cursorDesc == null) {
                     clo.result(new NoSuchElementException());
@@ -253,13 +254,13 @@ public class MetaStorageListener implements RaftGroupListener {
                     return;
                 }
 
-                if (cursorDesc.getValue().type() == CursorType.RANGE) {
-                    Entry e = (Entry) cursorDesc.getKey().next();
+                if (cursorDesc.type() == CursorType.RANGE) {
+                    Entry e = (Entry) cursorDesc.cursor().next();
 
                     clo.result(new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter()));
                 }
-                else if (cursorDesc.getValue().type() == CursorType.WATCH) {
-                    WatchEvent evt = (WatchEvent) cursorDesc.getKey().next();
+                else if (cursorDesc.type() == CursorType.WATCH) {
+                    WatchEvent evt = (WatchEvent) cursorDesc.cursor().next();
 
                     List<SingleEntryResponse> resp = new ArrayList<>(evt.entryEvents().size() * 2);
 
@@ -279,7 +280,7 @@ public class MetaStorageListener implements RaftGroupListener {
             else if (clo.command() instanceof CursorCloseCommand) {
                 CursorCloseCommand cursorCloseCmd = (CursorCloseCommand) clo.command();
 
-                IgniteBiTuple<Cursor<?>, CursorMeta> cursorDesc = cursors.get(cursorCloseCmd.cursorId());
+                CursorMeta cursorDesc = cursors.get(cursorCloseCmd.cursorId());
 
                 if (cursorDesc == null) {
                     clo.result(null);
@@ -288,7 +289,7 @@ public class MetaStorageListener implements RaftGroupListener {
                 }
 
                 try {
-                    cursorDesc.getKey().close();
+                    cursorDesc.cursor().close();
                 }
                 catch (Exception e) {
                     throw new IgniteInternalException(e);
@@ -306,9 +307,10 @@ public class MetaStorageListener implements RaftGroupListener {
 
                 cursors.put(
                     cursorId,
-                    new IgniteBiTuple<>(
+                    new CursorMeta(
                         cursor,
-                        new CursorMeta(CursorType.WATCH, watchCmd.requesterNodeId())
+                        CursorType.WATCH,
+                        watchCmd.requesterNodeId()
                     )
                 );
 
@@ -323,9 +325,10 @@ public class MetaStorageListener implements RaftGroupListener {
 
                 cursors.put(
                     cursorId,
-                    new IgniteBiTuple<>(
+                    new CursorMeta(
                         cursor,
-                        new CursorMeta(CursorType.WATCH, watchCmd.requesterNodeId())
+                        CursorType.WATCH,
+                        watchCmd.requesterNodeId()
                     )
                 );
 
@@ -334,13 +337,14 @@ public class MetaStorageListener implements RaftGroupListener {
             else if (clo.command() instanceof CursorsCloseCommand) {
                 CursorsCloseCommand cursorsCloseCmd = (CursorsCloseCommand) clo.command();
 
-                for (Iterator<IgniteBiTuple<Cursor<?>, CursorMeta>> cursorsIter = cursors.values().iterator();
-                    cursorsIter.hasNext();) {
-                    IgniteBiTuple<Cursor<?>, CursorMeta> cursorTuple = cursorsIter.next();
+                Iterator<CursorMeta> cursorsIter = cursors.values().iterator();
 
-                    if (cursorTuple.getValue().requesterNodeId().equals(cursorsCloseCmd.nodeId())) {
+                while(cursorsIter.hasNext()) {
+                    CursorMeta cursorDesc = cursorsIter.next();
+
+                    if (cursorDesc.requesterNodeId().equals(cursorsCloseCmd.nodeId())) {
                         try {
-                            cursorTuple.getKey().close();
+                            cursorDesc.cursor().close();
                         }
                         catch (Exception e) {
                             throw new IgniteInternalException(e);
@@ -413,6 +417,9 @@ public class MetaStorageListener implements RaftGroupListener {
      * Cursor meta information: origin node id and type.
      */
     private class CursorMeta {
+        /** Cursor. */
+        private final Cursor<?> cursor;
+
         /** Cursor type. */
         private final CursorType type;
 
@@ -422,12 +429,24 @@ public class MetaStorageListener implements RaftGroupListener {
         /**
          * The constructor.
          *
+         * @param cursor Cursor.
          * @param type Cursor type.
          * @param requesterNodeId Id of the node that creates cursor.
          */
-        CursorMeta(CursorType type, String requesterNodeId) {
+        CursorMeta(Cursor<?> cursor,
+            CursorType type,
+            String requesterNodeId
+        ) {
+            this.cursor = cursor;
             this.type = type;
             this.requesterNodeId = requesterNodeId;
+        }
+
+        /**
+         * @return Cursor.
+         */
+        public Cursor<?> cursor() {
+            return cursor;
         }
 
         /**
