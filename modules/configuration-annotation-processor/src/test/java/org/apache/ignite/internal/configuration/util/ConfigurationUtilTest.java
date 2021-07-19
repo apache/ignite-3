@@ -134,7 +134,10 @@ public class ConfigurationUtilTest {
         public String str;
     }
 
-    /** */
+    /**
+     * Tests that {@link ConfigurationUtil#find(List, TraversableTreeNode)} finds proper node when provided with correct
+     * path.
+     */
     @Test
     public void findSuccessfully() {
         var parent = newParentInstance();
@@ -173,7 +176,10 @@ public class ConfigurationUtilTest {
         );
     }
 
-    /** */
+    /**
+     * Tests that {@link ConfigurationUtil#find(List, TraversableTreeNode)} returns null when path points to nonexistent
+     * named list element.
+     */
     @Test
     public void findNulls() {
         var parent = newParentInstance();
@@ -189,7 +195,10 @@ public class ConfigurationUtilTest {
         assertNull(ConfigurationUtil.find(List.of("elements", "name", "child", "str"), parent));
     }
 
-    /** */
+    /**
+     * Tests that {@link ConfigurationUtil#find(List, TraversableTreeNode)} throws {@link KeyNotFoundException} when
+     * provided with a wrong path.
+     */
     @Test
     public void findUnsuccessfully() {
         var parent = newParentInstance();
@@ -214,7 +223,9 @@ public class ConfigurationUtilTest {
         );
     }
 
-    /** */
+    /**
+     * Tests convertion of flat map to a prefix map.
+     */
     @Test
     public void toPrefixMap() {
         assertEquals(
@@ -238,7 +249,9 @@ public class ConfigurationUtilTest {
         );
     }
 
-    /** */
+    /**
+     * Tests that patching of configuration node with a prefix map works fine when prefix map is valid.
+     */
     @Test
     public void fillFromPrefixMapSuccessfully() {
         var parentNode = newParentInstance();
@@ -260,7 +273,9 @@ public class ConfigurationUtilTest {
         assertEquals("value2", parentNode.elements().get("name2").child().str());
     }
 
-    /** */
+    /**
+     * Tests that patching of configuration node with a prefix map works fine when prefix map is valid.
+     */
     @Test
     public void fillFromPrefixMapSuccessfullyWithRemove() {
         var parentNode = newParentInstance();
@@ -278,7 +293,9 @@ public class ConfigurationUtilTest {
         assertNull(parentNode.elements().get("node"));
     }
 
-    /** */
+    /**
+     * Tests that conversion from "changer" lambda to a flat map of updates for the storage works properly.
+     */
     @Test
     public void flattenedUpdatesMap() {
         var superRoot = new SuperRoot(key -> null, Map.of(ParentConfiguration.KEY, newParentInstance()));
@@ -341,7 +358,9 @@ public class ConfigurationUtilTest {
         return createFlattenedUpdatesMap(originalSuperRoot, superRoot);
     }
 
-    /** */
+    /**
+     * Tests basic invariants of {@link ConfigurationUtil#patch(ConstructableTreeNode, TraversableTreeNode)} method.
+     */
     @Test
     public void patch() {
         var originalRoot = newParentInstance();
@@ -396,6 +415,11 @@ public class ConfigurationUtilTest {
         assertNotNull(shrinkedRoot.elements().get("name2"));
     }
 
+    /**
+     * @param parent {@link ParentView} object.
+     * @return Copy of the {@code parent} objects cast to {@link ParentChange}.
+     * @see ConstructableTreeNode#copy()
+     */
     private ParentChange copy(ParentView parent) {
         return (ParentChange)((ConstructableTreeNode)parent).copy();
     }

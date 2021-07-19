@@ -103,7 +103,7 @@ public class NamedListOrderTest {
         // Manually instantiate configuration instance.
         var a = (AConfiguration)cgen.instantiateCfg(AConfiguration.KEY, changer);
 
-        // Create values on several layers at the same time. They all shoud have <idx> = 0.
+        // Create values on several layers at the same time. They all should have <idx> = 0.
         a.b().change(b -> b.create("X", x -> x.changeB(xb -> xb.create("Z0", z0 -> {})))).get();
 
         assertEquals(
@@ -230,5 +230,10 @@ public class NamedListOrderTest {
         // Wrong indexes.
         assertThrows(IndexOutOfBoundsException.class, () -> b.create(-1, "Z", z -> {}));
         assertThrows(IndexOutOfBoundsException.class, () -> b.create(3, "Z", z -> {}));
+
+        // Create after delete.
+        b.delete("X");
+        assertThrows(IllegalArgumentException.class, () -> b.create("X", x -> {}));
+        assertThrows(IllegalArgumentException.class, () -> b.create(0, "X", x -> {}));
     }
 }

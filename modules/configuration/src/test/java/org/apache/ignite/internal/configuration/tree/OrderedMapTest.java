@@ -93,7 +93,7 @@ public class OrderedMapTest {
     /** Tests that {@link OrderedMap#putAfter(String, String, Object)} preserves order. */
     @Test
     public void putAfter() {
-        map.putAfter("foo", "key1", "value1");
+        map.put("key1", "value1");
 
         assertEquals(List.of("key1"), map.keys());
 
@@ -108,10 +108,6 @@ public class OrderedMapTest {
         map.putAfter("key2", "key4", "value4");
 
         assertEquals(List.of("key1", "key3", "key2", "key4"), map.keys());
-
-        map.putAfter("foo", "key5", "value5");
-
-        assertEquals(List.of("key1", "key3", "key2", "key4", "key5"), map.keys());
     }
 
     /** Tests basic invariants of {@link OrderedMap#rename(String, String)} method. */

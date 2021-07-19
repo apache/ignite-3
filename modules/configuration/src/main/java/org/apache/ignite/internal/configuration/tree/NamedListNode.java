@@ -24,15 +24,20 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.NamedListChange;
 
-/** */
+/**
+ * Configuration node implementation for the collection of named {@link InnerNode}s. Unlike implementations of
+ * {@link InnerNode}, this class is used for every named list in configuration.
+ *
+ * @param <N> Type of the {@link InnerNode} that is stored in named list node object.
+ */
 public final class NamedListNode<N extends InnerNode> implements NamedListChange<N>, TraversableTreeNode, ConstructableTreeNode {
     /** Name of a synthetic configuration property that describes the order of elements in a named list. */
     public static final String ORDER_IDX = "<idx>";
 
-    /** */
+    /** Supplier of new node objects when new list element node has to be created. */
     private final Supplier<N> valSupplier;
 
-    /** */
+    /** Internal container for named list element. Maps keys to named list elements nodes. */
     private final OrderedMap<N> map;
 
     /**
@@ -80,8 +85,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
 
-        if (map.containsKey(key))
-            throw new IllegalArgumentException("Element with name " + key + " already exists.");
+        checkNewKey(key);
 
         N val = valSupplier.get();
 
@@ -100,8 +104,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
         if (index < 0 || index > map.size())
             throw new IndexOutOfBoundsException(index);
 
-        if (map.containsKey(key))
-            throw new IllegalArgumentException("Element with name " + key + " already exists.");
+        checkNewKey(key);
 
         N val = valSupplier.get();
 
@@ -121,8 +124,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
         if (!map.containsKey(precedingKey))
             throw new IllegalArgumentException("Element with name " + precedingKey + " doesn't exist.");
 
-        if (map.containsKey(key))
-            throw new IllegalArgumentException("Element with name " + key + " already exists.");
+        checkNewKey(key);
 
         N val = valSupplier.get();
 
@@ -151,6 +153,20 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
         valConsumer.accept(val);
 
         return this;
+    }
+
+    /**
+     * Checks that this new key can be inserted into the map.
+     * @param key New key.
+     * @throws IllegalArgumentException If key already exists.
+     */
+    private void checkNewKey(String key) {
+        if (map.containsKey(key)) {
+            if (map.get(key) == null)
+                throw new IllegalArgumentException("You can't create entity that has just been deleted [key=" + key + ']');
+
+            throw new IllegalArgumentException("Element with name " + key + " already exists.");
+        }
     }
 
     /** {@inheritDoc} */

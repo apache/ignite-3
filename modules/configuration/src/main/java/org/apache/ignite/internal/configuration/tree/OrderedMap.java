@@ -78,10 +78,12 @@ class OrderedMap<V> {
      * @return Previous value associated with the key or {@code null} if the map had no such key.
      */
     public V remove(String key) {
-        if (map.containsKey(key))
+        V res = map.remove(key);
+
+        if (res != null)
             orderedKeys.remove(key);
 
-        return map.remove(key);
+        return res;
     }
 
     /**
@@ -100,7 +102,8 @@ class OrderedMap<V> {
      * Inserts a value into the map under the specified key. The key will be positioned at the given index, shifting any
      * existing values at that position to the right. Key must not be present in the map when the method is called.
      *
-     * @param idx Ordering index for the key. Must be in {@code [0 .. size()]} range.
+     * @param idx Ordering index for the key. Can't be negative. Every value bigger or equal than {@code size()} is
+     *            treated like {@code size()}.
      * @param key Key to put.
      * @param value Value associated with the key.
      */
@@ -124,11 +127,12 @@ class OrderedMap<V> {
      * @param value Value associated with the key.
      */
     public void putAfter(String precedingKey, String key, V value) {
+        assert map.containsKey(precedingKey) : precedingKey + " " + map;
         assert !map.containsKey(key) : key + " " + map;
 
         int idx = orderedKeys.indexOf(precedingKey);
 
-        putByIndex(idx < 0 ? orderedKeys.size() : idx + 1, key, value);
+        putByIndex(idx + 1, key, value);
     }
 
     /**
