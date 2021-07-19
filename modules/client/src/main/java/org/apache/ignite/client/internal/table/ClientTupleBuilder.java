@@ -33,6 +33,15 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     /** Columns values. */
     private final HashMap<String, Object> map = new HashMap<>();
 
+    /**
+     * Gets the underlying map.
+     *
+     * @return Underlying map
+     */
+    public HashMap<String, Object> map() {
+        return map;
+    }
+
     @Override public TupleBuilder set(String colName, Object value) {
         map.put(colName, value);
 
