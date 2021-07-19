@@ -19,12 +19,17 @@ package org.apache.ignite.client.fakes;
 
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.tx.IgniteTransactions;
 
 public class FakeIgnite implements Ignite {
     private final IgniteTables tables = new FakeIgniteTables();
 
     @Override public IgniteTables tables() {
         return tables;
+    }
+
+    @Override public IgniteTransactions transactions() {
+        return null;
     }
 
     @Override public void close() throws Exception {

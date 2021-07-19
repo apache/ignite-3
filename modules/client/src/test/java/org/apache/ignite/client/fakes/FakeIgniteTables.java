@@ -72,6 +72,6 @@ public class FakeIgniteTables implements IgniteTables {
     }
 
     @NotNull private Table getNewTable(String name) {
-        return new TableImpl(new FakeInternalTable(name, UUID.randomUUID()), new SchemaRegistryImpl(v -> null));
+        return new TableImpl(new FakeInternalTable(name, UUID.randomUUID()), new SchemaRegistryImpl(v -> null), null, null);
     }
 }
