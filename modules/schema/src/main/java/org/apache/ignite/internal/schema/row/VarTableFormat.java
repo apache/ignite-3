@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema.row;
 
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.util.Constants;
 
 /**
  * Vartable format helper provides methods for reading/writing the chunk vartable content.
@@ -60,7 +61,7 @@ abstract class VarTableFormat {
             if (payloadLen < 256)
                 return TINY;
 
-            if (payloadLen < 64 * 1024)
+            if (payloadLen < 64 * Constants.KiB)
                 return MEDIUM;
         }
 
