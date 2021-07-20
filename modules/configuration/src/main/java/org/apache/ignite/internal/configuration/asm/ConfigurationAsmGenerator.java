@@ -454,7 +454,7 @@ public class ConfigurationAsmGenerator {
 
             SchemaClassesInfo fieldClassNames = new SchemaClassesInfo(schemaField.getType());
 
-            // this.values = new NamedListNode<>(keyName, ValueNode::new);
+            // this.values = new NamedListNode<>(key, ValueNode::new);
             ctor.getBody().append(ctor.getThis().setField(
                 fieldDefs.get(schemaField.getName()),
                 newInstance(
@@ -726,15 +726,21 @@ public class ConfigurationAsmGenerator {
                     )
                 );
             }
-            // this.field = src == null ? new NamedListNode(ValueNode::new) : src.descend(field = field.copy()));
+            // this.field = src == null ? new NamedListNode<>(key, ValueNode::new) : src.descend(field = field.copy()));
             else {
+                NamedConfigValue namedCfgAnnotation = schemaField.getAnnotation(NamedConfigValue.class);
+
                 String fieldNodeClassName = schemasInfo.get(schemaField.getType()).nodeClassName;
 
                 caseClause.append(new IfStatement()
                     .condition(isNull(srcVar))
                     .ifTrue(constructMtd.getThis().setField(
                         fieldDef,
-                        newInstance(NamedListNode.class, newNamedListElementLambda(fieldNodeClassName))
+                        newInstance(
+                            NamedListNode.class,
+                            constantString(namedCfgAnnotation.syntheticKey()),
+                            newNamedListElementLambda(fieldNodeClassName)
+                        )
                     ))
                     .ifFalse(new BytecodeBlock()
                         .append(constructMtd.getThis().setField(
