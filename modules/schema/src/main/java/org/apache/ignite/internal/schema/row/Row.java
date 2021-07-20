@@ -427,6 +427,8 @@ public class Row implements BinaryRow {
     }
 
     /**
+     * Reads and decode time column value.
+     *
      * @param off Offset
      * @param prec Temporal type precision.
      * @return LocalTime value.
@@ -454,6 +456,8 @@ public class Row implements BinaryRow {
     }
 
     /**
+     * Reads and decode date column value.
+     *
      * @param off Offset
      * @return LocalDate value.
      */

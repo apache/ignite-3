@@ -27,6 +27,46 @@ import org.apache.ignite.internal.schema.TemporalNativeType;
  * <p>
  * Provides methods to encode/decode temporal types in a compact way  for futher writing to row.
  * Conversion preserves natural type order.
+ * <p>
+ * DATE is a fixed-length type which compacted representation keeps ordering, value are signed and fit into a 3-bytes.
+ * Thus, DATE value can be compared by bytes where first byte is signed and others - unsigned.
+ * Thus temporal functions, like YEAR(), can easily extracts fields with a mask,
+ * <p>
+ * Date compact structure:
+ * ┌──────────────┬─────────┬────────┐
+ * │ Year(signed) │ Month   │ Day    │
+ * ├──────────────┼─────────┼────────┤
+ * │ 15 bits      │ 4 bits  │ 5 bits │
+ * └──────────────┴─────────┴────────┘
+ * <p>
+ * TIME is a fixed-length type supporting accuracy for millis, micros or nanos.
+ * Compacted time representation keeps ordering, values fits to 8-bytes value ({@code long}) with padding
+ * can be compared as unsiged bytes.
+ * Padding part size depends on type precision and filled with zeroes.
+ * Subsecond part stores in a separate bit sequence of 10/20/30 bits for millis/micros/nanos precision accordingly.
+ * <p>
+ * Total value size is 4/5/6 bytes depensing on the type accuracy.
+ * <p>
+ * Time compact structure:
+ * ┌─────────┬──────────┬──────────┬───────────────┬─────────┐
+ * │ Hours   │ Minutes  │ Seconds  │ Subseconds    │ Padding │
+ * ├─────────┼──────────┼──────────┼───────────────┼─────────┤
+ * │ 5 bits  │ 6 bits   │ 6 bit    │ 10/20/30 bits │         │
+ * └─────────┴──────────┴──────────┴───────────────┴─────────┘
+ * <p>
+ * DATETIME is just a concatenation of DATE and TIME values.
+ * <p>
+ * TIMESTAMP has similart structure to {@link java.time.Instant} and supports accuracy for millis, micros or nanos.
+ * Subsecond part stores in a separate bit sequence of 16/24/32 bits for millis/micros/nanos precision accordingly.
+ * <p>
+ * Total value size is 10/11/12 bytes depensing on the type accuracy.
+ * <p>
+ * Timestamp compact structure:
+ * ┌──────────────────────────┬────────────────┐
+ * │ Seconds since the epoch  │  Subseconds    │
+ * ├──────────────────────────┼────────────────┤
+ * │    64 bits               │ 16/24/32 bits  │
+ * └──────────────────────────┴────────────────┘
  *
  * @see org.apache.ignite.internal.schema.row.Row
  * @see org.apache.ignite.internal.schema.row.RowAssembler
@@ -80,32 +120,36 @@ public class TemporalTypesHelper {
      * @param time Time.
      * @return Encoded time.
      */
-    public static long compactTime(TemporalNativeType type, LocalTime time) {
+    public static long encodeTime(TemporalNativeType type, LocalTime time) {
+        int padding;
+
         long val = (long)time.getHour() << MINUTES_FIELD_LENGTH;
         val = (val | (long)time.getMinute()) << SECONDS_FIELD_LENGTH;
 
         switch (type.precision()) {
             case 3:
+                padding = 5;
                 val = (val | (long)time.getSecond()) << MILLIS_FIELD_LENGTH;
                 val |= (long)time.getNano() / 1_000_000; // Conver to millis.
-
-                return val;
+                break;
 
             case 6:
+                padding = 3;
                 val = (val | (long)time.getSecond()) << MICROS_FIELD_LENGTH;
                 val |= (long)time.getNano() / 1_000; // Conver to micros.
-
-                return val;
+                break;
 
             case 9:
+                padding = 1;
                 val = (val | (long)time.getSecond()) << NANOS_FIELD_LENGTH;
                 val |= (long)time.getNano();
-
-                return val;
+                break;
 
             default: // Should never get here.
                 throw new IllegalArgumentException("Unsupported time precision: " + type.precision());
         }
+
+        return val << padding;
     }
 
     /**
@@ -134,14 +178,17 @@ public class TemporalTypesHelper {
 
         switch (prec) {
             case 3:
+                time >>>= 5;
                 nanos = (int)(time & mask(MILLIS_FIELD_LENGTH)) * 1_000_000;
                 time >>>= MILLIS_FIELD_LENGTH;
                 break;
             case 6:
+                time >>>= 3;
                 nanos = (int)(time & mask(MICROS_FIELD_LENGTH)) * 1_000;
                 time >>>= MICROS_FIELD_LENGTH;
                 break;
             case 9:
+                time >>>= 1;
                 nanos = (int)(time & mask(NANOS_FIELD_LENGTH));
                 time >>>= NANOS_FIELD_LENGTH;
                 break;

@@ -86,6 +86,6 @@ public class TemporalTypesTest {
      * @param time Time value.
      */
     private void checkTime(TemporalNativeType type, LocalTime time) {
-        assertEquals(time, TemporalTypesHelper.decodeTime(TemporalTypesHelper.compactTime(type, time), type.precision()));
+        assertEquals(time, TemporalTypesHelper.decodeTime(TemporalTypesHelper.encodeTime(type, time), type.precision()));
     }
 }

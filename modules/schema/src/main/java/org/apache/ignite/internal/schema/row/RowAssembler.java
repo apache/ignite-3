@@ -688,7 +688,7 @@ public class RowAssembler {
      * @param type Native type.
      */
     private void writeTime(int off, LocalTime val, TemporalNativeType type) {
-        long time = TemporalTypesHelper.compactTime(type, val);
+        long time = TemporalTypesHelper.encodeTime(type, val);
 
         switch (type.precision()) {
             case 3:
