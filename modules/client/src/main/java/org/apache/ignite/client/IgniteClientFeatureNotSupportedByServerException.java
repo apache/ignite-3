@@ -19,6 +19,9 @@ package org.apache.ignite.client;
 
 import org.apache.ignite.client.internal.ProtocolBitmaskFeature;
 
+/**
+ * Indicates that thin client feature is not supported by the server.
+ */
 public class IgniteClientFeatureNotSupportedByServerException extends IgniteClientException {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;

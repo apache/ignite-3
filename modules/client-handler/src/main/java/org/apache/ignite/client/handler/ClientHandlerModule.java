@@ -33,6 +33,7 @@ import org.apache.ignite.client.ClientMessageDecoder;
 import org.apache.ignite.client.ClientMessageEncoder;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.lang.IgniteException;
 import org.slf4j.Logger;
 
 import java.net.BindException;
@@ -42,18 +43,19 @@ import java.net.BindException;
  *
  */
 public class ClientHandlerModule {
-    /** */
-    private ConfigurationRegistry sysConf;
+    /** Configuration registry. */
+    private ConfigurationRegistry registry;
 
-    /** */
+    /** Ignite API entry poiny. */
     private final Ignite ignite;
 
-    /** */
+    /** Logger. */
     private final Logger log;
 
     /**
      * Constructor.
      *
+     * @param ignite Ignite.
      * @param log Logger.
      */
     public ClientHandlerModule(Ignite ignite, Logger log) {
@@ -62,23 +64,32 @@ public class ClientHandlerModule {
     }
 
     /**
+     * Prepares to start the module.
+     *
      * @param sysCfg Configuration registry.
      */
     public void prepareStart(ConfigurationRegistry sysCfg) {
-        sysConf = sysCfg;
+        registry = sysCfg;
     }
 
     /**
+     * Starts the module.
+     *
      * @return channel future.
-     * @throws InterruptedException If thread has been interupted during the start.
+     * @throws InterruptedException If thread has been interrupted during the start.
      */
     public ChannelFuture start() throws InterruptedException {
         return startEndpoint();
     }
 
-    /** */
+    /**
+     * Starts the endpoint.
+     *
+     * @return Channel future.
+     * @throws InterruptedException If thread has been interrupted during the start.
+     */
     private ChannelFuture startEndpoint() throws InterruptedException {
-        var configuration = sysConf.getConfiguration(ClientConnectorConfiguration.KEY);
+        var configuration = registry.getConfiguration(ClientConnectorConfiguration.KEY);
 
         // TODO: Why defaults are not returned?
         int desiredPort = configuration.port().value() == null ? 10800 : configuration.port().value();
@@ -133,7 +144,7 @@ public class ClientHandlerModule {
 
             eventLoopGroup.shutdownGracefully();
 
-            throw new RuntimeException(msg);
+            throw new IgniteException(msg);
         }
 
         log.info("Thin client connector started successfully on port " + port);

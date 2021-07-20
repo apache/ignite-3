@@ -23,14 +23,19 @@ import java.util.BitSet;
  * Client connection context.
  */
 class ClientContext {
+    /** Major version part. */
     private final int verMajor;
 
+    /** Minor version part. */
     private final int verMinor;
 
+    /** Patch version part. */
     private final int verPatch;
 
+    /** Client type code. */
     private final int clientCode;
 
+    /** Feature set. */
     private final BitSet features;
 
     /**
