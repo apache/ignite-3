@@ -26,6 +26,7 @@ public class IgniteClientException extends IgniteException {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
+    /** Error code. */
     private final int errorCode;
 
     /**

@@ -36,6 +36,8 @@ public class IgniteClientFeatureNotSupportedByServerException extends IgniteClie
     }
 
     /**
+     * Constructs a new exception with the specified missing feature.
+     *
      * @param feature Feature.
      */
     public IgniteClientFeatureNotSupportedByServerException(ProtocolBitmaskFeature feature) {

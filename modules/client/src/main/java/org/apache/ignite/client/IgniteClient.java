@@ -30,20 +30,38 @@ public class IgniteClient {
         return new Builder();
     }
 
+    /** Client builder. */
     public static class Builder {
+        /** Addresses. */
         private String[] addresses;
 
+        /**
+         * Builds the client.
+         *
+         * @return Ignite client.
+         */
         public Ignite build() {
             // TODO: Validate values IGNITE-15164.
             return buildAsync().join();
         }
 
+        /**
+         * Sets the addresses.
+         *
+         * @param addrs Addresses.
+         * @return This instance
+         */
         public Builder addresses(String... addrs) {
             addresses = addrs;
 
             return this;
         }
 
+        /**
+         * Builds the client.
+         *
+         * @return Ignite client.
+         */
         public CompletableFuture<Ignite> buildAsync() {
             // TODO: Async connect IGNITE-15164.
             var cfg = new IgniteClientConfigurationImpl(null, addresses, 0);
@@ -52,28 +70,44 @@ public class IgniteClient {
         }
     }
 
+    /**
+     * Immutable configuration.
+     */
     private static class IgniteClientConfigurationImpl implements IgniteClientConfiguration {
+        /** Address finder. */
         private final IgniteClientAddressFinder addressFinder;
 
+        /** Addresses. */
         private final String[] addresses;
 
+        /** Retry limit. */
         private final int retryLimit;
 
+        /**
+         * Constructor.
+         *
+         * @param addressFinder Address finder.
+         * @param addresses Addresses.
+         * @param retryLimit Retry limit.
+         */
         IgniteClientConfigurationImpl(IgniteClientAddressFinder addressFinder, String[] addresses, int retryLimit) {
             this.addressFinder = addressFinder;
             this.addresses = addresses;
             this.retryLimit = retryLimit;
         }
 
+        /** {@inheritDoc} */
         @Override public IgniteClientAddressFinder getAddressesFinder() {
             return addressFinder;
         }
 
+        /** {@inheritDoc} */
         @Override public String[] getAddresses() {
             // TODO: Defensive copy IGNITE-15164.
             return addresses;
         }
 
+        /** {@inheritDoc} */
         @Override public int getRetryLimit() {
             return retryLimit;
         }
