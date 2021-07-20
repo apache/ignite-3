@@ -44,7 +44,7 @@ public class ClientTableTest extends AbstractClientTest {
         Table table = getDefaultTable();
 
         var tuple = table.tupleBuilder()
-                .set("id", 123)
+                .set("id", 123L)
                 .set("name", "John")
                 .build();
 

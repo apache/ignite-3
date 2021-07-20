@@ -153,7 +153,7 @@ public class ClientTable implements Table {
                 // TODO: unpackObject will return different types for varint columns based on the value
                 // We should switch on schema type: decide how to pass types properly, update IEP.
                 for (var col : schema.columns())
-                    builder.set(col.name(), in.unpackObject());
+                    builder.set(col.name(), in.unpackObject(col.type()));
             } catch (IOException e) {
                 throw new CompletionException(e);
             }
