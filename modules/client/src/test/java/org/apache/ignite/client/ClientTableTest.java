@@ -36,7 +36,8 @@ public class ClientTableTest extends AbstractClientTest {
 
         var ex = assertThrows(CompletionException.class, () -> table.get(key));
 
-        assertTrue(ex.getMessage().contains("Failed to set column (null was passed, but column is not nullable)"));
+        assertTrue(ex.getMessage().contains("Failed to set column (null was passed, but column is not nullable)"),
+                ex.getMessage());
     }
 
     @Test
@@ -54,13 +55,26 @@ public class ClientTableTest extends AbstractClientTest {
         var resTuple = table.get(key);
 
         assertEquals("John", resTuple.stringValue("name"));
-        assertEquals(123, resTuple.longValue("id"));
+        assertEquals(123L, resTuple.longValue("id"));
         assertTupleEquals(tuple, resTuple);
     }
 
     @Test
-    public void testPutGetAsync() {
-        // TODO
+    public void testUpsertGetAsync() {
+        Table table = getDefaultTable();
+
+        var tuple = table.tupleBuilder()
+                .set("id", 42L)
+                .set("name", "Jack")
+                .build();
+
+        Tuple key = table.tupleBuilder().set("id", 42).build();
+
+        var resTuple = table.upsertAsync(tuple).thenCompose(t -> table.getAsync(key)).join();
+
+        assertEquals("Jack", resTuple.stringValue("name"));
+        assertEquals(42L, resTuple.longValue("id"));
+        assertTupleEquals(tuple, resTuple);
     }
 
     private Table getDefaultTable() {
