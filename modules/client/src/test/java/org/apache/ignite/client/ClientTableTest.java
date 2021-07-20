@@ -36,8 +36,7 @@ public class ClientTableTest extends AbstractClientTest {
 
         var ex = assertThrows(CompletionException.class, () -> table.get(key));
 
-        assertTrue(ex.getMessage().contains("Failed to set column (null was passed, but column is not nullable)"),
-                ex.getMessage());
+        assertTrue(ex.getMessage().contains("Column is not present in schema: foo"), ex.getMessage());
     }
 
     @Test
