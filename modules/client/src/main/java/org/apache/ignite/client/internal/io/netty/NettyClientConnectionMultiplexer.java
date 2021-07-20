@@ -68,7 +68,7 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
                 }
             });
 
-        } catch (Throwable t){
+        } catch (Throwable t) {
             workerGroup.shutdownGracefully();
 
             throw t;
