@@ -39,6 +39,7 @@ import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import com.codahale.metrics.ConsoleReporter;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -3416,7 +3417,7 @@ public class ITNodeTest {
             @Override public synchronized void shutdown() {
                 super.shutdown();
 
-                clusterService.shutdown();
+                clusterService.stop();
             }
         };
 

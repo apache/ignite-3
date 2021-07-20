@@ -132,7 +132,7 @@ public class ITCliServiceTest {
             @Override public void shutdown() {
                 super.shutdown();
 
-                clientSvc.shutdown();
+                clientSvc.stop();
             }
         };
 

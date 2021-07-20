@@ -140,10 +140,10 @@ public class ITDistributedTableTest {
     @AfterEach
     public void afterTest() throws Exception {
         for (ClusterService node : cluster) {
-            node.shutdown();
+            node.stop();
         }
 
-        client.shutdown();
+        client.stop();
     }
 
     /**
@@ -178,7 +178,7 @@ public class ITDistributedTableTest {
 
         assertEquals(testRow.longValue(1), new Row(SCHEMA, getFut.get().getValue()).longValue(1));
 
-        partSrv.shutdown();
+        partSrv.stop();
     }
 
     /**

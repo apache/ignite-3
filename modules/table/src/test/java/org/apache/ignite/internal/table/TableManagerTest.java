@@ -130,11 +130,6 @@ public class TableManagerTest {
     /** Raft manager. */
     @Mock(lenient = true)
     private Loza rm;
-
-    /** Vault manager. */
-    @Mock(lenient = true)
-    private VaultManager vm;
-
     /** Test node. */
     private final ClusterNode node = new ClusterNode(
         UUID.randomUUID().toString(),
@@ -210,7 +205,7 @@ public class TableManagerTest {
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-14578")
     @Test
     public void testStaticTableConfigured() {
-        TableManager tableManager = new TableManager(cfrMgr, mm, sm, am, rm, vm);
+        TableManager tableManager = new TableManager(cfrMgr, mm, sm, am, rm);
 
         assertEquals(1, tableManager.tables().size());
 
@@ -410,7 +405,7 @@ public class TableManagerTest {
             return null;
         }).when(am).listen(same(AffinityEvent.CALCULATED), any());
 
-        TableManager tableManager = new TableManager(cfrMgr, mm, sm, am, rm, vm);
+        TableManager tableManager = new TableManager(cfrMgr, mm, sm, am, rm);
 
         tblManagerFut.complete(tableManager);
 

@@ -139,7 +139,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         LOG.info("Start server shutdown servers={}", servers.size());
 
         for (RaftServer server : servers)
-            server.shutdown();
+            server.stop();
 
         assertTrue(Utils.delete(new File(dataPath)), "Failed to delete " + dataPath);
 
@@ -156,10 +156,10 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         ClusterService service = clusterService("server" + idx, PORT + idx, List.of(addr), true);
 
         JRaftServerImpl server = new JRaftServerImpl(service, dataPath, FACTORY) {
-            @Override public void shutdown() throws Exception {
-                super.shutdown();
+            @Override public void stop() {
+                super.stop();
 
-                service.shutdown();
+                service.stop();
             }
         };
 
@@ -187,7 +187,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
             @Override public void shutdown() {
                 super.shutdown();
 
-                clientNode.shutdown();
+                clientNode.stop();
             }
         };
 
@@ -512,7 +512,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
         servers.remove(stopIdx);
 
-        toStop.shutdown();
+        toStop.stop();
 
         applyIncrements(client1, 11, 20);
         applyIncrements(client2, 21, 30);
@@ -535,7 +535,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         waitForCondition(() -> validateStateMachine(sum(20), svc2, COUNTER_GROUP_0), 5_000);
         waitForCondition(() -> validateStateMachine(sum(30), svc2, COUNTER_GROUP_1), 5_000);
 
-        svc2.shutdown();
+        svc2.stop();
 
         var svc3 = startServer(stopIdx, r -> {
             r.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF);

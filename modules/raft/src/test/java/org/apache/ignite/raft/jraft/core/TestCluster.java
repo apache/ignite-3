@@ -234,7 +234,7 @@ public class TestCluster {
                 @Override public synchronized void shutdown() {
                     super.shutdown();
 
-                    clusterService.shutdown();
+                    clusterService.stop();
                 }
             };
 

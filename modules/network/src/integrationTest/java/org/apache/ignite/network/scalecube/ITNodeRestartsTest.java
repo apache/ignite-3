@@ -52,7 +52,7 @@ class ITNodeRestartsTest {
     @AfterEach
     void after() {
         for (ClusterService service : services)
-            service.shutdown();
+            service.stop();
     }
 
     /** */
@@ -84,10 +84,10 @@ class ITNodeRestartsTest {
         int idx1 = 2;
 
         LOG.info("Shutdown {}", addresses.get(idx0));
-        services.get(idx0).shutdown();
+        services.get(idx0).stop();
 
         LOG.info("Shutdown {}", addresses.get(idx1));
-        services.get(idx1).shutdown();
+        services.get(idx1).stop();
 
         LOG.info("Starting {}", addresses.get(idx0));
         ClusterService svc0 = startNetwork(addresses.get(idx0).toString(), initPort + idx0, addresses);

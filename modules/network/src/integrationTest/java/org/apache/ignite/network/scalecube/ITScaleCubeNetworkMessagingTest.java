@@ -226,7 +226,7 @@ class ITScaleCubeNetworkMessagingTest {
         if (forceful)
             stopForcefully(alice);
         else
-            alice.shutdown();
+            alice.stop();
 
         boolean aliceShutdownReceived = aliceShutdownLatch.await(forceful ? 10 : 3, TimeUnit.SECONDS);
         assertTrue(aliceShutdownReceived);
@@ -332,7 +332,7 @@ class ITScaleCubeNetworkMessagingTest {
          * Shutdown cluster.
          */
         void shutdown() {
-            members.forEach(ClusterService::shutdown);
+            members.forEach(ClusterService::stop);
         }
     }
 }

@@ -20,6 +20,7 @@ package org.apache.ignite.raft.server;
 import java.util.List;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -36,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Single node raft server.
@@ -78,10 +80,15 @@ class ITSimpleCounterServerTest extends RaftServerAbstractTest {
         ClusterService service = clusterService(addr.toString(), PORT, List.of(), true);
 
         server = new RaftServerImpl(service, FACTORY) {
-            @Override public synchronized void shutdown() throws Exception {
-                super.shutdown();
+            @Override public synchronized void stop() {
+                try {
+                    super.stop();
+                }
+                catch (NodeStoppingException e) {
+                    fail("Unable to stop raft server.", e);
+                }
 
-                service.shutdown();
+                service.stop();
             }
         };
 
@@ -97,7 +104,7 @@ class ITSimpleCounterServerTest extends RaftServerAbstractTest {
             @Override public void shutdown() {
                 super.shutdown();
 
-                clientNode1.shutdown();
+                clientNode1.stop();
             }
         };
 
@@ -108,7 +115,7 @@ class ITSimpleCounterServerTest extends RaftServerAbstractTest {
             @Override public void shutdown() {
                 super.shutdown();
 
-                clientNode2.shutdown();
+                clientNode2.stop();
             }
         };
 
@@ -122,7 +129,7 @@ class ITSimpleCounterServerTest extends RaftServerAbstractTest {
      */
     @AfterEach
     void after() throws Exception {
-        server.shutdown();
+        server.stop();
         client1.shutdown();
         client2.shutdown();
     }

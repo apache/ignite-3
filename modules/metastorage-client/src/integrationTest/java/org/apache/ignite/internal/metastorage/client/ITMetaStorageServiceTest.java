@@ -180,10 +180,10 @@ public class ITMetaStorageServiceTest {
      */
     @AfterEach
     public void afterTest() throws Exception {
-        metaStorageRaftSrv.shutdown();
+        metaStorageRaftSrv.stop();
 
         for (ClusterService node : cluster)
-            node.shutdown();
+            node.stop();
     }
 
     /**
