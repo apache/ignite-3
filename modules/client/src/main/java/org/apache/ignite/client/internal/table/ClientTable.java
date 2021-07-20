@@ -148,6 +148,8 @@ public class ClientTable implements Table {
             var builder = new ClientTupleBuilder();
 
             try {
+                var cnt = in.unpackArrayHeader(); // TODO: Get rid of unnecessary array headers
+
                 // TODO: unpackObject will return different types for varint columns based on the value
                 // We should switch on schema type: decide how to pass types properly, update IEP.
                 for (var col : schema.columns())
@@ -177,7 +179,7 @@ public class ClientTable implements Table {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> upsertAsync(@NotNull Tuple rec) {
-        return getLatestSchema().thenCompose(schema -> ch.serviceAsync(ClientOp.TUPLE_GET,
+        return getLatestSchema().thenCompose(schema -> ch.serviceAsync(ClientOp.TUPLE_UPSERT,
                 w -> writeTuple(rec, schema, w, false), r -> null));
     }
 

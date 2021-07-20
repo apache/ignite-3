@@ -263,7 +263,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                 var table = readTable(unpacker);
                 var keyTuple = readTuple(unpacker, table);
 
-                return table.getAsync(keyTuple).thenAccept(t -> writeTuple(packer, t));
+                return table.getAsync(keyTuple).thenAccept(t ->  writeTuple(packer, t));
             }
 
             default:
@@ -309,6 +309,9 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
             packer.packArrayHeader(schema.length());
 
             for (var col : schema.keyColumns().columns())
+                writeColumnValue(packer, tuple, col);
+
+            for (var col : schema.valueColumns().columns())
                 writeColumnValue(packer, tuple, col);
         } catch (Throwable t) {
             throw new IgniteException("Failed to serialize tuple", t);
