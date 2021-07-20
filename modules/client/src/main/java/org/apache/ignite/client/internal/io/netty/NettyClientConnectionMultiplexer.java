@@ -26,7 +26,6 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ignite.client.ClientMessageDecoder;
 import org.apache.ignite.client.ClientMessageEncoder;
-import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.internal.io.ClientConnection;
 import org.apache.ignite.client.internal.io.ClientConnectionMultiplexer;
