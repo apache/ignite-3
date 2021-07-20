@@ -102,7 +102,7 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
             }
 
             /** {@inheritDoc} */
-            @Override public void shutdown() {
+            @Override public void stop() {
                 // local member will be null, if cluster has not been started
                 if (cluster.member() == null)
                     return;
