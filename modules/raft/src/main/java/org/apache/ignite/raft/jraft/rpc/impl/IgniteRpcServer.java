@@ -21,6 +21,10 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
+import org.apache.ignite.network.NetworkMessageHandler;
+import org.apache.ignite.raft.client.message.RaftClientMessageGroup;
+import org.apache.ignite.raft.jraft.RaftMessageGroup;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -55,10 +59,11 @@ import org.jetbrains.annotations.Nullable;
  * TODO https://issues.apache.org/jira/browse/IGNITE-14519 Unsubscribe on shutdown
  */
 public class IgniteRpcServer implements RpcServer<Void> {
-    /** Factory. */
-    private static final RaftClientMessagesFactory FACTORY = new RaftClientMessagesFactory();
-
     private final ClusterService service;
+
+    private final NodeManager nodeManager;
+
+    private final Executor rpcExecutor;
 
     private final List<ConnectionClosedEventListener> listeners = new CopyOnWriteArrayList<>();
 
@@ -67,46 +72,73 @@ public class IgniteRpcServer implements RpcServer<Void> {
     /**
      * @param service The cluster service.
      * @param nodeManager The node manager.
-     * @param factory Message factory.
+     * @param raftClientMessagesFactory Client message factory.
+     * @param raftMessagesFactory Message factory.
      * @param rpcExecutor The executor for RPC requests.
      */
     public IgniteRpcServer(
         ClusterService service,
         NodeManager nodeManager,
-        RaftClientMessagesFactory factory,
+        RaftClientMessagesFactory raftClientMessagesFactory,
+        RaftMessagesFactory raftMessagesFactory,
         @Nullable Executor rpcExecutor
     ) {
         this.service = service;
+        this.nodeManager = nodeManager;
+        this.rpcExecutor = rpcExecutor;
 
         // raft server RPC
-        AppendEntriesRequestProcessor appendEntriesRequestProcessor = new AppendEntriesRequestProcessor(rpcExecutor);
+        AppendEntriesRequestProcessor appendEntriesRequestProcessor =
+            new AppendEntriesRequestProcessor(rpcExecutor, raftMessagesFactory);
         registerConnectionClosedEventListener(appendEntriesRequestProcessor);
         registerProcessor(appendEntriesRequestProcessor);
-        registerProcessor(new GetFileRequestProcessor(rpcExecutor));
-        registerProcessor(new InstallSnapshotRequestProcessor(rpcExecutor));
-        registerProcessor(new RequestVoteRequestProcessor(rpcExecutor));
-        registerProcessor(new PingRequestProcessor(rpcExecutor)); // TODO asch this should go last.
-        registerProcessor(new TimeoutNowRequestProcessor(rpcExecutor));
-        registerProcessor(new ReadIndexRequestProcessor(rpcExecutor));
+        registerProcessor(new GetFileRequestProcessor(rpcExecutor, raftMessagesFactory));
+        registerProcessor(new InstallSnapshotRequestProcessor(rpcExecutor, raftMessagesFactory));
+        registerProcessor(new RequestVoteRequestProcessor(rpcExecutor, raftMessagesFactory));
+        registerProcessor(new PingRequestProcessor(rpcExecutor, raftMessagesFactory)); // TODO asch this should go last.
+        registerProcessor(new TimeoutNowRequestProcessor(rpcExecutor, raftMessagesFactory));
+        registerProcessor(new ReadIndexRequestProcessor(rpcExecutor, raftMessagesFactory));
         // raft native cli service
-        registerProcessor(new AddPeerRequestProcessor(rpcExecutor));
-        registerProcessor(new RemovePeerRequestProcessor(rpcExecutor));
-        registerProcessor(new ResetPeerRequestProcessor(rpcExecutor));
-        registerProcessor(new ChangePeersRequestProcessor(rpcExecutor));
-        registerProcessor(new GetLeaderRequestProcessor(rpcExecutor));
-        registerProcessor(new SnapshotRequestProcessor(rpcExecutor));
-        registerProcessor(new TransferLeaderRequestProcessor(rpcExecutor));
-        registerProcessor(new GetPeersRequestProcessor(rpcExecutor));
-        registerProcessor(new AddLearnersRequestProcessor(rpcExecutor));
-        registerProcessor(new RemoveLearnersRequestProcessor(rpcExecutor));
-        registerProcessor(new ResetLearnersRequestProcessor(rpcExecutor));
+        registerProcessor(new AddPeerRequestProcessor(rpcExecutor, raftMessagesFactory));
+        registerProcessor(new RemovePeerRequestProcessor(rpcExecutor, raftMessagesFactory));
+        registerProcessor(new ResetPeerRequestProcessor(rpcExecutor, raftMessagesFactory));
+        registerProcessor(new ChangePeersRequestProcessor(rpcExecutor, raftMessagesFactory));
+        registerProcessor(new GetLeaderRequestProcessor(rpcExecutor, raftMessagesFactory));
+        registerProcessor(new SnapshotRequestProcessor(rpcExecutor, raftMessagesFactory));
+        registerProcessor(new TransferLeaderRequestProcessor(rpcExecutor, raftMessagesFactory));
+        registerProcessor(new GetPeersRequestProcessor(rpcExecutor, raftMessagesFactory));
+        registerProcessor(new AddLearnersRequestProcessor(rpcExecutor, raftMessagesFactory));
+        registerProcessor(new RemoveLearnersRequestProcessor(rpcExecutor, raftMessagesFactory));
+        registerProcessor(new ResetLearnersRequestProcessor(rpcExecutor, raftMessagesFactory));
         // common client integration
-        registerProcessor(new org.apache.ignite.raft.jraft.rpc.impl.client.GetLeaderRequestProcessor(rpcExecutor, FACTORY));
-        registerProcessor(new ActionRequestProcessor(rpcExecutor, FACTORY));
-        registerProcessor(new org.apache.ignite.raft.jraft.rpc.impl.client.SnapshotRequestProcessor(rpcExecutor, FACTORY));
+        registerProcessor(new org.apache.ignite.raft.jraft.rpc.impl.client.GetLeaderRequestProcessor(rpcExecutor, raftClientMessagesFactory));
+        registerProcessor(new ActionRequestProcessor(rpcExecutor, raftClientMessagesFactory));
+        registerProcessor(new org.apache.ignite.raft.jraft.rpc.impl.client.SnapshotRequestProcessor(rpcExecutor, raftClientMessagesFactory));
 
-        service.messagingService().addMessageHandler((msg, senderAddr, corellationId) -> {
-            Class<? extends NetworkMessage> cls = msg.getClass();
+        var messageHandler = new RpcMessageHandler();
+
+        service.messagingService().addMessageHandler(RaftMessageGroup.class, messageHandler);
+        service.messagingService().addMessageHandler(RaftClientMessageGroup.class, messageHandler);
+
+        service.topologyService().addEventHandler(new TopologyEventHandler() {
+            @Override public void onAppeared(ClusterNode member) {
+                // TODO asch optimize start replicator https://issues.apache.org/jira/browse/IGNITE-14843
+            }
+
+            @Override public void onDisappeared(ClusterNode member) {
+                for (ConnectionClosedEventListener listener : listeners)
+                    listener.onClosed(service.topologyService().localMember().name(), member.name());
+            }
+        });
+    }
+
+    /**
+     * Implementation of a message handler that dispatches the incoming requests to a suitable {@link RpcProcessor}.
+     */
+    public class RpcMessageHandler implements NetworkMessageHandler {
+        /** {@inheritDoc} */
+        @Override public void onReceived(NetworkMessage message, NetworkAddress senderAddr, String correlationId) {
+            Class<? extends NetworkMessage> cls = message.getClass();
             RpcProcessor<NetworkMessage> prc = processors.get(cls.getName());
 
             // TODO asch cache mapping https://issues.apache.org/jira/browse/IGNITE-14832
@@ -127,7 +159,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
             Executor executor = null;
 
             if (selector != null)
-                executor = selector.select(prc.getClass().getName(), msg, nodeManager);
+                executor = selector.select(prc.getClass().getName(), message, nodeManager);
 
             if (executor == null)
                 executor = prc.executor();
@@ -144,7 +176,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
                     }
 
                     @Override public void sendResponse(Object responseObj) {
-                        service.messagingService().send(senderAddr, (NetworkMessage) responseObj, corellationId);
+                        service.messagingService().send(senderAddr, (NetworkMessage) responseObj, correlationId);
                     }
 
                     @Override public NetworkAddress getRemoteAddress() {
@@ -156,20 +188,9 @@ public class IgniteRpcServer implements RpcServer<Void> {
                     }
                 };
 
-                finalPrc.handleRequest(context, msg);
+                finalPrc.handleRequest(context, message);
             });
-        });
-
-        service.topologyService().addEventHandler(new TopologyEventHandler() {
-            @Override public void onAppeared(ClusterNode member) {
-                // TODO asch optimize start replicator https://issues.apache.org/jira/browse/IGNITE-14843
-            }
-
-            @Override public void onDisappeared(ClusterNode member) {
-                for (ConnectionClosedEventListener listener : listeners)
-                    listener.onClosed(service.topologyService().localMember().name(), member.name());
-            }
-        });
+        }
     }
 
     /** {@inheritDoc} */
