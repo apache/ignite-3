@@ -55,6 +55,8 @@ public abstract class VaultServiceTest {
     @BeforeEach
     public void setUp() throws IOException {
         vaultService = getVaultService();
+
+        vaultService.start();
     }
 
     /** */

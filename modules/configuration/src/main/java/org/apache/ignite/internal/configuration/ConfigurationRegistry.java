@@ -123,9 +123,8 @@ public class ConfigurationRegistry implements IgniteComponent {
 
     /** {@inheritDoc} */
     public void stop() {
-    // TODO: IGNITE-15161 Implement component's stop.
-//        if (changer != null)
-//            changer.stop();
+        if (changer != null)
+            changer.stop();
     }
 
     /**

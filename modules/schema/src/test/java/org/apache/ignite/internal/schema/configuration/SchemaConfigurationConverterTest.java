@@ -69,6 +69,8 @@ public class SchemaConfigurationConverterTest {
             Collections.singletonMap(TableValidator.class, Collections.singleton(SchemaTableValidatorImpl.INSTANCE)),
             Collections.singleton(new TestConfigurationStorage()));
 
+        confRegistry.start();
+
         tblBuilder = SchemaBuilders.tableBuilder("SNAME","TNAME")
             .columns(
                 SchemaBuilders.column("COL1", ColumnType.DOUBLE).build(),

@@ -1089,6 +1089,8 @@ public class ITMetaStorageServiceTest {
 
         metaStorageRaftSrv = new RaftServerImpl(cluster.get(0), FACTORY);
 
+        metaStorageRaftSrv.start();
+
         metaStorageRaftSrv.
             startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(keyValStorageMock), peers);
 
