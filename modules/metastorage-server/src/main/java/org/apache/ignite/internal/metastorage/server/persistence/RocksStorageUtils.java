@@ -211,11 +211,8 @@ class RocksStorageUtils {
         for (; iterator.isValid(); iterator.next()) {
             boolean result = consumer.test(iterator.key(), iterator.value());
 
-            if (result) {
-                checkIterator(iterator);
-
+            if (result)
                 return true;
-            }
         }
 
         checkIterator(iterator);
