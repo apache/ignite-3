@@ -253,7 +253,7 @@ public class HostAndPortRange implements Serializable {
 
     /** {@inheritDoc} */
     @Override public boolean equals(Object o) {
-        if (o != null && o instanceof HostAndPortRange) {
+        if (o instanceof HostAndPortRange) {
             HostAndPortRange other = (HostAndPortRange)o;
 
             return host.equals(other.host) && portFrom == other.portFrom && portTo == other.portTo;
