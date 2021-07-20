@@ -17,17 +17,34 @@
 
 package org.apache.ignite.client.internal.table;
 
+/**
+ * Schema column.
+ */
 public class ClientColumn {
+    /** Column name. */
     private final String name;
 
+    /** Column type code (see {@link org.apache.ignite.client.ClientDataType}). */
     private final int type;
 
+    /** Nullable flag. */
     private final boolean nullable;
 
+    /** Key column flag. */
     private final boolean isKey;
 
+    /** Index of the column in the schema. */
     private final int schemaIndex;
 
+    /**
+     * Constructor.
+     *
+     * @param name Column name.
+     * @param type Column type code.
+     * @param nullable Nullable flag.
+     * @param isKey Key column flag.
+     * @param schemaIndex Index of the column in the schema.
+     */
     public ClientColumn(String name, int type, boolean nullable, boolean isKey, int schemaIndex) {
         assert name != null;
         assert schemaIndex >= 0;
@@ -51,14 +68,29 @@ public class ClientColumn {
         return type;
     }
 
+    /**
+     * Gets a value indicating whether this column is nullable.
+     *
+     * @return Value indicating whether this column is nullable.
+     */
     public boolean nullable() {
         return nullable;
     }
 
+    /**
+     * Gets a value indicating whether this column is a part of key.
+     *
+     * @return Value indicating whether this column is a part of key.
+     */
     public boolean key() {
         return isKey;
     }
 
+    /**
+     * Gets the index of the column in the schema.
+     *
+     * @return Schema index.
+     */
     public int schemaIndex() {
         return schemaIndex;
     }
