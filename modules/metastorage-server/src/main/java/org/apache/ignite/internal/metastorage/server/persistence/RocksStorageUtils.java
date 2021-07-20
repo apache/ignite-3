@@ -20,9 +20,8 @@ package org.apache.ignite.internal.metastorage.server.persistence;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.metastorage.server.Value;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
@@ -36,14 +35,18 @@ import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
  * Utility class for {@link RocksDBKeyValueStorage}.
  */
 class RocksStorageUtils {
-    /** Byte order for the {@link RocksDBKeyValueStorage} must be little endian for a correct lexicographic order comparation. */
-    private static final ByteOrder BYTE_ORDER = ByteOrder.LITTLE_ENDIAN;
-
-    /** VarHandle that gives the access to the elements of a {@code byte[]} array viewed as if it were a {@code long[]} array. */
-    private static final VarHandle LONG_ARRAY_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, BYTE_ORDER);
+    /**
+     * VarHandle that gives the access to the elements of a {@code byte[]} array viewed as if it
+     * were a {@code long[]} array. Byte order must be little endian for a correct
+     * lexicographic order comparison.
+     */
+    private static final VarHandle LONG_ARRAY_HANDLE = MethodHandles.byteArrayViewVarHandle(
+        long[].class,
+        ByteOrder.LITTLE_ENDIAN
+    );
 
     /**
-     * Convert a long value to a byte array.
+     * Converts a long value to a byte array.
      *
      * @param value Value.
      * @return Byte array.
@@ -57,7 +60,7 @@ class RocksStorageUtils {
     }
 
     /**
-     * Convert a byte array to a long value.
+     * Converts a byte array to a long value.
      *
      * @param array Byte array.
      * @return Long value.
@@ -103,27 +106,19 @@ class RocksStorageUtils {
      * @return Value.
      */
     static Value bytesToValue(byte[] valueBytes) {
-        int idx = 0;
-
         // At least an 8-byte update counter and a 1-byte boolean
         assert valueBytes.length > Long.BYTES;
 
         // Read an update counter (8-byte long) from the entry.
         long updateCounter = (long) LONG_ARRAY_HANDLE.get(valueBytes, 0);
 
-        idx += Long.BYTES;
-
         // Read a has-value flag (1 byte) from the entry.
         boolean hasValue = valueBytes[Long.BYTES] != 0;
 
-        idx++;
-
         byte[] val;
-        if (hasValue) {
-            // Read the value.
-            val = new byte[valueBytes.length - idx];
-            System.arraycopy(valueBytes, idx, val, 0, val.length);
-        }
+        if (hasValue)
+            // Copy the value.
+            val = Arrays.copyOfRange(valueBytes, Long.BYTES + 1, valueBytes.length);
         else
             // There is no value, mark it as a tombstone.
             val = TOMBSTONE;
@@ -150,27 +145,19 @@ class RocksStorageUtils {
     }
 
     /**
-     * Gets a list of longs from the byte array of longs.
+     * Gets an array of longs from the byte array of longs.
      *
      * @param bytes Byte array of longs.
-     * @return List of longs.
+     * @return Array of longs.
      */
     @NotNull
-    static List<Long> getAsLongs(byte[] bytes) {
+    static long[] getAsLongs(byte[] bytes) {
         // Value must be divisible by a size of a long, because it's a list of longs
         assert (bytes.length % Long.BYTES) == 0;
 
-        int listSize = bytes.length / Long.BYTES;
-
-        var longs = new ArrayList<Long>(listSize);
-
-        for (int i = 0; i < listSize; i++) {
-            long l = (long) LONG_ARRAY_HANDLE.get(bytes, i * Long.BYTES);
-
-            longs.add(l);
-        }
-
-        return longs;
+        return IntStream.range(0, bytes.length / Long.BYTES)
+            .mapToLong(i -> (long) LONG_ARRAY_HANDLE.get(bytes, i * Long.BYTES))
+            .toArray();
     }
 
     /**
@@ -180,27 +167,25 @@ class RocksStorageUtils {
      * @param value New long value.
      * @return Byte array with a new value.
      */
-    static byte @NotNull [] addLongToLongsByteArray(byte @Nullable [] bytes, long value) {
-        // Index to insert new value at
-        int idx = bytes != null ? bytes.length : 0;
+    static byte @NotNull [] appendLong(byte @Nullable [] bytes, long value) {
+        if (bytes == null)
+            return longToBytes(value);
 
         // Allocate a one long size bigger array
-        int size = idx + Long.BYTES;
-
-        var newBytes = new byte[size];
+        var result = new byte[bytes.length + Long.BYTES];
 
         if (bytes != null)
             // Copy the current value
-            System.arraycopy(bytes, 0, newBytes, 0, bytes.length);
+            System.arraycopy(bytes, 0, result, 0, bytes.length);
 
-        LONG_ARRAY_HANDLE.set(newBytes, idx, value);
+        LONG_ARRAY_HANDLE.set(result, bytes.length, value);
 
-        return newBytes;
+        return result;
     }
 
     /**
-     * Iterates over the given iterator passing key-value pairs to the given consumer and checks the iterator's status
-     * afterwards.
+     * Iterates over the given iterator passing key-value pairs to the given consumer and
+     * checks the iterator's status afterwards.
      *
      * @param iterator Iterator.
      * @param consumer Consumer of key-value pairs.
@@ -214,8 +199,8 @@ class RocksStorageUtils {
     }
 
     /**
-     * Iterates over the given iterator testing key-value pairs with the given predicate and checks the iterator's status
-     * afterwards.
+     * Iterates over the given iterator testing key-value pairs with the given predicate and checks
+     * the iterator's status afterwards.
      *
      * @param iterator Iterator.
      * @param consumer Consumer of key-value pairs.
@@ -239,7 +224,7 @@ class RocksStorageUtils {
     }
 
     /**
-     * Checks the status of the iterator and throw an exception if it is not correct.
+     * Checks the status of the iterator and throws an exception if it is not correct.
      *
      * @param it RocksDB iterator.
      * @throws IgniteInternalException if the iterator has an incorrect status.
@@ -256,6 +241,7 @@ class RocksStorageUtils {
     /**
      * BiConsumer that can throw {@link RocksDBException}.
      */
+    @FunctionalInterface
     interface RocksBiConsumer {
         /**
          * Accepts the key and the value of the entry.
@@ -270,6 +256,7 @@ class RocksStorageUtils {
     /**
      * BiPredicate that can throw {@link RocksDBException}.
      */
+    @FunctionalInterface
     interface RocksBiPredicate {
         /**
          * Evaluates the predicate on the given key and the given value.

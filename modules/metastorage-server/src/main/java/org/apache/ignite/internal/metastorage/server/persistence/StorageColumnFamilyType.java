@@ -27,7 +27,7 @@ enum StorageColumnFamilyType {
     /** Column family for the data. */
     DATA(RocksDB.DEFAULT_COLUMN_FAMILY),
 
-    /** Column family for the index. */
+    /** Column family for the index. Index is a mapping from entry key to a list of revisions of the storage. */
     INDEX("INDEX".getBytes(StandardCharsets.UTF_8));
 
     /** Byte representation of the column family's name. */

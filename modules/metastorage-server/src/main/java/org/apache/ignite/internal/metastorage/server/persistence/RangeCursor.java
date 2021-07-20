@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.server.persistence;
 
+import java.util.Arrays;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import org.apache.ignite.internal.metastorage.server.Entry;
@@ -117,7 +117,7 @@ class RangeCursor implements Cursor<Entry> {
                         byte[] key = lastRetKey;
 
                         while (nextRetEntry == null) {
-                            Map.Entry<byte[], List<Long>> e =
+                            Map.Entry<byte[], long[]> e =
                                 key == null ? storage.revisionCeilingEntry(keyFrom) : storage.revisionHigherEntry(key);
 
                             if (e == null) {
@@ -134,10 +134,10 @@ class RangeCursor implements Cursor<Entry> {
                                 break;
                             }
 
-                            List<Long> revs = e.getValue();
+                            long[] revs = e.getValue();
 
-                            assert revs != null && !revs.isEmpty() :
-                                "Revisions should not be empty or null: [revs=" + revs + ']';
+                            assert revs != null && !(revs.length == 0) :
+                                "Revisions should not be empty or null: [revs=" + Arrays.toString(revs) + ']';
 
                             long lastRev = RocksDBKeyValueStorage.maxRevision(revs, rev);
 
@@ -168,6 +168,8 @@ class RangeCursor implements Cursor<Entry> {
                     Entry e = nextRetEntry;
 
                     nextRetEntry = null;
+
+                    assert e != null;
 
                     lastRetKey = e.key();
 
