@@ -55,4 +55,11 @@ public interface Ignition {
      * @return Started Ignite node.
      */
     public Ignite start(@NotNull String name, @NotNull Path workDir);
+
+    /**
+     * Stops node with given node. It's possible to stop both already started node or node that is currently starting.
+     *
+     * @param name Node name to stop.
+     */
+    public void stop(@NotNull String name);
 }

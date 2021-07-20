@@ -30,6 +30,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.ElectionPriority;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.WriteCommand;
+import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.jraft.Closure;
@@ -61,9 +62,6 @@ public class JRaftServerImpl implements RaftServer {
 
     /** Data path. */
     private final String dataPath;
-
-    /** The factory. */
-    private final RaftClientMessagesFactory factory;
 
     /** Server instance. */
     private IgniteRpcServer rpcServer;
@@ -97,7 +95,6 @@ public class JRaftServerImpl implements RaftServer {
     ) {
         this.service = service;
         this.dataPath = dataPath;
-        this.factory = factory;
         this.nodeManager = new NodeManager();
         this.opts = opts;
 

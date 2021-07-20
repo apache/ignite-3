@@ -103,7 +103,7 @@ public class IgnitionImpl implements Ignition {
     private static final String VER_KEY = "version";
 
     /** Mapping of a node name to a node status, e.g. node0 -> starting or node1 -> stopping. */
-    private Map<String, NodeState> nodesStatus = new ConcurrentHashMap<>();
+    private static Map<String, NodeState> nodesStatus = new ConcurrentHashMap<>();
 
     /**
      * Mapping of a node name to a started node components list.
@@ -111,7 +111,7 @@ public class IgnitionImpl implements Ignition {
      * when node is already started which means that all components are ready and
      * if node is in a middle of a startup process which means that only part of it's components are prepared.
      */
-    private Map<String, List<IgniteComponent>> nodesStartedComponents = new ConcurrentHashMap<>();
+    private static Map<String, List<IgniteComponent>> nodesStartedComponents = new ConcurrentHashMap<>();
 
     /** {@inheritDoc} */
     @Override public Ignite start(@NotNull String nodeName, @Nullable Path cfgPath, @NotNull Path workDir) {
@@ -399,7 +399,7 @@ public class IgnitionImpl implements Ignition {
      * @return Started ignite component.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    private <T extends IgniteComponent> T doStartComponent(
+    private static <T extends IgniteComponent> T doStartComponent(
         @NotNull String nodeName,
         @NotNull List<IgniteComponent> startedComponents,
         @NotNull T component
@@ -422,7 +422,7 @@ public class IgnitionImpl implements Ignition {
      * @param nodeName Node name.
      * @param startedComponents List of already started components for given node.
      */
-    private void doStopNode(@NotNull String nodeName, @NotNull List<IgniteComponent> startedComponents) {
+    private static void doStopNode(@NotNull String nodeName, @NotNull List<IgniteComponent> startedComponents) {
         ListIterator<IgniteComponent> componentsonNodeStopIter =
             startedComponents.listIterator(startedComponents.size() - 1);
 
