@@ -21,7 +21,6 @@ import io.netty.channel.ChannelFuture;
 import org.apache.ignite.lang.IgniteException;
 
 import java.nio.ByteBuffer;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Client connection: abstracts away sending and receiving messages.

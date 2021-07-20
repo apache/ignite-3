@@ -710,7 +710,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * false otherwise.
      * @return A table or {@code null} if table does not exist.
      */
-    public TableImpl table(UUID id, boolean checkConfiguration) {
+    @Override public TableImpl table(UUID id, boolean checkConfiguration) {
         return table(() -> tablesById.get(id), p -> p.tableId().equals(id), checkConfiguration);
     }
 

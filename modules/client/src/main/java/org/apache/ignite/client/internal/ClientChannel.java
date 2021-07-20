@@ -17,15 +17,11 @@
 
 package org.apache.ignite.client.internal;
 
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
-import java.util.function.Function;
-
-import org.apache.ignite.client.ClientOp;
 import org.apache.ignite.client.IgniteClientAuthorizationException;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.IgniteClientException;
+
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Processing thin client requests and responses.

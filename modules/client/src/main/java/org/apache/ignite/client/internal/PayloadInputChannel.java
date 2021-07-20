@@ -17,10 +17,7 @@
 
 package org.apache.ignite.client.internal;
 
-import java.nio.ByteBuffer;
-
 import org.apache.ignite.client.ClientMessageUnpacker;
-import org.msgpack.core.buffer.ByteBufferInput;
 
 /**
  * Thin client payload input channel.

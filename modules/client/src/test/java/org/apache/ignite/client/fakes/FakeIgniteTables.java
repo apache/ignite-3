@@ -19,8 +19,6 @@ package org.apache.ignite.client.fakes;
 
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;

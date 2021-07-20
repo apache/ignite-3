@@ -17,8 +17,6 @@
 
 package org.apache.ignite.client.internal.io.netty;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.util.AttributeKey;
@@ -29,7 +27,6 @@ import org.apache.ignite.lang.IgniteException;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.concurrent.CompletableFuture;
 
 public class NettyClientConnection implements ClientConnection {
     public static final AttributeKey<NettyClientConnection> ATTR_CONN = AttributeKey.newInstance("CONN");

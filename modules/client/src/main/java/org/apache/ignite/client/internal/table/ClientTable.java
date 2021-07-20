@@ -331,7 +331,7 @@ public class ClientTable implements Table {
         if (latestSchemaVer >= 0)
             return CompletableFuture.completedFuture(schemas.get(latestSchemaVer));
 
-        return loadSchemas();
+        return loadSchema(null);
     }
 
     private CompletableFuture<ClientSchema> getSchema(int ver) {
@@ -340,26 +340,24 @@ public class ClientTable implements Table {
         if (schema != null)
             return CompletableFuture.completedFuture(schema);
 
-        return loadSchemas(ver);
+        return loadSchema(ver);
     }
 
-    private CompletableFuture<ClientSchema> loadSchemas(int... vers) {
+    private CompletableFuture<ClientSchema> loadSchema(Integer ver) {
         return ch.serviceAsync(ClientOp.SCHEMAS_GET, w -> {
             w.out().packUuid(id);
 
-            if (vers == null || vers.length == 0)
+            if (ver == null)
                 w.out().packNil();
             else {
-                w.out().packArrayHeader(vers.length);
-
-                for (var ver : vers)
-                    w.out().packInt(ver);
+                w.out().packArrayHeader(1);
+                w.out().packInt(ver);
             }
         }, r -> {
             int schemaCnt = r.in().unpackMapHeader();
 
             if (schemaCnt == 0)
-                throw new IgniteClientException("Schemas not found: " + vers.toString());
+                throw new IgniteClientException("Schema not found: " + ver);
 
             ClientSchema last = null;
 

@@ -23,7 +23,6 @@ import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.util.CharsetUtil;
 import org.apache.ignite.lang.IgniteException;
 import org.msgpack.core.MessageFormat;
-import org.msgpack.core.MessagePack;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
