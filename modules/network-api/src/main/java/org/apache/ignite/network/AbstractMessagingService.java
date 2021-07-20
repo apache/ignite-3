@@ -52,7 +52,7 @@ public abstract class AbstractMessagingService implements MessagingService {
     private static short getMessageGroupType(Class<?> messageGroup) {
         MessageGroup annotation = messageGroup.getAnnotation(MessageGroup.class);
 
-        assert annotation != null : "No MessageGroup annotation present";
+        assert annotation != null : "No MessageGroup annotation present on " + messageGroup;
 
         short groupType = annotation.groupType();
 
@@ -64,7 +64,9 @@ public abstract class AbstractMessagingService implements MessagingService {
     /**
      * @return registered message handlers.
      */
-    protected Collection<NetworkMessageHandler> getMessageHandlers(short groupType) {
+    protected final Collection<NetworkMessageHandler> getMessageHandlers(short groupType) {
+        assert groupType >= 0 : "Group type must not be negative";
+
         List<NetworkMessageHandler> result = handlersByGroupType.get(groupType);
 
         return result == null ? List.of() : result;
