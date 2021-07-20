@@ -17,9 +17,16 @@
 
 package org.apache.ignite.client;
 
+/**
+ * Client error codes.
+ */
 public class ClientErrorCode {
+    /** Operation succeeded (no error). */
     public static final int SUCCESS = 0;
+
+    /** General error (uncategorized). */
     public static final int FAILED = 1;
+
+    /** Authentication or authorization failure. */
     public static final int AUTH_FAILED = 2;
-    public static final int SECURITY_VIOLATION = 3;
 }

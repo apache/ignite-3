@@ -22,7 +22,6 @@ import org.msgpack.core.MessageBufferPacker;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.buffer.ArrayBufferOutput;
 
-import javax.naming.OperationNotSupportedException;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -34,34 +33,61 @@ import java.util.UUID;
  * Ignite-specific MsgPack extension.
  */
 public class ClientMessagePacker extends MessageBufferPacker {
+    /**
+     * Constructor.
+     */
     public ClientMessagePacker() {
         // TODO: Pooled buffers IGNITE-15162.
         super(new ArrayBufferOutput(), MessagePack.DEFAULT_PACKER_CONFIG);
     }
 
-    public ClientMessagePacker packUuid(UUID v) throws IOException {
+    /**
+     * Writes an UUID.
+     *
+     * @param val UUID value.
+     * @return This instance.
+     */
+    public ClientMessagePacker packUuid(UUID val) throws IOException {
         packExtensionTypeHeader(ClientMsgPackType.UUID, 16);
 
         var bytes = new byte[16];
         ByteBuffer bb = ByteBuffer.wrap(bytes);
         bb.order(ByteOrder.BIG_ENDIAN);
 
-        bb.putLong(v.getMostSignificantBits());
-        bb.putLong(v.getLeastSignificantBits());
+        bb.putLong(val.getMostSignificantBits());
+        bb.putLong(val.getLeastSignificantBits());
 
         writePayload(bytes);
 
         return this;
     }
 
+    /**
+     * Writes a decimal.
+     *
+     * @param val Decimal value.
+     * @return This instance.
+     */
     public ClientMessagePacker packDecimal(BigDecimal val) throws IOException {
         throw new IgniteException("TODO: IGNITE-15163");
     }
 
+    /**
+     * Writes a bit set.
+     *
+     * @param val Bit set value.
+     * @return This instance.
+     */
     public ClientMessagePacker packBitSet(BitSet val) throws IOException {
         throw new IgniteException("TODO: IGNITE-15163");
     }
 
+    /**
+     * Packs an object.
+     *
+     * @param val Object value.
+     * @return This instance.
+     */
     public ClientMessagePacker packObject(Object val) throws IOException {
         if (val == null)
             return (ClientMessagePacker) packNil();
@@ -95,5 +121,4 @@ public class ClientMessagePacker extends MessageBufferPacker {
         // TODO: Support all basic types IGNITE-15163
         throw new IgniteException("Unsupported type, can't serialize: " + val.getClass());
     }
-
 }

@@ -33,6 +33,7 @@ public class ClientMessageEncoder extends MessageToByteEncoder<ByteBuffer> {
     /** */
     private boolean magicEncoded;
 
+    /** {@inheritDoc} */
     @Override protected void encode(ChannelHandlerContext ctx, ByteBuffer message, ByteBuf out) {
         if (!magicEncoded) {
             out.writeBytes(ClientMessageDecoder.MAGIC_BYTES);

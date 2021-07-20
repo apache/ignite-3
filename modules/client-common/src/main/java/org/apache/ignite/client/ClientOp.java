@@ -17,8 +17,6 @@
 
 package org.apache.ignite.client;
 
-import org.jetbrains.annotations.Nullable;
-
 /**
  * Client operation codes.
  */

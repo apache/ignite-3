@@ -18,7 +18,6 @@
 package org.apache.ignite.client;
 
 import org.apache.ignite.lang.IgniteException;
-import org.msgpack.core.MessageFormat;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessageSizeException;
 import org.msgpack.core.MessageTypeException;
@@ -29,9 +28,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.List;
 import java.util.UUID;
 
 import static org.apache.ignite.client.ClientDataType.BITMASK;
@@ -50,8 +47,7 @@ import static org.apache.ignite.client.ClientDataType.STRING;
  */
 public class ClientMessageUnpacker extends MessageUnpacker {
     /**
-     * Create an MessageUnpacker that reads data from the given MessageBufferInput.
-     * This method is available for subclasses to override. Use MessagePack.UnpackerConfig.newUnpacker method to instantiate this implementation.
+     * Constructor.
      *
      * @param in Input.
      */
@@ -59,6 +55,11 @@ public class ClientMessageUnpacker extends MessageUnpacker {
         super(in, MessagePack.DEFAULT_UNPACKER_CONFIG);
     }
 
+    /**
+     * Reads an UUID.
+     *
+     * @return UUID value.
+     */
     public UUID unpackUuid() throws IOException {
         var hdr = unpackExtensionTypeHeader();
         var type = hdr.getType();
@@ -78,54 +79,35 @@ public class ClientMessageUnpacker extends MessageUnpacker {
         return new UUID(bb.getLong(), bb.getLong());
     }
 
+    /**
+     * Reads a decimal.
+     *
+     * @return Decimal value.
+     */
     public BigDecimal unpackDecimal() throws IOException {
-        throw new IgniteException("TODO");
+        throw new IgniteException("TODO: IGNITE-15163");
     }
 
+    /**
+     * Reads a bit set.
+     *
+     * @return Bit set.
+     */
     public BitSet unpackBitSet() throws IOException {
-        throw new IgniteException("TODO");
+        throw new IgniteException("TODO: IGNITE-15163");
     }
 
-    public Object unpackObject() throws IOException {
-        MessageFormat format = getNextFormat();
-
-        switch (format) {
-            case POSFIXINT:
-            case NEGFIXINT:
-            case INT8:
-                return unpackByte();
-
-            case NIL:
-                return null;
-
-            case BOOLEAN:
-                return unpackBoolean();
-
-            case UINT8:
-            case INT16:
-                return unpackShort();
-
-            case UINT16:
-            case INT32:
-                return unpackInt();
-
-            case UINT32:
-            case UINT64:
-            case INT64:
-                return unpackLong();
-
-            case FIXSTR:
-            case STR8:
-            case STR16:
-            case STR32:
-                return unpackString();
-        }
-
-        // TODO: Support all basic types.
-        throw new IgniteException("Unsupported type, can't deserialize: " + format);
-    }
-
+    /**
+     * Unpacks an object based on the specified type.
+     *
+     * @param dataType Data type code.
+     *
+     * @return Unpacked object.
+     */
     public Object unpackObject(int dataType) throws IOException {
+        if (tryUnpackNil())
+            return null;
+
         switch (dataType) {
             case INT8:
                 return unpackByte();

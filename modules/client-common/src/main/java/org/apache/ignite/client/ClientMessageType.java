@@ -17,7 +17,13 @@
 
 package org.apache.ignite.client;
 
+/**
+ * Server -> client message types.
+ */
 public class ClientMessageType {
+    /** Response to a request (initiated by the client). */
     public static final int RESPONSE = 0;
+
+    /** Notification (initiated by the server). */
     public static final int NOTIFICATION = 1;
 }
