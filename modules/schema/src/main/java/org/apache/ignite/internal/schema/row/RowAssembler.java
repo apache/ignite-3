@@ -582,18 +582,19 @@ public class RowAssembler {
 
         buf.putLong(curOff, val.getEpochSecond());
 
-        switch (type.sizeInBytes() - 8) {
-            case 2:
+        // Write only meaningful bytes regarding on precision.
+        switch (type.precision()) {
+            case 3:
                 buf.putShort(curOff + 8, (short)(val.getNano() / 1000_000));
                 break;
 
-            case 3:
+            case 6:
                 int micros = val.getNano() / 1000;
                 buf.putShort(curOff + 8, (short)(micros >> 8));
                 buf.put(curOff + 10, (byte)(micros & 0xFF));
                 break;
 
-            case 4:
+            case 9:
                 buf.putInt(curOff + 8, val.getNano());
                 break;
 
@@ -690,6 +691,7 @@ public class RowAssembler {
     private void writeTime(int off, LocalTime val, TemporalNativeType type) {
         long time = TemporalTypesHelper.encodeTime(type, val);
 
+        // Write only meaningful bytes regarding on precision.
         switch (type.precision()) {
             case 3:
                 buf.putInt(off, (int)(time));

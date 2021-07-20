@@ -121,9 +121,9 @@ public class ColumnType {
 
     /**
      * Timezone-free value representing a time of day in hours, minutes, seconds,
-     * and subseconds depending on precision.
+     * and fractional seconds depending on type precision.
      *
-     * @param precision Subsecond part length. Allowed values are 3/6/9 for millis/micros/nanos.
+     * @param precision Fractional seconds part length. Allowed values are 3/6/9 for millis/micros/nanos.
      * @return Native type.
      */
     public static TemporalColumnType time(int precision) {
@@ -133,7 +133,7 @@ public class ColumnType {
     /**
      * Timezone-free datetime encoded as (date, time).
      *
-     * @param precision Subsecond part length. Allowed values are 3/6/9 for millis/micros/nanos.
+     * @param precision Fractional seconds part length. Allowed values are 3/6/9 for millis/micros/nanos.
      * @return Native type.
      */
     public static TemporalColumnType datetime(int precision) {
@@ -143,7 +143,7 @@ public class ColumnType {
     /**
      * Number of milliseconds/microseconds/nanoseconds since Jan 1, 1970 00:00:00.000 (with no timezone).
      *
-     * @param precision Subsecond part length. Allowed values are 3/6/9 for millis/micros/nanos.
+     * @param precision Fractional seconds part length. Allowed values are 3/6/9 for millis/micros/nanos.
      * @return Native type.
      */
     public static TemporalColumnType timestamp(int precision) {
@@ -251,24 +251,25 @@ public class ColumnType {
         /** Default temporal type precision: microseconds. */
         public static final int DEFAULT_PRECISION = 6;
 
-        /** Length of second's fractional part. */
+        /** Fractional seconds precision. */
         private final int precision;
 
         /**
          * Creates temporal type.
          *
          * @param typeSpec Type spec.
+         * @param precision Fractional seconds precision. Valid values are 3,6,9.
          */
-        private TemporalColumnType(ColumnTypeSpec typeSpec, int length) {
+        private TemporalColumnType(ColumnTypeSpec typeSpec, int precision) {
             super(typeSpec);
 
-            assert length == 3 || length == 6 || length == 9 : "Unsupported temporal type precision.";
+            assert precision == 3 || precision == 6 || precision == 9 : "Unsupported fractional seconds precision.";
 
-            this.precision = length;
+            this.precision = precision;
         }
 
         /**
-         * Length of second's fractional part
+         * Fractional seconds precision.
          *
          * @return Subsecond part length.
          */
@@ -338,13 +339,13 @@ public class ColumnType {
         /** Timezone-free date. */
         DATE,
 
-        /** Timezone-free time. */
+        /** Timezone-free time with precision. */
         TIME,
 
         /** Timezone-free datetime. */
         DATETIME,
 
-        /** Number of milliseconds since Jan 1, 1970 00:00:00.000 (with no timezone). */
+        /** Number of ticks since Jan 1, 1970 00:00:00.000 (with no timezone). Tick unit depends on precision. */
         TIMESTAMP,
 
         /** 128-bitUUID. */

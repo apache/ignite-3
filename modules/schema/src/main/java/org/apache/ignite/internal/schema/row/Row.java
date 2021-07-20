@@ -404,6 +404,7 @@ public class Row implements BinaryRow {
         long seconds = readLong(off);
         int nanos;
 
+        // Read fractional seconds and convert them to nanos.
         switch (type.precision()) {
             case 3:
                 nanos = (readShort(off + 8) & 0xFFFF) * 1_000_000;

@@ -146,10 +146,10 @@ public class TemporalTypesHelper {
                 break;
 
             default: // Should never get here.
-                throw new IllegalArgumentException("Unsupported time precision: " + type.precision());
+                throw new IllegalArgumentException("Unsupported fractional seconds precision: " + type.precision());
         }
 
-        return val << padding;
+        return val << padding; // Add padding to the end to make values of different scales comparable with ease.
     }
 
     /**
@@ -178,17 +178,17 @@ public class TemporalTypesHelper {
 
         switch (prec) {
             case 3:
-                time >>>= 5;
+                time >>>= 5; // Remove padding.
                 nanos = (int)(time & mask(MILLIS_FIELD_LENGTH)) * 1_000_000;
                 time >>>= MILLIS_FIELD_LENGTH;
                 break;
             case 6:
-                time >>>= 3;
+                time >>>= 3; // Remove padding.
                 nanos = (int)(time & mask(MICROS_FIELD_LENGTH)) * 1_000;
                 time >>>= MICROS_FIELD_LENGTH;
                 break;
             case 9:
-                time >>>= 1;
+                time >>>= 1; // Remove padding.
                 nanos = (int)(time & mask(NANOS_FIELD_LENGTH));
                 time >>>= NANOS_FIELD_LENGTH;
                 break;

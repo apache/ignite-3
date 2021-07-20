@@ -26,7 +26,7 @@ public class TemporalNativeType extends NativeType {
     /**
      * Creates TIME type.
      *
-     * @param precision Subsecond part precision.
+     * @param precision Fractional seconds precision.
      * @return Native type.
      */
     static TemporalNativeType time(int precision) {
@@ -47,7 +47,7 @@ public class TemporalNativeType extends NativeType {
             }
 
             default:
-                throw new IllegalArgumentException("Unsupported time precision: " + precision);
+                throw new IllegalArgumentException("Unsupported fractional seconds precision: " + precision);
         }
 
         return new TemporalNativeType(NativeTypeSpec.TIME, size, precision);
@@ -56,7 +56,7 @@ public class TemporalNativeType extends NativeType {
     /**
      * Creates DATETIME type.
      *
-     * @param precision Subsecond part precision.
+     * @param precision Fractional seconds precision.
      * @return Native type.
      */
     static TemporalNativeType datetime(int precision) {
@@ -77,7 +77,7 @@ public class TemporalNativeType extends NativeType {
             }
 
             default:
-                throw new IllegalArgumentException("Unsupported time precision: " + precision);
+                throw new IllegalArgumentException("Unsupported fractional seconds precision: " + precision);
         }
 
         return new TemporalNativeType(NativeTypeSpec.DATETIME, size, precision);
@@ -86,7 +86,7 @@ public class TemporalNativeType extends NativeType {
     /**
      * Creates TIMESTAMP type.
      *
-     * @param precision Subsecond part precision.
+     * @param precision Fractional seconds precision.
      * @return Native type.
      */
     static TemporalNativeType timestamp(int precision) {
@@ -106,20 +106,20 @@ public class TemporalNativeType extends NativeType {
                 break;
 
             default:
-                throw new IllegalArgumentException("Unsupported timestamp precision: " + precision);
+                throw new IllegalArgumentException("Unsupported fractional seconds precision: " + precision);
         }
 
         return new TemporalNativeType(NativeTypeSpec.TIMESTAMP, size, precision);
     }
 
-    /** Length of second's fractional part. */
+    /** Fractional seconds precision. */
     private final int precision;
 
     /**
      * Creates temporal type.
      *
      * @param typeSpec Type spec.
-     * @param precision Subsecond part length.
+     * @param precision Fractional seconds precision.
      */
     private TemporalNativeType(NativeTypeSpec typeSpec, int size, int precision) {
         super(typeSpec, size);
@@ -128,9 +128,9 @@ public class TemporalNativeType extends NativeType {
     }
 
     /**
-     * Return type precision.
+     * Return fractional seconds precision.
      *
-     * @return precicion;
+     * @return Precicion;
      */
     public int precision() {
         return precision;

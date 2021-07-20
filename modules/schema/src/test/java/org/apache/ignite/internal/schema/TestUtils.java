@@ -106,7 +106,7 @@ public final class TestUtils {
     }
 
     /**
-     * Returns chrono unit for precision.
+     * Returns chrono unit for fractonal seconds precision.
      *
      * @param precision Temporal type precision.
      * @return ChronoUnit.
@@ -120,7 +120,7 @@ public final class TestUtils {
             case 9:
                 return ChronoUnit.NANOS;
             default:
-                throw new IllegalArgumentException("Unsupported time precision.");
+                throw new IllegalArgumentException("Unsupported fractional seconds precision.");
         }
     }
 
