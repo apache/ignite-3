@@ -30,7 +30,7 @@ import java.nio.ByteBuffer;
  * 3. Payload (bytes).
  */
 public class ClientMessageEncoder extends MessageToByteEncoder<ByteBuffer> {
-    /** */
+    /** Magic encoded flag. */
     private boolean magicEncoded;
 
     /** {@inheritDoc} */

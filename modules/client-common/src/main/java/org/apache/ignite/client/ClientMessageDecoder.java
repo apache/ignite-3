@@ -61,8 +61,7 @@ public class ClientMessageDecoder extends ByteToMessageDecoder {
     private byte firstByte;
 
     /** {@inheritDoc} */
-    @Override protected void decode(ChannelHandlerContext ctx, ByteBuf byteBuf, List<Object> list)
-            throws IOException {
+    @Override protected void decode(ChannelHandlerContext ctx, ByteBuf byteBuf, List<Object> list) {
         if (!readMagic(byteBuf))
             return;
 
