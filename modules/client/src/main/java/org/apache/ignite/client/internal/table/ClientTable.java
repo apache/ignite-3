@@ -49,6 +49,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Client table API implementation.
+ */
 public class ClientTable implements Table {
     /** */
     private final UUID id;
@@ -68,6 +71,13 @@ public class ClientTable implements Table {
     /** */
     private final Object latestSchemaLock = new Object();
 
+    /**
+     * Constructor.
+     *
+     * @param ch Channel.
+     * @param id Table id.
+     * @param name Table name.
+     */
     public ClientTable(ReliableChannel ch, UUID id, String name) {
         assert ch != null;
         assert id != null;
@@ -78,6 +88,11 @@ public class ClientTable implements Table {
         this.name = name;
     }
 
+    /**
+     * Gets the table id.
+     *
+     * @return Table id.
+     */
     public UUID tableId() {
         return id;
     }
