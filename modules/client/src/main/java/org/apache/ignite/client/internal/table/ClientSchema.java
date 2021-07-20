@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.internal.table;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -50,15 +52,15 @@ public class ClientSchema {
         return ver;
     }
 
-    public ClientColumn[] columns() {
+    public @NotNull ClientColumn[] columns() {
         return columns;
     }
 
-    public Map<String, ClientColumn> keyColumns() {
+    public @NotNull Map<String, ClientColumn> keyColumns() {
         return keyColumns;
     }
 
-    public Map<String, ClientColumn> valColumns() {
+    public @NotNull Map<String, ClientColumn> valColumns() {
         return valColumns;
     }
 }

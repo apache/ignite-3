@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client;
 
+import org.apache.ignite.lang.IgniteException;
+import org.msgpack.core.MessageFormat;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessageSizeException;
 import org.msgpack.core.MessageTypeException;
@@ -61,5 +63,44 @@ public class ClientMessageUnpacker extends MessageUnpacker {
         bb.order(ByteOrder.BIG_ENDIAN);
 
         return new UUID(bb.getLong(), bb.getLong());
+    }
+
+    public Object unpackObject() throws IOException {
+        MessageFormat format = getNextFormat();
+
+        switch (format) {
+            case POSFIXINT:
+            case NEGFIXINT:
+            case INT8:
+                return unpackByte();
+
+            case NIL:
+                return null;
+
+            case BOOLEAN:
+                return unpackBoolean();
+
+            case UINT8:
+            case INT16:
+                return unpackShort();
+
+            case UINT16:
+            case INT32:
+                return unpackInt();
+
+            case UINT32:
+            case UINT64:
+            case INT64:
+                return unpackLong();
+
+            case FIXSTR:
+            case STR8:
+            case STR16:
+            case STR32:
+                return unpackString();
+
+            default:
+                throw new IgniteException("Unsupported type, can't deserialize: " + format);
+        }
     }
 }

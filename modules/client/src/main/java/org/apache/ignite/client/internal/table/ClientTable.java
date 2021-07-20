@@ -22,6 +22,7 @@ import org.apache.ignite.client.ClientOp;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.client.internal.ReliableChannel;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.KeyValueView;
@@ -115,13 +116,11 @@ public class ClientTable implements Table {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Tuple> getAsync(@NotNull Tuple keyRec) {
-        // TODO: Implement shared logic for tuple serialization and schema handling.
         return getLatestSchema().thenCompose(schema -> ch.serviceAsync(ClientOp.TUPLE_GET, w -> {
             // TODO: We should accept any Tuple implementation, but this requires extending the Tuple interface
             // with methods to retrieve column list.
             var tuple = (ClientTupleBuilder) keyRec;
 
-            // TODO: Match columns to schema and write in schema order.
             var vals = new Object[schema.keyColumns().size()];
 
             for (var entry : tuple.map().entrySet()) {
@@ -143,11 +142,33 @@ public class ClientTable implements Table {
             if (r.in().getNextFormat() == MessageFormat.NIL)
                 return null;
 
-            var schemaId = r.in().unpackInt();
+            var schemaVer = r.in().unpackInt();
 
-            // TODO: Request schema if necessary, unpack values accordingly.
-            return null;
-        }));
+            return new IgniteBiTuple<>(r, schemaVer);
+        })).thenCompose(tuple -> {
+            if (tuple == null)
+                return CompletableFuture.completedFuture(null);
+
+            assert tuple.getKey() != null;
+            assert tuple.getValue() != null;
+
+            return getSchema(tuple.getValue()).thenApply(schema -> new IgniteBiTuple<>(tuple.getKey(), schema));
+        }).thenCompose(tuple -> {
+            if (tuple == null)
+                return null;
+
+            assert tuple.getKey() != null;
+            assert tuple.getValue() != null;
+
+            var schema = tuple.getValue();
+            var in = tuple.getKey().in();
+            var builder = new ClientTupleBuilder();
+
+            for (var col : schema.columns())
+                builder.set(col.name(), in.unpackObject());
+
+            return builder;
+        });
     }
 
     /** {@inheritDoc} */
@@ -347,7 +368,7 @@ public class ClientTable implements Table {
             int schemaCnt = r.in().unpackMapHeader();
 
             if (schemaCnt == 0)
-                return null;
+                throw new IgniteClientException("Schemas not found: " + vers.toString());
 
             ClientSchema last = null;
 
