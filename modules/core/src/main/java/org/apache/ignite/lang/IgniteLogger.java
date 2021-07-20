@@ -217,7 +217,12 @@ public class IgniteLogger {
         if (!log.isLoggable(level))
             return;
 
-        log.log(level, LoggerMessageHelper.arrayFormat(msg, params));
+        Throwable throwable = LoggerMessageHelper.getThrowableCandidate(params);
+
+        if (throwable != null)
+            log.log(level, LoggerMessageHelper.arrayFormat(msg, LoggerMessageHelper.trimmedCopy(params)), throwable);
+        else
+            log.log(level, LoggerMessageHelper.arrayFormat(msg, params));
     }
 
     /**
