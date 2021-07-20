@@ -372,6 +372,9 @@ public class IgniteUtils {
         try {
             Files.walkFileTree(path, new SimpleFileVisitor<>() {
                 @Override public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                    if (exc != null)
+                        throw exc;
+
                     Files.delete(dir);
 
                     return FileVisitResult.CONTINUE;
