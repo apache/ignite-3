@@ -25,7 +25,9 @@ public class IgniteClientAuthenticationException extends IgniteClientException {
     private static final long serialVersionUID = 0L;
 
     /**
-     * Default constructor.
+     * Constructor.
+     *
+     * @param msg the detail message.
      */
     public IgniteClientAuthenticationException(String msg) {
         super(msg);
