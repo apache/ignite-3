@@ -53,6 +53,8 @@ public class ClientTableTest extends AbstractClientTest {
         Tuple key = table.tupleBuilder().set("id", 123).build();
         var resTuple = table.get(key);
 
+        assertEquals("John", resTuple.stringValue("name"));
+        assertEquals(123, resTuple.longValue("id"));
         assertTupleEquals(tuple, resTuple);
     }
 
