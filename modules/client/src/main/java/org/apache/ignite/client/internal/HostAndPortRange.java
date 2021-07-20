@@ -58,7 +58,7 @@ public class HostAndPortRange implements Serializable {
         int portFrom;
         int portTo;
 
-        if (addrStr == null || addrStr.length() == 0)
+        if (addrStr == null || addrStr.isEmpty())
             throw createParseError(addrStr, errMsgPrefix, "Address is empty");
 
         if (addrStr.charAt(0) == '[') { // IPv6 with port(s)
@@ -131,7 +131,7 @@ public class HostAndPortRange implements Serializable {
         String portFromStr;
         String portToStr;
 
-        if (portStr == null || portStr.length() == 0)
+        if (portStr == null || portStr.isEmpty())
             throw createParseError(addrStr, errMsgPrefix, "port range is not specified");
 
         int portRangeIdx = portStr.indexOf("..");
@@ -222,7 +222,7 @@ public class HostAndPortRange implements Serializable {
      * @param portTo Port to.
      */
     public HostAndPortRange(String host, int portFrom, int portTo) {
-        assert host != null && host.length() > 0;
+        assert host != null && !host.isEmpty();
         assert portFrom <= portTo;
 
         this.host = host;

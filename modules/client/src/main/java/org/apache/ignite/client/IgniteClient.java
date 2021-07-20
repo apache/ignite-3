@@ -59,7 +59,7 @@ public class IgniteClient {
 
         private final int retryLimit;
 
-        public IgniteClientConfigurationImpl(IgniteClientAddressFinder addressFinder, String[] addresses, int retryLimit) {
+        IgniteClientConfigurationImpl(IgniteClientAddressFinder addressFinder, String[] addresses, int retryLimit) {
             this.addressFinder = addressFinder;
             this.addresses = addresses;
             this.retryLimit = retryLimit;

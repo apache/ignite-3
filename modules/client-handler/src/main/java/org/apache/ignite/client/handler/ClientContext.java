@@ -42,7 +42,7 @@ class ClientContext {
      * @param clientCode Client type code.
      * @param features Feature set.
      */
-    public ClientContext(int verMajor, int verMinor, int verPatch, int clientCode, BitSet features) {
+    ClientContext(int verMajor, int verMinor, int verPatch, int clientCode, BitSet features) {
         this.verMajor = verMajor;
         this.verMinor = verMinor;
         this.verPatch = verPatch;

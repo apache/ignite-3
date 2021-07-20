@@ -464,6 +464,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             case BITMASK:
                 packer.packBitSet((BitSet)val);
+                break;
 
             default:
                 throw new IgniteException("Data type not supported: " + col.type());

@@ -70,7 +70,7 @@ public class ClientTable implements Table {
     public ClientTable(ReliableChannel ch, UUID id, String name) {
         assert ch != null;
         assert id != null;
-        assert name != null && name.length() > 0;
+        assert name != null && !name.isEmpty();
 
         this.ch = ch;
         this.id = id;
