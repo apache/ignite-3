@@ -71,7 +71,7 @@ public class ClientMessagePacker extends MessageBufferPacker {
      * @throws IOException when underlying output throws IOException.
      */
     public ClientMessagePacker packDecimal(BigDecimal val) throws IOException {
-        throw new IgniteException("TODO: IGNITE-15163");
+        throw new IOException("TODO: IGNITE-15163");
     }
 
     /**
@@ -82,7 +82,7 @@ public class ClientMessagePacker extends MessageBufferPacker {
      * @throws IOException when underlying output throws IOException.
      */
     public ClientMessagePacker packBitSet(BitSet val) throws IOException {
-        throw new IgniteException("TODO: IGNITE-15163");
+        throw new IOException("TODO: IGNITE-15163");
     }
 
     /**
@@ -123,6 +123,6 @@ public class ClientMessagePacker extends MessageBufferPacker {
             return packBitSet((BitSet) val);
 
         // TODO: Support all basic types IGNITE-15163
-        throw new IgniteException("Unsupported type, can't serialize: " + val.getClass());
+        throw new IOException("Unsupported type, can't serialize: " + val.getClass());
     }
 }

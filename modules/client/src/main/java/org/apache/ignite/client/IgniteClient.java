@@ -26,6 +26,11 @@ import java.util.concurrent.CompletableFuture;
  * Ignite client entry point.
  */
 public class IgniteClient {
+    /**
+     * Gets a new client builder.
+     *
+     * @return New client builder.
+     */
     public static Builder builder() {
         return new Builder();
     }

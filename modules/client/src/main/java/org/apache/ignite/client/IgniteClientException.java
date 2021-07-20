@@ -51,6 +51,7 @@ public class IgniteClientException extends IgniteException {
      * Constructs a new exception with the specified detail message.
      *
      * @param msg the detail message.
+     * @param errorCode the error code.
      */
     public IgniteClientException(String msg, int errorCode) {
         super(msg);
@@ -85,6 +86,7 @@ public class IgniteClientException extends IgniteException {
 
     /**
      * Gets the error code. See {@link ClientErrorCode}.
+     *
      * @return Error code.
      */
     public int errorCode() {

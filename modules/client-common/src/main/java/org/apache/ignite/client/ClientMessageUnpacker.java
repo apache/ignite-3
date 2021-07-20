@@ -60,6 +60,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      *
      * @return UUID value.
      * @throws IOException when underlying output throws IOException.
+     * @throws MessageTypeException when type is not UUID.
+     * @throws MessageSizeException when size is not correct.
      */
     public UUID unpackUuid() throws IOException {
         var hdr = unpackExtensionTypeHeader();

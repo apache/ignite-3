@@ -87,6 +87,7 @@ public class ClientHandlerModule {
      *
      * @return Channel future.
      * @throws InterruptedException If thread has been interrupted during the start.
+     * @throws IgniteException When startup has failed.
      */
     private ChannelFuture startEndpoint() throws InterruptedException {
         var configuration = registry.getConfiguration(ClientConnectorConfiguration.KEY);
@@ -132,7 +133,7 @@ public class ClientHandlerModule {
             }
             else if (!(bindRes.cause() instanceof BindException)) {
                 eventLoopGroup.shutdownGracefully();
-                throw new RuntimeException(bindRes.cause());
+                throw new IgniteException(bindRes.cause());
             }
         }
 
