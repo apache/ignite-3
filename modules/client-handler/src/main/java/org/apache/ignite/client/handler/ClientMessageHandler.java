@@ -291,7 +291,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
 
             packer.packArrayHeader(4);
             packer.packString(col.name());
-            packer.packString(col.type().spec().name());
+            packer.packInt(getClientDataType(col.type().spec()));
             packer.packBoolean(schema.isKeyColumn(colIdx));
             packer.packBoolean(col.nullable());
         }

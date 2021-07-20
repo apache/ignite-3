@@ -20,7 +20,7 @@ package org.apache.ignite.client.internal.table;
 public class ClientColumn {
     private final String name;
 
-    private final String type;
+    private final int type;
 
     private final boolean nullable;
 
@@ -28,7 +28,7 @@ public class ClientColumn {
 
     private final int schemaIndex;
 
-    public ClientColumn(String name, String type, boolean nullable, boolean isKey, int schemaIndex) {
+    public ClientColumn(String name, int type, boolean nullable, boolean isKey, int schemaIndex) {
         assert name != null;
         assert schemaIndex >= 0;
 
@@ -43,7 +43,11 @@ public class ClientColumn {
         return name;
     }
 
-    public String type() {
+    /**
+     * Client data type, see {@link org.apache.ignite.client.ClientDataType}.
+     * @return Data type code.
+     */
+    public int type() {
         return type;
     }
 

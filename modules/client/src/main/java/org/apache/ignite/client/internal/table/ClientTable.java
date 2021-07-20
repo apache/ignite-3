@@ -383,7 +383,7 @@ public class ClientTable implements Table {
             assert propCnt >= 4;
 
             var name = in.unpackString();
-            var type = in.unpackString();
+            var type = in.unpackInt();
             var isKey = in.unpackBoolean();
             var isNullable = in.unpackBoolean();
 
