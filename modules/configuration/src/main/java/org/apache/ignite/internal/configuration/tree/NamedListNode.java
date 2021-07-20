@@ -36,7 +36,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
     public static final String ORDER_IDX = "<idx>";
 
     /** Configuration name for the synthetic key. */
-    private final String keyName;
+    private final String syntheticKey;
 
     /** Supplier of new node objects when new list element node has to be created. */
     private final Supplier<N> valSupplier;
@@ -47,12 +47,12 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
     /**
      * Default constructor.
      *
-     * @param keyName Name of the synthetic configuration value that will represent keys in special ordered
-     *                representation syntaxis.
+     * @param syntheticKey Name of the synthetic configuration value that will represent keys in special ordered
+     *                     representation syntaxis.
      * @param valSupplier Closure to instantiate values.
      */
-    public NamedListNode(String keyName, Supplier<N> valSupplier) {
-        this.keyName = keyName;
+    public NamedListNode(String syntheticKey, Supplier<N> valSupplier) {
+        this.syntheticKey = syntheticKey;
         this.valSupplier = valSupplier;
         map = new OrderedMap<>();
     }
@@ -63,7 +63,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
      * @param node Other node.
      */
     private NamedListNode(NamedListNode<N> node) {
-        keyName = node.keyName;
+        syntheticKey = node.syntheticKey;
         valSupplier = node.valSupplier;
         map = new OrderedMap<>(node.map);
     }
@@ -197,8 +197,8 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
      *
      * @see NamedConfigValue#syntheticKey()
      */
-    public String keyName() {
-        return keyName;
+    public String syntheticKey() {
+        return syntheticKey;
     }
 
     /**

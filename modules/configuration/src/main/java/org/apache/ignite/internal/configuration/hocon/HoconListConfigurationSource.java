@@ -101,7 +101,7 @@ class HoconListConfigurationSource implements ConfigurationSource {
 
         NamedListNode<?> namedListNode = (NamedListNode<?>)node;
 
-        String keyName = namedListNode.keyName();
+        String keyName = namedListNode.syntheticKey();
 
         int idx = 0;
         for (Iterator<ConfigValue> iterator = hoconCfgList.iterator(); iterator.hasNext(); idx++) {
