@@ -17,13 +17,14 @@
 package org.apache.ignite.raft.jraft.storage.io;
 
 import java.io.File;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class MessageFileTest {
     @Test
@@ -33,15 +34,18 @@ public class MessageFileTest {
         tempFile.delete();
         MessageFile file = new MessageFile(path);
         assertNull(file.load());
-        LocalFileMetaOutter.LocalFileMeta msg = LocalFileMetaOutter.LocalFileMeta.newBuilder().setChecksum("test")
-            .setSource(LocalFileMetaOutter.FileSource.FILE_SOURCE_REFERENCE).build();
+        LocalFileMetaOutter.LocalFileMeta msg = new RaftMessagesFactory()
+            .localFileMeta()
+            .checksum("test")
+            .source(LocalFileMetaOutter.FileSource.FILE_SOURCE_REFERENCE)
+            .build();
         assertTrue(file.save(msg, true));
 
         MessageFile newFile = new MessageFile(path);
         LocalFileMetaOutter.LocalFileMeta loadedMsg = newFile.load();
         assertNotNull(loadedMsg);
-        assertEquals("test", loadedMsg.getChecksum());
-        assertEquals(LocalFileMetaOutter.FileSource.FILE_SOURCE_REFERENCE, loadedMsg.getSource());
+        assertEquals("test", loadedMsg.checksum());
+        assertEquals(LocalFileMetaOutter.FileSource.FILE_SOURCE_REFERENCE, loadedMsg.source());
 
         new File(path).delete();
         assertNull(newFile.load());

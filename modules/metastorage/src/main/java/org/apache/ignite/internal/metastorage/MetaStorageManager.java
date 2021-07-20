@@ -182,7 +182,7 @@ public class MetaStorageManager implements IgniteComponent {
 //        );
 
         // TODO: IGNITE-14414 Cluster initialization flow. Here we should complete metaStorageServiceFuture.
-        clusterNetSvc.messagingService().addMessageHandler((message, senderAddr, correlationId) -> {});
+//        clusterNetSvc.messagingService().addMessageHandler((message, senderAddr, correlationId) -> {});
     }
 
     /** {@inheritDoc} */

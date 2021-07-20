@@ -18,6 +18,7 @@ package org.apache.ignite.raft.jraft.core;
 
 import java.io.File;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -39,7 +40,8 @@ import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import com.codahale.metrics.ConsoleReporter;
-import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -89,6 +91,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -106,6 +109,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 /**
  * Integration tests for raft cluster. TODO asch get rid of sleeps wherether possible IGNITE-14832
  */
+@ExtendWith(WorkDirectoryExtension.class)
 public class ITNodeTest {
     private static final Logger LOG = LoggerFactory.getLogger(ITNodeTest.class);
 
@@ -160,16 +164,11 @@ public class ITNodeTest {
     }
 
     @BeforeEach
-    public void setup(TestInfo testInfo) throws Exception {
+    public void setup(TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
         LOG.info(">>>>>>>>>>>>>>> Start test method: " + testInfo.getDisplayName());
-        dataPath = TestUtils.mkTempDir();
 
-        File dataFile = new File(dataPath);
+        dataPath = workDir.toString();
 
-        if (dataFile.exists())
-            assertTrue(Utils.delete(dataFile));
-
-        dataFile.mkdirs();
         testStartMs = Utils.monotonicMs();
         dumpThread.interrupt(); // reset dump timeout
     }
@@ -188,7 +187,6 @@ public class ITNodeTest {
         if (cluster != null)
             cluster.stopAll();
 
-        assertTrue(Utils.delete(new File(dataPath)));
         startedCounter.set(0);
         stoppedCounter.set(0);
         LOG.info(">>>>>>>>>>>>>>> End test method: " + testInfo.getDisplayName() + ", cost:"
@@ -1116,7 +1114,6 @@ public class ITNodeTest {
     }
 
     @Test
-    @Disabled // TODO asch https://issues.apache.org/jira/browse/IGNITE-14833
     public void testChecksum() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1483,7 +1480,7 @@ public class ITNodeTest {
                 if (msg instanceof RpcRequests.RequestVoteRequest) {
                     RpcRequests.RequestVoteRequest msg0 = (RpcRequests.RequestVoteRequest)msg;
 
-                    return !msg0.getPreVote();
+                    return !msg0.preVote();
                 }
 
                 return false;
@@ -2668,7 +2665,8 @@ public class ITNodeTest {
         List<Node> firstFollowers = cluster.getFollowers();
         assertEquals(4, firstFollowers.size());
         for (Node node : firstFollowers) {
-            assertTrue(waitForCondition(() -> ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes() == 1, 5_000));
+            assertTrue(
+                waitForCondition(() -> ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes() == 1, 5_000));
             assertEquals(0, ((MockStateMachine) node.getOptions().getFsm()).getOnStopFollowingTimes());
         }
 
@@ -2684,7 +2682,8 @@ public class ITNodeTest {
         List<Node> secondFollowers = cluster.getFollowers();
         assertEquals(3, secondFollowers.size());
         for (Node node : secondFollowers) {
-            assertEquals(2, ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes());
+            assertTrue(
+                waitForCondition(() -> ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes() == 2, 5_000));
             assertEquals(1, ((MockStateMachine) node.getOptions().getFsm()).getOnStopFollowingTimes());
         }
 
@@ -2700,15 +2699,17 @@ public class ITNodeTest {
         List<Node> thirdFollowers = cluster.getFollowers();
         assertEquals(3, thirdFollowers.size());
         for (int i = 0; i < 3; i++) {
-            if (thirdFollowers.get(i).getNodeId().getPeerId().equals(secondLeader.getNodeId().getPeerId())) {
-                assertEquals(2,
-                    ((MockStateMachine) thirdFollowers.get(i).getOptions().getFsm()).getOnStartFollowingTimes());
+            Node follower = thirdFollowers.get(i);
+            if (follower.getNodeId().getPeerId().equals(secondLeader.getNodeId().getPeerId())) {
+                assertTrue(
+                    waitForCondition(() -> ((MockStateMachine) follower.getOptions().getFsm()).getOnStartFollowingTimes() == 2, 5_000));
                 assertEquals(1,
-                    ((MockStateMachine) thirdFollowers.get(i).getOptions().getFsm()).getOnStopFollowingTimes());
+                    ((MockStateMachine) follower.getOptions().getFsm()).getOnStopFollowingTimes());
                 continue;
             }
-            assertEquals(3, ((MockStateMachine) thirdFollowers.get(i).getOptions().getFsm()).getOnStartFollowingTimes());
-            assertEquals(2, ((MockStateMachine) thirdFollowers.get(i).getOptions().getFsm()).getOnStopFollowingTimes());
+
+            assertTrue(waitForCondition(() -> ((MockStateMachine) follower.getOptions().getFsm()).getOnStartFollowingTimes() == 3, 5_000));
+            assertEquals(2, ((MockStateMachine) follower.getOptions().getFsm()).getOnStopFollowingTimes());
         }
 
         cluster.ensureSame();
@@ -3281,7 +3282,7 @@ public class ITNodeTest {
                 if (msg instanceof RpcRequests.RequestVoteRequest) {
                     RpcRequests.RequestVoteRequest msg0 = (RpcRequests.RequestVoteRequest)msg;
 
-                    return !msg0.getPreVote();
+                    return !msg0.preVote();
                 }
 
                 return false;

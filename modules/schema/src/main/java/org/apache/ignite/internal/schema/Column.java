@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.schema;
 
-import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.Nullable;
 import java.io.Serializable;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
+import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Column description for a type schema. Column contains a column name, a column type and a nullability flag.
@@ -50,6 +51,7 @@ public class Column implements Comparable<Column>, Serializable {
     /**
      * Default value supplier.
      */
+    @IgniteToStringExclude
     private final Supplier<Object> defValSup;
 
     /**
@@ -75,7 +77,7 @@ public class Column implements Comparable<Column>, Serializable {
         String name,
         NativeType type,
         boolean nullable,
-        @Nullable Supplier<Object> defValSup
+        @NotNull Supplier<Object> defValSup
     ) {
         this(-1, name, type, nullable, defValSup);
     }
@@ -92,7 +94,7 @@ public class Column implements Comparable<Column>, Serializable {
         String name,
         NativeType type,
         boolean nullable,
-        @Nullable Supplier<Object> defValSup
+        @NotNull Supplier<Object> defValSup
     ) {
         this.schemaIndex = schemaIndex;
         this.name = name;
@@ -135,12 +137,7 @@ public class Column implements Comparable<Column>, Serializable {
      * @return Default value.
      */
     public Object defaultValue() {
-        Object val = defValSup.get();
-
-        if (nullable || val != null)
-            return val;
-
-        throw new IllegalStateException("Null value is not accepted for not nullable column: [col=" + this + ']');
+        return defValSup.get();
     }
 
     /** {@inheritDoc} */

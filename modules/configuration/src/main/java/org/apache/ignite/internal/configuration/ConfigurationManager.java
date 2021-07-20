@@ -38,8 +38,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 /**
  * Configuration manager is responsible for handling configuration lifecycle and provides configuration API.
  */
-// TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
-@SuppressWarnings("WeakerAccess") public class ConfigurationManager implements IgniteComponent {
+public class ConfigurationManager implements IgniteComponent {
     /** Configuration registry. */
     private final ConfigurationRegistry confRegistry;
 

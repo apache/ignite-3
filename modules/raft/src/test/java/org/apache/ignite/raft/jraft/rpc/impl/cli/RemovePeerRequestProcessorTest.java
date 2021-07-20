@@ -25,37 +25,38 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.RemovePeerResponse;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.mockito.Matchers.eq;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.eq;
 
 public class RemovePeerRequestProcessorTest extends AbstractCliRequestProcessorTest<RemovePeerRequest> {
 
     @Override
     public RemovePeerRequest createRequest(String groupId, PeerId peerId) {
-        return RemovePeerRequest.newBuilder(). //
-            setGroupId(groupId). //
-            setLeaderId(peerId.toString()). //
-            setPeerId("localhost:8082").build();
+        return msgFactory.removePeerRequest()
+            .groupId(groupId)
+            .leaderId(peerId.toString())
+            .peerId("localhost:8082")
+            .build();
     }
 
     @Override
     public BaseCliRequestProcessor<RemovePeerRequest> newProcessor() {
-        return new RemovePeerRequestProcessor(null);
+        return new RemovePeerRequestProcessor(null, msgFactory);
     }
 
     @Override
     public void verify(String interest, Node node, ArgumentCaptor<Closure> doneArg) {
-        assertEquals(interest, RemovePeerRequest.class.getName());
+        assertEquals(RemovePeerRequest.class.getName(), interest);
         Mockito.verify(node).removePeer(eq(new PeerId("localhost", 8082)), doneArg.capture());
         Closure done = doneArg.getValue();
         assertNotNull(done);
         done.run(Status.OK());
         assertNotNull(this.asyncContext.getResponseObject());
         assertEquals("[localhost:8081, localhost:8082, localhost:8083]", this.asyncContext.as(RemovePeerResponse.class)
-            .getOldPeersList().toString());
+            .oldPeersList().toString());
         assertEquals("[localhost:8081, localhost:8083]", this.asyncContext.as(RemovePeerResponse.class)
-            .getNewPeersList().toString());
+            .newPeersList().toString());
     }
 
 }

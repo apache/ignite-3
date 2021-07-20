@@ -25,37 +25,38 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerResponse;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.mockito.Matchers.eq;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.eq;
 
 public class AddPeerRequestProcessorTest extends AbstractCliRequestProcessorTest<AddPeerRequest> {
 
     @Override
     public AddPeerRequest createRequest(String groupId, PeerId peerId) {
-        return AddPeerRequest.newBuilder(). //
-            setGroupId(groupId). //
-            setLeaderId(peerId.toString()). //
-            setPeerId("test:8181").build();
+        return msgFactory.addPeerRequest()
+            .groupId(groupId)
+            .leaderId(peerId.toString())
+            .peerId("test:8181")
+            .build();
     }
 
     @Override
     public BaseCliRequestProcessor<AddPeerRequest> newProcessor() {
-        return new AddPeerRequestProcessor(null);
+        return new AddPeerRequestProcessor(null, msgFactory);
     }
 
     @Override
     public void verify(String interest, Node node, ArgumentCaptor<Closure> doneArg) {
-        assertEquals(interest, AddPeerRequest.class.getName());
+        assertEquals(AddPeerRequest.class.getName(), interest);
         Mockito.verify(node).addPeer(eq(new PeerId("test", 8181)), doneArg.capture());
         Closure done = doneArg.getValue();
         assertNotNull(done);
         done.run(Status.OK());
         assertNotNull(this.asyncContext.getResponseObject());
         assertEquals("[localhost:8081, localhost:8082, localhost:8083]", this.asyncContext.as(AddPeerResponse.class)
-            .getOldPeersList().toString());
+            .oldPeersList().toString());
         assertEquals("[localhost:8081, localhost:8082, localhost:8083, test:8181]",
-            this.asyncContext.as(AddPeerResponse.class).getNewPeersList().toString());
+            this.asyncContext.as(AddPeerResponse.class).newPeersList().toString());
     }
 
 }

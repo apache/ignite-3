@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
 import org.apache.ignite.raft.jraft.Node;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -29,13 +30,13 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.PingRequest;
 import org.apache.ignite.raft.jraft.test.MockAsyncContext;
 import org.apache.ignite.raft.jraft.test.TestUtils;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.withSettings;
 
 public class NodeRequestProcessorTest {
@@ -44,7 +45,7 @@ public class NodeRequestProcessorTest {
         private String groupId;
 
         MockRequestProcessor(String peerId, String groupId) {
-            super(null, null);
+            super(null, new RaftMessagesFactory());
             this.peerId = peerId;
             this.groupId = groupId;
         }
@@ -62,7 +63,7 @@ public class NodeRequestProcessorTest {
         @Override
         protected Message processRequest0(RaftServerService serviceService, PingRequest request,
             RpcRequestClosure done) {
-            return RaftRpcFactory.DEFAULT.newResponse(null, Status.OK());
+            return RaftRpcFactory.DEFAULT.newResponse(msgFactory(), Status.OK());
         }
 
         @Override
@@ -75,13 +76,13 @@ public class NodeRequestProcessorTest {
     private MockRequestProcessor processor;
     private MockAsyncContext asyncContext;
 
-    @Before
+    @BeforeEach
     public void setup() {
         this.asyncContext = new MockAsyncContext();
         this.processor = new MockRequestProcessor("localhost:8081", "test");
     }
 
-    @After
+    @AfterEach
     public void teardown() {
         // No-op.
     }
@@ -99,7 +100,7 @@ public class NodeRequestProcessorTest {
         this.processor.handleRequest(asyncContext, TestUtils.createPingRequest());
         ErrorResponse resp = (ErrorResponse) asyncContext.getResponseObject();
         assertNotNull(resp);
-        assertEquals(0, resp.getErrorCode());
+        assertEquals(0, resp.errorCode());
     }
 
     @Test
@@ -108,8 +109,8 @@ public class NodeRequestProcessorTest {
         this.processor.handleRequest(asyncContext, TestUtils.createPingRequest());
         ErrorResponse resp = (ErrorResponse) asyncContext.getResponseObject();
         assertNotNull(resp);
-        assertEquals(RaftError.EINVAL.getNumber(), resp.getErrorCode());
-        assertEquals("Fail to parse peerId: localhost", resp.getErrorMsg());
+        assertEquals(RaftError.EINVAL.getNumber(), resp.errorCode());
+        assertEquals("Fail to parse peerId: localhost", resp.errorMsg());
     }
 
     @Test
@@ -117,7 +118,7 @@ public class NodeRequestProcessorTest {
         this.processor.handleRequest(asyncContext, TestUtils.createPingRequest());
         ErrorResponse resp = (ErrorResponse) asyncContext.getResponseObject();
         assertNotNull(resp);
-        assertEquals(RaftError.ENOENT.getNumber(), resp.getErrorCode());
-        assertEquals("Peer id not found: localhost:8081, group: test", resp.getErrorMsg());
+        assertEquals(RaftError.ENOENT.getNumber(), resp.errorCode());
+        assertEquals("Peer id not found: localhost:8081, group: test", resp.errorMsg());
     }
 }

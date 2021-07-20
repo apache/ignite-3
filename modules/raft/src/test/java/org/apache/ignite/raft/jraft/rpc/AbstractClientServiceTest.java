@@ -30,25 +30,28 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.PingRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.AbstractClientService;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Endpoint;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Matchers.eq;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
-@RunWith(value = MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class AbstractClientServiceTest {
     private RpcOptions rpcOptions;
     private MockClientService clientService;
@@ -57,7 +60,7 @@ public class AbstractClientServiceTest {
     private RpcResponseFactory rpcResponseFactory = RaftRpcFactory.DEFAULT;
     private final Endpoint endpoint = new Endpoint("localhost", 8081);
 
-    @Before
+    @BeforeEach
     public void setup() throws Exception {
         this.rpcOptions = new RpcOptions();
         this.rpcOptions.setClientExecutor(JRaftUtils.createClientExecutor(this.rpcOptions, "unittest"));
@@ -96,7 +99,7 @@ public class AbstractClientServiceTest {
         assertNull(done.status);
         assertFalse(future.isDone());
 
-        ErrorResponse response = (ErrorResponse) this.rpcResponseFactory.newResponse(null, Status.OK());
+        ErrorResponse response = (ErrorResponse) this.rpcResponseFactory.newResponse(rpcOptions.getRaftMessagesFactory(), Status.OK());
         cb.complete(response, null);
 
         done.latch.await();
@@ -158,9 +161,10 @@ public class AbstractClientServiceTest {
     public void testInvokeWithDoneOnErrorResponse() throws Exception {
         final InvokeContext invokeCtx = new InvokeContext();
         final ArgumentCaptor<InvokeCallback> callbackArg = ArgumentCaptor.forClass(InvokeCallback.class);
-        final CliRequests.GetPeersRequest request = CliRequests.GetPeersRequest.newBuilder() //
-            .setGroupId("id") //
-            .setLeaderId("127.0.0.1:8001") //
+        final CliRequests.GetPeersRequest request = rpcOptions.getRaftMessagesFactory()
+            .getPeersRequest()
+            .groupId("id")
+            .leaderId("127.0.0.1:8001")
             .build();
 
         MockRpcResponseClosure<ErrorResponse> done = new MockRpcResponseClosure<>();
@@ -175,7 +179,7 @@ public class AbstractClientServiceTest {
         assertNull(done.status);
         assertFalse(future.isDone());
 
-        final Message resp = this.rpcResponseFactory.newResponse(CliRequests.GetPeersResponse.getDefaultInstance(),
+        final Message resp = this.rpcResponseFactory.newResponse(rpcOptions.getRaftMessagesFactory(),
             new Status(-1, "failed"));
         cb.complete(resp, null);
 

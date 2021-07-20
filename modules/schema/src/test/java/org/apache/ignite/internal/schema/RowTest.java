@@ -21,18 +21,26 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collections;
 import java.util.Random;
+import java.util.function.Function;
+import java.util.stream.IntStream;
+import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.util.Constants;
+import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static org.apache.ignite.internal.schema.NativeTypes.BYTE;
+import static org.apache.ignite.internal.schema.NativeTypes.INT8;
+import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
 import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
-import static org.apache.ignite.internal.schema.NativeTypes.INTEGER;
-import static org.apache.ignite.internal.schema.NativeTypes.LONG;
-import static org.apache.ignite.internal.schema.NativeTypes.SHORT;
-import static org.apache.ignite.internal.schema.NativeTypes.UUID;
-import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
+import static org.apache.ignite.internal.schema.NativeTypes.INT32;
+import static org.apache.ignite.internal.schema.NativeTypes.INT64;
+import static org.apache.ignite.internal.schema.NativeTypes.INT16;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
+import static org.apache.ignite.internal.schema.NativeTypes.UUID;
+import static org.apache.ignite.internal.schema.TestUtils.randomBytes;
+import static org.apache.ignite.internal.schema.TestUtils.randomString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -50,7 +58,7 @@ public class RowTest {
     public void initRandom() {
         long seed = System.currentTimeMillis();
 
-        System.out.println("Using seed: " + seed + "L; //");
+        IgniteLogger.forClass(RowTest.class).info("Using seed: " + seed + "L; //");
 
         rnd = new Random(seed);
     }
@@ -61,10 +69,10 @@ public class RowTest {
     @Test
     public void nullableFixSizedColumns() {
         Column[] keyCols = new Column[] {
-            new Column("keyByteCol", BYTE, false),
-            new Column("keyShortCol", SHORT, false),
-            new Column("keyIntCol", INTEGER, false),
-            new Column("keyLongCol", LONG, false),
+            new Column("keyByteCol", INT8, false),
+            new Column("keyShortCol", INT16, false),
+            new Column("keyIntCol", INT32, false),
+            new Column("keyLongCol", INT64, false),
             new Column("keyFloatCol", FLOAT, false),
             new Column("keyDoubleCol", DOUBLE, false),
             new Column("keyUuidCol", UUID, false),
@@ -73,10 +81,10 @@ public class RowTest {
         };
 
         Column[] valCols = new Column[] {
-            new Column("valByteCol", BYTE, false),
-            new Column("valShortCol", SHORT, false),
-            new Column("valIntCol", INTEGER, false),
-            new Column("valLongCol", LONG, false),
+            new Column("valByteCol", INT8, false),
+            new Column("valShortCol", INT16, false),
+            new Column("valIntCol", INT32, false),
+            new Column("valLongCol", INT64, false),
             new Column("valFloatCol", FLOAT, false),
             new Column("valDoubleCol", DOUBLE, false),
             new Column("valUuidCol", UUID, false),
@@ -93,10 +101,10 @@ public class RowTest {
     @Test
     public void fixSizedColumns() {
         Column[] keyCols = new Column[] {
-            new Column("keyByteCol", BYTE, true),
-            new Column("keyShortCol", SHORT, true),
-            new Column("keyIntCol", INTEGER, true),
-            new Column("keyLongCol", LONG, true),
+            new Column("keyByteCol", INT8, true),
+            new Column("keyShortCol", INT16, true),
+            new Column("keyIntCol", INT32, true),
+            new Column("keyLongCol", INT64, true),
             new Column("keyFloatCol", FLOAT, true),
             new Column("keyDoubleCol", DOUBLE, true),
             new Column("keyUuidCol", UUID, true),
@@ -105,10 +113,10 @@ public class RowTest {
         };
 
         Column[] valCols = new Column[] {
-            new Column("valByteCol", BYTE, true),
-            new Column("valShortCol", SHORT, true),
-            new Column("valIntCol", INTEGER, true),
-            new Column("valLongCol", LONG, true),
+            new Column("valByteCol", INT8, true),
+            new Column("valShortCol", INT16, true),
+            new Column("valIntCol", INT32, true),
+            new Column("valLongCol", INT64, true),
             new Column("valFloatCol", FLOAT, true),
             new Column("valDoubleCol", DOUBLE, true),
             new Column("valUuidCol", UUID, true),
@@ -125,19 +133,19 @@ public class RowTest {
     @Test
     public void mixedColumns() {
         Column[] keyCols = new Column[] {
-            new Column("keyByteCol", BYTE, false),
-            new Column("keyShortCol", SHORT, false),
-            new Column("keyIntCol", INTEGER, false),
-            new Column("keyLongCol", LONG, false),
+            new Column("keyByteCol", INT8, false),
+            new Column("keyShortCol", INT16, false),
+            new Column("keyIntCol", INT32, false),
+            new Column("keyLongCol", INT64, false),
             new Column("keyBytesCol", BYTES, false),
             new Column("keyStringCol", STRING, false),
         };
 
         Column[] valCols = new Column[] {
-            new Column("keyByteCol", BYTE, true),
-            new Column("keyShortCol", SHORT, true),
-            new Column("keyIntCol", INTEGER, true),
-            new Column("keyLongCol", LONG, true),
+            new Column("keyByteCol", INT8, true),
+            new Column("keyShortCol", INT16, true),
+            new Column("keyIntCol", INT32, true),
+            new Column("keyLongCol", INT64, true),
             new Column("valBytesCol", BYTES, true),
             new Column("valStringCol", STRING, true),
         };
@@ -179,6 +187,119 @@ public class RowTest {
         };
 
         checkSchema(keyCols, valCols);
+    }
+
+    /**
+     * Check row serialization for schema with large varlen columns (64Kb+).
+     */
+    @Test
+    public void largeVarlenColumns() {
+        Column[] keyCols = new Column[] {
+            new Column("keyBytesCol", BYTES, false),
+            new Column("keyStringCol", STRING, false),
+        };
+
+        Column[] valCols = new Column[] {
+            new Column("valBytesCol", BYTES, true),
+            new Column("valStringCol", STRING, true),
+        };
+
+        SchemaDescriptor sch = new SchemaDescriptor(java.util.UUID.randomUUID(), 1, keyCols, valCols);
+
+        Object[] checkArr = generateRowValues(sch, t -> (t.spec() == NativeTypeSpec.BYTES) ?
+            randomBytes(rnd, rnd.nextInt(Constants.MiB) + (2 << 16)) :
+            randomString(rnd, rnd.nextInt(Constants.MiB) + (2 << 16)));
+
+        checkValues(sch, checkArr);
+
+        for (int idx = 0; idx < checkArr.length; idx++) {
+            if (!sch.column(idx).nullable())
+                continue;
+
+            Object prev = checkArr[idx];
+            checkArr[idx] = null;
+
+            checkValues(sch, checkArr);
+
+            checkArr[idx] = prev;
+        }
+    }
+
+    /**
+     * Check row serialization for 256+ fixsized columns.
+     */
+    @Test
+    public void mediumLenWithFixSizedColumns() {
+        Column[] keyCols = IntStream.range(0, 300)
+            .mapToObj(i -> new Column("keyCol" + i, INT8, false))
+            .toArray(Column[]::new);
+        Column[] valCols = IntStream.range(0, 330)
+            .mapToObj(i -> new Column("valCol" + i, INT8, true))
+            .toArray(Column[]::new);
+
+        SchemaDescriptor sch = new SchemaDescriptor(java.util.UUID.randomUUID(), 1, keyCols, valCols);
+
+        Object[] checkArr = generateRowValues(sch);
+
+        checkValues(sch, checkArr);
+    }
+
+    /**
+     * Check row serialization for 256+ varlen columns.
+     */
+    @Test
+    public void mediumLenWithVarlenColumns() {
+        Column[] keyCols = IntStream.range(0, 300)
+            .mapToObj(i -> new Column("keyCol" + i, STRING, false))
+            .toArray(Column[]::new);
+        Column[] valCols = IntStream.range(0, 300)
+            .mapToObj(i -> new Column("valCol" + i, STRING, true))
+            .toArray(Column[]::new);
+
+        SchemaDescriptor sch = new SchemaDescriptor(java.util.UUID.randomUUID(), 1, keyCols, valCols);
+
+        Object[] checkArr = generateRowValues(sch, t -> randomString(rnd, rnd.nextInt(5)));
+
+        checkValues(sch, checkArr);
+    }
+
+    /**
+     * Check row serialization for 64K+ fixlen columns.
+     */
+    @Test
+    public void largeLenWithFixSizedColumns() {
+        Column[] keyCols = IntStream.range(0, (2 << 16) + rnd.nextInt(20))
+            .mapToObj(i -> new Column("keyCol" + i, INT8, false))
+            .toArray(Column[]::new);
+        Column[] valCols = IntStream.range(0, (2 << 16) + rnd.nextInt(20))
+            .mapToObj(i -> new Column("valCol" + i, INT8, true))
+            .toArray(Column[]::new);
+
+        SchemaDescriptor sch = new SchemaDescriptor(java.util.UUID.randomUUID(), 1, keyCols, valCols);
+
+        Object[] checkArr = generateRowValues(sch);
+
+        checkValues(sch, checkArr);
+    }
+
+    /**
+     * Check row serialization for 1K+ varlen columns with total chunk length of 64k+.
+     */
+    @Test
+    public void largeLenWithVarlenColumns() {
+        Column[] keyCols = IntStream.range(0, 1000 + rnd.nextInt(20))
+            .mapToObj(i -> new Column("keyCol" + i, STRING, false))
+            .toArray(Column[]::new);
+
+        Column[] valCols = IntStream.range(0, 1000 + rnd.nextInt(20))
+            .mapToObj(i -> new Column("valCol" + i, STRING, true))
+            .toArray(Column[]::new);
+
+        SchemaDescriptor sch = new SchemaDescriptor(java.util.UUID.randomUUID(), 1, keyCols, valCols);
+
+        Object[] checkArr = generateRowValues(sch, t -> randomString(rnd, 65 + rnd.nextInt(500)));
+
+        checkValues(sch, checkArr);
     }
 
     /**
@@ -229,12 +350,23 @@ public class RowTest {
      * @return Row values.
      */
     private Object[] generateRowValues(SchemaDescriptor schema) {
+        return generateRowValues(schema, this::generateRandomValue);
+    }
+
+    /**
+     * Generate row values for given row schema.
+     *
+     * @param schema Row schema.
+     * @param rnd Function that returns random value for the type.
+     * @return Row values.
+     */
+    private Object[] generateRowValues(SchemaDescriptor schema, Function<NativeType, Object> rnd) {
         Object[] res = new Object[schema.length()];
 
         for (int i = 0; i < res.length; i++) {
             NativeType type = schema.column(i).type();
 
-            res[i] = generateRandomValue(type);
+            res[i] = rnd.apply(type);
         }
 
         return res;
@@ -294,11 +426,12 @@ public class RowTest {
             }
         }
 
-        int size = RowAssembler.rowSize(
-            schema.keyColumns(), nonNullVarLenKeyCols, nonNullVarLenKeySize,
-            schema.valueColumns(), nonNullVarLenValCols, nonNullVarLenValSize);
-
-        RowAssembler asm = new RowAssembler(schema, size, nonNullVarLenKeyCols, nonNullVarLenValCols);
+        RowAssembler asm = new RowAssembler(
+            schema,
+            nonNullVarLenKeySize,
+            nonNullVarLenKeyCols,
+            nonNullVarLenValSize,
+            nonNullVarLenValCols);
 
         for (int i = 0; i < vals.length; i++) {
             if (vals[i] == null)
@@ -307,19 +440,19 @@ public class RowTest {
                 NativeType type = schema.column(i).type();
 
                 switch (type.spec()) {
-                    case BYTE:
+                    case INT8:
                         asm.appendByte((Byte)vals[i]);
                         break;
 
-                    case SHORT:
+                    case INT16:
                         asm.appendShort((Short)vals[i]);
                         break;
 
-                    case INTEGER:
+                    case INT32:
                         asm.appendInt((Integer)vals[i]);
                         break;
 
-                    case LONG:
+                    case INT64:
                         asm.appendLong((Long)vals[i]);
                         break;
 
@@ -353,9 +486,9 @@ public class RowTest {
             }
         }
 
-        byte[] data = asm.build();
+        byte[] data = asm.toBytes();
 
-        Row tup = new Row(schema, new ByteBufferRow(data));
+        Row row = new Row(schema, new ByteBufferRow(data));
 
         for (int i = 0; i < vals.length; i++) {
             Column col = schema.column(i);
@@ -363,10 +496,10 @@ public class RowTest {
             NativeTypeSpec type = col.type().spec();
 
             if (type == NativeTypeSpec.BYTES)
-                assertArrayEquals((byte[])vals[i], (byte[])NativeTypeSpec.BYTES.objectValue(tup, i),
+                assertArrayEquals((byte[])vals[i], (byte[])NativeTypeSpec.BYTES.objectValue(row, i),
                     "Failed for column: " + col);
             else
-                assertEquals(vals[i], type.objectValue(tup, i), "Failed for column: " + col);
+                assertEquals(vals[i], type.objectValue(row, i), "Failed for column: " + col);
         }
     }
 

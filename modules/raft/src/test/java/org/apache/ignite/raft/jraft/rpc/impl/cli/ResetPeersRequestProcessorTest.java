@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
+import java.util.List;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -24,22 +25,23 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.ResetPeerRequest;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class ResetPeersRequestProcessorTest extends AbstractCliRequestProcessorTest<ResetPeerRequest> {
 
     @Override
     public ResetPeerRequest createRequest(String groupId, PeerId peerId) {
-        return ResetPeerRequest.newBuilder(). //
-            setGroupId(groupId). //
-            setPeerId(peerId.toString()). //
-            addNewPeers("localhost:8084").addNewPeers("localhost:8085").build();
+        return msgFactory.resetPeerRequest()
+            .groupId(groupId)
+            .peerId(peerId.toString())
+            .newPeersList(List.of("localhost:8084", "localhost:8085"))
+            .build();
     }
 
     @Override
     public BaseCliRequestProcessor<ResetPeerRequest> newProcessor() {
-        return new ResetPeerRequestProcessor(null);
+        return new ResetPeerRequestProcessor(null, msgFactory);
     }
 
     @Override

@@ -19,31 +19,31 @@ package org.apache.ignite.raft.jraft.storage.snapshot.local;
 import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.BaseStorageTest;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@RunWith(value = MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class LocalSnapshotWriterTest extends BaseStorageTest {
+    private RaftOptions opts;
     private LocalSnapshotWriter writer;
     @Mock
     private LocalSnapshotStorage snapshotStorage;
 
-    @Override
-    @Before
+    @BeforeEach
     public void setup() throws Exception {
-        super.setup();
-        this.writer = new LocalSnapshotWriter(path, snapshotStorage, new RaftOptions());
+        opts = new RaftOptions();
+        this.writer = new LocalSnapshotWriter(path.toString(), snapshotStorage, opts);
         assertTrue(this.writer.init(null));
     }
 
@@ -63,22 +63,25 @@ public class LocalSnapshotWriterTest extends BaseStorageTest {
 
     @Test
     public void testSyncInit() throws Exception {
-        LocalFileMetaOutter.LocalFileMeta meta = LocalFileMetaOutter.LocalFileMeta.newBuilder().setChecksum("test")
-            .setSource(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL).build();
+        LocalFileMetaOutter.LocalFileMeta meta = opts.getRaftMessagesFactory()
+            .localFileMeta()
+            .checksum("test")
+            .source(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL)
+            .build();
         assertTrue(this.writer.addFile("data1", meta));
         assertTrue(this.writer.addFile("data2"));
 
         assertEquals(meta, this.writer.getFileMeta("data1"));
-        assertFalse(((LocalFileMetaOutter.LocalFileMeta) this.writer.getFileMeta("data2")).hasChecksum());
+        assertNull(((LocalFileMetaOutter.LocalFileMeta) this.writer.getFileMeta("data2")).checksum());
         assertFalse(((LocalFileMetaOutter.LocalFileMeta) this.writer.getFileMeta("data2")).hasUserMeta());
 
         this.writer.sync();
         //create a new writer
-        LocalSnapshotWriter newWriter = new LocalSnapshotWriter(path, snapshotStorage, new RaftOptions());
+        LocalSnapshotWriter newWriter = new LocalSnapshotWriter(path.toString(), snapshotStorage, new RaftOptions());
         assertTrue(newWriter.init(null));
         assertNotSame(writer, newWriter);
         assertEquals(meta, newWriter.getFileMeta("data1"));
-        assertFalse(((LocalFileMetaOutter.LocalFileMeta) newWriter.getFileMeta("data2")).hasChecksum());
+        assertNull(((LocalFileMetaOutter.LocalFileMeta) newWriter.getFileMeta("data2")).checksum());
         assertFalse(((LocalFileMetaOutter.LocalFileMeta) newWriter.getFileMeta("data2")).hasUserMeta());
     }
 

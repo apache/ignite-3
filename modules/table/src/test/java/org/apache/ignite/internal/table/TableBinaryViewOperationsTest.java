@@ -53,11 +53,11 @@ public class TableBinaryViewOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[]{new Column("id", NativeTypes.LONG, false)},
-            new Column[]{new Column("val", NativeTypes.LONG, false)}
+            new Column[]{new Column("id", NativeTypes.INT64, false)},
+            new Column[]{new Column("val", NativeTypes.INT64, false)}
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
+        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple tuple = tbl.tupleBuilder().set("id", 1L).set("val", 11L).build();
         final Tuple newTuple = tbl.tupleBuilder().set("id", 1L).set("val", 22L).build();
@@ -88,11 +88,11 @@ public class TableBinaryViewOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[]{new Column("id", NativeTypes.LONG, false)},
-            new Column[]{new Column("val", NativeTypes.LONG, false)}
+            new Column[]{new Column("id", NativeTypes.INT64, false)},
+            new Column[]{new Column("val", NativeTypes.INT64, false)}
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
+        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple tuple = tbl.tupleBuilder().set("id", 1L).set("val", 11L).build();
         final Tuple newTuple = tbl.tupleBuilder().set("id", 1L).set("val", 22L).build();
@@ -124,11 +124,11 @@ public class TableBinaryViewOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[]{new Column("id", NativeTypes.LONG, false)},
-            new Column[]{new Column("val", NativeTypes.LONG, false)}
+            new Column[]{new Column("id", NativeTypes.INT64, false)},
+            new Column[]{new Column("val", NativeTypes.INT64, false)}
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
+        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple tuple = tbl.tupleBuilder().set("id", 1L).set("val", 11L).build();
         final Tuple newTuple = tbl.tupleBuilder().set("id", 1L).set("val", 22L).build();
@@ -157,11 +157,11 @@ public class TableBinaryViewOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[]{new Column("id", NativeTypes.LONG, false)},
-            new Column[]{new Column("val", NativeTypes.LONG, false)}
+            new Column[]{new Column("id", NativeTypes.INT64, false)},
+            new Column[]{new Column("val", NativeTypes.INT64, false)}
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
+        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple tuple = tbl.tupleBuilder().set("id", 1L).set("val", 11L).build();
 
@@ -188,11 +188,11 @@ public class TableBinaryViewOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[]{new Column("id", NativeTypes.LONG, false)},
-            new Column[]{new Column("val", NativeTypes.LONG, false)}
+            new Column[]{new Column("id", NativeTypes.INT64, false)},
+            new Column[]{new Column("val", NativeTypes.INT64, false)}
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
+        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple keyTuple = tbl.tupleBuilder().set("id", 1L).build();
         final Tuple tuple = tbl.tupleBuilder().set("id", 1L).set("val", 11L).build();
@@ -240,11 +240,11 @@ public class TableBinaryViewOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[]{new Column("id", NativeTypes.LONG, false)},
-            new Column[]{new Column("val", NativeTypes.LONG, false)}
+            new Column[]{new Column("id", NativeTypes.INT64, false)},
+            new Column[]{new Column("val", NativeTypes.INT64, false)}
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
+        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple keyTuple = tbl.tupleBuilder().set("id", 1L).build();
         final Tuple tuple = tbl.tupleBuilder().set("id", 1L).set("val", 11L).build();
@@ -276,11 +276,11 @@ public class TableBinaryViewOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[]{new Column("id", NativeTypes.LONG, false)},
-            new Column[]{new Column("val", NativeTypes.LONG, false)}
+            new Column[]{new Column("id", NativeTypes.INT64, false)},
+            new Column[]{new Column("val", NativeTypes.INT64, false)}
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
+        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple keyTuple = tbl.tupleBuilder().set("id", 1L).build();
         final Tuple tuple = tbl.tupleBuilder().set("id", 1L).set("val", 11L).build();
@@ -313,15 +313,15 @@ public class TableBinaryViewOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[]{new Column("id", NativeTypes.LONG, false)},
+            new Column[]{new Column("id", NativeTypes.INT64, false)},
             new Column[]{
-                new Column("val", NativeTypes.LONG, true),
+                new Column("val", NativeTypes.INT64, true),
                 new Column("str", NativeTypes.stringOf(3), true),
                 new Column("blob", NativeTypes.blobOf(3), true)
             }
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
+        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple keyTuple0 = new TestTupleBuilder().set("id", 0).set("id1", 0).build();
         final Tuple keyTuple1 = new TestTupleBuilder().set("id1", 0).build();
@@ -349,15 +349,15 @@ public class TableBinaryViewOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[]{new Column("id", NativeTypes.LONG, false)},
+            new Column[]{new Column("id", NativeTypes.INT64, false)},
             new Column[]{
-                new Column("val", NativeTypes.LONG, true, () -> 28L),
+                new Column("val", NativeTypes.INT64, true, () -> 28L),
                 new Column("str", NativeTypes.stringOf(3), true, () -> "ABC"),
                 new Column("blob", NativeTypes.blobOf(3), true, () -> new byte[]{0, 1, 2})
             }
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
+        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple keyTuple0 = tbl.tupleBuilder().set("id", 0L).build();
         final Tuple keyTuple1 = tbl.tupleBuilder().set("id", 1L).build();

@@ -18,6 +18,7 @@ package org.apache.ignite.raft.jraft.rpc.impl.core;
 
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -25,21 +26,21 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.test.MockAsyncContext;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-@RunWith(value = MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public abstract class BaseNodeRequestProcessorTest<T extends Message> {
     @Mock(extraInterfaces = {RaftServerService.class})
     private Node node;
     protected final String groupId = "test";
     protected final String peerIdStr = "localhost:8081";
     protected MockAsyncContext asyncContext;
+    protected RaftMessagesFactory msgFactory = new RaftMessagesFactory();
 
     public abstract T createRequest(String groupId, PeerId peerId);
 
@@ -47,15 +48,10 @@ public abstract class BaseNodeRequestProcessorTest<T extends Message> {
 
     public abstract void verify(String interest, RaftServerService service, NodeRequestProcessor<T> processor);
 
-    @Before
+    @BeforeEach
     public void setup() {
         Mockito.lenient().when(node.getRaftOptions()).thenReturn(new RaftOptions());
         this.asyncContext = new MockAsyncContext();
-    }
-
-    @After
-    public void teardown() {
-        // No-op.
     }
 
     @Test

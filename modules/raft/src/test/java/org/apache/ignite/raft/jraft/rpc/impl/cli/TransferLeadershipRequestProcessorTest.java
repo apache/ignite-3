@@ -23,21 +23,23 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class TransferLeadershipRequestProcessorTest extends AbstractCliRequestProcessorTest<TransferLeaderRequest> {
 
     @Override
     public TransferLeaderRequest createRequest(String groupId, PeerId peerId) {
-        return TransferLeaderRequest.newBuilder().setGroupId(groupId).setLeaderId(peerId.toString())
-            .setPeerId("localhost:8082").build();
-
+        return msgFactory.transferLeaderRequest()
+            .groupId(groupId)
+            .leaderId(peerId.toString())
+            .peerId("localhost:8082")
+            .build();
     }
 
     @Override
     public BaseCliRequestProcessor<TransferLeaderRequest> newProcessor() {
-        return new TransferLeaderRequestProcessor(null);
+        return new TransferLeaderRequestProcessor(null, msgFactory);
     }
 
     @Override

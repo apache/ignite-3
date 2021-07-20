@@ -21,27 +21,29 @@ import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.RequestVoteRequest;
 import org.mockito.Mockito;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Matchers.eq;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.eq;
 
 public class RequestVoteRequestProcessorTest extends BaseNodeRequestProcessorTest<RequestVoteRequest> {
     private RequestVoteRequest request;
 
     @Override
     public RequestVoteRequest createRequest(String groupId, PeerId peerId) {
-        request = RequestVoteRequest.newBuilder().setGroupId(groupId). //
-            setServerId("localhostL8082"). //
-            setPeerId(peerId.toString()). //
-            setTerm(0). //
-            setLastLogIndex(0). //
-            setLastLogTerm(0). //
-            setPreVote(true).build();
+        request = msgFactory.requestVoteRequest()
+            .groupId(groupId)
+            .serverId("localhost:8082")
+            .peerId(peerId.toString())
+            .term(0)
+            .lastLogIndex(0)
+            .lastLogTerm(0)
+            .preVote(true)
+            .build();
         return request;
     }
 
     @Override
     public NodeRequestProcessor<RequestVoteRequest> newProcessor() {
-        return new RequestVoteRequestProcessor(null);
+        return new RequestVoteRequestProcessor(null, msgFactory);
     }
 
     @Override

@@ -23,23 +23,22 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.BaseStorageTest;
 import org.apache.ignite.raft.jraft.storage.snapshot.Snapshot;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class SnapshotFileReaderTest extends BaseStorageTest {
     private SnapshotFileReader reader;
     private LocalSnapshotMetaTable metaTable;
+    private RaftOptions opts;
 
-    @Override
-    @Before
+    @BeforeEach
     public void setup() throws Exception {
-        super.setup();
-        this.reader = new SnapshotFileReader(path, null);
-        metaTable = new LocalSnapshotMetaTable(new RaftOptions());
+        this.reader = new SnapshotFileReader(path.toString(), null);
+        opts = new RaftOptions();
+        metaTable = new LocalSnapshotMetaTable(opts);
         this.reader.setMetaTable(metaTable);
     }
 
@@ -53,12 +52,15 @@ public class SnapshotFileReaderTest extends BaseStorageTest {
         buf.flip();
         final LocalSnapshotMetaTable newTable = new LocalSnapshotMetaTable(new RaftOptions());
         newTable.loadFromIoBufferAsRemote(buf);
-        Assert.assertEquals(meta, newTable.getFileMeta("data"));
+        assertEquals(meta, newTable.getFileMeta("data"));
     }
 
     private LocalFileMetaOutter.LocalFileMeta addDataMeta() {
-        final LocalFileMetaOutter.LocalFileMeta meta = LocalFileMetaOutter.LocalFileMeta.newBuilder()
-            .setChecksum("test").setSource(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL).build();
+        final LocalFileMetaOutter.LocalFileMeta meta = opts.getRaftMessagesFactory()
+            .localFileMeta()
+            .checksum("test")
+            .source(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL)
+            .build();
         this.metaTable.addFile("data", meta);
         return meta;
     }

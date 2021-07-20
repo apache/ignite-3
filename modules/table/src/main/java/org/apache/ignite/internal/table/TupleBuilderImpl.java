@@ -34,31 +34,33 @@ import org.apache.ignite.table.TupleBuilder;
  */
 public class TupleBuilderImpl implements TupleBuilder, Tuple {
     /** Columns values. */
-    private final Map<String, Object> map;
+    protected Map<String, Object> map;
 
     /** Current schema descriptor. */
-    private final SchemaDescriptor schemaDesc;
+    private SchemaDescriptor schemaDesc;
 
     /**
-     * Constructor.
+     * Creates tuple builder.
+     *
+     * @param schemaDesc Schema descriptor.
      */
     public TupleBuilderImpl(SchemaDescriptor schemaDesc) {
         Objects.requireNonNull(schemaDesc);
 
         this.schemaDesc = schemaDesc;
-        map = new HashMap<>();
+        map = new HashMap<>(schemaDesc.length());
     }
 
     /** {@inheritDoc} */
-    @Override public TupleBuilder set(String colName, Object value) {
-        Column col = schemaDesc.column(colName);
+    @Override public TupleBuilder set(String colName, Object val) {
+        Column col = schema().column(colName);
 
         if (col == null)
             throw new ColumnNotFoundException("Column not found [col=" + colName + "schema=" + schemaDesc + ']');
 
-        col.validate(value);
+        col.validate(val);
 
-        map.put(colName, value);
+        map.put(colName, val);
 
         return this;
     }
@@ -69,8 +71,8 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean contains(String colName) {
-        return map.containsKey(colName);
+    @Override public <T> T valueOrDefault(String colName, T def) {
+        return (T)map.getOrDefault(colName, def);
     }
 
     @Override public <T> T value(String colName) {
@@ -136,5 +138,12 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple {
      */
     public SchemaDescriptor schema() {
         return schemaDesc;
+    }
+
+    /**
+     * @param schemaDesc New current schema descriptor.
+     */
+    protected void schema(SchemaDescriptor schemaDesc) {
+        this.schemaDesc = schemaDesc;
     }
 }

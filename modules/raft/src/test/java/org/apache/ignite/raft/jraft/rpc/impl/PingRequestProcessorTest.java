@@ -16,20 +16,21 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.test.MockAsyncContext;
 import org.apache.ignite.raft.jraft.test.TestUtils;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class PingRequestProcessorTest {
     @Test
     public void testHandlePing() throws Exception {
-        PingRequestProcessor processor = new PingRequestProcessor(null);
+        PingRequestProcessor processor = new PingRequestProcessor(null, new RaftMessagesFactory());
         MockAsyncContext ctx = new MockAsyncContext();
         processor.handleRequest(ctx, TestUtils.createPingRequest());
         ErrorResponse response = (ErrorResponse) ctx.getResponseObject();
-        assertEquals(0, response.getErrorCode());
+        assertEquals(0, response.errorCode());
     }
 }

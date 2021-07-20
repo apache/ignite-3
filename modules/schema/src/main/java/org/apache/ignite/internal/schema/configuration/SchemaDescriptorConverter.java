@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema.configuration;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -25,17 +26,19 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaException;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaTable;
 
-import static org.apache.ignite.internal.schema.NativeTypes.BYTE;
+import static org.apache.ignite.internal.schema.NativeTypes.INT8;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
 import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
-import static org.apache.ignite.internal.schema.NativeTypes.INTEGER;
-import static org.apache.ignite.internal.schema.NativeTypes.LONG;
-import static org.apache.ignite.internal.schema.NativeTypes.SHORT;
+import static org.apache.ignite.internal.schema.NativeTypes.INT32;
+import static org.apache.ignite.internal.schema.NativeTypes.INT64;
+import static org.apache.ignite.internal.schema.NativeTypes.INT16;
 import static org.apache.ignite.internal.schema.NativeTypes.UUID;
 
 /**
@@ -55,16 +58,16 @@ public class SchemaDescriptorConverter {
 
         switch (type) {
             case INT8:
-                return BYTE;
+                return INT8;
 
             case INT16:
-                return SHORT;
+                return INT16;
 
             case INT32:
-                return INTEGER;
+                return INT32;
 
             case INT64:
-                return LONG;
+                return INT64;
 
             case UINT8:
             case UINT16:
@@ -116,7 +119,46 @@ public class SchemaDescriptorConverter {
      * @return Internal Column.
      */
     private static Column convert(org.apache.ignite.schema.Column colCfg) {
-        return new Column(colCfg.name(), convert(colCfg.type()), colCfg.nullable(), new ConstantSupplier((Serializable)colCfg.defaultValue()));
+        NativeType type = convert(colCfg.type());
+
+        return new Column(colCfg.name(), type, colCfg.nullable(), new ConstantSupplier(convertDefault(type, (String)colCfg.defaultValue())));
+    }
+
+    /**
+     * TODO: https://issues.apache.org/jira/browse/IGNITE-14479 Fix default conversion.
+     *
+     * @param type Column type.
+     * @param dflt Column default value.
+     * @return Parsed object.
+     */
+    private static Serializable convertDefault(NativeType type, String dflt) {
+        if (dflt == null || dflt.isEmpty() && type.spec() != NativeTypeSpec.STRING)
+            return null;
+
+        assert dflt instanceof String;
+
+        switch (type.spec()) {
+            case INT8:
+                return Byte.parseByte(dflt);
+            case INT16:
+                return Short.parseShort(dflt);
+            case INT32:
+                return Integer.parseInt(dflt);
+            case INT64:
+                return Long.parseLong(dflt);
+            case FLOAT:
+                return Float.parseFloat(dflt);
+            case DOUBLE:
+                return Double.parseDouble(dflt);
+            case DECIMAL:
+                return new BigDecimal(dflt);
+            case STRING:
+                return dflt;
+            case UUID:
+                return java.util.UUID.fromString(dflt);
+            default:
+                throw new SchemaException("Default value is not supported for type: type=" + type.toString());
+        }
     }
 
     /**

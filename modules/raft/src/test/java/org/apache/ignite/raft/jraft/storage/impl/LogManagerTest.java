@@ -41,27 +41,28 @@ import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@RunWith(value = MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class LogManagerTest extends BaseStorageTest {
     private LogManagerImpl logManager;
 
     private ConfigurationManager confManager;
+
+    private RaftOptions raftOptions;
 
     @Mock
     private FSMCaller fsmCaller;
@@ -71,12 +72,10 @@ public class LogManagerTest extends BaseStorageTest {
 
     private LogStorage logStorage;
 
-    @Override
-    @Before
+    @BeforeEach
     public void setup() throws Exception {
-        super.setup();
         this.confManager = new ConfigurationManager();
-        final RaftOptions raftOptions = new RaftOptions();
+        this.raftOptions = new RaftOptions();
         this.logStorage = newLogStorage(raftOptions);
         this.logManager = new LogManagerImpl();
         final LogManagerOptions opts = new LogManagerOptions();
@@ -97,14 +96,12 @@ public class LogManagerTest extends BaseStorageTest {
     }
 
     protected LogStorage newLogStorage(final RaftOptions raftOptions) {
-        return new LocalLogStorage(this.path, raftOptions);
+        return new LocalLogStorage(this.path.toString(), raftOptions);
     }
 
-    @Override
-    @After
+    @AfterEach
     public void teardown() throws Exception {
         this.logStorage.shutdown();
-        super.teardown();
     }
 
     @Test
@@ -138,7 +135,7 @@ public class LogManagerTest extends BaseStorageTest {
 
         assertEquals(1, this.logManager.getFirstLogIndex());
         assertEquals(1, this.logManager.getLastLogIndex());
-        Assert.assertEquals(entry, this.logManager.getEntry(1));
+        assertEquals(entry, this.logManager.getEntry(1));
         assertEquals(1, this.logManager.getLastLogIndex(true));
         LogId lastLogId = this.logManager.getLastLogId(true);
         assertEquals(1, lastLogId.getIndex());
@@ -154,7 +151,7 @@ public class LogManagerTest extends BaseStorageTest {
         assertEquals(1, this.logManager.getFirstLogIndex());
         assertEquals(10, this.logManager.getLastLogIndex());
         for (int i = 0; i < 10; i++) {
-            Assert.assertEquals(mockEntries.get(i), this.logManager.getEntry(i + 1));
+            assertEquals(mockEntries.get(i), this.logManager.getEntry(i + 1));
         }
         assertEquals(10, this.logManager.getLastLogIndex(true));
         LogId lastLogId = this.logManager.getLastLogId(true);
@@ -326,13 +323,13 @@ public class LogManagerTest extends BaseStorageTest {
 
         for (int i = 0; i < 10; i++) {
             // it's in memory
-            Assert.assertEquals(mockEntries.get(i), this.logManager.getEntryFromMemory(i + 1));
+            assertEquals(mockEntries.get(i), this.logManager.getEntryFromMemory(i + 1));
         }
         Thread.sleep(200); // waiting for setDiskId()
         this.logManager.setAppliedId(new LogId(10, 10));
         for (int i = 0; i < 10; i++) {
             assertNull(this.logManager.getEntryFromMemory(i + 1));
-            Assert.assertEquals(mockEntries.get(i), this.logManager.getEntry(i + 1));
+            assertEquals(mockEntries.get(i), this.logManager.getEntry(i + 1));
         }
     }
 
@@ -342,13 +339,13 @@ public class LogManagerTest extends BaseStorageTest {
 
         for (int i = 0; i < 10; i++) {
             // it's in memory
-            Assert.assertEquals(mockEntries.get(i), this.logManager.getEntryFromMemory(i + 1));
+            assertEquals(mockEntries.get(i), this.logManager.getEntryFromMemory(i + 1));
         }
         Thread.sleep(200); // waiting for setDiskId()
         this.logManager.setAppliedId(new LogId(10, 10));
         for (int i = 0; i < 10; i++) {
             assertNull(this.logManager.getEntryFromMemory(i + 1));
-            Assert.assertEquals(mockEntries.get(i), this.logManager.getEntry(i + 1));
+            assertEquals(mockEntries.get(i), this.logManager.getEntry(i + 1));
         }
     }
 
@@ -370,21 +367,27 @@ public class LogManagerTest extends BaseStorageTest {
     @Test
     public void testSetSnapshot() throws Exception {
         final List<LogEntry> entries = mockAddEntries();
-        RaftOutter.SnapshotMeta meta = RaftOutter.SnapshotMeta.newBuilder().setLastIncludedIndex(3)
-            .setLastIncludedTerm(2).addPeers("localhost:8081").build();
+        RaftOutter.SnapshotMeta meta = raftOptions.getRaftMessagesFactory().snapshotMeta()
+            .lastIncludedIndex(3)
+            .lastIncludedTerm(2)
+            .peersList(List.of("localhost:8081"))
+            .build();
         this.logManager.setSnapshot(meta);
         //Still valid
         for (int i = 0; i < 10; i++) {
-            Assert.assertEquals(entries.get(i), this.logManager.getEntry(i + 1));
+            assertEquals(entries.get(i), this.logManager.getEntry(i + 1));
         }
-        meta = RaftOutter.SnapshotMeta.newBuilder().setLastIncludedIndex(5).setLastIncludedTerm(4)
-            .addPeers("localhost:8081").build();
+        meta = raftOptions.getRaftMessagesFactory().snapshotMeta()
+            .lastIncludedIndex(5)
+            .lastIncludedTerm(4)
+            .peersList(List.of("localhost:8081"))
+            .build();
         this.logManager.setSnapshot(meta);
 
         Thread.sleep(1000);
         for (int i = 0; i < 10; i++) {
             if (i > 2) {
-                Assert.assertEquals(entries.get(i), this.logManager.getEntry(i + 1));
+                assertEquals(entries.get(i), this.logManager.getEntry(i + 1));
             }
             else {
                 //before index=3 logs were dropped.

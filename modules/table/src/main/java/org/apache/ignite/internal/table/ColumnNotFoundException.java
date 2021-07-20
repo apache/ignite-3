@@ -21,7 +21,11 @@ package org.apache.ignite.internal.table;
  * Invalid tuple invocation exception is thrown when tuple doesn't match the table schema.
  */
 public class ColumnNotFoundException extends SchemaMismatchException {
-    /** */
+    /**
+     * Creates a new exception with the given error message.
+     *
+     * @param msg Error message.
+     */
     public ColumnNotFoundException(String msg) {
         super(msg);
     }

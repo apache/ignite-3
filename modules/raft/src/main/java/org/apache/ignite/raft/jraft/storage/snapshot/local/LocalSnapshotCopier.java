@@ -26,6 +26,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.Future;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter.FileSource;
 import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter.LocalFileMeta;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -289,7 +290,7 @@ public class LocalSnapshotCopier extends SnapshotCopier {
         for (final String fileName : remoteFiles) {
             final LocalFileMeta remoteMeta = (LocalFileMeta) this.remoteSnapshot.getFileMeta(fileName);
             Requires.requireNonNull(remoteMeta, "remoteMeta");
-            if (!remoteMeta.hasChecksum()) {
+            if (remoteMeta.checksum() != null) {
                 // Re-download file if this file doesn't have checksum
                 writer.removeFile(fileName);
                 toRemove.add(fileName);
@@ -298,8 +299,8 @@ public class LocalSnapshotCopier extends SnapshotCopier {
 
             LocalFileMeta localMeta = (LocalFileMeta) writer.getFileMeta(fileName);
             if (localMeta != null) {
-                if (localMeta.hasChecksum() && localMeta.getChecksum().equals(remoteMeta.getChecksum())) {
-                    LOG.info("Keep file={} checksum={} in {}", fileName, remoteMeta.getChecksum(), writer.getPath());
+                if (localMeta.checksum() != null && localMeta.checksum().equals(remoteMeta.checksum())) {
+                    LOG.info("Keep file={} checksum={} in {}", fileName, remoteMeta.checksum(), writer.getPath());
                     continue;
                 }
                 // Remove files from writer so that the file is to be copied from
@@ -314,18 +315,18 @@ public class LocalSnapshotCopier extends SnapshotCopier {
             if ((localMeta = (LocalFileMeta) lastSnapshot.getFileMeta(fileName)) == null) {
                 continue;
             }
-            if (!localMeta.hasChecksum() || !localMeta.getChecksum().equals(remoteMeta.getChecksum())) {
+            if (localMeta.checksum() == null || !localMeta.checksum().equals(remoteMeta.checksum())) {
                 continue;
             }
 
-            LOG.info("Found the same file ={} checksum={} in lastSnapshot={}", fileName, remoteMeta.getChecksum(),
+            LOG.info("Found the same file ={} checksum={} in lastSnapshot={}", fileName, remoteMeta.checksum(),
                 lastSnapshot.getPath());
-            if (localMeta.getSource() == FileSource.FILE_SOURCE_LOCAL) {
-                final String sourcePath = lastSnapshot.getPath() + File.separator + fileName;
-                final String destPath = writer.getPath() + File.separator + fileName;
-                Utils.delete(new File(destPath));
+            if (localMeta.source() == FileSource.FILE_SOURCE_LOCAL) {
+                final Path sourcePath = Paths.get(lastSnapshot.getPath(), fileName);
+                final Path destPath = Paths.get(writer.getPath(), fileName);
+                IgniteUtils.deleteIfExists(destPath);
                 try {
-                    Files.createLink(Paths.get(destPath), Paths.get(sourcePath));
+                    Files.createLink(destPath, sourcePath);
                 }
                 catch (final IOException e) {
                     LOG.error("Fail to link {} to {}", sourcePath, destPath, e);
@@ -344,8 +345,8 @@ public class LocalSnapshotCopier extends SnapshotCopier {
             return false;
         }
         for (final String fileName : toRemove) {
-            final String removePath = writer.getPath() + File.separator + fileName;
-            Utils.delete(new File(removePath));
+            final Path removePath = Paths.get(writer.getPath(), fileName);
+            IgniteUtils.deleteIfExists(removePath);
             LOG.info("Deleted file: {}", removePath);
         }
         return true;

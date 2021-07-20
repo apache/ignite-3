@@ -22,8 +22,6 @@ import java.lang.management.ThreadMXBean;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -31,6 +29,7 @@ import java.util.function.BooleanSupplier;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.jraft.JRaftUtils;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -58,14 +57,6 @@ public class TestUtils {
         ThreadInfo[] infos = bean.dumpAllThreads(true, true);
         for (ThreadInfo info : infos)
             System.out.println(info);
-    }
-
-    public static String mkTempDir() {
-        String dir = System.getProperty("user.dir");
-        //String dir = System.getProperty("java.io.tmpdir", "/tmp");
-        Path path = Paths.get(dir, "jraft_test_" + System.nanoTime());
-        path.toFile().mkdirs();
-        return path.toString();
     }
 
     public static LogEntry mockEntry(int index, int term) {
@@ -113,8 +104,9 @@ public class TestUtils {
     }
 
     public static RpcRequests.PingRequest createPingRequest() {
-        return RpcRequests.PingRequest.newBuilder()
-            .setSendTimestamp(System.currentTimeMillis())
+        return new RaftMessagesFactory()
+            .pingRequest()
+            .sendTimestamp(System.currentTimeMillis())
             .build();
     }
 
