@@ -28,7 +28,6 @@ import org.apache.ignite.tx.IgniteTransactions;
 
 import java.util.function.BiFunction;
 
-
 /**
  * Implementation of {@link IgniteClient} over TCP protocol.
  */

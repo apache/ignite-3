@@ -51,7 +51,6 @@ public class ClientTables implements IgniteTables {
         return createTableAsync(name, tableInitChange).join();
     }
 
-    /** {@inheritDoc} */
     public CompletableFuture<Table> createTableAsync(String name, Consumer<TableChange> tableInitChange) {
         return ch.serviceAsync(ClientOp.TABLE_CREATE, w -> {
             // TODO: other settings
@@ -76,7 +75,6 @@ public class ClientTables implements IgniteTables {
         dropTableAsync(name).join();
     }
 
-    /** {@inheritDoc} */
     public CompletableFuture<Void> dropTableAsync(String name) {
         return ch.requestAsync(ClientOp.TABLE_DROP, w -> w.out().packString(name));
     }
@@ -105,7 +103,6 @@ public class ClientTables implements IgniteTables {
         return tableAsync(name).join();
     }
 
-    /** {@inheritDoc} */
     public CompletableFuture<Table> tableAsync(String name) {
         return ch.serviceAsync(ClientOp.TABLE_GET, w -> w.out().packString(name),
                 r -> new ClientTable(ch, r.in().unpackUuid(), name));
