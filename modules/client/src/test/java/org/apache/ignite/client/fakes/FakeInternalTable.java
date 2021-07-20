@@ -25,80 +25,99 @@ public class FakeInternalTable implements InternalTable {
         this.tableId = tableId;
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull UUID tableId() {
         return tableId;
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull String tableName() {
         return tableName;
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull SchemaMode schemaMode() {
         return SchemaMode.STRICT_SCHEMA;
     }
 
+    /** {@inheritDoc} */
     @Override public void schema(SchemaMode schemaMode) {
-
+        // No-op.
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<BinaryRow> get(BinaryRow keyRow, @Nullable Transaction tx) {
         return CompletableFuture.completedFuture(data.get(keyRow.keySlice()));
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows, @Nullable Transaction tx) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Void> upsert(BinaryRow row, @Nullable Transaction tx) {
         data.put(row.keySlice(), row);
 
         return CompletableFuture.completedFuture(null);
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Void> upsertAll(Collection<BinaryRow> rows, @Nullable Transaction tx) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<BinaryRow> getAndUpsert(BinaryRow row, @Nullable Transaction tx) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Boolean> insert(BinaryRow row, @Nullable Transaction tx) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> rows, @Nullable Transaction tx) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Boolean> replace(BinaryRow row, @Nullable Transaction tx) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Boolean> replace(BinaryRow oldRow, BinaryRow newRow, @Nullable Transaction tx) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<BinaryRow> getAndReplace(BinaryRow row, @Nullable Transaction tx) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Boolean> delete(BinaryRow keyRow, @Nullable Transaction tx) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Boolean> deleteExact(BinaryRow oldRow, @Nullable Transaction tx) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<BinaryRow> getAndDelete(BinaryRow row, @Nullable Transaction tx) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows, @Nullable Transaction tx) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows, @Nullable Transaction tx) {
         return null;
     }

@@ -25,30 +25,26 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Checks if it can connect to a valid address from the node address list.
+ * Tests client connection to various addresses.
  */
 public class ConnectionTest extends AbstractClientTest {
-    /** */
     @Test
     public void testEmptyNodeAddress() {
         var ex = assertThrows(IgniteException.class, () -> testConnection(""));
         assertEquals("Failed to parse Ignite server address (Address is empty): ", ex.getMessage());
     }
 
-    /** */
     @Test
     public void testNullNodeAddresses() {
         var ex = assertThrows(IgniteException.class, () -> testConnection(null, null));
         assertEquals("Failed to parse Ignite server address (Address is empty): null", ex.getMessage());
     }
 
-    /** */
     @Test
     public void testValidNodeAddresses() throws Exception {
         testConnection("127.0.0.1:10800");
     }
 
-    /** */
     @Test
     public void testInvalidNodeAddresses() throws Exception {
         var ex = assertThrows(IgniteClientConnectionException.class,
@@ -57,22 +53,17 @@ public class ConnectionTest extends AbstractClientTest {
         assertEquals("Connection refused: /127.0.0.1:47500", ex.getCause().getMessage());
     }
 
-    /** */
     @Test
     public void testValidInvalidNodeAddressesMix() throws Exception {
         testConnection("127.0.0.1:47500", "127.0.0.1:10801", "127.0.0.1:10800");
     }
 
-    /** */
     @Disabled("IPv6 is not enabled by default on some systems.")
     @Test
     public void testIPv6NodeAddresses() throws Exception {
         testConnection("[::1]:10800");
     }
 
-    /**
-     * @param addrs Addresses to connect.
-     */
     private void testConnection(String... addrs) throws Exception {
         AbstractClientTest.startClient(addrs).close();
     }

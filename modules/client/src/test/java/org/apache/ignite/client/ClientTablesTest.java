@@ -32,6 +32,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Tests client tables.
+ */
 public class ClientTablesTest extends AbstractClientTest {
     @Test
     public void testTablesWhenTablesExist() {
@@ -79,16 +82,6 @@ public class ClientTablesTest extends AbstractClientTest {
 
         var serverTables = server.tables().tables();
         assertEquals(1, serverTables.size());
-    }
-
-    @Test
-    public void testGetOrCreateTable() {
-        // TODO
-    }
-
-    @Test
-    public void testGetTableByName() {
-        // TODO
     }
 
     @Test

@@ -27,6 +27,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Table tests.
+ */
 public class ClientTableTest extends AbstractClientTest {
     @Test
     public void testGetWithNullInNotNullableKeyColumnThrowsException() {

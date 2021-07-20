@@ -37,13 +37,20 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
+/**
+ * Fake tables.
+ */
 public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
+    /** */
     public static final String TABLE_EXISTS = "Table exists";
 
+    /** */
     private final ConcurrentHashMap<String, TableImpl> tables = new ConcurrentHashMap<>();
 
+    /** */
     private final ConcurrentHashMap<UUID, TableImpl> tablesById = new ConcurrentHashMap<>();
 
+    /** {@inheritDoc} */
     @Override public Table createTable(String name, Consumer<TableChange> tableInitChange) {
         var newTable = getNewTable(name);
 
@@ -57,10 +64,12 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
         return newTable;
     }
 
+    /** {@inheritDoc} */
     @Override public void alterTable(String name, Consumer<TableChange> tableChange) {
         throw new IgniteException("Not supported");
     }
 
+    /** {@inheritDoc} */
     @Override public Table getOrCreateTable(String name, Consumer<TableChange> tableInitChange) {
         var newTable = getNewTable(name);
 
@@ -74,6 +83,7 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
         return newTable;
     }
 
+    /** {@inheritDoc} */
     @Override public void dropTable(String name) {
         var table = tables.remove(name);
 
@@ -81,23 +91,33 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
             tablesById.remove(table.tableId());
     }
 
+    /** {@inheritDoc} */
     @Override public List<Table> tables() {
         return new ArrayList<>(tables.values());
     }
 
+    /** {@inheritDoc} */
     @Override public Table table(String name) {
         return tables.get(name);
     }
 
+    /** {@inheritDoc} */
     @NotNull private TableImpl getNewTable(String name) {
         UUID tableId = UUID.randomUUID();
         return new TableImpl(new FakeInternalTable(name, tableId), getSchemaReg(tableId), null, null);
     }
 
+    /** {@inheritDoc} */
     @NotNull private SchemaRegistryImpl getSchemaReg(UUID tableId) {
         return new SchemaRegistryImpl(1, v -> getSchema(v, tableId));
     }
 
+    /**
+     * Gets the schema.
+     * @param v Version.
+     * @param tableId id.
+     * @return Schema descriptor.
+     */
     private SchemaDescriptor getSchema(Integer v, UUID tableId) {
         if (v != 1)
             return null;
@@ -109,6 +129,7 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
                 new Column[]{new Column("name", NativeTypes.STRING, true)});
     }
 
+    /** {@inheritDoc} */
     @Override public TableImpl table(UUID id, boolean checkConfiguration) {
         return tablesById.get(id);
     }

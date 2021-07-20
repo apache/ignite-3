@@ -21,17 +21,24 @@ import org.apache.ignite.app.Ignite;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 
+/**
+ * Fake Ignite.
+ */
 public class FakeIgnite implements Ignite {
+    /** */
     private final IgniteTables tables = new FakeIgniteTables();
 
+    /** {@inheritDoc} */
     @Override public IgniteTables tables() {
         return tables;
     }
 
+    /** {@inheritDoc} */
     @Override public IgniteTransactions transactions() {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public void close() throws Exception {
         // No-op.
     }

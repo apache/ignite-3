@@ -30,6 +30,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * Configuration storage for tests.
+ */
 public class TestConfigurationStorage implements ConfigurationStorage {
     /** Listeners. */
     private final Set<ConfigurationStorageListener> listeners = new HashSet<>();
