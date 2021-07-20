@@ -32,12 +32,25 @@ import java.nio.ByteBuffer;
  * Netty client connection.
  */
 public class NettyClientConnection implements ClientConnection {
+    /** Connection attribute */
     public static final AttributeKey<NettyClientConnection> ATTR_CONN = AttributeKey.newInstance("CONN");
 
+    /** Channel. */
     private final Channel channel;
+
+    /** Message handler. */
     private final ClientMessageHandler msgHnd;
+
+    /** State handler. */
     private final ClientConnectionStateHandler stateHnd;
 
+    /**
+     * Constructor.
+     *
+     * @param channel Channel.
+     * @param msgHnd Message handler.
+     * @param stateHnd State handler.
+     */
     public NettyClientConnection(Channel channel, ClientMessageHandler msgHnd, ClientConnectionStateHandler stateHnd) {
         this.channel = channel;
         this.msgHnd = msgHnd;
@@ -46,10 +59,12 @@ public class NettyClientConnection implements ClientConnection {
         channel.attr(ATTR_CONN).set(this);
     }
 
+    /** {@inheritDoc} */
     @Override public ChannelFuture send(ByteBuffer msg) throws IgniteException {
         return channel.writeAndFlush(msg);
     }
 
+    /** {@inheritDoc} */
     @Override public void close() {
         channel.close();
     }

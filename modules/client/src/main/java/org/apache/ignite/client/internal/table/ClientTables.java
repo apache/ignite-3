@@ -84,7 +84,6 @@ public class ClientTables implements IgniteTables {
         return tablesAsync().join();
     }
 
-    /** {@inheritDoc} */
     public CompletableFuture<List<Table>> tablesAsync() {
         return ch.serviceAsync(ClientOp.TABLES_GET, r -> {
             var in = r.in();
