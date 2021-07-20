@@ -136,7 +136,7 @@ class RangeCursor implements Cursor<Entry> {
 
                             long[] revs = e.getValue();
 
-                            assert revs != null && !(revs.length == 0) :
+                            assert revs != null && revs.length != 0 :
                                 "Revisions should not be empty or null: [revs=" + Arrays.toString(revs) + ']';
 
                             long lastRev = RocksDBKeyValueStorage.maxRevision(revs, rev);

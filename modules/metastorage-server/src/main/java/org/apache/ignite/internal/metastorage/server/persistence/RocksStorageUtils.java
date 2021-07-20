@@ -174,9 +174,8 @@ class RocksStorageUtils {
         // Allocate a one long size bigger array
         var result = new byte[bytes.length + Long.BYTES];
 
-        if (bytes != null)
-            // Copy the current value
-            System.arraycopy(bytes, 0, result, 0, bytes.length);
+        // Copy the current value
+        System.arraycopy(bytes, 0, result, 0, bytes.length);
 
         LONG_ARRAY_HANDLE.set(result, bytes.length, value);
 

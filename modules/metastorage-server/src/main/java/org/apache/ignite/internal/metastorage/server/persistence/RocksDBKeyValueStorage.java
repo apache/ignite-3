@@ -33,6 +33,7 @@ import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.metastorage.server.Condition;
@@ -220,9 +221,9 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
     /** {@inheritDoc} */
     @Override public void close() throws Exception {
-        IgniteUtils.closeAll(data, index, db, options);
+        IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
 
-        snapshotExecutor.shutdown();
+        IgniteUtils.closeAll(data, index, db, options);
     }
 
     /** {@inheritDoc} */
