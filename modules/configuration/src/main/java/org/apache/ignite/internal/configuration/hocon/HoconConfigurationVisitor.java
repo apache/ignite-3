@@ -47,7 +47,7 @@ class HoconConfigurationVisitor implements ConfigurationVisitor<Object> {
         if (val instanceof Character)
             valObj = val.toString();
         else if (val != null && val.getClass().isArray()) {
-            valObj = boxArray(val);
+            valObj = toListOfObjects(val);
         }
 
         addToParent(key, valObj);
@@ -98,12 +98,12 @@ class HoconConfigurationVisitor implements ConfigurationVisitor<Object> {
     }
 
     /**
-     * Converts array into a list of boxed values.
+     * Converts array into a list of objects. Boxes array elements if they are primitive values.
      *
      * @param val Array of primitives or array of {@link String}s
-     * @return List of boxed elements from the array
+     * @return List of objects corresponding to the passed array.
      */
-    private List<?> boxArray(Serializable val) {
+    private List<?> toListOfObjects(Serializable val) {
         Stream<?> stream = IntStream.range(0, Array.getLength(val)).mapToObj(i -> Array.get(val, i));
 
         if (val.getClass().getComponentType() == char.class)
