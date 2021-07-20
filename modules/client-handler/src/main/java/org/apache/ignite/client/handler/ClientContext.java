@@ -19,6 +19,9 @@ package org.apache.ignite.client.handler;
 
 import java.util.BitSet;
 
+/**
+ * Client connection context.
+ */
 class ClientContext {
     private final int verMajor;
 
@@ -30,6 +33,15 @@ class ClientContext {
 
     private final BitSet features;
 
+    /**
+     * Constructor.
+     *
+     * @param verMajor Major version part.
+     * @param verMinor Minor version part.
+     * @param verPatch Patch version part.
+     * @param clientCode Client type code.
+     * @param features Feature set.
+     */
     public ClientContext(int verMajor, int verMinor, int verPatch, int clientCode, BitSet features) {
         this.verMajor = verMajor;
         this.verMinor = verMinor;
@@ -38,8 +50,8 @@ class ClientContext {
         this.features = features;
     }
 
-    @Override
-    public String toString() {
+    /** {@inheritDoc} */
+    @Override public String toString() {
         return "ClientContext{" +
                 "verMajor=" + verMajor +
                 ", verMinor=" + verMinor +

@@ -52,6 +52,8 @@ public class ClientHandlerModule {
     private final Logger log;
 
     /**
+     * Constructor.
+     *
      * @param log Logger.
      */
     public ClientHandlerModule(Ignite ignite, Logger log) {

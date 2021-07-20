@@ -22,8 +22,9 @@ import org.apache.ignite.client.internal.TcpIgniteClient;
 
 import java.util.concurrent.CompletableFuture;
 
-// TODO: Builder pattern for configuration - see examples of Lettuce, Mongo clients.
-// * "Ignition" interface in ignite-api should be removed
+/**
+ * Ignite client entry point.
+ */
 public class IgniteClient {
     public static Builder builder() {
         return new Builder();
@@ -33,7 +34,7 @@ public class IgniteClient {
         private String[] addresses;
 
         public Ignite build() {
-            // TODO: Validate values.
+            // TODO: Validate values IGNITE-15164.
             return buildAsync().join();
         }
 
@@ -44,7 +45,7 @@ public class IgniteClient {
         }
 
         public CompletableFuture<Ignite> buildAsync() {
-            // TODO: Async connect.
+            // TODO: Async connect IGNITE-15164.
             var cfg = new IgniteClientConfigurationImpl(null, addresses, 0);
 
             return CompletableFuture.completedFuture(new TcpIgniteClient(cfg));
@@ -69,7 +70,7 @@ public class IgniteClient {
         }
 
         @Override public String[] getAddresses() {
-            // TODO: Defensive copy?
+            // TODO: Defensive copy IGNITE-15164.
             return addresses;
         }
 

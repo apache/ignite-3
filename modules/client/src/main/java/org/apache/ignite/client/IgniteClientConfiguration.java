@@ -17,6 +17,10 @@
 
 package org.apache.ignite.client;
 
+/**
+ * Ignite client configuration.
+ * TODO: improve and finalize IGNITE-15164.
+ */
 public interface IgniteClientConfiguration {
     /** Default port. */
     int DFLT_PORT = 10800;
@@ -30,9 +34,24 @@ public interface IgniteClientConfiguration {
     /** Default value for {@code TCP_NODELAY} socket option (value is <tt>true</tt>). */
     boolean DFLT_TCP_NO_DELAY = true;
 
+    /**
+     * Gets the address finder.
+     *
+     * @return Address finder.
+     */
     IgniteClientAddressFinder getAddressesFinder();
 
+    /**
+     * Gets the addresses.
+     *
+     * @return Addresses.
+     */
     String[] getAddresses();
 
+    /**
+     * Gets the retry limit.
+     *
+     * @return Retry limit.
+     */
     int getRetryLimit();
 }
