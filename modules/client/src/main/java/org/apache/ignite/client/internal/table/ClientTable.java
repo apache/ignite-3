@@ -20,6 +20,7 @@ package org.apache.ignite.client.internal.table;
 import org.apache.ignite.client.ClientMessageUnpacker;
 import org.apache.ignite.client.ClientOp;
 import org.apache.ignite.client.IgniteClientException;
+import org.apache.ignite.client.internal.PayloadInputChannel;
 import org.apache.ignite.client.internal.PayloadOutputChannel;
 import org.apache.ignite.client.internal.ReliableChannel;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
@@ -133,27 +134,7 @@ public class ClientTable implements Table {
             assert biTuple.getKey() != null;
             assert biTuple.getValue() != null;
 
-            // TODO: Remove extra thenApply
-            return getSchema(biTuple.getValue()).thenApply(schema -> new IgniteBiTuple<>(biTuple.getKey(), schema));
-        }).thenApply(biTuple -> {
-            if (biTuple == null)
-                return null;
-
-            assert biTuple.getKey() != null;
-            assert biTuple.getValue() != null;
-
-            var schema = biTuple.getValue();
-            var in = biTuple.getKey().in();
-            var builder = new ClientTupleBuilder();
-
-            try {
-                for (var col : schema.columns())
-                    builder.set(col.name(), in.unpackObject(col.type()));
-            } catch (IOException e) {
-                throw new CompletionException(e);
-            }
-
-            return builder;
+            return getSchema(biTuple.getValue()).thenApply(schema -> readTuple(schema, biTuple.getKey()));
         });
     }
 
@@ -426,5 +407,18 @@ public class ClientTable implements Table {
 
         for (var val : vals)
             w.out().packObject(val);
+    }
+
+    private Tuple readTuple(ClientSchema schema, PayloadInputChannel r) {
+        var builder = new ClientTupleBuilder();
+
+        try {
+            for (var col : schema.columns())
+                builder.set(col.name(), r.in().unpackObject(col.type()));
+        } catch (IOException e) {
+            throw new CompletionException(e);
+        }
+
+        return builder;
     }
 }
