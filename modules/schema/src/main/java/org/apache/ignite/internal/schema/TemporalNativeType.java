@@ -112,7 +112,6 @@ public class TemporalNativeType extends NativeType {
         return new TemporalNativeType(NativeTypeSpec.TIMESTAMP, size, precision);
     }
 
-
     /** Length of second's fractional part. */
     private final int precision;
 
@@ -133,7 +132,7 @@ public class TemporalNativeType extends NativeType {
      *
      * @return precicion;
      */
-    public int precision(){
+    public int precision() {
         return precision;
     }
 

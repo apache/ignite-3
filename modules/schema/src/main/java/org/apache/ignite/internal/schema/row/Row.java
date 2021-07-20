@@ -406,7 +406,7 @@ public class Row implements BinaryRow {
 
         switch (type.precision()) {
             case 3:
-                nanos = (readShort(off + 8) & 0xFFFF)  * 1_000_000;
+                nanos = (readShort(off + 8) & 0xFFFF) * 1_000_000;
                 break;
 
             case 6:

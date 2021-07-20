@@ -690,7 +690,7 @@ public class RowAssembler {
     private void writeTime(int off, LocalTime val, TemporalNativeType type) {
         long time = TemporalTypesHelper.compactTime(type, val);
 
-        switch(type.precision()) {
+        switch (type.precision()) {
             case 3:
                 buf.putInt(off, (int)(time));
                 return;
