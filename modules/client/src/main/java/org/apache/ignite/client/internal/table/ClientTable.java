@@ -24,7 +24,6 @@ import org.apache.ignite.client.internal.PayloadOutputChannel;
 import org.apache.ignite.client.internal.ReliableChannel;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.KeyValueView;
@@ -420,7 +419,7 @@ public class ClientTable implements Table {
         var vals = new Object[keyOnly ? schema.keyColumnCount() : schema.columns().length];
 
         for (var entry : rec.map().entrySet()) {
-            var col = schema.requiredColumn(entry.getKey());
+            var col = schema.column(entry.getKey());
 
             if (keyOnly && !col.key())
                 continue;

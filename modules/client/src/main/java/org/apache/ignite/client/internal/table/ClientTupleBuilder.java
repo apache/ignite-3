@@ -27,7 +27,7 @@ import java.util.HashMap;
 import java.util.UUID;
 
 /**
- * Buildable tuple.
+ * Client tuple builder.
  */
 public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     /** Columns values. */
@@ -42,12 +42,14 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
         return map;
     }
 
+    /** {@inheritDoc} */
     @Override public TupleBuilder set(String colName, Object value) {
         map.put(colName, value);
 
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public Tuple build() {
         return this;
     }

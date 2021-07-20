@@ -30,12 +30,17 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
- *
+ * Client tables API implementation.
  */
 public class ClientTables implements IgniteTables {
     /** */
     private final ReliableChannel ch;
 
+    /**
+     * Constructor.
+     *
+     * @param ch Channel.
+     */
     public ClientTables(ReliableChannel ch) {
         this.ch = ch;
     }

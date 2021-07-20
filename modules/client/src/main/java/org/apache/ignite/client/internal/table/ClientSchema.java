@@ -19,11 +19,13 @@ package org.apache.ignite.client.internal.table;
 
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Client schema.
+ */
 public class ClientSchema {
     /** Schema version. Incremented on each schema modification. */
     private final int ver;
@@ -34,8 +36,15 @@ public class ClientSchema {
     /** Columns. */
     private final ClientColumn[] columns;
 
+    /** Columns map by name. */
     private final Map<String, ClientColumn> map = new HashMap<>();
 
+    /**
+     * Constructor.
+     *
+     * @param ver Schema version.
+     * @param columns Columns.
+     */
     public ClientSchema(int ver, ClientColumn[] columns) {
         assert ver >= 0;
         assert columns != null;
@@ -55,19 +64,24 @@ public class ClientSchema {
         keyColumnCount = keyCnt;
     }
 
+    /**
+     * @return Version.
+     */
     public int version() {
         return ver;
     }
 
+    /**
+     * @return Columns.
+     */
     public @NotNull ClientColumn[] columns() {
         return columns;
     }
 
-    public @Nullable ClientColumn column(String name) {
-        return map.get(name);
-    }
-
-    public @NotNull ClientColumn requiredColumn(String name) {
+    /**
+     * @return Column by name.
+     */
+    public @NotNull ClientColumn column(String name) {
         var column = map.get(name);
 
         if (column == null)
@@ -76,6 +90,9 @@ public class ClientSchema {
         return column;
     }
 
+    /**
+     * @return Key column count.
+     */
     public int keyColumnCount() {
         return keyColumnCount;
     }
