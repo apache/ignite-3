@@ -39,25 +39,25 @@ public class ClientMessageDecoder extends ByteToMessageDecoder {
     /** Magic bytes before handshake. */
     public static final byte[] MAGIC_BYTES = new byte[]{0x49, 0x47, 0x4E, 0x49}; // IGNI
 
-    /** */
+    /** Data buffer */
     private byte[] data = new byte[4]; // TODO: Pooled buffers IGNITE-15162.
 
-    /** */
+    /** Remaining byte count. */
     private int cnt = -4;
 
-    /** */
+    /** Message size */
     private int msgSize = -1;
 
-    /** */
+    /** Magic decoded flag. */
     private boolean magicDecoded;
 
-    /** */
+    /** Magic decoding failed flag. */
     private boolean magicFailed;
 
-    /** */
+    /** Size */
     private MessageFormat sizeFormat = null;
 
-    /** */
+    /** First byte of the message. */
     private byte firstByte;
 
     /** {@inheritDoc} */
@@ -107,7 +107,7 @@ public class ClientMessageDecoder extends ByteToMessageDecoder {
      * @param buf Buffer.
      * @return True when a complete message has been received; false otherwise.
      */
-    private boolean read(ByteBuf buf) throws IOException {
+    private boolean read(ByteBuf buf) {
         if (buf.readableBytes() == 0)
             return false;
 

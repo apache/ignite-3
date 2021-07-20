@@ -21,25 +21,36 @@ package org.apache.ignite.client;
  * Client data types.
  */
 public class ClientDataType {
+    /** Byte. */
     public static final int INT8 = 1;
 
+    /** Short. */
     public static final int INT16 = 2;
 
+    /** Int. */
     public static final int INT32 = 3;
 
+    /** Long. */
     public static final int INT64 = 4;
 
+    /** Float. */
     public static final int FLOAT = 5;
 
+    /** Double. */
     public static final int DOUBLE = 6;
 
+    /** Decimal. */
     public static final int DECIMAL = 7;
 
+    /** UUID. */
     public static final int UUID = 8;
 
+    /** String. */
     public static final int STRING = 9;
 
+    /** Byte array. */
     public static final int BYTES = 10;
 
+    /** BitMask. */
     public static final int BITMASK = 11;
 }
