@@ -20,12 +20,15 @@ package org.apache.ignite.internal.configuration.hocon;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Set;
+import com.typesafe.config.ConfigList;
 import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigValue;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
+import org.jetbrains.annotations.Nullable;
 
+import static java.lang.String.format;
+import static org.apache.ignite.internal.configuration.hocon.HoconPrimitiveConfigurationSource.wrongTypeException;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.appendKey;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.join;
 
@@ -33,6 +36,11 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.jo
  * {@link ConfigurationSource} created from a HOCON object.
  */
 class HoconObjectConfigurationSource implements ConfigurationSource {
+    /**
+     * Key that needs to be ignored by the source. Can be {@code null}.
+     */
+    private final String ignoredKey;
+
     /**
      * Current path inside the top-level HOCON object.
      */
@@ -46,27 +54,29 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
     /**
      * Creates a {@link ConfigurationSource} from the given HOCON object.
      *
-     * @param path current path inside the top-level HOCON object. Can be empty if the given {@code hoconCfgObject}
-     *             is the top-level object
-     * @param hoconCfgObject HOCON object
+     * @param ignoredKey Key that needs to be ignored by the source. Can be {@code null}.
+     * @param path Current path inside the top-level HOCON object. Can be empty if the given {@code hoconCfgObject}
+     *             is the top-level object.
+     * @param hoconCfgObject HOCON object.
      */
-    HoconObjectConfigurationSource(List<String> path, ConfigObject hoconCfgObject) {
+    HoconObjectConfigurationSource(@Nullable String ignoredKey, List<String> path, ConfigObject hoconCfgObject) {
+        this.ignoredKey = ignoredKey;
         this.path = path;
         this.hoconCfgObject = hoconCfgObject;
     }
 
     /** {@inheritDoc} */
     @Override public <T> T unwrap(Class<T> clazz) {
-        throw new IllegalArgumentException(
-            String.format("'%s' is expected as a type for the '%s' configuration value", clazz.getSimpleName(), join(path))
-        );
+        throw wrongTypeException(path, clazz, -1);
     }
 
     /** {@inheritDoc} */
     @Override public void descend(ConstructableTreeNode node) {
-        Set<Map.Entry<String, ConfigValue>> entries = hoconCfgObject.entrySet();
-        for (Map.Entry<String, ConfigValue> entry : entries) {
+        for (Map.Entry<String, ConfigValue> entry : hoconCfgObject.entrySet()) {
             String key = entry.getKey();
+
+            if (key.equals(ignoredKey))
+                continue;
 
             ConfigValue hoconCfgValue = entry.getValue();
 
@@ -80,7 +90,15 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
                     case OBJECT: {
                         List<String> path = appendKey(this.path, key);
 
-                        node.construct(key, new HoconObjectConfigurationSource(path, (ConfigObject)hoconCfgValue));
+                        node.construct(key, new HoconObjectConfigurationSource(null, path, (ConfigObject)hoconCfgValue));
+
+                        break;
+                    }
+
+                    case LIST: {
+                        List<String> path = appendKey(this.path, key);
+
+                        node.construct(key, new HoconListConfigurationSource(path, (ConfigList)hoconCfgValue));
 
                         break;
                     }
@@ -95,12 +113,12 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
             catch (NoSuchElementException e) {
                 if (path.isEmpty()) {
                     throw new IllegalArgumentException(
-                        String.format("'%s' configuration root doesn't exist", key), e
+                        format("'%s' configuration root doesn't exist", key), e
                     );
                 }
                 else {
                     throw new IllegalArgumentException(
-                        String.format("'%s' configuration doesn't have the '%s' sub-configuration", join(path), key), e
+                        format("'%s' configuration doesn't have the '%s' sub-configuration", join(path), key), e
                     );
                 }
             }

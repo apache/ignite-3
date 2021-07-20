@@ -56,11 +56,11 @@ public class HoconConverterTest {
     @ConfigurationRoot(rootName = "root", type = ConfigurationType.LOCAL)
     public static class HoconRootConfigurationSchema {
         /** */
-        @NamedConfigValue
+        @NamedConfigValue(syntheticKey = "a")
         public HoconArraysConfigurationSchema arraysList;
 
         /** */
-        @NamedConfigValue
+        @NamedConfigValue(syntheticKey = "p")
         public HoconPrimitivesConfigurationSchema primitivesList;
     }
 
@@ -180,25 +180,19 @@ public class HoconConverterTest {
     @BeforeEach
     public void before() throws Exception {
         configuration.change(cfg -> cfg
-            .changePrimitivesList(list -> {
-                for (String key : list.namedListKeys())
-                    list.delete(key);
-            })
-            .changeArraysList(list -> {
-                for (String key : list.namedListKeys())
-                    list.delete(key);
-            })
-        ).get();
+            .changePrimitivesList(list -> list.namedListKeys().forEach(list::delete))
+            .changeArraysList(list -> list.namedListKeys().forEach(list::delete))
+        ).get(1, SECONDS);
     }
 
     /** */
     @Test
     public void toHoconBasic() {
-        assertEquals("root{arraysList{},primitivesList{}}", getHoconStr(List.of()));
+        assertEquals("root{arraysList=[],primitivesList=[]}", asHoconStr(List.of()));
 
-        assertEquals("arraysList{},primitivesList{}", getHoconStr(List.of("root")));
+        assertEquals("arraysList=[],primitivesList=[]", asHoconStr(List.of("root")));
 
-        assertEquals("{}", getHoconStr(List.of("root", "arraysList")));
+        assertEquals("[]", asHoconStr(List.of("root", "arraysList")));
 
         assertThrowsIllegalArgException(
             () -> HoconConverter.represent(registry, List.of("doot")),
@@ -210,7 +204,7 @@ public class HoconConverterTest {
             "Configuration 'root.x' is not found"
         );
 
-        assertEquals("null", getHoconStr(List.of("root", "primitivesList", "foo")));
+        assertEquals("null", asHoconStr(List.of("root", "primitivesList", "foo")));
     }
 
     /**
@@ -228,18 +222,18 @@ public class HoconConverterTest {
 
         assertEquals(
             "booleanVal=false,byteVal=0,charVal=\"\\u0000\",doubleVal=0.0,floatVal=0,intVal=0,longVal=0,shortVal=0,stringVal=\"\"",
-            getHoconStr(basePath)
+            asHoconStr(basePath)
         );
 
-        assertEquals("false", getHoconStr(basePath, "booleanVal"));
-        assertEquals("0", getHoconStr(basePath, "byteVal"));
-        assertEquals("0", getHoconStr(basePath, "shortVal"));
-        assertEquals("0", getHoconStr(basePath, "intVal"));
-        assertEquals("0", getHoconStr(basePath, "longVal"));
-        assertEquals("\"\\u0000\"", getHoconStr(basePath, "charVal"));
-        assertEquals("0", getHoconStr(basePath, "floatVal"));
-        assertEquals("0.0", getHoconStr(basePath, "doubleVal"));
-        assertEquals("\"\"", getHoconStr(basePath, "stringVal"));
+        assertEquals("false", asHoconStr(basePath, "booleanVal"));
+        assertEquals("0", asHoconStr(basePath, "byteVal"));
+        assertEquals("0", asHoconStr(basePath, "shortVal"));
+        assertEquals("0", asHoconStr(basePath, "intVal"));
+        assertEquals("0", asHoconStr(basePath, "longVal"));
+        assertEquals("\"\\u0000\"", asHoconStr(basePath, "charVal"));
+        assertEquals("0", asHoconStr(basePath, "floatVal"));
+        assertEquals("0.0", asHoconStr(basePath, "doubleVal"));
+        assertEquals("\"\"", asHoconStr(basePath, "stringVal"));
     }
 
     /**
@@ -257,24 +251,24 @@ public class HoconConverterTest {
 
         assertEquals(
             "booleans=[false],bytes=[0],chars=[\"\\u0000\"],doubles=[0.0],floats=[0],ints=[0],longs=[0],shorts=[0],strings=[\"\"]",
-            getHoconStr(basePath)
+            asHoconStr(basePath)
         );
 
-        assertEquals("[false]", getHoconStr(basePath, "booleans"));
-        assertEquals("[0]", getHoconStr(basePath, "bytes"));
-        assertEquals("[0]", getHoconStr(basePath, "shorts"));
-        assertEquals("[0]", getHoconStr(basePath, "ints"));
-        assertEquals("[0]", getHoconStr(basePath, "longs"));
-        assertEquals("[\"\\u0000\"]", getHoconStr(basePath, "chars"));
-        assertEquals("[0]", getHoconStr(basePath, "floats"));
-        assertEquals("[0.0]", getHoconStr(basePath, "doubles"));
-        assertEquals("[\"\"]", getHoconStr(basePath, "strings"));
+        assertEquals("[false]", asHoconStr(basePath, "booleans"));
+        assertEquals("[0]", asHoconStr(basePath, "bytes"));
+        assertEquals("[0]", asHoconStr(basePath, "shorts"));
+        assertEquals("[0]", asHoconStr(basePath, "ints"));
+        assertEquals("[0]", asHoconStr(basePath, "longs"));
+        assertEquals("[\"\\u0000\"]", asHoconStr(basePath, "chars"));
+        assertEquals("[0]", asHoconStr(basePath, "floats"));
+        assertEquals("[0.0]", asHoconStr(basePath, "doubles"));
+        assertEquals("[\"\"]", asHoconStr(basePath, "strings"));
     }
 
     /**
      * Retrieves the HOCON configuration located at the given path.
      */
-    private String getHoconStr(List<String> basePath, String... path) {
+    private String asHoconStr(List<String> basePath, String... path) {
         List<String> fullPath = Stream.concat(basePath.stream(), Arrays.stream(path)).collect(Collectors.toList());
 
         ConfigValue hoconCfg = HoconConverter.represent(registry, fullPath);
@@ -321,6 +315,17 @@ public class HoconConverterTest {
             () -> change("{root:{arraysList:{name:{ints : {}}}}}"),
             "'int[]' is expected as a type for the 'root.arraysList.name.ints' configuration value"
         );
+
+        // Wrong ordered named list syntax:
+        assertThrowsIllegalArgException(
+            () -> change("{root:{arraysList:[ 1 ]}}"),
+            "'root.arraysList[0]' is expected to be a composite configuration node, not a single value"
+        );
+
+        assertThrowsIllegalArgException(
+            () -> change("{root:{arraysList:[ {} ]}}"),
+            "'root.arraysList[0].a' configuration value is mandatory and must be a String"
+        );
     }
 
     /**
@@ -328,7 +333,7 @@ public class HoconConverterTest {
      */
     @Test
     public void testHoconPrimitivesDeserialization() throws Throwable {
-        change("{root:{primitivesList:{name : {}}}}");
+        change("{root:{primitivesList:[{p : name}]}}");
 
         HoconPrimitivesConfiguration primitives = configuration.primitivesList().get("name");
         assertNotNull(primitives);
@@ -432,7 +437,7 @@ public class HoconConverterTest {
      */
     @Test
     public void testHoconArraysDeserialization() throws Throwable {
-        change("{root:{arraysList:{name : {}}}}");
+        change("{root:{arraysList:[{a : name}]}}");
 
         HoconArraysConfiguration arrays = configuration.arraysList().get("name");
         assertNotNull(arrays);

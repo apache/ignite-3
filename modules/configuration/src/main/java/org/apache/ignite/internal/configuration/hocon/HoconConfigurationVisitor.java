@@ -20,6 +20,8 @@ package org.apache.ignite.internal.configuration.hocon;
 import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
@@ -38,7 +40,7 @@ import org.apache.ignite.internal.configuration.tree.NamedListNode;
  */
 class HoconConfigurationVisitor implements ConfigurationVisitor<Object> {
     /** Stack with intermediate results. Used to store values during recursive calls. */
-    private Deque<Map<String, Object>> deque = new ArrayDeque<>();
+    private Deque<Object> deque = new ArrayDeque<>();
 
     /** {@inheritDoc} */
     @Override public Object visitLeafNode(String key, Serializable val) {
@@ -71,29 +73,38 @@ class HoconConfigurationVisitor implements ConfigurationVisitor<Object> {
 
     /** {@inheritDoc} */
     @Override public <N extends InnerNode> Object visitNamedListNode(String key, NamedListNode<N> node) {
-        Map<String, Object> innerMap = new HashMap<>();
+        List<Object> list = new ArrayList<>(node.size());
 
-        deque.push(innerMap);
+        deque.push(list);
 
-        for (String subkey : node.namedListKeys())
+        for (String subkey : node.namedListKeys()) {
             node.get(subkey).accept(subkey, this);
+
+            ((Map<String, Object>)list.get(list.size() - 1)).put(node.keyName(), subkey);
+        }
 
         deque.pop();
 
-        addToParent(key, innerMap);
+        addToParent(key, list);
 
-        return innerMap;
+        return list;
     }
 
     /**
-     * Adds a sub-element to the parent Map object if it exists.
+     * Adds a sub-element to the parent object if it exists.
      *
      * @param key Key for the passed element
      * @param val Value to add to the parent
      */
     private void addToParent(String key, Object val) {
-        if (!deque.isEmpty())
-            deque.peek().put(key, val);
+        if (!deque.isEmpty()) {
+            Object parent = deque.peek();
+
+            if (parent instanceof Map)
+                ((Map<String, Object>)parent).put(key, val);
+            else if (parent instanceof List)
+                ((Collection<Object>)parent).add(val);
+        }
     }
 
     /**

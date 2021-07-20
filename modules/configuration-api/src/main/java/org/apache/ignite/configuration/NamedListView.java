@@ -35,6 +35,15 @@ public interface NamedListView<T> {
     T get(String key);
 
     /**
+     * Returns value located at the specified index.
+     *
+     * @param index Value index.
+     * @return Requested value.
+     * @throws IndexOutOfBoundsException If index is out of bounds.
+     */
+    T get(int index) throws IndexOutOfBoundsException;
+
+    /**
      * @return Number of elements.
      */
     int size();

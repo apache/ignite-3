@@ -44,7 +44,7 @@ public class HoconConverter {
      * @return HOCON-based configuration source.
      */
     public static ConfigurationSource hoconSource(ConfigObject hoconCfg) {
-        return new HoconObjectConfigurationSource(List.of(), hoconCfg);
+        return new HoconObjectConfigurationSource(null, List.of(), hoconCfg);
     }
 
 }

@@ -450,12 +450,18 @@ public class ConfigurationAsmGenerator {
             if (!isNamedConfigValue(schemaField))
                 continue;
 
+            NamedConfigValue namedCfgAnnotation = schemaField.getAnnotation(NamedConfigValue.class);
+
             SchemaClassesInfo fieldClassNames = new SchemaClassesInfo(schemaField.getType());
 
-            // this.values = new NamedListNode<>(ValueNode::new);
+            // this.values = new NamedListNode<>(keyName, ValueNode::new);
             ctor.getBody().append(ctor.getThis().setField(
                 fieldDefs.get(schemaField.getName()),
-                newInstance(NamedListNode.class, newNamedListElementLambda(fieldClassNames.nodeClassName))
+                newInstance(
+                    NamedListNode.class,
+                    constantString(namedCfgAnnotation.syntheticKey()),
+                    newNamedListElementLambda(fieldClassNames.nodeClassName)
+                )
             ));
         }
 
