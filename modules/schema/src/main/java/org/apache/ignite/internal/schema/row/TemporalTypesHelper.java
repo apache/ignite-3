@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema.row;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
+import org.apache.ignite.internal.schema.TemporalNativeType;
 
 /**
  * Helper class for temporal type conversions.
@@ -47,7 +48,13 @@ public class TemporalTypesHelper {
     public static final int SECONDS_FIELD_LENGTH = 6;
 
     /** Milliseconds field length. */
-    public static final int MIRCOS_FIELD_LENGTH = 20;
+    public static final int MILLIS_FIELD_LENGTH = 10;
+
+    /** Microseconds field length. */
+    public static final int MICROS_FIELD_LENGTH = 20;
+
+    /** Nanoseconds field length. */
+    public static final int NANOS_FIELD_LENGTH = 30;
 
     /** Max year boundary. */
     public static final int MAX_YEAR = (1 << 14) - 1;
@@ -69,16 +76,36 @@ public class TemporalTypesHelper {
     /**
      * Compact LocalTime.
      *
+     * @param type
      * @param time Time.
      * @return Encoded time.
      */
-    public static long compactTime(LocalTime time) {
+    public static long compactTime(TemporalNativeType type, LocalTime time) {
         long val = (long)time.getHour() << MINUTES_FIELD_LENGTH;
         val = (val | (long)time.getMinute()) << SECONDS_FIELD_LENGTH;
-        val = (val | (long)time.getSecond()) << MIRCOS_FIELD_LENGTH;
-        val |= (long)time.getNano() / 1_000; // Conver to millis.
 
-        return val;
+        switch (type.precision()) {
+            case 3:
+                val = (val | (long)time.getSecond()) << MILLIS_FIELD_LENGTH;
+                val |= (long)time.getNano() / 1_000_000; // Conver to millis.
+
+                return val;
+
+            case 6:
+                val = (val | (long)time.getSecond()) << MICROS_FIELD_LENGTH;
+                val |= (long)time.getNano() / 1_000; // Conver to micros.
+
+                return val;
+
+            case 9:
+                val = (val | (long)time.getSecond()) << NANOS_FIELD_LENGTH;
+                val |= (long)time.getNano();
+
+                return val;
+
+            default: // Should never get here.
+                throw new IllegalArgumentException("Unsupported time precision: " + type.precision());
+        }
     }
 
     /**
@@ -99,15 +126,35 @@ public class TemporalTypesHelper {
      * Expands to LocalTime.
      *
      * @param time Encoded time.
+     * @param prec Precision.
      * @return LocalTime instance.
      */
-    public static LocalTime decodeTime(long time) {
-        int millis = (int)(time & mask(MIRCOS_FIELD_LENGTH));
-        int sec = (int)((time >>>= MIRCOS_FIELD_LENGTH) & mask(SECONDS_FIELD_LENGTH));
+    public static LocalTime decodeTime(long time, int prec) {
+        int nanos;
+
+        switch (prec) {
+            case 3:
+                nanos = (int)(time & mask(MILLIS_FIELD_LENGTH)) * 1_000_000;
+                time >>>= MILLIS_FIELD_LENGTH;
+                break;
+            case 6:
+                nanos = (int)(time & mask(MICROS_FIELD_LENGTH)) * 1_000;
+                time >>>= MICROS_FIELD_LENGTH;
+                break;
+            case 9:
+                nanos = (int)(time & mask(NANOS_FIELD_LENGTH));
+                time >>>= NANOS_FIELD_LENGTH;
+                break;
+
+            default: // Should never get here.
+                throw new IllegalArgumentException("Unsupported time precision: " + prec);
+        }
+
+        int sec = (int)(time & mask(SECONDS_FIELD_LENGTH));
         int min = (int)((time >>>= SECONDS_FIELD_LENGTH) & mask(MINUTES_FIELD_LENGTH));
         int hour = (int)((time >>> MINUTES_FIELD_LENGTH) & mask(HOUR_FIELD_LENGTH));
 
-        return LocalTime.of(hour, min, sec, Math.multiplyExact(millis, 1_000) /* to nanos */);
+        return LocalTime.of(hour, min, sec, nanos);
     }
 
     /**
@@ -117,8 +164,7 @@ public class TemporalTypesHelper {
      * @return LocalDate instance.
      */
     public static LocalDate decodeDate(int date) {
-        date <<= 8;
-        date >>= 8;
+        date = (date << 8) >> 8; // Restore sign.
 
         int day = (date) & mask(DAY_FIELD_LENGTH);
         int mon = (date >>= DAY_FIELD_LENGTH) & mask(MONTH_FIELD_LENGTH); // Sign matters.

@@ -33,6 +33,7 @@ import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.TemporalNativeType;
 
 /**
  * Schema-aware row.
@@ -358,7 +359,9 @@ public class Row implements BinaryRow {
 
         int off = offset(offLen);
 
-        return readTime(off);
+        TemporalNativeType type = (TemporalNativeType)schema.column(col).type();
+
+        return readTime(off, type.precision());
     }
 
     /**
@@ -376,7 +379,9 @@ public class Row implements BinaryRow {
 
         int off = offset(offLen);
 
-        return LocalDateTime.of(readDate(off), readTime(off + 3));
+        TemporalNativeType type = (TemporalNativeType)schema.column(col).type();
+
+        return LocalDateTime.of(readDate(off), readTime(off + 3, type.precision()));
     }
 
     /**
@@ -394,18 +399,58 @@ public class Row implements BinaryRow {
 
         int off = offset(offLen);
 
-        return Instant.ofEpochMilli(readLong(off)).plusNanos(((long)readShort(off + 8)) * 1000);
+        TemporalNativeType type = (TemporalNativeType)schema.column(col).type();
+
+        long seconds = readLong(off);
+        int nanos;
+
+        switch (type.precision()) {
+            case 3:
+                nanos = (readShort(off + 8) & 0xFFFF)  * 1_000_000;
+                break;
+
+            case 6:
+                nanos = (readShort(off + 8) & 0xFFFF) << 8;
+                nanos |= readByte(off + 10) & 0xFF;
+                nanos *= 1_000;
+                break;
+
+            case 9:
+                nanos = readInteger(off + 8);
+                break;
+
+            default:
+                throw new IllegalArgumentException("Time field length is unsupported.");
+        }
+
+        return Instant.ofEpochSecond(seconds, nanos);
     }
 
     /**
      * @param off Offset
+     * @param prec Temporal type precision.
      * @return LocalTime value.
      */
-    private LocalTime readTime(int off) {
-        long time = Integer.toUnsignedLong(readInteger(off)) << 8;
-        time |= Byte.toUnsignedLong(readByte(off + 4));
+    private LocalTime readTime(int off, int prec) {
+        long time = Integer.toUnsignedLong(readInteger(off));
 
-        return TemporalTypesHelper.decodeTime(time);
+        switch (prec) {
+            case 3:
+                break;
+            case 6:
+                time <<= 8;
+                time |= Byte.toUnsignedLong(readByte(off + 4));
+                break;
+            case 9:
+                time <<= 16;
+                time |= Short.toUnsignedLong(readShort(off + 4));
+                break;
+
+            default:
+                throw new IllegalArgumentException("Time field length is unsupported.");
+        }
+
+        return TemporalTypesHelper.decodeTime(time, prec);
     }
 
     /**

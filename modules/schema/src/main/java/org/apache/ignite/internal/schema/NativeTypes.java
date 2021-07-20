@@ -54,15 +54,6 @@ public class NativeTypes {
     /** Timezone-free three-part value representing a year, month, and day. */
     public static final NativeType DATE = new NativeType(NativeTypeSpec.DATE, 3);
 
-    /** Timezone-free three-part value representing a time of day in hours, minutes, and seconds. */
-    public static final NativeType TIME = new NativeType(NativeTypeSpec.TIME, 5);
-
-    /** Timezone-free datetime encoded as (date, time). */
-    public static final NativeType DATETIME = new NativeType(NativeTypeSpec.DATETIME, 8);
-
-    /** Number of milliseconds since Jan 1, 1970 00:00:00.000 (with no timezone). */
-    public static final NativeType TIMESTAMP = new NativeType(NativeTypeSpec.TIMESTAMP, 10);
-
     /** Don't allow to create an instance. */
     private NativeTypes() {
     }
@@ -109,6 +100,65 @@ public class NativeTypes {
     }
 
     /**
+     * Creates a TIME type with subsecond precision.
+     *
+     * @param precision Time subsecond part length. Allowed values are 3/6/9 for millis/micros/nanos.
+     * @return Native type.
+     */
+    public static NativeType time(int precision) {
+        return TemporalNativeType.time(precision);
+    }
+
+    /**
+     * Creates DATETIME type as (date, time).
+     *
+     * @param precision Time subsecond part length. Allowed values are 3/6/9 for millis/micros/nanos.
+     * @return Native type.
+     */
+    public static NativeType datetime(int precision) {
+        return TemporalNativeType.datetime(precision);
+    }
+
+    /**
+     * Creates TIMESTAMP type.
+     *
+     * @param precision Time subsecond part length. Allowed values are 3/6/9 for millis/micros/nanos.
+     * @return Native type.
+     */
+    public static NativeType timestamp(int precision) {
+        return TemporalNativeType.timestamp(precision);
+    }
+
+    /**
+     * Creates a TIME type with default precision.
+     *
+     * @return Native type.
+     * @see #time(int)
+     */
+    public static NativeType time() {
+        return TemporalNativeType.time(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
+    }
+
+    /**
+     * Creates DATETIME type with default precision.
+     *
+     * @return Native type.
+     * @see #datetime(int)
+     */
+    public static NativeType datetime() {
+        return TemporalNativeType.datetime(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
+    }
+
+    /**
+     * Creates TIMESTAMP type with default precision.
+     *
+     * @return Native type.
+     */
+    public static NativeType timestamp() {
+        return TemporalNativeType.timestamp(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
+    }
+
+    /**
      * Return the native type for specified object.
      *
      * @param val Object to map to native type.
@@ -146,13 +196,13 @@ public class NativeTypes {
                 return DATE;
 
             case TIME:
-                return TIME;
+                return time();
 
             case DATETIME:
-                return DATETIME;
+                return datetime();
 
             case TIMESTAMP:
-                return TIMESTAMP;
+                return timestamp();
 
             case STRING:
                 return stringOf(((CharSequence)val).length());
@@ -213,13 +263,13 @@ public class NativeTypes {
                 return DATE;
 
             case TIME:
-                return TIME;
+                return time(((ColumnType.TemporalColumnType)type).precision());
 
             case DATETIME:
-                return DATETIME;
+                return datetime(((ColumnType.TemporalColumnType)type).precision());
 
             case TIMESTAMP:
-                return TIMESTAMP;
+                return timestamp(((ColumnType.TemporalColumnType)type).precision());
 
             case BITMASK:
                 return new BitmaskNativeType(((ColumnType.VarLenColumnType)type).length());

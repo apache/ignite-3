@@ -25,7 +25,6 @@ import java.time.Year;
 import java.time.temporal.ChronoUnit;
 import java.util.BitSet;
 import java.util.Random;
-import org.apache.ignite.internal.schema.row.TemporalTypesHelper;
 
 import static org.apache.ignite.internal.schema.row.TemporalTypesHelper.MAX_YEAR;
 import static org.apache.ignite.internal.schema.row.TemporalTypesHelper.MIN_YEAR;
@@ -85,24 +84,43 @@ public final class TestUtils {
 
             case TIME:
                 return LocalTime.of(rnd.nextInt(24), rnd.nextInt(60), rnd.nextInt(60),
-                    rnd.nextInt(1_000_000_000)).truncatedTo(TemporalTypesHelper.TIME_PRECISION);
+                    rnd.nextInt(1_000_000_000)).truncatedTo(chronoUnitForPrecision(((TemporalNativeType)type).precision()));
 
             case DATETIME: {
                 Year year = Year.of(rnd.nextInt(MAX_YEAR - MIN_YEAR) + MIN_YEAR);
 
                 LocalDate date = LocalDate.ofYearDay(year.getValue(), rnd.nextInt(year.length() + 1));
                 LocalTime time = LocalTime.of(rnd.nextInt(24), rnd.nextInt(60), rnd.nextInt(60),
-                    rnd.nextInt(1_000_000_000)).truncatedTo(TemporalTypesHelper.TIME_PRECISION);
+                    rnd.nextInt(1_000_000_000)).truncatedTo(chronoUnitForPrecision(((TemporalNativeType)type).precision()));
 
                 return LocalDateTime.of(date, time);
             }
 
             case TIMESTAMP:
                 return Instant.ofEpochMilli(rnd.nextLong()).truncatedTo(ChronoUnit.SECONDS)
-                    .plusNanos(rnd.nextLong()).truncatedTo(TemporalTypesHelper.TIME_PRECISION);
+                    .plusNanos(rnd.nextLong()).truncatedTo(chronoUnitForPrecision(((TemporalNativeType)type).precision()));
 
             default:
                 throw new IllegalArgumentException("Unsupported type: " + type);
+        }
+    }
+
+    /**
+     * Returns chrono unit for precision.
+     *
+     * @param precision Temporal type precision.
+     * @return ChronoUnit.
+     */
+    public static ChronoUnit chronoUnitForPrecision(int precision) {
+        switch (precision) {
+            case 3:
+                return ChronoUnit.MILLIS;
+            case 6:
+                return ChronoUnit.MICROS;
+            case 9:
+                return ChronoUnit.NANOS;
+            default:
+                throw new IllegalArgumentException("Unsupported time precision.");
         }
     }
 

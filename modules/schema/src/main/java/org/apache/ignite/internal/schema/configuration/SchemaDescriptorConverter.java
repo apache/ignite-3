@@ -85,31 +85,48 @@ public class SchemaDescriptorConverter {
             case DOUBLE:
                 return DOUBLE;
 
-            case DECIMAL:
+            case DECIMAL: {
                 ColumnType.NumericColumnType numType = (ColumnType.NumericColumnType)colType;
 
                 return NativeTypes.decimalOf(numType.precision(), numType.scale());
+            }
             case UUID:
                 return UUID;
 
             case BITMASK:
                 return NativeTypes.bitmaskOf(((ColumnType.VarLenColumnType)colType).length());
 
-            case STRING:
+            case STRING: {
                 int strLen = ((ColumnType.VarLenColumnType)colType).length();
 
                 if (strLen == 0)
                     strLen = Integer.MAX_VALUE;
 
                 return NativeTypes.stringOf(strLen);
-
-            case BLOB:
+            }
+            case BLOB: {
                 int blobLen = ((ColumnType.VarLenColumnType)colType).length();
 
                 if (blobLen == 0)
                     blobLen = Integer.MAX_VALUE;
 
                 return NativeTypes.blobOf(blobLen);
+            }
+            case TIME: {
+                ColumnType.NumericColumnType temporalType = (ColumnType.NumericColumnType)colType;
+
+                return NativeTypes.time(temporalType.precision());
+            }
+            case DATETIME: {
+                ColumnType.NumericColumnType temporalType = (ColumnType.NumericColumnType)colType;
+
+                return NativeTypes.datetime(temporalType.precision());
+            }
+            case TIMESTAMP: {
+                ColumnType.NumericColumnType temporalType = (ColumnType.NumericColumnType)colType;
+
+                return NativeTypes.timestamp(temporalType.precision());
+            }
 
             default:
                 throw new InvalidTypeException("Unexpected type " + type);

@@ -60,15 +60,6 @@ public class ColumnType {
     /** Timezone-free three-part value representing a year, month, and day. */
     public static final ColumnType DATE = new ColumnType(ColumnTypeSpec.DATE);
 
-    /** Timezone-free three-part value representing a time of day in hours, minutes, and seconds. */
-    public static final ColumnType TIME = new ColumnType(ColumnTypeSpec.TIME);
-
-    /** Timezone-free datetime encoded as (date, time). */
-    public static final ColumnType DATETIME = new ColumnType(ColumnTypeSpec.DATETIME);
-
-    /** Number of milliseconds since Jan 1, 1970 00:00:00.000 (with no timezone). */
-    public static final ColumnType TIMESTAMP = new ColumnType(ColumnTypeSpec.TIMESTAMP);
-
     /**
      * Bitmask type factory method.
      *
@@ -126,6 +117,37 @@ public class ColumnType {
      */
     public static NumericColumnType number(int precision, int scale) {
         return new NumericColumnType(ColumnTypeSpec.DECIMAL, precision, scale);
+    }
+
+    /**
+     * Timezone-free value representing a time of day in hours, minutes, seconds,
+     * and subseconds depending on precision.
+     *
+     * @param precision Subsecond part length. Allowed values are 3/6/9 for millis/micros/nanos.
+     * @return Native type.
+     */
+    public static TemporalColumnType time(int precision) {
+        return new TemporalColumnType(ColumnTypeSpec.TIME, precision);
+    }
+
+    /**
+     * Timezone-free datetime encoded as (date, time).
+     *
+     * @param precision Subsecond part length. Allowed values are 3/6/9 for millis/micros/nanos.
+     * @return Native type.
+     */
+    public static TemporalColumnType datetime(int precision) {
+        return new TemporalColumnType(ColumnTypeSpec.DATETIME, precision);
+    }
+
+    /**
+     * Number of milliseconds/microseconds/nanoseconds since Jan 1, 1970 00:00:00.000 (with no timezone).
+     *
+     * @param precision Subsecond part length. Allowed values are 3/6/9 for millis/micros/nanos.
+     * @return Native type.
+     */
+    public static TemporalColumnType timestamp(int precision) {
+        return new TemporalColumnType(ColumnTypeSpec.TIMESTAMP, precision);
     }
 
     /**
@@ -219,6 +241,60 @@ public class ColumnType {
         /** {@inheritDoc} */
         @Override public int hashCode() {
             return Objects.hash(super.hashCode(), precision, scale);
+        }
+    }
+
+    /**
+     * Column type of variable length.
+     */
+    public static class TemporalColumnType extends ColumnType {
+        /** Default temporal type precision: microseconds. */
+        public static final int DEFAULT_PRECISION = 6;
+
+        /** Length of second's fractional part. */
+        private final int precision;
+
+        /**
+         * Creates temporal type.
+         *
+         * @param typeSpec Type spec.
+         */
+        private TemporalColumnType(ColumnTypeSpec typeSpec, int length) {
+            super(typeSpec);
+
+            assert length == 3 || length == 6 || length == 9 : "Unsupported temporal type precision.";
+
+            this.precision = length;
+        }
+
+        /**
+         * Length of second's fractional part
+         *
+         * @return Subsecond part length.
+         */
+        public int precision() {
+            return precision;
+        }
+
+        /** {@inheritDoc} */
+        @Override public boolean equals(Object o) {
+            if (this == o)
+                return true;
+
+            if (o == null || getClass() != o.getClass())
+                return false;
+
+            if (!super.equals(o))
+                return false;
+
+            TemporalColumnType type = (TemporalColumnType)o;
+
+            return precision == type.precision;
+        }
+
+        /** {@inheritDoc} */
+        @Override public int hashCode() {
+            return Objects.hash(super.hashCode(), precision);
         }
     }
 

@@ -20,13 +20,16 @@ package org.apache.ignite.internal.schema;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import org.apache.ignite.internal.schema.row.TemporalTypesHelper;
+import org.apache.ignite.schema.ColumnType;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+/**
+ * Test temporal type compaction.
+ */
 public class TemporalTypesTest {
-
     /**
      * Check date boundaries.
      */
@@ -41,7 +44,7 @@ public class TemporalTypesTest {
         checkDate(maxDate);
         checkDate(minDate);
 
-        assertThrows(AssertionError.class, () -> checkTime(LocalTime.MAX));
+        assertThrows(AssertionError.class, () -> checkTime(TemporalNativeType.time(ColumnType.TemporalColumnType.DEFAULT_PRECISION), LocalTime.MAX));
         assertThrows(AssertionError.class, () -> checkDate(maxDate.plusDays(1)));
         assertThrows(AssertionError.class, () -> checkDate(minDate.minusDays(1)));
     }
@@ -51,10 +54,24 @@ public class TemporalTypesTest {
      */
     @Test
     void testTime() {
-        checkTime(LocalTime.MAX.truncatedTo(TemporalTypesHelper.TIME_PRECISION)); // Millis precision.
-        checkTime(LocalTime.MIN);
+        TemporalNativeType type = TemporalNativeType.time(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
 
-        assertThrows(AssertionError.class, () -> checkTime(LocalTime.MAX));
+        checkTime(type, LocalTime.MAX.truncatedTo(TemporalTypesHelper.TIME_PRECISION));
+        checkTime(type, LocalTime.MIN);
+
+        checkTime(TemporalNativeType.time(3), LocalTime.MAX.truncatedTo(TestUtils.chronoUnitForPrecision(3))); // Millis precision.
+        checkTime(TemporalNativeType.time(3), LocalTime.MIN);
+
+        checkTime(TemporalNativeType.time(6), LocalTime.MAX.truncatedTo(TestUtils.chronoUnitForPrecision(6))); // Micros precision.
+        checkTime(TemporalNativeType.time(6), LocalTime.MIN);
+
+        checkTime(TemporalNativeType.time(9), LocalTime.MAX.truncatedTo(TestUtils.chronoUnitForPrecision(9))); // Nanos precision.
+        checkTime(TemporalNativeType.time(9), LocalTime.MIN);
+
+        assertThrows(AssertionError.class, () -> checkTime(type, LocalTime.MAX));
+        assertThrows(AssertionError.class, () -> checkTime(TemporalNativeType.time(3), LocalTime.MAX));
+        assertThrows(AssertionError.class, () -> checkTime(TemporalNativeType.time(6), LocalTime.MAX));
+        checkTime(TemporalNativeType.time(9), LocalTime.MAX);
     }
 
     /**
@@ -65,9 +82,10 @@ public class TemporalTypesTest {
     }
 
     /**
-     * @param time Time.
+     * @param type Type to validate against.
+     * @param time Time value.
      */
-    private void checkTime(LocalTime time) {
-        assertEquals(time, TemporalTypesHelper.decodeTime(TemporalTypesHelper.compactTime(time)));
+    private void checkTime(TemporalNativeType type, LocalTime time) {
+        assertEquals(time, TemporalTypesHelper.decodeTime(TemporalTypesHelper.compactTime(type, time), type.precision()));
     }
 }

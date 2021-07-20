@@ -38,6 +38,7 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.TemporalNativeType;
 
 import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.KEY_FLAGS_OFFSET;
 import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.VAL_FLAGS_OFFSET;
@@ -530,16 +531,16 @@ public class RowAssembler {
      * @return {@code this} for chaining.
      */
     public RowAssembler appendTime(LocalTime val) {
-        checkType(NativeTypes.TIME);
+        checkType(NativeTypeSpec.TIME);
 
-        long time = TemporalTypesHelper.compactTime(val);
+        TemporalNativeType type = (TemporalNativeType)curCols.column(curCol).type();
 
-        writeTime(curOff, time);
+        writeTime(curOff, val, type);
 
         if (isKeyChunk())
             keyHash += 31 * keyHash + val.hashCode();
 
-        shiftColumn(NativeTypes.TIME.sizeInBytes());
+        shiftColumn(type.sizeInBytes());
 
         return this;
     }
@@ -551,18 +552,19 @@ public class RowAssembler {
      * @return {@code this} for chaining.
      */
     public RowAssembler appendDateTime(LocalDateTime val) {
-        checkType(NativeTypes.DATETIME);
+        checkType(NativeTypeSpec.DATETIME);
+
+        TemporalNativeType type = (TemporalNativeType)curCols.column(curCol).type();
 
         int date = TemporalTypesHelper.encodeDate(val.toLocalDate());
-        long time = TemporalTypesHelper.compactTime(val.toLocalTime());
 
         writeDate(curOff, date);
-        writeTime(curOff + 3, time);
+        writeTime(curOff + 3, val.toLocalTime(), type);
 
         if (isKeyChunk())
             keyHash += 31 * keyHash + val.hashCode();
 
-        shiftColumn(NativeTypes.DATETIME.sizeInBytes());
+        shiftColumn(type.sizeInBytes());
 
         return this;
     }
@@ -574,15 +576,35 @@ public class RowAssembler {
      * @return {@code this} for chaining.
      */
     public RowAssembler appendTimestamp(Instant val) {
-        checkType(NativeTypes.TIMESTAMP);
+        checkType(NativeTypeSpec.TIMESTAMP);
 
-        buf.putLong(curOff, val.toEpochMilli());
-        buf.putShort(curOff + 8, (short)(val.getNano() / 1000 % 1000));
+        TemporalNativeType type = (TemporalNativeType)curCols.column(curCol).type();
+
+        buf.putLong(curOff, val.getEpochSecond());
+
+        switch (type.sizeInBytes() - 8) {
+            case 2:
+                buf.putShort(curOff + 8, (short)(val.getNano() / 1000_000));
+                break;
+
+            case 3:
+                int micros = val.getNano() / 1000;
+                buf.putShort(curOff + 8, (short)(micros >> 8));
+                buf.put(curOff + 10, (byte)(micros & 0xFF));
+                break;
+
+            case 4:
+                buf.putInt(curOff + 8, val.getNano());
+                break;
+
+            default:
+                throw new IllegalStateException("Unsupported timestamp precision.");
+        }
 
         if (isKeyChunk())
             keyHash += 31 * keyHash + val.hashCode();
 
-        shiftColumn(NativeTypes.TIMESTAMP.sizeInBytes());
+        shiftColumn(type.sizeInBytes());
 
         return this;
     }
@@ -662,11 +684,30 @@ public class RowAssembler {
      * Writes time.
      *
      * @param off Offset.
-     * @param time Compacted time.
+     * @param val Time.
+     * @param type Native type.
      */
-    private void writeTime(int off, long time) {
-        buf.putInt(off, (int)(time >> 8));
-        buf.put(off + 4, (byte)(time & 0xFF));
+    private void writeTime(int off, LocalTime val, TemporalNativeType type) {
+        long time = TemporalTypesHelper.compactTime(type, val);
+
+        switch(type.precision()) {
+            case 3:
+                buf.putInt(off, (int)(time));
+                return;
+
+            case 6:
+                buf.putInt(off, (int)(time >> 8));
+                buf.put(off + 4, (byte)(time & 0xFF));
+                break;
+
+            case 9:
+                buf.putInt(off, (int)(time >> 16));
+                buf.putShort(off + 4, (short)(time & 0xFFFF));
+                break;
+
+            default:
+                assert false;
+        }
     }
 
     /**
