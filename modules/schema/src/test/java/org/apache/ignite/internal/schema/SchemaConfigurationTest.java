@@ -87,7 +87,7 @@ public class SchemaConfigurationTest {
      */
     @Test
     public void testSchemaModification() {
-        final SchemaTable table = SchemaBuilders.tableBuilder("PUBLIC", "table1")
+        final SchemaTable schemaTable = SchemaBuilders.tableBuilder("PUBLIC", "table1")
             .columns(
                 // Declaring columns in user order.
                 SchemaBuilders.column("id", ColumnType.INT64).build(),
@@ -96,7 +96,7 @@ public class SchemaConfigurationTest {
             .withPrimaryKey("id")
             .build();
 
-        table.toBuilder()
+        schemaTable.toBuilder()
             .addColumn(
                 SchemaBuilders.column("firstName", ColumnType.string())
                     .asNonNull()
