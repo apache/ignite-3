@@ -46,9 +46,8 @@ class HoconConfigurationVisitor implements ConfigurationVisitor<Object> {
 
         if (val instanceof Character)
             valObj = val.toString();
-        else if (val != null && val.getClass().isArray()) {
+        else if (val != null && val.getClass().isArray())
             valObj = toListOfObjects(val);
-        }
 
         addToParent(key, valObj);
 
