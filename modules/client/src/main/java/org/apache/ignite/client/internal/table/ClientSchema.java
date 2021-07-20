@@ -17,7 +17,9 @@
 
 package org.apache.ignite.client.internal.table;
 
+import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -26,12 +28,13 @@ public class ClientSchema {
     /** Schema version. Incremented on each schema modification. */
     private final int ver;
 
+    /** Key columns count. */
+    private final int keyColumnCount;
+
     /** Columns. */
     private final ClientColumn[] columns;
 
-    private final Map<String, ClientColumn> keyColumns = new HashMap<>();
-
-    private final Map<String, ClientColumn> valColumns = new HashMap<>();
+    private final Map<String, ClientColumn> map = new HashMap<>();
 
     public ClientSchema(int ver, ClientColumn[] columns) {
         assert ver >= 0;
@@ -40,12 +43,16 @@ public class ClientSchema {
         this.ver = ver;
         this.columns = columns;
 
+        var keyCnt = 0;
+
         for (var col : columns) {
             if (col.key())
-                keyColumns.put(col.name(), col);
-            else
-                valColumns.put(col.name(), col);
+                keyCnt++;
+
+            map.put(col.name(), col);
         }
+
+        keyColumnCount = keyCnt;
     }
 
     public int version() {
@@ -56,11 +63,20 @@ public class ClientSchema {
         return columns;
     }
 
-    public @NotNull Map<String, ClientColumn> keyColumns() {
-        return keyColumns;
+    public @Nullable ClientColumn column(String name) {
+        return map.get(name);
     }
 
-    public @NotNull Map<String, ClientColumn> valColumns() {
-        return valColumns;
+    public @NotNull ClientColumn requiredColumn(String name) {
+        var column = map.get(name);
+
+        if (column == null)
+            throw new IgniteException("Column is not present in schema: " + name);
+
+        return column;
+    }
+
+    public int keyColumnCount() {
+        return keyColumnCount;
     }
 }

@@ -98,9 +98,9 @@ public class ClientMessageUnpacker extends MessageUnpacker {
             case STR16:
             case STR32:
                 return unpackString();
-
-            default:
-                throw new IgniteException("Unsupported type, can't deserialize: " + format);
         }
+
+        // TODO: Support all basic types.
+        throw new IgniteException("Unsupported type, can't deserialize: " + format);
     }
 }

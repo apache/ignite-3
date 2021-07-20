@@ -20,9 +20,11 @@ package org.apache.ignite.client.internal.table;
 import org.apache.ignite.client.ClientMessageUnpacker;
 import org.apache.ignite.client.ClientOp;
 import org.apache.ignite.client.IgniteClientException;
+import org.apache.ignite.client.internal.PayloadOutputChannel;
 import org.apache.ignite.client.internal.ReliableChannel;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.KeyValueView;
@@ -117,52 +119,32 @@ public class ClientTable implements Table {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Tuple> getAsync(@NotNull Tuple keyRec) {
-        return getLatestSchema().thenCompose(schema -> ch.serviceAsync(ClientOp.TUPLE_GET, w -> {
-            // TODO: We should accept any Tuple implementation, but this requires extending the Tuple interface
-            // with methods to retrieve column list.
-            var tuple = (ClientTupleBuilder) keyRec;
+        return getLatestSchema().thenCompose(schema ->
+                ch.serviceAsync(ClientOp.TUPLE_GET, w -> writeTuple(keyRec, schema, w, true), r -> {
+                    if (r.in().getNextFormat() == MessageFormat.NIL)
+                        return null;
 
-            var vals = new Object[schema.keyColumns().size()];
+                    var schemaVer = r.in().unpackInt();
 
-            for (var entry : tuple.map().entrySet()) {
-                var col = schema.keyColumns().get(entry.getKey());
-
-                if (col == null)
-                    continue; // Not a key column.
-
-                vals[col.schemaIndex()] = entry.getValue();
-            }
-
-            w.out().packUuid(id);
-            w.out().packInt(schema.version());
-            w.out().packArrayHeader(vals.length);
-
-            for (var val : vals)
-                w.out().packObject(val);
-        }, r -> {
-            if (r.in().getNextFormat() == MessageFormat.NIL)
-                return null;
-
-            var schemaVer = r.in().unpackInt();
-
-            return new IgniteBiTuple<>(r, schemaVer);
-        })).thenCompose(tuple -> {
-            if (tuple == null)
+                    return new IgniteBiTuple<>(r, schemaVer);
+                })).thenCompose(biTuple -> {
+            if (biTuple == null)
                 return CompletableFuture.completedFuture(null);
 
-            assert tuple.getKey() != null;
-            assert tuple.getValue() != null;
+            assert biTuple.getKey() != null;
+            assert biTuple.getValue() != null;
 
-            return getSchema(tuple.getValue()).thenApply(schema -> new IgniteBiTuple<>(tuple.getKey(), schema));
-        }).thenApply(tuple -> {
-            if (tuple == null)
+            // TODO: Remove extra thenApply
+            return getSchema(biTuple.getValue()).thenApply(schema -> new IgniteBiTuple<>(biTuple.getKey(), schema));
+        }).thenApply(biTuple -> {
+            if (biTuple == null)
                 return null;
 
-            assert tuple.getKey() != null;
-            assert tuple.getValue() != null;
+            assert biTuple.getKey() != null;
+            assert biTuple.getValue() != null;
 
-            var schema = tuple.getValue();
-            var in = tuple.getKey().in();
+            var schema = biTuple.getValue();
+            var in = biTuple.getKey().in();
             var builder = new ClientTupleBuilder();
 
             try {
@@ -195,7 +177,8 @@ public class ClientTable implements Table {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> upsertAsync(@NotNull Tuple rec) {
-        return CompletableFuture.completedFuture(null);
+        return getLatestSchema().thenCompose(schema -> ch.serviceAsync(ClientOp.TUPLE_GET,
+                w -> writeTuple(rec, schema, w, false), r -> null));
     }
 
     /** {@inheritDoc} */
@@ -425,5 +408,29 @@ public class ClientTable implements Table {
     /** {@inheritDoc} */
     @Override public String toString() {
         return IgniteToStringBuilder.toString(ClientTable.class, this);
+    }
+
+    private void writeTuple(@NotNull Tuple tuple, ClientSchema schema, PayloadOutputChannel w, boolean keyOnly) throws IOException {
+        // TODO: We should accept any Tuple implementation, but this requires extending the Tuple interface
+        // with methods to retrieve column list.
+        var rec = (ClientTupleBuilder) tuple;
+
+        var vals = new Object[keyOnly ? schema.keyColumnCount() : schema.columns().length];
+
+        for (var entry : rec.map().entrySet()) {
+            var col = schema.requiredColumn(entry.getKey());
+
+            if (keyOnly && !col.key())
+                continue;
+
+            vals[col.schemaIndex()] = entry.getValue();
+        }
+
+        w.out().packUuid(id);
+        w.out().packInt(schema.version());
+        w.out().packArrayHeader(vals.length);
+
+        for (var val : vals)
+            w.out().packObject(val);
     }
 }
