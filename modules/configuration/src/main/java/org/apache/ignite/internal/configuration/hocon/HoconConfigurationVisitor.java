@@ -97,14 +97,12 @@ class HoconConfigurationVisitor implements ConfigurationVisitor<Object> {
      * @param val Value to add to the parent
      */
     private void addToParent(String key, Object val) {
-        if (!deque.isEmpty()) {
-            Object parent = deque.peek();
+        Object parent = deque.peek();
 
-            if (parent instanceof Map)
-                ((Map<String, Object>)parent).put(key, val);
-            else if (parent instanceof List)
-                ((Collection<Object>)parent).add(val);
-        }
+        if (parent instanceof Map)
+            ((Map<String, Object>)parent).put(key, val);
+        else if (parent instanceof List)
+            ((Collection<Object>)parent).add(val);
     }
 
     /**
