@@ -55,13 +55,11 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
-    @SuppressWarnings("unchecked")
     @Override public <T> T valueOrDefault(String colName, T def) {
         return (T)map.getOrDefault(colName, def);
     }
 
     /** {@inheritDoc} */
-    @SuppressWarnings("unchecked")
     @Override public <T> T value(String colName) {
         return (T)map.get(colName);
     }
