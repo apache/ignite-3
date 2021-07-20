@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.BitSet;
 import java.util.UUID;
 
 /**
@@ -52,7 +53,11 @@ public class ClientMessagePacker extends MessageBufferPacker {
         return this;
     }
 
-    public ClientMessagePacker packDecimal(BigDecimal v) throws IOException {
+    public ClientMessagePacker packDecimal(BigDecimal val) throws IOException {
+        throw new IOException("TODO");
+    }
+
+    public ClientMessagePacker packBitSet(BitSet val) throws IOException {
         throw new IOException("TODO");
     }
 
@@ -62,6 +67,12 @@ public class ClientMessagePacker extends MessageBufferPacker {
 
         if (val instanceof Integer)
             return (ClientMessagePacker) packInt((int) val);
+
+        if (val instanceof Long)
+            return (ClientMessagePacker) packLong((long) val);
+
+        if (val instanceof UUID)
+            return packUuid((UUID) val);
 
         if (val instanceof String)
             return (ClientMessagePacker) packString((String) val);
@@ -74,7 +85,14 @@ public class ClientMessagePacker extends MessageBufferPacker {
             return this;
         }
 
+        if (val instanceof BigDecimal)
+            return packDecimal((BigDecimal) val);
+
+        if (val instanceof BitSet)
+            return packBitSet((BitSet) val);
+
         // TODO: Support all basic types.
         throw new IgniteException("Unsupported type, can't serialize: " + val.getClass());
     }
+
 }

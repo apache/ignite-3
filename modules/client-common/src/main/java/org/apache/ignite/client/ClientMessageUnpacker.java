@@ -26,9 +26,11 @@ import org.msgpack.core.MessageUnpacker;
 import org.msgpack.core.buffer.MessageBufferInput;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
 
@@ -74,6 +76,14 @@ public class ClientMessageUnpacker extends MessageUnpacker {
         bb.order(ByteOrder.BIG_ENDIAN);
 
         return new UUID(bb.getLong(), bb.getLong());
+    }
+
+    public BigDecimal unpackDecimal() throws IOException {
+        throw new IgniteException("TODO");
+    }
+
+    public BitSet unpackBitSet() throws IOException {
+        throw new IgniteException("TODO");
     }
 
     public Object unpackObject() throws IOException {
@@ -147,10 +157,10 @@ public class ClientMessageUnpacker extends MessageUnpacker {
                 return readPayload(cnt);
 
             case DECIMAL:
-                throw new IgniteException("TODO: decimal");
+                return unpackDecimal();
 
             case BITMASK:
-                throw new IgniteException("TODO: bitmask");
+                return unpackBitSet();
         }
 
         throw new IgniteException("Unknown client data type: " + dataType);

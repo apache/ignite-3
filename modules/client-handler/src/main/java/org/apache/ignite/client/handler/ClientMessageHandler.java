@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.ignite.app.Ignite;
+import org.apache.ignite.client.ClientDataType;
 import org.apache.ignite.client.ClientErrorCode;
 import org.apache.ignite.client.ClientMessagePacker;
 import org.apache.ignite.client.ClientMessageType;
@@ -27,6 +28,7 @@ import org.apache.ignite.client.ClientMessageUnpacker;
 import org.apache.ignite.client.ClientOp;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
@@ -362,54 +364,46 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
 
     private void readAndSetColumnValue(ClientMessageUnpacker unpacker, TupleBuilderImpl builder, Column col)
             throws IOException {
+        builder.set(col.name(), unpacker.unpackObject(getClientDataType(col.type().spec())));
+    }
 
-        // TODO: Use unpacker.unpackObject()
-        switch (col.type().spec()) {
+    private static int getClientDataType(NativeTypeSpec spec) {
+        switch (spec) {
             case INT8:
-                builder.set(col, unpacker.unpackByte());
-                break;
+                return ClientDataType.INT8;
 
             case INT16:
-                builder.set(col, unpacker.unpackShort());
-                break;
+                return ClientDataType.INT16;
 
             case INT32:
-                builder.set(col, unpacker.unpackInt());
-                break;
+                return ClientDataType.INT32;
 
             case INT64:
-                builder.set(col, unpacker.unpackLong());
-                break;
+                return ClientDataType.INT64;
 
             case FLOAT:
-                builder.set(col, unpacker.unpackFloat());
-                break;
+                return ClientDataType.FLOAT;
 
             case DOUBLE:
-                builder.set(col, unpacker.unpackDouble());
-                break;
+                return ClientDataType.DOUBLE;
 
             case DECIMAL:
-                throw new UnsupportedOperationException("TODO");
+                return ClientDataType.DECIMAL;
 
             case UUID:
-                builder.set(col, unpacker.unpackUuid());
-                break;
+                return ClientDataType.UUID;
 
             case STRING:
-                builder.set(col, unpacker.unpackString());
-                break;
+                return ClientDataType.STRING;
 
             case BYTES:
-                builder.set(col, unpacker.readPayload(unpacker.unpackBinaryHeader()));
-                break;
+                return ClientDataType.BYTES;
 
             case BITMASK:
-                throw new UnsupportedOperationException("TODO");
-
-            default:
-                throw new UnsupportedOperationException("Unsupported data type: " + col.type().spec());
+                return ClientDataType.BITMASK;
         }
+
+        throw new IgniteException("Unsupported native type: " + spec);
     }
 
     private void writeColumnValue(ClientMessagePacker packer, Tuple tuple, Column col) throws IOException {
@@ -420,7 +414,6 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
             return;
         }
 
-        // TODO: Use packer.packObject();
         switch (col.type().spec()) {
             case INT8:
                 packer.packByte((byte) val);
@@ -462,6 +455,9 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                 packer.packBinaryHeader(bytes.length);
                 packer.writePayload(bytes);
                 break;
+
+            case BITMASK:
+                packer.packBitSet((BitSet)val);
 
             default:
                 throw new IgniteException("Data type not supported: " + col.type());
