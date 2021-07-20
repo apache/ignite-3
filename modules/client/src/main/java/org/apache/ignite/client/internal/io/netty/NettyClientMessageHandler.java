@@ -25,11 +25,16 @@ import java.nio.ByteBuffer;
 
 import static org.apache.ignite.client.internal.io.netty.NettyClientConnection.ATTR_CONN;
 
+/**
+ * Netty client message handler.
+ */
 public class NettyClientMessageHandler extends ChannelInboundHandlerAdapter {
+    /** {@inheritDoc} */
     @Override public void channelRead(ChannelHandlerContext ctx, Object msg) throws IOException {
         ctx.channel().attr(ATTR_CONN).get().onMessage((ByteBuffer) msg);
     }
 
+    /** {@inheritDoc} */
     @Override public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         ctx.channel().attr(ATTR_CONN).get().onDisconnected(null);
     }

@@ -25,9 +25,6 @@ import java.io.IOException;
  * Thin client payload output channel.
  */
 public class PayloadOutputChannel implements AutoCloseable {
-    /** Initial output stream buffer capacity. */
-    private static final int INITIAL_BUFFER_CAPACITY = 1024;
-
     /** Client channel. */
     private final ClientChannel ch;
 

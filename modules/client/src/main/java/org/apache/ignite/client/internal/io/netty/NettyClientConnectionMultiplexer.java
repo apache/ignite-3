@@ -35,22 +35,25 @@ import org.apache.ignite.client.internal.io.ClientMessageHandler;
 
 import java.net.InetSocketAddress;
 
+/**
+ * Netty-based multiplexer.
+ */
 public class NettyClientConnectionMultiplexer implements ClientConnectionMultiplexer {
-    /** */
-    private final IgniteClientConfiguration clientCfg;
-
     /** */
     private final NioEventLoopGroup workerGroup;
 
     /** */
     private final Bootstrap bootstrap;
 
-    public NettyClientConnectionMultiplexer(IgniteClientConfiguration clientCfg) {
-        this.clientCfg = clientCfg;
+    /**
+     * Constructor.
+     */
+    public NettyClientConnectionMultiplexer() {
         workerGroup = new NioEventLoopGroup();
         bootstrap = new Bootstrap();
     }
 
+    /** {@inheritDoc} */
     @Override public void start() {
         // TODO: Is this method needed?
         try {
@@ -75,10 +78,12 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
         }
     }
 
+    /** {@inheritDoc} */
     @Override public void stop() {
         workerGroup.shutdownGracefully();
     }
 
+    /** {@inheritDoc} */
     @Override public ClientConnection open(InetSocketAddress addr,
                                            ClientMessageHandler msgHnd,
                                            ClientConnectionStateHandler stateHnd)

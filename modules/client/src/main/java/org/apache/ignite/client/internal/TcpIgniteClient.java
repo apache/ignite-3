@@ -78,7 +78,7 @@ public class TcpIgniteClient implements Ignite {
 
     /** {@inheritDoc} */
     @Override public IgniteTables tables() {
-        return new ClientTables(ch);
+        return tables;
     }
 
     /** {@inheritDoc} */

@@ -102,7 +102,7 @@ public final class ReliableChannel implements AutoCloseable {
         this.clientCfg = clientCfg;
         this.chFactory = chFactory;
 
-        connMgr = new NettyClientConnectionMultiplexer(clientCfg);
+        connMgr = new NettyClientConnectionMultiplexer();
         connMgr.start();
     }
 

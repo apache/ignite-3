@@ -28,6 +28,9 @@ import org.apache.ignite.lang.IgniteException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+/**
+ * Netty client connection.
+ */
 public class NettyClientConnection implements ClientConnection {
     public static final AttributeKey<NettyClientConnection> ATTR_CONN = AttributeKey.newInstance("CONN");
 
