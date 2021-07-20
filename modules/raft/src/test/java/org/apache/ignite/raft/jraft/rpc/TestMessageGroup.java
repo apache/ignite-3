@@ -15,22 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.mapping;
+package org.apache.ignite.raft.jraft.rpc;
+
+import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
- * Column mapper builder interface.
+ * Message group for tests.
  */
-public interface ColumnMapperBuilder {
-    /**
-     * Add column mapping.
-     *
-     * @param from Source column index.
-     * @param to Target column index.
-     */
-    public void add(int from, int to);
-
-    /**
-     * @return Column mapper.
-     */
-    ColumnMapper build();
+@MessageGroup(groupType = 4, groupName = "TestRaftMessages")
+public class TestMessageGroup {
 }
