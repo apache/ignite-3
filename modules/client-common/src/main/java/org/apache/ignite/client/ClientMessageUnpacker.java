@@ -59,6 +59,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * Reads an UUID.
      *
      * @return UUID value.
+     * @throws IOException when underlying output throws IOException.
      */
     public UUID unpackUuid() throws IOException {
         var hdr = unpackExtensionTypeHeader();
@@ -83,18 +84,20 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * Reads a decimal.
      *
      * @return Decimal value.
+     * @throws IOException when underlying output throws IOException.
      */
     public BigDecimal unpackDecimal() throws IOException {
-        throw new IgniteException("TODO: IGNITE-15163");
+        throw new IOException("TODO: IGNITE-15163");
     }
 
     /**
      * Reads a bit set.
      *
      * @return Bit set.
+     * @throws IOException when underlying output throws IOException.
      */
     public BitSet unpackBitSet() throws IOException {
-        throw new IgniteException("TODO: IGNITE-15163");
+        throw new IOException("TODO: IGNITE-15163");
     }
 
     /**
@@ -103,6 +106,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * @param dataType Data type code.
      *
      * @return Unpacked object.
+     * @throws IOException when underlying output throws IOException.
+     * @throws IgniteException when data type is not valid.
      */
     public Object unpackObject(int dataType) throws IOException {
         if (tryUnpackNil())

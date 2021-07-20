@@ -46,6 +46,7 @@ public class ClientMessagePacker extends MessageBufferPacker {
      *
      * @param val UUID value.
      * @return This instance.
+     * @throws IOException when underlying output throws IOException.
      */
     public ClientMessagePacker packUuid(UUID val) throws IOException {
         packExtensionTypeHeader(ClientMsgPackType.UUID, 16);
@@ -67,6 +68,7 @@ public class ClientMessagePacker extends MessageBufferPacker {
      *
      * @param val Decimal value.
      * @return This instance.
+     * @throws IOException when underlying output throws IOException.
      */
     public ClientMessagePacker packDecimal(BigDecimal val) throws IOException {
         throw new IgniteException("TODO: IGNITE-15163");
@@ -77,6 +79,7 @@ public class ClientMessagePacker extends MessageBufferPacker {
      *
      * @param val Bit set value.
      * @return This instance.
+     * @throws IOException when underlying output throws IOException.
      */
     public ClientMessagePacker packBitSet(BitSet val) throws IOException {
         throw new IgniteException("TODO: IGNITE-15163");
@@ -87,6 +90,7 @@ public class ClientMessagePacker extends MessageBufferPacker {
      *
      * @param val Object value.
      * @return This instance.
+     * @throws IOException when underlying output throws IOException.
      */
     public ClientMessagePacker packObject(Object val) throws IOException {
         if (val == null)
