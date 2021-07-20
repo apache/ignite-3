@@ -33,6 +33,7 @@ import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
@@ -53,8 +54,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static java.lang.Thread.sleep;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -72,7 +71,7 @@ public class ITCliServiceTest {
     /**
      * The logger.
      */
-    private static final Logger LOG = LoggerFactory.getLogger(ITCliServiceTest.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ITCliServiceTest.class);
 
     private static final int LEARNER_PORT_STEP = 100;
 
