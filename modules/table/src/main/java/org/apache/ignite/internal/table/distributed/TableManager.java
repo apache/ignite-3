@@ -42,6 +42,7 @@ import org.apache.ignite.internal.affinity.event.AffinityEventParameters;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.manager.EventListener;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.ListenerRemovedException;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -59,7 +60,6 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteLogger;
@@ -73,7 +73,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Table manager.
  */
-public class TableManager extends Producer<TableEvent, TableEventParameters> implements IgniteTables {
+public class TableManager extends Producer<TableEvent, TableEventParameters> implements IgniteTables, IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(TableManager.class);
 
@@ -89,7 +89,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Configuration manager. */
     private final ConfigurationManager configurationMgr;
 
-    /** Raft manmager. */
+    /** Raft manager. */
     private final Loza raftMgr;
 
     /** Schema manager. */
@@ -109,23 +109,29 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param schemaMgr Schema manager.
      * @param affMgr Affinity manager.
      * @param raftMgr Raft manager.
-     * @param vaultManager Vault manager.
      */
     public TableManager(
         ConfigurationManager configurationMgr,
         MetaStorageManager metaStorageMgr,
         SchemaManager schemaMgr,
         AffinityManager affMgr,
-        Loza raftMgr,
-        VaultManager vaultManager
+        Loza raftMgr
     ) {
         this.configurationMgr = configurationMgr;
         this.metaStorageMgr = metaStorageMgr;
         this.affMgr = affMgr;
         this.raftMgr = raftMgr;
         this.schemaMgr = schemaMgr;
+    }
 
+    /** {@inheritDoc} */
+    @Override public void start() {
         listenForTableChange();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void stop() {
+        // TODO: IGNITE-15161 Implement component's stop.
     }
 
     /**

@@ -28,6 +28,7 @@ import java.util.concurrent.ExecutionException;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.Conditions;
@@ -65,7 +66,7 @@ import org.jetbrains.annotations.NotNull;
  * @implSpec Initial schema history MAY be registered without the first outdated versions
  * that could be cleaned up earlier.
  */
-public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> {
+public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(SchemaManager.class);
 
@@ -102,7 +103,10 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         this.configurationMgr = configurationMgr;
         this.metaStorageMgr = metaStorageMgr;
         this.vaultMgr = vaultMgr;
+    }
 
+    /** {@inheritDoc} */
+    @Override public void start() {
         metaStorageMgr.registerWatchByPrefix(new ByteArray(INTERNAL_PREFIX), new WatchListener() {
             @Override public boolean onUpdate(@NotNull WatchEvent events) {
                 for (EntryEvent evt : events.entryEvents()) {
@@ -161,6 +165,11 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                 LOG.error("Metastorage listener issue", e);
             }
         });
+    }
+
+    /** {@inheritDoc} */
+    @Override public void stop() {
+        // TODO: IGNITE-15161 Implement component's stop.
     }
 
     /**

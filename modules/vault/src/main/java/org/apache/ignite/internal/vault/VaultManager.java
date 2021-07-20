@@ -20,8 +20,10 @@ package org.apache.ignite.internal.vault;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -29,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
  * VaultManager is responsible for handling {@link VaultService} lifecycle
  * and providing interface for managing local keys.
  */
-public class VaultManager implements AutoCloseable {
+public class VaultManager implements AutoCloseable, IgniteComponent {
     /** Special key, which reserved for storing the name of the current node. */
     private static final ByteArray NODE_NAME = new ByteArray("node_name");
 
@@ -42,6 +44,17 @@ public class VaultManager implements AutoCloseable {
      */
     public VaultManager(VaultService vaultSvc) {
         this.vaultSvc = vaultSvc;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void start() {
+        vaultSvc.start();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void stop() {
+        // TODO: IGNITE-15161 Implement component's stop.
+//        vaultSvc.stop();
     }
 
     /**

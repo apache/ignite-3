@@ -33,12 +33,13 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.json.JsonConverter;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
+import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
  * Configuration manager is responsible for handling configuration lifecycle and provides configuration API.
  */
 // TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
-@SuppressWarnings("WeakerAccess") public class ConfigurationManager {
+@SuppressWarnings("WeakerAccess") public class ConfigurationManager implements IgniteComponent {
     /** Configuration registry. */
     private final ConfigurationRegistry confRegistry;
 
@@ -68,6 +69,17 @@ import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
         this.configurationStorages = Map.copyOf(storageByType);
 
         confRegistry = new ConfigurationRegistry(rootKeys, validators, configurationStorages);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void start() {
+        confRegistry.start();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void stop() {
+        // TODO: IGNITE-15161 Implement component's stop.
+//        confRegistry.stop();
     }
 
     /**

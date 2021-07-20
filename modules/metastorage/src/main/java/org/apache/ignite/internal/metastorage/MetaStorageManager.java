@@ -29,6 +29,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.client.CompactedException;
 import org.apache.ignite.internal.metastorage.client.Condition;
 import org.apache.ignite.internal.metastorage.client.Entry;
@@ -68,7 +69,7 @@ import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
  */
 // TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
 @SuppressWarnings("unused")
-public class MetaStorageManager {
+public class MetaStorageManager implements IgniteComponent {
     /** Meta storage raft group name. */
     private static final String METASTORAGE_RAFT_GROUP_NAME = "metastorage_raft_group";
 
@@ -84,6 +85,9 @@ public class MetaStorageManager {
     /** Vault manager in order to commit processed watches with corresponding applied revision. */
     private final VaultManager vaultMgr;
 
+    /** Configuration manager that handles local configuration. */
+    private final ConfigurationManager locCfgMgr;
+
     /** Cluster network service that is used in order to handle cluster init message. */
     private final ClusterService clusterNetSvc;
 
@@ -91,7 +95,7 @@ public class MetaStorageManager {
     private final Loza raftMgr;
 
     /** Meta storage service. */
-    private final CompletableFuture<MetaStorageService> metaStorageSvcFut;
+    private volatile CompletableFuture<MetaStorageService> metaStorageSvcFut;
 
     /**
      * Aggregator of multiple watches to deploy them as one batch.
@@ -137,12 +141,16 @@ public class MetaStorageManager {
         Loza raftMgr
     ) {
         this.vaultMgr = vaultMgr;
+        this.locCfgMgr = locCfgMgr;
         this.clusterNetSvc = clusterNetSvc;
         this.raftMgr = raftMgr;
         watchAggregator = new WatchAggregator();
         deployFut = new CompletableFuture<>();
+    }
 
-        String[] metastorageNodes = locCfgMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
+    /** {@inheritDoc} */
+    @Override public void start() {
+        String[] metastorageNodes = this.locCfgMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
             .metastorageNodes().value();
 
         Predicate<ClusterNode> metaStorageNodesContainsLocPred =
@@ -175,6 +183,11 @@ public class MetaStorageManager {
 
         // TODO: IGNITE-14414 Cluster initialization flow. Here we should complete metaStorageServiceFuture.
         clusterNetSvc.messagingService().addMessageHandler((message, senderAddr, correlationId) -> {});
+    }
+
+    /** {@inheritDoc} */
+    @Override public void stop() {
+        // TODO: IGNITE-15161 Implement component's stop.
     }
 
     /**
