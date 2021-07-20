@@ -32,6 +32,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import static org.apache.ignite.client.ClientDataType.BITMASK;
+import static org.apache.ignite.client.ClientDataType.BYTES;
+import static org.apache.ignite.client.ClientDataType.DECIMAL;
+import static org.apache.ignite.client.ClientDataType.DOUBLE;
+import static org.apache.ignite.client.ClientDataType.FLOAT;
+import static org.apache.ignite.client.ClientDataType.INT16;
+import static org.apache.ignite.client.ClientDataType.INT32;
+import static org.apache.ignite.client.ClientDataType.INT64;
+import static org.apache.ignite.client.ClientDataType.INT8;
+import static org.apache.ignite.client.ClientDataType.STRING;
+
 /**
  * Ignite-specific MsgPack extension.
  */
@@ -102,5 +113,46 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
         // TODO: Support all basic types.
         throw new IgniteException("Unsupported type, can't deserialize: " + format);
+    }
+
+    public Object unpackObject(int dataType) throws IOException {
+        switch (dataType) {
+            case INT8:
+                return unpackByte();
+
+            case INT16:
+                return unpackShort();
+
+            case INT32:
+                return unpackInt();
+
+            case INT64:
+                return unpackLong();
+
+            case FLOAT:
+                return unpackFloat();
+
+            case DOUBLE:
+                return unpackDouble();
+
+            case ClientDataType.UUID:
+                return unpackUuid();
+
+            case STRING:
+                return unpackString();
+
+            case BYTES:
+                var cnt = unpackBinaryHeader();
+
+                return readPayload(cnt);
+
+            case DECIMAL:
+                throw new IgniteException("TODO: decimal");
+
+            case BITMASK:
+                throw new IgniteException("TODO: bitmask");
+        }
+
+        throw new IgniteException("Unknown client data type: " + dataType);
     }
 }
