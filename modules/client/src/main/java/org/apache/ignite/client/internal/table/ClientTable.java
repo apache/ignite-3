@@ -44,6 +44,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ClientTable implements Table {
@@ -153,7 +154,7 @@ public class ClientTable implements Table {
             assert tuple.getValue() != null;
 
             return getSchema(tuple.getValue()).thenApply(schema -> new IgniteBiTuple<>(tuple.getKey(), schema));
-        }).thenCompose(tuple -> {
+        }).thenApply(tuple -> {
             if (tuple == null)
                 return null;
 
@@ -164,8 +165,14 @@ public class ClientTable implements Table {
             var in = tuple.getKey().in();
             var builder = new ClientTupleBuilder();
 
-            for (var col : schema.columns())
-                builder.set(col.name(), in.unpackObject());
+            try {
+                // TODO: unpackObject will return different types for varint columns based on the value
+                // We should switch on schema type: decide how to pass types properly, update IEP.
+                for (var col : schema.columns())
+                    builder.set(col.name(), in.unpackObject());
+            } catch (IOException e) {
+                throw new CompletionException(e);
+            }
 
             return builder;
         });
