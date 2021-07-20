@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.app.Ignite;
+import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.schema.SchemaMode;
 import org.apache.ignite.internal.table.ColumnNotFoundException;
@@ -133,7 +134,7 @@ class LiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         TupleBuilder newVerBuilder = tbl.tupleBuilder();
 
-        SchemaDescriptor schema = ((TupleBuilderImpl)newVerBuilder).schema();
+        SchemaDescriptor schema = ((SchemaAware)newVerBuilder).schema();
 
         assertTrue(schema.columnNames().contains("valStrNew"));
         assertTrue(schema.columnNames().contains("valIntNew"));
@@ -292,7 +293,7 @@ class LiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         TupleBuilder newVerBuilder = tbl.tupleBuilder();
 
-        SchemaDescriptor schema = ((TupleBuilderImpl)newVerBuilder).schema();
+        SchemaDescriptor schema = ((SchemaAware)newVerBuilder).schema();
 
         assertEquals(2, schema.version());
     }

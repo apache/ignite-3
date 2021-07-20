@@ -150,12 +150,8 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
         return value(colName);
     }
 
-    /**
-     * Get schema descriptor.
-     *
-     * @return Schema descriptor.
-     */
-    public SchemaDescriptor schema() {
+    /** {@inheritDoc} */
+    @Override public SchemaDescriptor schema() {
         return schemaDesc;
     }
 

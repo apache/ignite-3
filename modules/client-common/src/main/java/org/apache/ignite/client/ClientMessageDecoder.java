@@ -24,7 +24,6 @@ import io.netty.util.CharsetUtil;
 import org.apache.ignite.lang.IgniteException;
 import org.msgpack.core.MessageFormat;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
