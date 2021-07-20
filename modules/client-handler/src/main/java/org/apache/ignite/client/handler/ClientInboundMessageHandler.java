@@ -255,7 +255,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             case ClientOp.TUPLE_UPSERT: {
                 var table = readTable(unpacker);
-                var tuple = readTuple(unpacker, table);
+                var tuple = readTuple(unpacker, table, false);
 
                 return table.upsertAsync(tuple);
             }
@@ -269,7 +269,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             case ClientOp.TUPLE_GET: {
                 var table = readTable(unpacker);
-                var keyTuple = readTuple(unpacker, table);
+                var keyTuple = readTuple(unpacker, table, true);
 
                 return table.getAsync(keyTuple).thenAccept(t -> writeTuple(packer, t));
             }
@@ -314,7 +314,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             var schema = ((SchemaAware) tuple).schema();
 
             packer.packInt(schema.version());
-            packer.packArrayHeader(schema.length());
 
             for (var col : schema.keyColumns().columns())
                 writeColumnValue(packer, tuple, col);
@@ -326,17 +325,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-    private Tuple readTuple(ClientMessageUnpacker unpacker, TableImpl table) throws IOException {
+    private Tuple readTuple(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) throws IOException {
         var schemaId = unpacker.unpackInt();
-        var cnt = unpacker.unpackArrayHeader();
-
         var schema = table.schemaView().schema(schemaId);
-
-        if (cnt > schema.length())
-            throw new IgniteException(
-                    "Incorrect number of tuple values. Expected: " + schema.length() + ", but got: " + cnt);
-
         var builder = (TupleBuilderImpl) table.tupleBuilder();
+
+        var cnt = keyOnly ? schema.keyColumns().length() : schema.length();
 
         for (int i = 0; i < cnt; i++) {
             if (unpacker.getNextFormat() == MessageFormat.NIL) {

@@ -147,10 +147,6 @@ public class ClientTable implements Table {
             var builder = new ClientTupleBuilder();
 
             try {
-                var cnt = in.unpackArrayHeader(); // TODO: Get rid of unnecessary array headers
-
-                // TODO: unpackObject will return different types for varint columns based on the value
-                // We should switch on schema type: decide how to pass types properly, update IEP.
                 for (var col : schema.columns())
                     builder.set(col.name(), in.unpackObject(col.type()));
             } catch (IOException e) {
@@ -427,7 +423,6 @@ public class ClientTable implements Table {
 
         w.out().packUuid(id);
         w.out().packInt(schema.version());
-        w.out().packArrayHeader(vals.length);
 
         for (var val : vals)
             w.out().packObject(val);
