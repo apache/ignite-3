@@ -17,7 +17,15 @@
 
 package org.apache.ignite.client.internal;
 
+/**
+ * Payload reader.
+ */
 @FunctionalInterface
 public interface PayloadReader<T> {
+    /**
+     * Reads the payload from the channel.
+     * @param arg Channel.
+     * @return Payload.
+     */
     T apply(PayloadInputChannel arg) throws Exception;
 }
