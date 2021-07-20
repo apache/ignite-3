@@ -36,7 +36,7 @@ import org.apache.ignite.internal.configuration.tree.NamedListNode;
 
 /**
  * {@link ConfigurationVisitor} implementation that converts a configuration tree to a combination of {@link Map} and
- * {@link List} objects as to convert the result into HOCON {@link ConfigValue} instance.
+ * {@link List} objects to convert the result into HOCON {@link ConfigValue} instance.
  */
 class HoconConfigurationVisitor implements ConfigurationVisitor<Object> {
     /** Stack with intermediate results. Used to store values during recursive calls. */

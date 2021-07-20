@@ -64,5 +64,5 @@ public @interface NamedConfigValue {
      * }
      * </code></pre>
      */
-    String syntheticKey() default "key";
+    String syntheticKey() default "name";
 }
