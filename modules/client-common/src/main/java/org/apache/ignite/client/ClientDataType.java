@@ -22,14 +22,24 @@ package org.apache.ignite.client;
  */
 public class ClientDataType {
     public static final int INT8 = 1;
+
     public static final int INT16 = 2;
+
     public static final int INT32 = 3;
+
     public static final int INT64 = 4;
+
     public static final int FLOAT = 5;
+
     public static final int DOUBLE = 6;
+
     public static final int DECIMAL = 7;
+
     public static final int UUID = 8;
+
     public static final int STRING = 9;
+
     public static final int BYTES = 10;
+
     public static final int BITMASK = 11;
 }
