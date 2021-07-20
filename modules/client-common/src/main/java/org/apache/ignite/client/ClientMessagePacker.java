@@ -35,6 +35,7 @@ import java.util.UUID;
  */
 public class ClientMessagePacker extends MessageBufferPacker {
     public ClientMessagePacker() {
+        // TODO: Pooled buffers IGNITE-15162.
         super(new ArrayBufferOutput(), MessagePack.DEFAULT_PACKER_CONFIG);
     }
 
@@ -54,11 +55,11 @@ public class ClientMessagePacker extends MessageBufferPacker {
     }
 
     public ClientMessagePacker packDecimal(BigDecimal val) throws IOException {
-        throw new IOException("TODO");
+        throw new IgniteException("TODO: IGNITE-15163");
     }
 
     public ClientMessagePacker packBitSet(BitSet val) throws IOException {
-        throw new IOException("TODO");
+        throw new IgniteException("TODO: IGNITE-15163");
     }
 
     public ClientMessagePacker packObject(Object val) throws IOException {
@@ -91,7 +92,7 @@ public class ClientMessagePacker extends MessageBufferPacker {
         if (val instanceof BitSet)
             return packBitSet((BitSet) val);
 
-        // TODO: Support all basic types.
+        // TODO: Support all basic types IGNITE-15163
         throw new IgniteException("Unsupported type, can't serialize: " + val.getClass());
     }
 

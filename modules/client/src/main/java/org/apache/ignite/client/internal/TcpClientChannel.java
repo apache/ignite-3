@@ -223,7 +223,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * Process next message from the input stream and complete corresponding future.
      */
     private void processNextMessage(ByteBuffer buf) throws IgniteClientException, IOException {
-        // TODO: Close unpacker after handling the message.
         var unpacker = new ClientMessageUnpacker(new ByteBufferInput(buf));
 
         if (protocolCtx == null) {

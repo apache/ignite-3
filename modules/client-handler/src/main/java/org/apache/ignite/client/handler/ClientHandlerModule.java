@@ -99,7 +99,7 @@ public class ClientHandlerModule {
                     ch.pipeline().addLast(
                             new ClientMessageDecoder(),
                             new ClientMessageEncoder(),
-                            new ClientMessageHandler(ignite, log));
+                            new ClientInboundMessageHandler(ignite, log));
                 }
             })
             .childOption(ChannelOption.SO_KEEPALIVE, true)

@@ -41,7 +41,7 @@ public class ClientMessageDecoder extends ByteToMessageDecoder {
     public static final byte[] MAGIC_BYTES = new byte[]{0x49, 0x47, 0x4E, 0x49}; // IGNI
 
     /** */
-    private byte[] data = new byte[4]; // TODO: Pooled buffers.
+    private byte[] data = new byte[4]; // TODO: Pooled buffers IGNITE-15162.
 
     /** */
     private int cnt = -4;
@@ -61,8 +61,8 @@ public class ClientMessageDecoder extends ByteToMessageDecoder {
     /** */
     private byte firstByte;
 
-    @Override
-    protected void decode(ChannelHandlerContext ctx, ByteBuf byteBuf, List<Object> list)
+    /** {@inheritDoc} */
+    @Override protected void decode(ChannelHandlerContext ctx, ByteBuf byteBuf, List<Object> list)
             throws IOException {
         if (!readMagic(byteBuf))
             return;

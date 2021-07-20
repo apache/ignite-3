@@ -53,17 +53,26 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
- * https://netty.io/wiki/user-guide-for-4.x.html
+ * Handles messages from thin clients.
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
-public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
+public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
+    /** Logger. */
     private final Logger log;
 
+    /** API entry point. */
     private final Ignite ignite;
 
+    /** Context. */
     private ClientContext clientContext;
 
-    public ClientMessageHandler(Ignite ignite, Logger log) {
+    /**
+     * Constructor.
+     *
+     * @param ignite Ignite API entry point.
+     * @param log Logger.
+     */
+    public ClientInboundMessageHandler(Ignite ignite, Logger log) {
         assert ignite != null;
         assert log != null;
 
@@ -71,6 +80,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
         this.log = log;
     }
 
+    /** {@inheritDoc} */
     @Override public void channelRead(ChannelHandlerContext ctx, Object msg) throws IOException {
         var buf = (ByteBuffer) msg;
 
@@ -162,12 +172,10 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
     }
 
     private ClientMessagePacker getPacker() {
-        // TODO: Pooling
         return new ClientMessagePacker();
     }
 
     private ClientMessageUnpacker getUnpacker(ByteBuffer buf) {
-        // TODO: Pooling
         return new ClientMessageUnpacker(new ByteBufferInput(buf));
     }
 
@@ -246,8 +254,6 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
             }
 
             case ClientOp.TUPLE_UPSERT: {
-                // TODO: Benchmark schema approach vs map approach (devlist) - both get and put operations.
-                // TUPLE_UPSERT vs TUPLE_UPSERT_SCHEMALESS
                 var table = readTable(unpacker);
                 var tuple = readTuple(unpacker, table);
 
@@ -526,15 +532,15 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
         return (TableImpl)ignite.tables().createTable(name, tableChangeConsumer);
     }
 
+    /** {@inheritDoc} */
     @Override public void channelReadComplete(ChannelHandlerContext ctx) {
-        // TODO: ???
         ctx.flush();
-        // ctx.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE);
     }
 
+    /** {@inheritDoc} */
     @Override public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        // TODO: Logging
-        cause.printStackTrace();
+        log.error(cause.getMessage(), cause);
+
         ctx.close();
     }
 }
