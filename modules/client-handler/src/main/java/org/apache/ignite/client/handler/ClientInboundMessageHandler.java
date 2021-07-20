@@ -271,7 +271,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 var table = readTable(unpacker);
                 var keyTuple = readTuple(unpacker, table);
 
-                return table.getAsync(keyTuple).thenAccept(t ->  writeTuple(packer, t));
+                return table.getAsync(keyTuple).thenAccept(t -> writeTuple(packer, t));
             }
 
             default:
@@ -470,7 +470,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 throw new IgniteException("Data type not supported: " + col.type());
         }
     }
-
 
     private TableImpl createTable(ClientMessageUnpacker unpacker) throws IOException {
         var size = unpacker.unpackMapHeader();
