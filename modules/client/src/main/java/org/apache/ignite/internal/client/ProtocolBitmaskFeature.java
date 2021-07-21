@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.internal;
+package org.apache.ignite.internal.client;
 
 import java.util.BitSet;
 import java.util.Collection;

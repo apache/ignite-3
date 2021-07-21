@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.internal.table;
+package org.apache.ignite.internal.client.table;
 
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.lang.IgniteException;

@@ -15,17 +15,46 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.internal.io;
+package org.apache.ignite.internal.client;
 
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.client.ClientMessageUnpacker;
 
 /**
- * Handles thin client connection state.
+ * Thin client payload input channel.
  */
-public interface ClientConnectionStateHandler {
+public class PayloadInputChannel {
+    /** Client channel. */
+    private final ClientChannel ch;
+
+    /** Input stream. */
+    private final ClientMessageUnpacker in;
+
     /**
-     * Handles connection loss.
-     * @param e Exception that caused the disconnect, can be null.
+     * Constructor.
+     *
+     * @param ch Channel.
+     * @param in Unpacker.
      */
-    void onDisconnected(@Nullable Exception e);
+    PayloadInputChannel(ClientChannel ch, ClientMessageUnpacker in) {
+        this.in = in;
+        this.ch = ch;
+    }
+
+    /**
+     * Gets client channel.
+     *
+     * @return Client channel.
+     */
+    public ClientChannel clientChannel() {
+        return ch;
+    }
+
+    /**
+     * Gets the unpacker.
+     *
+     * @return Unpacker.
+     */
+    public ClientMessageUnpacker in() {
+        return in;
+    }
 }

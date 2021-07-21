@@ -21,7 +21,7 @@ import io.netty.channel.ChannelFuture;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.handler.ClientHandlerModule;
-import org.apache.ignite.client.internal.table.ClientTupleBuilder;
+import org.apache.ignite.internal.client.table.ClientTupleBuilder;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;

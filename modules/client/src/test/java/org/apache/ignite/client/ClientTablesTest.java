@@ -18,7 +18,7 @@
 package org.apache.ignite.client;
 
 import org.apache.ignite.client.fakes.FakeIgniteTables;
-import org.apache.ignite.client.internal.table.ClientTable;
+import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.Table;

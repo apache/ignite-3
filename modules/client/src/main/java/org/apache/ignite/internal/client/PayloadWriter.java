@@ -15,27 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.internal.io.netty;
-
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
-
-import java.io.IOException;
-import java.nio.ByteBuffer;
-
-import static org.apache.ignite.client.internal.io.netty.NettyClientConnection.ATTR_CONN;
+package org.apache.ignite.internal.client;
 
 /**
- * Netty client message handler.
+ * Payload writer.
  */
-public class NettyClientMessageHandler extends ChannelInboundHandlerAdapter {
-    /** {@inheritDoc} */
-    @Override public void channelRead(ChannelHandlerContext ctx, Object msg) throws IOException {
-        ctx.channel().attr(ATTR_CONN).get().onMessage((ByteBuffer) msg);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        ctx.channel().attr(ATTR_CONN).get().onDisconnected(null);
-    }
+@FunctionalInterface
+public interface PayloadWriter {
+    /**
+     * Writes the payload to the channel.
+     * @param out Channel.
+     * @throws Exception on failure.
+     */
+    void accept(PayloadOutputChannel out) throws Exception;
 }

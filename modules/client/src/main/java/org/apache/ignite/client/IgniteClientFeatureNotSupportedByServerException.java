@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client;
 
-import org.apache.ignite.client.internal.ProtocolBitmaskFeature;
+import org.apache.ignite.internal.client.ProtocolBitmaskFeature;
 
 /**
  * Indicates that thin client feature is not supported by the server.

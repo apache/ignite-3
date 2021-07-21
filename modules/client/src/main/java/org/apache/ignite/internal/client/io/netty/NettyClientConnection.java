@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.internal.io.netty;
+package org.apache.ignite.internal.client.io.netty;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.util.AttributeKey;
-import org.apache.ignite.client.internal.io.ClientConnection;
-import org.apache.ignite.client.internal.io.ClientConnectionStateHandler;
-import org.apache.ignite.client.internal.io.ClientMessageHandler;
+import org.apache.ignite.internal.client.io.ClientConnection;
+import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
+import org.apache.ignite.internal.client.io.ClientMessageHandler;
 import org.apache.ignite.lang.IgniteException;
 
 import java.io.IOException;

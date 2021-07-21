@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.internal.io;
+package org.apache.ignite.internal.client.io;
 
 import java.net.InetSocketAddress;
 

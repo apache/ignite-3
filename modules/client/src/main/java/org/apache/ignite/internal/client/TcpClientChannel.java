@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.internal;
+package org.apache.ignite.internal.client;
 
 import io.netty.channel.ChannelFuture;
 import org.apache.ignite.client.ClientErrorCode;
@@ -26,10 +26,10 @@ import org.apache.ignite.client.IgniteClientAuthenticationException;
 import org.apache.ignite.client.IgniteClientAuthorizationException;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.IgniteClientException;
-import org.apache.ignite.client.internal.io.ClientConnection;
-import org.apache.ignite.client.internal.io.ClientConnectionMultiplexer;
-import org.apache.ignite.client.internal.io.ClientConnectionStateHandler;
-import org.apache.ignite.client.internal.io.ClientMessageHandler;
+import org.apache.ignite.internal.client.io.ClientConnection;
+import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
+import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
+import org.apache.ignite.internal.client.io.ClientMessageHandler;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.msgpack.core.buffer.ByteBufferInput;

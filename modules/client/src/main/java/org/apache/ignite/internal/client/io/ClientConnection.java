@@ -15,17 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.internal;
+package org.apache.ignite.internal.client.io;
+
+import io.netty.channel.ChannelFuture;
+import org.apache.ignite.lang.IgniteException;
+
+import java.nio.ByteBuffer;
 
 /**
- * Payload writer.
+ * Client connection: abstracts away sending and receiving messages.
  */
-@FunctionalInterface
-public interface PayloadWriter {
+public interface ClientConnection extends AutoCloseable {
     /**
-     * Writes the payload to the channel.
-     * @param out Channel.
-     * @throws Exception on failure.
+     * Sends a message.
+     *
+     * @param msg Message buffer.
+     * @return Future for the operation.
      */
-    void accept(PayloadOutputChannel out) throws Exception;
+    ChannelFuture send(ByteBuffer msg) throws IgniteException;
+
+    /**
+     * Closes the connection.
+     */
+    @Override void close();
 }

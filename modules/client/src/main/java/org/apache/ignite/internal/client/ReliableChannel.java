@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.internal;
+package org.apache.ignite.internal.client;
 
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
@@ -43,8 +43,8 @@ import org.apache.ignite.client.IgniteClientAuthenticationException;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.IgniteClientException;
-import org.apache.ignite.client.internal.io.ClientConnectionMultiplexer;
-import org.apache.ignite.client.internal.io.netty.NettyClientConnectionMultiplexer;
+import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
+import org.apache.ignite.internal.client.io.netty.NettyClientConnectionMultiplexer;
 
 /**
  * Communication channel with failover and partition awareness.

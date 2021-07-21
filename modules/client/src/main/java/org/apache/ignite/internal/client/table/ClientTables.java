@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.internal.table;
+package org.apache.ignite.internal.client.table;
 
 import org.apache.ignite.client.ClientOp;
-import org.apache.ignite.client.internal.ReliableChannel;
-import org.apache.ignite.client.internal.table.ClientTable;
+import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;

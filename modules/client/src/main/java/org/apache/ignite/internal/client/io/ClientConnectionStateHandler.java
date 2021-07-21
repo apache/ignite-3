@@ -15,27 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.internal.io;
+package org.apache.ignite.internal.client.io;
 
-import io.netty.channel.ChannelFuture;
-import org.apache.ignite.lang.IgniteException;
-
-import java.nio.ByteBuffer;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Client connection: abstracts away sending and receiving messages.
+ * Handles thin client connection state.
  */
-public interface ClientConnection extends AutoCloseable {
+public interface ClientConnectionStateHandler {
     /**
-     * Sends a message.
-     *
-     * @param msg Message buffer.
-     * @return Future for the operation.
+     * Handles connection loss.
+     * @param e Exception that caused the disconnect, can be null.
      */
-    ChannelFuture send(ByteBuffer msg) throws IgniteException;
-
-    /**
-     * Closes the connection.
-     */
-    @Override void close();
+    void onDisconnected(@Nullable Exception e);
 }

@@ -15,19 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.internal.io;
+package org.apache.ignite.internal.client.io.netty;
+
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+import static org.apache.ignite.internal.client.io.netty.NettyClientConnection.ATTR_CONN;
+
 /**
- * Handles thin client responses and server to client notifications.
+ * Netty client message handler.
  */
-public interface ClientMessageHandler {
-    /**
-     * Handles messages from the server.
-     * @param buf Buffer.
-     * @throws IOException on failure.
-     */
-    void onMessage(ByteBuffer buf) throws IOException;
+public class NettyClientMessageHandler extends ChannelInboundHandlerAdapter {
+    /** {@inheritDoc} */
+    @Override public void channelRead(ChannelHandlerContext ctx, Object msg) throws IOException {
+        ctx.channel().attr(ATTR_CONN).get().onMessage((ByteBuffer) msg);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        ctx.channel().attr(ATTR_CONN).get().onDisconnected(null);
+    }
 }

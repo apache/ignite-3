@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.internal;
+package org.apache.ignite.internal.client;
 
 /** Thin client protocol version. */
 public final class ProtocolVersion implements Comparable<ProtocolVersion> {

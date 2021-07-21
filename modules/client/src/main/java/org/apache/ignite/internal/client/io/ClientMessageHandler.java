@@ -15,46 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.internal;
+package org.apache.ignite.internal.client.io;
 
-import org.apache.ignite.client.ClientMessageUnpacker;
+import java.io.IOException;
+import java.nio.ByteBuffer;
 
 /**
- * Thin client payload input channel.
+ * Handles thin client responses and server to client notifications.
  */
-public class PayloadInputChannel {
-    /** Client channel. */
-    private final ClientChannel ch;
-
-    /** Input stream. */
-    private final ClientMessageUnpacker in;
-
+public interface ClientMessageHandler {
     /**
-     * Constructor.
-     *
-     * @param ch Channel.
-     * @param in Unpacker.
+     * Handles messages from the server.
+     * @param buf Buffer.
+     * @throws IOException on failure.
      */
-    PayloadInputChannel(ClientChannel ch, ClientMessageUnpacker in) {
-        this.in = in;
-        this.ch = ch;
-    }
-
-    /**
-     * Gets client channel.
-     *
-     * @return Client channel.
-     */
-    public ClientChannel clientChannel() {
-        return ch;
-    }
-
-    /**
-     * Gets the unpacker.
-     *
-     * @return Unpacker.
-     */
-    public ClientMessageUnpacker in() {
-        return in;
-    }
+    void onMessage(ByteBuffer buf) throws IOException;
 }

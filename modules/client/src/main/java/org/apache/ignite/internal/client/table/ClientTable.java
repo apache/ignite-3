@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.internal.table;
+package org.apache.ignite.internal.client.table;
 
 import org.apache.ignite.client.ClientMessageUnpacker;
 import org.apache.ignite.client.ClientOp;
 import org.apache.ignite.client.IgniteClientException;
-import org.apache.ignite.client.internal.PayloadInputChannel;
-import org.apache.ignite.client.internal.PayloadOutputChannel;
-import org.apache.ignite.client.internal.ReliableChannel;
+import org.apache.ignite.internal.client.PayloadInputChannel;
+import org.apache.ignite.internal.client.PayloadOutputChannel;
+import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.table.InvokeProcessor;
