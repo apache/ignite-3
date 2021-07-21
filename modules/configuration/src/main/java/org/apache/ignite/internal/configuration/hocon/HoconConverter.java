@@ -26,14 +26,14 @@ import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 
 public class HoconConverter {
     /**
-     * Converts configuration subtree to HOCON {@link ConfigValue} instance.
+     * Converts configuration subtree to a HOCON {@link ConfigValue} instance.
      *
      * @param registry Configuration registry instance.
-     * @param path Path to configuration subtree. Can be empty, can't be {@code null}.
+     * @param path Path to the configuration subtree. Can be empty, can't be {@code null}.
      * @return {@link ConfigValue} instance that represents configuration subtree.
      * @throws IllegalArgumentException If {@code path} is not found in current configuration.
      */
-    public static ConfigValue represent(ConfigurationRegistry registry, List<String> path) throws IllegalArgumentException {
+    public static ConfigValue represent(ConfigurationRegistry registry, @NotNull List<String> path) throws IllegalArgumentException {
         Object res = registry.represent(path, new HoconConfigurationVisitor());
 
         return ConfigImpl.fromAnyRef(res, null);

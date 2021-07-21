@@ -47,8 +47,8 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
     /**
      * Default constructor.
      *
-     * @param syntheticKey Name of the synthetic configuration value that will represent keys in special ordered
-     *                     representation syntaxis.
+     * @param syntheticKey Name of the synthetic configuration value that will represent keys in a specially ordered
+     *                     representation syntax.
      * @param valSupplier Closure to instantiate values.
      */
     public NamedListNode(String syntheticKey, Supplier<N> valSupplier) {
