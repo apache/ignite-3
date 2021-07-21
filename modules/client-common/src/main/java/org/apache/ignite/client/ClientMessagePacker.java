@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client;
 
-import org.apache.ignite.lang.IgniteException;
 import org.msgpack.core.MessageBufferPacker;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.buffer.ArrayBufferOutput;
