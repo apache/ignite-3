@@ -35,8 +35,7 @@ public class IgniteClientAuthorizationException extends IgniteClientException {
     }
 
     /**
-     * Constructs a new exception with the specified cause and a detail
-     * message of <tt>(cause==null ? null : cause.toString())</tt>.
+     * Constructs a new exception with the specified cause and a detail message.
      *
      * @param cause the cause.
      */

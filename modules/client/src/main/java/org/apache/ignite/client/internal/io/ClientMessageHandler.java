@@ -21,7 +21,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 /**
- * Handles thin client responses and server -> client notifications.
+ * Handles thin client responses and server to client notifications.
  */
 public interface ClientMessageHandler {
     /**

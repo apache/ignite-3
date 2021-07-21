@@ -41,6 +41,9 @@ public class ProtocolContext {
     }
 
     /**
+     * Gets a value indicating whether a feature is supported.
+     *
+     * @param feature Feature.
      * @return {@code true} if bitmask protocol feature supported.
      */
     public boolean isFeatureSupported(ProtocolBitmaskFeature feature) {

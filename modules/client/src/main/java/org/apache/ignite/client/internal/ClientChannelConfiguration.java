@@ -46,10 +46,13 @@ final class ClientChannelConfiguration {
 
     /**
      * Constructor.
+     *
+     * @param cfg Config.
+     * @param addr Address.
      */
     @SuppressWarnings("UnnecessaryThis")
     ClientChannelConfiguration(Object cfg, InetSocketAddress addr) {
-        // TODO: Get from public API cfg.
+        // TODO: Get from public API cfg IGNITE-15164.
         this.tcpNoDelay = true;
         this.timeout = 0;
         this.sndBufSize = 0;

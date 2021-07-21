@@ -34,7 +34,13 @@ public final class ProtocolVersion implements Comparable<ProtocolVersion> {
     /** Patch. */
     private final short patch;
 
-    /** Constructor. */
+    /**
+     * Constructor.
+     *
+     * @param major Major part.
+     * @param minor Minor part.
+     * @param patch Patch part.
+     */
     ProtocolVersion(short major, short minor, short patch) {
         this.major = major;
         this.minor = minor;

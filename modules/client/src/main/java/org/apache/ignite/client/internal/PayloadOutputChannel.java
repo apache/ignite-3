@@ -33,6 +33,8 @@ public class PayloadOutputChannel implements AutoCloseable {
 
     /**
      * Constructor.
+     *
+     * @param ch Channel.
      */
     PayloadOutputChannel(ClientChannel ch) {
         out = new ClientMessagePacker();
@@ -41,13 +43,17 @@ public class PayloadOutputChannel implements AutoCloseable {
 
     /**
      * Gets client channel.
+     *
+     * @return Client channel.
      */
     public ClientChannel clientChannel() {
         return ch;
     }
 
     /**
-     * Gets output stream.
+     * Gets the unpacker.
+     *
+     * @return Unpacker.
      */
     public ClientMessagePacker out() {
         return out;

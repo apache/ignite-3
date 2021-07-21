@@ -25,6 +25,7 @@ public interface PayloadWriter {
     /**
      * Writes the payload to the channel.
      * @param out Channel.
+     * @throws Exception on failure.
      */
     void accept(PayloadOutputChannel out) throws Exception;
 }

@@ -26,6 +26,7 @@ public interface PayloadReader<T> {
      * Reads the payload from the channel.
      * @param arg Channel.
      * @return Payload.
+     * @throws Exception on failure.
      */
     T apply(PayloadInputChannel arg) throws Exception;
 }

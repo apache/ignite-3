@@ -31,6 +31,9 @@ public class PayloadInputChannel {
 
     /**
      * Constructor.
+     *
+     * @param ch Channel.
+     * @param in Unpacker.
      */
     PayloadInputChannel(ClientChannel ch, ClientMessageUnpacker in) {
         this.in = in;
@@ -39,13 +42,17 @@ public class PayloadInputChannel {
 
     /**
      * Gets client channel.
+     *
+     * @return Client channel.
      */
     public ClientChannel clientChannel() {
         return ch;
     }
 
     /**
-     * Gets input stream.
+     * Gets the unpacker.
+     *
+     * @return Unpacker.
      */
     public ClientMessageUnpacker in() {
         return in;
