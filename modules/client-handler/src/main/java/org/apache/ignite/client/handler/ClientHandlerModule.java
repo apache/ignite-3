@@ -92,9 +92,9 @@ public class ClientHandlerModule {
     private ChannelFuture startEndpoint() throws InterruptedException {
         var configuration = registry.getConfiguration(ClientConnectorConfiguration.KEY);
 
-        // TODO: Why defaults are not returned?
+        // TODO: Handle defaults IGNITE-15164.
         int desiredPort = configuration.port().value() == null ? 10800 : configuration.port().value();
-        int portRange = configuration.portRange().value() == null ? 1 : configuration.portRange().value();
+        int portRange = configuration.portRange().value() == null ? 100 : configuration.portRange().value();
 
         int port = 0;
 
