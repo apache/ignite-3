@@ -449,7 +449,7 @@ public class IgnitionImpl implements Ignition {
                 componentToStop.stop();
             }
             catch (Exception e) {
-                LOG.error("Unable to stop component=[" + componentToStop + "] within node=[" + nodeName + ']' , e);
+                LOG.error("Unable to stop component=[" + componentToStop + "] within node=[" + nodeName + ']', e);
             }
         }
 

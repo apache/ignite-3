@@ -122,7 +122,7 @@ public class ConfigurationRegistry implements IgniteComponent {
     }
 
     /** {@inheritDoc} */
-    public void stop() {
+    @Override public void stop() {
         if (changer != null)
             changer.stop();
     }

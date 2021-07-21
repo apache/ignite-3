@@ -157,6 +157,8 @@ public class ITDistributedTableTest {
 
         RaftServer partSrv = new RaftServerImpl(cluster.get(0), FACTORY);
 
+        partSrv.start();
+
         List<Peer> conf = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
 
         partSrv.startRaftGroup(grpId, new PartitionListener(), conf);
@@ -215,8 +217,13 @@ public class ITDistributedTableTest {
     public void partitionedTable() {
         HashMap<ClusterNode, RaftServer> raftServers = new HashMap<>(NODES);
 
-        for (int i = 0; i < NODES; i++)
-            raftServers.put(cluster.get(i).topologyService().localMember(), new RaftServerImpl(cluster.get(i), FACTORY));
+        for (int i = 0; i < NODES; i++) {
+            var raftSrv = new RaftServerImpl(cluster.get(i), FACTORY);
+
+            raftSrv.start();
+
+            raftServers.put(cluster.get(i).topologyService().localMember(), raftSrv);
+        }
 
         List<List<ClusterNode>> assignment = RendezvousAffinityFunction.assignPartitions(
             cluster.stream().map(node -> node.topologyService().localMember()).collect(Collectors.toList()),

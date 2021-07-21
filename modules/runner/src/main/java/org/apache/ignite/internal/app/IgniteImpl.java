@@ -19,7 +19,6 @@ package org.apache.ignite.internal.app;
 
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 
@@ -28,32 +27,26 @@ import org.apache.ignite.tx.IgniteTransactions;
  */
 public class IgniteImpl implements Ignite {
     /** Distributed table manager. */
-    private final IgniteTables distributedTableManager;
-
-    /** Vault manager */
-    private final VaultManager vaultManager;
+    private final IgniteTables distributedTblMgr;
 
     /** Ignite instance name. */
     private final String name;
 
     /**
      * @param name Ignite instance name.
-     * @param tableManager Table manager.
-     * @param vaultManager Vault manager.
+     * @param tblMgr Table manager.
      */
     IgniteImpl(
         String name,
-        IgniteTables tableManager,
-        VaultManager vaultManager
+        IgniteTables tblMgr
     ) {
         this.name = name;
-        this.distributedTableManager = tableManager;
-        this.vaultManager = vaultManager;
+        this.distributedTblMgr = tblMgr;
     }
 
     /** {@inheritDoc} */
     @Override public IgniteTables tables() {
-        return distributedTableManager;
+        return distributedTblMgr;
     }
 
     /** {@inheritDoc} */

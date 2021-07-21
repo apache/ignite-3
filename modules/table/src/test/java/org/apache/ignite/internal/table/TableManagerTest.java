@@ -50,7 +50,6 @@ import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
@@ -130,6 +129,7 @@ public class TableManagerTest {
     /** Raft manager. */
     @Mock(lenient = true)
     private Loza rm;
+
     /** Test node. */
     private final ClusterNode node = new ClusterNode(
         UUID.randomUUID().toString(),
