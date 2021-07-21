@@ -52,7 +52,8 @@ public class IgniteLogger {
      * Logs a message on {@link Level#INFO} level composed from args with given format.
      *
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
-     * @param params A list of arguments to be substituted in place of formatting anchors.
+     * @param params A list of arguments to be substituted in place of formatting anchors. If the last param is {@code
+     *               Throwable}, then corresponding throwable is logged.
      */
     public void info(String msg, Object... params) {
         logInternal(Level.INFO, msg, params);
@@ -83,7 +84,8 @@ public class IgniteLogger {
      * Logs a message on {@link Level#DEBUG} level composed from args with given format.
      *
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
-     * @param params A list of arguments to be substituted in place of formatting anchors.
+     * @param params A list of arguments to be substituted in place of formatting anchors. If the last param is {@code
+     *               Throwable}, then corresponding throwable is logged.
      */
     public void debug(String msg, Object... params) {
         logInternal(Level.DEBUG, msg, params);
@@ -114,7 +116,8 @@ public class IgniteLogger {
      * Logs a message on {@link Level#WARNING} level composed from args with given format.
      *
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
-     * @param params A list of arguments to be substituted in place of formatting anchors.
+     * @param params A list of arguments to be substituted in place of formatting anchors. If the last param is {@code
+     *               Throwable}, then corresponding throwable is logged.
      */
     public void warn(String msg, Object... params) {
         logInternal(Level.WARNING, msg, params);
@@ -145,7 +148,8 @@ public class IgniteLogger {
      * Logs a message on {@link Level#ERROR} level composed from args with given format.
      *
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
-     * @param params A list of arguments to be substituted in place of formatting anchors.
+     * @param params A list of arguments to be substituted in place of formatting anchors. If the last param is {@code
+     *               Throwable}, then corresponding throwable is logged.
      */
     public void error(String msg, Object... params) {
         logInternal(Level.ERROR, msg, params);
@@ -176,7 +180,8 @@ public class IgniteLogger {
      * Logs a message on {@link Level#TRACE} level composed from args with given format.
      *
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
-     * @param params A list of arguments to be substituted in place of formatting anchors.
+     * @param params A list of arguments to be substituted in place of formatting anchors. If the last param is {@code
+     *               Throwable}, then corresponding throwable is logged.
      */
     public void trace(String msg, Object... params) {
         logInternal(Level.TRACE, msg, params);
@@ -208,7 +213,8 @@ public class IgniteLogger {
      *
      * @param level One of the log message level identifiers.
      * @param msg The string message format in {@link LoggerMessageHelper} format.
-     * @param params An optional list of parameters to the message (may be none).
+     * @param params An optional list of parameters to the message (may be none). If the last param is
+     *               {@code Throwable}, then corresponding throwable is logged.
      * @throws NullPointerException If {@code level} is {@code null}.
      */
     private void logInternal(Level level, String msg, Object... params) {
