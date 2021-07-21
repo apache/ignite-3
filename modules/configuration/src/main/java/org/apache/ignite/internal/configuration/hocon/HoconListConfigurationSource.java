@@ -99,9 +99,7 @@ class HoconListConfigurationSource implements ConfigurationSource {
             );
         }
 
-        NamedListNode<?> namedListNode = (NamedListNode<?>)node;
-
-        String keyName = namedListNode.syntheticKey();
+        String syntheticKey = ((NamedListNode<?>)node).syntheticKey();
 
         int idx = 0;
         for (Iterator<ConfigValue> iterator = hoconCfgList.iterator(); iterator.hasNext(); idx++) {
@@ -118,22 +116,22 @@ class HoconListConfigurationSource implements ConfigurationSource {
 
             ConfigObject hoconCfg = (ConfigObject)next;
 
-            ConfigValue keyValue = hoconCfg.get(keyName);
+            ConfigValue keyValue = hoconCfg.get(syntheticKey);
 
             if (keyValue == null || keyValue.valueType() != ConfigValueType.STRING) {
                 throw new IllegalArgumentException(
                     format(
                         "'%s' configuration value is mandatory and must be a String",
-                        formatArrayPath(path, idx) + "." + keyName
+                        formatArrayPath(path, idx) + "." + syntheticKey
                     )
                 );
             }
 
             String key = (String)keyValue.unwrapped();
 
-            List<String> path = appendKey(this.path, keyName);
+            List<String> path = appendKey(this.path, syntheticKey);
 
-            namedListNode.construct(key, new HoconObjectConfigurationSource(keyName, path, hoconCfg));
+            node.construct(key, new HoconObjectConfigurationSource(syntheticKey, path, hoconCfg));
         }
     }
 
