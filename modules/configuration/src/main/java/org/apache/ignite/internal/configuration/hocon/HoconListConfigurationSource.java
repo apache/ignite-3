@@ -84,7 +84,7 @@ class HoconListConfigurationSource implements ConfigurationSource {
                     throw wrongTypeException(path, boxedComponentType, idx);
 
                 default:
-                    Array.set(resArray, idx, unwrapPrimitive(path, hoconCfgListElement, boxedComponentType, idx));
+                    Array.set(resArray, idx, unwrapPrimitive(hoconCfgListElement, boxedComponentType, path, idx));
             }
         }
 

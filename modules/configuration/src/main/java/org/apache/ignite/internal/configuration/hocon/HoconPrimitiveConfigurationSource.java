@@ -62,7 +62,7 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
         if (clazz.isArray())
             throw wrongTypeException(path, clazz, -1);
 
-        return unwrapPrimitive(path, hoconCfgValue, clazz, -1);
+        return unwrapPrimitive(hoconCfgValue, clazz, path, -1);
     }
 
     /** {@inheritDoc} */
@@ -82,6 +82,9 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
 
     /**
      * Non-null wrapper over {@link TypeUtils#unboxed}.
+     *
+     * @param clazz Class for non-primitive objects.
+     * @return Unboxed class fox boxed classes, same object otherwise.
      */
     private static Class<?> unbox(Class<?> clazz) {
         assert !clazz.isPrimitive();
@@ -93,8 +96,14 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
 
     /**
      * Extracts the value from the given {@link ConfigValue} based on the expected type.
+     *
+     * @param hoconCfgValue Configuration value to unwrap.
+     * @param clazz Class that signifies resulting type of the value. Boxed primitive or String.
+     * @param path Path to the value, used for error messages.
+     * @param idx Index in the array if the value is an array element. {@code -1} if it's not.
+     * @throws IllegalArgumentException In case of type mismatch or numeric overflow.
      */
-    public static <T> T unwrapPrimitive(List<String> path, ConfigValue hoconCfgValue, Class<T> clazz, int idx) {
+    public static <T> T unwrapPrimitive(ConfigValue hoconCfgValue, Class<T> clazz, List<String> path, int idx) {
         assert !clazz.isArray();
         assert !clazz.isPrimitive();
 
@@ -123,17 +132,17 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
             Number numberValue = (Number)hoconCfgValue.unwrapped();
 
             if (clazz == Byte.class) {
-                checkBounds(path, numberValue, Byte.MIN_VALUE, Byte.MAX_VALUE, idx);
+                checkBounds(numberValue, Byte.MIN_VALUE, Byte.MAX_VALUE, path, idx);
 
                 return clazz.cast(numberValue.byteValue());
             }
             else if (clazz == Short.class) {
-                checkBounds(path, numberValue, Short.MIN_VALUE, Short.MAX_VALUE, idx);
+                checkBounds(numberValue, Short.MIN_VALUE, Short.MAX_VALUE, path, idx);
 
                 return clazz.cast(numberValue.shortValue());
             }
             else if (clazz == Integer.class) {
-                checkBounds(path, numberValue, Integer.MIN_VALUE, Integer.MAX_VALUE, idx);
+                checkBounds(numberValue, Integer.MIN_VALUE, Integer.MAX_VALUE, path, idx);
 
                 return clazz.cast(numberValue.intValue());
             }
@@ -150,8 +159,14 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
 
     /**
      * Checks that a number fits into the given bounds.
+     *
+     * @param numberValue Number value to validate.
+     * @param lower Lower bound, inclusive.
+     * @param upper Upper bound, inclusive.
+     * @param path Path to the value, used for error messages.
+     * @param idx Index in the array if the value is an array element. {@code -1} if it's not.
      */
-    private static void checkBounds(List<String> path, Number numberValue, long lower, long upper, int idx) {
+    private static void checkBounds(Number numberValue, long lower, long upper, List<String> path, int idx) {
         long longValue = numberValue.longValue();
 
         if (longValue < lower || longValue > upper) {
@@ -164,6 +179,9 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
 
     /**
      * Creates a string representation of the current HOCON path inside of an array.
+     *
+     * @param path Path to the value.
+     * @param idx Index in the array if the value is an array element. {@code -1} if it's not.
      */
     public static String formatArrayPath(List<String> path, int idx) {
         return join(path) + (idx == -1 ? "" : ("[" + idx + "]"));
