@@ -18,7 +18,7 @@ package org.apache.ignite.raft.jraft.util;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -45,21 +45,31 @@ public class ThreadIdTest implements ThreadId.OnError {
     @Test
     public void testLockUnlock() throws Exception {
         assertSame(this, this.id.lock());
-        AtomicLong cost = new AtomicLong(0);
+
         CountDownLatch latch = new CountDownLatch(1);
-        new Thread() {
+
+        var t = new Thread() {
             @Override
             public void run() {
+                System.err.println("lock");
+
                 long start = System.currentTimeMillis();
+
                 ThreadIdTest.this.id.lock();
-                cost.set(System.currentTimeMillis() - start);
+
+                System.err.println("lock: " + (System.currentTimeMillis() - start));
+
                 latch.countDown();
             }
-        }.start();
-        Thread.sleep(1000);
+        };
+
+        t.start();
+
         this.id.unlock();
-        latch.await();
-        assertEquals(1000, cost.get(), 10);
+
+        TestUtils.waitForCondition(() -> latch.getCount() == 0, 10_000);
+
+        t.join();
     }
 
     @Test
