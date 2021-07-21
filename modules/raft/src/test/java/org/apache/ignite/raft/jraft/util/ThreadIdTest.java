@@ -51,13 +51,7 @@ public class ThreadIdTest implements ThreadId.OnError {
         var t = new Thread() {
             @Override
             public void run() {
-                System.err.println("lock");
-
-                long start = System.currentTimeMillis();
-
                 ThreadIdTest.this.id.lock();
-
-                System.err.println("lock: " + (System.currentTimeMillis() - start));
 
                 latch.countDown();
             }
