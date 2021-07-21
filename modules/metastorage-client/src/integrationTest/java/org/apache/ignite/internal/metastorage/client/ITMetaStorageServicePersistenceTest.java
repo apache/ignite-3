@@ -369,7 +369,7 @@ public class ITMetaStorageServicePersistenceTest {
 
         Path jraft = workDir.resolve("jraft" + idx);
 
-        JRaftServerImpl server = new JRaftServerImpl(service, jraft.toString(), FACTORY) {
+        JRaftServerImpl server = new JRaftServerImpl(service, jraft.toString()) {
             @Override public void shutdown() throws Exception {
                 super.shutdown();
 
