@@ -23,6 +23,7 @@ import com.typesafe.config.ConfigValue;
 import com.typesafe.config.impl.ConfigImpl;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
+import org.jetbrains.annotations.NotNull;
 
 public class HoconConverter {
     /**
@@ -33,7 +34,10 @@ public class HoconConverter {
      * @return {@link ConfigValue} instance that represents configuration subtree.
      * @throws IllegalArgumentException If {@code path} is not found in current configuration.
      */
-    public static ConfigValue represent(ConfigurationRegistry registry, @NotNull List<String> path) throws IllegalArgumentException {
+    public static ConfigValue represent(
+        ConfigurationRegistry registry,
+        @NotNull List<String> path
+    ) throws IllegalArgumentException {
         Object res = registry.represent(path, new HoconConfigurationVisitor());
 
         return ConfigImpl.fromAnyRef(res, null);
@@ -46,5 +50,4 @@ public class HoconConverter {
     public static ConfigurationSource hoconSource(ConfigObject hoconCfg) {
         return new HoconObjectConfigurationSource(null, List.of(), hoconCfg);
     }
-
 }
