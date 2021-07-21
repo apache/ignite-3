@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client;
+package org.apache.ignite.client;
 
 /** Thin client protocol version. */
 public final class ProtocolVersion implements Comparable<ProtocolVersion> {
@@ -41,7 +41,7 @@ public final class ProtocolVersion implements Comparable<ProtocolVersion> {
      * @param minor Minor part.
      * @param patch Patch part.
      */
-    ProtocolVersion(short major, short minor, short patch) {
+    public ProtocolVersion(short major, short minor, short patch) {
         this.major = major;
         this.minor = minor;
         this.patch = patch;
