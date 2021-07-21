@@ -18,7 +18,7 @@
 package org.apache.ignite.client;
 
 /**
- * Server -> client message types.
+ * Server to client message types.
  */
 public class ClientMessageType {
     /** Response to a request (initiated by the client). */
