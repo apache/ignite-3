@@ -49,7 +49,7 @@ class ClientContext {
     }
 
     /**
-     * Gets the protocol version
+     * Gets the protocol version.
      *
      * @return Protocol version.
      */
