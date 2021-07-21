@@ -281,49 +281,49 @@ public class HoconConverterTest {
     public void fromHoconBasic() {
         // Wrong names:
         assertThrowsIllegalArgException(
-            () -> change("{doot : {}}"),
+            () -> change("doot : {}"),
             "'doot' configuration root doesn't exist"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{foo : {}}}"),
+            () -> change("root.foo : {}"),
             "'root' configuration doesn't have the 'foo' sub-configuration"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{arraysList:{name:{x : 1}}}}"),
+            () -> change("root.arraysList.name.x = 1"),
             "'root.arraysList.name' configuration doesn't have the 'x' sub-configuration"
         );
 
         // Wrong node types:
         assertThrowsIllegalArgException(
-            () -> change("{root : foo}"),
+            () -> change("root = foo"),
             "'root' is expected to be a composite configuration node, not a single value"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{arraysList : foo}}"),
+            () -> change("root.arraysList = foo"),
             "'root.arraysList' is expected to be a composite configuration node, not a single value"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{arraysList:{name : foo}}}"),
+            () -> change("root.arraysList.name = foo"),
             "'root.arraysList.name' is expected to be a composite configuration node, not a single value"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{arraysList:{name:{ints : {}}}}}"),
+            () -> change("root.arraysList.name.ints = {}"),
             "'int[]' is expected as a type for the 'root.arraysList.name.ints' configuration value"
         );
 
         // Wrong ordered named list syntax:
         assertThrowsIllegalArgException(
-            () -> change("{root:{arraysList:[ 1 ]}}"),
+            () -> change("root.arraysList = [1]"),
             "'root.arraysList[0]' is expected to be a composite configuration node, not a single value"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{arraysList:[ {} ]}}"),
+            () -> change("root.arraysList = [{}]"),
             "'root.arraysList[0].a' configuration value is mandatory and must be a String"
         );
     }
@@ -333,36 +333,36 @@ public class HoconConverterTest {
      */
     @Test
     public void testHoconPrimitivesDeserialization() throws Throwable {
-        change("{root:{primitivesList:[{p : name}]}}");
+        change("root.primitivesList = [{p = name}]");
 
         HoconPrimitivesConfiguration primitives = configuration.primitivesList().get("name");
         assertNotNull(primitives);
 
-        change("{root:{primitivesList:{name:{booleanVal : true}}}}");
+        change("root.primitivesList.name.booleanVal = true");
         assertThat(primitives.booleanVal().value(), is(true));
 
-        change("{root:{primitivesList:{name:{byteVal : 123}}}}");
+        change("root.primitivesList.name.byteVal = 123");
         assertThat(primitives.byteVal().value(), is((byte)123));
 
-        change("{root:{primitivesList:{name:{shortVal : 12345}}}}");
+        change("root.primitivesList.name.shortVal = 12345");
         assertThat(primitives.shortVal().value(), is((short)12345));
 
-        change("{root:{primitivesList:{name:{intVal : 12345}}}}");
+        change("root.primitivesList.name.intVal = 12345");
         assertThat(primitives.intVal().value(), is(12345));
 
-        change("{root:{primitivesList:{name:{longVal : 12345678900}}}}");
+        change("root.primitivesList.name.longVal = 12345678900");
         assertThat(primitives.longVal().value(), is(12345678900L));
 
-        change("{root:{primitivesList:{name:{charVal : p}}}}");
+        change("root.primitivesList.name.charVal = p");
         assertThat(primitives.charVal().value(), is('p'));
 
-        change("{root:{primitivesList:{name:{floatVal : 2.5}}}}");
+        change("root.primitivesList.name.floatVal = 2.5");
         assertThat(primitives.floatVal().value(), is(2.5f));
 
-        change("{root:{primitivesList:{name:{doubleVal : 2.5}}}}");
+        change("root.primitivesList.name.doubleVal = 2.5");
         assertThat(primitives.doubleVal().value(), is(2.5d));
 
-        change("{root:{primitivesList:{name:{stringVal : foo}}}}");
+        change("root.primitivesList.name.stringVal = foo");
         assertThat(primitives.stringVal().value(), is("foo"));
     }
 
@@ -372,62 +372,62 @@ public class HoconConverterTest {
     @Test
     public void testInvalidHoconPrimitivesDeserialization() {
         assertThrowsIllegalArgException(
-            () -> change("{root:{primitivesList:{name:{booleanVal : \"true\"}}}}"),
+            () -> change("root.primitivesList.name.booleanVal = \"true\""),
             "'boolean' is expected as a type for the 'root.primitivesList.name.booleanVal' configuration value"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{primitivesList:{name:{byteVal : 290}}}}"),
+            () -> change("root.primitivesList.name.byteVal = 290"),
             "Value '290' of 'root.primitivesList.name.byteVal' is out of its declared bounds"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{primitivesList:{name:{byteVal : false}}}}"),
+            () -> change("root.primitivesList.name.byteVal = false"),
             "'byte' is expected as a type for the 'root.primitivesList.name.byteVal' configuration value"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{primitivesList:{name:{shortVal : 12345678900}}}}"),
+            () -> change("root.primitivesList.name.shortVal = 12345678900"),
             "Value '12345678900' of 'root.primitivesList.name.shortVal' is out of its declared bounds"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{primitivesList:{name:{shortVal : false}}}}"),
+            () -> change("root.primitivesList.name.shortVal = false"),
             "'short' is expected as a type for the 'root.primitivesList.name.shortVal' configuration value"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{primitivesList:{name:{intVal : 12345678900}}}}"),
+            () -> change("root.primitivesList.name.intVal = 12345678900"),
             "Value '12345678900' of 'root.primitivesList.name.intVal' is out of its declared bounds"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{primitivesList:{name:{intVal : false}}}}"),
+            () -> change("root.primitivesList.name.intVal = false"),
             "'int' is expected as a type for the 'root.primitivesList.name.intVal' configuration value"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{primitivesList:{name:{longVal : false}}}}"),
+            () -> change("root.primitivesList.name.longVal = false"),
             "'long' is expected as a type for the 'root.primitivesList.name.longVal' configuration value"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{primitivesList:{name:{charVal : 10}}}}"),
+            () -> change("root.primitivesList.name.charVal = 10"),
             "'char' is expected as a type for the 'root.primitivesList.name.charVal' configuration value"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{primitivesList:{name:{floatVal : false}}}}"),
+            () -> change("root.primitivesList.name.floatVal = false"),
             "'float' is expected as a type for the 'root.primitivesList.name.floatVal' configuration value"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{primitivesList:{name:{doubleVal : []}}}}"),
+            () -> change("root.primitivesList.name.doubleVal = []"),
             "'double' is expected as a type for the 'root.primitivesList.name.doubleVal' configuration value"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{primitivesList:{name:{stringVal : 10}}}}"),
+            () -> change("root.primitivesList.name.stringVal = 10"),
             "'String' is expected as a type for the 'root.primitivesList.name.stringVal' configuration value"
         );
     }
@@ -437,36 +437,36 @@ public class HoconConverterTest {
      */
     @Test
     public void testHoconArraysDeserialization() throws Throwable {
-        change("{root:{arraysList:[{a : name}]}}");
+        change("root.arraysList = [{a = name}]");
 
         HoconArraysConfiguration arrays = configuration.arraysList().get("name");
         assertNotNull(arrays);
 
-        change("{root:{arraysList:{name:{booleans : [true]}}}}");
+        change("root.arraysList.name.booleans = [true]");
         assertThat(arrays.booleans().value(), is(new boolean[] {true}));
 
-        change("{root:{arraysList:{name:{bytes : [123]}}}}");
+        change("root.arraysList.name.bytes = [123]");
         assertThat(arrays.bytes().value(), is(new byte[] {123}));
 
-        change("{root:{arraysList:{name:{shorts : [123]}}}}");
+        change("root.arraysList.name.shorts = [123]");
         assertThat(arrays.shorts().value(), is(new short[] {123}));
 
-        change("{root:{arraysList:{name:{ints : [12345]}}}}");
+        change("root.arraysList.name.ints = [12345]");
         assertThat(arrays.ints().value(), is(new int[] {12345}));
 
-        change("{root:{arraysList:{name:{longs : [12345678900]}}}}");
+        change("root.arraysList.name.longs = [12345678900]");
         assertThat(arrays.longs().value(), is(new long[] {12345678900L}));
 
-        change("{root:{arraysList:{name:{chars : [p]}}}}");
+        change("root.arraysList.name.chars = [p]");
         assertThat(arrays.chars().value(), is(new char[] {'p'}));
 
-        change("{root:{arraysList:{name:{floats : [2.5]}}}}");
+        change("root.arraysList.name.floats = [2.5]");
         assertThat(arrays.floats().value(), is(new float[] {2.5f}));
 
-        change("{root:{arraysList:{name:{doubles : [2.5]}}}}");
+        change("root.arraysList.name.doubles = [2.5]");
         assertThat(arrays.doubles().value(), is(new double[] {2.5d}));
 
-        change("{root:{arraysList:{name:{strings : [foo]}}}}");
+        change("root.arraysList.name.strings = [foo]");
         assertThat(arrays.strings().value(), is(new String[] {"foo"}));
     }
 
@@ -476,72 +476,72 @@ public class HoconConverterTest {
     @Test
     public void testInvalidHoconArraysDeserialization() {
         assertThrowsIllegalArgException(
-            () -> change("{root:{arraysList:{name:{booleans : true}}}}"),
+            () -> change("root.arraysList.name.booleans = true"),
             "'boolean[]' is expected as a type for the 'root.arraysList.name.booleans' configuration value"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{arraysList:{name:{booleans : [{}]}}}}"),
+            () -> change("root.arraysList.name.booleans = [{}]"),
             "'boolean' is expected as a type for the 'root.arraysList.name.booleans[0]' configuration value"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{arraysList:{name:{bytes : [123, 290]}}}}"),
+            () -> change("root.arraysList.name.bytes = [123, 290]"),
             "Value '290' of 'root.arraysList.name.bytes[1]' is out of its declared bounds"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{arraysList:{name:{bytes : false}}}}"),
+            () -> change("root.arraysList.name.bytes = false"),
             "'byte[]' is expected as a type for the 'root.arraysList.name.bytes' configuration value"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{arraysList:{name:{shorts : [12345678900]}}}}"),
+            () -> change("root.arraysList.name.shorts = [12345678900]"),
             "Value '12345678900' of 'root.arraysList.name.shorts[0]' is out of its declared bounds"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{arraysList:{name:{shorts : [123, false]}}}}"),
+            () -> change("root.arraysList.name.shorts = [123, false]"),
             "'short' is expected as a type for the 'root.arraysList.name.shorts[1]' configuration value"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{arraysList:{name:{ints : [5, 12345678900]}}}}"),
+            () -> change("root.arraysList.name.ints = [5, 12345678900]"),
             "Value '12345678900' of 'root.arraysList.name.ints[1]' is out of its declared bounds"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{arraysList:{name:{ints : false}}}}"),
+            () -> change("root.arraysList.name.ints = false"),
             "'int[]' is expected as a type for the 'root.arraysList.name.ints' configuration value"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{arraysList:{name:{longs : [foo]}}}}"),
+            () -> change("root.arraysList.name.longs = [foo]"),
             "'long' is expected as a type for the 'root.arraysList.name.longs[0]' configuration value"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{arraysList:{name:{chars : 10}}}}"),
+            () -> change("root.arraysList.name.chars = 10"),
             "'char[]' is expected as a type for the 'root.arraysList.name.chars' configuration value"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{arraysList:{name:{chars : [abc]}}}}"),
+            () -> change("root.arraysList.name.chars = [abc]"),
             "'char' is expected as a type for the 'root.arraysList.name.chars[0]' configuration value"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{arraysList:{name:{floats : [1.2, foo]}}}}"),
+            () -> change("root.arraysList.name.floats = [1.2, foo]"),
             "'float' is expected as a type for the 'root.arraysList.name.floats[1]' configuration value"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{arraysList:{name:{doubles : foo}}}}"),
+            () -> change("root.arraysList.name.doubles = foo"),
             "'double[]' is expected as a type for the 'root.arraysList.name.doubles' configuration value"
         );
 
         assertThrowsIllegalArgException(
-            () -> change("{root:{arraysList:{name:{strings : 10}}}}"),
+            () -> change("root.arraysList.name.strings = 10"),
             "'String[]' is expected as a type for the 'root.arraysList.name.strings' configuration value"
         );
     }
