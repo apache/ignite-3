@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler;
 
 import io.netty.channel.ChannelFuture;
 import org.apache.ignite.app.Ignite;
+import org.apache.ignite.client.ProtocolVersion;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -114,6 +115,50 @@ public class ClientHandlerIntegrationTest {
             assertEquals(0, minor);
             assertEquals(0, patch);
             assertEquals(0, errorCode);
+        }
+    }
+
+    @Test
+    void testHandshakeInvalidVersionReturnsError() throws Exception {
+        try (var sock = new Socket("127.0.0.1", 10800)) {
+            OutputStream out = sock.getOutputStream();
+
+            // Magic: IGNI
+            out.write(MAGIC);
+
+            // Handshake.
+            var packer = MessagePack.newDefaultBufferPacker();
+            packer.packInt(7); // Size.
+
+            packer.packInt(2); // Major.
+            packer.packInt(8); // Minor.
+            packer.packInt(0); // Patch.
+
+            packer.packInt(2); // Client type: general purpose.
+
+            packer.packBinaryHeader(0); // Features.
+            packer.packMapHeader(0); // Extensions.
+
+            out.write(packer.toByteArray());
+            out.flush();
+
+            // Read response.
+            var unpacker = MessagePack.newDefaultUnpacker(sock.getInputStream());
+            var magic = unpacker.readPayload(4);
+            var len = unpacker.unpackInt();
+            var major = unpacker.unpackInt();
+            var minor = unpacker.unpackInt();
+            var patch = unpacker.unpackInt();
+            var errorCode = unpacker.unpackInt();
+            var err = unpacker.unpackString();
+
+            assertArrayEquals(MAGIC, magic);
+            assertEquals(31, len);
+            assertEquals(3, major);
+            assertEquals(0, minor);
+            assertEquals(0, patch);
+            assertEquals(1, errorCode);
+            assertEquals("Unsupported version: 2.8.0", err);
         }
     }
 

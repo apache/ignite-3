@@ -100,7 +100,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             var clientVer = ProtocolVersion.unpack(unpacker);
 
             if (!clientVer.equals(ProtocolVersion.LATEST_VER))
-                throw new IgniteException("Unsupported version: " + clientVer);
+                throw new IgniteException("Unsupported version: " +
+                        clientVer.major() + "." + clientVer.minor() + "." + clientVer.patch());
 
             var clientCode = unpacker.unpackInt();
             var featuresLen = unpacker.unpackBinaryHeader();
