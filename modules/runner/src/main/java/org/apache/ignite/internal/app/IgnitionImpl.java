@@ -197,7 +197,7 @@ public class IgnitionImpl implements Ignition {
             VaultManager vaultMgr = doStartComponent(
                 nodeName,
                 startedComponents,
-                createVault(nodeName, workDir)
+                createVault(workDir)
             );
 
             vaultMgr.putName(nodeName).join();
@@ -372,7 +372,7 @@ public class IgnitionImpl implements Ignition {
     /**
      * Starts the Vault component.
      */
-    private static VaultManager createVault(String nodeName, Path workDir) {
+    private static VaultManager createVault(Path workDir) {
         Path vaultPath = workDir.resolve(VAULT_DB_PATH);
 
         try {
@@ -435,7 +435,6 @@ public class IgnitionImpl implements Ignition {
             catch (Exception e) {
                 LOG.error("Unable to execute before node stop on the component=[" +
                     componentToExecuteBeforeNodeStop + "] within node=[" + nodeName + ']', e);
-                e.printStackTrace();
             }
         }
 
