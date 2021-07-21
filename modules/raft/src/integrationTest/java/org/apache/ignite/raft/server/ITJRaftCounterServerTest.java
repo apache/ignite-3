@@ -131,13 +131,27 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
     void after(TestInfo testInfo) throws Exception {
         LOG.info("Start client shutdown");
 
-        for (RaftGroupService client : clients)
+        Iterator<RaftGroupService> iterClients = clients.iterator();
+
+        while (iterClients.hasNext()) {
+            RaftGroupService client  = iterClients.next();
+
+            iterClients.remove();
+
             client.shutdown();
+        }
 
         LOG.info("Start server shutdown servers={}", servers.size());
 
-        for (RaftServer server : servers)
+        Iterator<JRaftServerImpl> iterSrv = servers.iterator();
+
+        while (iterSrv.hasNext()) {
+            JRaftServerImpl server = iterSrv.next();
+
+            iterSrv.remove();
+
             server.stop();
+        }
 
         LOG.info(">>>>>>>>>>>>>>> End test method: {}", testInfo.getTestMethod().orElseThrow().getName());
     }
@@ -153,6 +167,8 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
         JRaftServerImpl server = new JRaftServerImpl(service, dataPath.toString()) {
             @Override public void stop() {
+                servers.remove(this);
+
                 super.stop();
 
                 service.stop();
@@ -183,6 +199,8 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         RaftGroupServiceImpl client = new RaftGroupServiceImpl(groupId, clientNode, FACTORY, 10_000,
             List.of(new Peer(addr)), false, 200) {
             @Override public void shutdown() {
+                clients.remove(this);
+
                 super.shutdown();
 
                 clientNode.stop();
@@ -507,8 +525,6 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         String serverDataPath1 = toStop.getServerDataPath(COUNTER_GROUP_1);
 
         int stopIdx = servers.indexOf(toStop);
-
-        servers.remove(stopIdx);
 
         toStop.stop();
 

@@ -15,26 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.builder;
+package org.apache.ignite.internal.metastorage.server;
 
-import java.util.Map;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Builder base interface.
+ * Condition tests an entry's value is tombstone in meta storage.
+ * Entry is tombstone if it is not empty and doesn't exists.
  */
-public interface SchemaObjectBuilder {
+public class TombstoneCondition extends AbstractCondition {
     /**
-     * Provide hints to builder.
+     * Constructs a condition with the given entry key.
      *
-     * @param hints Hints.
-     * @return {@code This} for chaining.
+     * @param key Key identifies an entry which the condition will applied to.
      */
-    SchemaObjectBuilder withHints(Map<String, String> hints);
+    public TombstoneCondition(@NotNull byte[] key) {
+        super(key);
+    }
 
-    /**
-     * Builds schema object.
-     *
-     * @return Built object.
-     */
-    Object build();
+    /** {@inheritDoc} */
+    @Override public boolean test(@NotNull Entry e) {
+        return e.tombstone();
+    }
 }
