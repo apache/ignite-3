@@ -59,6 +59,8 @@ public class ThreadIdTest implements ThreadId.OnError {
 
         t.start();
 
+        assertEquals(1, latch.getCount());
+
         this.id.unlock();
 
         TestUtils.waitForCondition(() -> latch.getCount() == 0, 10_000);
