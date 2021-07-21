@@ -24,6 +24,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ServiceLoader;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -43,10 +44,16 @@ public class IgnitionManager {
      * @return Started Ignite node.
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
-    public static synchronized Ignite start(String nodeName, @Nullable String configStr, Path workDir) {
-        if (ignition == null) {
-            ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class);
-            ignition = ldr.iterator().next();
+    public static Ignite start(
+        @NotNull String nodeName,
+        @Nullable String configStr,
+        @NotNull Path workDir
+    ) {
+        synchronized (IgnitionManager.class) {
+            if (ignition == null) {
+                ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class);
+                ignition = ldr.iterator().next();
+            }
         }
 
         if (configStr == null)
@@ -73,14 +80,54 @@ public class IgnitionManager {
      * @return Started Ignite node.
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
-    public static synchronized Ignite start(
-        String nodeName, @Nullable Path cfgPath, Path workDir, @Nullable ClassLoader clsLdr
+    public static Ignite start(
+        @NotNull String nodeName,
+        @Nullable Path cfgPath,
+        @NotNull Path workDir,
+        @Nullable ClassLoader clsLdr
     ) {
-        if (ignition == null) {
-            ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class, clsLdr);
-            ignition = ldr.iterator().next();
+        synchronized (IgnitionManager.class) {
+            if (ignition == null) {
+                ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class, clsLdr);
+                ignition = ldr.iterator().next();
+            }
         }
 
         return ignition.start(nodeName, cfgPath, workDir);
+    }
+
+    /**
+     * Stops node with given node. It's possible to stop both already started node or node that is currently starting.
+     *
+     * @param nodeName Node name to stop.
+     */
+    public static void stop(@NotNull String nodeName) {
+        synchronized (IgnitionManager.class) {
+            if (ignition == null) {
+                ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class);
+                ignition = ldr.iterator().next();
+            }
+        }
+
+        ignition.stop(nodeName);
+    }
+
+    /**
+     * Stops node with given node. It's possible to stop both already started node or node that is currently starting.
+     *
+     * @param nodeName Node name to stop.
+     * @param clsLdr The class loader to be used to load provider-configuration files
+     *               and provider classes, or {@code null} if the system class loader
+     *               (or, failing that, the bootstrap class loader) is to be used
+     */
+    public static void stop(@NotNull String nodeName, @Nullable ClassLoader clsLdr) {
+        synchronized (IgnitionManager.class) {
+            if (ignition == null) {
+                ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class, clsLdr);
+                ignition = ldr.iterator().next();
+            }
+        }
+
+        ignition.stop(nodeName);
     }
 }

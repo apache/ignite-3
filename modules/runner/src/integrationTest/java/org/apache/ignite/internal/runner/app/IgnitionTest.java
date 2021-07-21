@@ -23,6 +23,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.app.Ignite;
+import org.apache.ignite.app.Ignition;
 import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -79,8 +80,8 @@ class IgnitionTest {
 
     /** */
     @AfterEach
-    void tearDown() throws Exception {
-        IgniteUtils.closeAll(startedNodes);
+    void tearDown() {
+        startedNodes.stream().map(Ignite::name).forEach(IgnitionManager::stop);
     }
 
     /**
@@ -102,8 +103,8 @@ class IgnitionTest {
      */
     @Test
     void testNodeStartWithoutBootstrapConfiguration() throws Exception {
-        try (Ignite ignite = IgnitionManager.start("node0", null, workDir)) {
-            Assertions.assertNotNull(ignite);
-        }
+        startedNodes.add(IgnitionManager.start("node0", null, workDir));
+
+        Assertions.assertNotNull(startedNodes.get(0));
     }
 }

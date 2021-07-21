@@ -32,11 +32,20 @@ public class IgniteImpl implements Ignite {
     /** Vault manager */
     private final VaultManager vaultManager;
 
+    /** Ignite instance name. */
+    private final String name;
+
     /**
+     * @param name Ignite instance name.
      * @param tableManager Table manager.
      * @param vaultManager Vault manager.
      */
-    IgniteImpl(IgniteTables tableManager, VaultManager vaultManager) {
+    IgniteImpl(
+        String name,
+        IgniteTables tableManager,
+        VaultManager vaultManager
+    ) {
+        this.name = name;
         this.distributedTableManager = tableManager;
         this.vaultManager = vaultManager;
     }
@@ -54,5 +63,10 @@ public class IgniteImpl implements Ignite {
     /** {@inheritDoc} */
     @Override public void close() throws Exception {
         vaultManager.close();
+    }
+
+    /** {@inheritDoc} */
+    @Override public String name() {
+        return name;
     }
 }

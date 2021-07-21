@@ -356,7 +356,7 @@ public class IgnitionImpl implements Ignition {
 
             ackSuccessStart();
 
-            return new IgniteImpl(distributedTblMgr, vaultMgr);
+            return new IgniteImpl(nodeName, distributedTblMgr, vaultMgr);
         }
         catch (Exception e) {
             String errMsg = "Unable to start node=[" + nodeName + "].";
