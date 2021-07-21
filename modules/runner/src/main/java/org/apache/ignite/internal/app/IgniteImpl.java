@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.app;
 
 import org.apache.ignite.app.Ignite;
+import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -61,8 +62,8 @@ public class IgniteImpl implements Ignite {
     }
 
     /** {@inheritDoc} */
-    @Override public void close() throws Exception {
-        vaultManager.close();
+    @Override public void close() {
+        IgnitionManager.stop(name);
     }
 
     /** {@inheritDoc} */
