@@ -999,10 +999,10 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     }
 
     /**
-     * Gets a ceiling (higher or equal) entry for a key in the keys index.
+     * Gets an entry from the keys index with the least key greater than or equal to the specified key.
      *
      * @param keyFrom Key.
-     * @return Higher or equal entry.
+     * @return Higher or equal entry. Returns {@code null} if no such entry exists.
      */
     @Nullable
     Map.Entry<byte[], long[]> revisionCeilingEntry(byte[] keyFrom) {
@@ -1010,10 +1010,10 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     }
 
     /**
-     * Gets a higher entry for a key in the keys index.
+     * Gets an entry from the keys index with the least key greater than the specified key.
      *
      * @param key Key.
-     * @return Higher entry.
+     * @return Higher entry or {@code null} if no such entry exists.
      */
     @Nullable
     Map.Entry<byte[], long[]> revisionHigherEntry(byte[] key) {
@@ -1021,11 +1021,13 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     }
 
     /**
-     * Gets a higher or ceiling entry for a key in the keys index, depending on the strictlyHigher parameter.
+     * Gets an entry from the keys index with the least key greater than or equal to the specified key,
+     * depending on the strictlyHigher parameter.
      *
      * @param key
      * @param strictlyHigher {@code true} for a strictly higher entry, {@code false} for a ceiling one.
-     * @return Entry.
+     * @return Entry for the least key greater than or equal to the specified key. If no such entry
+     * exists returns {@code null}.
      */
     @Nullable
     private IgniteBiTuple<byte[], long[]> higherOrCeiling(byte[] key, boolean strictlyHigher) {
