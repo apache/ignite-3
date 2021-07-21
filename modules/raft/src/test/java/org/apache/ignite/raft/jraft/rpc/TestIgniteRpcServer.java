@@ -20,7 +20,6 @@ package org.apache.ignite.raft.jraft.rpc;
 import java.util.List;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -30,6 +29,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
  * RPC server configured for integration tests.
  */
 public class TestIgniteRpcServer extends IgniteRpcServer {
+    /** */
     private final NodeOptions nodeOptions;
 
     /**
@@ -47,13 +47,17 @@ public class TestIgniteRpcServer extends IgniteRpcServer {
         super(
             clusterService,
             nodeManager,
-            new RaftClientMessagesFactory(),
+            nodeOptions.getRaftClientMessagesFactory(),
+            nodeOptions.getRaftMessagesFactory(),
             JRaftUtils.createRequestExecutor(nodeOptions)
         );
+
+        clusterService.messagingService().addMessageHandler(TestMessageGroup.class, new RpcMessageHandler());
 
         this.nodeOptions = nodeOptions;
     }
 
+    /** {@inheritDoc} */
     @Override public void shutdown() {
         super.shutdown();
 

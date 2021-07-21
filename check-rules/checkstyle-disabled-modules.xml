@@ -33,6 +33,4 @@
     <suppress files="[/\\]modules/network-api[/\\]" checks=".*" />
     <suppress files="[/\\]modules/rest[/\\]" checks=".*" />
     <suppress files="[/\\]modules/runner[/\\]" checks=".*" />
-    <suppress files="[/\\]modules/schema[/\\]" checks=".*" />
-    <suppress files="[/\\]modules/table[/\\]" checks=".*" />
 </suppressions>

@@ -40,7 +40,6 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.exception.RaftException;
-import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
@@ -71,11 +70,6 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
      * The logger.
      */
     private static final IgniteLogger LOG = IgniteLogger.forClass(ITJRaftCounterServerTest.class);
-
-    /**
-     * Message factory.
-     */
-    private static final RaftClientMessagesFactory FACTORY = new RaftClientMessagesFactory();
 
     /**
      * Counter group name 0.
@@ -137,13 +131,27 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
     void after(TestInfo testInfo) throws Exception {
         LOG.info("Start client shutdown");
 
-        for (RaftGroupService client : clients)
+        Iterator<RaftGroupService> iterClients = clients.iterator();
+
+        while (iterClients.hasNext()) {
+            RaftGroupService client  = iterClients.next();
+
+            iterClients.remove();
+
             client.shutdown();
+        }
 
         LOG.info("Start server shutdown servers={}", servers.size());
 
-        for (RaftServer server : servers)
+        Iterator<JRaftServerImpl> iterSrv = servers.iterator();
+
+        while (iterSrv.hasNext()) {
+            JRaftServerImpl server = iterSrv.next();
+
+            iterSrv.remove();
+
             server.shutdown();
+        }
 
         LOG.info(">>>>>>>>>>>>>>> End test method: {}", testInfo.getTestMethod().orElseThrow().getName());
     }
@@ -157,8 +165,10 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
         ClusterService service = clusterService("server" + idx, PORT + idx, List.of(addr), true);
 
-        JRaftServerImpl server = new JRaftServerImpl(service, dataPath.toString(), FACTORY) {
+        JRaftServerImpl server = new JRaftServerImpl(service, dataPath.toString()) {
             @Override public void shutdown() throws Exception {
+                servers.remove(this);
+
                 super.shutdown();
 
                 service.shutdown();
@@ -187,6 +197,8 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         RaftGroupServiceImpl client = new RaftGroupServiceImpl(groupId, clientNode, FACTORY, 10_000,
             List.of(new Peer(addr)), false, 200) {
             @Override public void shutdown() {
+                clients.remove(this);
+
                 super.shutdown();
 
                 clientNode.shutdown();
@@ -511,8 +523,6 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         String serverDataPath1 = toStop.getServerDataPath(COUNTER_GROUP_1);
 
         int stopIdx = servers.indexOf(toStop);
-
-        servers.remove(stopIdx);
 
         toStop.shutdown();
 
