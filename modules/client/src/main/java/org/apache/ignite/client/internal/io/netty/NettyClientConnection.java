@@ -73,6 +73,7 @@ public class NettyClientConnection implements ClientConnection {
      * Handles incoming message.
      *
      * @param buf Message.
+     * @throws IOException when message can't be decoded.
      */
     void onMessage(ByteBuffer buf) throws IOException {
         msgHnd.onMessage(buf);

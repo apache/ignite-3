@@ -39,19 +39,22 @@ public class TcpIgniteClient implements Ignite {
     private final ClientTables tables;
 
     /**
-     * Private constructor.
+     * Constructor.
+     *
+     * @param cfg Config.
      */
-    public TcpIgniteClient(IgniteClientConfiguration cfg) throws IgniteClientException {
+    public TcpIgniteClient(IgniteClientConfiguration cfg) {
         this(TcpClientChannel::new, cfg);
     }
 
     /**
      * Constructor with custom channel factory.
+     *
+     * @param chFactory Channel factory.
+     * @param cfg Config.
      */
-    public TcpIgniteClient(
-            BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, ClientChannel> chFactory,
-            IgniteClientConfiguration cfg
-    ) throws IgniteClientException {
+    public TcpIgniteClient(BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, ClientChannel> chFactory,
+            IgniteClientConfiguration cfg) {
         ch = new ReliableChannel(chFactory, cfg);
 
         try {

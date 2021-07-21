@@ -27,6 +27,7 @@ public interface ClientMessageHandler {
     /**
      * Handles messages from the server.
      * @param buf Buffer.
+     * @throws IOException on failure.
      */
     void onMessage(ByteBuffer buf) throws IOException;
 }

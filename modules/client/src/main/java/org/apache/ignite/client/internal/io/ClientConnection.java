@@ -30,6 +30,7 @@ public interface ClientConnection extends AutoCloseable {
      * Sends a message.
      *
      * @param msg Message buffer.
+     * @return Future for the operation.
      */
     ChannelFuture send(ByteBuffer msg) throws IgniteException;
 

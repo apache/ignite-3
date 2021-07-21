@@ -81,9 +81,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Send/receive timeout in milliseconds. */
     private final int timeout;
 
-    /** Constructor. */
-    TcpClientChannel(ClientChannelConfiguration cfg, ClientConnectionMultiplexer connMgr)
-            throws IgniteClientException {
+    /**
+     * Constructor.
+     *
+     * @param cfg Config.
+     * @param connMgr Connection multiplexer.
+     */
+    TcpClientChannel(ClientChannelConfiguration cfg, ClientConnectionMultiplexer connMgr) {
         validateConfiguration(cfg);
 
         asyncContinuationExecutor = ForkJoinPool.commonPool();

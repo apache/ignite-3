@@ -79,6 +79,9 @@ public class ClientSchema {
     }
 
     /**
+     * Gets a column by name.
+     *
+     * @param name Column name.
      * @return Column by name.
      */
     public @NotNull ClientColumn column(String name) {
