@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table.event;
 import java.util.UUID;
 import org.apache.ignite.internal.manager.EventParameters;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.table.Table;
 
 /**
  * Table event parameters. There are properties which associate with a concrete table.
