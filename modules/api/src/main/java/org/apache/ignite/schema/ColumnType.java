@@ -268,7 +268,7 @@ public class ColumnType {
         /** A decimal floating-point number. */
         DECIMAL,
 
-        /** 128-bitUUID. */
+        /** 128-bit UUID. */
         UUID,
 
         /** Bit mask. */
