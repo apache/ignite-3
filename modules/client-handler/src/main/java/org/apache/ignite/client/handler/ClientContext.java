@@ -27,7 +27,7 @@ import java.util.BitSet;
  */
 class ClientContext {
     /** Version. */
-    private final ProtocolVersion ver;
+    private final ProtocolVersion version;
 
     /** Client type code. */
     private final int clientCode;
@@ -38,14 +38,41 @@ class ClientContext {
     /**
      * Constructor.
      *
-     * @param ver Version.
+     * @param version Version.
      * @param clientCode Client type code.
      * @param features Feature set.
      */
-    ClientContext(ProtocolVersion ver, int clientCode, BitSet features) {
-        this.ver = ver;
+    ClientContext(ProtocolVersion version, int clientCode, BitSet features) {
+        this.version = version;
         this.clientCode = clientCode;
         this.features = features;
+    }
+
+    /**
+     * Gets the protocol version
+     *
+     * @return Protocol version.
+     */
+    public ProtocolVersion version() {
+        return version;
+    }
+
+    /**
+     * Gets the client code.
+     *
+     * @return Client code.
+     */
+    public int clientCode() {
+        return clientCode;
+    }
+
+    /**
+     * Gets the features.
+     *
+     * @return Features.
+     */
+    public BitSet features() {
+        return features;
     }
 
     /** {@inheritDoc} */
