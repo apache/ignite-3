@@ -99,7 +99,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         try {
             var clientVer = ProtocolVersion.unpack(unpacker);
 
-            if (clientVer != ProtocolVersion.LATEST_VER)
+            if (!clientVer.equals(ProtocolVersion.LATEST_VER))
                 throw new IgniteException("Unsupported version: " + clientVer);
 
             var clientCode = unpacker.unpackInt();
