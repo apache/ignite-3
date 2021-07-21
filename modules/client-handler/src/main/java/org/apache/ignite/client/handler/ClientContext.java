@@ -17,20 +17,17 @@
 
 package org.apache.ignite.client.handler;
 
+import org.apache.ignite.client.ProtocolVersion;
+import org.apache.ignite.internal.tostring.S;
+
 import java.util.BitSet;
 
 /**
  * Client connection context.
  */
 class ClientContext {
-    /** Major version part. */
-    private final int verMajor;
-
-    /** Minor version part. */
-    private final int verMinor;
-
-    /** Patch version part. */
-    private final int verPatch;
+    /** Version. */
+    private final ProtocolVersion ver;
 
     /** Client type code. */
     private final int clientCode;
@@ -41,28 +38,18 @@ class ClientContext {
     /**
      * Constructor.
      *
-     * @param verMajor Major version part.
-     * @param verMinor Minor version part.
-     * @param verPatch Patch version part.
+     * @param ver Version.
      * @param clientCode Client type code.
      * @param features Feature set.
      */
-    ClientContext(int verMajor, int verMinor, int verPatch, int clientCode, BitSet features) {
-        this.verMajor = verMajor;
-        this.verMinor = verMinor;
-        this.verPatch = verPatch;
+    ClientContext(ProtocolVersion ver, int clientCode, BitSet features) {
+        this.ver = ver;
         this.clientCode = clientCode;
         this.features = features;
     }
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return "ClientContext{" +
-                "verMajor=" + verMajor +
-                ", verMinor=" + verMinor +
-                ", verPatch=" + verPatch +
-                ", clientCode=" + clientCode +
-                ", features=" + features +
-                '}';
+        return S.toString(ClientContext.class, this);
     }
 }

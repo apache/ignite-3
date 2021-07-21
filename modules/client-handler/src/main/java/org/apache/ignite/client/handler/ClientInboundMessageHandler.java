@@ -26,6 +26,7 @@ import org.apache.ignite.client.ClientMessagePacker;
 import org.apache.ignite.client.ClientMessageType;
 import org.apache.ignite.client.ClientMessageUnpacker;
 import org.apache.ignite.client.ClientOp;
+import org.apache.ignite.client.ProtocolVersion;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
@@ -88,14 +89,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         var packer = getPacker();
 
         if (clientContext == null) {
-            var major = unpacker.unpackInt();
-            var minor = unpacker.unpackInt();
-            var patch = unpacker.unpackInt();
+            var clientVer = ProtocolVersion.unpack(unpacker);
             var clientCode = unpacker.unpackInt();
             var featuresLen = unpacker.unpackBinaryHeader();
             var features = BitSet.valueOf(unpacker.readPayload(featuresLen));
 
-            clientContext = new ClientContext(major, minor, patch, clientCode, features);
+            clientContext = new ClientContext(clientVer, clientCode, features);
 
             log.debug("Handshake: " + clientContext);
 

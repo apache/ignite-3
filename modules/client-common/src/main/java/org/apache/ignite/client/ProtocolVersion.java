@@ -17,6 +17,9 @@
 
 package org.apache.ignite.client;
 
+import java.io.IOException;
+import org.apache.ignite.internal.tostring.S;
+
 /** Thin client protocol version. */
 public final class ProtocolVersion implements Comparable<ProtocolVersion> {
     /** Protocol version: 3.0.0. */
@@ -45,6 +48,10 @@ public final class ProtocolVersion implements Comparable<ProtocolVersion> {
         this.major = major;
         this.minor = minor;
         this.patch = patch;
+    }
+
+    public static ProtocolVersion unpack(ClientMessageUnpacker unpacker) throws IOException {
+        return new ProtocolVersion(unpacker.unpackShort(), unpacker.unpackShort(), unpacker.unpackShort());
     }
 
     /**
@@ -107,6 +114,6 @@ public final class ProtocolVersion implements Comparable<ProtocolVersion> {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return String.format("%s.%s.%s", major, minor, patch);
+        return S.toString(ProtocolVersion.class, this);
     }
 }
