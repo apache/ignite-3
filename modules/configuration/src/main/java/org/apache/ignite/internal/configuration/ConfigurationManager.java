@@ -78,7 +78,7 @@ public class ConfigurationManager implements IgniteComponent {
     /** {@inheritDoc} */
     @Override public void stop() {
         // TODO: IGNITE-15161 Implement component's stop.
-//        confRegistry.stop();
+        confRegistry.stop();
     }
 
     /**

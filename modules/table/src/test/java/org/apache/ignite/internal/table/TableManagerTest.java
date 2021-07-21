@@ -145,6 +145,8 @@ public class TableManagerTest {
                 new TestConfigurationStorage(ConfigurationType.LOCAL),
                 new TestConfigurationStorage(ConfigurationType.DISTRIBUTED)));
 
+            cfrMgr.start();
+
             cfrMgr.bootstrap("{\n" +
                 "   \"node\":{\n" +
                 "      \"metastorageNodes\":[\n" +
@@ -439,6 +441,8 @@ public class TableManagerTest {
         }).when(am).listen(same(AffinityEvent.CALCULATED), any());
 
         TableManager tableManager = new TableManager(cfrMgr, mm, sm, am, rm);
+
+        tableManager.start();
 
         tblManagerFut.complete(tableManager);
 

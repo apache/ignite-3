@@ -159,6 +159,8 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
             }
         };
 
+        server.start();
+
         clo.accept(server);
 
         servers.add(server);

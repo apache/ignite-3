@@ -81,6 +81,8 @@ public class AffinityManagerTest {
             cfrMgr = new ConfigurationManager(rootConfigurationKeys(), Arrays.asList(
                 new TestConfigurationStorage(ConfigurationType.DISTRIBUTED)));
 
+            cfrMgr.start();
+
             cfrMgr.bootstrap("{\n" +
                 "   \"table\":{\n" +
                 "      \"tables\":{\n" +
@@ -189,6 +191,8 @@ public class AffinityManagerTest {
 
         AffinityManager affinityManager = new AffinityManager(cfrMgr, mm, bm);
 
+        affinityManager.start();
+
         CompletableFuture<Boolean> assignmentCalculated = new CompletableFuture<>();
 
         affinityManager.listen(AffinityEvent.CALCULATED, new EventListener<AffinityEventParameters>() {
@@ -251,6 +255,8 @@ public class AffinityManagerTest {
         });
 
         AffinityManager affinityManager = new AffinityManager(cfrMgr, mm, bm);
+
+        affinityManager.start();
 
         CompletableFuture<Boolean> assignmentRemoved = new CompletableFuture<>();
 
