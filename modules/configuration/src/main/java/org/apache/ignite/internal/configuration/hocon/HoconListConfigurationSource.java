@@ -139,6 +139,9 @@ class HoconListConfigurationSource implements ConfigurationSource {
 
     /**
      * Non-null wrapper over {@link TypeUtils#boxed}.
+     *
+     * @param clazz Class, either primitive or not.
+     * @return Boxed version of passed class.
      */
     public static Class<?> box(Class<?> clazz) {
         Class<?> boxed = TypeUtils.boxed(clazz);
