@@ -32,8 +32,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
@@ -706,51 +704,24 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * Gets a table if it exists or {@code null} if it was not created or was removed before.
      *
      * @param id Table ID.
-     * @param checkConfiguration True when the method checks a configuration before tries to get a table,
      * false otherwise.
      * @return A table or {@code null} if table does not exist.
      */
-    @Override public TableImpl table(UUID id, boolean checkConfiguration) {
-        return table(() -> tablesById.get(id), p -> p.tableId().equals(id), checkConfiguration);
-    }
+    @Override public TableImpl table(UUID id) {
+        var tbl = tablesById.get(id);
 
-    /**
-     * Gets a table if it exists or {@code null} if it was not created or was removed before.
-     *
-     * @param checkConfiguration True when the method checks a configuration before tries to get a table,
-     * false otherwise.
-     * @return A table or {@code null} if table does not exist.
-     */
-    private Table table(String name, boolean checkConfiguration) {
-        return table(() -> tables.get(name), p -> p.tableName().equals(name), checkConfiguration);
-    }
-
-    /**
-     * Gets a table if it exists or {@code null} if it was not created or was removed before.
-     *
-     * @param checkConfiguration True when the method checks a configuration before tries to get a table,
-     * false otherwise.
-     * @return A table or {@code null} if table does not exist.
-     */
-    private TableImpl table(Supplier<TableImpl> supplier, Predicate<TableEventParameters> predicate, boolean checkConfiguration) {
-        var tbl = supplier.get();
-
-        if (tbl != null) {
-            if (checkConfiguration && !isTableConfigured(tbl.tableName()))
-                return null;
-            else
-                return tbl;
-        }
+        if (tbl != null)
+            return tbl;
 
         CompletableFuture<TableImpl> getTblFut = new CompletableFuture<>();
 
         EventListener<TableEventParameters> clo = new EventListener<>() {
             @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
-                if (!predicate.test(parameters))
+                if (!id.equals(parameters.tableId()))
                     return false;
 
                 if (e == null)
-                    getTblFut.complete((TableImpl) parameters.table());
+                    getTblFut.complete(parameters.table());
                 else
                     getTblFut.completeExceptionally(e);
 
@@ -764,10 +735,58 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         listen(TableEvent.CREATE, clo);
 
-        tbl = supplier.get();
+        tbl = tablesById.get(id);
 
-        if (tbl != null && isTableConfigured(tbl.tableName()) && getTblFut.complete(tbl) ||
-                getTblFut.complete(null))
+        if (tbl != null && getTblFut.complete(tbl) || getTblFut.complete(null))
+            removeListener(TableEvent.CREATE, clo, null);
+
+        return getTblFut.join();
+    }
+
+    /**
+     * Gets a table if it exists or {@code null} if it was not created or was removed before.
+     *
+     * @param checkConfiguration True when the method checks a configuration before tries to get a table,
+     * false otherwise.
+     * @return A table or {@code null} if table does not exist.
+     */
+    private Table table(String name, boolean checkConfiguration) {
+        if (checkConfiguration && !isTableConfigured(name))
+            return null;
+
+        Table tbl = tables.get(name);
+
+        if (tbl != null)
+            return tbl;
+
+        CompletableFuture<Table> getTblFut = new CompletableFuture<>();
+
+        EventListener<TableEventParameters> clo = new EventListener<>() {
+            @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
+                String tableName = parameters.tableName();
+
+                if (!name.equals(tableName))
+                    return false;
+
+                if (e == null)
+                    getTblFut.complete(parameters.table());
+                else
+                    getTblFut.completeExceptionally(e);
+
+                return true;
+            }
+
+            @Override public void remove(@NotNull Throwable e) {
+                getTblFut.completeExceptionally(e);
+            }
+        };
+
+        listen(TableEvent.CREATE, clo);
+
+        tbl = tables.get(name);
+
+        if (tbl != null && getTblFut.complete(tbl) ||
+            !isTableConfigured(name) && getTblFut.complete(null))
             removeListener(TableEvent.CREATE, clo, null);
 
         return getTblFut.join();

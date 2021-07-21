@@ -84,7 +84,7 @@ public class TableEventParameters implements EventParameters {
      *
      * @return Table.
      */
-    public Table table() {
+    public TableImpl table() {
         return table;
     }
 }

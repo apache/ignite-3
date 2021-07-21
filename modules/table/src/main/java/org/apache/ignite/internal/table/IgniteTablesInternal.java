@@ -27,8 +27,7 @@ public interface IgniteTablesInternal {
      * Gets a table by id.
      *
      * @param id Table ID.
-     * @param checkConfiguration Whether to check configuration.
      * @return Table or {@code null} when not exists.
      */
-    TableImpl table(UUID id, boolean checkConfiguration);
+    TableImpl table(UUID id);
 }
