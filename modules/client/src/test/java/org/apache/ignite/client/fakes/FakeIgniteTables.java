@@ -126,7 +126,8 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
     }
 
     /** {@inheritDoc} */
-    @Override public TableImpl table(UUID id, boolean checkConfiguration) {
+    @Override public TableImpl table(UUID id) {
         return tablesById.get(id);
     }
+
 }

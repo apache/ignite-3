@@ -359,7 +359,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
     private TableImpl readTable(ClientMessageUnpacker unpacker) throws IOException {
         var tableId = unpacker.unpackUuid();
-        return ((IgniteTablesInternal)ignite.tables()).table(tableId, true);
+        return ((IgniteTablesInternal)ignite.tables()).table(tableId);
     }
 
     private void readAndSetColumnValue(ClientMessageUnpacker unpacker, TupleBuilderImpl builder, Column col)
