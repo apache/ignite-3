@@ -66,7 +66,7 @@ public class Loza {
      * @param groupId Raft group id.
      * @param nodes Raft group nodes.
      * @param lsnr Raft group listener.
-     * @return A service providing operations on a raft group
+     * @return A service providing operations on a raft group.
      */
     public RaftGroupService raftGroupService(String groupId, List<ClusterNode> nodes, RaftGroupListener lsnr) {
         assert !nodes.isEmpty();
