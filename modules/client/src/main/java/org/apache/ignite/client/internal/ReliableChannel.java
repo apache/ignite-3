@@ -88,11 +88,12 @@ public final class ReliableChannel implements AutoCloseable {
 
     /**
      * Constructor.
+     *
+     * @param chFactory Channel factory.
+     * @param clientCfg Client config.
      */
-    ReliableChannel(
-            BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, ClientChannel> chFactory,
-            IgniteClientConfiguration clientCfg
-    ) {
+    ReliableChannel(BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, ClientChannel> chFactory,
+            IgniteClientConfiguration clientCfg) {
         if (chFactory == null)
             throw new NullPointerException("chFactory");
 
@@ -121,13 +122,19 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     /**
-     * Send request and handle response asynchronously.
+     * Sends request and handles response asynchronously.
+     *
+     * @param opCode Operation code.
+     * @param payloadWriter Payload writer.
+     * @param payloadReader Payload reader.
+     * @param <T> response type.
+     * @return Future for the operation.
      */
     public <T> CompletableFuture<T> serviceAsync(
             int opCode,
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader
-    ) throws IgniteClientException {
+    ) {
         CompletableFuture<T> fut = new CompletableFuture<>();
 
         // Use the only one attempt to avoid blocking async method.
@@ -136,9 +143,6 @@ public final class ReliableChannel implements AutoCloseable {
         return fut;
     }
 
-    /**
-     * Handles serviceAsync results and retries as needed.
-     */
     private <T> void handleServiceAsync(final CompletableFuture<T> fut,
                                         int opCode,
                                         PayloadWriter payloadWriter,
@@ -219,18 +223,24 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     /**
-     * Send request without payload and handle response asynchronously.
+     * Sends request without payload and handles response asynchronously.
+     *
+     * @param opCode Operation code.
+     * @param payloadReader Payload reader.
+     * @param <T> Response type.
+     * @return Future for the operation.
      */
-    public <T> CompletableFuture<T> serviceAsync(int opCode, PayloadReader<T> payloadReader)
-            throws IgniteClientException {
+    public <T> CompletableFuture<T> serviceAsync(int opCode, PayloadReader<T> payloadReader) {
         return serviceAsync(opCode, null, payloadReader);
     }
 
     /**
-     * Send request and handle response without payload.
+     * Sends request with payload and handles response asynchronously.
+     * @param opCode Operation code.
+     * @param payloadWriter Payload writer.
+     * @return Future for the operation.
      */
-    public CompletableFuture<Void> requestAsync(int opCode, PayloadWriter payloadWriter)
-            throws IgniteClientException {
+    public CompletableFuture<Void> requestAsync(int opCode, PayloadWriter payloadWriter) {
         return serviceAsync(opCode, payloadWriter, null);
     }
 
