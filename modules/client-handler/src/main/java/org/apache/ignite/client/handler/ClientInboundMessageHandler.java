@@ -88,8 +88,20 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         var unpacker = getUnpacker(buf);
         var packer = getPacker();
 
-        if (clientContext == null) {
+        if (clientContext == null)
+            handshake(ctx, unpacker, packer);
+        else
+            processOperation(ctx, unpacker, packer);
+    }
+
+    private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker, ClientMessagePacker packer)
+            throws IOException {
+        try {
             var clientVer = ProtocolVersion.unpack(unpacker);
+
+            if (clientVer != ProtocolVersion.LATEST_VER)
+                throw new IgniteException("Unsupported version: " + clientVer);
+
             var clientCode = unpacker.unpackInt();
             var featuresLen = unpacker.unpackBinaryHeader();
             var features = BitSet.valueOf(unpacker.readPayload(featuresLen));
@@ -102,43 +114,20 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             unpacker.skipValue(extensionsLen);
 
             // Response.
-            // TODO: Protocol version check.
-            packer.packInt(3); // Major.
-            packer.packInt(0); // Minor.
-            packer.packInt(0); // Patch.
+            ProtocolVersion.LATEST_VER.pack(packer);
 
-            packer.packInt(ClientErrorCode.SUCCESS);
-
-            packer.packBinaryHeader(0); // Features.
-            packer.packMapHeader(0); // Extensions.
+            packer.packInt(ClientErrorCode.SUCCESS)
+                    .packBinaryHeader(0) // Features.
+                    .packMapHeader(0); // Extensions.
 
             write(packer, ctx);
-        } else {
-            var opCode = unpacker.unpackInt();
-            var requestId = unpacker.unpackInt();
+        } catch (Throwable t) {
+            packer = getPacker();
 
-            packer.packInt(ClientMessageType.RESPONSE);
-            packer.packInt(requestId);
-            packer.packInt(ClientErrorCode.SUCCESS);
+            ProtocolVersion.LATEST_VER.pack(packer);
+            packer.packInt(ClientErrorCode.FAILED).packString(t.getMessage());
 
-            try {
-                var fut = processOperation(unpacker, packer, opCode);
-
-                if (fut == null) {
-                    // Operation completed synchronously.
-                    write(packer, ctx);
-                } else {
-                    fut.whenComplete((Object res, Object err) -> {
-                        if (err != null)
-                            writeError(requestId, (Throwable) err, ctx);
-                        else
-                            write(packer, ctx);
-                    });
-                }
-
-            } catch (Throwable t) {
-                writeError(requestId, t, ctx);
-            }
+            write(packer, ctx);
         }
     }
 
@@ -178,9 +167,37 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         return new ClientMessageUnpacker(new ByteBufferInput(buf));
     }
 
+    private void processOperation(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker, ClientMessagePacker packer) throws IOException {
+        var opCode = unpacker.unpackInt();
+        var requestId = unpacker.unpackInt();
+
+        packer.packInt(ClientMessageType.RESPONSE)
+                .packInt(requestId)
+                .packInt(ClientErrorCode.SUCCESS);
+
+        try {
+            var fut = processOperation(unpacker, packer, opCode);
+
+            if (fut == null) {
+                // Operation completed synchronously.
+                write(packer, ctx);
+            } else {
+                fut.whenComplete((Object res, Object err) -> {
+                    if (err != null)
+                        writeError(requestId, (Throwable) err, ctx);
+                    else
+                        write(packer, ctx);
+                });
+            }
+
+        } catch (Throwable t) {
+            writeError(requestId, t, ctx);
+        }
+    }
+
     private CompletableFuture processOperation(ClientMessageUnpacker unpacker, ClientMessagePacker packer, int opCode)
             throws IOException {
-        // TODO: Handle all operations asynchronously.
+        // TODO: Handle all operations asynchronously (add async table API).
         switch (opCode) {
             case ClientOp.TABLE_CREATE: {
                 TableImpl table = createTable(unpacker);

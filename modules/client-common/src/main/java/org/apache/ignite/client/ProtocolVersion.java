@@ -50,8 +50,23 @@ public final class ProtocolVersion implements Comparable<ProtocolVersion> {
         this.patch = patch;
     }
 
+    /**
+     * Reads version from unpacker.
+     * @param unpacker Unpacker.
+     * @return Version.
+     * @throws IOException when underlying input throws IOException.
+     */
     public static ProtocolVersion unpack(ClientMessageUnpacker unpacker) throws IOException {
         return new ProtocolVersion(unpacker.unpackShort(), unpacker.unpackShort(), unpacker.unpackShort());
+    }
+
+    /**
+     * Writes this instance to the specified packer.
+     * @param packer Packer.
+     * @throws IOException when underlying output throws IOException.
+     */
+    public void pack(ClientMessagePacker packer) throws IOException {
+        packer.packShort(major).packShort(minor).packShort(patch);
     }
 
     /**

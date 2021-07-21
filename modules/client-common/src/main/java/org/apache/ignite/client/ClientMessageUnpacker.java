@@ -59,7 +59,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * Reads an UUID.
      *
      * @return UUID value.
-     * @throws IOException when underlying output throws IOException.
+     * @throws IOException when underlying input throws IOException.
      * @throws MessageTypeException when type is not UUID.
      * @throws MessageSizeException when size is not correct.
      */
@@ -86,7 +86,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * Reads a decimal.
      *
      * @return Decimal value.
-     * @throws IOException when underlying output throws IOException.
+     * @throws IOException when underlying input throws IOException.
      */
     public BigDecimal unpackDecimal() throws IOException {
         throw new IOException("TODO: IGNITE-15163");
@@ -96,7 +96,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * Reads a bit set.
      *
      * @return Bit set.
-     * @throws IOException when underlying output throws IOException.
+     * @throws IOException when underlying input throws IOException.
      */
     public BitSet unpackBitSet() throws IOException {
         throw new IOException("TODO: IGNITE-15163");
@@ -108,7 +108,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * @param dataType Data type code.
      *
      * @return Unpacked object.
-     * @throws IOException when underlying output throws IOException.
+     * @throws IOException when underlying input throws IOException.
      * @throws IgniteException when data type is not valid.
      */
     public Object unpackObject(int dataType) throws IOException {
