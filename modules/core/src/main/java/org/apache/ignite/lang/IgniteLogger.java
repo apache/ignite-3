@@ -40,6 +40,8 @@ public class IgniteLogger {
     private final System.Logger log;
 
     /**
+     * Creates logger instance for a category related to the given class.
+     *
      * @param cls The class for a logger.
      */
     protected IgniteLogger(@NotNull Class<?> cls) {
@@ -47,6 +49,8 @@ public class IgniteLogger {
     }
 
     /**
+     * Logs a message on {@link Level#INFO} level composed from args with given format.
+     *
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
      * @param params A list of arguments to be substituted in place of formatting anchors.
      */
@@ -66,6 +70,8 @@ public class IgniteLogger {
     }
 
     /**
+     * Logs a message on {@link Level#INFO} level with associated exception {@code thrown}.
+     *
      * @param msg The message pattern which will be passed to the {@link System.Logger}.
      * @param th A {@code Throwable} associated with the log message.
      */
@@ -74,6 +80,8 @@ public class IgniteLogger {
     }
 
     /**
+     * Logs a message on {@link Level#DEBUG} level composed from args with given format.
+     *
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
      * @param params A list of arguments to be substituted in place of formatting anchors.
      */
@@ -93,6 +101,8 @@ public class IgniteLogger {
     }
 
     /**
+     * Logs a message on {@link Level#DEBUG} level with associated exception {@code thrown}.
+     *
      * @param msg The message pattern which will be passed to the {@link System.Logger}.
      * @param th A {@code Throwable} associated with the log message;
      */
@@ -101,6 +111,8 @@ public class IgniteLogger {
     }
 
     /**
+     * Logs a message on {@link Level#WARNING} level composed from args with given format.
+     *
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
      * @param params A list of arguments to be substituted in place of formatting anchors.
      */
@@ -120,6 +132,8 @@ public class IgniteLogger {
     }
 
     /**
+     * Logs a message on {@link Level#WARNING} level with associated exception {@code thrown}.
+     *
      * @param msg The message pattern which will be passed to the {@link System.Logger}.
      * @param th A {@code Throwable} associated with the log message.
      */
@@ -128,6 +142,8 @@ public class IgniteLogger {
     }
 
     /**
+     * Logs a message on {@link Level#ERROR} level composed from args with given format.
+     *
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
      * @param params A list of arguments to be substituted in place of formatting anchors.
      */
@@ -147,6 +163,8 @@ public class IgniteLogger {
     }
 
     /**
+     * Logs a message on {@link Level#ERROR} level with associated exception {@code thrown}.
+     *
      * @param msg The message pattern which will be passed to the {@link System.Logger}.
      * @param th A {@code Throwable} associated with the log message.
      */
@@ -155,6 +173,8 @@ public class IgniteLogger {
     }
 
     /**
+     * Logs a message on {@link Level#TRACE} level composed from args with given format.
+     *
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
      * @param params A list of arguments to be substituted in place of formatting anchors.
      */
@@ -174,6 +194,8 @@ public class IgniteLogger {
     }
 
     /**
+     * Logs a message on {@link Level#TRACE} level with associated exception {@code thrown}.
+     *
      * @param msg The message pattern which will be passed to the {@link System.Logger}.
      * @param th A {@code Throwable} associated with the log message.
      */
@@ -217,28 +239,36 @@ public class IgniteLogger {
     }
 
     /**
-     * @return {@code true} if the {@link Level#TRACE} log message level is currently being logged.
+     * Checks if a message of the {@link Level#TRACE} level would be logged by this logger.
+     *
+     * @return {@code true} if the message level is currently being logged, {@code false} otherwise.
      */
     public boolean isTraceEnabled() {
         return log.isLoggable(Level.TRACE);
     }
 
     /**
-     * @return {@code true} if the {@link Level#DEBUG} log message level is currently being logged.
+     * Checks if a message of the {@link Level#DEBUG} level would be logged by this logger.
+     *
+     * @return {@code true} if the message level is currently being logged, {@code false} otherwise.
      */
     public boolean isDebugEnabled() {
         return log.isLoggable(Level.DEBUG);
     }
 
     /**
-     * @return {@code true} if the {@link Level#INFO} log message level is currently being logged.
+     * Checks if a message of the {@link Level#INFO} level would be logged by this logger.
+     *
+     * @return {@code true} if the message level is currently being logged, {@code false} otherwise.
      */
     public boolean isInfoEnabled() {
         return log.isLoggable(Level.INFO);
     }
 
     /**
-     * @return {@code true} if the {@link Level#WARNING} log message level is currently being logged.
+     * Checks if a message of the {@link Level#WARNING} level would be logged by this logger.
+     *
+     * @return {@code true} if the message level is currently being logged, {@code false} otherwise.
      */
     public boolean isWarnEnabled() {
         return log.isLoggable(Level.WARNING);
