@@ -52,6 +52,7 @@ public final class ProtocolVersion implements Comparable<ProtocolVersion> {
 
     /**
      * Reads version from unpacker.
+     *
      * @param unpacker Unpacker.
      * @return Version.
      * @throws IOException when underlying input throws IOException.
@@ -62,6 +63,7 @@ public final class ProtocolVersion implements Comparable<ProtocolVersion> {
 
     /**
      * Writes this instance to the specified packer.
+     *
      * @param packer Packer.
      * @throws IOException when underlying output throws IOException.
      */
@@ -70,6 +72,8 @@ public final class ProtocolVersion implements Comparable<ProtocolVersion> {
     }
 
     /**
+     * Gets the major part.
+     *
      * @return Major.
      */
     public short major() {
@@ -77,6 +81,8 @@ public final class ProtocolVersion implements Comparable<ProtocolVersion> {
     }
 
     /**
+     * Gets the minor part.
+     *
      * @return Minor.
      */
     public short minor() {
@@ -84,6 +90,8 @@ public final class ProtocolVersion implements Comparable<ProtocolVersion> {
     }
 
     /**
+     * Gets the patch part.
+     *
      * @return Patch.
      */
     public short patch() {
