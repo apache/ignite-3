@@ -19,7 +19,6 @@ package org.apache.ignite.client.handler;
 
 import io.netty.channel.ChannelFuture;
 import org.apache.ignite.app.Ignite;
-import org.apache.ignite.client.ProtocolVersion;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
