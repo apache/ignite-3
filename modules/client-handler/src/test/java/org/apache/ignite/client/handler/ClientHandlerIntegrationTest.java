@@ -79,6 +79,9 @@ public class ClientHandlerIntegrationTest {
 
             // Handshake.
             var packer = MessagePack.newDefaultBufferPacker();
+            packer.packInt(0);
+            packer.packInt(0);
+            packer.packInt(0);
             packer.packInt(7); // Size.
 
             packer.packInt(3); // Major.
@@ -96,6 +99,7 @@ public class ClientHandlerIntegrationTest {
             // Read response.
             var unpacker = MessagePack.newDefaultUnpacker(sock.getInputStream());
             var magic = unpacker.readPayload(4);
+            unpacker.skipValue(3); // LE int zeros.
             var len = unpacker.unpackInt();
             var major = unpacker.unpackInt();
             var minor = unpacker.unpackInt();
@@ -127,6 +131,9 @@ public class ClientHandlerIntegrationTest {
 
             // Handshake.
             var packer = MessagePack.newDefaultBufferPacker();
+            packer.packInt(0);
+            packer.packInt(0);
+            packer.packInt(0);
             packer.packInt(7); // Size.
 
             packer.packInt(2); // Major.
@@ -144,6 +151,7 @@ public class ClientHandlerIntegrationTest {
             // Read response.
             var unpacker = MessagePack.newDefaultUnpacker(sock.getInputStream());
             var magic = unpacker.readPayload(4);
+            unpacker.skipValue(3);
             var len = unpacker.unpackInt();
             var major = unpacker.unpackInt();
             var minor = unpacker.unpackInt();
