@@ -56,7 +56,7 @@ public class Loza {
     public Loza(ClusterService clusterNetSvc, String dataPath) {
         this.clusterNetSvc = clusterNetSvc;
 
-        this.raftServer = new JRaftServerImpl(clusterNetSvc, dataPath, FACTORY);
+        this.raftServer = new JRaftServerImpl(clusterNetSvc, dataPath);
     }
 
     /**
