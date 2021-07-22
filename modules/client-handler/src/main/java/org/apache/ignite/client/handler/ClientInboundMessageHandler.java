@@ -200,14 +200,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             throws IOException {
         // TODO: Handle all operations asynchronously (add async table API).
         switch (opCode) {
-            case ClientOp.TABLE_CREATE: {
-                TableImpl table = createTable(unpacker);
-
-                packer.packUuid(table.tableId());
-
-                break;
-            }
-
             case ClientOp.TABLE_DROP: {
                 var tableName = unpacker.unpackString();
 
@@ -480,67 +472,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             default:
                 throw new IgniteException("Data type not supported: " + col.type());
         }
-    }
-
-    private TableImpl createTable(ClientMessageUnpacker unpacker) throws IOException {
-        var size = unpacker.unpackMapHeader();
-        String name = null;
-        var settings = new Object() {
-            Integer replicas = null;
-            Integer partitions = null;
-            Map<String, Map<String, Object>> columns = null;
-        };
-
-        for (int i = 0; i < size; i++) {
-            var key = unpacker.unpackString();
-
-            switch (key) {
-                case "name":
-                    name = unpacker.unpackString();
-                    break;
-
-                case "replicas":
-                    settings.replicas = unpacker.unpackInt();
-                    break;
-
-                case "partitions":
-                    settings.partitions = unpacker.unpackInt();
-                    break;
-
-                case "columns":
-                    var colCnt = unpacker.unpackMapHeader();
-                    settings.columns = new HashMap<>(colCnt);
-                    for (var j = 0; j < colCnt; j++) {
-                        var colName = unpacker.unpackString();
-                        var setCnt = unpacker.unpackMapHeader();
-                        var colSettings = new HashMap<String, Object>();
-
-                        for (var k = 0; k < setCnt; k++)
-                            colSettings.put(unpacker.unpackString(), unpacker.unpackValue());
-
-                        settings.columns.put(colName, colSettings);
-                    }
-            }
-        }
-
-        Consumer<TableChange> tableChangeConsumer = tbl -> {
-            if (settings.replicas != null)
-                tbl.changeReplicas(settings.replicas);
-
-            if (settings.partitions != null)
-                tbl.changePartitions(settings.partitions);
-
-            if (settings.columns != null) {
-                for (var col : settings.columns.entrySet()) {
-                    tbl.changeColumns(c -> c.create(col.getKey(), cc ->
-                            cc
-                                    .changeName(col.getKey())
-                                    .changeType(t -> t.changeType(col.getValue().get("type").toString()))));
-                }
-            }
-        };
-
-        return (TableImpl)ignite.tables().createTable(name, tableChangeConsumer);
     }
 
     /** {@inheritDoc} */

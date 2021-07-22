@@ -22,6 +22,7 @@ import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.Table;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.Comparator;
@@ -57,6 +58,7 @@ public class ClientTablesTest extends AbstractClientTest {
     }
 
     @Test
+    @Disabled("IGNITE-15179")
     public void testCreateTable() {
         var clientTable = client.tables().createTable("t1", t -> t.changeReplicas(2));
         assertEquals("t1", clientTable.tableName());
@@ -70,6 +72,7 @@ public class ClientTablesTest extends AbstractClientTest {
     }
 
     @Test
+    @Disabled("IGNITE-15179")
     public void testCreateTableWhenExists() {
         Consumer<TableChange> consumer = t -> t.changeReplicas(2);
         client.tables().createTable(DEFAULT_TABLE, consumer);
