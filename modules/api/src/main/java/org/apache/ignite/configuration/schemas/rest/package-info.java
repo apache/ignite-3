@@ -15,14 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.server;
-
 /**
- * Tests for in-memory key-value storage implementation.
+ * Configuration schemas for Rest component.
  */
-class SimpleInMemoryKeyValueStorageTest extends AbstractKeyValueStorageTest {
-    /** {@inheritDoc} */
-    @Override KeyValueStorage storage() {
-        return new SimpleInMemoryKeyValueStorage();
-    }
-}
+package org.apache.ignite.configuration.schemas.rest;

@@ -15,14 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.server;
-
 /**
- * Tests for in-memory key-value storage implementation.
+ * Contains Transaction API classes and interfaces.
  */
-class SimpleInMemoryKeyValueStorageTest extends AbstractKeyValueStorageTest {
-    /** {@inheritDoc} */
-    @Override KeyValueStorage storage() {
-        return new SimpleInMemoryKeyValueStorage();
-    }
-}
+package org.apache.ignite.tx;
