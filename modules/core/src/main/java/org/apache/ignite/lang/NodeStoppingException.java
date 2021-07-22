@@ -23,7 +23,7 @@ import org.jetbrains.annotations.Nullable;
  * Node stopping internal checked exception.
  */
 public class NodeStoppingException extends IgniteInternalCheckedException {
-    /** */
+    /** Serial version UID. */
     private static final long serialVersionUID = 0L;
 
     /**

@@ -25,7 +25,9 @@ import org.apache.ignite.tx.IgniteTransactions;
  */
 public interface Ignite extends AutoCloseable {
     /**
-     * @return Ignite instance ame.
+     * Returns ignite instance name.
+     *
+     * @return Ignite instance name.
      */
     String name();
 
