@@ -60,7 +60,7 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
     /** {@inheritDoc} */
     @Override public <T> T unwrap(Class<T> clazz) {
         if (clazz.isArray())
-            throw wrongTypeException(path, clazz, -1);
+            throw wrongTypeException(clazz, path, -1);
 
         return unwrapPrimitive(hoconCfgValue, clazz, path, -1);
     }
@@ -72,8 +72,15 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
         );
     }
 
-    /** */
-    public static IllegalArgumentException wrongTypeException(List<String> path, Class<?> clazz, int idx) {
+    /**
+     * Returns exception with the message that a value is expected to be of a specific type.
+     *
+     * @param clazz Expected type of the value.
+     * @param path Path to the value.
+     * @param idx Index in the array if the value is an array element. {@code -1} if it's not.
+     * @return New {@link IllegalArgumentException} instance.
+     */
+    public static IllegalArgumentException wrongTypeException(Class<?> clazz, List<String> path, int idx) {
         return new IllegalArgumentException(format(
             "'%s' is expected as a type for the '%s' configuration value",
             unbox(clazz).getSimpleName(), formatArrayPath(path, idx)
@@ -101,6 +108,8 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
      * @param clazz Class that signifies resulting type of the value. Boxed primitive or String.
      * @param path Path to the value, used for error messages.
      * @param idx Index in the array if the value is an array element. {@code -1} if it's not.
+     * @param <T> Type of the resulting unwrapped object.
+     * @return Unwrapped object.
      * @throws IllegalArgumentException In case of type mismatch or numeric overflow.
      */
     public static <T> T unwrapPrimitive(ConfigValue hoconCfgValue, Class<T> clazz, List<String> path, int idx) {
@@ -109,25 +118,25 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
 
         if (clazz == String.class) {
             if (hoconCfgValue.valueType() != STRING)
-                throw wrongTypeException(path, clazz, idx);
+                throw wrongTypeException(clazz, path, idx);
 
             return clazz.cast(hoconCfgValue.unwrapped());
         }
         else if (clazz == Boolean.class) {
             if (hoconCfgValue.valueType() != BOOLEAN)
-                throw wrongTypeException(path, clazz, idx);
+                throw wrongTypeException(clazz, path, idx);
 
             return clazz.cast(hoconCfgValue.unwrapped());
         }
         else if (clazz == Character.class) {
             if (hoconCfgValue.valueType() != STRING || hoconCfgValue.unwrapped().toString().length() != 1)
-                throw wrongTypeException(path, clazz, idx);
+                throw wrongTypeException(clazz, path, idx);
 
             return clazz.cast(hoconCfgValue.unwrapped().toString().charAt(0));
         }
         else if (Number.class.isAssignableFrom(clazz)) {
             if (hoconCfgValue.valueType() != NUMBER)
-                throw wrongTypeException(path, clazz, idx);
+                throw wrongTypeException(clazz, path, idx);
 
             Number numberValue = (Number)hoconCfgValue.unwrapped();
 
@@ -182,6 +191,7 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
      *
      * @param path Path to the value.
      * @param idx Index in the array if the value is an array element. {@code -1} if it's not.
+     * @return Path in a proper format.
      */
     public static String formatArrayPath(List<String> path, int idx) {
         return join(path) + (idx == -1 ? "" : ("[" + idx + "]"));

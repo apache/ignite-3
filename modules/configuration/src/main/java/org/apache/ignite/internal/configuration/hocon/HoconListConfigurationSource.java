@@ -65,7 +65,7 @@ class HoconListConfigurationSource implements ConfigurationSource {
     /** {@inheritDoc} */
     @Override public <T> T unwrap(Class<T> clazz) {
         if (!clazz.isArray())
-            throw wrongTypeException(path, clazz, -1);
+            throw wrongTypeException(clazz, path, -1);
 
         int size = hoconCfgList.size();
 
@@ -81,7 +81,7 @@ class HoconListConfigurationSource implements ConfigurationSource {
             switch (hoconCfgListElement.valueType()) {
                 case OBJECT:
                 case LIST:
-                    throw wrongTypeException(path, boxedComponentType, idx);
+                    throw wrongTypeException(boxedComponentType, path, idx);
 
                 default:
                     Array.set(resArray, idx, unwrapPrimitive(hoconCfgListElement, boxedComponentType, path, idx));

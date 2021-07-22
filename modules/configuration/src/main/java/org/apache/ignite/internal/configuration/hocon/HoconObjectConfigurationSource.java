@@ -67,7 +67,7 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
 
     /** {@inheritDoc} */
     @Override public <T> T unwrap(Class<T> clazz) {
-        throw wrongTypeException(path, clazz, -1);
+        throw wrongTypeException(clazz, path, -1);
     }
 
     /** {@inheritDoc} */
