@@ -46,17 +46,11 @@ public class ClientTables implements IgniteTables {
 
     /** {@inheritDoc} */
     @Override public Table createTable(String name, Consumer<TableChange> tableInitChange) {
-        // TODO: Unwrap exceptions for sync methods?
         return createTableAsync(name, tableInitChange).join();
     }
 
     public CompletableFuture<Table> createTableAsync(String name, Consumer<TableChange> tableInitChange) {
-        return ch.serviceAsync(ClientOp.TABLE_CREATE, w -> {
-            // TODO: other settings
-            w.out().packMapHeader(1);
-            w.out().packString("name");
-            w.out().packString(name);
-        }, r -> new ClientTable(ch, r.in().unpackUuid(), name));
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
