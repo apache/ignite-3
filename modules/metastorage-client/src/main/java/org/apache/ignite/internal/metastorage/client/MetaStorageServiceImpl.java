@@ -69,6 +69,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** Watch processor, that uses pulling logic in order to retrieve watch notifications from server. */
     private final WatchProcessor watchProcessor;
 
+    /** Local node id. */
     private final String localNodeId;
 
     /**

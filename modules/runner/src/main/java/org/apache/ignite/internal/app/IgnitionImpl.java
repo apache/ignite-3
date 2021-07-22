@@ -47,6 +47,7 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.processors.query.calcite.SqlQueryProcessor;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.storage.DistributedConfigurationStorage;
@@ -63,9 +64,8 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
-import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
-import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.utils.IgniteProperties;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -238,9 +238,7 @@ public class IgnitionImpl implements Ignition {
 
             var serializationRegistry = new MessageSerializationRegistryImpl();
 
-            List<NetworkAddress> peers = Arrays.stream(netConfigurationView.netClusterNodes())
-                .map(NetworkAddress::from)
-                .collect(Collectors.toUnmodifiableList());
+            var nodeFinder = StaticNodeFinder.fromConfiguration(netConfigurationView);
 
             // Network startup.
             ClusterService clusterNetSvc = doStartComponent(
@@ -250,7 +248,7 @@ public class IgnitionImpl implements Ignition {
                     new ClusterLocalConfiguration(
                         nodeName,
                         netConfigurationView.port(),
-                        peers,
+                        nodeFinder,
                         serializationRegistry
                     )
                 )
@@ -319,7 +317,7 @@ public class IgnitionImpl implements Ignition {
             );
 
             // Distributed table manager startup.
-            IgniteTables distributedTblMgr = doStartComponent(
+            TableManager distributedTblMgr = doStartComponent(
                 nodeName,
                 startedComponents,
                 new TableManager(
@@ -331,6 +329,10 @@ public class IgnitionImpl implements Ignition {
                 )
             );
 
+            SqlQueryProcessor qryProc = new SqlQueryProcessor(
+                clusterNetSvc,
+                distributedTblMgr
+            );
             // TODO IGNITE-14579 Start rest manager.
 
             // Deploy all resisted watches cause all components are ready and have registered their listeners.
@@ -356,7 +358,7 @@ public class IgnitionImpl implements Ignition {
 
             ackSuccessStart();
 
-            return new IgniteImpl(nodeName, distributedTblMgr);
+            return new IgniteImpl(nodeName, distributedTblMgr, qryProc);
         }
         catch (Exception e) {
             String errMsg = "Unable to start node=[" + nodeName + "].";
