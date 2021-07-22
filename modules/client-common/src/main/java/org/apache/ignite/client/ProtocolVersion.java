@@ -112,10 +112,8 @@ public final class ProtocolVersion implements Comparable<ProtocolVersion> {
 
     /** {@inheritDoc} */
     @Override public int hashCode() {
-        int res = 11;
-        res = 31 * res + major;
-        res = 31 * res + minor;
-        res = 31 * res + patch;
+        int res = 31 * major;
+        res += ((minor & 0xFFFF) << 16) & (patch & 0xFFFF);
 
         return res;
     }
