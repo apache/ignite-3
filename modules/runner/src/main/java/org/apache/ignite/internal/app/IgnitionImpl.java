@@ -329,10 +329,15 @@ public class IgnitionImpl implements Ignition {
                 )
             );
 
-            SqlQueryProcessor qryProc = new SqlQueryProcessor(
-                clusterNetSvc,
-                distributedTblMgr
+            SqlQueryProcessor qryProc = doStartComponent(
+                nodeName,
+                startedComponents,
+                new SqlQueryProcessor(
+                    clusterNetSvc,
+                    distributedTblMgr
+                )
             );
+
             // TODO IGNITE-14579 Start rest manager.
 
             // Deploy all resisted watches cause all components are ready and have registered their listeners.

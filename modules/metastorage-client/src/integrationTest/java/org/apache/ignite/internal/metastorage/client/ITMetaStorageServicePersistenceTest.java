@@ -116,7 +116,7 @@ public class ITMetaStorageServicePersistenceTest {
             client.shutdown();
 
         for (JRaftServerImpl server : servers)
-            server.shutdown();
+            server.stop();
     }
 
     /**
@@ -194,7 +194,7 @@ public class ITMetaStorageServicePersistenceTest {
         servers.remove(stopIdx);
 
         // Shutdown that node
-        toStop.shutdown();
+        toStop.stop();
 
         // Create a raft snapshot of the metastorage service
         metaStorageSvc.snapshot(metaStorageSvc.leader()).get();
@@ -373,10 +373,10 @@ public class ITMetaStorageServicePersistenceTest {
         Path jraft = workDir.resolve("jraft" + idx);
 
         JRaftServerImpl server = new JRaftServerImpl(service, jraft.toString()) {
-            @Override public void shutdown() throws Exception {
-                super.shutdown();
+            @Override public void stop() {
+                super.stop();
 
-                service.shutdown();
+                service.stop();
             }
         };
 
@@ -417,7 +417,7 @@ public class ITMetaStorageServicePersistenceTest {
             @Override public void shutdown() {
                 super.shutdown();
 
-                clientNode.shutdown();
+                clientNode.stop();
             }
         };
 
