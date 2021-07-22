@@ -223,7 +223,7 @@ public class HostAndPortRange implements Serializable {
      */
     public HostAndPortRange(String host, int portFrom, int portTo) {
         assert host != null && !host.isEmpty();
-        assert portFrom <= portTo;
+        assert portFrom <= portTo && portFrom > 0 && portTo < 65535;
 
         this.host = host;
         this.portFrom = portFrom;
