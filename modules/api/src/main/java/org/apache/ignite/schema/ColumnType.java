@@ -157,7 +157,12 @@ public class ColumnType {
         /** Max length. */
         private final int length;
 
-        /** Constructor. */
+        /**
+         * Creates variable-length column type.
+         *
+         * @param typeSpec Type spec.
+         * @param length Type max length.
+         */
         private VarLenColumnType(ColumnTypeSpec typeSpec, int length) {
             super(typeSpec);
 
@@ -165,7 +170,9 @@ public class ColumnType {
         }
 
         /**
-         * @return Max column value length.
+         * Max column value length.
+         *
+         * @return Max column value length or {@code 0} if unlimited.
          */
         public int length() {
             return length;
@@ -175,11 +182,15 @@ public class ColumnType {
         @Override public boolean equals(Object o) {
             if (this == o)
                 return true;
+
             if (o == null || getClass() != o.getClass())
                 return false;
+
             if (!super.equals(o))
                 return false;
+
             VarLenColumnType type = (VarLenColumnType)o;
+
             return length == type.length;
         }
 
@@ -199,7 +210,13 @@ public class ColumnType {
         /** Scale. */
         private final int scale;
 
-        /** Constructor. */
+        /**
+         * Creates numeric column type.
+         *
+         * @param typeSpec Type spec.
+         * @param precision Precision.
+         * @param scale Scale.
+         */
         private NumericColumnType(ColumnTypeSpec typeSpec, int precision, int scale) {
             super(typeSpec);
 
@@ -208,6 +225,8 @@ public class ColumnType {
         }
 
         /**
+         * Returns column precision.
+         *
          * @return Precision.
          */
         public int precision() {
@@ -215,6 +234,8 @@ public class ColumnType {
         }
 
         /**
+         * Returns column scale.
+         *
          * @return Scale.
          */
         public int scale() {
@@ -348,7 +369,7 @@ public class ColumnType {
         /** Number of ticks since Jan 1, 1970 00:00:00.000 (with no timezone). Tick unit depends on precision. */
         TIMESTAMP,
 
-        /** 128-bitUUID. */
+        /** 128-bit UUID. */
         UUID,
 
         /** Bit mask. */
@@ -364,12 +385,18 @@ public class ColumnType {
     /** Type spec. */
     private final ColumnTypeSpec typeSpec;
 
-    /** Constructor. */
+    /**
+     * Creates column type.
+     *
+     * @param typeSpec Type spec.
+     */
     private ColumnType(ColumnTypeSpec typeSpec) {
         this.typeSpec = typeSpec;
     }
 
     /**
+     * Returns column type spec.
+     *
      * @return Type spec.
      */
     public ColumnTypeSpec typeSpec() {
