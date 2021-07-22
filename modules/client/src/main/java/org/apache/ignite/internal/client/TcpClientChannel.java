@@ -20,7 +20,7 @@ package org.apache.ignite.internal.client;
 import io.netty.channel.ChannelFuture;
 import org.apache.ignite.client.ClientErrorCode;
 import org.apache.ignite.client.ClientMessagePacker;
-import org.apache.ignite.client.ClientMessageType;
+import org.apache.ignite.client.ServerMessageType;
 import org.apache.ignite.client.ClientMessageUnpacker;
 import org.apache.ignite.client.IgniteClientAuthenticationException;
 import org.apache.ignite.client.IgniteClientAuthorizationException;
@@ -238,7 +238,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         var type = unpacker.unpackInt();
 
-        if (type != ClientMessageType.RESPONSE)
+        if (type != ServerMessageType.RESPONSE)
             throw new IgniteClientException("Unexpected message type: " + type);
 
         Long resId = unpacker.unpackLong();

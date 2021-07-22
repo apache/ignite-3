@@ -20,7 +20,7 @@ package org.apache.ignite.client;
 /**
  * Server to client message types.
  */
-public class ClientMessageType {
+public class ServerMessageType {
     /** Response to a request (initiated by the client). */
     public static final int RESPONSE = 0;
 

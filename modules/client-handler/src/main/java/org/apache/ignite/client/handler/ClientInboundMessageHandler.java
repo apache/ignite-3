@@ -23,11 +23,10 @@ import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.ClientDataType;
 import org.apache.ignite.client.ClientErrorCode;
 import org.apache.ignite.client.ClientMessagePacker;
-import org.apache.ignite.client.ClientMessageType;
+import org.apache.ignite.client.ServerMessageType;
 import org.apache.ignite.client.ClientMessageUnpacker;
 import org.apache.ignite.client.ClientOp;
 import org.apache.ignite.client.ProtocolVersion;
-import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaAware;
@@ -46,12 +45,9 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 
 /**
  * Handles messages from thin clients.
@@ -143,7 +139,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             assert err != null;
 
             ClientMessagePacker packer = getPacker();
-            packer.packInt(ClientMessageType.RESPONSE);
+            packer.packInt(ServerMessageType.RESPONSE);
             packer.packInt(requestId);
             packer.packInt(ClientErrorCode.FAILED);
 
@@ -172,7 +168,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         var opCode = unpacker.unpackInt();
         var requestId = unpacker.unpackInt();
 
-        packer.packInt(ClientMessageType.RESPONSE)
+        packer.packInt(ServerMessageType.RESPONSE)
                 .packInt(requestId)
                 .packInt(ClientErrorCode.SUCCESS);
 
