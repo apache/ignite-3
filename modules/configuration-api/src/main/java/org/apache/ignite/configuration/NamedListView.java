@@ -19,9 +19,15 @@ package org.apache.ignite.configuration;
 
 import java.util.List;
 
-/** */
-public interface NamedListView<T> {
+/**
+ * View type for the {@link NamedConfigurationTree}. Represents immutable snapshot of the named list configuration.
+ *
+ * @param <View> View type for the named list element.
+ */
+public interface NamedListView<View> {
     /**
+     * Returns immutable collection of keys contained within this list.
+     *
      * @return Immutable collection of keys contained within this list.
      */
     List<String> namedListKeys();
@@ -32,9 +38,11 @@ public interface NamedListView<T> {
      * @param key Key string.
      * @return Requested value or {@code null} if it's not found.
      */
-    T get(String key);
+    View get(String key);
 
     /**
+     * Returns number of elements.
+     *
      * @return Number of elements.
      */
     int size();

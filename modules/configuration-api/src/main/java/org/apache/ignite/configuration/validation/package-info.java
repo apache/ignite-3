@@ -15,26 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.validation;
-
-import java.lang.annotation.Documented;
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
-
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
 /**
- * Signifies that this value has lower limit (exclusive).
+ * Interfaces and classes for configuration validation.
  */
-@Target(FIELD)
-@Retention(RUNTIME)
-@Documented
-public @interface Min {
-    /**
-     * Returns lower bound for the value.
-     *
-     * @return lower bound for the value.
-     */
-    long value();
-}
+package org.apache.ignite.configuration.validation;
