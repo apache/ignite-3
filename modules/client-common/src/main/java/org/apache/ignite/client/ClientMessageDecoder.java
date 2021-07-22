@@ -22,7 +22,6 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.util.CharsetUtil;
 import org.apache.ignite.lang.IgniteException;
-import org.msgpack.core.MessageFormat;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -52,12 +51,6 @@ public class ClientMessageDecoder extends ByteToMessageDecoder {
 
     /** Magic decoding failed flag. */
     private boolean magicFailed;
-
-    /** Message size varint format. */
-    private MessageFormat sizeFormat = null;
-
-    /** First byte of the message. */
-    private byte firstByte;
 
     /** {@inheritDoc} */
     @Override protected void decode(ChannelHandlerContext ctx, ByteBuf byteBuf, List<Object> list) {
@@ -112,51 +105,10 @@ public class ClientMessageDecoder extends ByteToMessageDecoder {
             return false;
 
         if (cnt < 0) {
-            // Read varint message size.
-            // TODO: Use fixed int message size? This will simplify encoders/decoders a lot,
-            // likely increasing performance as well.
-            if (sizeFormat == null) {
-                firstByte = buf.readByte();
-                sizeFormat = MessageFormat.valueOf(firstByte);
-            }
+            if (buf.readableBytes() < 4)
+                return false;
 
-            switch (sizeFormat) {
-                case POSFIXINT:
-                    msgSize = firstByte;
-                    break;
-
-                case INT8:
-                case UINT8:
-                    if (buf.readableBytes() < 1)
-                        return false;
-
-                    msgSize = buf.readUnsignedByte();
-                    break;
-
-                case INT16:
-                case UINT16:
-                    if (buf.readableBytes() < 2)
-                        return false;
-
-                    msgSize = buf.readUnsignedShort();
-                    break;
-
-                case INT32:
-                case UINT32:
-                    if (buf.readableBytes() < 4)
-                        return false;
-
-                    var size = buf.readUnsignedInt();
-
-                    if (size > Integer.MAX_VALUE)
-                        throw new IgniteException("Message too long: " + size);
-
-                    msgSize = (int) size;
-                    break;
-
-                default:
-                    throw new IgniteException("Unexpected message length format: " + sizeFormat);
-            }
+            msgSize = buf.readInt();
 
             assert msgSize >= 0;
             data = new byte[msgSize];
@@ -183,7 +135,6 @@ public class ClientMessageDecoder extends ByteToMessageDecoder {
         if (cnt == msgSize) {
             cnt = -1;
             msgSize = -1;
-            sizeFormat = null;
 
             return true;
         }

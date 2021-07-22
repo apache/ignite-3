@@ -41,23 +41,7 @@ public class ClientMessageEncoder extends MessageToByteEncoder<ByteBuffer> {
             magicEncoded = true;
         }
 
-        // Encode size without using MessagePacker to reduce indirection and allocations.
-        int size = message.remaining();
-
-        if (size <= 0x7f)
-            out.writeByte(size);
-        else if (size < 0xff) {
-            out.writeByte(0xcc);
-            out.writeByte(size);
-        }
-        else if (size < 0xffff) {
-            out.writeByte(0xcd);
-            out.writeShort(size);
-        } else {
-            out.writeByte(0xce);
-            out.writeInt(size);
-        }
-
+        out.writeInt(message.remaining());
         out.writeBytes(message);
     }
 }

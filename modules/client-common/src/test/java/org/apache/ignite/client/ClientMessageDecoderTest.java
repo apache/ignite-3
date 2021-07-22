@@ -43,7 +43,7 @@ public class ClientMessageDecoderTest {
     }
 
     @Test
-    void testValidMagicAndMessageReturnsPayload() throws Exception {
+    void testValidMagicAndMessageReturnsPayload() {
         var res = new ArrayList<>();
         new ClientMessageDecoder().decode(null, Unpooled.wrappedBuffer(getMagicWithPayload()), res);
 
@@ -77,13 +77,13 @@ public class ClientMessageDecoderTest {
         decoder.decode(null, Unpooled.wrappedBuffer(data, 0, 4), res);
         assertEquals(0, res.size());
 
-        decoder.decode(null, Unpooled.wrappedBuffer(data, 4, 1), res);
+        decoder.decode(null, Unpooled.wrappedBuffer(data, 4, 4), res);
         assertEquals(0, res.size());
 
-        decoder.decode(null, Unpooled.wrappedBuffer(data, 5, 1), res);
+        decoder.decode(null, Unpooled.wrappedBuffer(data, 8, 1), res);
         assertEquals(0, res.size());
 
-        decoder.decode(null, Unpooled.wrappedBuffer(data, 6, 1), res);
+        decoder.decode(null, Unpooled.wrappedBuffer(data, 9, 1), res);
         assertEquals(1, res.size());
 
         var resBuf = (ByteBuffer) res.get(0);
@@ -91,17 +91,18 @@ public class ClientMessageDecoderTest {
     }
 
     private byte[] getMagicWithPayload() {
-        var buf = new byte[7];
+        var buf = new byte[10];
 
         // Magic.
         System.arraycopy(ClientMessageDecoder.MAGIC_BYTES, 0, buf, 0, 4);
 
         // Message size.
-        buf[4] = 2;
+        buf[7] = 2;
 
         // Payload.
-        buf[5] = 33;
-        buf[6] = 44;
+        buf[8] = 33;
+        buf[9] = 44;
+
         return buf;
     }
 }
