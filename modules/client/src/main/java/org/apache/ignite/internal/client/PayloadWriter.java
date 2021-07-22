@@ -24,6 +24,7 @@ package org.apache.ignite.internal.client;
 public interface PayloadWriter {
     /**
      * Writes the payload to the channel.
+     *
      * @param out Channel.
      * @throws Exception on failure.
      */
