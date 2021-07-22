@@ -26,6 +26,7 @@ import java.nio.ByteBuffer;
 public interface ClientMessageHandler {
     /**
      * Handles messages from the server.
+     *
      * @param buf Buffer.
      * @throws IOException on failure.
      */
