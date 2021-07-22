@@ -68,7 +68,7 @@ public class Loza {
      * @param lsnr Raft group listener.
      * @return A service providing operations on a raft group.
      */
-    public RaftGroupService raftGroupService(String groupId, List<ClusterNode> nodes, RaftGroupListener lsnr) {
+    public RaftGroupService prepareRaftGroup(String groupId, List<ClusterNode> nodes, RaftGroupListener lsnr) {
         assert !nodes.isEmpty();
 
         List<Peer> peers = nodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
