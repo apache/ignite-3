@@ -78,6 +78,8 @@ public class ClientMessageDecoder extends ByteToMessageDecoder {
         if (byteBuf.readableBytes() < MAGIC_BYTES.length)
             return false;
 
+        assert data.length == MAGIC_BYTES.length;
+
         byteBuf.readBytes(data, 0, MAGIC_BYTES.length);
 
         magicDecoded = true;
