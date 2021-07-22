@@ -97,7 +97,7 @@ public class IgniteStringBuilder implements Serializable {
     }
 
     /**
-     * Returns the length if underlying character sequence.
+     * Returns the length of underlying character sequence.
      *
      * @return Characters count.
      * @see StringBuilder#length()
