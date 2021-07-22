@@ -18,15 +18,15 @@
 package org.apache.ignite.internal.client;
 
 import io.netty.channel.ChannelFuture;
-import org.apache.ignite.client.ClientErrorCode;
-import org.apache.ignite.client.ClientMessagePacker;
-import org.apache.ignite.client.ServerMessageType;
-import org.apache.ignite.client.ClientMessageUnpacker;
+import org.apache.ignite.client.proto.ClientErrorCode;
+import org.apache.ignite.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.proto.ServerMessageType;
+import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.client.IgniteClientAuthenticationException;
 import org.apache.ignite.client.IgniteClientAuthorizationException;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.IgniteClientException;
-import org.apache.ignite.client.ProtocolVersion;
+import org.apache.ignite.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.io.ClientConnection;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;

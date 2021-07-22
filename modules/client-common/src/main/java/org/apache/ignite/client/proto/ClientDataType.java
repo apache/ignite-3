@@ -15,33 +15,42 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client;
+package org.apache.ignite.client.proto;
 
 /**
- * Client operation codes.
+ * Client data types.
  */
-public class ClientOp {
-    /** Create table. */
-    public static final int TABLE_CREATE = 1;
+public class ClientDataType {
+    /** Byte. */
+    public static final int INT8 = 1;
 
-    /** Drop table. */
-    public static final int TABLE_DROP = 2;
+    /** Short. */
+    public static final int INT16 = 2;
 
-    /** Get tables. */
-    public static final int TABLES_GET = 3;
+    /** Int. */
+    public static final int INT32 = 3;
 
-    /** Get table. */
-    public static final int TABLE_GET = 4;
+    /** Long. */
+    public static final int INT64 = 4;
 
-    /** Get schemas. */
-    public static final int SCHEMAS_GET = 5;
+    /** Float. */
+    public static final int FLOAT = 5;
 
-    /** Upsert tuple. */
-    public static final int TUPLE_UPSERT = 10;
+    /** Double. */
+    public static final int DOUBLE = 6;
 
-    /** Upsert tuple without schema. */
-    public static final int TUPLE_UPSERT_SCHEMALESS = 11;
+    /** Decimal. */
+    public static final int DECIMAL = 7;
 
-    /** Get tuple. */
-    public static final int TUPLE_GET = 12;
+    /** UUID. */
+    public static final int UUID = 8;
+
+    /** String. */
+    public static final int STRING = 9;
+
+    /** Byte array. */
+    public static final int BYTES = 10;
+
+    /** BitMask. */
+    public static final int BITMASK = 11;
 }

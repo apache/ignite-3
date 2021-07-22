@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client;
+package org.apache.ignite.client.proto;
 
 import io.netty.buffer.Unpooled;
+import org.apache.ignite.client.proto.ClientMessageEncoder;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;

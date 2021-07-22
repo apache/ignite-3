@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client;
+package org.apache.ignite.client.proto;
 
 import java.io.IOException;
 import org.apache.ignite.internal.tostring.S;

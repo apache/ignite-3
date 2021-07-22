@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.client.table;
 
-import org.apache.ignite.client.ClientOp;
+import org.apache.ignite.client.proto.ClientOp;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.table.Table;

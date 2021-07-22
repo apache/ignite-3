@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.table;
 
+import org.apache.ignite.client.proto.ClientDataType;
+
 /**
  * Schema column.
  */
@@ -24,7 +26,7 @@ public class ClientColumn {
     /** Column name. */
     private final String name;
 
-    /** Column type code (see {@link org.apache.ignite.client.ClientDataType}). */
+    /** Column type code (see {@link ClientDataType}). */
     private final int type;
 
     /** Nullable flag. */
@@ -61,7 +63,7 @@ public class ClientColumn {
     }
 
     /**
-     * Client data type, see {@link org.apache.ignite.client.ClientDataType}.
+     * Client data type, see {@link ClientDataType}.
      * @return Data type code.
      */
     public int type() {

@@ -15,33 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client;
-
-import io.netty.buffer.ByteBuf;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.MessageToByteEncoder;
-
-import java.nio.ByteBuffer;
+package org.apache.ignite.client.proto;
 
 /**
- * Encodes client messages:
- * 1. MAGIC for first message.
- * 2. Payload length (varint).
- * 3. Payload (bytes).
+ * Client error codes.
  */
-public class ClientMessageEncoder extends MessageToByteEncoder<ByteBuffer> {
-    /** Magic encoded flag. */
-    private boolean magicEncoded;
+public class ClientErrorCode {
+    /** Operation succeeded (no error). */
+    public static final int SUCCESS = 0;
 
-    /** {@inheritDoc} */
-    @Override protected void encode(ChannelHandlerContext ctx, ByteBuffer message, ByteBuf out) {
-        if (!magicEncoded) {
-            out.writeBytes(ClientMessageDecoder.MAGIC_BYTES);
+    /** General error (uncategorized). */
+    public static final int FAILED = 1;
 
-            magicEncoded = true;
-        }
-
-        out.writeInt(message.remaining());
-        out.writeBytes(message);
-    }
+    /** Authentication or authorization failure. */
+    public static final int AUTH_FAILED = 2;
 }

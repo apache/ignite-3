@@ -15,7 +15,33 @@
  * limitations under the License.
  */
 
+package org.apache.ignite.client.proto;
+
 /**
- * Ignite thin client shared logic (client and server: serialization, op codes, etc).
+ * Client operation codes.
  */
-package org.apache.ignite.client;
+public class ClientOp {
+    /** Create table. */
+    public static final int TABLE_CREATE = 1;
+
+    /** Drop table. */
+    public static final int TABLE_DROP = 2;
+
+    /** Get tables. */
+    public static final int TABLES_GET = 3;
+
+    /** Get table. */
+    public static final int TABLE_GET = 4;
+
+    /** Get schemas. */
+    public static final int SCHEMAS_GET = 5;
+
+    /** Upsert tuple. */
+    public static final int TUPLE_UPSERT = 10;
+
+    /** Upsert tuple without schema. */
+    public static final int TUPLE_UPSERT_SCHEMALESS = 11;
+
+    /** Get tuple. */
+    public static final int TUPLE_GET = 12;
+}

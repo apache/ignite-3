@@ -15,52 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client;
+package org.apache.ignite.client.proto;
 
 import org.apache.ignite.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.proto.ClientMessageUnpacker;
+import org.junit.jupiter.api.Test;
+import org.msgpack.core.buffer.ArrayBufferInput;
 
 import java.io.IOException;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Thin client payload output channel.
+ * Tests Ignite-specific MsgPack extensions.
  */
-public class PayloadOutputChannel implements AutoCloseable {
-    /** Client channel. */
-    private final ClientChannel ch;
-
-    /** Output stream. */
-    private final ClientMessagePacker out;
-
-    /**
-     * Constructor.
-     *
-     * @param ch Channel.
-     */
-    PayloadOutputChannel(ClientChannel ch) {
-        out = new ClientMessagePacker();
-        this.ch = ch;
+public class ClientMessagePackerUnpackerTest {
+    @Test
+    public void testUUID() throws IOException {
+        testUUID(UUID.randomUUID());
+        testUUID(new UUID(0, 0));
     }
 
-    /**
-     * Gets client channel.
-     *
-     * @return Client channel.
-     */
-    public ClientChannel clientChannel() {
-        return ch;
-    }
+    private void testUUID(UUID u) throws IOException {
+        var packer = new ClientMessagePacker();
+        packer.packUuid(u);
+        byte[] data = packer.toByteArray();
 
-    /**
-     * Gets the unpacker.
-     *
-     * @return Unpacker.
-     */
-    public ClientMessagePacker out() {
-        return out;
-    }
+        var unpacker = new ClientMessageUnpacker(new ArrayBufferInput(data));
+        var res = unpacker.unpackUuid();
 
-    /** {@inheritDoc} */
-    @Override public void close() throws IOException {
-        out.close();
+        assertEquals(u, res);
     }
 }

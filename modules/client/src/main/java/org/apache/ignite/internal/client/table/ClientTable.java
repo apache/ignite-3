@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.client.table;
 
-import org.apache.ignite.client.ClientMessageUnpacker;
-import org.apache.ignite.client.ClientOp;
+import org.apache.ignite.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.client.proto.ClientOp;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
