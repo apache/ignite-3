@@ -52,7 +52,6 @@ public class ClientMessagePacker extends MessageBufferPacker {
 
         var bytes = new byte[16];
         ByteBuffer bb = ByteBuffer.wrap(bytes);
-        bb.order(ByteOrder.BIG_ENDIAN);
 
         bb.putLong(val.getMostSignificantBits());
         bb.putLong(val.getLeastSignificantBits());

@@ -77,7 +77,6 @@ public class ClientMessageUnpacker extends MessageUnpacker {
         var bytes = readPayload(16);
 
         ByteBuffer bb = ByteBuffer.wrap(bytes);
-        bb.order(ByteOrder.BIG_ENDIAN);
 
         return new UUID(bb.getLong(), bb.getLong());
     }
