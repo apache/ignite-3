@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests HostAndPortRange.
  */
-public class HostAndPortRangeTest  {
+public class HostAndPortRangeTest {
     /**
      * Tests correct input address with IPv4 host and port range.
      */
