@@ -380,6 +380,8 @@ public class ITMetaStorageServicePersistenceTest {
             }
         };
 
+        server.start();
+
         server.startRaftGroup(
             METASTORAGE_RAFT_GROUP_NAME,
             new MetaStorageListener(storage),
