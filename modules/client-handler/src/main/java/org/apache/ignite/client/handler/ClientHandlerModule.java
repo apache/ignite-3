@@ -26,8 +26,6 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.logging.LogLevel;
-import io.netty.handler.logging.LoggingHandler;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.proto.ClientMessageDecoder;
 import org.apache.ignite.client.proto.ClientMessageEncoder;
@@ -123,10 +121,7 @@ public class ClientHandlerModule {
 
             if (bindRes.isSuccess()) {
                 ch = bindRes.channel();
-
-                ch.closeFuture().addListener((ChannelFutureListener) fut -> {
-                    eventLoopGroup.shutdownGracefully();
-                });
+                ch.closeFuture().addListener((ChannelFutureListener) fut -> eventLoopGroup.shutdownGracefully());
 
                 port = portCandidate;
                 break;
