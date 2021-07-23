@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.client.io.netty;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.util.AttributeKey;
@@ -24,9 +27,6 @@ import org.apache.ignite.internal.client.io.ClientConnection;
 import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
 import org.apache.ignite.internal.client.io.ClientMessageHandler;
 import org.apache.ignite.lang.IgniteException;
-
-import java.io.IOException;
-import java.nio.ByteBuffer;
 
 /**
  * Netty client connection.

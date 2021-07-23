@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.client;
 
-import org.apache.ignite.client.proto.ClientMessagePacker;
-
 import java.io.IOException;
+
+import org.apache.ignite.client.proto.ClientMessagePacker;
 
 /**
  * Thin client payload output channel.

@@ -17,16 +17,16 @@
 
 package org.apache.ignite.internal.client.table;
 
-import org.apache.ignite.client.proto.ClientOp;
-import org.apache.ignite.internal.client.ReliableChannel;
-import org.apache.ignite.configuration.schemas.table.TableChange;
-import org.apache.ignite.table.Table;
-import org.apache.ignite.table.manager.IgniteTables;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+
+import org.apache.ignite.client.proto.ClientOp;
+import org.apache.ignite.configuration.schemas.table.TableChange;
+import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.table.Table;
+import org.apache.ignite.table.manager.IgniteTables;
 
 /**
  * Client tables API implementation.

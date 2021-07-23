@@ -17,15 +17,15 @@
 
 package org.apache.ignite.client.proto;
 
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.List;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.util.CharsetUtil;
 import org.apache.ignite.lang.IgniteException;
-
-import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.List;
 
 /**
  * Decodes full client messages:

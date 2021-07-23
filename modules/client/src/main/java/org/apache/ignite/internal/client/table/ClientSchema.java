@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.client.table;
 
-import org.apache.ignite.lang.IgniteException;
-import org.jetbrains.annotations.NotNull;
-
 import java.util.HashMap;
 import java.util.Map;
+
+import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Client schema.

@@ -17,21 +17,21 @@
 
 package org.apache.ignite.client;
 
+import java.util.Collections;
+
 import io.netty.channel.ChannelFuture;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.handler.ClientHandlerModule;
-import org.apache.ignite.internal.client.table.ClientTupleBuilder;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
+import org.apache.ignite.internal.client.table.ClientTupleBuilder;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.helpers.NOPLogger;
-
-import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client;
 import java.io.Serializable;
 import java.net.Inet6Address;
 import java.net.UnknownHostException;
+
 import org.apache.ignite.lang.IgniteException;
 
 /**

@@ -17,18 +17,18 @@
 
 package org.apache.ignite.client.proto;
 
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.nio.ByteBuffer;
+import java.util.BitSet;
+import java.util.UUID;
+
 import org.apache.ignite.lang.IgniteException;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessageSizeException;
 import org.msgpack.core.MessageTypeException;
 import org.msgpack.core.MessageUnpacker;
 import org.msgpack.core.buffer.MessageBufferInput;
-
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.nio.ByteBuffer;
-import java.util.BitSet;
-import java.util.UUID;
 
 import static org.apache.ignite.client.proto.ClientDataType.BITMASK;
 import static org.apache.ignite.client.proto.ClientDataType.BYTES;

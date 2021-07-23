@@ -17,10 +17,10 @@
 
 package org.apache.ignite.client;
 
+import java.util.concurrent.CompletableFuture;
+
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.internal.client.TcpIgniteClient;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Ignite client entry point.

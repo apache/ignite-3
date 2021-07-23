@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler;
 
+import java.net.BindException;
+
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -33,8 +35,6 @@ import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorCo
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.lang.IgniteException;
 import org.slf4j.Logger;
-
-import java.net.BindException;
 
 /**
  * Client handler module maintains TCP endpoint for thin client connections.

@@ -17,11 +17,11 @@
 
 package org.apache.ignite.client.proto;
 
+import java.nio.ByteBuffer;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToByteEncoder;
-
-import java.nio.ByteBuffer;
 
 /**
  * Encodes client messages:

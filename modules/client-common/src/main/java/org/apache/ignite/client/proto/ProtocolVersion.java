@@ -18,6 +18,7 @@
 package org.apache.ignite.client.proto;
 
 import java.io.IOException;
+
 import org.apache.ignite.internal.tostring.S;
 
 /** Thin client protocol version. */

@@ -17,9 +17,18 @@
 
 package org.apache.ignite.internal.client.table;
 
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.client.proto.ClientOp;
-import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
@@ -39,15 +48,6 @@ import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.msgpack.core.MessageFormat;
-
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.Collection;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Client table API implementation.

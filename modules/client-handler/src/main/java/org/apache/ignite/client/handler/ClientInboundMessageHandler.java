@@ -17,16 +17,24 @@
 
 package org.apache.ignite.client.handler;
 
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.nio.ByteBuffer;
+import java.util.BitSet;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.proto.ClientDataType;
 import org.apache.ignite.client.proto.ClientErrorCode;
 import org.apache.ignite.client.proto.ClientMessagePacker;
-import org.apache.ignite.client.proto.ServerMessageType;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.client.proto.ClientOp;
 import org.apache.ignite.client.proto.ProtocolVersion;
+import org.apache.ignite.client.proto.ServerMessageType;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaAware;
@@ -40,14 +48,6 @@ import org.apache.ignite.table.Tuple;
 import org.msgpack.core.MessageFormat;
 import org.msgpack.core.buffer.ByteBufferInput;
 import org.slf4j.Logger;
-
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.nio.ByteBuffer;
-import java.util.BitSet;
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Handles messages from thin clients.

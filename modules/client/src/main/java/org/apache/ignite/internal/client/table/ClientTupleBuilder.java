@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.client.table;
 
+import java.util.BitSet;
+import java.util.HashMap;
+import java.util.UUID;
+
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.TupleBuilder;
-
-import java.util.BitSet;
-import java.util.HashMap;
-import java.util.UUID;
 
 /**
  * Client tuple builder.

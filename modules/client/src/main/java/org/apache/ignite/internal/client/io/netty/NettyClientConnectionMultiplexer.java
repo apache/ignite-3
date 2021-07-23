@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.io.netty;
 
+import java.net.InetSocketAddress;
+
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -24,15 +26,13 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.proto.ClientMessageDecoder;
 import org.apache.ignite.client.proto.ClientMessageEncoder;
-import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.client.io.ClientConnection;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
 import org.apache.ignite.internal.client.io.ClientMessageHandler;
-
-import java.net.InetSocketAddress;
 
 /**
  * Netty-based multiplexer.

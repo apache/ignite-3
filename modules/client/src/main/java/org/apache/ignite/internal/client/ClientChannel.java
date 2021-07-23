@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.client;
 
+import java.util.concurrent.CompletableFuture;
+
 import org.apache.ignite.client.IgniteClientAuthorizationException;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.IgniteClientException;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Processing thin client requests and responses.

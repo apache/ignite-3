@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.client.io;
 
+import java.nio.ByteBuffer;
+
 import io.netty.channel.ChannelFuture;
 import org.apache.ignite.lang.IgniteException;
-
-import java.nio.ByteBuffer;
 
 /**
  * Client connection: abstracts away sending and receiving messages.

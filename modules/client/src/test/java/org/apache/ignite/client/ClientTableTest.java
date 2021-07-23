@@ -17,11 +17,11 @@
 
 package org.apache.ignite.client;
 
+import java.util.concurrent.CompletionException;
+
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
-
-import java.util.concurrent.CompletionException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;

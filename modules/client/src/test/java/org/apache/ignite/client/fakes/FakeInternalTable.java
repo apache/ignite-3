@@ -30,6 +30,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Fake internal table.
+ */
 public class FakeInternalTable implements InternalTable {
     private final String tableName;
 

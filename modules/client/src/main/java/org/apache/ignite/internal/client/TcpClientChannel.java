@@ -17,24 +17,6 @@
 
 package org.apache.ignite.internal.client;
 
-import io.netty.channel.ChannelFuture;
-import org.apache.ignite.client.proto.ClientErrorCode;
-import org.apache.ignite.client.proto.ClientMessagePacker;
-import org.apache.ignite.client.proto.ServerMessageType;
-import org.apache.ignite.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.client.IgniteClientAuthenticationException;
-import org.apache.ignite.client.IgniteClientAuthorizationException;
-import org.apache.ignite.client.IgniteClientConnectionException;
-import org.apache.ignite.client.IgniteClientException;
-import org.apache.ignite.client.proto.ProtocolVersion;
-import org.apache.ignite.internal.client.io.ClientConnection;
-import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
-import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
-import org.apache.ignite.internal.client.io.ClientMessageHandler;
-import org.apache.ignite.lang.IgniteException;
-import org.jetbrains.annotations.Nullable;
-import org.msgpack.core.buffer.ByteBufferInput;
-
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -48,6 +30,24 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+
+import io.netty.channel.ChannelFuture;
+import org.apache.ignite.client.IgniteClientAuthenticationException;
+import org.apache.ignite.client.IgniteClientAuthorizationException;
+import org.apache.ignite.client.IgniteClientConnectionException;
+import org.apache.ignite.client.IgniteClientException;
+import org.apache.ignite.client.proto.ClientErrorCode;
+import org.apache.ignite.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.client.proto.ProtocolVersion;
+import org.apache.ignite.client.proto.ServerMessageType;
+import org.apache.ignite.internal.client.io.ClientConnection;
+import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
+import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
+import org.apache.ignite.internal.client.io.ClientMessageHandler;
+import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
+import org.msgpack.core.buffer.ByteBufferInput;
 
 /**
  * Implements {@link ClientChannel} over TCP.

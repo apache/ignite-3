@@ -17,16 +17,16 @@
 
 package org.apache.ignite.internal.client;
 
+import java.util.function.BiFunction;
+
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientException;
+import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.table.manager.IgniteTables;
-import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.tx.IgniteTransactions;
-
-import java.util.function.BiFunction;
 
 /**
  * Implementation of {@link IgniteClient} over TCP protocol.

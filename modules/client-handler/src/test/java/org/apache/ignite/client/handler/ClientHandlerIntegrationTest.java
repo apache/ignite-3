@@ -17,6 +17,11 @@
 
 package org.apache.ignite.client.handler;
 
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.Socket;
+import java.util.Collections;
+
 import io.netty.channel.ChannelFuture;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
@@ -27,11 +32,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.msgpack.core.MessagePack;
 import org.slf4j.helpers.NOPLogger;
-
-import java.io.IOException;
-import java.io.OutputStream;
-import java.net.Socket;
-import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;

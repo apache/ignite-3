@@ -17,18 +17,18 @@
 
 package org.apache.ignite.client.handler;
 
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
-import org.apache.ignite.internal.configuration.storage.ConfigurationStorageListener;
-import org.apache.ignite.internal.configuration.storage.Data;
-import org.apache.ignite.internal.configuration.storage.StorageException;
-
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
+import org.apache.ignite.internal.configuration.storage.ConfigurationStorageListener;
+import org.apache.ignite.internal.configuration.storage.Data;
+import org.apache.ignite.internal.configuration.storage.StorageException;
 
 /**
  * Test configuration storage.
