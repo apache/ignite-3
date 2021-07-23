@@ -310,7 +310,7 @@ public class MavenArtifactResolver {
      * Ivy logger for routing all ivy logs to general logging system of CLI.
      */
     private static class IvyLogger extends AbstractMessageLogger {
-        /** Common logger */
+        /** Common logger. */
         private final IgniteLogger log = IgniteLogger.forClass(IvyLogger.class);
 
         /** {@inheritDoc} */
