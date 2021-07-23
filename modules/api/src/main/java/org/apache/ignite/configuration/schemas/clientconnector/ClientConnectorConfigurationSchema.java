@@ -23,6 +23,9 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Max;
 import org.apache.ignite.configuration.validation.Min;
 
+/**
+ * Configuration schema for thin client connector.
+ */
 @SuppressWarnings("PMD.UnusedPrivateField")
 @ConfigurationRoot(rootName = "clientConnector", type = ConfigurationType.LOCAL)
 public class ClientConnectorConfigurationSchema {
