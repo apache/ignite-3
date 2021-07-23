@@ -46,7 +46,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Documented
 public @interface NamedConfigValue {
     /**
-     * Key that can be used in HOCON configuration syntax to declare named list with fixed order:
+     * Key that can be used in HOCON configuration syntax to declare named list with fixed order.
      * <pre><code>
      * {
      *     root : {
