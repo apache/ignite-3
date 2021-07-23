@@ -151,6 +151,12 @@
 
             <dependency>
                 <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-calcite</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-cli-common</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -461,6 +467,13 @@
             <dependency>
                 <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-network</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-raft</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
             </dependency>

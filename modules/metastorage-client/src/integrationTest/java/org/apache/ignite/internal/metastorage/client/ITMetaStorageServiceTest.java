@@ -17,21 +17,27 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
+import org.apache.ignite.internal.raft.server.RaftServer;
+import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
@@ -39,22 +45,25 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
+import org.apache.ignite.network.LocalPortRangeNodeFinder;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
-import org.apache.ignite.internal.raft.server.RaftServer;
-import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -69,6 +78,7 @@ import static org.mockito.Mockito.verify;
  * Meta storage client tests.
  */
 @SuppressWarnings("WeakerAccess")
+@ExtendWith(WorkDirectoryExtension.class)
 public class ITMetaStorageServiceTest {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(ITMetaStorageServiceTest.class);
@@ -81,9 +91,6 @@ public class ITMetaStorageServiceTest {
 
     /** */
     private static final String METASTORAGE_RAFT_GROUP_NAME = "METASTORAGE_RAFT_GROUP";
-
-    /** */
-    public static final int LATEST_REVISION = -1;
 
     /** Factory. */
     private static final RaftClientMessagesFactory FACTORY = new RaftClientMessagesFactory();
@@ -117,11 +124,21 @@ public class ITMetaStorageServiceTest {
 
     private static final Collection<org.apache.ignite.internal.metastorage.server.Entry> EXPECTED_SRV_RESULT_COLL;
 
+    /** Node 0 id. */
+    public static final String NODE_ID_0 = "node-id-0";
+
+    /** Node 1 id. */
+    public static final String NODE_ID_1 = "node-id-1";
+
     /** Cluster. */
     private ArrayList<ClusterService> cluster = new ArrayList<>();
 
     /**  Meta storage raft server. */
     private RaftServer metaStorageRaftSrv;
+
+    /** */
+    @WorkDirectory
+    private Path dataPath;
 
     static {
         EXPECTED_RESULT_MAP = new TreeMap<>();
@@ -160,12 +177,11 @@ public class ITMetaStorageServiceTest {
      */
     @BeforeEach
     public void beforeTest() {
-        List<NetworkAddress> servers = IntStream.range(NODE_PORT_BASE, NODE_PORT_BASE + NODES)
-            .mapToObj(port -> new NetworkAddress("localhost", port))
-            .collect(Collectors.toList());
+        var nodeFinder = new LocalPortRangeNodeFinder(NODE_PORT_BASE, NODE_PORT_BASE + NODES);
 
-        for (int i = 0; i < NODES; i++)
-            cluster.add(startClusterNode("node_" + i, NODE_PORT_BASE + i, servers));
+        nodeFinder.findNodes().stream()
+            .map(addr -> startClusterNode(addr, nodeFinder))
+            .forEach(cluster::add);
 
         for (ClusterService node : cluster)
             assertTrue(waitForTopology(node, NODES, 1000));
@@ -325,7 +341,7 @@ public class ITMetaStorageServiceTest {
                         assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keys.size());
 
                         List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream().
-                                map(ByteArray::bytes).collect(Collectors.toList());
+                                map(ByteArray::bytes).collect(toList());
 
                         for (int i = 0; i < expKeys.size(); i++)
                             assertArrayEquals(expKeys.get(i), keys.get(i));
@@ -334,7 +350,7 @@ public class ITMetaStorageServiceTest {
                         assertEquals(EXPECTED_RESULT_MAP.values().size(), values.size());
 
                         List<byte[]> expVals = EXPECTED_RESULT_MAP.values().stream().
-                                map(Entry::value).collect(Collectors.toList());
+                                map(Entry::value).collect(toList());
 
                         for (int i = 0; i < expKeys.size(); i++)
                             assertArrayEquals(expVals.get(i), values.get(i));
@@ -364,7 +380,7 @@ public class ITMetaStorageServiceTest {
                         assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keys.size());
 
                         List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream().
-                                map(ByteArray::bytes).collect(Collectors.toList());
+                                map(ByteArray::bytes).collect(toList());
 
                         for (int i = 0; i < expKeys.size(); i++)
                             assertArrayEquals(expKeys.get(i), keys.get(i));
@@ -373,7 +389,7 @@ public class ITMetaStorageServiceTest {
                         assertEquals(EXPECTED_RESULT_MAP.values().size(), values.size());
 
                         List<byte[]> expVals = EXPECTED_RESULT_MAP.values().stream().
-                                map(Entry::value).collect(Collectors.toList());
+                                map(Entry::value).collect(toList());
 
                         for (int i = 0; i < expKeys.size(); i++)
                             assertArrayEquals(expVals.get(i), values.get(i));
@@ -456,7 +472,7 @@ public class ITMetaStorageServiceTest {
                         assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keys.size());
 
                         List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream().
-                                map(ByteArray::bytes).collect(Collectors.toList());
+                                map(ByteArray::bytes).collect(toList());
 
                         for (int i = 0; i < expKeys.size(); i++)
                             assertArrayEquals(expKeys.get(i), keys.get(i));
@@ -480,7 +496,7 @@ public class ITMetaStorageServiceTest {
                         assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keys.size());
 
                         List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream().
-                                map(ByteArray::bytes).collect(Collectors.toList());
+                                map(ByteArray::bytes).collect(toList());
 
                         for (int i = 0; i < expKeys.size(); i++)
                             assertArrayEquals(expKeys.get(i), keys.get(i));
@@ -818,7 +834,7 @@ public class ITMetaStorageServiceTest {
 
         MetaStorageService metaStorageSvc = prepareMetaStorage(
                 new AbstractKeyValueStorage() {
-                    @Override public Cursor<org.apache.ignite.internal.metastorage.server.WatchEvent> watch(byte[] keyFrom, byte[] keyTo, long rev) {
+                    @Override public Cursor<org.apache.ignite.internal.metastorage.server.WatchEvent> watch(byte[] keyFrom, byte @Nullable [] keyTo, long rev) {
                         return new Cursor<>() {
                             private final Iterator<org.apache.ignite.internal.metastorage.server.WatchEvent> it = new Iterator<>() {
                                 @Override public boolean hasNext() {
@@ -960,13 +976,82 @@ public class ITMetaStorageServiceTest {
     }
 
     /**
-     * @param name Node name.
-     * @param port Local port.
-     * @param srvs Server nodes of the cluster.
+     * Tests {@link MetaStorageService#closeCursors(String)}.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testCursorsCleanup() throws Exception {
+        MetaStorageService metaStorageSvc = prepareMetaStorage(
+            new AbstractKeyValueStorage() {
+                @Override public Cursor<org.apache.ignite.internal.metastorage.server.Entry> range(byte[] keyFrom, byte[] keyTo) {
+                    return new Cursor<>() {
+                        private final Iterator<org.apache.ignite.internal.metastorage.server.Entry> it = new Iterator<>() {
+                            @Override public boolean hasNext() {
+                                return true;
+                            }
+
+                            @Override public org.apache.ignite.internal.metastorage.server.Entry next() {
+                                return EXPECTED_SRV_RESULT_ENTRY;
+                            }
+                        };
+
+                        @Override public void close() throws Exception {
+
+                        }
+
+                        @NotNull @Override public Iterator<org.apache.ignite.internal.metastorage.server.Entry> iterator() {
+                            return it;
+                        }
+
+                        @Override public boolean hasNext() {
+                            return it.hasNext();
+                        }
+
+                        @Override
+                        public org.apache.ignite.internal.metastorage.server.Entry next() {
+                            return it.next();
+                        }
+                    };
+                }
+            });
+
+        List<Peer> peers = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
+
+        RaftGroupService metaStorageRaftGrpSvc = new RaftGroupServiceImpl(
+            METASTORAGE_RAFT_GROUP_NAME,
+            cluster.get(1),
+            FACTORY,
+            10_000,
+            peers,
+            true,
+            200
+        );
+
+        MetaStorageService metaStorageSvc2 =  new MetaStorageServiceImpl(metaStorageRaftGrpSvc, NODE_ID_1);
+
+        Cursor<Entry> cursorNode0 = metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null);
+
+        Cursor<Entry> cursor2Node0 = metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null);
+
+        Cursor<Entry> cursorNode1 = metaStorageSvc2.range(EXPECTED_RESULT_ENTRY.key(), null);
+
+        metaStorageSvc.closeCursors(NODE_ID_0).get();
+
+        assertThrows(NoSuchElementException.class, () -> cursorNode0.iterator().next());
+
+        assertThrows(NoSuchElementException.class, () -> cursor2Node0.iterator().next());
+
+        assertEquals(EXPECTED_RESULT_ENTRY, (cursorNode1.iterator().next()));
+    }
+
+    /**
+     * @param addr Node address.
+     * @param nodeFinder Node finder.
      * @return The client cluster view.
      */
-    private ClusterService startClusterNode(String name, int port, List<NetworkAddress> srvs) {
-        var ctx = new ClusterLocalConfiguration(name, port, srvs, SERIALIZATION_REGISTRY);
+    private static ClusterService startClusterNode(NetworkAddress addr, NodeFinder nodeFinder) {
+        var ctx = new ClusterLocalConfiguration(addr.toString(), addr.port(), nodeFinder, SERIALIZATION_REGISTRY);
 
         var net = NETWORK_FACTORY.createClusterService(ctx);
 
@@ -1025,7 +1110,7 @@ public class ITMetaStorageServiceTest {
             200
         );
 
-        return new MetaStorageServiceImpl(metaStorageRaftGrpSvc);
+        return new MetaStorageServiceImpl(metaStorageRaftGrpSvc, NODE_ID_0);
     }
 
     /**
@@ -1145,7 +1230,7 @@ public class ITMetaStorageServiceTest {
         }
 
         /** {@inheritDoc} */
-        @Override public Cursor<org.apache.ignite.internal.metastorage.server.WatchEvent> watch(byte[] keyFrom, byte[] keyTo, long rev) {
+        @Override public Cursor<org.apache.ignite.internal.metastorage.server.WatchEvent> watch(byte[] keyFrom, byte @Nullable [] keyTo, long rev) {
             fail();
 
             return null;
@@ -1167,6 +1252,24 @@ public class ITMetaStorageServiceTest {
 
         /** {@inheritDoc} */
         @Override public void compact() {
+            fail();
+        }
+
+        /** {@inheritDoc} */
+        @Override public void close() {
+            fail();
+        }
+
+        /** {@inheritDoc} */
+        @NotNull
+        @Override public CompletableFuture<Void> snapshot(Path snapshotPath) {
+            fail();
+
+            return null;
+        }
+
+        /** {@inheritDoc} */
+        @Override public void restoreSnapshot(Path snapshotPath) {
             fail();
         }
     }

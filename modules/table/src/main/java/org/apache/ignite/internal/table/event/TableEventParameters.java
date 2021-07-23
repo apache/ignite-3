@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.event;
 
 import java.util.UUID;
+
 import org.apache.ignite.internal.manager.EventParameters;
 import org.apache.ignite.internal.table.TableImpl;
 
