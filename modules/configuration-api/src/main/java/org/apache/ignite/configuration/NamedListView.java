@@ -22,7 +22,7 @@ import java.util.List;
 /**
  * View type for a {@link NamedConfigurationTree}. Represents an immutable snapshot of a named list configuration.
  *
- * @param <View> View type for named list elements.
+ * @param <View> Type for immutable snapshots of named list elements.
  */
 public interface NamedListView<View> {
     /**

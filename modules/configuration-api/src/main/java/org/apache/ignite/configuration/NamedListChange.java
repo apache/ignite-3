@@ -20,9 +20,9 @@ package org.apache.ignite.configuration;
 import java.util.function.Consumer;
 
 /**
- * Change closure parameter for a {@link NamedConfigurationTree} instance. Contains methods to modify named lists.
+ * Closure parameter for {@link NamedConfigurationTree#change(Consumer)} method. Contains methods to modify named lists.
  *
- * @param <Change> Change type for named list elements.
+ * @param <Change> Type for changing named list elements of this particular list.
  */
 public interface NamedListChange<Change> extends NamedListView<Change> {
     /**

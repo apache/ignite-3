@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface ConfigurationNotificationEvent<VIEW> {
     /**
-     * Returns previous value of the updated configuration.
+     * Returns the previous value of the updated configuration.
      *
      * @return Previous value of the updated configuration.
      */

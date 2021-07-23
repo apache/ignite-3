@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface ValidationContext<VIEW> {
     /**
-     * Returns key of validated node.
+     * Returns the key of validated node.
      *
      * @return String representation of currently validated value, i.e. {@code root.config.node}.
      */

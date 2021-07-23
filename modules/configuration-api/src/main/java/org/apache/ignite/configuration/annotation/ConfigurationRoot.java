@@ -35,7 +35,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Documented
 public @interface ConfigurationRoot {
     /**
-     * Returns unique root name.
+     * Returns the unique root name.
      *
      * @return Unique root name.
      */
