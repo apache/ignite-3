@@ -225,7 +225,7 @@ public class LocalLogStorage implements LogStorage, Describer {
             return true;
         }
         catch (Exception e) {
-            LOG.error("Fail to truncateSuffix {}.", lastIndexKept, e);
+            LOG.error("Fail to truncateSuffix {}.", e, lastIndexKept);
         }
         finally {
             this.readLock.unlock();

@@ -124,7 +124,7 @@ public final class FileService {
                     e.getMessage());
         }
         catch (final IOException e) {
-            LOG.error("Fail to read file path={} filename={}", reader.getPath(), request.filename(), e);
+            LOG.error("Fail to read file path={} filename={}", e, reader.getPath(), request.filename());
             return RaftRpcFactory.DEFAULT //
                 .newResponse(msgFactory, RaftError.EIO,
                     "Fail to read from path=%s filename=%s", reader.getPath(), request.filename());

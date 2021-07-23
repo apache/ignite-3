@@ -94,7 +94,7 @@ public abstract class ReadIndexClosure implements Closure {
             run(status, this.index, this.requestContext);
         }
         catch (final Throwable t) {
-            LOG.error("Fail to run ReadIndexClosure with status: {}.", status, t);
+            LOG.error("Fail to run ReadIndexClosure with status: {}.", t, status);
         }
     }
 }

@@ -195,7 +195,7 @@ public class RocksDBLogStorage implements LogStorage, Describer {
             return initAndLoad(opts.getConfigurationManager());
         }
         catch (final RocksDBException e) {
-            LOG.error("Fail to init RocksDBLogStorage, path={}.", this.path, e);
+            LOG.error("Fail to init RocksDBLogStorage, path={}.", e, this.path);
             return false;
         }
         finally {
@@ -287,7 +287,7 @@ public class RocksDBLogStorage implements LogStorage, Describer {
             return true;
         }
         catch (final RocksDBException e) {
-            LOG.error("Fail to save first log index {}.", firstLogIndex, e);
+            LOG.error("Fail to save first log index {}.", e, firstLogIndex);
             return false;
         }
         finally {
@@ -454,7 +454,7 @@ public class RocksDBLogStorage implements LogStorage, Describer {
             }
         }
         catch (final RocksDBException | IOException e) {
-            LOG.error("Fail to get log entry at index {}.", index, e);
+            LOG.error("Fail to get log entry at index {}.", e, index);
         }
         finally {
             this.readLock.unlock();
@@ -599,7 +599,7 @@ public class RocksDBLogStorage implements LogStorage, Describer {
                 this.db.deleteRange(this.confHandle, getKeyBytes(startIndex), getKeyBytes(firstIndexKept));
             }
             catch (final RocksDBException | IOException e) {
-                LOG.error("Fail to truncatePrefix {}.", firstIndexKept, e);
+                LOG.error("Fail to truncatePrefix {}.", e, firstIndexKept);
             }
             finally {
                 this.readLock.unlock();
@@ -623,7 +623,7 @@ public class RocksDBLogStorage implements LogStorage, Describer {
             return true;
         }
         catch (final RocksDBException | IOException e) {
-            LOG.error("Fail to truncateSuffix {}.", lastIndexKept, e);
+            LOG.error("Fail to truncateSuffix {}.", e, lastIndexKept);
         }
         finally {
             this.readLock.unlock();

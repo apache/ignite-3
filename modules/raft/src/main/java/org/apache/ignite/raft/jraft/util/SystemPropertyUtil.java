@@ -70,7 +70,7 @@ public final class SystemPropertyUtil {
         }
         catch (Exception e) {
             if (LOG.isWarnEnabled()) {
-                LOG.warn("Unable to retrieve a system property '{}'; default values will be used, {}.", key, e);
+                LOG.warn("Unable to retrieve a system property '{}'; default values will be used, {}.", key, (Object)e);
             }
         }
 

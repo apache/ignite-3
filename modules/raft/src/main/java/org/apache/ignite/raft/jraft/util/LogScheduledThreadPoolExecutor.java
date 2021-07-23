@@ -79,7 +79,7 @@ public class LogScheduledThreadPoolExecutor extends ScheduledThreadPoolExecutor 
             }
         }
         if (t != null) {
-            LOG.error("Uncaught exception in pool: {}, {}.", this.name, super.toString(), t);
+            LOG.error("Uncaught exception in pool: {}, {}.", t, this.name, super.toString());
         }
     }
 

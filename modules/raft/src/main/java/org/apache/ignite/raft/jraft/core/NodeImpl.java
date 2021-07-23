@@ -2497,7 +2497,7 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     public void onError(final RaftException error) {
-        LOG.warn("Node {} got error: {}.", getNodeId(), error);
+        LOG.warn("Node {} got error: {}.", getNodeId(), (Object)error);
         if (this.fsmCaller != null) {
             // onError of fsmCaller is guaranteed to be executed once.
             this.fsmCaller.onError(error);

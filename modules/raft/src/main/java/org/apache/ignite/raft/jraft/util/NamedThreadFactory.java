@@ -55,7 +55,7 @@ public class NamedThreadFactory implements ThreadFactory {
     private static final class LogUncaughtExceptionHandler implements Thread.UncaughtExceptionHandler {
         @Override
         public void uncaughtException(Thread t, Throwable e) {
-            LOG.error("Uncaught exception in thread {}", t, e);
+            LOG.error("Uncaught exception in thread {}", e, t);
         }
     }
 }

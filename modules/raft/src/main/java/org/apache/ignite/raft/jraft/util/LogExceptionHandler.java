@@ -45,18 +45,18 @@ public final class LogExceptionHandler<T> implements ExceptionHandler<T> {
 
     @Override
     public void handleOnStartException(Throwable ex) {
-        LOG.error("Fail to start {} disruptor", this.name, ex);
+        LOG.error("Fail to start {} disruptor", ex, this.name);
     }
 
     @Override
     public void handleOnShutdownException(Throwable ex) {
-        LOG.error("Fail to shutdown {}r disruptor", this.name, ex);
+        LOG.error("Fail to shutdown {}r disruptor", ex, this.name);
 
     }
 
     @Override
     public void handleEventException(Throwable ex, long sequence, T event) {
-        LOG.error("Handle {} disruptor event error, event is {}", this.name, event, ex);
+        LOG.error("Handle {} disruptor event error, event is {}", ex, this.name, event);
         if (this.onEventException != null) {
             this.onEventException.onException(event, ex);
         }

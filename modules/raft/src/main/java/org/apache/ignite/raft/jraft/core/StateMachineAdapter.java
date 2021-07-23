@@ -65,7 +65,7 @@ public abstract class StateMachineAdapter implements StateMachine {
     public void onError(final RaftException e) {
         LOG.error(
             "Encountered an error={} on StateMachine {}, it's highly recommended to implement this method as raft stops working since some error occurs, you should figure out the cause and repair or remove this node.",
-            e.getStatus(), getClassName(), e);
+            e, e.getStatus(), getClassName());
     }
 
     @Override

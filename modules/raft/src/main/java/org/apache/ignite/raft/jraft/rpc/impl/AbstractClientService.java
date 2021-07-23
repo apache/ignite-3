@@ -207,7 +207,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                                 done.run(status);
                             }
                             catch (final Throwable t) {
-                                LOG.error("Fail to run RpcResponseClosure, the request is {}.", request, t);
+                                LOG.error("Fail to run RpcResponseClosure, the request is {}.", t, request);
                             }
                         }
                         if (!future.isDone()) {
@@ -224,7 +224,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                                     : RaftError.EINTERNAL, "RPC exception:" + err.getMessage()));
                             }
                             catch (final Throwable t) {
-                                LOG.error("Fail to run RpcResponseClosure, the request is {}.", request, t);
+                                LOG.error("Fail to run RpcResponseClosure, the request is {}.", t, request);
                             }
                         }
                         if (!future.isDone()) {

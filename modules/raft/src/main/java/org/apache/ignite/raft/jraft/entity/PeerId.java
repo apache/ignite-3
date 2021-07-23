@@ -231,7 +231,7 @@ public class PeerId implements Copiable<PeerId>, Serializable, Checksum {
             return true;
         }
         catch (final Exception e) {
-            LOG.error("Parse peer from string failed: {}.", s, e);
+            LOG.error("Parse peer from string failed: {}.", e, s);
             return false;
         }
     }

@@ -475,7 +475,7 @@ public class LogManagerImpl implements LogManager {
                         this.storage.get(i).run(st);
                     }
                     catch (Throwable t) {
-                        LOG.error("Fail to run closure with status: {}.", st, t);
+                        LOG.error("Fail to run closure with status: {}.", t, st);
                     }
                 }
                 this.toAppend.clear();

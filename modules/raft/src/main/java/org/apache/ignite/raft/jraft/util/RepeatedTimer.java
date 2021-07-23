@@ -176,7 +176,7 @@ public abstract class RepeatedTimer implements Describer {
                 RepeatedTimer.this.run();
             }
             catch (final Throwable t) {
-                LOG.error("Run timer task failed, taskName={}.", RepeatedTimer.this.name, t);
+                LOG.error("Run timer task failed, taskName={}.", t, RepeatedTimer.this.name);
             }
         };
         this.timeout = this.timer.newTimeout(timerTask, adjustTimeout(this.timeoutMs), TimeUnit.MILLISECONDS);

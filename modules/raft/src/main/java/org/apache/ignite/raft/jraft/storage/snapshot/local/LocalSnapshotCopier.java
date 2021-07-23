@@ -221,7 +221,7 @@ public class LocalSnapshotCopier extends SnapshotCopier {
             }
         }
         catch (final IOException e) {
-            LOG.error("Failed to check file: {}, writer path: {}.", fileName, this.writer.getPath(), e);
+            LOG.error("Failed to check file: {}, writer path: {}.", e, fileName, this.writer.getPath());
             setError(RaftError.EIO, "Failed to check file: {}, writer path: {}.", fileName, this.writer.getPath());
             return false;
         }
@@ -328,7 +328,7 @@ public class LocalSnapshotCopier extends SnapshotCopier {
                     Files.createLink(destPath, sourcePath);
                 }
                 catch (final IOException e) {
-                    LOG.error("Fail to link {} to {}", sourcePath, destPath, e);
+                    LOG.error("Fail to link {} to {}", e, sourcePath, destPath);
                     continue;
                 }
                 // Don't delete linked file
