@@ -296,6 +296,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
         if (schema == null) {
             packer.packNil();
+
             return;
         }
 
@@ -438,6 +439,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             case INT32:
                 packer.packInt((int) val);
                 break;
+
             case INT64:
                 packer.packLong((long) val);
                 break;
