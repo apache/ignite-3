@@ -120,6 +120,7 @@ public class ClientHandlerModule {
 
         for (int portCandidate = desiredPort; portCandidate < desiredPort + portRange; portCandidate++) {
             ChannelFuture bindRes = b.bind(portCandidate).await();
+
             if (bindRes.isSuccess()) {
                 ch = bindRes.channel();
 

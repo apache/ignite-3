@@ -118,7 +118,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                     .packMapHeader(0); // Extensions.
 
             write(packer, ctx);
-        } catch (Throwable t) {
+        }
+        catch (Throwable t) {
             packer = getPacker();
 
             ProtocolVersion.LATEST_VER.pack(packer);
@@ -151,7 +152,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             packer.packString(msg);
 
             write(packer, ctx);
-        } catch (Throwable t) {
+        }
+        catch (Throwable t) {
             exceptionCaught(ctx, t);
         }
     }
@@ -178,7 +180,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             if (fut == null) {
                 // Operation completed synchronously.
                 write(packer, ctx);
-            } else {
+            }
+            else {
                 fut.whenComplete((Object res, Object err) -> {
                     if (err != null)
                         writeError(requestId, (Throwable) err, ctx);
@@ -187,7 +190,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 });
             }
 
-        } catch (Throwable t) {
+        }
+        catch (Throwable t) {
             writeError(requestId, t, ctx);
         }
     }
@@ -232,7 +236,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                         throw new IgniteException("Schema registry is not initialized.");
 
                     writeSchema(packer, schema.version(), schema);
-                } else {
+                }
+                else {
                     var cnt = unpacker.unpackArrayHeader();
                     packer.packMapHeader(cnt);
 
@@ -325,7 +330,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             for (var col : schema.valueColumns().columns())
                 writeColumnValue(packer, tuple, col);
-        } catch (Throwable t) {
+        }
+        catch (Throwable t) {
             throw new IgniteException("Failed to serialize tuple", t);
         }
     }
