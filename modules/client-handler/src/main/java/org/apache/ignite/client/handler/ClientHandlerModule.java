@@ -106,7 +106,6 @@ public class ClientHandlerModule {
 
         b.group(eventLoopGroup)
             .channel(NioServerSocketChannel.class)
-            .handler(new LoggingHandler(LogLevel.INFO)) // TODO: ?
             .childHandler(new ChannelInitializer<>() {
                 @Override
                 protected void initChannel(Channel ch) {

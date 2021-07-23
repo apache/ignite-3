@@ -65,7 +65,7 @@ public class ClientMessageDecoder extends ByteToMessageDecoder {
      * Checks the magic header for the first message.
      *
      * @param byteBuf Buffer.
-     * @return True when magic header has been received and is valid, false otherwise.
+     * @return {@code true} when magic header has been received and is valid, {@code false} otherwise.
      * @throws IgniteException When magic is invalid.
      */
     private boolean readMagic(ByteBuf byteBuf) {
