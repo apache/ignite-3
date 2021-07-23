@@ -370,6 +370,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
     private TableImpl readTable(ClientMessageUnpacker unpacker) throws IOException {
         var tableId = unpacker.unpackUuid();
+
         return ((IgniteTablesInternal)ignite.tables()).table(tableId);
     }
 
