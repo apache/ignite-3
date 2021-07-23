@@ -155,7 +155,8 @@ public final class ReliableChannel implements AutoCloseable {
 
         try {
             ch = applyOnDefaultChannel(channel -> channel, attemptsLimit, v -> attemptsCnt[0] = v );
-        } catch (Throwable ex) {
+        }
+        catch (Throwable ex) {
             if (failure != null) {
                 failure.addSuppressed(ex);
 
@@ -291,7 +292,8 @@ public final class ReliableChannel implements AutoCloseable {
                 else
                     curChIdx = idx;
             }
-        } finally {
+        }
+        finally {
             curChannelsGuard.writeLock().unlock();
         }
     }
@@ -474,7 +476,8 @@ public final class ReliableChannel implements AutoCloseable {
 
                 try {
                     hld = channels.get(curChIdx);
-                } finally {
+                }
+                finally {
                     curChannelsGuard.readLock().unlock();
                 }
 
@@ -599,7 +602,8 @@ public final class ReliableChannel implements AutoCloseable {
             if (ch != null) {
                 try {
                     ch.close();
-                } catch (Exception ignored) {
+                }
+                catch (Exception ignored) {
                 }
 
                 ch = null;
