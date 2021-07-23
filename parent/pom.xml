@@ -1172,30 +1172,7 @@
                         </goals>
                         <configuration>
                             <manualIncludes>
-                                <manualInclude>org.apache.ignite</manualInclude>
-                            </manualIncludes>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <!--
-                Plugin to remove org.apache.ignite.* artifacts from local repository before the build
-                (always clean build with current reactor dependency resolution)
-            -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>purge-local-repository</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>purge-local-repository</goal>
-                        </goals>
-                        <configuration>
-                            <manualIncludes>
-                                <manualInclude>org.apache.ignite:${project.artifactId}</manualInclude>
+                                <manualInclude>org.apache.ignite:${project.artifactId}/${project.version}</manualInclude>
                             </manualIncludes>
                             <verbose>true</verbose>
                         </configuration>
