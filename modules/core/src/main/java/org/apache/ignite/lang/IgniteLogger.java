@@ -279,7 +279,7 @@ public class IgniteLogger {
             return;
 
         if (th != null)
-            log.log(level, LoggerMessageHelper.arrayFormat(msg, LoggerMessageHelper.trimmedCopy(params)), th);
+            log.log(level, LoggerMessageHelper.arrayFormat(msg, params), th);
         else
             log.log(level, LoggerMessageHelper.arrayFormat(msg, params));
     }
