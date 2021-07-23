@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collections;
@@ -39,6 +40,7 @@ import static org.apache.ignite.internal.schema.NativeTypes.INT64;
 import static org.apache.ignite.internal.schema.NativeTypes.INT16;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.apache.ignite.internal.schema.NativeTypes.UUID;
+import static org.apache.ignite.internal.schema.NativeTypes.VL_NUMBER;
 import static org.apache.ignite.internal.schema.TestUtils.randomBytes;
 import static org.apache.ignite.internal.schema.TestUtils.randomString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -109,7 +111,9 @@ public class RowTest {
             new Column("keyDoubleCol", DOUBLE, true),
             new Column("keyUuidCol", UUID, true),
             new Column("keyBitmask1Col", NativeTypes.bitmaskOf(4), true),
-            new Column("keyBitmask2Col", NativeTypes.bitmaskOf(22), true)
+            new Column("keyBitmask2Col", NativeTypes.bitmaskOf(22), true),
+            new Column("keyNumberCol", NativeTypes.numberOf(21), true),
+            new Column("keyNumberCol2", VL_NUMBER, true)
         };
 
         Column[] valCols = new Column[] {
@@ -121,7 +125,9 @@ public class RowTest {
             new Column("valDoubleCol", DOUBLE, true),
             new Column("valUuidCol", UUID, true),
             new Column("valBitmask1Col", NativeTypes.bitmaskOf(4), true),
-            new Column("valBitmask2Col", NativeTypes.bitmaskOf(22), true)
+            new Column("valBitmask2Col", NativeTypes.bitmaskOf(22), true),
+            new Column("valNumberCol", NativeTypes.numberOf(21), true),
+            new Column("valNumberCol2", VL_NUMBER, true)
         };
 
         checkSchema(keyCols, valCols);
@@ -421,6 +427,16 @@ public class RowTest {
                         nonNullVarLenValSize += RowAssembler.utf8EncodedLength((CharSequence)vals[i]);
                     }
                 }
+                else if (type == NativeTypeSpec.VL_NUMBER) {
+                    if (schema.isKeyColumn(i)) {
+                        nonNullVarLenKeyCols++;
+                        nonNullVarLenKeySize += ((BigInteger)vals[i]).toByteArray().length;
+                    }
+                    else {
+                        nonNullVarLenValCols++;
+                        nonNullVarLenValSize += ((BigInteger)vals[i]).toByteArray().length;
+                    }
+                }
                 else
                     throw new IllegalStateException("Unsupported variable-length type: " + type);
             }
@@ -470,6 +486,15 @@ public class RowTest {
 
                     case STRING:
                         asm.appendString((String)vals[i]);
+                        break;
+
+                    case NUMBER:
+                        asm.appendNumber((BigInteger)vals[i]);
+                        break;
+
+
+                    case VL_NUMBER:
+                        asm.appendVarLenNumber((BigInteger)vals[i]);
                         break;
 
                     case BYTES:

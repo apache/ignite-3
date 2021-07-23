@@ -106,6 +106,28 @@ public class ColumnType {
     }
 
     /**
+     * Number type factory method.
+     *
+     * @param precision precision of value.
+     * @return Number type.
+     */
+    public static NumberColumnType numberOf(int precision) {
+        if (precision <= 0)
+            throw new IllegalArgumentException("Precision [" + precision + "] must be positive integer value.");
+
+        return new NumberColumnType(ColumnTypeSpec.NUMBER, precision);
+    }
+
+    /**
+     * Number type factory method.
+     *
+     * @return Number type.
+     */
+    public static NumberColumnType numberOf() {
+        return new NumberColumnType(ColumnTypeSpec.NUMBER, -1);
+    }
+
+    /**
      * Decimal type factory method.
      *
      * @param precision Precision.
@@ -207,6 +229,45 @@ public class ColumnType {
     }
 
     /**
+     * Number column type.
+     */
+    public static class NumberColumnType extends ColumnType {
+        /** Max precision of value. If -1, column has no precision restrictions. */
+        private final int precision;
+
+        /** Constructor. */
+        private NumberColumnType(ColumnTypeSpec typeSpec, int precision) {
+            super(typeSpec);
+
+            this.precision = precision;
+        }
+
+        /**
+         * @return max value precision.
+         */
+        public int precision() {
+            return precision;
+        }
+
+        /** {@inheritDoc} */
+        @Override public boolean equals(Object o) {
+            if (this == o)
+                return true;
+            if (o == null || getClass() != o.getClass())
+                return false;
+            if (!super.equals(o))
+                return false;
+            NumberColumnType type = (NumberColumnType)o;
+            return precision == type.precision;
+        }
+
+        /** {@inheritDoc} */
+        @Override public int hashCode() {
+            return Objects.hash(super.hashCode(), precision);
+        }
+    }
+
+    /**
      * Column type spec.
      */
     public enum ColumnTypeSpec {
@@ -230,6 +291,8 @@ public class ColumnType {
         BITMASK,
         STRING,
         BLOB,
+
+        NUMBER,
     }
 
     /** Type spec. */

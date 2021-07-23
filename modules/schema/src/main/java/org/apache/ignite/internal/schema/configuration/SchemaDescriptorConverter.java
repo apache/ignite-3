@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema.configuration;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -40,6 +41,7 @@ import static org.apache.ignite.internal.schema.NativeTypes.INT32;
 import static org.apache.ignite.internal.schema.NativeTypes.INT64;
 import static org.apache.ignite.internal.schema.NativeTypes.INT16;
 import static org.apache.ignite.internal.schema.NativeTypes.UUID;
+import static org.apache.ignite.internal.schema.NativeTypes.VL_NUMBER;
 
 /**
  * Build SchemaDescriptor from SchemaTable internal configuration.
@@ -107,6 +109,12 @@ public class SchemaDescriptorConverter {
 
                 return NativeTypes.blobOf(blobLen);
 
+            case NUMBER:
+                ColumnType.NumberColumnType numberType = (ColumnType.NumberColumnType)colType;
+                if (numberType.precision() > 0)
+                    return NativeTypes.numberOf(numberType.precision());
+                return VL_NUMBER;
+
             default:
                 throw new InvalidTypeException("Unexpected type " + type);
         }
@@ -156,6 +164,8 @@ public class SchemaDescriptorConverter {
                 return dflt;
             case UUID:
                 return java.util.UUID.fromString(dflt);
+            case NUMBER:
+                return new BigInteger(dflt);
             default:
                 throw new SchemaException("Default value is not supported for type: type=" + type.toString());
         }

@@ -138,6 +138,31 @@ public enum NativeTypeSpec {
         @Override public Object objectValue(Row tup, int colIdx) {
             return tup.bitmaskValue(colIdx);
         }
+    },
+
+    /**
+     * Native type representing a BigInteger object value.
+     */
+    NUMBER("number", true) {
+        /** {@inheritDoc} */
+        @Override public Object objectValue(Row tup, int colIdx) {
+            return tup.numberValue(colIdx);
+        }
+    },
+
+    /**
+     * Native type representing a BigInteger object value.
+     */
+    VL_NUMBER("number", false) {
+        /** {@inheritDoc} */
+        @Override public boolean fixedLength() {
+            return false;
+        }
+
+        /** {@inheritDoc} */
+        @Override public Object objectValue(Row tup, int colIdx) {
+            return tup.varLenNumberValue(colIdx);
+        }
     };
 
     /** Flag indicating whether this type specifies a fixed-length type. */

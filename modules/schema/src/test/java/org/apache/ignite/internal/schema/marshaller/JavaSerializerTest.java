@@ -26,6 +26,7 @@ import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.expression.BytecodeExpressions;
+import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.EnumSet;
@@ -60,6 +61,7 @@ import static org.apache.ignite.internal.schema.NativeTypes.INT16;
 import static org.apache.ignite.internal.schema.NativeTypes.UUID;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
+import static org.apache.ignite.internal.schema.NativeTypes.VL_NUMBER;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -104,7 +106,7 @@ public class JavaSerializerTest {
      */
     @TestFactory
     public Stream<DynamicNode> testBasicTypes() {
-        NativeType[] types = new NativeType[] {INT8, INT16, INT32, INT64, FLOAT, DOUBLE, UUID, STRING, BYTES, NativeTypes.bitmaskOf(5)};
+        NativeType[] types = new NativeType[] {INT8, INT16, INT32, INT64, FLOAT, DOUBLE, UUID, STRING, BYTES, NativeTypes.bitmaskOf(5), NativeTypes.numberOf(42), VL_NUMBER};
 
         return serializerFactoryProvider().stream().map(factory ->
             dynamicContainer(
@@ -121,7 +123,9 @@ public class JavaSerializerTest {
                         dynamicTest("testMixTypes 1", () -> checkBasicType(factory, FLOAT, DOUBLE)),
                         dynamicTest("testMixTypes 1", () -> checkBasicType(factory, INT32, BYTES)),
                         dynamicTest("testMixTypes 1", () -> checkBasicType(factory, STRING, INT64)),
-                        dynamicTest("testMixTypes 1", () -> checkBasicType(factory, NativeTypes.bitmaskOf(9), BYTES))
+                        dynamicTest("testMixTypes 1", () -> checkBasicType(factory, NativeTypes.bitmaskOf(9), BYTES)),
+                        dynamicTest("testMixTypes 1", () -> checkBasicType(factory, NativeTypes.numberOf(12), BYTES)),
+                        dynamicTest("testMixTypes 1", () -> checkBasicType(factory, VL_NUMBER, BYTES))
                     )
                 )
             ));
@@ -151,6 +155,8 @@ public class JavaSerializerTest {
 
             new Column("uuidCol", UUID, true),
             new Column("bitmaskCol", NativeTypes.bitmaskOf(42), true),
+            new Column("numberCol", NativeTypes.numberOf(12), true),
+            new Column("vlNumberCol", VL_NUMBER, true),
             new Column("stringCol", STRING, true),
             new Column("nullBytesCol", BYTES, true),
             new Column("bytesCol", BYTES, true),
@@ -470,6 +476,8 @@ public class JavaSerializerTest {
             obj.bitmaskCol = TestUtils.randomBitSet(rnd, 42);
             obj.stringCol = TestUtils.randomString(rnd, rnd.nextInt(255));
             obj.bytesCol = TestUtils.randomBytes(rnd, rnd.nextInt(255));
+            obj.numberCol = (BigInteger)TestUtils.generateRandomValue(rnd, NativeTypes.numberOf(12));
+            obj.vlNumberCol = (BigInteger)TestUtils.generateRandomValue(rnd, VL_NUMBER);
 
             return obj;
         }
@@ -512,6 +520,10 @@ public class JavaSerializerTest {
 
         private byte[] nullBytesCol;
 
+        private BigInteger numberCol;
+
+        private BigInteger vlNumberCol;
+
         /** {@inheritDoc} */
         @Override public boolean equals(Object o) {
             if (this == o)
@@ -539,7 +551,8 @@ public class JavaSerializerTest {
                 Objects.equals(bitmaskCol, object.bitmaskCol) &&
                 Objects.equals(stringCol, object.stringCol) &&
                 Arrays.equals(bytesCol, object.bytesCol) &&
-                Arrays.equals(nullBytesCol, object.nullBytesCol);
+                Objects.equals(numberCol, object.numberCol) &&
+                Objects.equals(vlNumberCol, object.vlNumberCol);
         }
 
         /** {@inheritDoc} */

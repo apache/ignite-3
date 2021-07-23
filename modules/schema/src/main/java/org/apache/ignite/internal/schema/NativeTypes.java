@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.math.BigInteger;
 import java.util.BitSet;
 import org.apache.ignite.schema.ColumnType;
 
@@ -51,6 +52,9 @@ public class NativeTypes {
     /** */
     public static final NativeType BYTES = new VarlenNativeType(NativeTypeSpec.BYTES, Integer.MAX_VALUE);
 
+    /** */
+    public static final NativeType VL_NUMBER = new VarlenNativeType(NativeTypeSpec.VL_NUMBER, Integer.MAX_VALUE);
+
     /** Don't allow to create an instance. */
     private NativeTypes() {
     }
@@ -63,6 +67,16 @@ public class NativeTypes {
      */
     public static NativeType bitmaskOf(int bits) {
         return new BitmaskNativeType(bits);
+    }
+
+    /**
+     * Creates a number type of size <code>bytes</code>.
+     *
+     * @param precision The number of digits in the number value.
+     * @return Native type.
+     */
+    public static NativeType numberOf(int precision) {
+        return new FixLenNumberNativeType(precision);
     }
 
     /**
@@ -139,6 +153,9 @@ public class NativeTypes {
             case BITMASK:
                 return bitmaskOf(((BitSet)val).length());
 
+            case NUMBER:
+                return numberOf(((BigInteger)val).bitLength()/8 + 1);
+
             default:
                 assert false : "Unexpected type: " + spec;
 
@@ -201,6 +218,12 @@ public class NativeTypes {
                     ((ColumnType.VarLenColumnType)type).length() > 0 ?
                         ((ColumnType.VarLenColumnType)type).length() : Integer.MAX_VALUE
                 );
+
+            case NUMBER:
+                ColumnType.NumberColumnType numberType = (ColumnType.NumberColumnType)type;
+                if (numberType.precision() > 0)
+                    return new FixLenNumberNativeType(numberType.precision());
+                return new FixLenNumberNativeType(numberType.precision());
 
             default:
                 throw new InvalidTypeException("Unexpected type " + type);

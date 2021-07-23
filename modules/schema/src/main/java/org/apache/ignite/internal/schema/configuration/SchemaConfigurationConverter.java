@@ -40,6 +40,7 @@ import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesChange;
 import org.apache.ignite.internal.schema.ColumnImpl;
 import org.apache.ignite.internal.schema.HashIndexImpl;
+import org.apache.ignite.internal.schema.NumericTypeUtils;
 import org.apache.ignite.internal.schema.PartialIndexImpl;
 import org.apache.ignite.internal.schema.PrimaryIndexImpl;
 import org.apache.ignite.internal.schema.SchemaTableImpl;
@@ -277,11 +278,12 @@ public class SchemaConfigurationConverter {
 
                     break;
 
-                case "DECIMAL":
-                    ColumnType.NumericColumnType numColType = (ColumnType.NumericColumnType)colType;
+                case "NUMBER":
+                    ColumnType.NumberColumnType numColType = (ColumnType.NumberColumnType)colType;
 
-                    colTypeChg.changePrecision(numColType.precision());
-                    colTypeChg.changeScale(numColType.scale());
+                    colTypeChg.changeLength(
+                        NumericTypeUtils.byteSizeByPrecision(numColType.precision())
+                    );
 
                     break;
 
@@ -327,6 +329,9 @@ public class SchemaConfigurationConverter {
                     int scale = colTypeView.scale();
 
                     return ColumnType.number(prec, scale);
+
+                case "NUMBER":
+                    return ColumnType.numberOf();
 
                 default:
                     throw new IllegalArgumentException("Unknown type " + typeName);

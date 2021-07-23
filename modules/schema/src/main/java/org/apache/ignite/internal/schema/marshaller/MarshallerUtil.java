@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.marshaller;
 
+import java.math.BigInteger;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.InvalidTypeException;
@@ -94,6 +95,8 @@ public final class MarshallerUtil {
             return BinaryMode.UUID;
         else if (cls == BitSet.class)
             return BinaryMode.BITSET;
+        else if (cls == BigInteger.class)
+            return BinaryMode.NUMBER;
 
         return null;
     }

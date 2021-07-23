@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema.marshaller.reflection;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
+import java.math.BigInteger;
 import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
@@ -99,6 +100,8 @@ abstract class FieldAccessor {
                 case UUID:
                 case BYTE_ARR:
                 case BITSET:
+                case NUMBER:
+                case VL_NUMBER:
                     return new ReferenceFieldAccessor(varHandle, colIdx, mode);
 
                 default:
@@ -141,6 +144,7 @@ abstract class FieldAccessor {
             case UUID:
             case BYTE_ARR:
             case BITSET:
+            case NUMBER:
                 return new IdentityAccessor(colIdx, mode);
 
             default:
@@ -215,6 +219,11 @@ abstract class FieldAccessor {
 
                 break;
 
+            case NUMBER:
+                val = reader.numberValue(colIdx);
+
+                break;
+
             default:
                 assert false : "Invalid mode: " + mode;
         }
@@ -286,6 +295,16 @@ abstract class FieldAccessor {
 
             case BITSET:
                 writer.appendBitmask((BitSet)val);
+
+                break;
+
+            case NUMBER:
+                writer.appendNumber((BigInteger)val);
+
+                break;
+
+            case VL_NUMBER:
+                writer.appendVarLenNumber((BigInteger)val);
 
                 break;
 

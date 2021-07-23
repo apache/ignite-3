@@ -38,8 +38,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for SchemaDescriptorConverter.
  */
 public class SchemaDescriptorConverterTest {
-    /** Totoal number of columns. */
-    private static final int columns = 14;
+    /** Total number of columns. */
+    private static final int columns = 16;
 
     /**
      * Convert table with complex primary key and check it.
@@ -121,6 +121,7 @@ public class SchemaDescriptorConverterTest {
         testCol(tblDscr.valueColumns(), "STRING_FS10", NativeTypeSpec.STRING, nullable);
         testCol(tblDscr.valueColumns(), "BLOB", NativeTypeSpec.BYTES, nullable);
         testCol(tblDscr.valueColumns(), "DECIMAL", NativeTypeSpec.DECIMAL, nullable);
+        testCol(tblDscr.valueColumns(), "NUMBER", NativeTypeSpec.NUMBER, nullable);
         testCol(tblDscr.valueColumns(), "BITMASK_FS10", NativeTypeSpec.BITMASK, nullable);
     }
 
@@ -155,6 +156,8 @@ public class SchemaDescriptorConverterTest {
                 postProcess.apply(SchemaBuilders.column("BLOB", ColumnType.blobOf())),
                 postProcess.apply(SchemaBuilders.column("BLOB_FS10", ColumnType.blobOf(10))),
                 postProcess.apply(SchemaBuilders.column("DECIMAL", ColumnType.number(1,1))),
+                postProcess.apply(SchemaBuilders.column("NUMBER", ColumnType.numberOf(12))),
+                postProcess.apply(SchemaBuilders.column("NUMBER_VARLEN", ColumnType.numberOf())),
                 postProcess.apply(SchemaBuilders.column("BITMASK_FS10", ColumnType.bitmaskOf(10)))
                 // TODO: IGNITE-13750 uncomment after unsigned types available
                 // postProcess.apply(SchemaBuilders.column("UINT8", ColumnType.UINT8)),

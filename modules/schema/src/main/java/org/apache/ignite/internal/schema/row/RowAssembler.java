@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.schema.row;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.StandardCharsets;
@@ -33,6 +35,7 @@ import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.schema.FixLenNumberNativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 
 import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.KEY_FLAGS_OFFSET;
@@ -185,6 +188,16 @@ public class RowAssembler {
             }
             case BITMASK: {
                 rowAsm.appendBitmask((BitSet)val);
+
+                break;
+            }
+            case NUMBER: {
+                rowAsm.appendNumber((BigInteger)val);
+
+                break;
+            }
+            case VL_NUMBER: {
+                rowAsm.appendVarLenNumber((BigInteger)val);
 
                 break;
             }
@@ -385,6 +398,67 @@ public class RowAssembler {
             keyHash = 31 * keyHash + Double.hashCode(val);
 
         shiftColumn(NativeTypes.DOUBLE.sizeInBytes());
+
+        return this;
+    }
+
+    /**
+     * Appends BigInteger value for the current column to the chunk.
+     *
+     * @param val Column value.
+     * @return {@code this} for chaining.
+     */
+    public RowAssembler appendNumber(BigInteger val) {
+        Column col = curCols.column(curCol);
+
+        checkType(NativeTypeSpec.NUMBER);
+
+        FixLenNumberNativeType type = (FixLenNumberNativeType)col.type();
+
+        int precision = new BigDecimal(val).precision();
+        if (precision > type.precision())
+            throw new IllegalArgumentException("Failed to set number value for column '" + col.name() + "' " +
+                "(max precision exceeds allocated precision) [number=" + val + ", value precision=" + precision +
+                ", max precision=" + type.precision() + "]");
+
+        final byte[] byteArr = val.toByteArray();
+
+        int zeroBytes = type.sizeInBytes() - byteArr.length;
+
+        for (int i = 0; i < zeroBytes; i++)
+            buf.put(curOff + i, (byte)0);
+
+        buf.putBytes(curOff + zeroBytes, byteArr);
+
+        if (isKeyChunk())
+            keyHash += 31 * keyHash + val.hashCode();
+
+        shiftColumn(type.sizeInBytes());
+
+        return this;
+    }
+
+    /**
+     * Appends byte[] value for the current column to the chunk.
+     *
+     * @param val Column value.
+     * @return {@code this} for chaining.
+     */
+    public RowAssembler appendVarLenNumber(BigInteger val) {
+        checkType(NativeTypes.VL_NUMBER);
+
+        byte[] bytes = val.toByteArray();
+
+        buf.putBytes(curOff, bytes);
+
+        if (isKeyChunk())
+            keyHash = 31 * keyHash + Arrays.hashCode(bytes);
+
+        writeVarlenOffset(curVartblEntry, curOff - dataOff);
+
+        curVartblEntry++;
+
+        shiftColumn(bytes.length);
 
         return this;
     }
