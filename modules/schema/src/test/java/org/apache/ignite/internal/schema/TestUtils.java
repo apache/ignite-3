@@ -79,7 +79,7 @@ public final class TestUtils {
             case DATE: {
                 Year year = Year.of(rnd.nextInt(MAX_YEAR - MIN_YEAR) + MIN_YEAR);
 
-                return LocalDate.ofYearDay(year.getValue(), rnd.nextInt(year.length() + 1));
+                return LocalDate.ofYearDay(year.getValue(), rnd.nextInt(year.length()) + 1);
             }
 
             case TIME:
@@ -89,7 +89,7 @@ public final class TestUtils {
             case DATETIME: {
                 Year year = Year.of(rnd.nextInt(MAX_YEAR - MIN_YEAR) + MIN_YEAR);
 
-                LocalDate date = LocalDate.ofYearDay(year.getValue(), rnd.nextInt(year.length() + 1));
+                LocalDate date = LocalDate.ofYearDay(year.getValue(), rnd.nextInt(year.length()) + 1);
                 LocalTime time = LocalTime.of(rnd.nextInt(24), rnd.nextInt(60), rnd.nextInt(60),
                     rnd.nextInt(1_000_000_000)).truncatedTo(chronoUnitForPrecision(((TemporalNativeType)type).precision()));
 
