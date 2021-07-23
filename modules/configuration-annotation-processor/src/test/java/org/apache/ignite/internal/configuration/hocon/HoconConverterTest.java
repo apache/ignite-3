@@ -56,11 +56,11 @@ public class HoconConverterTest {
     @ConfigurationRoot(rootName = "root", type = ConfigurationType.LOCAL)
     public static class HoconRootConfigurationSchema {
         /** */
-        @NamedConfigValue(syntheticKey = "a")
+        @NamedConfigValue(syntheticKeyName = "a")
         public HoconArraysConfigurationSchema arraysList;
 
         /** */
-        @NamedConfigValue(syntheticKey = "p")
+        @NamedConfigValue(syntheticKeyName = "p")
         public HoconPrimitivesConfigurationSchema primitivesList;
     }
 

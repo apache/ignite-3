@@ -80,7 +80,7 @@ class HoconConfigurationVisitor implements ConfigurationVisitor<Object> {
         for (String subkey : node.namedListKeys()) {
             node.get(subkey).accept(subkey, this);
 
-            ((Map<String, Object>)list.get(list.size() - 1)).put(node.syntheticKey(), subkey);
+            ((Map<String, Object>)list.get(list.size() - 1)).put(node.syntheticKeyName(), subkey);
         }
 
         deque.pop();

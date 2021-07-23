@@ -36,7 +36,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
     public static final String ORDER_IDX = "<idx>";
 
     /** Configuration name for the synthetic key. */
-    private final String syntheticKey;
+    private final String syntheticKeyName;
 
     /** Supplier of new node objects when new list element node has to be created. */
     private final Supplier<N> valSupplier;
@@ -47,12 +47,12 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
     /**
      * Default constructor.
      *
-     * @param syntheticKey Name of the synthetic configuration value that will represent keys in a specially ordered
-     *                     representation syntax.
+     * @param syntheticKeyName Name of the synthetic configuration value that will represent keys in a specially ordered
+     *      representation syntax.
      * @param valSupplier Closure to instantiate values.
      */
-    public NamedListNode(String syntheticKey, Supplier<N> valSupplier) {
-        this.syntheticKey = syntheticKey;
+    public NamedListNode(String syntheticKeyName, Supplier<N> valSupplier) {
+        this.syntheticKeyName = syntheticKeyName;
         this.valSupplier = valSupplier;
         map = new OrderedMap<>();
     }
@@ -63,7 +63,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
      * @param node Other node.
      */
     private NamedListNode(NamedListNode<N> node) {
-        syntheticKey = node.syntheticKey;
+        syntheticKeyName = node.syntheticKeyName;
         valSupplier = node.valSupplier;
         map = new OrderedMap<>(node.map);
     }
@@ -195,10 +195,10 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
     /**
      * @return Configuration name for the synthetic key.
      *
-     * @see NamedConfigValue#syntheticKey()
+     * @see NamedConfigValue#syntheticKeyName()
      */
-    public String syntheticKey() {
-        return syntheticKey;
+    public String syntheticKeyName() {
+        return syntheticKeyName;
     }
 
     /**

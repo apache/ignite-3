@@ -66,5 +66,5 @@ public @interface NamedConfigValue {
      *
      * @return Name for the synthetic key.
      */
-    String syntheticKey() default "name";
+    String syntheticKeyName() default "name";
 }

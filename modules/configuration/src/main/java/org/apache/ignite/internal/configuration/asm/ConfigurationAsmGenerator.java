@@ -459,7 +459,7 @@ public class ConfigurationAsmGenerator {
                 fieldDefs.get(schemaField.getName()),
                 newInstance(
                     NamedListNode.class,
-                    constantString(namedCfgAnnotation.syntheticKey()),
+                    constantString(namedCfgAnnotation.syntheticKeyName()),
                     newNamedListElementLambda(fieldClassNames.nodeClassName)
                 )
             ));
@@ -738,7 +738,7 @@ public class ConfigurationAsmGenerator {
                         fieldDef,
                         newInstance(
                             NamedListNode.class,
-                            constantString(namedCfgAnnotation.syntheticKey()),
+                            constantString(namedCfgAnnotation.syntheticKeyName()),
                             newNamedListElementLambda(fieldNodeClassName)
                         )
                     ))
