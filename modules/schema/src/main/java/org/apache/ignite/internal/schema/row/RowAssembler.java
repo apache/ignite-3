@@ -580,30 +580,18 @@ public class RowAssembler {
 
         TemporalNativeType type = (TemporalNativeType)curCols.column(curCol).type();
 
-        buf.putLong(curOff, val.getEpochSecond());
+        long seconds = val.getEpochSecond();
+        int nanos = TemporalTypesHelper.normalizeNanos(val.getNano(), type.precision());
 
-        // Write only meaningful bytes regarding on precision.
-        switch (type.precision()) {
-            case 3:
-                buf.putShort(curOff + 8, (short)(val.getNano() / 1000_000));
-                break;
+        buf.putLong(curOff, seconds);
 
-            case 6:
-                int micros = val.getNano() / 1000;
-                buf.putShort(curOff + 8, (short)(micros >> 8));
-                buf.put(curOff + 10, (byte)(micros & 0xFF));
-                break;
+        if (type.precision() != 0) // Write only meaningful bytes.
+            buf.putInt(curOff + 8, nanos);
 
-            case 9:
-                buf.putInt(curOff + 8, val.getNano());
-                break;
-
-            default:
-                throw new IllegalStateException("Unsupported timestamp precision.");
+        if (isKeyChunk()) {
+            keyHash += 31 * keyHash + Long.hashCode(seconds);
+            keyHash += 31 * keyHash + Integer.hashCode(nanos);
         }
-
-        if (isKeyChunk())
-            keyHash += 31 * keyHash + val.hashCode();
 
         shiftColumn(type.sizeInBytes());
 
@@ -691,25 +679,12 @@ public class RowAssembler {
     private void writeTime(int off, LocalTime val, TemporalNativeType type) {
         long time = TemporalTypesHelper.encodeTime(type, val);
 
-        // Write only meaningful bytes regarding on precision.
-        switch (type.precision()) {
-            case 3:
-                buf.putInt(off, (int)(time));
-                return;
+        // Write only meaningful bytes.
+        buf.putShort(off, (short)(time >> 40));
+        buf.put(off, (byte)(time >> 32));
 
-            case 6:
-                buf.putInt(off, (int)(time >> 8));
-                buf.put(off + 4, (byte)(time & 0xFF));
-                break;
-
-            case 9:
-                buf.putInt(off, (int)(time >> 16));
-                buf.putShort(off + 4, (short)(time & 0xFFFF));
-                break;
-
-            default:
-                assert false;
-        }
+        if (type.precision() != 0)
+            buf.putInt(off, (int)(time & 0xFFFF_FFFFL));
     }
 
     /**

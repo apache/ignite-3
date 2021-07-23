@@ -30,25 +30,7 @@ public class TemporalNativeType extends NativeType {
      * @return Native type.
      */
     static TemporalNativeType time(int precision) {
-        int size;
-
-        switch (precision) {
-            case 9: {
-                size = 6; // Nanoseconds.
-                break;
-            }
-            case 6: {
-                size = 5; // Microseconds.
-                break;
-            }
-            case 3: {
-                size = 4; // Milliseconds.
-                break;
-            }
-
-            default:
-                throw new IllegalArgumentException("Unsupported fractional seconds precision: " + precision);
-        }
+        int size = (precision == 0) ? 3 : 7;
 
         return new TemporalNativeType(NativeTypeSpec.TIME, size, precision);
     }
@@ -60,25 +42,7 @@ public class TemporalNativeType extends NativeType {
      * @return Native type.
      */
     static TemporalNativeType datetime(int precision) {
-        int size = NativeTypes.DATE.sizeInBytes();
-
-        switch (precision) {
-            case 9: {
-                size += 6; // Nanoseconds.
-                break;
-            }
-            case 6: {
-                size += 5; // Microseconds.
-                break;
-            }
-            case 3: {
-                size += 4; // Milliseconds.
-                break;
-            }
-
-            default:
-                throw new IllegalArgumentException("Unsupported fractional seconds precision: " + precision);
-        }
+        int size = NativeTypes.DATE.sizeInBytes() + (precision == 0 ? 3 : 7);
 
         return new TemporalNativeType(NativeTypeSpec.DATETIME, size, precision);
     }
@@ -90,24 +54,7 @@ public class TemporalNativeType extends NativeType {
      * @return Native type.
      */
     static TemporalNativeType timestamp(int precision) {
-        int size = 8;
-
-        switch (precision) {
-            case 9: {
-                size += 4; // Nanoseconds.
-                break;
-            }
-            case 6: {
-                size += 3; // Microseconds.
-                break;
-            }
-            case 3:
-                size += 2; // Millis.
-                break;
-
-            default:
-                throw new IllegalArgumentException("Unsupported fractional seconds precision: " + precision);
-        }
+        int size = (precision == 0) ? 8 : 12;
 
         return new TemporalNativeType(NativeTypeSpec.TIMESTAMP, size, precision);
     }

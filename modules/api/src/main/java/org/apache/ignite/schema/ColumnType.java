@@ -279,12 +279,13 @@ public class ColumnType {
          * Creates temporal type.
          *
          * @param typeSpec Type spec.
-         * @param precision Fractional seconds precision. Valid values are 3,6,9.
+         * @param precision Fractional seconds precision. Valid values are 0-9 digits,
+         * where {@code 0} means second precision, {@code 9} means 1-ns precision.
          */
         private TemporalColumnType(ColumnTypeSpec typeSpec, int precision) {
             super(typeSpec);
 
-            assert precision == 3 || precision == 6 || precision == 9 : "Unsupported fractional seconds precision.";
+            assert precision >= 0 && precision <= 9 : "Unsupported fractional seconds precision.";
 
             this.precision = precision;
         }

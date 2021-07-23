@@ -402,27 +402,10 @@ public class Row implements BinaryRow {
         TemporalNativeType type = (TemporalNativeType)schema.column(col).type();
 
         long seconds = readLong(off);
-        int nanos;
+        int nanos = 0;
 
-        // Read fractional seconds and convert them to nanos.
-        switch (type.precision()) {
-            case 3:
-                nanos = (readShort(off + 8) & 0xFFFF) * 1_000_000;
-                break;
-
-            case 6:
-                nanos = (readShort(off + 8) & 0xFFFF) << 8;
-                nanos |= readByte(off + 10) & 0xFF;
-                nanos *= 1_000;
-                break;
-
-            case 9:
-                nanos = readInteger(off + 8);
-                break;
-
-            default:
-                throw new IllegalArgumentException("Time field length is unsupported.");
-        }
+        if (type.precision() != 0)
+            nanos = readInteger(off + 8);
 
         return Instant.ofEpochSecond(seconds, nanos);
     }
@@ -435,25 +418,13 @@ public class Row implements BinaryRow {
      * @return LocalTime value.
      */
     private LocalTime readTime(int off, int prec) {
-        long time = Integer.toUnsignedLong(readInteger(off));
+        long time = Short.toUnsignedLong(readShort(off)) << 8 + 32;
+        time |= Byte.toUnsignedLong(readByte(off + 2)) << 32;
 
-        switch (prec) {
-            case 3:
-                break;
-            case 6:
-                time <<= 8;
-                time |= Byte.toUnsignedLong(readByte(off + 4));
-                break;
-            case 9:
-                time <<= 16;
-                time |= Short.toUnsignedLong(readShort(off + 4));
-                break;
+        if (prec != 0)
+            time |= readInteger(off); // Unsinged, 30-bit is used.
 
-            default:
-                throw new IllegalArgumentException("Time field length is unsupported.");
-        }
-
-        return TemporalTypesHelper.decodeTime(time, prec);
+        return TemporalTypesHelper.decodeTime(time);
     }
 
     /**

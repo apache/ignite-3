@@ -28,7 +28,7 @@ import org.apache.ignite.internal.schema.TemporalNativeType;
  * Provides methods to encode/decode temporal types in a compact way  for futher writing to row.
  * Conversion preserves natural type order.
  * <p>
- * DATE is a fixed-length type which compacted representation keeps ordering, value are signed and fit into a 3-bytes.
+ * DATE is a fixed-length type which compacted representation keeps ordering, value is signed and fit into a 3-bytes.
  * Thus, DATE value can be compared by bytes where first byte is signed and others - unsigned.
  * Thus temporal functions, like YEAR(), can easily extracts fields with a mask,
  * <p>
@@ -41,32 +41,32 @@ import org.apache.ignite.internal.schema.TemporalNativeType;
  * <p>
  * TIME is a fixed-length type supporting accuracy for millis, micros or nanos.
  * Compacted time representation keeps ordering, values fits to 8-bytes value ({@code long}) with padding
- * can be compared as unsiged bytes.
- * Padding part size depends on type precision and filled with zeroes.
- * Subsecond part stores in a separate bit sequence of 10/20/30 bits for millis/micros/nanos precision accordingly.
+ * can be compared as just unsigned bytes.
+ * Padding part is filled with zeroes.
+ * Subsecond part stores in a separate bit sequence which is omited for {@code 0} accuracy.
  * <p>
- * Total value size is 4/5/6 bytes depensing on the type accuracy.
+ * Total value size is 3/7 bytes depensing on the type accuracy.
  * <p>
  * Time compact structure:
- * ┌─────────┬──────────┬──────────┬───────────────┬─────────┐
- * │ Hours   │ Minutes  │ Seconds  │ Subseconds    │ Padding │
- * ├─────────┼──────────┼──────────┼───────────────┼─────────┤
- * │ 5 bits  │ 6 bits   │ 6 bit    │ 10/20/30 bits │         │
- * └─────────┴──────────┴──────────┴───────────────┴─────────┘
+ * ┌─────────┬─────────┬──────────┬──────────┬───────────────┐
+ * │ Padding │ Hours   │ Minutes  │ Seconds  │ Subseconds    │
+ * ├─────────┼─────────┼──────────┼──────────┼───────────────┤
+ * │ 7  bits │ 5 bit   │ 6 bits   │ 6 bit    │ 0/32 bits     │
+ * └─────────┴─────────┴──────────┴──────────┴───────────────┘
  * <p>
  * DATETIME is just a concatenation of DATE and TIME values.
  * <p>
  * TIMESTAMP has similart structure to {@link java.time.Instant} and supports accuracy for millis, micros or nanos.
- * Subsecond part stores in a separate bit sequence of 16/24/32 bits for millis/micros/nanos precision accordingly.
+ * Subsecond part stores in a separate bit sequence which is omited for {@code 0} accuracy.
  * <p>
- * Total value size is 10/11/12 bytes depensing on the type accuracy.
+ * Total value size is 8/12 bytes depensing on the type accuracy.
  * <p>
  * Timestamp compact structure:
- * ┌──────────────────────────┬────────────────┐
- * │ Seconds since the epoch  │  Subseconds    │
- * ├──────────────────────────┼────────────────┤
- * │    64 bits               │ 16/24/32 bits  │
- * └──────────────────────────┴────────────────┘
+ * ┌──────────────────────────┬─────────────┐
+ * │ Seconds since the epoch  │ Subseconds  │
+ * ├──────────────────────────┼─────────────┤
+ * │    64 bits               │ 0/32 bits   │
+ * └──────────────────────────┴─────────────┘
  *
  * @see org.apache.ignite.internal.schema.row.Row
  * @see org.apache.ignite.internal.schema.row.RowAssembler
@@ -87,14 +87,14 @@ public class TemporalTypesHelper {
     /** Seconds field length. */
     public static final int SECONDS_FIELD_LENGTH = 6;
 
-    /** Milliseconds field length. */
-    public static final int MILLIS_FIELD_LENGTH = 10;
+    /** Seconds field offset. */
+    public static final int SECONDS_FIELD_OFFSET = 32;
 
-    /** Microseconds field length. */
-    public static final int MICROS_FIELD_LENGTH = 20;
+    /** Minutes field offset. */
+    public static final int MINUTES_FIELD_OFFSET = SECONDS_FIELD_OFFSET + SECONDS_FIELD_LENGTH;
 
-    /** Nanoseconds field length. */
-    public static final int NANOS_FIELD_LENGTH = 30;
+    /** Hout field offset. */
+    public static final int HOUR_FIELD_OFFSET = MINUTES_FIELD_OFFSET + MINUTES_FIELD_LENGTH;
 
     /** Max year boundary. */
     public static final int MAX_YEAR = (1 << 14) - 1;
@@ -116,40 +116,18 @@ public class TemporalTypesHelper {
     /**
      * Compact LocalTime.
      *
-     * @param type
+     * @param type Native temporal type.
      * @param time Time.
-     * @return Encoded time.
+     * @return Encoded time. Last 7 bytes meaningful.
      */
     public static long encodeTime(TemporalNativeType type, LocalTime time) {
-        int padding;
+        long val = (long)time.getHour() << HOUR_FIELD_OFFSET;
+        val |= (long)time.getMinute() << MINUTES_FIELD_OFFSET;
+        val |= (long)time.getSecond() << SECONDS_FIELD_OFFSET;
 
-        long val = (long)time.getHour() << MINUTES_FIELD_LENGTH;
-        val = (val | (long)time.getMinute()) << SECONDS_FIELD_LENGTH;
+        long nanos = normalizeNanos(time.getNano(), type.precision()); // Implicit cast of unsinged int (30-bit) to long.
 
-        switch (type.precision()) {
-            case 3:
-                padding = 5;
-                val = (val | (long)time.getSecond()) << MILLIS_FIELD_LENGTH;
-                val |= (long)time.getNano() / 1_000_000; // Conver to millis.
-                break;
-
-            case 6:
-                padding = 3;
-                val = (val | (long)time.getSecond()) << MICROS_FIELD_LENGTH;
-                val |= (long)time.getNano() / 1_000; // Conver to micros.
-                break;
-
-            case 9:
-                padding = 1;
-                val = (val | (long)time.getSecond()) << NANOS_FIELD_LENGTH;
-                val |= (long)time.getNano();
-                break;
-
-            default: // Should never get here.
-                throw new IllegalArgumentException("Unsupported fractional seconds precision: " + type.precision());
-        }
-
-        return val << padding; // Add padding to the end to make values of different scales comparable with ease.
+        return val | nanos;
     }
 
     /**
@@ -163,7 +141,7 @@ public class TemporalTypesHelper {
         val = (val | date.getMonthValue()) << DAY_FIELD_LENGTH;
         val |= date.getDayOfMonth();
 
-        return val & (0x00FFFFFF);
+        return val & (0x00FF_FFFF);
     }
 
     /**
@@ -173,33 +151,11 @@ public class TemporalTypesHelper {
      * @param prec Precision.
      * @return LocalTime instance.
      */
-    public static LocalTime decodeTime(long time, int prec) {
-        int nanos;
-
-        switch (prec) {
-            case 3:
-                time >>>= 5; // Remove padding.
-                nanos = (int)(time & mask(MILLIS_FIELD_LENGTH)) * 1_000_000;
-                time >>>= MILLIS_FIELD_LENGTH;
-                break;
-            case 6:
-                time >>>= 3; // Remove padding.
-                nanos = (int)(time & mask(MICROS_FIELD_LENGTH)) * 1_000;
-                time >>>= MICROS_FIELD_LENGTH;
-                break;
-            case 9:
-                time >>>= 1; // Remove padding.
-                nanos = (int)(time & mask(NANOS_FIELD_LENGTH));
-                time >>>= NANOS_FIELD_LENGTH;
-                break;
-
-            default: // Should never get here.
-                throw new IllegalArgumentException("Unsupported time precision: " + prec);
-        }
-
-        int sec = (int)(time & mask(SECONDS_FIELD_LENGTH));
-        int min = (int)((time >>>= SECONDS_FIELD_LENGTH) & mask(MINUTES_FIELD_LENGTH));
-        int hour = (int)((time >>> MINUTES_FIELD_LENGTH) & mask(HOUR_FIELD_LENGTH));
+    public static LocalTime decodeTime(long time) {
+        int sec = (int)(time >> SECONDS_FIELD_OFFSET) & mask(SECONDS_FIELD_LENGTH);
+        int min = (int)(time >>> MINUTES_FIELD_OFFSET) & mask(MINUTES_FIELD_LENGTH);
+        int hour = (int)(time >>> HOUR_FIELD_OFFSET) & mask(HOUR_FIELD_LENGTH);
+        int nanos = (int)(time & 0xFFFF_FFFFL);
 
         return LocalTime.of(hour, min, sec, nanos);
     }
@@ -218,5 +174,58 @@ public class TemporalTypesHelper {
         int year = (date >> MONTH_FIELD_LENGTH); // Sign matters.
 
         return LocalDate.of(year, mon, day);
+    }
+
+    /**
+     * Normalize nanos regarding the presicion.
+     *
+     * @param nanos Nanoseconds.
+     * @param precision Meaningful digits.
+     * @return Normalized nanoseconds.
+     */
+    public static int normalizeNanos(int nanos, int precision) {
+        switch (precision) {
+            case 0:
+                nanos = 0;
+                break;
+            case 1:
+                nanos = (nanos / 100_000_000) * 100_000_000; // 100ms accuracy.
+                break;
+            case 2:
+                nanos = (nanos / 10_000_000) * 10_000_000; // 10ms accuracy.
+                break;
+            case 3: {
+                nanos = (nanos / 1_000_000) * 1_000_000; // 1ms accuracy.
+                break;
+            }
+            case 4: {
+                nanos = (nanos / 100_000) * 100_000; // 100mcs accuracy.
+                break;
+            }
+            case 5: {
+                nanos = (nanos / 10_000) * 10_000; // 10mcs accuracy.
+                break;
+            }
+            case 6: {
+                nanos = (nanos / 1_000) * 1_000; // 1mcs accuracy.
+                break;
+            }
+            case 7: {
+                nanos = (nanos / 100) * 100; // 100ns accuracy.
+                break;
+            }
+            case 8: {
+                nanos = (nanos / 10) * 10; // 10ns accuracy.
+                break;
+            }
+            case 9: {
+                nanos = nanos; // 1ns accuracy
+                break;
+            }
+            default: // Should never get here.
+                throw new IllegalArgumentException("Unsupported fractional seconds precision: " + precision);
+        }
+
+        return nanos;
     }
 }

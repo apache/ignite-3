@@ -113,6 +113,8 @@ public final class TestUtils {
      */
     public static ChronoUnit chronoUnitForPrecision(int precision) {
         switch (precision) {
+            case 0:
+                return ChronoUnit.SECONDS;
             case 3:
                 return ChronoUnit.MILLIS;
             case 6:

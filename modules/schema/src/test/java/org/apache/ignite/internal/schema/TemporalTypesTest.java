@@ -59,6 +59,9 @@ public class TemporalTypesTest {
         checkTime(type, LocalTime.MAX.truncatedTo(TemporalTypesHelper.TIME_PRECISION));
         checkTime(type, LocalTime.MIN);
 
+        checkTime(TemporalNativeType.time(0), LocalTime.MAX.truncatedTo(TestUtils.chronoUnitForPrecision(0))); // Seconds precision.
+        checkTime(TemporalNativeType.time(0), LocalTime.MIN);
+
         checkTime(TemporalNativeType.time(3), LocalTime.MAX.truncatedTo(TestUtils.chronoUnitForPrecision(3))); // Millis precision.
         checkTime(TemporalNativeType.time(3), LocalTime.MIN);
 
@@ -72,6 +75,8 @@ public class TemporalTypesTest {
         assertThrows(AssertionError.class, () -> checkTime(TemporalNativeType.time(3), LocalTime.MAX));
         assertThrows(AssertionError.class, () -> checkTime(TemporalNativeType.time(6), LocalTime.MAX));
         checkTime(TemporalNativeType.time(9), LocalTime.MAX);
+
+        assertThrows(IllegalArgumentException.class, () -> checkTime(TemporalNativeType.time(10), LocalTime.MAX));
     }
 
     /**
@@ -86,6 +91,6 @@ public class TemporalTypesTest {
      * @param time Time value.
      */
     private void checkTime(TemporalNativeType type, LocalTime time) {
-        assertEquals(time, TemporalTypesHelper.decodeTime(TemporalTypesHelper.encodeTime(type, time), type.precision()));
+        assertEquals(time, TemporalTypesHelper.decodeTime(TemporalTypesHelper.encodeTime(type, time)));
     }
 }
