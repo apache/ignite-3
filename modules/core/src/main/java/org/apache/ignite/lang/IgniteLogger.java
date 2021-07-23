@@ -52,7 +52,7 @@ public class IgniteLogger {
      * Logs a message on {@link Level#INFO} level composed from args with given format.
      *
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
-     * @param params A list of arguments to be substituted in place of formatting anchors.
+     * @param params The list of arguments to be substituted in place of formatting anchors.
      */
     public void info(String msg, Object... params) {
         logInternal(Level.INFO, msg, null, params);
@@ -64,7 +64,7 @@ public class IgniteLogger {
      *
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
      * @param th The {@code Throwable} associated with log message; can be {@code null}.
-     * @param params A list of arguments to be substituted in place of formatting anchors.
+     * @param params The list of arguments to be substituted in place of formatting anchors.
      */
     public void info(String msg, Throwable th, Object... params) {
         logInternal(Level.INFO, msg, th, params);
@@ -95,7 +95,7 @@ public class IgniteLogger {
      * Logs a message on {@link Level#DEBUG} level composed from args with given format.
      *
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
-     * @param params A list of arguments to be substituted in place of formatting anchors.
+     * @param params The list of arguments to be substituted in place of formatting anchors.
      */
     public void debug(String msg, Object... params) {
         logInternal(Level.DEBUG, msg, null, params);
@@ -107,7 +107,7 @@ public class IgniteLogger {
      *
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
      * @param th The {@code Throwable} associated with log message; can be {@code null}.
-     * @param params A list of arguments to be substituted in place of formatting anchors.
+     * @param params The list of arguments to be substituted in place of formatting anchors.
      */
     public void debug(String msg, Throwable th, Object... params) {
         logInternal(Level.DEBUG, msg, th, params);
@@ -138,7 +138,7 @@ public class IgniteLogger {
      * Logs a message on {@link Level#WARNING} level composed from args with given format.
      *
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
-     * @param params A list of arguments to be substituted in place of formatting anchors.
+     * @param params The list of arguments to be substituted in place of formatting anchors.
      */
     public void warn(String msg, Object... params) {
         logInternal(Level.WARNING, msg, null, params);
@@ -150,7 +150,7 @@ public class IgniteLogger {
      *
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
      * @param th The {@code Throwable} associated with log message; can be {@code null}.
-     * @param params A list of arguments to be substituted in place of formatting anchors.
+     * @param params The list of arguments to be substituted in place of formatting anchors.
      */
     public void warn(String msg, Throwable th, Object... params) {
         logInternal(Level.WARNING, msg, th, params);
@@ -181,7 +181,7 @@ public class IgniteLogger {
      * Logs a message on {@link Level#ERROR} level composed from args with given format.
      *
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
-     * @param params A list of arguments to be substituted in place of formatting anchors.
+     * @param params The list of arguments to be substituted in place of formatting anchors.
      */
     public void error(String msg, Object... params) {
         logInternal(Level.ERROR, msg, null, params);
@@ -193,7 +193,7 @@ public class IgniteLogger {
      *
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
      * @param th The {@code Throwable} associated with log message; can be {@code null}.
-     * @param params A list of arguments to be substituted in place of formatting anchors.
+     * @param params The list of arguments to be substituted in place of formatting anchors.
      */
     public void error(String msg, Throwable th, Object... params) {
         logInternal(Level.ERROR, msg, th, params);
@@ -236,7 +236,7 @@ public class IgniteLogger {
      *
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
      * @param th The {@code Throwable} associated with log message; can be {@code null}.
-     * @param params A list of arguments to be substituted in place of formatting anchors.
+     * @param params The list of arguments to be substituted in place of formatting anchors.
      */
     public void trace(String msg, Throwable th, Object... params) {
         logInternal(Level.TRACE, msg, th, params);
