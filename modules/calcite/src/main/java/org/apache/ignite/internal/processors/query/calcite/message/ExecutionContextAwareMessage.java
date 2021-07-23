@@ -15,14 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema;
+package org.apache.ignite.internal.processors.query.calcite.message;
+
+import java.io.Serializable;
+import java.util.UUID;
+
+import org.apache.ignite.network.NetworkMessage;
 
 /**
- * Schema object.
+ * Execution context is used to determine a stripe where to process a message.
  */
-public interface SchemaObject {
+public interface ExecutionContextAwareMessage extends NetworkMessage, Serializable {
     /**
-     * @return Schema object name.
+     * @return Query ID.
      */
-    String name();
+    UUID queryId();
+
+    /**
+     * @return Fragment ID.
+     */
+    long fragmentId();
 }
