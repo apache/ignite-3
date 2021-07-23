@@ -360,7 +360,8 @@ public final class ReliableChannel implements AutoCloseable {
                 newAddrs = parsedAddresses(hostAddrs);
                 prevHostAddrs = hostAddrs;
             }
-        } else if (holders == null)
+        }
+        else if (holders == null)
             newAddrs = parsedAddresses(clientCfg.getAddresses());
 
         if (newAddrs == null)
