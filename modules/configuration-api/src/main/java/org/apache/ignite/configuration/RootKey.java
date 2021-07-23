@@ -59,7 +59,7 @@ public class RootKey<T extends ConfigurationTree<VIEW, ?>, VIEW> {
     }
 
     /**
-     * Returns name of the configuration tree.
+     * Returns the name of the configuration root.
      *
      * @return Name of the configuration root.
      */
@@ -68,7 +68,7 @@ public class RootKey<T extends ConfigurationTree<VIEW, ?>, VIEW> {
     }
 
     /**
-     * Returns configuration type of the root.
+     * Returns the configuration type of the root.
      *
      * @return Configuration type of the root.
      */
@@ -77,7 +77,7 @@ public class RootKey<T extends ConfigurationTree<VIEW, ?>, VIEW> {
     }
 
     /**
-     * Returns schema class for the root.
+     * Returns the schema class for the root.
      *
      * @return Schema class for the root.
      */

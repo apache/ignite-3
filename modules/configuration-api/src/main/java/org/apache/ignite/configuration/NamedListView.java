@@ -20,13 +20,13 @@ package org.apache.ignite.configuration;
 import java.util.List;
 
 /**
- * View type for the {@link NamedConfigurationTree}. Represents immutable snapshot of the named list configuration.
+ * View type for a {@link NamedConfigurationTree}. Represents an immutable snapshot of a named list configuration.
  *
- * @param <View> View type for the named list element.
+ * @param <View> View type for named list elements.
  */
 public interface NamedListView<View> {
     /**
-     * Returns immutable collection of keys contained within this list.
+     * Returns an immutable collection of keys contained within this list.
      *
      * @return Immutable collection of keys contained within this list.
      */
@@ -41,7 +41,7 @@ public interface NamedListView<View> {
     View get(String key);
 
     /**
-     * Returns number of elements.
+     * Returns the number of elements in this list.
      *
      * @return Number of elements.
      */

@@ -19,7 +19,7 @@ package org.apache.ignite.configuration.validation;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Class that stores information about issues found during configuration valudation.
+ * Class that stores information about issues found during the configuration validation.
  */
 public class ValidationIssue {
     /** Message. */
