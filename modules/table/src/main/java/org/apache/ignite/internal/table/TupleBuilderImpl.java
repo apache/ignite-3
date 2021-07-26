@@ -194,7 +194,7 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
 
             /** {@inheritDoc} */
             @Override public Object next() {
-                return hasNext() ? value(++cur) : null;
+                return hasNext() ? value(cur++) : null;
             }
         };
     }

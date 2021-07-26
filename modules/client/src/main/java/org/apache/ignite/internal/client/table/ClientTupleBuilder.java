@@ -164,7 +164,7 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
 
             /** {@inheritDoc} */
             @Override public Object next() {
-                return cur < vals.length ? vals[++cur] : null;
+                return cur < vals.length ? vals[cur++] : null;
             }
         };
     }

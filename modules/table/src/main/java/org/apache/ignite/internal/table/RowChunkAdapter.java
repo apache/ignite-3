@@ -167,7 +167,7 @@ public abstract class RowChunkAdapter implements Tuple, SchemaAware {
 
             /** {@inheritDoc} */
             @Override public Object next() {
-                return hasNext() ? value(++cur) : null;
+                return hasNext() ? value(cur++) : null;
             }
         };
     }

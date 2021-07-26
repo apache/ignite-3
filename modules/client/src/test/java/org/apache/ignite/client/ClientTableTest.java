@@ -37,11 +37,12 @@ public class ClientTableTest extends AbstractClientTest {
     public void testGetWithNullInNotNullableKeyColumnThrowsException() {
         Table table = getDefaultTable();
 
-        var key = table.tupleBuilder().set("foo", "123").build();
+        var key = table.tupleBuilder().set("name", "123").build();
 
         var ex = assertThrows(CompletionException.class, () -> table.get(key));
 
-        assertTrue(ex.getMessage().contains("Column is not present in schema: foo"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("Failed to set column (null was passed, but column is not nullable)"),
+                ex.getMessage());
     }
 
     @Test
