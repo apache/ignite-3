@@ -492,7 +492,6 @@ public class RowTest {
                         asm.appendNumber((BigInteger)vals[i]);
                         break;
 
-
                     case VL_NUMBER:
                         asm.appendVarLenNumber((BigInteger)vals[i]);
                         break;
