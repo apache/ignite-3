@@ -403,19 +403,17 @@ public class ClientTable implements Table {
     }
 
     private void writeTuple(@NotNull Tuple tuple, ClientSchema schema, PayloadOutputChannel w, boolean keyOnly) throws IOException {
-        // TODO: We should accept any Tuple implementation, but this requires extending the Tuple interface
-        // with methods to retrieve column list.
-        var rec = (ClientTupleBuilder) tuple;
-
         var vals = new Object[keyOnly ? schema.keyColumnCount() : schema.columns().length];
+        var tupleSize = tuple.columnCount();
 
-        for (var entry : rec.map().entrySet()) {
-            var col = schema.column(entry.getKey());
+        for (var i = 0; i < tupleSize; i++) {
+            var colName = tuple.columnName(i);
+            var col = schema.column(colName);
 
             if (keyOnly && !col.key())
                 continue;
 
-            vals[col.schemaIndex()] = entry.getValue();
+            vals[col.schemaIndex()] = tuple.value(i);
         }
 
         w.out().packUuid(id);
