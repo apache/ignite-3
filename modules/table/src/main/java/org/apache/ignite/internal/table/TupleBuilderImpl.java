@@ -99,6 +99,19 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
+    @Override public <T> T value(int index) {
+        // TODO: Range checks.
+        Column col = schemaDesc.column(index);
+
+        return (T)map.get(col.name());
+    }
+
+    /** {@inheritDoc} */
+    @Override public int length() {
+        return schemaDesc.length();
+    }
+
+    /** {@inheritDoc} */
     @Override public BinaryObject binaryObjectField(String colName) {
         byte[] data = value(colName);
 

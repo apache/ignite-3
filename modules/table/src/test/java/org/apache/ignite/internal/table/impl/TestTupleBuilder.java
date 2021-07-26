@@ -56,6 +56,16 @@ public class TestTupleBuilder implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
+    @Override public <T> T value(int index) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public int length() {
+        return map.size();
+    }
+
+    /** {@inheritDoc} */
     @Override public BinaryObject binaryObjectField(String colName) {
         byte[] data = value(colName);
 

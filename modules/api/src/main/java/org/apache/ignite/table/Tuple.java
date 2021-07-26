@@ -46,6 +46,10 @@ public interface Tuple {
      */
     <T> T value(String colName);
 
+    <T> T value(int index);
+
+    int length();
+
     /**
      * Gets binary object column.
      *

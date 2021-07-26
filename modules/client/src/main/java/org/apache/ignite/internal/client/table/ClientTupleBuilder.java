@@ -64,6 +64,16 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
         return (T)map.get(colName);
     }
 
+    @Override public <T> T value(int index) {
+        // TODO: ???.
+        return null;
+    }
+
+    @Override
+    public int length() {
+        return map.size();
+    }
+
     /** {@inheritDoc} */
     @Override public BinaryObject binaryObjectField(String colName) {
         throw new IgniteException("Not supported");

@@ -60,6 +60,17 @@ public abstract class RowChunkAdapter implements Tuple, SchemaAware {
         return (T)col.type().spec().objectValue(row(), col.schemaIndex());
     }
 
+    @Override public <T> T value(int index) {
+        // TODO: Range checks.
+        final Column col = schema().column(index);
+
+        return (T)col.type().spec().objectValue(row(), col.schemaIndex());
+    }
+
+    @Override public int length() {
+        return schema().length();
+    }
+
     /** {@inheritDoc} */
     @Override public BinaryObject binaryObjectField(String colName) {
         Column col = columnByName(colName);
