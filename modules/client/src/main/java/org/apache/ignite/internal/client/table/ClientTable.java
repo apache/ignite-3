@@ -124,6 +124,7 @@ public class ClientTable implements Table {
 
     /** {@inheritDoc} */
     @Override public TupleBuilder tupleBuilder() {
+        // TODO: Pass schema - see how TupleBuilderImpl does this.
         return new ClientTupleBuilder();
     }
 
