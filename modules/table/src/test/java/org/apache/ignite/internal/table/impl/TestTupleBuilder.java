@@ -85,8 +85,18 @@ public class TestTupleBuilder implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
+    @Override public BinaryObject binaryObjectValue(int columnIndex) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public byte byteValue(String columnName) {
         return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public byte byteValue(int columnIndex) {
+        return 0;
     }
 
     /** {@inheritDoc} */
@@ -95,8 +105,18 @@ public class TestTupleBuilder implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
+    @Override public short shortValue(int columnIndex) {
+        return 0;
+    }
+
+    /** {@inheritDoc} */
     @Override public int intValue(String columnName) {
         return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public int intValue(int columnIndex) {
+        return 0;
     }
 
     /** {@inheritDoc} */
@@ -105,8 +125,18 @@ public class TestTupleBuilder implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
+    @Override public long longValue(int columnIndex) {
+        return 0;
+    }
+
+    /** {@inheritDoc} */
     @Override public float floatValue(String columnName) {
         return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public float floatValue(int columnIndex) {
+        return 0;
     }
 
     /** {@inheritDoc} */
@@ -115,8 +145,18 @@ public class TestTupleBuilder implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
+    @Override public double doubleValue(int columnIndex) {
+        return 0;
+    }
+
+    /** {@inheritDoc} */
     @Override public String stringValue(String columnName) {
         return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public String stringValue(int columnIndex) {
+        return null;
     }
 
     /** {@inheritDoc} */
@@ -125,8 +165,18 @@ public class TestTupleBuilder implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
+    @Override public UUID uuidValue(int columnIndex) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public BitSet bitmaskValue(String columnName) {
         return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public BitSet bitmaskValue(int columnIndex) {
+        return null;
     }
 
     /** {@inheritDoc} */
