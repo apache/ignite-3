@@ -35,7 +35,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     /** Columns values. */
-    private final ArrayList<Object> vals;
+    private final Object[] vals;
 
     /** Schema. */
     private final ClientSchema schema;
@@ -49,14 +49,14 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
         assert schema != null;
 
         this.schema = schema;
-        this.vals = new ArrayList<>(schema.columns().length);
+        this.vals = new Object[schema.columns().length];
     }
 
     /** {@inheritDoc} */
     @Override public TupleBuilder set(String colName, Object value) {
         var col = schema.column(colName);
 
-        vals.set(col.schemaIndex(), value);
+        vals[col.schemaIndex()] = value;
 
         return this;
     }
@@ -77,19 +77,19 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     @Override public <T> T value(String columnName) {
         var col = schema.column(columnName);
 
-        return (T)vals.get(col.schemaIndex());
+        return (T)vals[col.schemaIndex()];
     }
 
     /** {@inheritDoc} */
     @Override public <T> T value(int columnIndex) {
         validateColumnIndex(columnIndex);
 
-        return (T)vals.get(columnIndex);
+        return (T)vals[columnIndex];
     }
 
     /** {@inheritDoc} */
     @Override public int columnCount() {
-        return vals.size();
+        return vals.length;
     }
 
     /** {@inheritDoc} */
@@ -153,17 +153,20 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
 
     /** {@inheritDoc} */
     @NotNull @Override public Iterator<Object> iterator() {
-        return vals.iterator();
-    }
+        return new Iterator<>() {
+            /** Current column index. */
+            private int cur;
 
-    /** {@inheritDoc} */
-    @Override public void forEach(Consumer<? super Object> action) {
-        vals.forEach(action);
-    }
+            /** {@inheritDoc} */
+            @Override public boolean hasNext() {
+                return cur < vals.length;
+            }
 
-    /** {@inheritDoc} */
-    @Override public Spliterator<Object> spliterator() {
-        return vals.spliterator();
+            /** {@inheritDoc} */
+            @Override public Object next() {
+                return cur < vals.length ? vals[++cur] : null;
+            }
+        };
     }
 
     /** {@inheritDoc} */
@@ -175,7 +178,7 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
         if (columnIndex < 0)
             throw new IllegalArgumentException("Column index can't be negative");
 
-        if (columnIndex >= vals.size())
-            throw new IllegalArgumentException("Column index can't be greater than " + (vals.size() - 1));
+        if (columnIndex >= vals.length)
+            throw new IllegalArgumentException("Column index can't be greater than " + (vals.length - 1));
     }
 }
