@@ -54,9 +54,9 @@ public abstract class RowChunkAdapter implements Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T valueOrDefault(String colName, T def) {
+    @Override public <T> T valueOrDefault(String columnName, T def) {
         try {
-            return value(colName);
+            return value(columnName);
         }
         catch (ColumnNotFoundException ex) {
             return def;
@@ -64,8 +64,8 @@ public abstract class RowChunkAdapter implements Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T value(String colName) {
-        final Column col = columnByName(colName);
+    @Override public <T> T value(String columnName) {
+        final Column col = columnByName(columnName);
 
         return (T)col.type().spec().objectValue(row(), col.schemaIndex());
     }
@@ -77,71 +77,71 @@ public abstract class RowChunkAdapter implements Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryObject binaryObjectField(String colName) {
-        Column col = columnByName(colName);
+    @Override public BinaryObject binaryObjectField(String columnName) {
+        Column col = columnByName(columnName);
 
         return BinaryObjects.wrap(row().bytesValue(col.schemaIndex()));
     }
 
     /** {@inheritDoc} */
-    @Override public byte byteValue(String colName) {
-        Column col = columnByName(colName);
+    @Override public byte byteValue(String columnName) {
+        Column col = columnByName(columnName);
 
         return row().byteValue(col.schemaIndex());
     }
 
     /** {@inheritDoc} */
-    @Override public short shortValue(String colName) {
-        Column col = columnByName(colName);
+    @Override public short shortValue(String columnName) {
+        Column col = columnByName(columnName);
 
         return row().shortValue(col.schemaIndex());
     }
 
     /** {@inheritDoc} */
-    @Override public int intValue(String colName) {
-        Column col = columnByName(colName);
+    @Override public int intValue(String columnName) {
+        Column col = columnByName(columnName);
 
         return row().intValue(col.schemaIndex());
     }
 
     /** {@inheritDoc} */
-    @Override public long longValue(String colName) {
-        Column col = columnByName(colName);
+    @Override public long longValue(String columnName) {
+        Column col = columnByName(columnName);
 
         return row().longValue(col.schemaIndex());
     }
 
     /** {@inheritDoc} */
-    @Override public float floatValue(String colName) {
-        Column col = columnByName(colName);
+    @Override public float floatValue(String columnName) {
+        Column col = columnByName(columnName);
 
         return row().floatValue(col.schemaIndex());
     }
 
     /** {@inheritDoc} */
-    @Override public double doubleValue(String colName) {
-        Column col = columnByName(colName);
+    @Override public double doubleValue(String columnName) {
+        Column col = columnByName(columnName);
 
         return row().doubleValue(col.schemaIndex());
     }
 
     /** {@inheritDoc} */
-    @Override public String stringValue(String colName) {
-        Column col = columnByName(colName);
+    @Override public String stringValue(String columnName) {
+        Column col = columnByName(columnName);
 
         return row().stringValue(col.schemaIndex());
     }
 
     /** {@inheritDoc} */
-    @Override public UUID uuidValue(String colName) {
-        Column col = columnByName(colName);
+    @Override public UUID uuidValue(String columnName) {
+        Column col = columnByName(columnName);
 
         return row().uuidValue(col.schemaIndex());
     }
 
     /** {@inheritDoc} */
-    @Override public BitSet bitmaskValue(String colName) {
-        Column col = columnByName(colName);
+    @Override public BitSet bitmaskValue(String columnName) {
+        Column col = columnByName(columnName);
 
         return row().bitmaskValue(col.schemaIndex());
     }

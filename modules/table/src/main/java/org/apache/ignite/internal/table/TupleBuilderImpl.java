@@ -99,13 +99,13 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T valueOrDefault(String colName, T def) {
-        return (T)map.getOrDefault(colName, def);
+    @Override public <T> T valueOrDefault(String columnName, T def) {
+        return (T)map.getOrDefault(columnName, def);
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T value(String colName) {
-        return (T)map.get(colName);
+    @Override public <T> T value(String columnName) {
+        return (T)map.get(columnName);
     }
 
     /** {@inheritDoc} */
@@ -116,55 +116,55 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryObject binaryObjectField(String colName) {
-        byte[] data = value(colName);
+    @Override public BinaryObject binaryObjectField(String columnName) {
+        byte[] data = value(columnName);
 
         return BinaryObjects.wrap(data);
     }
 
     /** {@inheritDoc} */
-    @Override public byte byteValue(String colName) {
-        return value(colName);
+    @Override public byte byteValue(String columnName) {
+        return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public short shortValue(String colName) {
-        return value(colName);
+    @Override public short shortValue(String columnName) {
+        return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public int intValue(String colName) {
-        return value(colName);
+    @Override public int intValue(String columnName) {
+        return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public long longValue(String colName) {
-        return value(colName);
+    @Override public long longValue(String columnName) {
+        return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public float floatValue(String colName) {
-        return value(colName);
+    @Override public float floatValue(String columnName) {
+        return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public double doubleValue(String colName) {
-        return value(colName);
+    @Override public double doubleValue(String columnName) {
+        return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public String stringValue(String colName) {
-        return value(colName);
+    @Override public String stringValue(String columnName) {
+        return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public UUID uuidValue(String colName) {
-        return value(colName);
+    @Override public UUID uuidValue(String columnName) {
+        return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public BitSet bitmaskValue(String colName) {
-        return value(colName);
+    @Override public BitSet bitmaskValue(String columnName) {
+        return value(columnName);
     }
 
     /** {@inheritDoc} */

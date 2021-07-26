@@ -45,21 +45,21 @@ public interface Tuple {
     /**
      * Returns {@code true} if this tuple contains a column with the specified name.
      *
-     * @param colName Column name.
+     * @param columnName Column name.
      * @param def Default value.
      * @param <T> Column default value type.
      * @return Column value if this tuple contains a column with the specified name. Otherwise returns {@code default}.
      */
-    <T> T valueOrDefault(String colName, T def);
+    <T> T valueOrDefault(String columnName, T def);
 
     /**
      * Gets column value for given column name.
      *
-     * @param colName Column name.
+     * @param columnName Column name.
      * @param <T> Value type.
      * @return Column value.
      */
-    <T> T value(String colName);
+    <T> T value(String columnName);
 
     /**
      * Gets column value for given column index.
@@ -73,80 +73,80 @@ public interface Tuple {
     /**
      * Gets binary object column.
      *
-     * @param colName Column name.
+     * @param columnName Column name.
      * @return Column value.
      */
-    BinaryObject binaryObjectField(String colName);
+    BinaryObject binaryObjectField(String columnName);
 
     /**
      * Gets {@code byte} column value.
      *
-     * @param colName Column name.
+     * @param columnName Column name.
      * @return Column value.
      */
-    byte byteValue(String colName);
+    byte byteValue(String columnName);
 
     /**
      * Gets {@code short} column value.
      *
-     * @param colName Column name.
+     * @param columnName Column name.
      * @return Column value.
      */
-    short shortValue(String colName);
+    short shortValue(String columnName);
 
     /**
      * Gets {@code int} column value.
      *
-     * @param colName Column name.
+     * @param columnName Column name.
      * @return Column value.
      */
-    int intValue(String colName);
+    int intValue(String columnName);
 
     /**
      * Gets {@code long} column value.
      *
-     * @param colName Column name.
+     * @param columnName Column name.
      * @return Column value.
      */
-    long longValue(String colName);
+    long longValue(String columnName);
 
     /**
      * Gets {@code float} column value.
      *
-     * @param colName Column name.
+     * @param columnName Column name.
      * @return Column value.
      */
-    float floatValue(String colName);
+    float floatValue(String columnName);
 
     /**
      * Gets {@code double} column value.
      *
-     * @param colName Column name.
+     * @param columnName Column name.
      * @return Column value.
      */
-    double doubleValue(String colName);
+    double doubleValue(String columnName);
 
     /**
      * Gets {@code String} column value.
      *
-     * @param colName Column name.
+     * @param columnName Column name.
      * @return Column value.
      */
-    String stringValue(String colName);
+    String stringValue(String columnName);
 
     /**
      * Gets {@code UUID} column value.
      *
-     * @param colName Column name.
+     * @param columnName Column name.
      * @return Column value.
      */
-    UUID uuidValue(String colName);
+    UUID uuidValue(String columnName);
 
     /**
      * Gets {@code BitSet} column value.
      *
-     * @param colName Column name.
+     * @param columnName Column name.
      * @return Column value.
      */
-    BitSet bitmaskValue(String colName);
+    BitSet bitmaskValue(String columnName);
 }

@@ -62,15 +62,15 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T valueOrDefault(String colName, T def) {
-        T res = value(colName);
+    @Override public <T> T valueOrDefault(String columnName, T def) {
+        T res = value(columnName);
 
         return res == null ? def : res;
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T value(String colName) {
-        var col = schema.column(colName);
+    @Override public <T> T value(String columnName) {
+        var col = schema.column(columnName);
 
         return (T)vals[col.schemaIndex()];
     }
@@ -95,53 +95,53 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryObject binaryObjectField(String colName) {
+    @Override public BinaryObject binaryObjectField(String columnName) {
         throw new IgniteException("Not supported");
     }
 
     /** {@inheritDoc} */
-    @Override public byte byteValue(String colName) {
-        return value(colName);
+    @Override public byte byteValue(String columnName) {
+        return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public short shortValue(String colName) {
-        return value(colName);
+    @Override public short shortValue(String columnName) {
+        return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public int intValue(String colName) {
-        return value(colName);
+    @Override public int intValue(String columnName) {
+        return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public long longValue(String colName) {
-        return value(colName);
+    @Override public long longValue(String columnName) {
+        return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public float floatValue(String colName) {
-        return value(colName);
+    @Override public float floatValue(String columnName) {
+        return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public double doubleValue(String colName) {
-        return value(colName);
+    @Override public double doubleValue(String columnName) {
+        return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public String stringValue(String colName) {
-        return value(colName);
+    @Override public String stringValue(String columnName) {
+        return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public UUID uuidValue(String colName) {
-        return value(colName);
+    @Override public UUID uuidValue(String columnName) {
+        return value(columnName);
     }
 
     /** {@inheritDoc} */
-    @Override public BitSet bitmaskValue(String colName) {
-        return value(colName);
+    @Override public BitSet bitmaskValue(String columnName) {
+        return value(columnName);
     }
 
     private void validateColumnIndex(int columnIndex) {
