@@ -75,18 +75,52 @@ public class NativeTypeTest {
         assertTrue(INT16.compareTo(DATE) < 0);
         assertTrue(DATE.compareTo(INT32) < 0);
 
-        assertTrue(DATE.compareTo(NativeTypes.time(3)) < 0);
-        assertTrue(NativeTypes.time(3).compareTo(NativeTypes.time(6)) < 0);
-        assertTrue(NativeTypes.time(6).compareTo(NativeTypes.time(9)) < 0);
-        assertTrue(NativeTypes.time(9).compareTo(NativeTypes.datetime(3)) < 0);
+        assertTrue(DATE.compareTo(NativeTypes.time(0)) < 0);
+        assertTrue(INT32.compareTo(NativeTypes.time(4)) < 0);
+        assertTrue(NativeTypes.time(3).compareTo(NativeTypes.time(4)) < 0);
+        assertTrue(NativeTypes.time(9).compareTo(NativeTypes.datetime(0)) < 0);
 
-        assertTrue(NativeTypes.datetime(3).compareTo(NativeTypes.datetime(6)) < 0);
-        assertTrue(NativeTypes.datetime(6).compareTo(NativeTypes.datetime(9)) < 0);
-        assertTrue(INT64.compareTo(NativeTypes.datetime(9)) < 0);
+        assertTrue(NativeTypes.datetime(3).compareTo(INT64) < 0);
+        assertTrue(INT64.compareTo(NativeTypes.datetime(4)) < 0);
 
-        assertTrue(INT64.compareTo(NativeTypes.timestamp(3)) < 0);
-        assertTrue(NativeTypes.timestamp(3).compareTo(NativeTypes.timestamp(6)) < 0);
-        assertTrue(NativeTypes.timestamp(6).compareTo(NativeTypes.timestamp(9)) < 0);
+        assertTrue(INT64.compareTo(NativeTypes.timestamp(1)) < 0);
+    }
+
+    /**
+     *
+     */
+    @Test
+    public void compareFixlenTypesByDesc() {
+        assertTrue(FLOAT.compareTo(INT32) < 0);
+        assertTrue(datetime(0).compareTo(INT64) < 0);
+        assertTrue(INT32.compareTo(NativeTypes.time(0)) < 0);
+        assertTrue(INT32.compareTo(NativeTypes.time(3)) < 0);
+        assertTrue(INT64.compareTo(NativeTypes.timestamp(0)) < 0);
+    }
+
+    /**
+     *
+     */
+    @Test
+    public void validateTemporalTypesLength() {
+        assertEquals(3, DATE.sizeInBytes());
+
+        assertEquals(6, time().sizeInBytes());
+        assertEquals(4, time(0).sizeInBytes());
+        assertEquals(4, time(3).sizeInBytes());
+        assertEquals(6, time(4).sizeInBytes());
+        assertEquals(6, time(9).sizeInBytes());
+
+        assertEquals(9, datetime().sizeInBytes());
+        assertEquals(7, datetime(0).sizeInBytes());
+        assertEquals(7, datetime(3).sizeInBytes());
+        assertEquals(9, datetime(4).sizeInBytes());
+        assertEquals(9, datetime(9).sizeInBytes());
+
+        assertEquals(12, timestamp().sizeInBytes());
+        assertEquals(8, timestamp(0).sizeInBytes());
+        assertEquals(12, timestamp(1).sizeInBytes());
+        assertEquals(12, timestamp(9).sizeInBytes());
 
         assertEquals(0, NativeTypes.datetime().compareTo(NativeTypes.datetime(6)));
         assertEquals(0, NativeTypes.time().compareTo(NativeTypes.time(6)));
@@ -97,51 +131,14 @@ public class NativeTypeTest {
      *
      */
     @Test
-    public void compareFixlenTypesByDesc() {
-        assertTrue(FLOAT.compareTo(INT32) < 0);
-        assertTrue(datetime(6).compareTo(INT64) < 0);
-        assertTrue(INT32.compareTo(NativeTypes.time(3)) < 0);
-    }
-
-    /**
-     *
-     */
-    @Test
-    public void validateTemporalTypesLength() {
-        assertEquals(3, DATE.sizeInBytes());
-
-        assertEquals(5, time().sizeInBytes());
-        assertEquals(4, time(3).sizeInBytes());
-        assertEquals(5, time(6).sizeInBytes());
-        assertEquals(6, time(9).sizeInBytes());
-
-        assertEquals(8, datetime().sizeInBytes());
-        assertEquals(7, datetime(3).sizeInBytes());
-        assertEquals(8, datetime(6).sizeInBytes());
-        assertEquals(9, datetime(9).sizeInBytes());
-
-        assertEquals(11, timestamp().sizeInBytes());
-        assertEquals(10, timestamp(3).sizeInBytes());
-        assertEquals(11, timestamp(6).sizeInBytes());
-        assertEquals(12, timestamp(9).sizeInBytes());
-    }
-
-    /**
-     *
-     */
-    @Test
     public void invalidTemporalTypes() {
-        assertThrows(IllegalArgumentException.class, () -> time(0));
-        assertThrows(IllegalArgumentException.class, () -> timestamp(0));
-        assertThrows(IllegalArgumentException.class, () -> datetime(0));
+        assertThrows(IllegalArgumentException.class, () -> time(-1));
+        assertThrows(IllegalArgumentException.class, () -> timestamp(-1));
+        assertThrows(IllegalArgumentException.class, () -> datetime(-1));
 
-        assertThrows(IllegalArgumentException.class, () -> time(-3));
-        assertThrows(IllegalArgumentException.class, () -> timestamp(-3));
-        assertThrows(IllegalArgumentException.class, () -> datetime(-3));
-
-        assertThrows(IllegalArgumentException.class, () -> time(2));
-        assertThrows(IllegalArgumentException.class, () -> timestamp(2));
-        assertThrows(IllegalArgumentException.class, () -> datetime(2));
+        assertThrows(IllegalArgumentException.class, () -> time(10));
+        assertThrows(IllegalArgumentException.class, () -> timestamp(10));
+        assertThrows(IllegalArgumentException.class, () -> datetime(10));
     }
 
     /**

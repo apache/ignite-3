@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import org.apache.ignite.internal.schema.row.TemporalTypesHelper;
 import org.apache.ignite.schema.ColumnType;
 import org.junit.jupiter.api.Test;
@@ -44,7 +45,6 @@ public class TemporalTypesTest {
         checkDate(maxDate);
         checkDate(minDate);
 
-        assertThrows(AssertionError.class, () -> checkTime(TemporalNativeType.time(ColumnType.TemporalColumnType.DEFAULT_PRECISION), LocalTime.MAX));
         assertThrows(AssertionError.class, () -> checkDate(maxDate.plusDays(1)));
         assertThrows(AssertionError.class, () -> checkDate(minDate.minusDays(1)));
     }
@@ -54,10 +54,10 @@ public class TemporalTypesTest {
      */
     @Test
     void testTime() {
-        TemporalNativeType type = TemporalNativeType.time(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
+        TemporalNativeType typeWithDefaultPrecision = TemporalNativeType.time(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
 
-        checkTime(type, LocalTime.MAX.truncatedTo(TemporalTypesHelper.TIME_PRECISION));
-        checkTime(type, LocalTime.MIN);
+        checkTime(typeWithDefaultPrecision, LocalTime.MAX.truncatedTo(ChronoUnit.MICROS));
+        checkTime(typeWithDefaultPrecision, LocalTime.MIN);
 
         checkTime(TemporalNativeType.time(0), LocalTime.MAX.truncatedTo(TestUtils.chronoUnitForPrecision(0))); // Seconds precision.
         checkTime(TemporalNativeType.time(0), LocalTime.MIN);
@@ -71,12 +71,10 @@ public class TemporalTypesTest {
         checkTime(TemporalNativeType.time(9), LocalTime.MAX.truncatedTo(TestUtils.chronoUnitForPrecision(9))); // Nanos precision.
         checkTime(TemporalNativeType.time(9), LocalTime.MIN);
 
-        assertThrows(AssertionError.class, () -> checkTime(type, LocalTime.MAX));
+        assertThrows(AssertionError.class, () -> checkTime(typeWithDefaultPrecision, LocalTime.MAX));
         assertThrows(AssertionError.class, () -> checkTime(TemporalNativeType.time(3), LocalTime.MAX));
         assertThrows(AssertionError.class, () -> checkTime(TemporalNativeType.time(6), LocalTime.MAX));
         checkTime(TemporalNativeType.time(9), LocalTime.MAX);
-
-        assertThrows(IllegalArgumentException.class, () -> checkTime(TemporalNativeType.time(10), LocalTime.MAX));
     }
 
     /**
@@ -91,6 +89,6 @@ public class TemporalTypesTest {
      * @param time Time value.
      */
     private void checkTime(TemporalNativeType type, LocalTime time) {
-        assertEquals(time, TemporalTypesHelper.decodeTime(TemporalTypesHelper.encodeTime(type, time)));
+        assertEquals(time, TemporalTypesHelper.decodeTime(type, TemporalTypesHelper.encodeTime(type, time)));
     }
 }

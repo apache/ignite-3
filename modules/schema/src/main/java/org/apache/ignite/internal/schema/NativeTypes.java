@@ -102,7 +102,7 @@ public class NativeTypes {
     /**
      * Creates a TIME type with subsecond precision.
      *
-     * @param precision Time subsecond part length. Allowed values are 3/6/9 for millis/micros/nanos.
+     * @param precision Time subsecond part length in digits. Allowed values 0-9.
      * @return Native type.
      */
     public static NativeType time(int precision) {
@@ -110,9 +110,9 @@ public class NativeTypes {
     }
 
     /**
-     * Creates DATETIME type as (date, time).
+     * Creates DATETIME type as pair (date, time).
      *
-     * @param precision Time subsecond part length. Allowed values are 3/6/9 for millis/micros/nanos.
+     * @param precision Time subsecond part length in digits. Allowed values 0-9.
      * @return Native type.
      */
     public static NativeType datetime(int precision) {

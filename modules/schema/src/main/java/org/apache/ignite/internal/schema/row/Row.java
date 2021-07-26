@@ -361,7 +361,7 @@ public class Row implements BinaryRow {
 
         TemporalNativeType type = (TemporalNativeType)schema.column(col).type();
 
-        return readTime(off, type.precision());
+        return readTime(off, type);
     }
 
     /**
@@ -381,7 +381,7 @@ public class Row implements BinaryRow {
 
         TemporalNativeType type = (TemporalNativeType)schema.column(col).type();
 
-        return LocalDateTime.of(readDate(off), readTime(off + 3, type.precision()));
+        return LocalDateTime.of(readDate(off), readTime(off + 3, type));
     }
 
     /**
@@ -414,17 +414,35 @@ public class Row implements BinaryRow {
      * Reads and decode time column value.
      *
      * @param off Offset
-     * @param prec Temporal type precision.
+     * @param type Temporal type precision.
      * @return LocalTime value.
      */
-    private LocalTime readTime(int off, int prec) {
-        long time = Short.toUnsignedLong(readShort(off)) << 8 + 32;
-        time |= Byte.toUnsignedLong(readByte(off + 2)) << 32;
+    private LocalTime readTime(int off, TemporalNativeType type) {
+        long time = Integer.toUnsignedLong(readInteger(off));
 
-        if (prec != 0)
-            time |= readInteger(off); // Unsinged, 30-bit is used.
+        switch (type.precision()) {
+            case 0: {
+                time <<= 32;
 
-        return TemporalTypesHelper.decodeTime(time);
+                break;
+            }
+            case 1:
+            case 2:
+            case 3: { // Decompress
+                time |= Short.toUnsignedLong(readShort(off + 4)) << 16;
+                time = (time >> TemporalTypesHelper.MILLIS_PART_LEN) << 32 | (time & TemporalTypesHelper.MILLIS_PART_MASK);
+
+                break;
+            }
+            default: { // Decompress
+                time |= Integer.toUnsignedLong(readInteger(off + 4));
+                time = (time >> TemporalTypesHelper.NANOS_PART_LEN) << 32 | (time & TemporalTypesHelper.NANOS_PART_MASK);
+
+                break;
+            }
+        }
+
+        return TemporalTypesHelper.decodeTime(type, time);
     }
 
     /**

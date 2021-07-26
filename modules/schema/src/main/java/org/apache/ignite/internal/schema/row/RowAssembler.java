@@ -535,7 +535,7 @@ public class RowAssembler {
 
         TemporalNativeType type = (TemporalNativeType)curCols.column(curCol).type();
 
-        writeTime(curOff, val, type);
+        writeTime(buf, curOff, val, type);
 
         if (isKeyChunk())
             keyHash += 31 * keyHash + val.hashCode();
@@ -559,7 +559,7 @@ public class RowAssembler {
         int date = TemporalTypesHelper.encodeDate(val.toLocalDate());
 
         writeDate(curOff, date);
-        writeTime(curOff + 3, val.toLocalTime(), type);
+        writeTime(buf, curOff + 3, val.toLocalTime(), type);
 
         if (isKeyChunk())
             keyHash += 31 * keyHash + val.hashCode();
@@ -665,26 +665,32 @@ public class RowAssembler {
      * @param date Compacted date.
      */
     private void writeDate(int off, int date) {
-        buf.putShort(off, (short)(date >>> 8));
+        buf.putInt(off, (short)(date >>> 8));
         buf.put(off + 2, (byte)(date & 0xFF));
     }
 
     /**
      * Writes time.
      *
+     * @param buf
      * @param off Offset.
      * @param val Time.
      * @param type Native type.
      */
-    private void writeTime(int off, LocalTime val, TemporalNativeType type) {
+    static void writeTime(ExpandableByteBuf buf, int off, LocalTime val, TemporalNativeType type) {
         long time = TemporalTypesHelper.encodeTime(type, val);
 
-        // Write only meaningful bytes.
-        buf.putShort(off, (short)(time >> 40));
-        buf.put(off, (byte)(time >> 32));
+        if (type.precision() > 3) {
+            time = ((time >> 32) << TemporalTypesHelper.NANOS_PART_LEN) | (time & TemporalTypesHelper.NANOS_PART_MASK);
 
-        if (type.precision() != 0)
-            buf.putInt(off, (int)(time & 0xFFFF_FFFFL));
+            buf.putInt(off, (int)(time >>> 32));
+            buf.putShort(off + 4, (short)(time & 0xFFFF_FFFF));
+        }
+        else {
+            time = ((time >> 32) << TemporalTypesHelper.MILLIS_PART_LEN) | (time & TemporalTypesHelper.MILLIS_PART_MASK);
+
+            buf.putInt(off, (int)time);
+        }
     }
 
     /**

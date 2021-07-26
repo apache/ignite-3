@@ -30,7 +30,7 @@ public class TemporalNativeType extends NativeType {
      * @return Native type.
      */
     static TemporalNativeType time(int precision) {
-        int size = (precision == 0) ? 3 : 7;
+        int size = (precision > 3) ? 6 : 4;
 
         return new TemporalNativeType(NativeTypeSpec.TIME, size, precision);
     }
@@ -42,7 +42,7 @@ public class TemporalNativeType extends NativeType {
      * @return Native type.
      */
     static TemporalNativeType datetime(int precision) {
-        int size = NativeTypes.DATE.sizeInBytes() + (precision == 0 ? 3 : 7);
+        int size = NativeTypes.DATE.sizeInBytes() + ((precision > 3) ? 6 : 4);
 
         return new TemporalNativeType(NativeTypeSpec.DATETIME, size, precision);
     }
@@ -70,6 +70,9 @@ public class TemporalNativeType extends NativeType {
      */
     private TemporalNativeType(NativeTypeSpec typeSpec, int size, int precision) {
         super(typeSpec, size);
+
+        if (precision < 0 || precision > 9)
+            throw new IllegalArgumentException("Unsupported fractional seconds precision: " + precision);
 
         this.precision = precision;
     }
