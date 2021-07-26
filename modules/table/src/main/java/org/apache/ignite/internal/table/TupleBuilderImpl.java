@@ -132,8 +132,18 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
+    @Override public BinaryObject binaryObjectValue(int columnIndex) {
+        return value(columnIndex);
+    }
+
+    /** {@inheritDoc} */
     @Override public byte byteValue(String columnName) {
         return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public byte byteValue(int columnIndex) {
+        return value(columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -142,8 +152,18 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
+    @Override public short shortValue(int columnIndex) {
+        return value(columnIndex);
+    }
+
+    /** {@inheritDoc} */
     @Override public int intValue(String columnName) {
         return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public int intValue(int columnIndex) {
+        return value(columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -152,8 +172,18 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
+    @Override public long longValue(int columnIndex) {
+        return value(columnIndex);
+    }
+
+    /** {@inheritDoc} */
     @Override public float floatValue(String columnName) {
         return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public float floatValue(int columnIndex) {
+        return value(columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -162,8 +192,18 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
+    @Override public double doubleValue(int columnIndex) {
+        return value(columnIndex);
+    }
+
+    /** {@inheritDoc} */
     @Override public String stringValue(String columnName) {
         return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public String stringValue(int columnIndex) {
+        return value(columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -172,8 +212,18 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
+    @Override public UUID uuidValue(int columnIndex) {
+        return value(columnIndex);
+    }
+
+    /** {@inheritDoc} */
     @Override public BitSet bitmaskValue(String columnName) {
         return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public BitSet bitmaskValue(int columnIndex) {
+        return value(columnIndex);
     }
 
     /** {@inheritDoc} */
