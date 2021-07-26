@@ -99,15 +99,15 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T value(int index) {
+    @Override public <T> T value(int columnIndex) {
         // TODO: Range checks.
-        Column col = schemaDesc.column(index);
+        Column col = schemaDesc.column(columnIndex);
 
         return (T)map.get(col.name());
     }
 
     /** {@inheritDoc} */
-    @Override public int length() {
+    @Override public int columnCount() {
         return schemaDesc.length();
     }
 

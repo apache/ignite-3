@@ -64,13 +64,13 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
         return (T)map.get(colName);
     }
 
-    @Override public <T> T value(int index) {
+    @Override public <T> T value(int columnIndex) {
         // TODO: ???.
         return null;
     }
 
     @Override
-    public int length() {
+    public int columnCount() {
         return map.size();
     }
 

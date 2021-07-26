@@ -56,12 +56,12 @@ public class TestTupleBuilder implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T value(int index) {
+    @Override public <T> T value(int columnIndex) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public int length() {
+    @Override public int columnCount() {
         return map.size();
     }
 

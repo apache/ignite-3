@@ -28,6 +28,21 @@ import org.apache.ignite.binary.BinaryObject;
  */
 public interface Tuple {
     /**
+     * Gets the number of columns in this tuple.
+     *
+     * @return Number of columns.
+     */
+    int columnCount();
+
+    /**
+     * Gets the name of the column with the specified index.
+     *
+     * @param columnIndex Column index.
+     * @return Column name.
+     */
+    String columnName(int columnIndex);
+
+    /**
      * Returns {@code true} if this tuple contains a column with the specified name.
      *
      * @param colName Column name.
@@ -49,18 +64,11 @@ public interface Tuple {
     /**
      * Gets column value for given column index.
      *
-     * @param index Column index.
+     * @param columnIndex Column index.
      * @param <T> Value type.
      * @return Column value.
      */
-    <T> T value(int index);
-
-    /**
-     * Gets the legth of this tuple (number of values).
-     *
-     * @return Length of the tuple.
-     */
-    int length();
+    <T> T value(int columnIndex);
 
     /**
      * Gets binary object column.
