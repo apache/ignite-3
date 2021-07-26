@@ -149,10 +149,10 @@ public class NamedListOrderTest {
                 aMapWithSize(9),
                 hasEntry("a.b.X.c", "foo"),
                 hasEntry("a.b.X.<order>", 0),
-                hasEntry(is("a.b.X.<id>"), is(xId)),
+                hasEntry("a.b.X.<id>", xId),
                 hasEntry("a.b.X.b.Z0.c", "foo"),
                 hasEntry("a.b.X.b.Z0.<order>", 0),
-                hasEntry(is("a.b.X.b.Z0.<id>"), is(z0Id)),
+                hasEntry("a.b.X.b.Z0.<id>", z0Id),
                 hasEntry("a.b.X.b.Z5.c", "foo"),
                 hasEntry( "a.b.X.b.Z5.<order>", 1),
                 hasEntry(is("a.b.X.b.Z5.<id>"), hasToString(matchesPattern(idPattern)))
@@ -172,16 +172,16 @@ public class NamedListOrderTest {
                 aMapWithSize(12),
                 hasEntry("a.b.X.c", "foo"),
                 hasEntry("a.b.X.<order>", 0),
-                hasEntry(is("a.b.X.<id>"), is(xId)),
+                hasEntry("a.b.X.<id>", xId),
                 hasEntry("a.b.X.b.Z0.c", "foo"),
                 hasEntry("a.b.X.b.Z0.<order>", 0),
-                hasEntry(is("a.b.X.b.Z0.<id>"), is(z0Id)),
+                hasEntry("a.b.X.b.Z0.<id>", z0Id),
                 hasEntry("a.b.X.b.Z2.c", "foo"),
                 hasEntry("a.b.X.b.Z2.<order>", 1),
                 hasEntry(is("a.b.X.b.Z2.<id>"), hasToString(matchesPattern(idPattern))),
                 hasEntry("a.b.X.b.Z5.c", "foo"),
                 hasEntry( "a.b.X.b.Z5.<order>", 2),
-                hasEntry(is("a.b.X.b.Z5.<id>"), is(z5Id))
+                hasEntry("a.b.X.b.Z5.<id>", z5Id)
             ))
         );
 
@@ -198,19 +198,19 @@ public class NamedListOrderTest {
                 aMapWithSize(15),
                 hasEntry("a.b.X.c", "foo"),
                 hasEntry("a.b.X.<order>", 0),
-                hasEntry(is("a.b.X.<id>"), is(xId)),
+                hasEntry("a.b.X.<id>", xId),
                 hasEntry("a.b.X.b.Z0.c", "foo"),
                 hasEntry("a.b.X.b.Z0.<order>", 0),
-                hasEntry(is("a.b.X.b.Z0.<id>"), is(z0Id)),
+                hasEntry("a.b.X.b.Z0.<id>", z0Id),
                 hasEntry("a.b.X.b.Z2.c", "foo"),
                 hasEntry("a.b.X.b.Z2.<order>", 1),
-                hasEntry(is("a.b.X.b.Z2.<id>"), is(z2Id)),
+                hasEntry("a.b.X.b.Z2.<id>", z2Id),
                 hasEntry("a.b.X.b.Z3.c", "foo"),
                 hasEntry("a.b.X.b.Z3.<order>", 2),
                 hasEntry(is("a.b.X.b.Z3.<id>"), hasToString(matchesPattern(idPattern))),
                 hasEntry("a.b.X.b.Z5.c", "foo"),
                 hasEntry( "a.b.X.b.Z5.<order>", 3),
-                hasEntry(is("a.b.X.b.Z5.<id>"), is(z5Id))
+                hasEntry("a.b.X.b.Z5.<id>", z5Id)
             ))
         );
 
@@ -227,13 +227,13 @@ public class NamedListOrderTest {
                 aMapWithSize(9),
                 hasEntry("a.b.X.c", "foo"),
                 hasEntry("a.b.X.<order>", 0),
-                hasEntry(is("a.b.X.<id>"), is(xId)),
+                hasEntry("a.b.X.<id>", xId),
                 hasEntry("a.b.X.b.Z0.c", "foo"),
                 hasEntry("a.b.X.b.Z0.<order>", 0),
-                hasEntry(is("a.b.X.b.Z0.<id>"), is(z0Id)),
+                hasEntry("a.b.X.b.Z0.<id>", z0Id),
                 hasEntry("a.b.X.b.Z3.c", "foo"),
                 hasEntry("a.b.X.b.Z3.<order>", 1),
-                hasEntry(is("a.b.X.b.Z3.<id>"), is(z3Id))
+                hasEntry("a.b.X.b.Z3.<id>", z3Id)
             ))
         );
 
@@ -248,13 +248,13 @@ public class NamedListOrderTest {
                 aMapWithSize(9),
                 hasEntry("a.b.X.c", "foo"),
                 hasEntry("a.b.X.<order>", 0),
-                hasEntry(is("a.b.X.<id>"), is(xId)),
+                hasEntry("a.b.X.<id>", xId),
                 hasEntry("a.b.X.b.Z1.c", "foo"),
                 hasEntry("a.b.X.b.Z1.<order>", 0),
-                hasEntry(is("a.b.X.b.Z1.<id>"), is(z0Id)),
+                hasEntry("a.b.X.b.Z1.<id>", z0Id),
                 hasEntry("a.b.X.b.Z3.c", "foo"),
                 hasEntry("a.b.X.b.Z3.<order>", 1),
-                hasEntry(is("a.b.X.b.Z3.<id>"), is(z3Id))
+                hasEntry("a.b.X.b.Z3.<id>", z3Id)
             ))
         );
 
