@@ -174,7 +174,7 @@ public class NativeTypeTest {
             assertEquals(bitmaskOf(i), from(ColumnType.bitmaskOf(i)));
         }
 
-        for (int i = 3; i <= 9; i += 3) {
+        for (int i = 0; i <= 9; i ++) {
             assertEquals(time(i), from(ColumnType.time(i)));
             assertEquals(datetime(i), from(ColumnType.datetime(i)));
             assertEquals(timestamp(i), from(ColumnType.timestamp(i)));

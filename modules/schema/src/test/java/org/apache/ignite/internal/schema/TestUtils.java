@@ -28,12 +28,12 @@ import java.util.Random;
 
 import static org.apache.ignite.internal.schema.row.TemporalTypesHelper.MAX_YEAR;
 import static org.apache.ignite.internal.schema.row.TemporalTypesHelper.MIN_YEAR;
+import static org.apache.ignite.internal.schema.row.TemporalTypesHelper.normalizeNanos;
 
 /**
  * Test utility class.
  */
 public final class TestUtils {
-
     /**
      * Generates random value of given type.
      *
@@ -84,45 +84,24 @@ public final class TestUtils {
 
             case TIME:
                 return LocalTime.of(rnd.nextInt(24), rnd.nextInt(60), rnd.nextInt(60),
-                    rnd.nextInt(1_000_000_000)).truncatedTo(chronoUnitForPrecision(((TemporalNativeType)type).precision()));
+                    normalizeNanos(rnd.nextInt(1_000_000_000), ((TemporalNativeType)type).precision()));
 
             case DATETIME: {
                 Year year = Year.of(rnd.nextInt(MAX_YEAR - MIN_YEAR) + MIN_YEAR);
 
                 LocalDate date = LocalDate.ofYearDay(year.getValue(), rnd.nextInt(year.length()) + 1);
                 LocalTime time = LocalTime.of(rnd.nextInt(24), rnd.nextInt(60), rnd.nextInt(60),
-                    rnd.nextInt(1_000_000_000)).truncatedTo(chronoUnitForPrecision(((TemporalNativeType)type).precision()));
+                    normalizeNanos(rnd.nextInt(1_000_000_000), ((TemporalNativeType)type).precision()));
 
                 return LocalDateTime.of(date, time);
             }
 
             case TIMESTAMP:
                 return Instant.ofEpochMilli(rnd.nextLong()).truncatedTo(ChronoUnit.SECONDS)
-                    .plusNanos(rnd.nextLong()).truncatedTo(chronoUnitForPrecision(((TemporalNativeType)type).precision()));
+                    .plusNanos(normalizeNanos(rnd.nextInt(1_000_000_000), ((TemporalNativeType)type).precision()));
 
             default:
                 throw new IllegalArgumentException("Unsupported type: " + type);
-        }
-    }
-
-    /**
-     * Returns chrono unit for fractonal seconds precision.
-     *
-     * @param precision Temporal type precision.
-     * @return ChronoUnit.
-     */
-    public static ChronoUnit chronoUnitForPrecision(int precision) {
-        switch (precision) {
-            case 0:
-                return ChronoUnit.SECONDS;
-            case 3:
-                return ChronoUnit.MILLIS;
-            case 6:
-                return ChronoUnit.MICROS;
-            case 9:
-                return ChronoUnit.NANOS;
-            default:
-                throw new IllegalArgumentException("Unsupported fractional seconds precision.");
         }
     }
 

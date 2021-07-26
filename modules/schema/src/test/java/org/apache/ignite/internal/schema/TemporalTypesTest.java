@@ -54,27 +54,17 @@ public class TemporalTypesTest {
      */
     @Test
     void testTime() {
-        TemporalNativeType typeWithDefaultPrecision = TemporalNativeType.time(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
+        for (int i =0; i <= 9; i++) {
+            checkTime(TemporalNativeType.time(i), LocalTime.MAX.withNano(TemporalTypesHelper.normalizeNanos(LocalTime.MAX.getNano(), i))); // Seconds precision.
+            checkTime(TemporalNativeType.time(i), LocalTime.MIN);
+        }
 
-        checkTime(typeWithDefaultPrecision, LocalTime.MAX.truncatedTo(ChronoUnit.MICROS));
-        checkTime(typeWithDefaultPrecision, LocalTime.MIN);
-
-        checkTime(TemporalNativeType.time(0), LocalTime.MAX.truncatedTo(TestUtils.chronoUnitForPrecision(0))); // Seconds precision.
-        checkTime(TemporalNativeType.time(0), LocalTime.MIN);
-
-        checkTime(TemporalNativeType.time(3), LocalTime.MAX.truncatedTo(TestUtils.chronoUnitForPrecision(3))); // Millis precision.
-        checkTime(TemporalNativeType.time(3), LocalTime.MIN);
-
-        checkTime(TemporalNativeType.time(6), LocalTime.MAX.truncatedTo(TestUtils.chronoUnitForPrecision(6))); // Micros precision.
-        checkTime(TemporalNativeType.time(6), LocalTime.MIN);
-
-        checkTime(TemporalNativeType.time(9), LocalTime.MAX.truncatedTo(TestUtils.chronoUnitForPrecision(9))); // Nanos precision.
-        checkTime(TemporalNativeType.time(9), LocalTime.MIN);
-
-        assertThrows(AssertionError.class, () -> checkTime(typeWithDefaultPrecision, LocalTime.MAX));
-        assertThrows(AssertionError.class, () -> checkTime(TemporalNativeType.time(3), LocalTime.MAX));
-        assertThrows(AssertionError.class, () -> checkTime(TemporalNativeType.time(6), LocalTime.MAX));
+        checkTime(TemporalNativeType.time(ColumnType.TemporalColumnType.DEFAULT_PRECISION), LocalTime.MAX.truncatedTo(ChronoUnit.MICROS));
         checkTime(TemporalNativeType.time(9), LocalTime.MAX);
+
+        assertThrows(AssertionError.class, () -> checkTime(TemporalNativeType.time(ColumnType.TemporalColumnType.DEFAULT_PRECISION), LocalTime.MAX));
+        assertThrows(AssertionError.class, () -> checkTime(TemporalNativeType.time(0), LocalTime.MAX));
+        assertThrows(AssertionError.class, () -> checkTime(TemporalNativeType.time(8), LocalTime.MAX));
     }
 
     /**

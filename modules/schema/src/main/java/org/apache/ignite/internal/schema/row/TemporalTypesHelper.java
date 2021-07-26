@@ -92,17 +92,17 @@ public class TemporalTypesHelper {
     /** Min year boundary. */
     public static final int MIN_YEAR = -(1 << 14);
 
-    /** Fractional part mask for millis precision. */
-    public static final long MILLIS_PART_MASK = (1L << 14) - 1;
-
     /** Fractional part length for millis precision. */
     public static final int MILLIS_PART_LEN = 14;
 
-    /** Fractional part mask for nanos precision. */
-    public static final long NANOS_PART_MASK = (1L << 14) - 1;
+    /** Fractional part mask for millis precision. */
+    public static final long MILLIS_PART_MASK = (1L << MILLIS_PART_LEN) - 1;
 
     /** Fractional part length for nanos precision. */
     public static final int NANOS_PART_LEN = 30;
+
+    /** Fractional part mask for nanos precision. */
+    public static final long NANOS_PART_MASK = (1L << NANOS_PART_LEN) - 1;
 
     /**
      * @param len Mask length in bits.
@@ -153,7 +153,7 @@ public class TemporalTypesHelper {
      * @see #MILLIS_PART_LEN
      */
     public static long encodeTime(TemporalNativeType type, LocalTime localTime) {
-        int time = localTime.getHour() << MINUTES_FIELD_LENGTH + SECONDS_FIELD_LENGTH;
+        int time = localTime.getHour() << (MINUTES_FIELD_LENGTH + SECONDS_FIELD_LENGTH);
         time |= localTime.getMinute() << SECONDS_FIELD_LENGTH;
         time |= localTime.getSecond();
 
@@ -170,7 +170,7 @@ public class TemporalTypesHelper {
      * @return LocalTime instance.
      */
     public static LocalTime decodeTime(TemporalNativeType type, long time) {
-        int fractional = (int)(time & 0xFFFF_FFFFL);
+        int fractional = (int)time;
         int time0 = (int)(time >>> 32);
 
         int sec = time0 & mask(SECONDS_FIELD_LENGTH);
@@ -263,7 +263,7 @@ public class TemporalTypesHelper {
     private static int truncateTo(int precision, int nanos) {
         switch (precision) {
             case 0:
-                return nanos;
+                return 0;
             case 1:
                 return (nanos / 100_000_000) * 100; // 100ms precision.
             case 2:
@@ -275,7 +275,7 @@ public class TemporalTypesHelper {
                 return (nanos / 100_000) * 100; // 100mcs precision.
             }
             case 5: {
-                return (nanos / 10_000) * 100; // 10mcs precision.
+                return (nanos / 10_000) * 10; // 10mcs precision.
             }
             case 6: {
                 return nanos / 1_000; // 1mcs precision.

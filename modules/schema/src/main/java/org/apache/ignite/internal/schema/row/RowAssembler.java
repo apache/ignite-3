@@ -665,7 +665,7 @@ public class RowAssembler {
      * @param date Compacted date.
      */
     private void writeDate(int off, int date) {
-        buf.putInt(off, (short)(date >>> 8));
+        buf.putShort(off, (short)(date >>> 8));
         buf.put(off + 2, (byte)(date & 0xFF));
     }
 
@@ -681,13 +681,13 @@ public class RowAssembler {
         long time = TemporalTypesHelper.encodeTime(type, val);
 
         if (type.precision() > 3) {
-            time = ((time >> 32) << TemporalTypesHelper.NANOS_PART_LEN) | (time & TemporalTypesHelper.NANOS_PART_MASK);
+            time = ((time >>> 32) << TemporalTypesHelper.NANOS_PART_LEN) | (time & TemporalTypesHelper.NANOS_PART_MASK);
 
-            buf.putInt(off, (int)(time >>> 32));
-            buf.putShort(off + 4, (short)(time & 0xFFFF_FFFF));
+            buf.putInt(off, (int)(time >>> 16));
+            buf.putShort(off + 4, (short)(time & 0xFFFF_FFFFL));
         }
         else {
-            time = ((time >> 32) << TemporalTypesHelper.MILLIS_PART_LEN) | (time & TemporalTypesHelper.MILLIS_PART_MASK);
+            time = ((time >>> 32) << TemporalTypesHelper.MILLIS_PART_LEN) | (time & TemporalTypesHelper.MILLIS_PART_MASK);
 
             buf.putInt(off, (int)time);
         }

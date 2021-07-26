@@ -185,18 +185,21 @@ public class RowTest {
     @Test
     public void temporalColumns() {
         Column[] keyCols = new Column[]{
-            new Column("keyTimestampCol1", timestamp(3), false),
-            new Column("keyTimestampCol2", timestamp(6), false),
-            new Column("keyTimestampCol3", timestamp(9), false),
+            new Column("keyTimestampCol1", timestamp(0), false),
+            new Column("keyTimestampCol2", timestamp(1), false),
+            new Column("keyTimestampCol3", timestamp(4), false),
+            new Column("keyTimestampCol4", timestamp(9), false),
         };
 
         Column[] valCols = new Column[]{
-            new Column("valDateTimeCol1", datetime(3), false),
-            new Column("valDateTimeCol2", datetime(6), false),
-            new Column("valDateTimeCol3", datetime(9), false),
-            new Column("valDateTimeCol1", time(3), false),
-            new Column("valDateTimeCol2", time(6), false),
-            new Column("valDateTimeCol3", time(9), false),
+            new Column("valDateTimeCol1", datetime(0), false),
+            new Column("valDateTimeCol2", datetime(1), true),
+            new Column("valDateTimeCol3", datetime(4), false),
+            new Column("valDateTimeCol4", datetime(9), true),
+            new Column("valTimeCol1", time(0), true),
+            new Column("valTimeCol2", time(1), true),
+            new Column("valTimeCol3", time(4), false),
+            new Column("valTimeCol4", time(9), false),
         };
 
         checkSchema(keyCols, valCols);

@@ -420,27 +420,13 @@ public class Row implements BinaryRow {
     private LocalTime readTime(int off, TemporalNativeType type) {
         long time = Integer.toUnsignedLong(readInteger(off));
 
-        switch (type.precision()) {
-            case 0: {
-                time <<= 32;
-
-                break;
-            }
-            case 1:
-            case 2:
-            case 3: { // Decompress
-                time |= Short.toUnsignedLong(readShort(off + 4)) << 16;
-                time = (time >> TemporalTypesHelper.MILLIS_PART_LEN) << 32 | (time & TemporalTypesHelper.MILLIS_PART_MASK);
-
-                break;
-            }
-            default: { // Decompress
-                time |= Integer.toUnsignedLong(readInteger(off + 4));
-                time = (time >> TemporalTypesHelper.NANOS_PART_LEN) << 32 | (time & TemporalTypesHelper.NANOS_PART_MASK);
-
-                break;
-            }
+        if (type.precision() > 3) {
+            time <<= 16;
+            time |= Short.toUnsignedLong(readShort(off + 4));
+            time = (time >>> TemporalTypesHelper.NANOS_PART_LEN) << 32 | (time & TemporalTypesHelper.NANOS_PART_MASK);
         }
+        else // Decompress
+            time = (time >>> TemporalTypesHelper.MILLIS_PART_LEN) << 32 | (time & TemporalTypesHelper.MILLIS_PART_MASK);
 
         return TemporalTypesHelper.decodeTime(type, time);
     }
