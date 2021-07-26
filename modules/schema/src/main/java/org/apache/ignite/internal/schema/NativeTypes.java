@@ -154,7 +154,7 @@ public class NativeTypes {
                 return bitmaskOf(((BitSet)val).length());
 
             case NUMBER:
-                return numberOf(((BigInteger)val).bitLength()/8 + 1);
+                return numberOf(NumericTypeUtils.sizeInBytes((BigInteger)val));
 
             default:
                 assert false : "Unexpected type: " + spec;
@@ -221,9 +221,10 @@ public class NativeTypes {
 
             case NUMBER:
                 ColumnType.NumberColumnType numberType = (ColumnType.NumberColumnType)type;
-                if (numberType.precision() > 0)
+                if (numberType.precision() != ColumnType.NumberColumnType.UNDEFINED)
                     return new FixLenNumberNativeType(numberType.precision());
-                return new FixLenNumberNativeType(numberType.precision());
+                return new VarlenNativeType(NativeTypeSpec.VL_NUMBER,
+                    NumericTypeUtils.byteSizeByPrecision(numberType.precision()));
 
             default:
                 throw new InvalidTypeException("Unexpected type " + type);

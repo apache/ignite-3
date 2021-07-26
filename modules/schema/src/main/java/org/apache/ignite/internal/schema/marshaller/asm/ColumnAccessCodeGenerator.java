@@ -69,7 +69,7 @@ public class ColumnAccessCodeGenerator {
             case NUMBER:
                 return new ColumnAccessCodeGenerator("numberValue", "appendNumber", BigInteger.class, colIdx);
             case VL_NUMBER:
-                return new ColumnAccessCodeGenerator("numberValue", "varLenNumberValue", BigInteger.class, colIdx);
+                return new ColumnAccessCodeGenerator("varLenNumberValue", "appendVarLenNumber", BigInteger.class, colIdx);
         }
 
         throw new IgniteInternalException("Unsupported binary mode: " + mode);

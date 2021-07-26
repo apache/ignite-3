@@ -124,7 +124,7 @@ public class ColumnType {
      * @return Number type.
      */
     public static NumberColumnType numberOf() {
-        return new NumberColumnType(ColumnTypeSpec.NUMBER, -1);
+        return new NumberColumnType(ColumnTypeSpec.NUMBER, NumberColumnType.UNDEFINED);
     }
 
     /**
@@ -232,6 +232,9 @@ public class ColumnType {
      * Number column type.
      */
     public static class NumberColumnType extends ColumnType {
+        /** Undefined precision. Means an object will be stored as varlen column. */
+        public static final int UNDEFINED = -1;
+
         /** Max precision of value. If -1, column has no precision restrictions. */
         private final int precision;
 

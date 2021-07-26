@@ -64,7 +64,7 @@ abstract class FieldAccessor {
             if (field.getType().isPrimitive() && col.nullable())
                 throw new IllegalArgumentException("Failed to map non-nullable field to nullable column [name=" + field.getName() + ']');
 
-            BinaryMode mode = MarshallerUtil.mode(field.getType());
+            BinaryMode mode = MarshallerUtil.mode(col, field.getType());
             final MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(type, MethodHandles.lookup());
 
             VarHandle varHandle = lookup.unreflectVarHandle(field);
@@ -145,6 +145,7 @@ abstract class FieldAccessor {
             case BYTE_ARR:
             case BITSET:
             case NUMBER:
+            case VL_NUMBER:
                 return new IdentityAccessor(colIdx, mode);
 
             default:
@@ -221,6 +222,11 @@ abstract class FieldAccessor {
 
             case NUMBER:
                 val = reader.numberValue(colIdx);
+
+                break;
+
+            case VL_NUMBER:
+                val = reader.varLenNumberValue(colIdx);
 
                 break;
 

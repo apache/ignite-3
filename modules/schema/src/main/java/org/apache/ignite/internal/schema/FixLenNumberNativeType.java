@@ -20,7 +20,7 @@ package org.apache.ignite.internal.schema;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * A fixed-sized type representing a BigInteger of <code>n</code> bytes.
+ * A fixed-sized type representing a BigInteger with <code>precision</code> precision.
  */
 public class FixLenNumberNativeType extends NativeType {
     /** */
@@ -29,7 +29,7 @@ public class FixLenNumberNativeType extends NativeType {
     /**
      * Creates a number type of size <code>bytes</code>.
      *
-     * @param precision The maximum number of bytes in the BigInteger.
+     * @param precision Maximum allowed precision of a BigInteger value.
      */
     protected FixLenNumberNativeType(int precision) {
         super(NativeTypeSpec.NUMBER, NumericTypeUtils.byteSizeByPrecision(precision));
@@ -38,7 +38,7 @@ public class FixLenNumberNativeType extends NativeType {
     }
 
     /**
-     * @return Maximum number of bytes to be stored in the BigInteger.
+     * @return Maximum allowed precision of a BigInteger value.
      */
     public int precision() {
         return precision;
@@ -67,7 +67,6 @@ public class FixLenNumberNativeType extends NativeType {
         int res = super.compareTo(o);
 
         if (res == 0) {
-            // The passed in object is also a number, compare the number of bytes.
             FixLenNumberNativeType that = (FixLenNumberNativeType)o;
 
             return Integer.compare(precision, that.precision);
@@ -78,6 +77,6 @@ public class FixLenNumberNativeType extends NativeType {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(FixLenNumberNativeType.class.getSimpleName(), "typeSpec", spec(), "len", sizeInBytes());
+        return S.toString(FixLenNumberNativeType.class.getSimpleName(), "typeSpec", spec(), "precision", precision());
     }
 }

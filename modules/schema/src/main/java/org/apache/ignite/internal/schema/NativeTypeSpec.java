@@ -141,7 +141,7 @@ public enum NativeTypeSpec {
     },
 
     /**
-     * Native type representing a BigInteger object value.
+     * Native type representing a fixLen BigInteger object value.
      */
     NUMBER("number", true) {
         /** {@inheritDoc} */
@@ -151,14 +151,9 @@ public enum NativeTypeSpec {
     },
 
     /**
-     * Native type representing a BigInteger object value.
+     * Native type representing a varLen BigInteger object value.
      */
     VL_NUMBER("number", false) {
-        /** {@inheritDoc} */
-        @Override public boolean fixedLength() {
-            return false;
-        }
-
         /** {@inheritDoc} */
         @Override public Object objectValue(Row tup, int colIdx) {
             return tup.varLenNumberValue(colIdx);

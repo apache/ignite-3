@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -278,11 +279,19 @@ public class SchemaConfigurationConverter {
 
                     break;
 
+                case "DECIMAL":
+                    ColumnType.NumericColumnType numColType = (ColumnType.NumericColumnType)colType;
+
+                    colTypeChg.changePrecision(numColType.precision());
+                    colTypeChg.changeScale(numColType.scale());
+
+                    break;
+
                 case "NUMBER":
-                    ColumnType.NumberColumnType numColType = (ColumnType.NumberColumnType)colType;
+                    ColumnType.NumberColumnType numType = (ColumnType.NumberColumnType)colType;
 
                     colTypeChg.changeLength(
-                        NumericTypeUtils.byteSizeByPrecision(numColType.precision())
+                        NumericTypeUtils.byteSizeByPrecision(numType.precision())
                     );
 
                     break;
@@ -561,6 +570,8 @@ public class SchemaConfigurationConverter {
             return ColumnType.string();
         else if (cls == UUID.class)
             return ColumnType.UUID;
+        else if (cls == BigInteger.class)
+            return ColumnType.numberOf();
 
         return null;
     }

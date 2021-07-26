@@ -111,7 +111,7 @@ public class SchemaDescriptorConverter {
 
             case NUMBER:
                 ColumnType.NumberColumnType numberType = (ColumnType.NumberColumnType)colType;
-                if (numberType.precision() > 0)
+                if (numberType.precision() != ColumnType.NumberColumnType.UNDEFINED)
                     return NativeTypes.numberOf(numberType.precision());
                 return VL_NUMBER;
 

@@ -33,6 +33,7 @@ import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.EnumSet;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.schema.marshaller.MarshallerUtil;
@@ -63,9 +64,10 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
 
         try {
             for (int i = 0; i < columns.length(); i++) {
-                final Field field = tClass.getDeclaredField(columns.column(i).name());
+                Column col = columns.column(i);
+                final Field field = tClass.getDeclaredField(col.name());
 
-                columnAccessors[i] = ColumnAccessCodeGenerator.createAccessor(MarshallerUtil.mode(field.getType()), i + firstColIdx);
+                columnAccessors[i] = ColumnAccessCodeGenerator.createAccessor(MarshallerUtil.mode(col, field.getType()), i + firstColIdx);
             }
         }
         catch (NoSuchFieldException ex) {

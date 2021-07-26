@@ -20,8 +20,11 @@ package org.apache.ignite.internal.schema.marshaller;
 import java.math.BigInteger;
 import java.util.BitSet;
 import java.util.UUID;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.util.ObjectFactory;
 
 /**
@@ -44,6 +47,9 @@ public final class MarshallerUtil {
                 // Overestimating size here prevents from later unwanted row buffer expanding.
                 return ((CharSequence)val).length() << 1;
 
+            case VL_NUMBER:
+                return ((BigInteger)val).bitLength() / 8 + 1;
+
             default:
                 throw new InvalidTypeException("Unsupported variable-length type: " + type);
         }
@@ -52,10 +58,12 @@ public final class MarshallerUtil {
     /**
      * Gets binary read/write mode for given class.
      *
+     *
+     * @param col Column.
      * @param cls Type.
      * @return Binary mode.
      */
-    public static BinaryMode mode(Class<?> cls) {
+    public static BinaryMode mode(Column col, Class<?> cls) {
         assert cls != null;
 
         // Primitives.
@@ -95,8 +103,12 @@ public final class MarshallerUtil {
             return BinaryMode.UUID;
         else if (cls == BitSet.class)
             return BinaryMode.BITSET;
-        else if (cls == BigInteger.class)
-            return BinaryMode.NUMBER;
+        else if (cls == BigInteger.class) {
+            if (col.type() == NativeTypes.VL_NUMBER)
+                return BinaryMode.VL_NUMBER;
+            else
+                return BinaryMode.NUMBER;
+        }
 
         return null;
     }
@@ -108,8 +120,8 @@ public final class MarshallerUtil {
      * @param <T> Target type.
      * @return Object factory.
      */
-    public static <T> ObjectFactory<T> factoryForClass(Class<T> tCls) {
-        if (mode(tCls) == null)
+    public static <T> ObjectFactory<T>  factoryForClass(Columns cols, Class<T> tCls) {
+        if (mode(cols.column(0), tCls) == null)
             return new ObjectFactory<>(tCls);
         else
             return null;
