@@ -252,7 +252,7 @@ public class Columns implements Serializable {
             return;
         }
 
-        int fixsizeNullMapSize = (numFixsize + 7) / 8 + 1;
+        int fixsizeNullMapSize = (numFixsize + 7) / 8;
         int maxLen = 0;
 
         int[][] res = new int[fixsizeNullMapSize][];

@@ -423,7 +423,7 @@ public class Row implements BinaryRow {
             dataOffset += format.vartableLength(format.readVartableSize(row, dataOffset));
 
         return type.fixedLength() ?
-            fixedSizeColumnOffset(chunkBaseOff, dataOffset, cols, colIdx, nullMapLen > 0) :
+            fixedSizeColumnOffset(chunkBaseOff, dataOffset, cols, colIdx, nullMapLen > 0, false) :
             varlenColumnOffsetAndLength(chunkBaseOff, dataOffset, cols, colIdx, nullMapLen, format);
     }
 
@@ -436,9 +436,10 @@ public class Row implements BinaryRow {
      * @param cols Columns chunk.
      * @param idx Column index in the chunk.
      * @param hasNullmap {@code true} if chunk has null-map, {@code false} otherwise.
+     * @param firstVarLenCol {@code true} if column is first varlen column in schema, {@code false} otherwise.
      * @return Encoded offset (from the row start) of the requested fixlen column.
      */
-    int fixedSizeColumnOffset(int chunkBaseOff, int dataOffset, Columns cols, int idx, boolean hasNullmap) {
+    int fixedSizeColumnOffset(int chunkBaseOff, int dataOffset, Columns cols, int idx, boolean hasNullmap, boolean firstVarLenCol) {
         int colOff = 0;
 
         // Calculate fixlen column offset.
@@ -455,13 +456,15 @@ public class Row implements BinaryRow {
             for (int i = 0; i < colByteIdx; i++)
                 colOff += cols.foldFixedLength(i, Byte.toUnsignedInt(row.readByte(nullMapOffset(chunkBaseOff) + i)));
 
-            colOff += cols.foldFixedLength(colByteIdx, Byte.toUnsignedInt(row.readByte(nullMapOffset(chunkBaseOff) + colByteIdx)) | mask);
+            if (!firstVarLenCol)
+                colOff += cols.foldFixedLength(colByteIdx, Byte.toUnsignedInt(row.readByte(nullMapOffset(chunkBaseOff) + colByteIdx)) | mask);
         }
         else {
             for (int i = 0; i < colByteIdx; i++)
                 colOff += cols.foldFixedLength(i, 0);
 
-            colOff += cols.foldFixedLength(colByteIdx, mask);
+            if (!firstVarLenCol)
+                colOff += cols.foldFixedLength(colByteIdx, mask);
         }
 
         return dataOffset + colOff;
@@ -525,7 +528,7 @@ public class Row implements BinaryRow {
         // Calculate length and offset for very first (non-null) varlen column
         // as vartable don't store the offset for the first varlen.
         if (idx == 0) {
-            int off = cols.numberOfFixsizeColumns() == 0 ? dataOff : fixedSizeColumnOffset(baseOff, dataOff, cols, cols.numberOfFixsizeColumns(), nullMapLen > 0);
+            int off = cols.numberOfFixsizeColumns() == 0 ? dataOff : fixedSizeColumnOffset(baseOff, dataOff, cols, cols.numberOfFixsizeColumns(), nullMapLen > 0, true);
 
             long len = format != null ? // Length is either diff between current offset and next varlen offset or end-of-chunk.
                 dataOff + format.readVarlenOffset(row, varTableOffset(baseOff, nullMapLen), 0) - off :
