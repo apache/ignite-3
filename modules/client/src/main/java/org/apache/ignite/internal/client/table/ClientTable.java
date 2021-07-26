@@ -124,8 +124,7 @@ public class ClientTable implements Table {
 
     /** {@inheritDoc} */
     @Override public TupleBuilder tupleBuilder() {
-        // TODO: Pass schema - see how TupleBuilderImpl does this.
-        return new ClientTupleBuilder();
+        return new ClientTupleBuilder(getLatestSchema().join());
     }
 
     /** {@inheritDoc} */
@@ -182,7 +181,7 @@ public class ClientTable implements Table {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> upsertAllAsync(@NotNull Collection<Tuple> recs) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -424,7 +423,7 @@ public class ClientTable implements Table {
     }
 
     private Tuple readTuple(ClientSchema schema, PayloadInputChannel r) {
-        var builder = new ClientTupleBuilder();
+        var builder = new ClientTupleBuilder(schema);
 
         try {
             for (var col : schema.columns())

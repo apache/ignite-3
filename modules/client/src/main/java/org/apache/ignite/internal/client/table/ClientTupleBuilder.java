@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.client.table;
 
 import java.util.BitSet;
-import java.util.HashMap;
 import java.util.UUID;
 
 import org.apache.ignite.binary.BinaryObject;
@@ -31,20 +30,28 @@ import org.apache.ignite.table.TupleBuilder;
  */
 public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     /** Columns values. */
-    private final HashMap<String, Object> map = new HashMap<>();
+    private final Object[] vals;
+
+    /** Schema. */
+    private final ClientSchema schema;
 
     /**
-     * Gets the underlying map.
+     * Constructor.
      *
-     * @return Underlying map
+     * @param schema Schema.
      */
-    public HashMap<String, Object> map() {
-        return map;
+    public ClientTupleBuilder(ClientSchema schema) {
+        assert schema != null;
+
+        this.schema = schema;
+        this.vals = new Object[schema.columns().length];
     }
 
     /** {@inheritDoc} */
     @Override public TupleBuilder set(String colName, Object value) {
-        map.put(colName, value);
+        var col = schema.column(colName);
+
+        vals[col.schemaIndex()] = value;
 
         return this;
     }
@@ -56,30 +63,35 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
 
     /** {@inheritDoc} */
     @Override public <T> T valueOrDefault(String colName, T def) {
-        return (T)map.getOrDefault(colName, def);
+        T res = value(colName);
+
+        return res == null ? def : res;
     }
 
     /** {@inheritDoc} */
     @Override public <T> T value(String colName) {
-        return (T)map.get(colName);
+        var col = schema.column(colName);
+
+        return (T)vals[col.schemaIndex()];
     }
 
     /** {@inheritDoc} */
     @Override public <T> T value(int columnIndex) {
-        // TODO: Get from schema.
-        return null;
+        validateColumnIndex(columnIndex);
+
+        return (T)vals[columnIndex];
     }
 
     /** {@inheritDoc} */
     @Override public int columnCount() {
-        // TODO: Get from schema.
-        return map.size();
+        return vals.length;
     }
 
     /** {@inheritDoc} */
     @Override public String columnName(int columnIndex) {
-        // TODO: Get from schema.
-        return null;
+        validateColumnIndex(columnIndex);
+
+        return schema.columns()[columnIndex].name();
     }
 
     /** {@inheritDoc} */
@@ -130,5 +142,13 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     /** {@inheritDoc} */
     @Override public BitSet bitmaskValue(String colName) {
         return value(colName);
+    }
+
+    private void validateColumnIndex(int columnIndex) {
+        if (columnIndex < 0)
+            throw new IllegalArgumentException("Column index can't be negative");
+
+        if (columnIndex >= vals.length)
+            throw new IllegalArgumentException("Column index can't be greater than " + (vals.length - 1));
     }
 }
