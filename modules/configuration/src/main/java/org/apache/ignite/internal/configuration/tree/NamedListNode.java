@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration.tree;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -26,6 +27,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.lang.IgniteBiTuple;
 
 /**
@@ -233,6 +235,13 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
         return syntheticKeyName;
     }
 
+    /**
+     * Sets internal id for the value associated with the passed key. Should not be used in arbitrary code. Please refer
+     * to {@link ConfigurationUtil#fillFromPrefixMap(ConstructableTreeNode, Map)} for further details on the usage.
+     *
+     * @param key Key to update. Should be present in the named list. Nothing will happen if key is missing.
+     * @param id New id to associate with the key.
+     */
     public void setInternalId(String key, String id) {
         IgniteBiTuple<String, N> pair = map.get(key);
 
@@ -240,6 +249,14 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
             pair.set1(id);
     }
 
+    /**
+     * Returns internal id for the value associated with the passed key.
+     *
+     * @param key Key.
+     * @return Internal id.
+     *
+     * @throws IllegalArgumentException If {@code key} is not found in the named list.
+     */
     public String internalId(String key) {
         return Optional.ofNullable(map.get(key)).map(IgniteBiTuple::getKey).orElseThrow(
             () -> new IllegalArgumentException("Element with name " + key + " does not exist.")
