@@ -92,10 +92,24 @@ public abstract class RowChunkAdapter implements Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
+    @Override public BinaryObject binaryObjectValue(int columnIndex) {
+        schema().validateColumnIndex(columnIndex);
+
+        return BinaryObjects.wrap(row().bytesValue(columnIndex));
+    }
+
+    /** {@inheritDoc} */
     @Override public byte byteValue(String columnName) {
         Column col = columnByName(columnName);
 
         return row().byteValue(col.schemaIndex());
+    }
+
+    /** {@inheritDoc} */
+    @Override public byte byteValue(int columnIndex) {
+        schema().validateColumnIndex(columnIndex);
+
+        return row().byteValue(columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -106,10 +120,24 @@ public abstract class RowChunkAdapter implements Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
+    @Override public short shortValue(int columnIndex) {
+        schema().validateColumnIndex(columnIndex);
+
+        return row().shortValue(columnIndex);
+    }
+
+    /** {@inheritDoc} */
     @Override public int intValue(String columnName) {
         Column col = columnByName(columnName);
 
         return row().intValue(col.schemaIndex());
+    }
+
+    /** {@inheritDoc} */
+    @Override public int intValue(int columnIndex) {
+        schema().validateColumnIndex(columnIndex);
+
+        return row().intValue(columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -120,10 +148,24 @@ public abstract class RowChunkAdapter implements Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
+    @Override public long longValue(int columnIndex) {
+        schema().validateColumnIndex(columnIndex);
+
+        return row().longValue(columnIndex);
+    }
+
+    /** {@inheritDoc} */
     @Override public float floatValue(String columnName) {
         Column col = columnByName(columnName);
 
         return row().floatValue(col.schemaIndex());
+    }
+
+    /** {@inheritDoc} */
+    @Override public float floatValue(int columnIndex) {
+        schema().validateColumnIndex(columnIndex);
+
+        return row().floatValue(columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -134,10 +176,24 @@ public abstract class RowChunkAdapter implements Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
+    @Override public double doubleValue(int columnIndex) {
+        schema().validateColumnIndex(columnIndex);
+
+        return row().doubleValue(columnIndex);
+    }
+
+    /** {@inheritDoc} */
     @Override public String stringValue(String columnName) {
         Column col = columnByName(columnName);
 
         return row().stringValue(col.schemaIndex());
+    }
+
+    /** {@inheritDoc} */
+    @Override public String stringValue(int columnIndex) {
+        schema().validateColumnIndex(columnIndex);
+
+        return row().stringValue(columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -148,10 +204,24 @@ public abstract class RowChunkAdapter implements Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
+    @Override public UUID uuidValue(int columnIndex) {
+        schema().validateColumnIndex(columnIndex);
+
+        return row().uuidValue(columnIndex);
+    }
+
+    /** {@inheritDoc} */
     @Override public BitSet bitmaskValue(String columnName) {
         Column col = columnByName(columnName);
 
         return row().bitmaskValue(col.schemaIndex());
+    }
+
+    /** {@inheritDoc} */
+    @Override public BitSet bitmaskValue(int columnIndex) {
+        schema().validateColumnIndex(columnIndex);
+
+        return row().bitmaskValue(columnIndex);
     }
 
     /** {@inheritDoc} */
