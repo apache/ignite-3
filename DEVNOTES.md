@@ -32,7 +32,7 @@ Code style is checked with [Apache Maven Checkstyle Plugin](https://maven.apache
 
 Run code style checks only:
 ```
-mvn clean checkstyle:checkstyle-aggregate
+mvn clean checkstyle:checkstyle-aggregate 
 ```
 
 Run javadoc style checks for public api only:
