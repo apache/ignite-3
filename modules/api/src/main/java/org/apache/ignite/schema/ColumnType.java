@@ -108,7 +108,7 @@ public class ColumnType {
     /**
      * Number type factory method.
      *
-     * @param precision precision of value.
+     * @param precision Precision of value.
      * @return Number type.
      */
     public static NumberColumnType numberOf(int precision) {
@@ -246,7 +246,7 @@ public class ColumnType {
         }
 
         /**
-         * @return max value precision.
+         * @return Max value precision.
          */
         public int precision() {
             return precision;

@@ -25,6 +25,7 @@ import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.schema.NumericTypeUtils;
 import org.apache.ignite.internal.util.ObjectFactory;
 
 /**
@@ -48,7 +49,7 @@ public final class MarshallerUtil {
                 return ((CharSequence)val).length() << 1;
 
             case VL_NUMBER:
-                return ((BigInteger)val).bitLength() / 8 + 1;
+                return NumericTypeUtils.sizeInBytes((BigInteger)val);
 
             default:
                 throw new InvalidTypeException("Unsupported variable-length type: " + type);

@@ -166,6 +166,8 @@ public class SchemaDescriptorConverter {
                 return java.util.UUID.fromString(dflt);
             case NUMBER:
                 return new BigInteger(dflt);
+            case VL_NUMBER:
+                return new BigInteger(dflt);
             default:
                 throw new SchemaException("Default value is not supported for type: type=" + type.toString());
         }
