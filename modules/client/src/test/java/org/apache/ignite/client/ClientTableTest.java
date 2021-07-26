@@ -58,6 +58,14 @@ public class ClientTableTest extends AbstractClientTest {
 
         assertEquals("John", resTuple.stringValue("name"));
         assertEquals(123L, resTuple.longValue("id"));
+
+        assertEquals("John", resTuple.value(1));
+        assertEquals(123L, (Long) resTuple.value(0));
+
+        assertEquals(2, resTuple.columnCount());
+        assertEquals("id", resTuple.columnName(0));
+        assertEquals("name", resTuple.columnName(1));
+
         assertTupleEquals(tuple, resTuple);
     }
 
