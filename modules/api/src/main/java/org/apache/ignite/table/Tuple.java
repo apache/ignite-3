@@ -26,7 +26,7 @@ import org.apache.ignite.binary.BinaryObject;
  * <p>
  * Provides specialized method for some value-types to avoid boxing/unboxing.
  */
-public interface Tuple {
+public interface Tuple { // TODO: Iterable
     /**
      * Gets the number of columns in this tuple.
      *
