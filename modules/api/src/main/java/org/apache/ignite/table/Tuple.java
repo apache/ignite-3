@@ -46,8 +46,20 @@ public interface Tuple {
      */
     <T> T value(String colName);
 
+    /**
+     * Gets column value for given column index.
+     *
+     * @param index Column index.
+     * @param <T> Value type.
+     * @return Column value.
+     */
     <T> T value(int index);
 
+    /**
+     * Gets the legth of this tuple (number of values).
+     *
+     * @return Length of the tuple.
+     */
     int length();
 
     /**
