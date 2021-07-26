@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.json;
+package org.apache.ignite.client;
 
 import java.io.Serializable;
 import java.util.Collections;
@@ -23,16 +23,29 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorageListener;
 import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.storage.StorageException;
 
-/** */
-class TestConfigurationStorage implements ConfigurationStorage {
-    /** */
+/**
+ * Configuration storage for tests.
+ */
+public class TestConfigurationStorage implements ConfigurationStorage {
+    /** Listeners. */
     private final Set<ConfigurationStorageListener> listeners = new HashSet<>();
+
+    /** Configuration type. */
+    private final ConfigurationType type;
+
+    /**
+     * @param type Configuration type.
+     */
+    public TestConfigurationStorage(ConfigurationType type) {
+        this.type = type;
+    }
 
     /** {@inheritDoc} */
     @Override public Data readAll() throws StorageException {
@@ -52,12 +65,11 @@ class TestConfigurationStorage implements ConfigurationStorage {
         listeners.add(listener);
     }
 
-    /** {@inheritDoc} */
     @Override public void notifyApplied(long storageRevision) {
     }
 
     /** {@inheritDoc} */
     @Override public ConfigurationType type() {
-        return ConfigurationType.LOCAL;
+        return type;
     }
 }
