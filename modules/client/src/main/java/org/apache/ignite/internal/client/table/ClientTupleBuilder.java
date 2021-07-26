@@ -17,15 +17,11 @@
 
 package org.apache.ignite.internal.client.table;
 
-import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Iterator;
-import java.util.Spliterator;
 import java.util.UUID;
-import java.util.function.Consumer;
 
 import org.apache.ignite.binary.BinaryObject;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.TupleBuilder;
 import org.jetbrains.annotations.NotNull;
@@ -108,7 +104,12 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
 
     /** {@inheritDoc} */
     @Override public BinaryObject binaryObjectValue(String columnName) {
-        throw new IgniteException("Not supported");
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override public BinaryObject binaryObjectValue(int columnIndex) {
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -117,8 +118,18 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
+    @Override public byte byteValue(int columnIndex) {
+        return value(columnIndex);
+    }
+
+    /** {@inheritDoc} */
     @Override public short shortValue(String columnName) {
         return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public short shortValue(int columnIndex) {
+        return value(columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -127,8 +138,18 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
+    @Override public int intValue(int columnIndex) {
+        return value(columnIndex);
+    }
+
+    /** {@inheritDoc} */
     @Override public long longValue(String columnName) {
         return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public long longValue(int columnIndex) {
+        return value(columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -137,8 +158,18 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
+    @Override public float floatValue(int columnIndex) {
+        return value(columnIndex);
+    }
+
+    /** {@inheritDoc} */
     @Override public double doubleValue(String columnName) {
         return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public double doubleValue(int columnIndex) {
+        return value(columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -147,8 +178,28 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
+    @Override public String stringValue(int columnIndex) {
+        return value(columnIndex);
+    }
+
+    /** {@inheritDoc} */
     @Override public UUID uuidValue(String columnName) {
         return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public UUID uuidValue(int columnIndex) {
+        return value(columnIndex);
+    }
+
+    /** {@inheritDoc} */
+    @Override public BitSet bitmaskValue(String columnName) {
+        return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public BitSet bitmaskValue(int columnIndex) {
+        return value(columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -167,11 +218,6 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
                 return cur < vals.length ? vals[cur++] : null;
             }
         };
-    }
-
-    /** {@inheritDoc} */
-    @Override public BitSet bitmaskValue(String columnName) {
-        return value(columnName);
     }
 
     private void validateColumnIndex(int columnIndex) {
