@@ -90,7 +90,6 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
 
     /** {@inheritDoc} */
     @Override public String columnName(int columnIndex) {
-        // TODO: Range checks.
         return schemaDesc.column(columnIndex).name();
     }
 
@@ -111,7 +110,6 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
 
     /** {@inheritDoc} */
     @Override public <T> T value(int columnIndex) {
-        // TODO: Range checks.
         Column col = schemaDesc.column(columnIndex);
 
         return (T)map.get(col.name());

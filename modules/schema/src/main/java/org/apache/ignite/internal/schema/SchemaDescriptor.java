@@ -119,6 +119,12 @@ public class SchemaDescriptor implements Serializable {
      * @return Column instance.
      */
     public Column column(int colIdx) {
+        if (colIdx < 0)
+            throw new IllegalArgumentException("Column index can't be negative");
+
+        if (colIdx >= length())
+            throw new IllegalArgumentException("Column index can't be greater than " + (length() - 1));
+
         return colIdx < keyCols.length() ? keyCols.column(colIdx) : valCols.column(colIdx - keyCols.length());
     }
 
