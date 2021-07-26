@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import java.util.BitSet;
+import java.util.Iterator;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjects;
@@ -151,5 +152,23 @@ public abstract class RowChunkAdapter implements Tuple, SchemaAware {
         Column col = columnByName(columnName);
 
         return row().bitmaskValue(col.schemaIndex());
+    }
+
+    /** {@inheritDoc} */
+    @NotNull @Override public Iterator<Object> iterator() {
+        return new Iterator<>() {
+            /** Current column index. */
+            private int cur;
+
+            /** {@inheritDoc} */
+            @Override public boolean hasNext() {
+                return cur < schema().length();
+            }
+
+            /** {@inheritDoc} */
+            @Override public Object next() {
+                return hasNext() ? value(++cur) : null;
+            }
+        };
     }
 }

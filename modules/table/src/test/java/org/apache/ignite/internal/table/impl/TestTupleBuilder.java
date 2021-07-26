@@ -19,12 +19,14 @@ package org.apache.ignite.internal.table.impl;
 
 import java.util.BitSet;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjects;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.TupleBuilder;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Dummy table storage implementation.
@@ -125,5 +127,10 @@ public class TestTupleBuilder implements TupleBuilder, Tuple {
     /** {@inheritDoc} */
     @Override public BitSet bitmaskValue(String columnName) {
         return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @NotNull @Override public Iterator<Object> iterator() {
+        throw new UnsupportedOperationException();
     }
 }

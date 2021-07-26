@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import java.util.BitSet;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
 import java.util.Objects;
@@ -29,6 +30,7 @@ import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.TupleBuilder;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Buildable tuple.
@@ -177,6 +179,24 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
     /** {@inheritDoc} */
     @Override public SchemaDescriptor schema() {
         return schemaDesc;
+    }
+
+    /** {@inheritDoc} */
+    @NotNull @Override public Iterator<Object> iterator() {
+        return new Iterator<>() {
+            /** Current column index. */
+            private int cur;
+
+            /** {@inheritDoc} */
+            @Override public boolean hasNext() {
+                return cur < schemaDesc.length();
+            }
+
+            /** {@inheritDoc} */
+            @Override public Object next() {
+                return hasNext() ? value(++cur) : null;
+            }
+        };
     }
 
     /**

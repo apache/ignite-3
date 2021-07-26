@@ -17,20 +17,25 @@
 
 package org.apache.ignite.internal.client.table;
 
+import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Iterator;
+import java.util.Spliterator;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.TupleBuilder;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Client tuple builder.
  */
 public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     /** Columns values. */
-    private final Object[] vals;
+    private final ArrayList<Object> vals;
 
     /** Schema. */
     private final ClientSchema schema;
@@ -44,14 +49,14 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
         assert schema != null;
 
         this.schema = schema;
-        this.vals = new Object[schema.columns().length];
+        this.vals = new ArrayList<>(schema.columns().length);
     }
 
     /** {@inheritDoc} */
     @Override public TupleBuilder set(String colName, Object value) {
         var col = schema.column(colName);
 
-        vals[col.schemaIndex()] = value;
+        vals.set(col.schemaIndex(), value);
 
         return this;
     }
@@ -72,19 +77,19 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     @Override public <T> T value(String columnName) {
         var col = schema.column(columnName);
 
-        return (T)vals[col.schemaIndex()];
+        return (T)vals.get(col.schemaIndex());
     }
 
     /** {@inheritDoc} */
     @Override public <T> T value(int columnIndex) {
         validateColumnIndex(columnIndex);
 
-        return (T)vals[columnIndex];
+        return (T)vals.get(columnIndex);
     }
 
     /** {@inheritDoc} */
     @Override public int columnCount() {
-        return vals.length;
+        return vals.size();
     }
 
     /** {@inheritDoc} */
@@ -147,6 +152,21 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
+    @NotNull @Override public Iterator<Object> iterator() {
+        return vals.iterator();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void forEach(Consumer<? super Object> action) {
+        vals.forEach(action);
+    }
+
+    /** {@inheritDoc} */
+    @Override public Spliterator<Object> spliterator() {
+        return vals.spliterator();
+    }
+
+    /** {@inheritDoc} */
     @Override public BitSet bitmaskValue(String columnName) {
         return value(columnName);
     }
@@ -155,7 +175,7 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
         if (columnIndex < 0)
             throw new IllegalArgumentException("Column index can't be negative");
 
-        if (columnIndex >= vals.length)
-            throw new IllegalArgumentException("Column index can't be greater than " + (vals.length - 1));
+        if (columnIndex >= vals.size())
+            throw new IllegalArgumentException("Column index can't be greater than " + (vals.size() - 1));
     }
 }
