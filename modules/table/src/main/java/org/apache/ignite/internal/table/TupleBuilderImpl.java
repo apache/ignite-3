@@ -94,6 +94,13 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
+    @Override public Integer columnIndex(String columnName) {
+        var col = schemaDesc.column(columnName);
+
+        return col == null ? null : col.schemaIndex();
+    }
+
+    /** {@inheritDoc} */
     @Override public int columnCount() {
         return schemaDesc.length();
     }

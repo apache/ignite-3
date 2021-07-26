@@ -43,6 +43,14 @@ public interface Tuple {
     String columnName(int columnIndex);
 
     /**
+     * Gets the index of the column with the specified name.
+     *
+     * @param columnName Column name.
+     * @return Column index.
+     */
+    Integer columnIndex(String columnName);
+
+    /**
      * Returns {@code true} if this tuple contains a column with the specified name.
      *
      * @param columnName Column name.

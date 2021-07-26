@@ -71,6 +71,11 @@ public class TestTupleBuilder implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
+    @Override public Integer columnIndex(String columnName) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
     @Override public BinaryObject binaryObjectField(String columnName) {
         byte[] data = value(columnName);
 

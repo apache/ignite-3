@@ -95,6 +95,13 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
+    @Override public Integer columnIndex(String columnName) {
+        var col = schema.column(columnName);
+
+        return col == null ? null : col.schemaIndex();
+    }
+
+    /** {@inheritDoc} */
     @Override public BinaryObject binaryObjectField(String columnName) {
         throw new IgniteException("Not supported");
     }
