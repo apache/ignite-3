@@ -64,14 +64,22 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
         return (T)map.get(colName);
     }
 
+    /** {@inheritDoc} */
     @Override public <T> T value(int columnIndex) {
-        // TODO: ???.
+        // TODO: Get from schema.
         return null;
     }
 
-    @Override
-    public int columnCount() {
+    /** {@inheritDoc} */
+    @Override public int columnCount() {
+        // TODO: Get from schema.
         return map.size();
+    }
+
+    /** {@inheritDoc} */
+    @Override public String columnName(int columnIndex) {
+        // TODO: Get from schema.
+        return null;
     }
 
     /** {@inheritDoc} */

@@ -57,12 +57,17 @@ public class TestTupleBuilder implements TupleBuilder, Tuple {
 
     /** {@inheritDoc} */
     @Override public <T> T value(int columnIndex) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override public int columnCount() {
         return map.size();
+    }
+
+    /** {@inheritDoc} */
+    @Override public String columnName(int columnIndex) {
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */

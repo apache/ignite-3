@@ -89,6 +89,17 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
+    @Override public String columnName(int columnIndex) {
+        // TODO: Range checks.
+        return schemaDesc.column(columnIndex).name();
+    }
+
+    /** {@inheritDoc} */
+    @Override public int columnCount() {
+        return schemaDesc.length();
+    }
+
+    /** {@inheritDoc} */
     @Override public <T> T valueOrDefault(String colName, T def) {
         return (T)map.getOrDefault(colName, def);
     }
@@ -104,11 +115,6 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
         Column col = schemaDesc.column(columnIndex);
 
         return (T)map.get(col.name());
-    }
-
-    /** {@inheritDoc} */
-    @Override public int columnCount() {
-        return schemaDesc.length();
     }
 
     /** {@inheritDoc} */
