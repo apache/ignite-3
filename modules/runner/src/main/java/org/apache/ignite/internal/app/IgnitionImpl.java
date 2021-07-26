@@ -64,7 +64,7 @@ public class IgnitionImpl implements Ignition {
      * Node name to node instance mapping.
      * Please pay attention, that nodes in given map might be in any state: STARTING, STARTED, STOPPED.
      */
-    private static Map<String, IgniteImpl> nodes = new ConcurrentHashMap<>();
+    private static final Map<String, IgniteImpl> nodes = new ConcurrentHashMap<>();
 
     /** {@inheritDoc} */
     @Override public Ignite start(@NotNull String nodeName, @Nullable Path cfgPath, @NotNull Path workDir) {

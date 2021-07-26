@@ -75,10 +75,10 @@ public class JRaftServerImpl implements RaftServer {
     private final Path dataPath;
 
     /** Server instance. */
-    private IgniteRpcServer rpcServer;
+    private volatile IgniteRpcServer rpcServer;
 
     /** Started groups. */
-    private ConcurrentMap<String, RaftGroupService> groups = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, RaftGroupService> groups = new ConcurrentHashMap<>();
 
     /** Node manager. */
     private final NodeManager nodeManager;

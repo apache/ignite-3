@@ -51,7 +51,7 @@ public class PlatformTestNodeRunner {
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {{
         put(NODE_NAME, "{\n" +
-                "  \"node\": {\n" +
+                "  \"metastorage\": {\n" +
                 "    \"metastorageNodes\":[ \"" + NODE_NAME + "\" ]\n" +
                 "  },\n" +
                 "  \"clientConnector\":{\"port\": 10942,\"portRange\":10}," +

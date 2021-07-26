@@ -72,7 +72,7 @@ class ITTableCreationTest {
         nodesBootstrapCfg.put(
             node0Name,
             "{\n" +
-                "  node.metastorageNodes: [ \"" + node0Name + "\", \"" + node1Name + "\" ],\n" +
+                "  metastorage.metastorageNodes: [ \"" + node0Name + "\", \"" + node1Name + "\" ],\n" +
                 "  network: {\n" +
                 "    port: " + PORTS[0] + "\n" +
                 "    netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
@@ -158,7 +158,7 @@ class ITTableCreationTest {
         nodesBootstrapCfg.put(
             node1Name,
             "{\n" +
-                "  node.metastorageNodes: [ \"" + node0Name + "\", \"" + node1Name + "\" ],\n" +
+                "  metastorage.metastorageNodes: [ \"" + node0Name + "\", \"" + node1Name + "\" ],\n" +
                 "  network: {\n" +
                 "    port: " + PORTS[1] + "\n" +
                 "    netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
@@ -169,7 +169,7 @@ class ITTableCreationTest {
         nodesBootstrapCfg.put(
             node2Name,
             "{\n" +
-                "  node.metastorageNodes: [ \"" + node0Name + "\", \"" + node1Name + "\" ],\n" +
+                "  metastorage.metastorageNodes: [ \"" + node0Name + "\", \"" + node1Name + "\" ],\n" +
                 "  network: {\n" +
                 "    port: " + PORTS[2] + "\n" +
                 "    netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +

@@ -15,18 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.runner;
+package org.apache.ignite.internal.metastorage.message;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.Value;
+import java.io.Serializable;
+import java.util.Collection;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Local node configuration schema.
+ * Response for the {@link MetastorageNodesRequest}.
  */
-@ConfigurationRoot(rootName = "node", type = ConfigurationType.LOCAL)
-public class NodeConfigurationSchema {
-    /** It is a copy of appropriate property from the cluster configuration. */
-    @Value(hasDefault = true)
-    public final String[] metastorageNodes = new String[0];
+@Transferable(value = MetastorageMessages.METASTORAGE_NODES_RESPONSE, autoSerializable = false)
+public interface MetastorageNodesResponse extends NetworkMessage, Serializable {
+    /**
+     * List of node names that host the Meta Storage.
+     */
+    Collection<String> metastorageNodes();
 }

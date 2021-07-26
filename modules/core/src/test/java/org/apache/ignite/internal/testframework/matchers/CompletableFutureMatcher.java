@@ -31,7 +31,7 @@ import org.hamcrest.TypeSafeMatcher;
  */
 public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFuture<T>> {
     /** */
-    private static final int TIMEOUT_SECONDS = 1;
+    private static final int TIMEOUT_SECONDS = 5;
 
     /** */
     private final Matcher<T> matcher;

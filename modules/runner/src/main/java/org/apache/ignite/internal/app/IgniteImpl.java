@@ -33,10 +33,10 @@ import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
+import org.apache.ignite.configuration.schemas.metastorage.MetaStorageConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
-import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -46,6 +46,7 @@ import org.apache.ignite.internal.configuration.storage.DistributedConfiguration
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.message.MetastorageMessagesFactory;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDBKeyValueStorage;
 import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
 import org.apache.ignite.internal.processors.query.calcite.SqlQueryProcessor;
@@ -147,7 +148,7 @@ public class IgniteImpl implements Ignite {
         nodeCfgMgr = new ConfigurationManager(
             Arrays.asList(
                 NetworkConfiguration.KEY,
-                NodeConfiguration.KEY,
+                MetaStorageConfiguration.KEY,
                 RestConfiguration.KEY,
                 ClientConnectorConfiguration.KEY
             ),
@@ -170,10 +171,11 @@ public class IgniteImpl implements Ignite {
 
         metaStorageMgr = new MetaStorageManager(
             vaultMgr,
-            nodeCfgMgr,
             clusterSvc,
             raftMgr,
-            new RocksDBKeyValueStorage(workDir.resolve(METASTORAGE_DB_PATH))
+            new RocksDBKeyValueStorage(workDir.resolve(METASTORAGE_DB_PATH)),
+            new MetastorageMessagesFactory(),
+            nodeCfgMgr.configurationRegistry().getConfiguration(MetaStorageConfiguration.KEY)
         );
 
         // TODO: IGNITE-15414 Schema validation refactoring with configuration validators.
@@ -277,6 +279,15 @@ public class IgniteImpl implements Ignite {
 
             for (IgniteComponent component : otherComponents)
                 doStartComponent(name, startedComponents, component);
+
+            String[] metastorageNodes = nodeCfgMgr
+                .configurationRegistry()
+                .getConfiguration(MetaStorageConfiguration.KEY)
+                .metastorageNodes()
+                .value();
+
+            if (metastorageNodes.length != 0)
+                metaStorageMgr.init(Arrays.asList(metastorageNodes));
 
             // Deploy all registered watches because all components are ready and have registered their listeners.
             metaStorageMgr.deployWatches();

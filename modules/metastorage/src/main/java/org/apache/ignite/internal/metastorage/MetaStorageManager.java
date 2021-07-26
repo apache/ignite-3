@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -27,10 +26,14 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Predicate;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.configuration.schemas.metastorage.MetaStorageConfiguration;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.client.CompactedException;
 import org.apache.ignite.internal.metastorage.client.Condition;
@@ -40,6 +43,10 @@ import org.apache.ignite.internal.metastorage.client.MetaStorageServiceImpl;
 import org.apache.ignite.internal.metastorage.client.Operation;
 import org.apache.ignite.internal.metastorage.client.OperationTimeoutException;
 import org.apache.ignite.internal.metastorage.client.WatchListener;
+import org.apache.ignite.internal.metastorage.message.MetastorageMessages;
+import org.apache.ignite.internal.metastorage.message.MetastorageMessagesFactory;
+import org.apache.ignite.internal.metastorage.message.MetastorageNodesRequest;
+import org.apache.ignite.internal.metastorage.message.MetastorageNodesResponse;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.watch.AggregatedWatch;
@@ -58,11 +65,14 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyEventHandler;
+import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 
@@ -74,8 +84,6 @@ import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
  *     <li>Providing corresponding meta storage service proxy interface</li>
  * </ul>
  */
-// TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
-@SuppressWarnings("unused")
 public class MetaStorageManager implements IgniteComponent {
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(MetaStorageManager.class);
@@ -84,28 +92,37 @@ public class MetaStorageManager implements IgniteComponent {
     private static final String METASTORAGE_RAFT_GROUP_NAME = "metastorage_raft_group";
 
     /**
-     * Special key for the vault where the applied revision for {@link MetaStorageManager#storeEntries}
+     * Special key for the Vault, where the applied revision for {@link MetaStorageManager#storeEntries}
      * operation is stored. This mechanism is needed for committing processed watches to {@link VaultManager}.
      */
     public static final ByteArray APPLIED_REV = ByteArray.fromString("applied_revision");
 
-    /** Vault manager in order to commit processed watches with corresponding applied revision. */
+    /** Vault manager, used to commit processed watches with the corresponding applied revision. */
     private final VaultManager vaultMgr;
 
-    /** Configuration manager that handles local configuration. */
-    private final ConfigurationManager locCfgMgr;
-
-    /** Cluster network service that is used in order to handle cluster init message. */
+    /** Cluster network service used to handle cluster init message. */
     private final ClusterService clusterNetSvc;
 
-    /** Raft manager that is used for metastorage raft group handling. */
+    /** Raft manager used for metastorage raft group handling. */
     private final Loza raftMgr;
 
-    /** Meta storage service. */
+    /**
+     * Meta Storage service. Depends on the {@link #metaStorageNodeNamesFut} future and resolves only after it
+     * completes.
+     */
     private volatile CompletableFuture<MetaStorageService> metaStorageSvcFut;
 
     /** Raft group service. */
-    private volatile CompletableFuture<RaftGroupService> raftGroupServiceFut;
+    private volatile RaftGroupService raftGroupService;
+
+    /**
+     * Future containing names of nodes that host the Meta Storage. This future completes after either receiving
+     * the "init" command or obtaining the corresponding information from other nodes.
+     */
+    private final CompletableFuture<Collection<String>> metaStorageNodeNamesFut = new CompletableFuture<>();
+
+    /** Messages factory. */
+    private final MetastorageMessagesFactory messagesFactory;
 
     /**
      * Aggregator of multiple watches to deploy them as one batch.
@@ -115,11 +132,10 @@ public class MetaStorageManager implements IgniteComponent {
     private final WatchAggregator watchAggregator = new WatchAggregator();
 
     /**
-     * Future which will be completed with {@link IgniteUuid},
-     * when aggregated watch will be successfully deployed.
-     * Can be resolved to {@link Optional#empty()} if no watch deployed at the moment.
+     * Future, which will be completed with a {@link IgniteUuid}, when aggregated watch is successfully deployed.
+     * Can be resolved to {@code null} if no watch is deployed at the moment.
      */
-    private CompletableFuture<Optional<IgniteUuid>> deployFut = new CompletableFuture<>();
+    private CompletableFuture<IgniteUuid> deployFut = new CompletableFuture<>();
 
     /**
      * If true - all new watches will be deployed immediately.
@@ -129,8 +145,8 @@ public class MetaStorageManager implements IgniteComponent {
      */
     private boolean deployed;
 
-    /** Flag indicates if meta storage nodes were set on start */
-    private boolean metaStorageNodesOnStart;
+    /** Local configuration. */
+    private final MetaStorageConfiguration config;
 
     /** Actual storage for the Metastorage. */
     private final KeyValueStorage storage;
@@ -142,84 +158,120 @@ public class MetaStorageManager implements IgniteComponent {
      * The constructor.
      *
      * @param vaultMgr Vault manager.
-     * @param locCfgMgr Local configuration manager.
      * @param clusterNetSvc Cluster network service.
      * @param raftMgr Raft manager.
+     * @param messagesFactory Meta Storage messages factory.
+     * @param config Configuration.
      * @param storage Storage. This component owns this resource and will manage its lifecycle.
      */
     public MetaStorageManager(
         VaultManager vaultMgr,
-        ConfigurationManager locCfgMgr,
         ClusterService clusterNetSvc,
         Loza raftMgr,
-        KeyValueStorage storage
+        KeyValueStorage storage,
+        MetastorageMessagesFactory messagesFactory,
+        MetaStorageConfiguration config
     ) {
         this.vaultMgr = vaultMgr;
-        this.locCfgMgr = locCfgMgr;
         this.clusterNetSvc = clusterNetSvc;
         this.raftMgr = raftMgr;
+        this.messagesFactory = messagesFactory;
+        this.config = config;
         this.storage = storage;
+
+        // register handler for responding to other nodes joining the cluster
+        this.clusterNetSvc.messagingService().addMessageHandler(
+            MetastorageMessages.class,
+            (message, senderAddr, correlationId) -> {
+                if (message instanceof MetastorageNodesRequest) {
+                    NetworkMessage response;
+
+                    if (metaStorageNodeNamesFut.isDone()) {
+                        response = messagesFactory.metastorageNodesResponse()
+                            .metastorageNodes(metaStorageNodeNamesFut.join())
+                            .build();
+                    }
+                    else
+                        response = messagesFactory.metastorageNotReadyResponse().build();
+
+                    this.clusterNetSvc.messagingService().send(senderAddr, response, correlationId);
+                }
+            }
+        );
     }
 
     /** {@inheritDoc} */
     @Override public void start() {
-        String[] metastorageNodes = this.locCfgMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
-            .metastorageNodes().value();
+        assert metaStorageSvcFut == null : "Trying to start an already started MetaStorageManager";
 
-        Predicate<ClusterNode> metaStorageNodesContainsLocPred =
-            clusterNode -> Arrays.asList(metastorageNodes).contains(clusterNode.name());
+        LOG.info("Starting the MetaStorage manager");
 
-        if (metastorageNodes.length > 0) {
-            metaStorageNodesOnStart = true;
+        storage.start();
 
-            List<ClusterNode> metaStorageMembers = clusterNetSvc.topologyService().allMembers().stream()
-                .filter(metaStorageNodesContainsLocPred)
-                .collect(Collectors.toList());
-
-            storage.start();
-
-            raftGroupServiceFut = raftMgr.prepareRaftGroup(
+        metaStorageSvcFut = joinCluster()
+            .thenCompose(nodeNames -> raftMgr.prepareRaftGroup(
                 METASTORAGE_RAFT_GROUP_NAME,
-                metaStorageMembers,
+                metastorageNodes(nodeNames),
                 () -> new MetaStorageListener(storage)
-            );
+            ))
+            .thenApply(raftGroup -> {
+                raftGroupService = raftGroup;
 
-            this.metaStorageSvcFut = raftGroupServiceFut.thenApply(service ->
-                new MetaStorageServiceImpl(service, clusterNetSvc.topologyService().localMember().id())
-            );
+                String localId = clusterNetSvc.topologyService().localMember().id();
 
-            if (hasMetastorageLocally(locCfgMgr)) {
+                LOG.info("MetaStorage service has started");
+
+                return new MetaStorageServiceImpl(raftGroup, localId);
+            });
+
+        metaStorageSvcFut.thenAccept(service -> {
+            if (hasMetastorageLocally()) {
                 clusterNetSvc.topologyService().addEventHandler(new TopologyEventHandler() {
                     @Override public void onAppeared(ClusterNode member) {
                         // No-op.
                     }
 
                     @Override public void onDisappeared(ClusterNode member) {
-                        metaStorageSvcFut.thenCompose(svc -> svc.closeCursors(member.id()));
+                        // TODO: there is a race between closing the cursor and stopping the whole node,
+                        //  this listener must be removed on shutdown,
+                        //  see https://issues.apache.org/jira/browse/IGNITE-14519
+                        service
+                            .closeCursors(member.id())
+                            .whenComplete((v, ex) -> {
+                                if (ex != null)
+                                    LOG.error("Exception when closing cursors for " + member.id(), ex);
+                            });
                     }
                 });
             }
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override public void beforeNodeStop() {
+        LOG.info("Stopping the MetaStorage manager");
+
+        // cancelling the metaStorageNodeNamesFut will also stop the polling process in metaStorageSvcFut
+        metaStorageNodeNamesFut.cancel(false);
+
+        try {
+            metaStorageSvcFut.get(10, TimeUnit.SECONDS);
         }
-        else
-            this.metaStorageSvcFut = new CompletableFuture<>();
-
-        // TODO: IGNITE-14088: Uncomment and use real serializer factory
-//        Arrays.stream(MetaStorageMessageTypes.values()).forEach(
-//            msgTypeInstance -> net.registerMessageMapper(
-//                msgTypeInstance.msgType(),
-//                new DefaultMessageMapperProvider()
-//            )
-//        );
-
-        // TODO: IGNITE-14414 Cluster initialization flow. Here we should complete metaStorageServiceFuture.
-//        clusterNetSvc.messagingService().addMessageHandler((message, senderAddr, correlationId) -> {});
+        catch (ExecutionException e) {
+            // execution exceptions are not important and are expected to be thrown, e.g. when the component stops
+            // abruptly
+            LOG.debug("Exception during MetaStorageManager stop", e.getCause());
+        }
+        catch (InterruptedException | TimeoutException e) {
+            throw new IgniteInternalException("Exception during MetaStorageManager stop", e);
+        }
     }
 
     /** {@inheritDoc} */
     @Override public void stop() {
         busyLock.block();
 
-        Optional<IgniteUuid> watchId;
+        IgniteUuid watchId;
 
         try {
             // If deployed future is not done, that means that stop was called in the middle of
@@ -230,8 +282,8 @@ public class MetaStorageManager implements IgniteComponent {
                 watchId = deployFut.get();
 
                 try {
-                    if (watchId.isPresent())
-                        metaStorageSvcFut.get().stopWatch(watchId.get());
+                    if (watchId != null)
+                        metaStorageSvcFut.get().stopWatch(watchId);
                 }
                 catch (InterruptedException | ExecutionException e) {
                     LOG.error("Failed to get meta storage service.");
@@ -245,17 +297,13 @@ public class MetaStorageManager implements IgniteComponent {
             throw new IgniteInternalException(e);
         }
 
-        try {
-            if (raftGroupServiceFut != null) {
-                raftGroupServiceFut.get().shutdown();
+        // if the metaStorageNodeNamesFut is not done, it should be cancelled by the beforeNodeStop method.
+        if (!metaStorageNodeNamesFut.isCancelled()) {
+            Collection<String> nodeNames = metaStorageNodeNamesFut.join();
 
-                raftMgr.stopRaftGroup(METASTORAGE_RAFT_GROUP_NAME, metastorageNodes());
-            }
-        }
-        catch (InterruptedException | ExecutionException e) {
-            LOG.error("Failed to get meta storage raft group service.");
+            raftGroupService.shutdown();
 
-            throw new IgniteInternalException(e);
+            raftMgr.stopRaftGroup(METASTORAGE_RAFT_GROUP_NAME, metastorageNodes(nodeNames));
         }
 
         try {
@@ -267,6 +315,97 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
+     * Temporary method for emulating the "init" command.
+     *
+     * @param metastorageNodeNames Names of the nodes hosting the Meta Storage.
+     */
+    // TODO: remove this method: https://issues.apache.org/jira/browse/IGNITE-14414
+    public void init(List<String> metastorageNodeNames) {
+        assert metaStorageSvcFut != null : "MetaStorageManager has not been started";
+
+        metaStorageNodeNamesFut.complete(metastorageNodeNames);
+    }
+
+    /**
+     * Tries to repeatedly retrieve information about the nodes hosting the Meta Storage from a random cluster member.
+     */
+    private CompletableFuture<Collection<String>> joinCluster() {
+        if (metaStorageNodeNamesFut.isDone())
+            return metaStorageNodeNamesFut;
+
+        ClusterNode randomMember = randomMember();
+
+        // if a random member is null, then this is the first node in the cluster and there's nothing to be done
+        // until the "init" command arrives
+        if (randomMember == null)
+            return metaStorageNodeNamesFut;
+
+        MetastorageNodesRequest request = messagesFactory.metastorageNodesRequest().build();
+
+        LOG.info("Issuing a join request to {}", randomMember.address());
+
+        return clusterNetSvc.messagingService()
+            .invoke(randomMember, request, 1000)
+            .handle((response, ex) -> {
+                if (response instanceof MetastorageNodesResponse) {
+                    var metastorageResponse = (MetastorageNodesResponse) response;
+
+                    metaStorageNodeNamesFut.complete(metastorageResponse.metastorageNodes());
+
+                    return metaStorageNodeNamesFut;
+                }
+                else {
+                    if (ex != null)
+                        LOG.debug("Exception while joining the cluster", ex);
+                    else
+                        LOG.debug("Received a {} response", response.getClass());
+
+                    LOG.info(
+                        "Received an error response, retrying in {} milliseconds",
+                        config.startupPollIntervalMillis().value()
+                    );
+
+                    return supplyWithDelay(this::joinCluster);
+                }
+            })
+            .thenCompose(Function.identity());
+    }
+
+    /**
+     * Executes the given future (provided by the {@code supplier}) after a fixed delay.
+     */
+    private <T> CompletableFuture<T> supplyWithDelay(Supplier<CompletableFuture<T>> supplier) {
+        long delay = config.startupPollIntervalMillis().value();
+
+        Executor executor = CompletableFuture.delayedExecutor(delay, TimeUnit.MILLISECONDS);
+
+        return CompletableFuture.supplyAsync(supplier, executor)
+            .thenCompose(Function.identity());
+    }
+
+    /**
+     * Returns a random member from the topology or {@code null} if there are no other members, except the current node.
+     */
+    @Nullable
+    private ClusterNode randomMember() {
+        TopologyService topologyService = clusterNetSvc.topologyService();
+
+        Collection<ClusterNode> members = topologyService.allMembers();
+
+        if (members.size() <= 1)
+            return null;
+
+        // using size - 1 to filter out the local member
+        int randomIndex = ThreadLocalRandom.current().nextInt(members.size() - 1);
+
+        return members.stream()
+            .filter(member -> !member.equals(topologyService.localMember()))
+            .skip(randomIndex)
+            .findFirst()
+            .orElse(null);
+    }
+
+    /**
      * Deploy all registered watches.
      */
     public synchronized void deployWatches() throws NodeStoppingException {
@@ -274,21 +413,20 @@ public class MetaStorageManager implements IgniteComponent {
             throw new NodeStoppingException("Operation has been cancelled (node is stopping).");
 
         try {
-            var watch = watchAggregator.watch(
-                appliedRevision() + 1,
-                this::storeEntries
-            );
+            Optional<AggregatedWatch> watch = watchAggregator.watch(appliedRevision() + 1, this::storeEntries);
 
             if (watch.isEmpty())
-                deployFut.complete(Optional.empty());
+                deployFut.complete(null);
             else {
-                CompletableFuture<Void> fut =
-                    dispatchAppropriateMetaStorageWatch(watch.get()).thenAccept(id -> deployFut.complete(Optional.of(id)));
-
-                if (metaStorageNodesOnStart)
-                    fut.join();
-                else {
-                    // TODO: need to wait for this future in init phase https://issues.apache.org/jira/browse/IGNITE-14414
+                // TODO: this method should be asynchronous, need to wait for this future in the init phase,
+                //  see https://issues.apache.org/jira/browse/IGNITE-14414
+                try {
+                    metaStorageSvcFut
+                        .thenCompose(service -> dispatchAppropriateMetaStorageWatch(watch.get()))
+                        .thenAccept(deployFut::complete)
+                        .get(1, TimeUnit.SECONDS);
+                }
+                catch (InterruptedException | ExecutionException | TimeoutException ignored) {
                 }
             }
 
@@ -796,19 +934,17 @@ public class MetaStorageManager implements IgniteComponent {
      *
      * @return Ignite UUID of new consolidated watch.
      */
-    private CompletableFuture<Optional<IgniteUuid>> updateWatches() {
+    private CompletableFuture<IgniteUuid> updateWatches() {
         long revision = appliedRevision() + 1;
 
         deployFut = deployFut
-            .thenCompose(idOpt ->
-                idOpt
-                    .map(id -> metaStorageSvcFut.thenCompose(svc -> svc.stopWatch(id)))
-                    .orElseGet(() -> CompletableFuture.completedFuture(null))
+            .thenCompose(id ->
+                id == null ? completedFuture(null) : metaStorageSvcFut.thenCompose(svc -> svc.stopWatch(id))
             )
             .thenCompose(r ->
                 watchAggregator.watch(revision, this::storeEntries)
-                    .map(watch -> dispatchAppropriateMetaStorageWatch(watch).thenApply(Optional::of))
-                    .orElseGet(() -> CompletableFuture.completedFuture(Optional.empty()))
+                    .map(this::dispatchAppropriateMetaStorageWatch)
+                    .orElseGet(() -> completedFuture(null))
             );
 
         return deployFut;
@@ -853,79 +989,67 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
-     * Checks whether the given node hosts meta storage.
-     *
-     * @param nodeName Node unique name.
-     * @param metastorageMembers Meta storage members names.
-     * @return {@code true} if the node has meta storage, {@code false} otherwise.
-     */
-    public static boolean hasMetastorage(String nodeName, String[] metastorageMembers) {
-        boolean isNodeHasMetasorage = false;
-
-        for (String name : metastorageMembers) {
-            if (name.equals(nodeName)) {
-                isNodeHasMetasorage = true;
-
-                break;
-            }
-        }
-
-        return isNodeHasMetasorage;
-    }
-
-    /**
      * Checks whether the local node hosts meta storage.
      *
-     * @param configurationMgr Configuration manager.
      * @return {@code true} if the node has meta storage, {@code false} otherwise.
      */
-    public boolean hasMetastorageLocally(ConfigurationManager configurationMgr) {
-        String[] metastorageMembers = configurationMgr
-            .configurationRegistry()
-            .getConfiguration(NodeConfiguration.KEY)
-            .metastorageNodes()
-            .value();
-
-        return hasMetastorage(vaultMgr.name().join(), metastorageMembers);
+    public boolean hasMetastorageLocally() {
+        return metaStorageNodeNamesFut
+            .thenCompose(metastorageNodes ->
+                vaultMgr.name().thenApply(name -> metastorageNodes.stream().anyMatch(name::equals))
+            )
+            .join();
     }
 
-    // TODO: IGNITE-14691 Temporally solution that should be removed after implementing reactive watches.
+    // TODO: IGNITE-14691 Temporary solution that should be removed after implementing reactive watches.
     /** Cursor wrapper. */
     private final class CursorWrapper<T> implements Cursor<T> {
         /** Inner cursor future. */
         private final CompletableFuture<Cursor<T>> innerCursorFut;
 
-        /** Inner iterator future. */
-        private final CompletableFuture<Iterator<T>> innerIterFut;
-
-        private final InnerIterator it = new InnerIterator();
-
         /**
          * @param innerCursorFut Inner cursor future.
          */
-        CursorWrapper(
-            CompletableFuture<Cursor<T>> innerCursorFut
-        ) {
+        CursorWrapper(CompletableFuture<Cursor<T>> innerCursorFut) {
             this.innerCursorFut = innerCursorFut;
-            this.innerIterFut = innerCursorFut.thenApply(Iterable::iterator);
         }
 
-            /** {@inheritDoc} */
-        @Override public void close() throws Exception {
+        /** {@inheritDoc} */
+        @Override public void close() throws NodeStoppingException, InterruptedException, ExecutionException {
             if (!busyLock.enterBusy())
                 throw new NodeStoppingException("Operation has been cancelled (node is stopping).");
 
             try {
-                innerCursorFut.thenApply(cursor -> {
-                    try {
-                        cursor.close();
+                cursor().close();
+            }
+            catch (Exception e) {
+                throw new IgniteInternalException(e);
+            }
+            finally {
+                busyLock.leaveBusy();
+            }
+        }
 
-                        return null;
-                    }
-                    catch (Exception e) {
-                        throw new IgniteInternalException(e);
-                    }
-                }).get();
+        /** {@inheritDoc} */
+        @Override public boolean hasNext() {
+            if (!busyLock.enterBusy())
+                return false;
+
+            try {
+                return cursor().hasNext();
+            }
+            finally {
+                busyLock.leaveBusy();
+            }
+        }
+
+        /** {@inheritDoc} */
+        @Override public T next() {
+            if (!busyLock.enterBusy())
+                throw new NoSuchElementException("No such element because node is stopping.");
+
+            try {
+                return cursor().next();
             }
             finally {
                 busyLock.leaveBusy();
@@ -934,54 +1058,21 @@ public class MetaStorageManager implements IgniteComponent {
 
         /** {@inheritDoc} */
         @NotNull @Override public Iterator<T> iterator() {
-            return it;
+            return this;
         }
 
-        /** {@inheritDoc} */
-        @Override public boolean hasNext() {
-            return it.hasNext();
-        }
-
-        /** {@inheritDoc} */
-        @Override public T next() {
-            return it.next();
-        }
-
-        private class InnerIterator implements Iterator<T> {
-            /** {@inheritDoc} */
-            @Override public boolean hasNext() {
-                if (!busyLock.enterBusy())
-                    return false;
-
-                try {
-                    try {
-                        return innerIterFut.thenApply(Iterator::hasNext).get();
-                    }
-                    catch (InterruptedException | ExecutionException e) {
-                        throw new IgniteInternalException(e);
-                    }
-                }
-                finally {
-                    busyLock.leaveBusy();
-                }
+        /**
+         * Waits for the wrapped future to complete.
+         */
+        private Cursor<T> cursor() {
+            try {
+                return innerCursorFut.get(10, TimeUnit.SECONDS);
             }
-
-            /** {@inheritDoc} */
-            @Override public T next() {
-                if (!busyLock.enterBusy())
-                    throw new NoSuchElementException("No such element because node is stopping.");
-
-                try {
-                    try {
-                        return innerIterFut.thenApply(Iterator::next).get();
-                    }
-                    catch (InterruptedException | ExecutionException e) {
-                        throw new IgniteInternalException(e);
-                    }
-                }
-                finally {
-                    busyLock.leaveBusy();
-                }
+            catch (InterruptedException | TimeoutException e) {
+                throw new IgniteInternalException(e);
+            }
+            catch (ExecutionException e) {
+                throw new IgniteInternalException(e.getCause());
             }
         }
     }
@@ -1028,17 +1119,11 @@ public class MetaStorageManager implements IgniteComponent {
      * This code will be deleted after node init phase is developed.
      * https://issues.apache.org/jira/browse/IGNITE-14414
      */
-    private List<ClusterNode> metastorageNodes() {
-        String[] metastorageNodes = this.locCfgMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
-            .metastorageNodes().value();
-
-        Predicate<ClusterNode> metaStorageNodesContainsLocPred =
-            clusterNode -> Arrays.asList(metastorageNodes).contains(clusterNode.name());
-
-        List<ClusterNode> metaStorageMembers = clusterNetSvc.topologyService().allMembers().stream()
-            .filter(metaStorageNodesContainsLocPred)
-            .collect(Collectors.toList());
-
-        return metaStorageMembers;
+    private List<ClusterNode> metastorageNodes(Collection<String> nodeNames) {
+        return clusterNetSvc.topologyService()
+            .allMembers()
+            .stream()
+            .filter(clusterNode -> nodeNames.contains(clusterNode.name()))
+            .collect(Collectors.toUnmodifiableList());
     }
 }

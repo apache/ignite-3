@@ -154,7 +154,7 @@ public class ITIgniteNodeRestartTest extends IgniteAbstractTest {
         String nodeName = testNodeName(testInfo, 3344);
 
         Ignite ignite = IgnitionManager.start(nodeName, "{\n" +
-            "  \"node\": {\n" +
+            "  \"metastorage\": {\n" +
             "    \"metastorageNodes\":[ " + nodeName + " ]\n" +
             "  },\n" +
             "  \"network\": {\n" +

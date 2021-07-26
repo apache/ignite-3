@@ -27,8 +27,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.configuration.schemas.metastorage.MetaStorageConfiguration;
 import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
-import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
@@ -149,7 +149,7 @@ public class TableManagerTest {
     void setUp() {
         try {
             nodeCfgMgr = new ConfigurationManager(
-                List.of(NodeConfiguration.KEY),
+                List.of(MetaStorageConfiguration.KEY),
                 Map.of(),
                 new TestConfigurationStorage(LOCAL),
                 List.of()
@@ -165,13 +165,7 @@ public class TableManagerTest {
             nodeCfgMgr.start();
             clusterCfgMgr.start();
 
-            nodeCfgMgr.bootstrap("{\n" +
-                "   \"node\":{\n" +
-                "      \"metastorageNodes\":[\n" +
-                "         \"" + NODE_NAME + "\"\n" +
-                "      ]\n" +
-                "   }\n" +
-                "}");
+            nodeCfgMgr.bootstrap(String.format("metastorage.metastorageNodes = [\"%s\"]", NODE_NAME));
         }
         catch (Exception e) {
             LOG.error("Failed to bootstrap the test configuration manager.", e);

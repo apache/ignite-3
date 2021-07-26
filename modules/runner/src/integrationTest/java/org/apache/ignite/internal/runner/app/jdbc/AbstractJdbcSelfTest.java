@@ -49,7 +49,7 @@ public class AbstractJdbcSelfTest {
     public static void beforeAll(@TempDir Path temp, TestInfo testInfo) {
         String nodeName = testNodeName(testInfo, 47500);
 
-        String configStr = "node.metastorageNodes: [ \"" + nodeName + "\" ]";
+        String configStr = "metastorage.metastorageNodes: [ \"" + nodeName + "\" ]";
 
         clusterNodes.add(IgnitionManager.start(nodeName, configStr, temp.resolve(nodeName)));
     }

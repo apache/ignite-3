@@ -19,6 +19,8 @@ package org.apache.ignite.app;
 
 import java.io.InputStream;
 import java.nio.file.Path;
+import org.apache.ignite.configuration.schemas.metastorage.MetaStorageConfigurationSchema;
+import org.apache.ignite.configuration.schemas.network.NetworkConfigurationSchema;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -42,8 +44,7 @@ public interface Ignition {
      *
      * @param name    Name of the node. Must not be {@code null}.
      * @param config  Optional node configuration based on
-     *                {@link org.apache.ignite.configuration.schemas.runner.NodeConfigurationSchema} and
-     *                {@link org.apache.ignite.configuration.schemas.network.NetworkConfigurationSchema}.
+     *                {@link MetaStorageConfigurationSchema} and {@link NetworkConfigurationSchema}.
      *                Following rules are used for applying the configuration properties:
      *                <ol>
      *                  <li>Specified property overrides existing one or just applies itself if it wasn't

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration;
 
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -28,12 +29,14 @@ import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.DirectAccess;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
+import org.apache.ignite.configuration.schemas.metastorage.MetaStorageConfiguration;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorageListener;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
-import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.message.MetastorageMessagesFactory;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -54,7 +57,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directValue;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -70,6 +72,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Integration test for checking different aspects of distributed configuration.
  */
 @ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 public class ITDistributedConfigurationPropertiesTest {
     /** Test distributed configuration schema. */
     @ConfigurationRoot(rootName = "root", type = ConfigurationType.DISTRIBUTED)
@@ -85,9 +88,6 @@ public class ITDistributedConfigurationPropertiesTest {
      */
     private static class Node {
         /** */
-        private final List<String> metaStorageNodes;
-
-        /** */
         private final VaultManager vaultManager;
 
         /** */
@@ -97,7 +97,7 @@ public class ITDistributedConfigurationPropertiesTest {
         private final Loza raftManager;
 
         /** */
-        private final ConfigurationManager cfgManager;
+        private final MetaStorageConfiguration metaStorageConfiguration;
 
         /** */
         private final MetaStorageManager metaStorageManager;
@@ -116,10 +116,8 @@ public class ITDistributedConfigurationPropertiesTest {
             Path workDir,
             NetworkAddress addr,
             List<NetworkAddress> memberAddrs,
-            List<String> metaStorageNodes
+            MetaStorageConfiguration metaStorageConfiguration
         ) {
-            this.metaStorageNodes = metaStorageNodes;
-
             vaultManager = new VaultManager(new InMemoryVaultService());
 
             clusterService = ClusterServiceTestUtils.clusterService(
@@ -132,19 +130,15 @@ public class ITDistributedConfigurationPropertiesTest {
 
             raftManager = new Loza(clusterService, workDir);
 
-            cfgManager = new ConfigurationManager(
-                List.of(NodeConfiguration.KEY),
-                Map.of(),
-                new LocalConfigurationStorage(vaultManager),
-                List.of()
-            );
+            this.metaStorageConfiguration = metaStorageConfiguration;
 
             metaStorageManager = new MetaStorageManager(
                 vaultManager,
-                cfgManager,
                 clusterService,
                 raftManager,
-                new SimpleInMemoryKeyValueStorage()
+                new SimpleInMemoryKeyValueStorage(),
+                new MetastorageMessagesFactory(),
+                metaStorageConfiguration
             );
 
             // create a custom storage implementation that is able to "lose" some storage updates
@@ -175,19 +169,10 @@ public class ITDistributedConfigurationPropertiesTest {
         void start() throws Exception {
             vaultManager.start();
 
-            cfgManager.start();
-
-            // metastorage configuration
-            String metaStorageCfg = metaStorageNodes.stream()
-                .map(Object::toString)
-                .collect(joining("\", \"", "\"", "\""));
-
-            var config = String.format("{ node: { metastorageNodes : [ %s ] } }", metaStorageCfg);
-
-            cfgManager.bootstrap(config);
-
             Stream.of(clusterService, raftManager, metaStorageManager)
                 .forEach(IgniteComponent::start);
+
+            metaStorageManager.init(Arrays.asList(metaStorageConfiguration.metastorageNodes().value()));
 
             // deploy watches to propagate data from the metastore into the vault
             metaStorageManager.deployWatches();
@@ -202,7 +187,7 @@ public class ITDistributedConfigurationPropertiesTest {
          */
         void stop() throws Exception {
             var components = List.of(
-                distributedCfgManager, metaStorageManager, raftManager, clusterService, cfgManager, vaultManager
+                distributedCfgManager, metaStorageManager, raftManager, clusterService, vaultManager
             );
 
             for (IgniteComponent igniteComponent : components)
@@ -227,20 +212,28 @@ public class ITDistributedConfigurationPropertiesTest {
     private Node secondNode;
 
     /** */
+    @InjectConfiguration
+    private MetaStorageConfiguration metaStorageConfiguration;
+
+    /** */
     @BeforeEach
     void setUp(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
         var firstNodeAddr = new NetworkAddress("localhost", 10000);
 
-        String firstNodeName = testNodeName(testInfo, firstNodeAddr.port());
-
         var secondNodeAddr = new NetworkAddress("localhost", 10001);
+
+        metaStorageConfiguration
+            .change(c -> c
+                .changeMetastorageNodes(testNodeName(testInfo, firstNodeAddr.port()))
+                .changeStartupPollIntervalMillis(10))
+            .join();
 
         firstNode = new Node(
             testInfo,
             workDir.resolve("firstNode"),
             firstNodeAddr,
             List.of(firstNodeAddr, secondNodeAddr),
-            List.of(firstNodeName)
+            metaStorageConfiguration
         );
 
         secondNode = new Node(
@@ -248,7 +241,7 @@ public class ITDistributedConfigurationPropertiesTest {
             workDir.resolve("secondNode"),
             secondNodeAddr,
             List.of(firstNodeAddr, secondNodeAddr),
-            List.of(firstNodeName)
+            metaStorageConfiguration
         );
 
         firstNode.start();

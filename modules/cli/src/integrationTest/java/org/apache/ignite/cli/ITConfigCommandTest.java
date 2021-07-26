@@ -104,7 +104,7 @@ public class ITConfigCommandTest extends AbstractCliTest {
             "--node-endpoint",
             "localhost:" + restPort,
             "--type", "node", //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
-            "node.metastorageNodes=[\"localhost1\"]"
+            "metastorage.metastorageNodes=[\"localhost1\"]"
         );
 
         String nl = System.lineSeparator();
@@ -129,8 +129,8 @@ public class ITConfigCommandTest extends AbstractCliTest {
         assertEquals(0, exitCode);
         assertEquals(
             "\"{\"clientConnector\":{\"connectTimeout\":5000,\"port\":" + clientPort + ",\"portRange\":0}," +
+                "\"metastorage\":{\"metastorageNodes\":[\"localhost1\"],\"startupPollIntervalMillis\":1000}," +
                 "\"network\":{\"netClusterNodes\":[],\"port\":" + networkPort + "}," +
-                "\"node\":{\"metastorageNodes\":[\"localhost1\"]}," +
                 "\"rest\":{\"port\":" + restPort + ",\"portRange\":0}}\"" + nl,
             unescapeQuotes(out.toString())
         );

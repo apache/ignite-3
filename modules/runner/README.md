@@ -2,58 +2,60 @@
 This document describes user-level and component-level cluster lifecycles and their mutual interaction.
 
 ## Node lifecycle
-A node maintains its' local state in the local persistent key-value storage named vault. The data stored in the vault is 
-semantically divided in the following categories:
- * User-level local configuration properties (such as memory limits, network timeouts, etc). User-level configuration
+A node maintains its local state in the local persistent key-value storage named vault. The data stored in the vault is 
+semantically divided into the following categories:
+ * User-level local configuration properties (such as memory limits, network timeouts, etc.). User-level configuration
  properties can be written both at runtime (not all properties will be applied at runtime, however, - some of them will
- require a full node restart) and when a node is shut down (in order to be able to change properties that prevent node
- startup for some reason)
- * System-level private properties (such as computed local statistics, node-local commin paths, etc). System-level 
- private properties are computed locally based on the information available at node locally (not based on metastorage 
- watched values)
- * System-level distributed metastorage projected properties (such as paths to partition files, etc). System-level 
+ require a full node restart) and when a node is shut down (to change properties that prevent node startup for some 
+ reason);
+ * System-level private properties (such as computed local statistics, node-local commin paths, etc.). System-level 
+ private properties are computed locally based on the information available at the node locally
+ (not based on metastorage watched values);
+ * System-level distributed metastorage projected properties (such as paths to partition files, etc.). System-level 
  projected properties are associated with one or more metastorage properties and are computed based on the local node 
  state and the metastorage properties values. System-level projected properties values are semantically bound to a 
- particular revision of the dependee properties and must be recalculated when dependees are changed (see 
- [reliable watch processing](#reliable-watch-processing)). 
+ particular revision of the dependee properties and must be recalculated when the dependees are changed (see 
+ [Reliable watch processing](#reliable-watch-processing)). 
 
-The vault is created during the first node startup and optionally populated with the paremeters from the configuration 
-file passed in to the ``ignite node start`` [command](TODO link to CLI readme). Only user-level properties can be 
-written via the provided file. 
+The vault is created during the first node startup and is optionally populated with the parameters from the 
+configuration file passed to the ``ignite node start`` [command](../cli/README.md). 
+Only user-level properties can be written via the provided file. 
 
 System-level properties are written to the storage during the first vault initialization by the node start process. 
-Projected properties are not initialized during the initial node startup because at this point the local node is not 
-aware of the distributed metastorage. The node remains in a 'zombie' state until after it learns that there is an 
-initialized metastorage (either via the ``ignite cluster init`` [command](TODO link to CLI readme) during the initial 
-cluster initialization) or from the group membershup service via gossip (implying that group membership protocol is 
+Projected properties are not initialized during the initial node startup because at this point the local node is 
+unaware of the distributed metastorage. The node remains in a 'zombie' state until after it learns that there is an 
+initialized metastorage (either via the ``ignite cluster init`` [command](../cli/README.md) during the initial 
+cluster initialization) or from the group membership service via gossip (implying that group membership protocol is 
 working at this point).
 
 ### Node components startup
 For testability purposes, we require that component dependencies are defined upfront and provided at the construction
-time. This additionaly requires that component dependencies form no cycles. Therefore, components form an acyclic 
-directed graph that is constructed in topological sort order wrt root. 
+time. This additionally requires that component dependencies form no cycles. Therefore, components form an acyclic 
+directed graph that is constructed in topological sort order. 
 
-Components created and initialized also in an order consistent with a topological sort of the components graph. This 
-enforces serveral rules related to the components interaction: 
+Components are created and initialized in an order consistent with a topological sort of the components graph. This 
+enforces several rules related to the components' interaction: 
  * Since metastorage watches can only be added during the component startup, the watch notification order is consistent
- with the component initialization order. I.e. if a component `B` depdends on a component `A`, then `A` receives watch
+ with the component initialization order. I.e. if a component `B` depends on a component `A`, then `A` receives watch
  notification prior to `B`.
  * Dependent component can directly call an API method on a dependee component (because it can obtain the dependee 
  reference during construction). Direct inverse calls are prohibited (this is enforced by only acquiring component 
- references during the components construction). Nevertheless, inverse call can be implemented by means of listeners or 
- callbacks: the dependent component installs a listener to a dependeee, which can be later invoked.
+ references during the components' construction). Nevertheless, inverse call can be implemented 
+ by means of listeners or callbacks: the dependent component installs a listener to a dependee, 
+ which can be later invoked.
  
 <!--
 Change /svg/... to /uml/... here to view the image UML.
 -->
 ![Components dependency graph](http://www.plantuml.com/plantuml/svg/TP7DJiCm48Jl-nHv0KjG_f68oWytuD1Mt9t4AGOdbfoD46-FwiJRYQnUrflPp-jePZsm3ZnsZdprRMekFlNec68jxWiV6XEAX-ASqlpDrzez-xwrUu8Us9Mm7uP_VVYX-GJcGfYDRfaE1QQNCdqth0VsGUyDGG_ibR0lTk1Wgv5DC_zVfi2zQxatmnbn8yIJ7eoplQ7K07Khr6FRsjxo7wK6g3kXjlMNwJHD1pfy9iXELyvGh0WSCzYyRdTqA3XUqI8FrQXo2bFiZn8ma-rAbH8KMgp2gO4gOsfeBpwAcQ6EBwEUvoO-vmkNayIBuncF4-6NegIRGicMW2vFndYY9C63bc861HQAd9oSmbIo_lWTILgRlXaxzmy0)
 
-The diagram above shows the component dependency diagram and provides an order in which compomnents may be initialized.
+The diagram above shows the component dependency diagram and provides an order in which components may be initialized.
 
 ## Cluster lifecycle
-For a cluster to become operational, the metastorage instance must be initialized first. The initialization command 
-chooses a set of nodes (normally, 3 - 5 nodes) to host the distributed metastorage Raft group. When a node receives the 
-initialization command, it either creates a bootstrapped Raft instance with the given members (if this is a metastorage 
+For a cluster to become operational, the metastorage instance must be initialized first. Upon start, the metastorage
+instance obtains information about the set of nodes hosting the distributed metastorage Raft group by either receiving
+an *initialization command* or polling other nodes in the cluster. When a node receives the information, 
+it either creates a bootstrapped Raft instance with the given members (if this is a metastorage 
 group node), or writes the metastorage group member IDs to the vault as a private system-level property.
 
 After the metastorage is initialized, components start to receive and process watch events, updating the local state 
@@ -76,7 +78,7 @@ that indicates the configuration change ID that was already processed and corres
 metastorage. Whenever a node processes a configuration change, it must also conditionally update the 
 ``internal.configuration.applied`` value checking that the previous value is smaller than the change ID being applied.
 This prevents configuration changes being processed more than once. Any metastorage update that processes configuration
-change must update this key to indicate that this configuraion change has been already processed. It is safe to process
+change must update this key to indicate that this configuration change has been already processed. It is safe to process
 the same configuration change more than once since only one update will be applied. 
 
 ## Reliable watch processing
