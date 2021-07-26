@@ -783,7 +783,7 @@
                         <executions>
                             <execution>
                                 <id>add-generated-source-for-pmd</id>
-                                <phase>none</phase>
+                                <phase>validate</phase>
                                 <goals>
                                     <goal>add-source</goal>
                                 </goals>
@@ -797,7 +797,7 @@
                             </execution>
                             <execution>
                                 <id>add-generated-test-source-for-pmd</id>
-                                <phase>none</phase>
+                                <phase>validate</phase>
                                 <goals>
                                     <goal>add-test-source</goal>
                                 </goals>
@@ -1140,6 +1140,7 @@
                     <rulesets>
                         <ruleset>${project.basedir}/check-rules/pmd-rules.xml</ruleset>
                     </rulesets>
+                    <printFailingErrors>true</printFailingErrors>
                 </configuration>
             </plugin>
 
