@@ -54,7 +54,7 @@ public class TemporalTypesTest {
      */
     @Test
     void testTime() {
-        for (int i =0; i <= 9; i++) {
+        for (int i = 0; i <= 9; i++) {
             checkTime(TemporalNativeType.time(i), LocalTime.MAX.withNano(TemporalTypesHelper.normalizeNanos(LocalTime.MAX.getNano(), i))); // Seconds precision.
             checkTime(TemporalNativeType.time(i), LocalTime.MIN);
         }
