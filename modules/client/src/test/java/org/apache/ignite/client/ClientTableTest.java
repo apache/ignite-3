@@ -24,6 +24,8 @@ import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -65,6 +67,17 @@ public class ClientTableTest extends AbstractClientTest {
         assertEquals(2, resTuple.columnCount());
         assertEquals("id", resTuple.columnName(0));
         assertEquals("name", resTuple.columnName(1));
+
+        var iter = tuple.iterator();
+
+        assertTrue(iter.hasNext());
+        assertEquals(123L, iter.next());
+
+        assertTrue(iter.hasNext());
+        assertEquals("John", iter.next());
+
+        assertFalse(iter.hasNext());
+        assertNull(iter.next());
 
         assertTupleEquals(tuple, resTuple);
     }
