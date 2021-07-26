@@ -107,7 +107,7 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryObject binaryObjectField(String columnName) {
+    @Override public BinaryObject binaryObjectValue(String columnName) {
         throw new IgniteException("Not supported");
     }
 

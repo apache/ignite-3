@@ -26,7 +26,7 @@ import org.apache.ignite.binary.BinaryObject;
  * <p>
  * Provides specialized method for some value-types to avoid boxing/unboxing.
  */
-public interface Tuple extends Iterable<Object> { // TODO: Iterable, index-based typed methods
+public interface Tuple extends Iterable<Object> {
     /**
      * Gets the number of columns in this tuple.
      *
@@ -84,7 +84,15 @@ public interface Tuple extends Iterable<Object> { // TODO: Iterable, index-based
      * @param columnName Column name.
      * @return Column value.
      */
-    BinaryObject binaryObjectField(String columnName);
+    BinaryObject binaryObjectValue(String columnName);
+
+    /**
+     * Gets binary object column.
+     *
+     * @param columnIndex Column index.
+     * @return Column value.
+     */
+    BinaryObject binaryObjectValue(int columnIndex);
 
     /**
      * Gets {@code byte} column value.
@@ -95,12 +103,28 @@ public interface Tuple extends Iterable<Object> { // TODO: Iterable, index-based
     byte byteValue(String columnName);
 
     /**
+     * Gets {@code byte} column value.
+     *
+     * @param columnIndex Column index.
+     * @return Column value.
+     */
+    byte byteValue(int columnIndex);
+
+    /**
      * Gets {@code short} column value.
      *
      * @param columnName Column name.
      * @return Column value.
      */
     short shortValue(String columnName);
+
+    /**
+     * Gets {@code short} column value.
+     *
+     * @param columnIndex Column index.
+     * @return Column value.
+     */
+    short shortValue(int columnIndex);
 
     /**
      * Gets {@code int} column value.
@@ -111,12 +135,28 @@ public interface Tuple extends Iterable<Object> { // TODO: Iterable, index-based
     int intValue(String columnName);
 
     /**
+     * Gets {@code int} column value.
+     *
+     * @param columnIndex Column index.
+     * @return Column value.
+     */
+    int intValue(int columnIndex);
+
+    /**
      * Gets {@code long} column value.
      *
      * @param columnName Column name.
      * @return Column value.
      */
     long longValue(String columnName);
+
+    /**
+     * Gets {@code long} column value.
+     *
+     * @param columnIndex Column index.
+     * @return Column value.
+     */
+    long longValue(int columnIndex);
 
     /**
      * Gets {@code float} column value.
@@ -127,12 +167,28 @@ public interface Tuple extends Iterable<Object> { // TODO: Iterable, index-based
     float floatValue(String columnName);
 
     /**
+     * Gets {@code float} column value.
+     *
+     * @param columnIndex Column index.
+     * @return Column value.
+     */
+    float floatValue(int columnIndex);
+
+    /**
      * Gets {@code double} column value.
      *
      * @param columnName Column name.
      * @return Column value.
      */
     double doubleValue(String columnName);
+
+    /**
+     * Gets {@code double} column value.
+     *
+     * @param columnIndex Column index.
+     * @return Column value.
+     */
+    double doubleValue(int columnIndex);
 
     /**
      * Gets {@code String} column value.
@@ -143,6 +199,14 @@ public interface Tuple extends Iterable<Object> { // TODO: Iterable, index-based
     String stringValue(String columnName);
 
     /**
+     * Gets {@code String} column value.
+     *
+     * @param columnIndex Column index.
+     * @return Column value.
+     */
+    String stringValue(int columnIndex);
+
+    /**
      * Gets {@code UUID} column value.
      *
      * @param columnName Column name.
@@ -151,10 +215,26 @@ public interface Tuple extends Iterable<Object> { // TODO: Iterable, index-based
     UUID uuidValue(String columnName);
 
     /**
+     * Gets {@code UUID} column value.
+     *
+     * @param columnIndex Column index.
+     * @return Column value.
+     */
+    UUID uuidValue(int columnIndex);
+
+    /**
      * Gets {@code BitSet} column value.
      *
      * @param columnName Column name.
      * @return Column value.
      */
     BitSet bitmaskValue(String columnName);
+
+    /**
+     * Gets {@code BitSet} column value.
+     *
+     * @param columnIndex Column index.
+     * @return Column value.
+     */
+    BitSet bitmaskValue(int columnIndex);
 }

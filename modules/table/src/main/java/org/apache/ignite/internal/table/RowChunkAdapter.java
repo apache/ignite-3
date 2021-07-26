@@ -85,7 +85,7 @@ public abstract class RowChunkAdapter implements Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryObject binaryObjectField(String columnName) {
+    @Override public BinaryObject binaryObjectValue(String columnName) {
         Column col = columnByName(columnName);
 
         return BinaryObjects.wrap(row().bytesValue(col.schemaIndex()));

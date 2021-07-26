@@ -78,7 +78,7 @@ public class TestTupleBuilder implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryObject binaryObjectField(String columnName) {
+    @Override public BinaryObject binaryObjectValue(String columnName) {
         byte[] data = value(columnName);
 
         return BinaryObjects.wrap(data);
