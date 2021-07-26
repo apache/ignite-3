@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.configuration.notifications;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Future;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -32,15 +34,19 @@ import org.apache.ignite.configuration.notifications.ConfigurationNotificationEv
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /** */
 public class ConfigurationListenerTest {
@@ -95,7 +101,7 @@ public class ConfigurationListenerTest {
     /** */
     @Test
     public void childNode() throws Exception {
-        List<String> log = new ArrayList<>();
+        List<String> log = new CopyOnWriteArrayList<>();
 
         configuration.listen(ctx -> {
             assertEquals(ctx.oldValue().child().str(), "default");
@@ -138,7 +144,7 @@ public class ConfigurationListenerTest {
     /** */
     @Test
     public void namedListNode() throws Exception {
-        List<String> log = new ArrayList<>();
+        List<String> log = new CopyOnWriteArrayList<>();
 
         configuration.listen(ctx -> {
             log.add("parent");
@@ -160,12 +166,12 @@ public class ConfigurationListenerTest {
                 assertEquals("default", newValue.str());
             }
             else if (ctx.newValue().size() == 0) {
-                ChildView oldValue = ctx.oldValue().get("name");
+                ChildView oldValue = ctx.oldValue().get("newName");
 
                 assertNotNull(oldValue);
                 assertEquals("foo", oldValue.str());
             }
-            else {
+            else if (!ctx.newValue().namedListKeys().contains("newName")) {
                 ChildView oldValue = ctx.oldValue().get("name");
 
                 assertNotNull(oldValue);
@@ -175,6 +181,23 @@ public class ConfigurationListenerTest {
 
                 assertNotNull(newValue);
                 assertEquals("foo", newValue.str());
+            }
+            else {
+                assertEquals(1, ctx.oldValue().size());
+
+                ChildView oldValue = ctx.oldValue().get("name");
+
+                assertNotNull(oldValue);
+                assertEquals("foo", oldValue.str());
+
+                assertEquals(1, ctx.newValue().size());
+
+                ChildView newValue = ctx.newValue().get("newName");
+
+                assertNotNull(newValue);
+                assertEquals("foo", newValue.str());
+
+                assertNotSame(oldValue, newValue); // Sadly, there's no reference equality invariant on rename.
             }
 
             log.add("elements");
@@ -215,6 +238,32 @@ public class ConfigurationListenerTest {
             }
 
             /** {@inheritDoc} */
+            @Override public @NotNull CompletableFuture<?> onRename(
+                String oldName,
+                String newName,
+                ConfigurationNotificationEvent<ChildView> ctx
+            ) {
+                assertEquals("name", oldName);
+                assertEquals("newName", newName);
+
+                ChildView oldValue = ctx.oldValue();
+
+                assertNotNull(oldValue);
+                assertEquals("foo", oldValue.str());
+
+                ChildView newValue = ctx.newValue();
+
+                assertNotNull(newValue);
+                assertEquals("foo", newValue.str());
+
+                assertNotSame(oldValue, newValue);
+
+                log.add("rename");
+
+                return completedFuture(null);
+            }
+
+            /** {@inheritDoc} */
             @Override public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<ChildView> ctx) {
                 assertNull(ctx.newValue());
 
@@ -246,9 +295,66 @@ public class ConfigurationListenerTest {
         log.clear();
 
         configuration.change(parent ->
-            parent.changeElements(elements -> elements.delete("name"))
+            parent.changeElements(elements -> elements.rename("name", "newName"))
+        ).get(1, SECONDS);
+
+        assertEquals(List.of("parent", "elements", "rename"), log);
+
+        log.clear();
+
+        configuration.change(parent ->
+            parent.changeElements(elements -> elements.delete("newName"))
         ).get(1, SECONDS);
 
         assertEquals(List.of("parent", "elements", "delete"), log);
+    }
+
+    /** */
+    @Test
+    @Disabled("Will be fixed in https://issues.apache.org/jira/browse/IGNITE-15193")
+    public void dataRace() throws Exception {
+        configuration.change(parent -> parent.changeElements(elements ->
+            elements.create("name", e -> {}))
+        ).get(1, SECONDS);
+
+        CountDownLatch wait = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+
+        List<String> log = new CopyOnWriteArrayList<>();
+
+        configuration.listen(ctx -> {
+            try {
+                wait.await();
+            }
+            catch (InterruptedException e) {
+                fail(e.getMessage());
+            }
+
+            release.countDown();
+
+            return completedFuture(null);
+        });
+
+        configuration.elements().get("name").listen(ctx -> {
+            assertNull(ctx.newValue());
+
+            log.add("deleted");
+
+            return completedFuture(null);
+        });
+
+        Future<Void> fut = configuration.change(parent -> parent.changeElements(elements ->
+            elements.delete("name"))
+        );
+
+        wait.countDown();
+
+        configuration.elements();
+
+        release.await();
+
+        fut.get(1, SECONDS);
+
+        assertEquals(List.of("deleted"), log);
     }
 }

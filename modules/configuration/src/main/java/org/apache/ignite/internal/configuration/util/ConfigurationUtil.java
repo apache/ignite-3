@@ -263,7 +263,7 @@ public class ConfigurationUtil {
                     assert val == null || val instanceof Map || val instanceof Serializable;
 
                     // Ordering of indexes must be skipped here because they make no sense in this context.
-                    if (key.equals(NamedListNode.ORDER_IDX))
+                    if (key.equals(NamedListNode.ORDER_IDX) || key.equals(NamedListNode.ID))
                         continue;
 
                     if (val == null)
@@ -326,6 +326,11 @@ public class ConfigurationUtil {
                         }
 
                         node.construct(key, new InnerConfigurationSource((Map<String, ?>)val));
+
+                        Object id = ((Map<?, ?>)val).get(NamedListNode.ID);
+
+                        if (id != null)
+                            node.setInternalId(key, id.toString());
                     }
                     else {
                         assert val instanceof Serializable;

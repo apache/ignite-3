@@ -82,7 +82,21 @@ public interface NamedListChange<Change> extends NamedListView<Change> {
     NamedListChange<Change> createOrUpdate(String key, Consumer<Change> valConsumer);
 
     /**
-     * Remove the value from named list configuration.
+     * Renames the existing value in the named list configuration.
+     *
+     * @param oldKey Key for the value to be updated.
+     * @param newKey New key for the same value.
+     * @return {@code this} for chaining.
+     *
+     * @throws NullPointerException If one of parameters is null.
+     * @throws IllegalArgumentException If an element with name {@code newKey} already exists, or an element with name
+     *      {@code oldKey} doesn't exits, or {@link #delete(String)} has been invoked with the either {@code newKey}
+     *      or {@code oldKey} previously.
+     */
+    NamedListChange<Change> rename(String oldKey, String newKey);
+
+    /**
+     * Removes the value from named list configuration.
      *
      * @param key Key for the value to be removed.
      * @return {@code this} for chaining.

@@ -100,8 +100,12 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
         return refreshValue();
     }
 
-    /** {@inheritDoc} */
-    @Override public Map<String, ConfigurationProperty<?, ?>> members() {
+    /**
+     * Children of the tree.
+     *
+     * @return Map from {@code String} to a corresponding {@link ConfigurationProperty}.
+     */
+    public Map<String, ConfigurationProperty<?, ?>> members() {
         return Collections.unmodifiableMap(members);
     }
 }

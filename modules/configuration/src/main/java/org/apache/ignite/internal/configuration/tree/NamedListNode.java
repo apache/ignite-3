@@ -20,10 +20,13 @@ package org.apache.ignite.internal.configuration.tree;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.lang.IgniteBiTuple;
 
 /**
  * Configuration node implementation for the collection of named {@link InnerNode}s. Unlike implementations of
@@ -33,7 +36,10 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
  */
 public final class NamedListNode<N extends InnerNode> implements NamedListChange<N>, TraversableTreeNode, ConstructableTreeNode {
     /** Name of a synthetic configuration property that describes the order of elements in a named list. */
-    public static final String ORDER_IDX = "<idx>";
+    public static final String ORDER_IDX = "<order>";
+
+    /** */
+    public static final String ID = "<id>";
 
     /** Configuration name for the synthetic key. */
     private final String syntheticKeyName;
@@ -42,7 +48,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
     private final Supplier<N> valSupplier;
 
     /** Internal container for named list element. Maps keys to named list elements nodes. */
-    private final OrderedMap<N> map;
+    private final OrderedMap<IgniteBiTuple<String, N>> map;
 
     /**
      * Default constructor.
@@ -80,12 +86,12 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
 
     /** {@inheritDoc} */
     @Override public final N get(String key) {
-        return map.get(key);
+        return Optional.ofNullable(map.get(key)).map(IgniteBiTuple::getValue).orElse(null);
     }
 
     /** {@inheritDoc} */
     @Override public N get(int index) throws IndexOutOfBoundsException {
-        return map.get(index);
+        return Optional.ofNullable(map.get(index)).map(IgniteBiTuple::getValue).orElse(null);
     }
 
     /** {@inheritDoc} */
@@ -102,7 +108,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
 
         N val = valSupplier.get();
 
-        map.put(key, val);
+        map.put(key, new IgniteBiTuple<>(newId(), val));
 
         valConsumer.accept(val);
 
@@ -121,7 +127,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
 
         N val = valSupplier.get();
 
-        map.putByIndex(index, key, val);
+        map.putByIndex(index, key, new IgniteBiTuple<>(newId(), val));
 
         valConsumer.accept(val);
 
@@ -141,7 +147,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
 
         N val = valSupplier.get();
 
-        map.putAfter(precedingKey, key, val);
+        map.putAfter(precedingKey, key, new IgniteBiTuple<>(newId(), val));
 
         valConsumer.accept(val);
 
@@ -156,16 +162,42 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
         if (map.containsKey(key) && map.get(key) == null)
             throw new IllegalArgumentException("You can't create entity that has just been deleted [key=" + key + ']');
 
-        N val = map.get(key);
+        IgniteBiTuple<String, N> pair = map.get(key);
 
-        if (val == null)
-            map.put(key, val = valSupplier.get());
-        else
-            map.put(key, val = (N)val.copy());
+        pair = pair == null
+            ? new IgniteBiTuple<>(newId(), valSupplier.get())
+            : new IgniteBiTuple<>(pair.getKey(), (N)pair.getValue().copy());
 
-        valConsumer.accept(val);
+        map.put(key, pair);
+
+        valConsumer.accept(pair.getValue());
 
         return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override public NamedListChange<N> rename(String oldKey, String newKey) {
+        Objects.requireNonNull(oldKey, "oldKey");
+        Objects.requireNonNull(newKey, "newKey");
+
+        if (!map.containsKey(oldKey))
+            throw new IllegalArgumentException("Element with name " + oldKey + " does not exist.");
+
+        if (map.get(oldKey) == null) {
+            throw new IllegalArgumentException(
+                "You can't rename entity that has just been deleted [key=" + oldKey + ']'
+            );
+        }
+
+        checkNewKey(newKey);
+
+        map.rename(oldKey, newKey);
+
+        return this;
+    }
+
+    private static String newId() {
+        return UUID.randomUUID().toString().replace("-", "");
     }
 
     /**
@@ -201,6 +233,19 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
         return syntheticKeyName;
     }
 
+    public void setInternalId(String key, String id) {
+        IgniteBiTuple<String, N> pair = map.get(key);
+
+        if (pair != null)
+            pair.set1(id);
+    }
+
+    public String internalId(String key) {
+        return Optional.ofNullable(map.get(key)).map(IgniteBiTuple::getKey).orElseThrow(
+            () -> new IllegalArgumentException("Element with name " + key + " does not exist.")
+        );
+    }
+
     /**
      * Deletes named list element.
      *
@@ -222,16 +267,9 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
     /** {@inheritDoc} */
     @Override public void construct(String key, ConfigurationSource src) {
         if (src == null)
-            map.put(key, null);
-        else {
-            N val = map.get(key);
-
-            val = val == null ? valSupplier.get() : (N)val.copy();
-
-            map.put(key, val);
-
-            src.descend(val);
-        }
+            delete(key);
+        else
+            createOrUpdate(key, src::descend);
     }
 
     /** {@inheritDoc} */

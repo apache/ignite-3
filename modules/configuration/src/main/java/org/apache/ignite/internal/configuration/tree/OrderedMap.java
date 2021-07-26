@@ -167,9 +167,13 @@ class OrderedMap<V> {
 
         orderedKeys.set(idx, newKey);
 
+        orderedKeys.add(oldKey);
+
         V value = map.remove(oldKey);
 
         map.put(newKey, value);
+
+        map.put(oldKey, null);
     }
 
     /**

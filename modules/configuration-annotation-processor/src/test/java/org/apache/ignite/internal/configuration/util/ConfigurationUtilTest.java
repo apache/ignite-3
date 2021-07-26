@@ -47,6 +47,7 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -311,9 +312,10 @@ public class ConfigurationUtilTest {
                 )
             ),
             is(allOf(
-                aMapWithSize(2),
+                aMapWithSize(3),
                 hasEntry("root.elements.name.child.str", (Serializable)"foo"),
-                hasEntry("root.elements.name.<idx>", 0)
+                hasEntry("root.elements.name.<order>", 0),
+                hasEntry(is("root.elements.name.<id>"), notNullValue())
             ))
         );
 
@@ -329,9 +331,10 @@ public class ConfigurationUtilTest {
                 .changeElements(elements -> elements.delete("name"))
             ),
             is(allOf(
-                aMapWithSize(2),
+                aMapWithSize(3),
                 hasEntry("root.elements.name.child.str", null),
-                hasEntry("root.elements.name.<idx>", null)
+                hasEntry("root.elements.name.<order>", null),
+                hasEntry("root.elements.name.<id>", null)
             ))
         );
     }

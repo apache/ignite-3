@@ -35,6 +35,18 @@ public interface ConfigurationNamedListListener<VIEW> extends ConfigurationListe
     @NotNull CompletableFuture<?> onCreate(ConfigurationNotificationEvent<VIEW> ctx);
 
     /**
+     * Called when named list element is renamed. Semantically equivalent to
+     * {@link #onUpdate(ConfigurationNotificationEvent)} with the only difference that the content of the element might
+     * not be changed. No separate {@link #onUpdate(ConfigurationNotificationEvent)} call is be performed when
+     *
+     * @param oldName Named, previously assigned to the element.
+     * @param newName New name of the element.
+     * @param ctx Notification context.
+     * @return Future that signifies end of listener execution.
+     */
+    @NotNull CompletableFuture<?> onRename(String oldName, String newName, ConfigurationNotificationEvent<VIEW> ctx);
+
+    /**
      * Called when named list element is deleted.
      *
      * @param ctx Notification context.

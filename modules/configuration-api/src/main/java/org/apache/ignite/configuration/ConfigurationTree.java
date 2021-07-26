@@ -17,7 +17,6 @@
 
 package org.apache.ignite.configuration;
 
-import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
 
@@ -28,13 +27,6 @@ import java.util.function.Consumer;
  * @param <CHANGE> Type of the object that changes this node's value.
  */
 public interface ConfigurationTree<VIEW, CHANGE> extends ConfigurationProperty<VIEW, CHANGE> {
-    /**
-     * Children of the tree.
-     *
-     * @return Map from {@code String} to a corresponding {@link ConfigurationProperty}.
-     */
-    Map<String, ConfigurationProperty<?, ?>> members();
-
     /**
      * Changes this configuration node value.
      *

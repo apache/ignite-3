@@ -21,9 +21,9 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Test with basic {@link OrderedMap} invariants. */
 public class OrderedMapTest {
@@ -125,9 +125,11 @@ public class OrderedMapTest {
 
         assertEquals("value2", map.get("key4"));
 
-        assertFalse(map.containsKey("key2"));
+        assertTrue(map.containsKey("key2"));
 
-        assertEquals(List.of("key1", "key4", "key3"), map.keys());
+        assertNull(map.get("key2"));
+
+        assertEquals(List.of("key1", "key4", "key3", "key2"), map.keys());
     }
 
     /** Tests that {@link OrderedMap#reorderKeys(List)} reorders keys properly. */

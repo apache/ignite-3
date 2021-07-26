@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.configuration.tree;
 
+import java.io.Serializable;
 import java.util.Map;
+import java.util.regex.Pattern;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -26,17 +28,27 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.TestConfigurationChanger;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.anEmptyMap;
+import static org.hamcrest.Matchers.hasEntry;
+import static org.hamcrest.Matchers.hasToString;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /** Test for keys ordering in named list nodes. */
 public class NamedListOrderTest {
+    /** Named list entry od pattern. */
+    private final Pattern idPattern = Pattern.compile("(\\d|\\w){32}");
+
     /** Root that has a single named list. */
     @ConfigurationRoot(rootName = "a")
     public static class AConfigurationSchema {
@@ -94,7 +106,7 @@ public class NamedListOrderTest {
     }
 
     /**
-     * Tests that there are no unnecessary {@code <idx>} values in the storage after all basic named list operations.
+     * Tests that there are no unnecessary {@code <order>} values in the storage after all basic named list operations.
      *
      * @throws Exception If failed.
      */
@@ -103,101 +115,158 @@ public class NamedListOrderTest {
         // Manually instantiate configuration instance.
         var a = (AConfiguration)cgen.instantiateCfg(AConfiguration.KEY, changer);
 
-        // Create values on several layers at the same time. They all should have <idx> = 0.
+        // Create values on several layers at the same time. They all should have <order> = 0.
         a.b().change(b -> b.create("X", x -> x.changeB(xb -> xb.create("Z0", z0 -> {})))).get();
 
-        assertEquals(
-            Map.of(
-                "a.b.X.c", "foo",
-                "a.b.X.<idx>", 0,
-                "a.b.X.b.Z0.c", "foo",
-                "a.b.X.b.Z0.<idx>", 0
-            ),
-            storage.readAll().values()
+        Map<String, Serializable> storageValues = storage.readAll().values();
+
+        assertThat(
+            storageValues,
+            is(Matchers.<Map<String, Serializable>>allOf(
+                aMapWithSize(6),
+                hasEntry("a.b.X.c", "foo"),
+                hasEntry("a.b.X.<order>", 0),
+                hasEntry(is("a.b.X.<id>"), hasToString(matchesPattern(idPattern))),
+                hasEntry("a.b.X.b.Z0.c", "foo"),
+                hasEntry("a.b.X.b.Z0.<order>", 0),
+                hasEntry(is("a.b.X.b.Z0.<id>"), hasToString(matchesPattern(idPattern)))
+            ))
         );
+
+        String xId = (String)storageValues.get("a.b.X.<id>");
+        String z0Id = (String)storageValues.get("a.b.X.b.Z0.<id>");
 
         BConfiguration x = a.b().get("X");
 
-        // Append new key. It should have <idx> = 1.
+        // Append new key. It should have <order> = 1.
         x.b().change(xb -> xb.create("Z5", z5 -> {})).get();
 
-        assertEquals(
-            Map.of(
-                "a.b.X.c", "foo",
-                "a.b.X.<idx>", 0,
-                "a.b.X.b.Z0.c", "foo",
-                "a.b.X.b.Z0.<idx>", 0,
-                "a.b.X.b.Z5.c", "foo",
-                "a.b.X.b.Z5.<idx>", 1
-            ),
-            storage.readAll().values()
+        storageValues = storage.readAll().values();
+
+        assertThat(
+            storageValues,
+            is(Matchers.<Map<String, Serializable>>allOf(
+                aMapWithSize(9),
+                hasEntry("a.b.X.c", "foo"),
+                hasEntry("a.b.X.<order>", 0),
+                hasEntry(is("a.b.X.<id>"), is(xId)),
+                hasEntry("a.b.X.b.Z0.c", "foo"),
+                hasEntry("a.b.X.b.Z0.<order>", 0),
+                hasEntry(is("a.b.X.b.Z0.<id>"), is(z0Id)),
+                hasEntry("a.b.X.b.Z5.c", "foo"),
+                hasEntry( "a.b.X.b.Z5.<order>", 1),
+                hasEntry(is("a.b.X.b.Z5.<id>"), hasToString(matchesPattern(idPattern)))
+            ))
         );
+
+        String z5Id = (String)storageValues.get("a.b.X.b.Z5.<id>");
 
         // Insert new key somewhere in the middle. Index of Z5 should be updated to 2.
         x.b().change(xb -> xb.create(1, "Z2", z2 -> {})).get();
 
-        assertEquals(
-            Map.of(
-                "a.b.X.c", "foo",
-                "a.b.X.<idx>", 0,
-                "a.b.X.b.Z0.c", "foo",
-                "a.b.X.b.Z0.<idx>", 0,
-                "a.b.X.b.Z2.c", "foo",
-                "a.b.X.b.Z2.<idx>", 1,
-                "a.b.X.b.Z5.c", "foo",
-                "a.b.X.b.Z5.<idx>", 2
-            ),
-            storage.readAll().values()
+        storageValues = storage.readAll().values();
+
+        assertThat(
+            storageValues,
+            is(Matchers.<Map<String, Serializable>>allOf(
+                aMapWithSize(12),
+                hasEntry("a.b.X.c", "foo"),
+                hasEntry("a.b.X.<order>", 0),
+                hasEntry(is("a.b.X.<id>"), is(xId)),
+                hasEntry("a.b.X.b.Z0.c", "foo"),
+                hasEntry("a.b.X.b.Z0.<order>", 0),
+                hasEntry(is("a.b.X.b.Z0.<id>"), is(z0Id)),
+                hasEntry("a.b.X.b.Z2.c", "foo"),
+                hasEntry("a.b.X.b.Z2.<order>", 1),
+                hasEntry(is("a.b.X.b.Z2.<id>"), hasToString(matchesPattern(idPattern))),
+                hasEntry("a.b.X.b.Z5.c", "foo"),
+                hasEntry( "a.b.X.b.Z5.<order>", 2),
+                hasEntry(is("a.b.X.b.Z5.<id>"), is(z5Id))
+            ))
         );
+
+        String z2Id = (String)storageValues.get("a.b.X.b.Z2.<id>");
 
         // Insert new key somewhere in the middle. Indexes of Z3 and Z5 should be updated to 2 and 3.
         x.b().change(xb -> xb.createAfter("Z2", "Z3", z3 -> {})).get();
 
-        assertEquals(
-            Map.of(
-                "a.b.X.c", "foo",
-                "a.b.X.<idx>", 0,
-                "a.b.X.b.Z0.c", "foo",
-                "a.b.X.b.Z0.<idx>", 0,
-                "a.b.X.b.Z2.c", "foo",
-                "a.b.X.b.Z2.<idx>", 1,
-                "a.b.X.b.Z3.c", "foo",
-                "a.b.X.b.Z3.<idx>", 2,
-                "a.b.X.b.Z5.c", "foo",
-                "a.b.X.b.Z5.<idx>", 3
-            ),
-            storage.readAll().values()
+        storageValues = storage.readAll().values();
+
+        assertThat(
+            storageValues,
+            is(Matchers.<Map<String, Serializable>>allOf(
+                aMapWithSize(15),
+                hasEntry("a.b.X.c", "foo"),
+                hasEntry("a.b.X.<order>", 0),
+                hasEntry(is("a.b.X.<id>"), is(xId)),
+                hasEntry("a.b.X.b.Z0.c", "foo"),
+                hasEntry("a.b.X.b.Z0.<order>", 0),
+                hasEntry(is("a.b.X.b.Z0.<id>"), is(z0Id)),
+                hasEntry("a.b.X.b.Z2.c", "foo"),
+                hasEntry("a.b.X.b.Z2.<order>", 1),
+                hasEntry(is("a.b.X.b.Z2.<id>"), is(z2Id)),
+                hasEntry("a.b.X.b.Z3.c", "foo"),
+                hasEntry("a.b.X.b.Z3.<order>", 2),
+                hasEntry(is("a.b.X.b.Z3.<id>"), hasToString(matchesPattern(idPattern))),
+                hasEntry("a.b.X.b.Z5.c", "foo"),
+                hasEntry( "a.b.X.b.Z5.<order>", 3),
+                hasEntry(is("a.b.X.b.Z5.<id>"), is(z5Id))
+            ))
         );
 
-        // Delete key from the middle. Indexes of Z3 and Z5 should be updated to 1 and 2.
-        x.b().change(xb -> xb.delete("Z2")).get();
+        String z3Id = (String)storageValues.get("a.b.X.b.Z3.<id>");
 
-        assertEquals(
-            Map.of(
-                "a.b.X.c", "foo",
-                "a.b.X.<idx>", 0,
-                "a.b.X.b.Z0.c", "foo",
-                "a.b.X.b.Z0.<idx>", 0,
-                "a.b.X.b.Z3.c", "foo",
-                "a.b.X.b.Z3.<idx>", 1,
-                "a.b.X.b.Z5.c", "foo",
-                "a.b.X.b.Z5.<idx>", 2
-            ),
-            storage.readAll().values()
+        // Delete keys from the middle. Indexes of Z3 should be updated to 1.
+        x.b().change(xb -> xb.delete("Z2").delete("Z5")).get();
+
+        storageValues = storage.readAll().values();
+
+        assertThat(
+            storageValues,
+            is(Matchers.<Map<String, Serializable>>allOf(
+                aMapWithSize(9),
+                hasEntry("a.b.X.c", "foo"),
+                hasEntry("a.b.X.<order>", 0),
+                hasEntry(is("a.b.X.<id>"), is(xId)),
+                hasEntry("a.b.X.b.Z0.c", "foo"),
+                hasEntry("a.b.X.b.Z0.<order>", 0),
+                hasEntry(is("a.b.X.b.Z0.<id>"), is(z0Id)),
+                hasEntry("a.b.X.b.Z3.c", "foo"),
+                hasEntry("a.b.X.b.Z3.<order>", 1),
+                hasEntry(is("a.b.X.b.Z3.<id>"), is(z3Id))
+            ))
+        );
+
+        // Delete keys from the middle. Indexes of Z3 should be updated to 1.
+        x.b().change(xb -> xb.rename("Z0", "Z1")).get();
+
+        storageValues = storage.readAll().values();
+
+        assertThat(
+            storageValues,
+            is(Matchers.<Map<String, Serializable>>allOf(
+                aMapWithSize(9),
+                hasEntry("a.b.X.c", "foo"),
+                hasEntry("a.b.X.<order>", 0),
+                hasEntry(is("a.b.X.<id>"), is(xId)),
+                hasEntry("a.b.X.b.Z1.c", "foo"),
+                hasEntry("a.b.X.b.Z1.<order>", 0),
+                hasEntry(is("a.b.X.b.Z1.<id>"), is(z0Id)),
+                hasEntry("a.b.X.b.Z3.c", "foo"),
+                hasEntry("a.b.X.b.Z3.<order>", 1),
+                hasEntry(is("a.b.X.b.Z3.<id>"), is(z3Id))
+            ))
         );
 
         // Delete values on several layers simultaneously. Storage must be empty after that.
         a.b().change(b -> b.delete("X")).get();
 
-        assertEquals(
-            Map.of(),
-            storage.readAll().values()
-        );
+        assertThat(storage.readAll().values(), is(anEmptyMap()));
     }
 
     /** Tests exceptions described in methods signatures. */
     @Test
-    public void creationErrors() throws Exception {
+    public void errors() throws Exception {
         // Manually instantiate configuration instance.
         var a = (AConfiguration)cgen.instantiateCfg(AConfiguration.KEY, changer);
 
@@ -212,6 +281,9 @@ public class NamedListOrderTest {
         assertThrows(NullPointerException.class, () -> b.create(0, null, z -> {}));
         assertThrows(NullPointerException.class, () -> b.createAfter(null, "Z", z -> {}));
         assertThrows(NullPointerException.class, () -> b.createAfter("X", null, z -> {}));
+        assertThrows(NullPointerException.class, () -> b.rename(null, "Z"));
+        assertThrows(NullPointerException.class, () -> b.rename("X", null));
+        assertThrows(NullPointerException.class, () -> b.delete(null));
 
         // NPE in closures.
         assertThrows(NullPointerException.class, () -> b.create("Z", null));
@@ -223,6 +295,7 @@ public class NamedListOrderTest {
         assertThrows(IllegalArgumentException.class, () -> b.create("X", x -> {}));
         assertThrows(IllegalArgumentException.class, () -> b.create(0, "X", x -> {}));
         assertThrows(IllegalArgumentException.class, () -> b.createAfter("X", "Y", y -> {}));
+        assertThrows(IllegalArgumentException.class, () -> b.rename("X", "Y"));
 
         // Nonexistent preceding key.
         assertThrows(IllegalArgumentException.class, () -> b.createAfter("A", "Z", z -> {}));
@@ -231,9 +304,18 @@ public class NamedListOrderTest {
         assertThrows(IndexOutOfBoundsException.class, () -> b.create(-1, "Z", z -> {}));
         assertThrows(IndexOutOfBoundsException.class, () -> b.create(3, "Z", z -> {}));
 
-        // Create after delete.
+        // Nonexisting key.
+        assertThrows(IllegalArgumentException.class, () -> b.rename("A", "Z"));
+
+        // Operations after delete.
         b.delete("X");
         assertThrows(IllegalArgumentException.class, () -> b.create("X", x -> {}));
         assertThrows(IllegalArgumentException.class, () -> b.create(0, "X", x -> {}));
+        assertThrows(IllegalArgumentException.class, () -> b.rename("X", "Z"));
+        assertThrows(IllegalArgumentException.class, () -> b.rename("Y", "X"));
+
+        // Deletion of nonexistent elements doesn't break enything.
+        b.delete("X");
+        b.delete("Y");
     }
 }

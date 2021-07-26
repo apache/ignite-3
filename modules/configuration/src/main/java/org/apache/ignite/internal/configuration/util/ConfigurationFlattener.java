@@ -183,6 +183,15 @@ public class ConfigurationFlattener {
                         resMap.put(orderKey, deletion || newNamedElement == null ? null : newIdx);
                     }
 
+                    // If it's creation / deletion / rename.
+                    if (singleTreeTraversal || oldNamedElement == null || newNamedElement == null
+                        || !oldNode.internalId(namedListKey).equals(newNode.internalId(namedListKey))
+                    ) {
+                        String idKey = currentKey() + NamedListNode.ID;
+
+                        resMap.put(idKey, deletion || newNamedElement == null ? null : newNode.internalId(namedListKey));
+                    }
+
                     return null;
                 });
             }
