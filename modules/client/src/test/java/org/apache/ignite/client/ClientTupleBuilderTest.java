@@ -130,11 +130,9 @@ public class ClientTupleBuilderTest {
                 new ClientColumn("i64", ClientDataType.INT64, false, false, 3),
                 new ClientColumn("float", ClientDataType.FLOAT, false, false, 4),
                 new ClientColumn("double", ClientDataType.DOUBLE, false, false, 5),
-                new ClientColumn("decimal", ClientDataType.DECIMAL, false, false, 6),
-                new ClientColumn("uuid", ClientDataType.UUID, false, false, 7),
-                new ClientColumn("str", ClientDataType.STRING, false, false, 8),
-                new ClientColumn("bytes", ClientDataType.BYTES, false, false, 9),
-                new ClientColumn("bits", ClientDataType.BITMASK, false, false, 10),
+                new ClientColumn("uuid", ClientDataType.UUID, false, false, 6),
+                new ClientColumn("str", ClientDataType.STRING, false, false, 7),
+                new ClientColumn("bits", ClientDataType.BITMASK, false, false, 8),
         });
 
         var uuid = UUID.randomUUID();
@@ -146,16 +144,38 @@ public class ClientTupleBuilderTest {
                 .set("i64", (long)4)
                 .set("float", (float)5.5)
                 .set("double", (double)6.6)
-                .set("decimal", new BigDecimal("7.7"))
                 .set("uuid", uuid)
                 .set("str", "8")
-                .set("bytes", new byte[]{9})
                 .set("bits", new BitSet(3));
 
         var tuple = builder.build();
 
         assertEquals(1, tuple.byteValue(0));
         assertEquals(1, tuple.byteValue("i8"));
+
+        assertEquals(2, tuple.shortValue(1));
+        assertEquals(2, tuple.shortValue("i16"));
+
+        assertEquals(3, tuple.intValue(2));
+        assertEquals(3, tuple.intValue("i32"));
+
+        assertEquals(4, tuple.longValue(3));
+        assertEquals(4, tuple.longValue("i64"));
+
+        assertEquals(5.5, tuple.floatValue(4));
+        assertEquals(5.5, tuple.floatValue("float"));
+
+        assertEquals(6.6, tuple.doubleValue(5));
+        assertEquals(6.6, tuple.doubleValue("double"));
+
+        assertEquals(uuid, tuple.uuidValue(6));
+        assertEquals(uuid, tuple.uuidValue("uuid"));
+
+        assertEquals("8", tuple.stringValue(7));
+        assertEquals("8", tuple.stringValue("str"));
+
+        assertEquals(0, tuple.bitmaskValue(8).length());
+        assertEquals(0, tuple.bitmaskValue("bits").length());
     }
 
     private static ClientTupleBuilder getBuilder() {
