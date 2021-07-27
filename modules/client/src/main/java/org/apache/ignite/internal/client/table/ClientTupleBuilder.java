@@ -65,9 +65,12 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
 
     /** {@inheritDoc} */
     @Override public <T> T valueOrDefault(String columnName, T def) {
-        T res = value(columnName);
+        var col = schema.columnSafe(columnName);
 
-        return res == null ? def : res;
+        if (col == null)
+            return def;
+
+        return (T)vals[col.schemaIndex()];
     }
 
     /** {@inheritDoc} */
