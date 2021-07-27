@@ -51,7 +51,7 @@ public interface Tuple extends Iterable<Object> {
     Integer columnIndex(String columnName);
 
     /**
-     * Returns {@code true} if this tuple contains a column with the specified name.
+     * Gets column value when a column with specified name is present in this tuple; returns default value otherwise.
      *
      * @param columnName Column name.
      * @param def Default value.
