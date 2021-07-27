@@ -114,6 +114,16 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
                 connectionManager.stop();
             }
 
+            /** {@inheritDoc} */
+            @Override public void beforeNodeStop() {
+                stop();
+            }
+
+            /** {@inheritDoc} */
+            @Override public boolean isStopped() {
+                return cluster.isShutdown();
+            }
+
             /**
              * Removes the JMX MBean registered by the "io.scalecube.cluster.ClusterImpl#startJmxMonitor()" method.
              * Current ScaleCube implementation does not do that which leads to memory leaks.

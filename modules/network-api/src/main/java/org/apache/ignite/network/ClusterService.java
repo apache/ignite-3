@@ -39,7 +39,15 @@ public interface ClusterService extends IgniteComponent {
      */
     ClusterLocalConfiguration localConfiguration();
 
+    /** {@inheritDoc} */
     @Override default void stop() {
         // TODO: IGNITE-15161 Implement component's stop.
     }
+
+    /**
+     * Checks whether cluster service was stopped.
+     *
+     * @return {@code true} if cluster service is stopped, {@code false} otherwise.
+     */
+    public boolean isStopped();
 }

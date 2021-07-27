@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import com.google.common.collect.Lists;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -79,7 +80,7 @@ class IgnitionTest {
     /** */
     @AfterEach
     void tearDown() {
-        startedNodes.stream().map(Ignite::name).forEach(IgnitionManager::stop);
+        Lists.reverse(startedNodes).stream().map(Ignite::name).forEach(IgnitionManager::stop);
     }
 
     /**
