@@ -36,8 +36,8 @@ public class TestTupleBuilder implements TupleBuilder, Tuple {
     private final Map<String, Object> map = new HashMap<>();
 
     /** {@inheritDoc} */
-    @Override public TestTupleBuilder set(String colName, Object value) {
-        map.put(colName, value);
+    @Override public TestTupleBuilder set(String columnName, Object value) {
+        map.put(columnName, value);
 
         return this;
     }

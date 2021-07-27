@@ -50,9 +50,9 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override public TupleBuilder set(String colName, Object value) {
+    @Override public TupleBuilder set(String columnName, Object value) {
         // TODO: Live schema support IGNITE-15194
-        var col = schema.column(colName);
+        var col = schema.column(columnName);
 
         vals[col.schemaIndex()] = value;
 
@@ -223,6 +223,16 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
                 return cur < vals.length ? vals[cur++] : null;
             }
         };
+    }
+
+    /**
+     * Sets column value by index.
+     *
+     * @param columnIndex Column index.
+     * @param value Value to set.
+     */
+    public void setInternal(int columnIndex, Object value) {
+        vals[columnIndex] = value;
     }
 
     private void validateColumnIndex(int columnIndex) {

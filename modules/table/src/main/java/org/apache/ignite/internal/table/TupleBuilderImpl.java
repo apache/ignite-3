@@ -55,15 +55,15 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
-    @Override public TupleBuilder set(String colName, Object val) {
-        Column col = schema().column(colName);
+    @Override public TupleBuilder set(String columnName, Object val) {
+        Column col = schema().column(columnName);
 
         if (col == null)
-            throw new ColumnNotFoundException("Column not found [col=" + colName + "schema=" + schemaDesc + ']');
+            throw new ColumnNotFoundException("Column not found [col=" + columnName + "schema=" + schemaDesc + ']');
 
         col.validate(val);
 
-        map.put(colName, val);
+        map.put(columnName, val);
 
         return this;
     }

@@ -427,7 +427,7 @@ public class ClientTable implements Table {
 
         try {
             for (var col : schema.columns())
-                builder.set(col.name(), r.in().unpackObject(col.type()));
+                builder.setInternal(col.schemaIndex(), r.in().unpackObject(col.type()));
         } catch (IOException e) {
             throw new CompletionException(e);
         }
