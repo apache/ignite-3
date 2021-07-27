@@ -232,6 +232,7 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
      * @param value Value to set.
      */
     public void setInternal(int columnIndex, Object value) {
+        // Do not validate column index for internal needs.
         vals[columnIndex] = value;
     }
 

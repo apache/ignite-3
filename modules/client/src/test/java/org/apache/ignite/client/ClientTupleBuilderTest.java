@@ -22,6 +22,7 @@ import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.client.table.ClientTupleBuilder;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 public class ClientTupleBuilderTest {
     private static final ClientSchema SCHEMA = new ClientSchema(1, new ClientColumn[]{
-            new ClientColumn("id", ClientDataType.UUID, false, true, 0),
+            new ClientColumn("id", ClientDataType.INT64, false, true, 0),
             new ClientColumn("name", ClientDataType.STRING, false, false, 1),
             new ClientColumn("size", ClientDataType.INT32, true, false, 2)
     });
@@ -58,15 +59,37 @@ public class ClientTupleBuilderTest {
         assertEquals("Column index can't be greater than 2", ex2.getMessage());
     }
 
-    @Test public void testValueOrDefaultReturnsDefaultWhenColumnIsNotPresent() {
+    @Test
+    public void testValueOrDefaultReturnsDefaultWhenColumnIsNotPresent() {
         assertEquals("foo", getBuilder().valueOrDefault("x", "foo"));
     }
 
-    @Test public void testValueOrDefaultReturnsNullWhenColumnIsPresentButNotSet() {
+    @Test
+    public void testValueOrDefaultReturnsNullWhenColumnIsPresentButNotSet() {
         assertNull(getBuilder().valueOrDefault("name", "foo"));
+    }
+
+    @Test
+    public void testColumnCountReturnsSchemaSize() {
+        assertEquals(SCHEMA.columns().length, getTuple().columnCount());
+    }
+
+    @Test
+    public void testColumnNameReturnsNameByIndex() {
+        assertEquals("id", getTuple().columnName(0));
+        assertEquals("name", getTuple().columnName(1));
+        assertEquals("size", getTuple().columnName(2));
     }
 
     private static ClientTupleBuilder getBuilder() {
         return new ClientTupleBuilder(SCHEMA);
+    }
+
+    private static Tuple getTuple() {
+        return new ClientTupleBuilder(SCHEMA)
+                .set("id", 3L)
+                .set("name", "Shirt")
+                .set("size", 99)
+                .build();
     }
 }
