@@ -44,8 +44,8 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/** Test for keys ordering in named list nodes. */
-public class NamedListOrderTest {
+/** Test for named list nodes. */
+public class NamedListTest {
     /** Named list entry od pattern. */
     private final Pattern idPattern = Pattern.compile("(\\d|\\w){32}");
 
