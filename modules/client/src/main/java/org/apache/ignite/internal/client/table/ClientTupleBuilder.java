@@ -42,7 +42,8 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
      * @param schema Schema.
      */
     public ClientTupleBuilder(ClientSchema schema) {
-        assert schema != null;
+        assert schema != null : "Schema can't be null.";
+        assert schema.columns().length > 0 : "Schema can't be empty.";
 
         this.schema = schema;
         this.vals = new Object[schema.columns().length];

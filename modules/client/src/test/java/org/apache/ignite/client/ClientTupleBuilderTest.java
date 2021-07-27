@@ -17,9 +17,47 @@
 
 package org.apache.ignite.client;
 
+import org.apache.ignite.client.proto.ClientDataType;
+import org.apache.ignite.internal.client.table.ClientColumn;
+import org.apache.ignite.internal.client.table.ClientSchema;
+import org.apache.ignite.internal.client.table.ClientTupleBuilder;
+import org.apache.ignite.lang.IgniteException;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 /**
  * Tests client tuple builder implementation.
  */
 public class ClientTupleBuilderTest {
-    // TODO
+    private static final ClientSchema SCHEMA = new ClientSchema(1, new ClientColumn[]{
+            new ClientColumn("id", ClientDataType.UUID, false, true, 0),
+            new ClientColumn("name", ClientDataType.STRING, false, false, 1),
+            new ClientColumn("size", ClientDataType.INT32, true, false, 2)
+    });
+
+    @Test
+    public void testEmptySchemaThrows() {
+        assertThrows(AssertionError.class, () -> new ClientTupleBuilder(new ClientSchema(1, new ClientColumn[0])));
+    }
+
+    @Test
+    public void testInvalidColumnSetThrows() {
+        var ex = assertThrows(IgniteException.class, () -> getBuilder().set("x", "y"));
+        assertEquals("Column is not present in schema: x", ex.getMessage());
+    }
+
+    @Test public void testValueOrDefaultReturnsDefaultWhenColumnIsNotPresent() {
+        assertEquals("foo", getBuilder().valueOrDefault("x", "foo"));
+    }
+
+    @Test public void testValueOrDefaultReturnsNullWhenColumnIsPresentButNotSet() {
+        assertNull(getBuilder().valueOrDefault("name", "foo"));
+    }
+
+    private static ClientTupleBuilder getBuilder() {
+        return new ClientTupleBuilder(SCHEMA);
+    }
 }
