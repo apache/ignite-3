@@ -102,7 +102,7 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
 
     /** {@inheritDoc} */
     @Override public Integer columnIndex(String columnName) {
-        var col = schema.column(columnName);
+        var col = schema.columnSafe(columnName);
 
         return col == null ? null : col.schemaIndex();
     }

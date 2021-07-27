@@ -81,6 +81,24 @@ public class ClientTupleBuilderTest {
         assertEquals("size", getTuple().columnName(2));
     }
 
+    @Test
+    public void testColumnNameThrowsOnInvalidIndex() {
+        var ex = assertThrows(IllegalArgumentException.class, () -> getTuple().columnName(-1));
+        assertEquals("Column index can't be negative", ex.getMessage());
+    }
+
+    @Test
+    public void testColumnIndexReturnsIndexByName() {
+        assertEquals(0, getTuple().columnIndex("id"));
+        assertEquals(1, getTuple().columnIndex("name"));
+        assertEquals(2, getTuple().columnIndex("size"));
+    }
+
+    @Test
+    public void testColumnIndexReturnsNullForMissingColumns() {
+        assertNull(getTuple().columnIndex("foo"));
+    }
+
     private static ClientTupleBuilder getBuilder() {
         return new ClientTupleBuilder(SCHEMA);
     }
