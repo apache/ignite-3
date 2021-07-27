@@ -50,6 +50,7 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
 
     /** {@inheritDoc} */
     @Override public TupleBuilder set(String colName, Object value) {
+        // TODO: Live schema support IGNITE-15194
         var col = schema.column(colName);
 
         vals[col.schemaIndex()] = value;
