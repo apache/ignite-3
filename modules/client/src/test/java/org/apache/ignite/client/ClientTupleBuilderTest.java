@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client;
 
-import java.math.BigDecimal;
 import java.util.BitSet;
 import java.util.UUID;
 
