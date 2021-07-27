@@ -59,6 +59,7 @@ import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -139,7 +140,7 @@ public class TableManagerTest {
 
     /** Before all test scenarios. */
     @BeforeEach
-    private void before() {
+    private void setUp() {
         try {
             cfrMgr = new ConfigurationManager(rootConfigurationKeys(), Arrays.asList(
                 new TestConfigurationStorage(ConfigurationType.LOCAL),
@@ -199,6 +200,12 @@ public class TableManagerTest {
 
             fail("Failed to configure manager [err=" + e.getMessage() + ']');
         }
+    }
+
+    /** Stop configuration manager. */
+    @AfterEach
+    private void tearDown() {
+        cfrMgr.stop();
     }
 
     /**
@@ -442,64 +449,71 @@ public class TableManagerTest {
 
         TableManager tableManager = new TableManager(cfrMgr, mm, sm, am, rm);
 
-        tableManager.start();
+        TableImpl tbl2;
 
-        tblManagerFut.complete(tableManager);
+        try {
+            tableManager.start();
 
-        when(mm.range(eq(new ByteArray(PUBLIC_PREFIX)), any())).thenAnswer(invocation -> {
-            Cursor<Entry> cursor = mock(Cursor.class);
-
-            when(cursor.hasNext()).thenReturn(false);
-
-            return cursor;
-        });
-
-        int tablesBeforeCreation = tableManager.tables().size();
-
-        cfrMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().listen(ctx -> {
-            boolean createTbl = ctx.newValue().get(schemaTable.canonicalName()) != null &&
-                ctx.oldValue().get(schemaTable.canonicalName()) == null;
-
-            boolean dropTbl = ctx.oldValue().get(schemaTable.canonicalName()) != null &&
-                ctx.newValue().get(schemaTable.canonicalName()) == null;
-
-            if (!createTbl && !dropTbl)
-                return CompletableFuture.completedFuture(null);
-
-            tableCreatedFlag.set(createTbl);
+            tblManagerFut.complete(tableManager);
 
             when(mm.range(eq(new ByteArray(PUBLIC_PREFIX)), any())).thenAnswer(invocation -> {
-                AtomicBoolean firstRecord = new AtomicBoolean(createTbl);
-
                 Cursor<Entry> cursor = mock(Cursor.class);
 
-                when(cursor.hasNext()).thenAnswer(hasNextInvocation ->
-                    firstRecord.compareAndSet(true, false));
-
-                Entry mockEntry = mock(Entry.class);
-
-                when(mockEntry.key()).thenReturn(new ByteArray(PUBLIC_PREFIX +
-                    ConfigurationUtil.escape(schemaTable.canonicalName()) + ".name"));
-
-                when(cursor.next()).thenReturn(mockEntry);
+                when(cursor.hasNext()).thenReturn(false);
 
                 return cursor;
             });
 
-            if (phaser != null)
-                phaser.arriveAndAwaitAdvance();
+            int tablesBeforeCreation = tableManager.tables().size();
 
-            return CompletableFuture.completedFuture(null);
-        });
+            cfrMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().listen(ctx -> {
+                boolean createTbl = ctx.newValue().get(schemaTable.canonicalName()) != null &&
+                    ctx.oldValue().get(schemaTable.canonicalName()) == null;
 
-        TableImpl tbl2 = (TableImpl)tableManager.createTable(schemaTable.canonicalName(), tblCh -> SchemaConfigurationConverter.convert(schemaTable, tblCh)
-            .changeReplicas(1)
-            .changePartitions(10)
-        );
+                boolean dropTbl = ctx.oldValue().get(schemaTable.canonicalName()) != null &&
+                    ctx.newValue().get(schemaTable.canonicalName()) == null;
 
-        assertNotNull(tbl2);
+                if (!createTbl && !dropTbl)
+                    return CompletableFuture.completedFuture(null);
 
-        assertEquals(tablesBeforeCreation + 1, tableManager.tables().size());
+                tableCreatedFlag.set(createTbl);
+
+                when(mm.range(eq(new ByteArray(PUBLIC_PREFIX)), any())).thenAnswer(invocation -> {
+                    AtomicBoolean firstRecord = new AtomicBoolean(createTbl);
+
+                    Cursor<Entry> cursor = mock(Cursor.class);
+
+                    when(cursor.hasNext()).thenAnswer(hasNextInvocation ->
+                        firstRecord.compareAndSet(true, false));
+
+                    Entry mockEntry = mock(Entry.class);
+
+                    when(mockEntry.key()).thenReturn(new ByteArray(PUBLIC_PREFIX +
+                        ConfigurationUtil.escape(schemaTable.canonicalName()) + ".name"));
+
+                    when(cursor.next()).thenReturn(mockEntry);
+
+                    return cursor;
+                });
+
+                if (phaser != null)
+                    phaser.arriveAndAwaitAdvance();
+
+                return CompletableFuture.completedFuture(null);
+            });
+
+            tbl2 = (TableImpl)tableManager.createTable(schemaTable.canonicalName(), tblCh -> SchemaConfigurationConverter.convert(schemaTable, tblCh)
+                .changeReplicas(1)
+                .changePartitions(10)
+            );
+
+            assertNotNull(tbl2);
+
+            assertEquals(tablesBeforeCreation + 1, tableManager.tables().size());
+        }
+        finally {
+            tableManager.stop();
+        }
 
         return tbl2;
     }

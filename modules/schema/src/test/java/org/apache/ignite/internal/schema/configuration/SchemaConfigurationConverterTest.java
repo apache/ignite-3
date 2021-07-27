@@ -39,6 +39,7 @@ import org.apache.ignite.schema.builder.PartialIndexBuilder;
 import org.apache.ignite.schema.builder.PrimaryIndexBuilder;
 import org.apache.ignite.schema.builder.SchemaTableBuilder;
 import org.apache.ignite.schema.builder.SortedIndexBuilder;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -88,6 +89,11 @@ public class SchemaConfigurationConverterTest {
                     .changeTables(tblsCh -> tblsCh.createOrUpdate(tbl.canonicalName(),
                         tblCh -> tblCh.changeReplicas(1)));
             }).get();
+    }
+
+    @AfterEach
+    private void tearDown() {
+        confRegistry.stop();
     }
 
     /**

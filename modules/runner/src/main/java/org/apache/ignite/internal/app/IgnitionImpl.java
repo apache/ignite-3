@@ -429,11 +429,11 @@ public class IgnitionImpl implements Ignition {
      * @param startedComponents List of already started components for given node.
      */
     private static void doStopNode(@NotNull String nodeName, @NotNull List<IgniteComponent> startedComponents) {
-        ListIterator<IgniteComponent> componentsonNodeStopIter =
+        ListIterator<IgniteComponent> beforeStopIter =
             startedComponents.listIterator(startedComponents.size() - 1);
 
-        while (componentsonNodeStopIter.hasPrevious()) {
-            IgniteComponent componentToExecuteBeforeNodeStop = componentsonNodeStopIter.previous();
+        while (beforeStopIter.hasPrevious()) {
+            IgniteComponent componentToExecuteBeforeNodeStop = beforeStopIter.previous();
 
             try {
                 componentToExecuteBeforeNodeStop.beforeNodeStop();
@@ -444,11 +444,11 @@ public class IgnitionImpl implements Ignition {
             }
         }
 
-        ListIterator<IgniteComponent> componentsStopIter =
+        ListIterator<IgniteComponent> stopIter =
             startedComponents.listIterator(startedComponents.size() - 1);
 
-        while (componentsStopIter.hasPrevious()) {
-            IgniteComponent componentToStop = componentsStopIter.previous();
+        while (stopIter.hasPrevious()) {
+            IgniteComponent componentToStop = stopIter.previous();
 
             try {
                 componentToStop.stop();

@@ -20,7 +20,7 @@ package org.apache.ignite.lang;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Node stopping internal checked exception.
+ * This exception is used in order to indicate that Ignite node is stopping (already stopped) for some reason.
  */
 public class NodeStoppingException extends IgniteInternalCheckedException {
     /** Serial version UID. */
@@ -30,7 +30,7 @@ public class NodeStoppingException extends IgniteInternalCheckedException {
      * Creates an empty node stopping exception.
      */
     public NodeStoppingException() {
-        super("Node is stopping");
+        super("Node is stopping.");
     }
 
     /**

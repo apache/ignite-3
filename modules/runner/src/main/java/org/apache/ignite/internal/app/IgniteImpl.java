@@ -30,13 +30,13 @@ public class IgniteImpl implements Ignite {
     /** Distributed table manager. */
     private final IgniteTables distributedTblMgr;
 
-    /** Ignite instance name. */
+    /** Ignite node name. */
     private final String name;
 
     private final SqlQueryProcessor qryEngine;
 
     /**
-     * @param name Ignite instance name.
+     * @param name Ignite node name.
      * @param tblMgr Table manager.
      * @param qryEngine Query processor.
      */

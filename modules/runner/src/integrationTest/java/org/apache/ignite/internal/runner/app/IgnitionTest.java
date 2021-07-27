@@ -27,6 +27,7 @@ import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -79,8 +80,8 @@ class IgnitionTest {
 
     /** */
     @AfterEach
-    void tearDown() {
-        Lists.reverse(startedNodes).stream().map(Ignite::name).forEach(IgnitionManager::stop);
+    private void tearDown() throws Exception {
+        IgniteUtils.closeAll(Lists.reverse(startedNodes));
     }
 
     /**
