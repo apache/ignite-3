@@ -17,6 +17,10 @@
 
 package org.apache.ignite.client;
 
+import java.math.BigDecimal;
+import java.util.BitSet;
+import java.util.UUID;
+
 import org.apache.ignite.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
@@ -33,7 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Tests client tuple builder implementation.
  */
 public class ClientTupleBuilderTest {
-    private static final ClientSchema SCHEMA = new ClientSchema(1, new ClientColumn[]{
+    private static final ClientSchema SCHEMA = new ClientSchema(1, new ClientColumn[] {
             new ClientColumn("id", ClientDataType.INT64, false, true, 0),
             new ClientColumn("name", ClientDataType.STRING, false, false, 1),
             new ClientColumn("size", ClientDataType.INT32, true, false, 2)
@@ -115,6 +119,43 @@ public class ClientTupleBuilderTest {
     @Test
     public void testColumnIndexReturnsNullForMissingColumns() {
         assertNull(getTuple().columnIndex("foo"));
+    }
+
+    @Test
+    public void testTypedGetters() {
+        var schema = new ClientSchema(100, new ClientColumn[] {
+                new ClientColumn("i8", ClientDataType.INT8, false, false, 0),
+                new ClientColumn("i16", ClientDataType.INT16, false, false, 1),
+                new ClientColumn("i32", ClientDataType.INT32, false, false, 2),
+                new ClientColumn("i64", ClientDataType.INT64, false, false, 3),
+                new ClientColumn("float", ClientDataType.FLOAT, false, false, 4),
+                new ClientColumn("double", ClientDataType.DOUBLE, false, false, 5),
+                new ClientColumn("decimal", ClientDataType.DECIMAL, false, false, 6),
+                new ClientColumn("uuid", ClientDataType.UUID, false, false, 7),
+                new ClientColumn("str", ClientDataType.STRING, false, false, 8),
+                new ClientColumn("bytes", ClientDataType.BYTES, false, false, 9),
+                new ClientColumn("bits", ClientDataType.BITMASK, false, false, 10),
+        });
+
+        var uuid = UUID.randomUUID();
+
+        var builder = new ClientTupleBuilder(schema)
+                .set("i8", (byte)1)
+                .set("i16", (short)2)
+                .set("i32", (int)3)
+                .set("i64", (long)4)
+                .set("float", (float)5.5)
+                .set("double", (double)6.6)
+                .set("decimal", new BigDecimal("7.7"))
+                .set("uuid", uuid)
+                .set("str", "8")
+                .set("bytes", new byte[]{9})
+                .set("bits", new BitSet(3));
+
+        var tuple = builder.build();
+
+        assertEquals(1, tuple.byteValue(0));
+        assertEquals(1, tuple.byteValue("i8"));
     }
 
     private static ClientTupleBuilder getBuilder() {
