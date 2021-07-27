@@ -44,9 +44,18 @@ public class ClientTupleBuilderTest {
     }
 
     @Test
-    public void testInvalidColumnSetThrows() {
+    public void testSetThrowsWhenColumnIsNotPresent() {
         var ex = assertThrows(IgniteException.class, () -> getBuilder().set("x", "y"));
         assertEquals("Column is not present in schema: x", ex.getMessage());
+    }
+
+    @Test
+    public void testValueThrowsWhenColumnIsNotPresent() {
+        var ex = assertThrows(IgniteException.class, () -> getBuilder().value("x"));
+        assertEquals("Column is not present in schema: x", ex.getMessage());
+
+        var ex2 = assertThrows(IllegalArgumentException.class, () -> getBuilder().value(100));
+        assertEquals("Column index can't be greater than 2", ex2.getMessage());
     }
 
     @Test public void testValueOrDefaultReturnsDefaultWhenColumnIsNotPresent() {
