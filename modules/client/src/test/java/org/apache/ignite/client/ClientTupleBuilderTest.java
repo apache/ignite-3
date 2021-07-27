@@ -40,6 +40,34 @@ public class ClientTupleBuilderTest {
     });
 
     @Test
+    public void testValueReturnsValueByName() {
+        assertEquals(3L, (Long) getTuple().value("id"));
+        assertEquals("Shirt", getTuple().value("name"));
+    }
+
+    @Test
+    public void testValueReturnsValueByIndex() {
+        assertEquals(3L, (Long) getTuple().value(0));
+        assertEquals("Shirt", getTuple().value(1));
+    }
+
+    @Test
+    public void testValueOrDefaultReturnsValueByName() {
+        assertEquals(3L, getTuple().valueOrDefault("id", -1L));
+        assertEquals("Shirt", getTuple().valueOrDefault("name", "y"));
+    }
+
+    @Test
+    public void testValueOrDefaultReturnsDefaultWhenColumnIsNotPresent() {
+        assertEquals("foo", getBuilder().valueOrDefault("x", "foo"));
+    }
+
+    @Test
+    public void testValueOrDefaultReturnsNullWhenColumnIsPresentButNotSet() {
+        assertNull(getBuilder().valueOrDefault("name", "foo"));
+    }
+
+    @Test
     public void testEmptySchemaThrows() {
         assertThrows(AssertionError.class, () -> new ClientTupleBuilder(new ClientSchema(1, new ClientColumn[0])));
     }
@@ -57,16 +85,6 @@ public class ClientTupleBuilderTest {
 
         var ex2 = assertThrows(IllegalArgumentException.class, () -> getBuilder().value(100));
         assertEquals("Column index can't be greater than 2", ex2.getMessage());
-    }
-
-    @Test
-    public void testValueOrDefaultReturnsDefaultWhenColumnIsNotPresent() {
-        assertEquals("foo", getBuilder().valueOrDefault("x", "foo"));
-    }
-
-    @Test
-    public void testValueOrDefaultReturnsNullWhenColumnIsPresentButNotSet() {
-        assertNull(getBuilder().valueOrDefault("name", "foo"));
     }
 
     @Test
