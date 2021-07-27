@@ -34,12 +34,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Tests client tuple builder implementation.
+ *
+ * Should be in sync with org.apache.ignite.internal.table.TupleBuilderImplTest.
  */
 public class ClientTupleBuilderTest {
     private static final ClientSchema SCHEMA = new ClientSchema(1, new ClientColumn[] {
             new ClientColumn("id", ClientDataType.INT64, false, true, 0),
-            new ClientColumn("name", ClientDataType.STRING, false, false, 1),
-            new ClientColumn("size", ClientDataType.INT32, true, false, 2)
+            new ClientColumn("name", ClientDataType.STRING, false, false, 1)
     });
 
     @Test
@@ -66,8 +67,15 @@ public class ClientTupleBuilderTest {
     }
 
     @Test
-    public void testValueOrDefaultReturnsNullWhenColumnIsPresentButNotSet() {
-        assertNull(getBuilder().valueOrDefault("name", "foo"));
+    public void testValueOrDefaultReturnsDefaultWhenColumnIsPresentButNotSet() {
+        assertEquals("foo", getBuilder().valueOrDefault("name", "foo"));
+    }
+
+    @Test
+    public void testValueOrDefaultReturnsNullWhenColumnIsSetToNull() {
+        var tuple = getBuilder().set("name", null).build();
+
+        assertNull(tuple.valueOrDefault("name", "foo"));
     }
 
     @Test
@@ -87,7 +95,7 @@ public class ClientTupleBuilderTest {
         assertEquals("Column is not present in schema: x", ex.getMessage());
 
         var ex2 = assertThrows(IllegalArgumentException.class, () -> getBuilder().value(100));
-        assertEquals("Column index can't be greater than 2", ex2.getMessage());
+        assertEquals("Column index can't be greater than 1", ex2.getMessage());
     }
 
     @Test
@@ -99,7 +107,6 @@ public class ClientTupleBuilderTest {
     public void testColumnNameReturnsNameByIndex() {
         assertEquals("id", getTuple().columnName(0));
         assertEquals("name", getTuple().columnName(1));
-        assertEquals("size", getTuple().columnName(2));
     }
 
     @Test
@@ -112,7 +119,6 @@ public class ClientTupleBuilderTest {
     public void testColumnIndexReturnsIndexByName() {
         assertEquals(0, getTuple().columnIndex("id"));
         assertEquals(1, getTuple().columnIndex("name"));
-        assertEquals(2, getTuple().columnIndex("size"));
     }
 
     @Test
@@ -185,7 +191,6 @@ public class ClientTupleBuilderTest {
         return new ClientTupleBuilder(SCHEMA)
                 .set("id", 3L)
                 .set("name", "Shirt")
-                .set("size", 99)
                 .build();
     }
 }

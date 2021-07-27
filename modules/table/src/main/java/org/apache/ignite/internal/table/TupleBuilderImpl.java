@@ -104,9 +104,7 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
 
     /** {@inheritDoc} */
     @Override public <T> T valueOrDefault(String columnName, T def) {
-        var col = schemaDesc.column(columnName);
-
-        return col == null ? def : (T)map.get(columnName);
+        return (T)map.getOrDefault(columnName, def);
     }
 
     /** {@inheritDoc} */

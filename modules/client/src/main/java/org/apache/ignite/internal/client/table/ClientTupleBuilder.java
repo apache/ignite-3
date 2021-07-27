@@ -30,6 +30,9 @@ import org.jetbrains.annotations.NotNull;
  * Client tuple builder.
  */
 public final class ClientTupleBuilder implements TupleBuilder, Tuple {
+    /** Null object to differentiate unset values and null values. */
+    private static final Object NULL_OBJ = new Object();
+
     /** Columns values. */
     private final Object[] vals;
 
@@ -54,7 +57,7 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
         // TODO: Live schema support IGNITE-15194
         var col = schema.column(columnName);
 
-        vals[col.schemaIndex()] = value;
+        vals[col.schemaIndex()] = value == null ? NULL_OBJ : value;
 
         return this;
     }
@@ -71,21 +74,23 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
         if (col == null)
             return def;
 
-        return (T)vals[col.schemaIndex()];
+        var val = (T)vals[col.schemaIndex()];
+
+        return val == null ? def : convertValue(val);
     }
 
     /** {@inheritDoc} */
     @Override public <T> T value(String columnName) {
         var col = schema.column(columnName);
 
-        return (T)vals[col.schemaIndex()];
+        return getValue(col.schemaIndex());
     }
 
     /** {@inheritDoc} */
     @Override public <T> T value(int columnIndex) {
         validateColumnIndex(columnIndex);
 
-        return (T)vals[columnIndex];
+        return getValue(columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -242,5 +247,13 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
 
         if (columnIndex >= vals.length)
             throw new IllegalArgumentException("Column index can't be greater than " + (vals.length - 1));
+    }
+
+    private <T> T getValue(int columnIndex) {
+        return convertValue((T)vals[columnIndex]);
+    }
+
+    private static <T> T convertValue(T val) {
+        return val == NULL_OBJ ? null : val;
     }
 }

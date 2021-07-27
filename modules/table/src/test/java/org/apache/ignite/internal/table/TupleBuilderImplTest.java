@@ -32,12 +32,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tuple builder tests.
+ * Tests server tuple builder implementation.
+ *
+ * Should be in sync with org.apache.ignite.client.ClientTupleBuilderTest.
  */
 public class TupleBuilderImplTest {
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(UUID.randomUUID(), 1,
             new Column[] {new Column("id", NativeTypes.INT64, false)},
-            new Column[] {new Column("name", NativeTypes.STRING, false)
+            new Column[] {new Column("name", NativeTypes.STRING, true)
     });
 
     @Test
@@ -64,8 +66,15 @@ public class TupleBuilderImplTest {
     }
 
     @Test
-    public void testValueOrDefaultReturnsNullWhenColumnIsPresentButNotSet() {
-        assertNull(getBuilder().valueOrDefault("name", "foo"));
+    public void testValueOrDefaultReturnsDefaultWhenColumnIsPresentButNotSet() {
+        assertEquals("foo", getBuilder().valueOrDefault("name", "foo"));
+    }
+
+    @Test
+    public void testValueOrDefaultReturnsNullWhenColumnIsSetToNull() {
+        var tuple = getBuilder().set("name", null).build();
+
+        assertNull(tuple.valueOrDefault("name", "foo"));
     }
 
     @Test
@@ -121,5 +130,4 @@ public class TupleBuilderImplTest {
                 .set("name", "Shirt")
                 .build();
     }
-
 }
