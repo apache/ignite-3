@@ -80,7 +80,7 @@ public class TupleBuilderImplTest {
         assertTrue(ex.getMessage().startsWith("Column not found"), ex.getMessage());
 
         var ex2 = assertThrows(IllegalArgumentException.class, () -> getBuilder().value(100));
-        assertTrue(ex2.getMessage().startsWith("Column not found"), ex.getMessage());
+        assertTrue(ex2.getMessage().startsWith("Column index can't be greater than 1"), ex2.getMessage());
     }
 
     @Test

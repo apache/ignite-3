@@ -56,12 +56,7 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
 
     /** {@inheritDoc} */
     @Override public TupleBuilder set(String columnName, Object val) {
-        Column col = schema().column(columnName);
-
-        if (col == null)
-            throw new ColumnNotFoundException("Column not found [col=" + columnName + "schema=" + schemaDesc + ']');
-
-        col.validate(val);
+        getColumnOrThrow(columnName).validate(val);
 
         map.put(columnName, val);
 
@@ -116,6 +111,8 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
 
     /** {@inheritDoc} */
     @Override public <T> T value(String columnName) {
+        getColumnOrThrow(columnName);
+
         return (T)map.get(columnName);
     }
 
@@ -256,5 +253,21 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
      */
     protected void schema(SchemaDescriptor schemaDesc) {
         this.schemaDesc = schemaDesc;
+    }
+
+    /**
+     * Gets column by name or throws an exception when not found.
+     *
+     * @param columnName Column name.
+     * @return Column.
+     * @throws ColumnNotFoundException when not found.
+     */
+    @NotNull private Column getColumnOrThrow(String columnName) {
+        Column col = schema().column(columnName);
+
+        if (col == null)
+            throw new ColumnNotFoundException("Column not found [col=" + columnName + "schema=" + schemaDesc + ']');
+
+        return col;
     }
 }
