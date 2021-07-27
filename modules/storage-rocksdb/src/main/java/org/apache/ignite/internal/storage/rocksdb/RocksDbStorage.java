@@ -19,8 +19,12 @@ package org.apache.ignite.internal.storage.rocksdb;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -32,19 +36,24 @@ import org.apache.ignite.internal.storage.Storage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.AbstractComparator;
 import org.rocksdb.ComparatorOptions;
 import org.rocksdb.Options;
+import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
+import org.rocksdb.Snapshot;
+import org.rocksdb.WriteBatch;
+import org.rocksdb.WriteOptions;
 
 /**
  * Storage implementation based on a single RocksDB instance.
  */
-public class RocksDbStorage implements Storage, AutoCloseable {
+public class RocksDbStorage implements Storage {
     static {
         RocksDB.loadLibrary();
     }
@@ -94,7 +103,12 @@ public class RocksDbStorage implements Storage, AutoCloseable {
             this.db = RocksDB.open(options, dbPath.toAbsolutePath().toString());
         }
         catch (RocksDBException e) {
-            close();
+            try {
+                close();
+            }
+            catch (Exception ex) {
+                e.addSuppressed(ex);
+            }
 
             throw new StorageException("Failed to start the storage", e);
         }
@@ -109,6 +123,31 @@ public class RocksDbStorage implements Storage, AutoCloseable {
         }
         catch (RocksDBException e) {
             throw new StorageException("Failed to read data from the storage", e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public Collection<DataRow> readAll(Collection<? extends SearchRow> keys) throws StorageException {
+        List<DataRow> res = new ArrayList<>();
+
+        Snapshot snapshot = db.getSnapshot();
+
+        try (ReadOptions opts = new ReadOptions().setSnapshot(snapshot)) {
+            for (SearchRow key : keys) {
+                byte[] keyBytes = key.keyBytes();
+
+                res.add(new SimpleDataRow(keyBytes, db.get(opts, keyBytes)));
+            }
+
+            return res;
+        }
+        catch (RocksDBException e) {
+            throw new StorageException("Failed to read data from the storage", e);
+        }
+        finally {
+            db.releaseSnapshot(snapshot);
+
+            snapshot.close();
         }
     }
 
@@ -128,6 +167,60 @@ public class RocksDbStorage implements Storage, AutoCloseable {
     }
 
     /** {@inheritDoc} */
+    @Override public void writeAll(Collection<? extends DataRow> rows) throws StorageException {
+        rwLock.readLock().lock();
+
+        try (WriteBatch batch = new WriteBatch();
+             WriteOptions opts = new WriteOptions()) {
+            for (DataRow row : rows)
+                batch.put(row.keyBytes(), row.valueBytes());
+
+            db.write(opts, batch);
+        }
+        catch (RocksDBException e) {
+            throw new StorageException("Filed to write data to the storage", e);
+        }
+        finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public Collection<DataRow> insertAll(Collection<? extends DataRow> rows) throws StorageException {
+        rwLock.readLock().lock();
+
+        List<DataRow> cantInsert = new ArrayList<>();
+
+        Snapshot snapshot = db.getSnapshot();
+
+        try (WriteBatch batch = new WriteBatch();
+             ReadOptions readOpts = new ReadOptions().setSnapshot(snapshot);
+             WriteOptions opts = new WriteOptions()) {
+
+            for (DataRow row : rows) {
+                if (db.get(readOpts, row.keyBytes()) == null)
+                    batch.put(row.keyBytes(), row.valueBytes());
+                else
+                    cantInsert.add(row);
+            }
+
+            db.write(opts, batch);
+        }
+        catch (RocksDBException e) {
+            throw new StorageException("Filed to write data to the storage", e);
+        }
+        finally {
+            db.releaseSnapshot(snapshot);
+
+            snapshot.close();
+
+            rwLock.readLock().unlock();
+        }
+
+        return cantInsert;
+    }
+
+    /** {@inheritDoc} */
     @Override public void remove(SearchRow key) throws StorageException {
         rwLock.readLock().lock();
 
@@ -140,6 +233,84 @@ public class RocksDbStorage implements Storage, AutoCloseable {
         finally {
             rwLock.readLock().unlock();
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override public Collection<DataRow> removeAll(Collection<? extends SearchRow> keys) {
+        rwLock.readLock().lock();
+
+        List<DataRow> res = new ArrayList<>();
+
+        Snapshot snapshot = db.getSnapshot();
+
+        try (WriteBatch batch = new WriteBatch();
+             ReadOptions readOpts = new ReadOptions().setSnapshot(snapshot);
+             WriteOptions opts = new WriteOptions()) {
+
+            for (SearchRow key : keys) {
+                byte[] keyBytes = key.keyBytes();
+
+                byte[] value = db.get(readOpts, keyBytes);
+
+                res.add(new SimpleDataRow(keyBytes, value));
+
+                batch.delete(keyBytes);
+            }
+
+            db.write(opts, batch);
+        }
+        catch (RocksDBException e) {
+            throw new StorageException("Failed to remove data from the storage", e);
+        }
+        finally {
+            db.releaseSnapshot(snapshot);
+
+            snapshot.close();
+
+            rwLock.readLock().unlock();
+        }
+
+        return res;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Collection<DataRow> removeAllExact(Collection<? extends DataRow> keyValues) {
+        rwLock.readLock().lock();
+
+        List<DataRow> res = new ArrayList<>();
+
+        Snapshot snapshot = db.getSnapshot();
+
+        try (WriteBatch batch = new WriteBatch();
+             ReadOptions readOpts = new ReadOptions().setSnapshot(snapshot);
+             WriteOptions opts = new WriteOptions()) {
+
+            for (DataRow kv : keyValues) {
+                byte[] keyBytes = kv.keyBytes();
+
+                byte[] value = db.get(readOpts, keyBytes);
+
+                if (Arrays.equals(value, kv.valueBytes())) {
+                    res.add(new SimpleDataRow(keyBytes, value));
+
+                    batch.delete(keyBytes);
+                }
+            }
+
+            db.write(opts, batch);
+        }
+        catch (RocksDBException e) {
+            throw new StorageException("Failed to remove data from the storage", e);
+        }
+        finally {
+            db.releaseSnapshot(snapshot);
+
+            snapshot.close();
+
+            rwLock.readLock().unlock();
+        }
+
+        return res;
     }
 
     /** {@inheritDoc} */
@@ -181,10 +352,8 @@ public class RocksDbStorage implements Storage, AutoCloseable {
     }
 
     /** {@inheritDoc} */
-    @Override public void close() {
-        try (comparatorOptions; comparator; options) {
-            db.close();
-        }
+    @Override public void close() throws Exception {
+        IgniteUtils.closeAll(comparatorOptions, comparator, options, db);
     }
 
     /** Cusror wrapper over the RocksIterator object with custom filter. */

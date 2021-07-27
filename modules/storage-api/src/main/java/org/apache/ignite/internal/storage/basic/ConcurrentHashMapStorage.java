@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.storage.basic;
 
+import java.util.Collection;
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.InvokeClosure;
 import org.apache.ignite.internal.storage.SearchRow;
@@ -52,6 +55,20 @@ public class ConcurrentHashMapStorage implements Storage {
     }
 
     /** {@inheritDoc} */
+    @Override public Collection<DataRow> readAll(Collection<? extends SearchRow> keys) {
+        rwLock.writeLock().lock();
+
+        try {
+            return keys.stream()
+                .map(key -> new SimpleDataRow(key.keyBytes(), map.get(new ByteArray(key.keyBytes()))))
+                .collect(Collectors.toList());
+        }
+        finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    /** {@inheritDoc} */
     @Override public void write(DataRow row) throws StorageException {
         rwLock.readLock().lock();
 
@@ -64,6 +81,32 @@ public class ConcurrentHashMapStorage implements Storage {
     }
 
     /** {@inheritDoc} */
+    @Override public void writeAll(Collection<? extends DataRow> rows) throws StorageException {
+        rwLock.writeLock().lock();
+
+        try {
+            rows.forEach(row -> map.put(new ByteArray(row.keyBytes()), row.valueBytes()));
+        }
+        finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public Collection<DataRow> insertAll(Collection<? extends DataRow> rows) throws StorageException {
+        rwLock.writeLock().lock();
+
+        try {
+            return rows.stream()
+                .map(row -> map.putIfAbsent(new ByteArray(row.keyBytes()), row.valueBytes()) == null ? null : row)
+                .collect(Collectors.toList());
+        }
+        finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    /** {@inheritDoc} */
     @Override public void remove(SearchRow key) throws StorageException {
         rwLock.readLock().lock();
 
@@ -72,6 +115,40 @@ public class ConcurrentHashMapStorage implements Storage {
         }
         finally {
             rwLock.readLock().unlock();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public Collection<DataRow> removeAll(Collection<? extends SearchRow> keys) {
+        rwLock.writeLock().lock();
+
+        try {
+            return keys.stream()
+                .map(key -> new SimpleDataRow(key.keyBytes(), map.remove(new ByteArray(key.keyBytes()))))
+                .collect(Collectors.toList());
+        }
+        finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public Collection<DataRow> removeAllExact(Collection<? extends DataRow> keyValues) {
+        rwLock.writeLock().lock();
+
+        try {
+            return keyValues.stream()
+                .map(kv -> {
+                    if (map.remove(new ByteArray(kv.keyBytes()), kv.valueBytes()))
+                        return kv;
+
+                    return null;
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        }
+        finally {
+            rwLock.writeLock().unlock();
         }
     }
 
@@ -136,5 +213,10 @@ public class ConcurrentHashMapStorage implements Storage {
                 // No-op.
             }
         };
+    }
+
+    /** {@inheritDoc} */
+    @Override public void close() throws Exception {
+        // No-op.
     }
 }

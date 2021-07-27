@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.basic;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import org.apache.ignite.internal.storage.DataRow;
 import org.jetbrains.annotations.Nullable;
 
@@ -55,5 +56,25 @@ public class SimpleDataRow implements DataRow {
     /** {@inheritDoc} */
     @Override public byte @Nullable [] valueBytes() {
         return value;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean hasValueBytes() {
+        return value != null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        SimpleDataRow row = (SimpleDataRow) o;
+        return Arrays.equals(key, row.key) && Arrays.equals(value, row.value);
+    }
+
+    /** {@inheritDoc} */
+    @Override public int hashCode() {
+        int result = Arrays.hashCode(key);
+        result = 31 * result + Arrays.hashCode(value);
+        return result;
     }
 }

@@ -81,6 +81,11 @@ public class IgnitionImpl implements Ignition {
      */
     private static final Path VAULT_DB_PATH = Paths.get("vault");
 
+    /**
+     * Path for the partitions persistent storage.
+     */
+    private static final Path PARTITIONS_STORE_PATH = Paths.get("db");
+
     /** */
     private static final String[] BANNER = {
         "",
@@ -315,6 +320,20 @@ public class IgnitionImpl implements Ignition {
                 )
             );
 
+            Path partitionsStore = workDir.resolve(PARTITIONS_STORE_PATH);
+
+            if (Files.notExists(partitionsStore)) {
+                try {
+                    Files.createDirectories(partitionsStore);
+                }
+                catch (IOException e) {
+                    throw new IgniteInternalException(
+                        "Failed to create directory for the partitions store: " + e.getMessage(),
+                        e
+                    );
+                }
+            }
+
             // Distributed table manager startup.
             TableManager distributedTblMgr = doStartComponent(
                 nodeName,
@@ -324,7 +343,8 @@ public class IgnitionImpl implements Ignition {
                     metaStorageMgr,
                     schemaMgr,
                     affinityMgr,
-                    raftMgr
+                    raftMgr,
+                    partitionsStore
                 )
             );
 

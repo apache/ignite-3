@@ -23,31 +23,45 @@ import org.apache.ignite.internal.storage.OperationType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-/** Invoke closure implementation for a write operation. */
-public class SimpleWriteInvokeClosure implements InvokeClosure {
-    /** Data row to write into storage. */
-    private final DataRow newRow;
-
-    /**
-     * @param newRow Data row to write into the storage.
-     */
-    public SimpleWriteInvokeClosure(DataRow newRow) {
-        this.newRow = newRow;
-    }
+/**
+ * Closure that removes a data row with a given key and returns it.
+ */
+public class GetAndRemoveInvokeClosure implements InvokeClosure {
+    /** Row that will be removed. */
+    @Nullable
+    private DataRow rowToRemove;
 
     /** {@inheritDoc} */
     @Override public void call(@NotNull DataRow row) {
+        this.rowToRemove = row;
     }
 
     /** {@inheritDoc} */
-    @Nullable
-    @Override public DataRow newRow() {
-        return newRow;
+    @Override public @Nullable DataRow newRow() {
+        return null;
     }
 
     /** {@inheritDoc} */
-    @Nullable
-    @Override public OperationType operationType() {
-        return OperationType.WRITE;
+    @Override public @Nullable OperationType operationType() {
+        return OperationType.REMOVE;
+    }
+
+    /**
+     * @return Row that is removed.
+     */
+    @NotNull
+    public DataRow oldRow() {
+        assert rowToRemove != null;
+
+        return rowToRemove;
+    }
+
+    /**
+     * @return {@code true} if the row to remove has a value, {@code false} otherwise.
+     */
+    public boolean hasData() {
+        assert rowToRemove != null;
+
+        return rowToRemove.hasValueBytes();
     }
 }
