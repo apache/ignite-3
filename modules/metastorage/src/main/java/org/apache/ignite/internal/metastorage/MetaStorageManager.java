@@ -124,11 +124,6 @@ public class MetaStorageManager implements IgniteComponent {
     private boolean metaStorageNodesOnStart;
 
     /**
-     * Lock for the read-then-update logic in the {@link #storeEntries} method.
-     */
-    private final Object revisionLock = new Object();
-
-    /**
      * The constructor.
      *
      * @param vaultMgr Vault manager.
@@ -565,20 +560,18 @@ public class MetaStorageManager implements IgniteComponent {
 
         entries.forEach(e -> batch.put(e.getKey(), e.getValue()));
 
-        synchronized (revisionLock) {
-            byte[] appliedRevisionBytes = vaultMgr.get(APPLIED_REV).join().value();
+        byte[] appliedRevisionBytes = vaultMgr.get(APPLIED_REV).join().value();
 
-            long appliedRevision = appliedRevisionBytes == null ? 0L : bytesToLong(appliedRevisionBytes);
+        long appliedRevision = appliedRevisionBytes == null ? 0L : bytesToLong(appliedRevisionBytes);
 
-            if (revision <= appliedRevision) {
-                throw new IgniteInternalException(String.format(
-                    "Current revision (%d) must be greater than the revision in the Vault (%d)",
-                    revision, appliedRevision
-                ));
-            }
-
-            vaultMgr.putAll(batch).join();
+        if (revision <= appliedRevision) {
+            throw new IgniteInternalException(String.format(
+                "Current revision (%d) must be greater than the revision in the Vault (%d)",
+                revision, appliedRevision
+            ));
         }
+
+        vaultMgr.putAll(batch).join();
     }
 
     /**
