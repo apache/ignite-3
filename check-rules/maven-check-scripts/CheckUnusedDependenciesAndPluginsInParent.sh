@@ -23,7 +23,7 @@ for xpath in "project/dependencyManagement/dependencies/dependency/artifactId/te
       while read -r declaration; do
         FOUND=false
         for pom in ${POMS}; do
-            if grep -qE "<artifactId>${declaration}</artifactId>" "${pom}"; then
+            if grep -E "<artifactId>${declaration}</artifactId>" "${pom}" 2>&1 1>/dev/null; then
             	FOUND=true
                 continue 2
             fi
@@ -32,7 +32,7 @@ for xpath in "project/dependencyManagement/dependencies/dependency/artifactId/te
                             "project/dependencies"; do
             if xpath -e "${parent_xpath}" parent/pom.xml 2>&1 | \
               grep -E "<" | \
-              grep -qE "<artifactId>${declaration}</artifactId>"; then
+              grep -E "<artifactId>${declaration}</artifactId>" 2>&1 1>/dev/null; then
               	FOUND=true
                 continue 2
             fi
