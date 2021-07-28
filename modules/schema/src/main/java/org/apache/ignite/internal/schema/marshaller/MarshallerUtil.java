@@ -61,7 +61,6 @@ public final class MarshallerUtil {
     /**
      * Gets binary read/write mode for given class.
      *
-     *
      * @param cls Type.
      * @return Binary mode.
      */

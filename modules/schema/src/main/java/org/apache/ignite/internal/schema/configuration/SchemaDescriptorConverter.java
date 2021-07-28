@@ -20,11 +20,13 @@ package org.apache.ignite.internal.schema.configuration;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
@@ -158,7 +160,7 @@ public class SchemaDescriptorConverter {
             case DOUBLE:
                 return Double.parseDouble(dflt);
             case DECIMAL:
-                return new BigDecimal(dflt);
+                return new BigDecimal(dflt).setScale(((DecimalNativeType)type).scale(), RoundingMode.HALF_UP);
             case STRING:
                 return dflt;
             case UUID:

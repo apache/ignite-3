@@ -338,7 +338,7 @@ public class SchemaConfigurationConverter {
                     return ColumnType.decimalOf(prec, scale);
 
                 case "NUMBER":
-                    return ColumnType.numberOf();
+                    return ColumnType.numberOf(colTypeView.precision());
 
                 default:
                     throw new IllegalArgumentException("Unknown type " + typeName);

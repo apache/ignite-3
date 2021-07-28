@@ -68,7 +68,7 @@ public class NativeTypes {
     }
 
     /**
-     * Creates a number type of size <code>bytes</code>.
+     * Creates a number type with maximal precision.
      *
      * @param precision The number of digits in the number value.
      * @return Native type.
@@ -196,10 +196,11 @@ public class NativeTypes {
             case DOUBLE:
                 return DOUBLE;
 
-            case DECIMAL:
+            case DECIMAL: {
                 ColumnType.DecimalColumnType numType = (ColumnType.DecimalColumnType)type;
-                return new DecimalNativeType(numType.precision(), numType.scale());
 
+                return new DecimalNativeType(numType.precision(), numType.scale());
+            }
             case UUID:
                 return UUID;
 
@@ -220,10 +221,11 @@ public class NativeTypes {
                         ((ColumnType.VarLenColumnType)type).length() : Integer.MAX_VALUE
                 );
 
-            case NUMBER:
+            case NUMBER: {
                 ColumnType.NumberColumnType numberType = (ColumnType.NumberColumnType)type;
-                return new NumberNativeType(numberType.precision());
 
+                return new NumberNativeType(numberType.precision());
+            }
             default:
                 throw new InvalidTypeException("Unexpected type " + type);
         }
