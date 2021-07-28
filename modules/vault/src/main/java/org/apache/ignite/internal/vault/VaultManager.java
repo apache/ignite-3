@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
  * VaultManager is responsible for handling {@link VaultService} lifecycle
  * and providing interface for managing local keys.
  */
-public class VaultManager implements AutoCloseable, IgniteComponent {
+public class VaultManager implements IgniteComponent {
     /** Special key, which reserved for storing the name of the current node. */
     private static final ByteArray NODE_NAME = new ByteArray("node_name");
 
@@ -51,9 +51,9 @@ public class VaultManager implements AutoCloseable, IgniteComponent {
     }
 
     /** {@inheritDoc} */
-    @Override public void stop() {
+    @Override public void stop() throws Exception{
         // TODO: IGNITE-15161 Implement component's stop.
-//        vaultSvc.stop();
+        vaultSvc.close();
     }
 
     /**
@@ -141,10 +141,5 @@ public class VaultManager implements AutoCloseable, IgniteComponent {
         return vaultSvc.get(NODE_NAME)
             .thenApply(VaultEntry::value)
             .thenApply(name -> name == null ? null : new String(name, StandardCharsets.UTF_8));
-    }
-
-    /** {@inheritDoc} */
-    @Override public void close() throws Exception {
-        vaultSvc.close();
     }
 }

@@ -44,5 +44,5 @@ public interface IgniteComponent {
      *
      * @throws NodeStoppingException Ignite internal node stopping exception that wraps cause if any.
      */
-    void stop() throws NodeStoppingException;
+    void stop() throws Exception;
 }
