@@ -61,6 +61,7 @@
         <module>modules/rest</module>
         <module>modules/runner</module>
         <module>modules/schema</module>
+        <module>modules/sql</module>
         <module>modules/storage-api</module>
         <module>modules/storage-rocksdb</module>
         <module>modules/table</module>
