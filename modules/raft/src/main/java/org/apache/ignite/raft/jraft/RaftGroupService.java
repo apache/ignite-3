@@ -18,15 +18,11 @@ package org.apache.ignite.raft.jraft;
 
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.raft.jraft.core.FSMCallerImpl;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
-import org.apache.ignite.raft.jraft.core.ReadOnlyServiceImpl;
-import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
-import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.Utils;
@@ -84,39 +80,6 @@ public class RaftGroupService {
         this.nodeOptions = nodeOptions;
         this.rpcServer = rpcServer;
         this.nodeManager = nodeManager;
-
-        //TODO: Remove these disruptors after the Raft group service would be started from Raft service and the options would be share.
-        if (nodeOptions.getfSMCallerExecutorDisruptor() == null) {
-            nodeOptions.setfSMCallerExecutorDisruptor(new StripedDisruptor<FSMCallerImpl.ApplyTask>(
-                "JRaft-FSMCaller-Disruptor",
-                nodeOptions.getRaftOptions().getDisruptorBufferSize(),
-                () -> new FSMCallerImpl.ApplyTask(),
-                nodeOptions.getStripes()));
-        }
-
-        if (nodeOptions.getNodeApplyDisruptor() == null) {
-            nodeOptions.setNodeApplyDisruptor(new StripedDisruptor<NodeImpl.LogEntryAndClosure>(
-                "JRaft-NodeImpl-Disruptor",
-                nodeOptions.getRaftOptions().getDisruptorBufferSize(),
-                () -> new NodeImpl.LogEntryAndClosure(),
-                nodeOptions.getStripes()));
-        }
-
-        if (nodeOptions.getReadOnlyServiceDisruptor() == null) {
-            nodeOptions.setReadOnlyServiceDisruptor(new StripedDisruptor<ReadOnlyServiceImpl.ReadIndexEvent>(
-                "JRaft-ReadOnlyService-Disruptor",
-                nodeOptions.getRaftOptions().getDisruptorBufferSize(),
-                () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
-                nodeOptions.getStripes()));
-        }
-
-        if (nodeOptions.getLogManagerDisruptor() == null) {
-            nodeOptions.setLogManagerDisruptor(new StripedDisruptor<LogManagerImpl.StableClosureEvent>(
-                "JRaft-LogManager-Disruptor",
-                nodeOptions.getRaftOptions().getDisruptorBufferSize(),
-                () -> new LogManagerImpl.StableClosureEvent(),
-                nodeOptions.getStripes()));
-        }
     }
 
     public synchronized Node getRaftNode() {

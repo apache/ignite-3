@@ -781,39 +781,6 @@ public class NodeImpl implements Node, RaftServerService {
         this.options.setLogUri(opts.getLogUri());
         this.options.setRaftMetaUri(opts.getRaftMetaUri());
         this.options.setSnapshotUri(opts.getSnapshotUri());
-        this.options.setStripes(1);
-
-        if (options.getfSMCallerExecutorDisruptor() == null) {
-            options.setfSMCallerExecutorDisruptor(new StripedDisruptor<FSMCallerImpl.ApplyTask>(
-                "JRaft-FSMCaller-Disruptor",
-                options.getRaftOptions().getDisruptorBufferSize(),
-                () -> new FSMCallerImpl.ApplyTask(),
-                options.getStripes()));
-        }
-
-        if (options.getNodeApplyDisruptor() == null) {
-            options.setNodeApplyDisruptor(new StripedDisruptor<NodeImpl.LogEntryAndClosure>(
-                "JRaft-NodeImpl-Disruptor",
-                options.getRaftOptions().getDisruptorBufferSize(),
-                () -> new NodeImpl.LogEntryAndClosure(),
-                options.getStripes()));
-        }
-
-        if (options.getReadOnlyServiceDisruptor() == null) {
-            options.setReadOnlyServiceDisruptor(new StripedDisruptor<ReadOnlyServiceImpl.ReadIndexEvent>(
-                "JRaft-ReadOnlyService-Disruptor",
-                options.getRaftOptions().getDisruptorBufferSize(),
-                () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
-                options.getStripes()));
-        }
-
-        if (options.getLogManagerDisruptor() == null) {
-            options.setLogManagerDisruptor(new StripedDisruptor<LogManagerImpl.StableClosureEvent>(
-                "JRaft-LogManager-Disruptor",
-                options.getRaftOptions().getDisruptorBufferSize(),
-                () -> new LogManagerImpl.StableClosureEvent(),
-                options.getStripes()));
-        }
 
         this.configManager = new ConfigurationManager();
         // Create fsmCaller at first as logManager needs it to report error
