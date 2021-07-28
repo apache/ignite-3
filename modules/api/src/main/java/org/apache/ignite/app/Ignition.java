@@ -59,8 +59,10 @@ public interface Ignition {
     /**
      * Stops node with given {@code name}.
      * It's possible to stop both already started node or node that is currently starting.
+     * Has no effect if node with specified name doesn't exist.
      *
      * @param name Node name to stop.
+     * @throws IllegalArgumentException if null is specified instead of node name.
      */
     public void stop(@NotNull String name);
 }
