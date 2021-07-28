@@ -19,6 +19,6 @@ xpath -e "project/modules/module/text()" pom.xml 2>/dev/null > current-list
 cat current-list | sort -h > sorted-list
 DIFF="$(diff current-list sorted-list || true)"
 if [ "${DIFF}" != "" ]; then
-	echo "%ERROR_TEXT__UNSORTED_MODULES%:"
+	echo "[ERROR] Modules are in unsorted order:"
     echo "${DIFF}"
 fi

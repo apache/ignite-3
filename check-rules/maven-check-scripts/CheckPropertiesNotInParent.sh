@@ -19,6 +19,6 @@ find . -name "pom.xml" | \
   grep -v parent | \
   while read -r pom; do
       if grep '<properties>' "${pom}"; then
-          echo "%ERROR_TEXT__PROPERTIES_SECTION%: ${pom}"
+          echo "[ERROR] Found <properties> section: ${pom}"
       fi
 done

@@ -39,7 +39,7 @@ for xpath in "project/dependencyManagement/dependencies/dependency/artifactId/te
         done
         if [ "${FOUND}" == "false" ]; then
             echo "${declaration}" >> %FILE_UNUSED_PROPERTIES%
-            echo "%ERROR_TEXT__UNUSED_DECLARATION%: ${declaration}"
+            echo "[ERROR] Found unused declaration: ${declaration}"
         fi
     done
 done

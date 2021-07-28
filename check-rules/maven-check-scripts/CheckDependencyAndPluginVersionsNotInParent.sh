@@ -23,7 +23,7 @@ find . -name "pom.xml" |  \
                  "project/profiles/profile/build/plugins/plugin/version"; do
 		if xpath -e "${xpath}" ${pom} 2>&1 | \
           grep -qE "^Found"; then
-            echo "%ERROR_TEXT__VERSION_IN_NON_PARENT_POM%: ${pom}"
+            echo "[ERROR] Found version in non parent pom: ${pom}"
 		fi
     done
 done
