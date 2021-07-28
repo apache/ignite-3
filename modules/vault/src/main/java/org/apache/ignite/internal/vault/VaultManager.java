@@ -51,7 +51,7 @@ public class VaultManager implements IgniteComponent {
     }
 
     /** {@inheritDoc} */
-    @Override public void stop() throws Exception{
+    @Override public void stop() throws Exception {
         // TODO: IGNITE-15161 Implement component's stop.
         vaultSvc.close();
     }
