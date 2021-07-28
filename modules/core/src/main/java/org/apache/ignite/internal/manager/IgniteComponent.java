@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.manager;
 
-import org.apache.ignite.lang.NodeStoppingException;
-
 /**
  * Common interface for ignite components that provides entry points for component lifecycle flow.
  */
@@ -42,7 +40,7 @@ public interface IgniteComponent {
      * beneath given one are still running, however the node is no longer part of the topology and, accordingly,
      * network interaction is impossible.
      *
-     * @throws NodeStoppingException Ignite internal node stopping exception that wraps cause if any.
+     * @throws Exception If this component cannot be closed
      */
     void stop() throws Exception;
 }
