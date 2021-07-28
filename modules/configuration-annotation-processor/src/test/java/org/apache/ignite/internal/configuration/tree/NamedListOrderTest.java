@@ -20,7 +20,6 @@ package org.apache.ignite.internal.configuration.tree;
 import java.io.Serializable;
 import java.util.Map;
 import java.util.regex.Pattern;
-import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
@@ -45,7 +44,7 @@ import static org.hamcrest.Matchers.matchesPattern;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /** Test for named list nodes. */
-public class NamedListTest {
+public class NamedListOrderTest {
     /** Named list entry od pattern. */
     private final Pattern idPattern = Pattern.compile("(\\d|\\w){32}");
 
@@ -267,13 +266,9 @@ public class NamedListTest {
     /** Tests exceptions described in methods signatures. */
     @Test
     public void errors() throws Exception {
-        // Manually instantiate configuration instance.
-        var a = (AConfiguration)cgen.instantiateCfg(AConfiguration.KEY, changer);
+        var b = new NamedListNode<>("name", () -> cgen.instantiateNode(BConfigurationSchema.class));
 
-        a.b().change(b -> b.create("X", x -> {}).create("Y", y -> {})).get();
-
-        // Dirty cast, but appropriate for this particular test.
-        var b = (NamedListChange<BView>)a.b().value();
+        b.create("X", x -> {}).create("Y", y -> {});
 
         // NPE in keys.
         assertThrows(NullPointerException.class, () -> b.create(null, z -> {}));
