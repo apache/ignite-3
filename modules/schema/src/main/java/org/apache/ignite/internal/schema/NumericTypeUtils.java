@@ -17,24 +17,58 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
+import org.apache.ignite.schema.ColumnType;
 
 /**
- * Number class utility class.
+ * Numeric types utility class.
  * */
 public class NumericTypeUtils {
     /**
-     * Calculates byte size by precision. May be too large but can never be too small. Typically exact.
-     * */
-    public static int byteSizeByPrecision(int precision) {
-        long numBits = ((precision * 3402L) >>> 10) + 1;
-        return (int)(numBits / 8 + 1);
-    }
-
-    /**
-     * Calculates byte size for a BigInteger value.
+     * Calculates byte size for BigInteger value.
      * */
     public static int sizeInBytes(BigInteger val) {
         return val.bitLength() / 8 + 1;
+    }
+
+    /**
+     * Calculates byte size for BigDecimal value.
+     * */
+    public static int sizeInBytes(BigDecimal val, DecimalNativeType type) {
+        int shift;
+        if(type.scale() == 0)
+            shift = 0;
+        else if (type.scale() <= Byte.MAX_VALUE)
+            shift = 1;
+        else if (type.scale() <= Short.MAX_VALUE)
+            shift = 2;
+        else
+            shift = 4;
+
+        return sizeInBytes(val.unscaledValue()) + shift;
+    }
+
+    /**
+     * check precision of BigInteger value.
+     * */
+    public static boolean precisionDoesNotFit(BigInteger val, int precision) {
+        if (precision == ColumnType.NumberColumnType.UNDEFINED)
+            return false;
+        return calculatePrecision(val) > precision;
+    }
+
+    /**
+     * Calculates precision for BigInteger value.
+     * */
+    public static int calculatePrecision(BigInteger val) {
+        return new BigDecimal(val).precision();
+    }
+
+    /**
+     * Calculates precision for BigDecimal value.
+     * */
+    public static int calculatePrecision(BigDecimal val) {
+        return val.precision();
     }
 }

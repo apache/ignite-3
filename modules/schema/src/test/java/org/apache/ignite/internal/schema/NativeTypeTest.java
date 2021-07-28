@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.schema.NativeTypes.INT32;
 import static org.apache.ignite.internal.schema.NativeTypes.INT64;
 import static org.apache.ignite.internal.schema.NativeTypes.INT16;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
-import static org.apache.ignite.internal.schema.NativeTypes.VL_NUMBER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -93,13 +92,13 @@ public class NativeTypeTest {
         assertEquals(DOUBLE, NativeTypes.from(ColumnType.DOUBLE));
         assertEquals(BYTES, NativeTypes.from(ColumnType.blobOf()));
         assertEquals(STRING, NativeTypes.from(ColumnType.string()));
-        assertEquals(VL_NUMBER, NativeTypes.from(ColumnType.numberOf()));
 
         for (int i = 1; i < 800; i += 100) {
             assertEquals(NativeTypes.blobOf(i), NativeTypes.from(ColumnType.blobOf(i)));
             assertEquals(NativeTypes.stringOf(i), NativeTypes.from(ColumnType.stringOf(i)));
             assertEquals(NativeTypes.bitmaskOf(i), NativeTypes.from(ColumnType.bitmaskOf(i)));
             assertEquals(NativeTypes.numberOf(i), NativeTypes.from(ColumnType.numberOf(i)));
+            assertEquals(NativeTypes.decimalOf(i, i), NativeTypes.from(ColumnType.decimalOf(i, i)));
         }
     }
 }

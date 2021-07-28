@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.BitSet;
 import org.apache.ignite.schema.ColumnType;
@@ -52,9 +53,6 @@ public class NativeTypes {
     /** */
     public static final NativeType BYTES = new VarlenNativeType(NativeTypeSpec.BYTES, Integer.MAX_VALUE);
 
-    /** */
-    public static final NativeType VL_NUMBER = new VarlenNativeType(NativeTypeSpec.VL_NUMBER, Integer.MAX_VALUE);
-
     /** Don't allow to create an instance. */
     private NativeTypes() {
     }
@@ -76,7 +74,7 @@ public class NativeTypes {
      * @return Native type.
      */
     public static NativeType numberOf(int precision) {
-        return new FixLenNumberNativeType(precision);
+        return new NumberNativeType(precision);
     }
 
     /**
@@ -107,7 +105,7 @@ public class NativeTypes {
      * @return Native type.
      */
     public static NativeType decimalOf(int precision, int scale) {
-        return new NumericNativeType(precision, scale);
+        return new DecimalNativeType(precision, scale);
     }
 
     /**
@@ -154,7 +152,10 @@ public class NativeTypes {
                 return bitmaskOf(((BitSet)val).length());
 
             case NUMBER:
-                return numberOf(NumericTypeUtils.sizeInBytes((BigInteger)val));
+                return numberOf(NumericTypeUtils.calculatePrecision((BigInteger)val));
+
+            case DECIMAL:
+                return decimalOf(NumericTypeUtils.calculatePrecision((BigDecimal)val), ((BigDecimal)val).scale());
 
             default:
                 assert false : "Unexpected type: " + spec;
@@ -196,8 +197,8 @@ public class NativeTypes {
                 return DOUBLE;
 
             case DECIMAL:
-                ColumnType.NumericColumnType numType = (ColumnType.NumericColumnType)type;
-                return new NumericNativeType(numType.precision(), numType.scale());
+                ColumnType.DecimalColumnType numType = (ColumnType.DecimalColumnType)type;
+                return new DecimalNativeType(numType.precision(), numType.scale());
 
             case UUID:
                 return UUID;
@@ -221,10 +222,7 @@ public class NativeTypes {
 
             case NUMBER:
                 ColumnType.NumberColumnType numberType = (ColumnType.NumberColumnType)type;
-                if (numberType.precision() != ColumnType.NumberColumnType.UNDEFINED)
-                    return new FixLenNumberNativeType(numberType.precision());
-                return new VarlenNativeType(NativeTypeSpec.VL_NUMBER,
-                    NumericTypeUtils.byteSizeByPrecision(numberType.precision()));
+                return new NumberNativeType(numberType.precision());
 
             default:
                 throw new InvalidTypeException("Unexpected type " + type);

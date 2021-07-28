@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema.marshaller.reflection;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.BitSet;
 import java.util.Objects;
@@ -64,7 +65,7 @@ abstract class FieldAccessor {
             if (field.getType().isPrimitive() && col.nullable())
                 throw new IllegalArgumentException("Failed to map non-nullable field to nullable column [name=" + field.getName() + ']');
 
-            BinaryMode mode = MarshallerUtil.mode(col, field.getType());
+            BinaryMode mode = MarshallerUtil.mode(field.getType());
             final MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(type, MethodHandles.lookup());
 
             VarHandle varHandle = lookup.unreflectVarHandle(field);
@@ -101,7 +102,7 @@ abstract class FieldAccessor {
                 case BYTE_ARR:
                 case BITSET:
                 case NUMBER:
-                case VL_NUMBER:
+                case DECIMAL:
                     return new ReferenceFieldAccessor(varHandle, colIdx, mode);
 
                 default:
@@ -145,7 +146,7 @@ abstract class FieldAccessor {
             case BYTE_ARR:
             case BITSET:
             case NUMBER:
-            case VL_NUMBER:
+            case DECIMAL:
                 return new IdentityAccessor(colIdx, mode);
 
             default:
@@ -225,8 +226,8 @@ abstract class FieldAccessor {
 
                 break;
 
-            case VL_NUMBER:
-                val = reader.varLenNumberValue(colIdx);
+            case DECIMAL:
+                val = reader.decimalValue(colIdx);
 
                 break;
 
@@ -309,8 +310,8 @@ abstract class FieldAccessor {
 
                 break;
 
-            case VL_NUMBER:
-                writer.appendVarLenNumber((BigInteger)val);
+            case DECIMAL:
+                writer.appendDecimal((BigDecimal)val);
 
                 break;
 

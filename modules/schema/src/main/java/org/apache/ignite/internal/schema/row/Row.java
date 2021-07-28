@@ -22,14 +22,13 @@ import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
+import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.InvalidTypeException;
-import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 
@@ -236,8 +235,36 @@ public class Row implements BinaryRow {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public BigDecimal decimalValue(int col) throws InvalidTypeException {
-        // TODO: IGNITE-13668 decimal support
-        return null;
+        long offLen = findColumn(col, NativeTypeSpec.DECIMAL);
+
+        if (offLen < 0)
+            return offLen == -1 ? null : (BigDecimal)rowSchema().column(col).defaultValue();
+
+        int off = offset(offLen);
+        int len = length(offLen);
+
+        DecimalNativeType type = (DecimalNativeType)schema.column(col).type();
+
+        int shift;
+        int scale;
+
+        if (type.scale() == 0) {
+            shift = 0;
+            scale = 0;
+        } else if (type.scale() < Byte.MAX_VALUE) {
+            shift = 1;
+            scale = readByte(off);
+        } else if (type.scale() < Short.MAX_VALUE) {
+            shift = 2;
+            scale = readShort(off);
+        } else {
+            shift = 4;
+            scale = readInteger(off);
+        }
+
+        byte[] bytes = readBytes(off + shift, len - shift);
+
+        return new BigDecimal(new BigInteger(bytes), scale);
     }
 
     /**
@@ -249,25 +276,6 @@ public class Row implements BinaryRow {
      */
     public BigInteger numberValue(int col) throws InvalidTypeException {
         long offLen = findColumn(col, NativeTypeSpec.NUMBER);
-
-        if (offLen < 0)
-            return offLen == -1 ? null : (BigInteger)rowSchema().column(col).defaultValue();
-
-        int off = offset(offLen);
-        int len = columnLength(col);
-
-        return new BigInteger(readBytes(off, len));
-    }
-
-    /**
-     * Reads value from specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     * @throws InvalidTypeException If actual column type does not match the requested column type.
-     */
-    public BigInteger varLenNumberValue(int col) throws InvalidTypeException {
-        long offLen = findColumn(col, NativeTypeSpec.VL_NUMBER);
 
         if (offLen < 0)
             return offLen == -1 ? null : (BigInteger)rowSchema().column(col).defaultValue();

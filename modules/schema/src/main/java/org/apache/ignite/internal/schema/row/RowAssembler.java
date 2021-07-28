@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema.row;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.StandardCharsets;
@@ -32,10 +33,12 @@ import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
+import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.FixLenNumberNativeType;
+import org.apache.ignite.internal.schema.NumberNativeType;
+import org.apache.ignite.internal.schema.NumericTypeUtils;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 
 import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.KEY_FLAGS_OFFSET;
@@ -196,8 +199,8 @@ public class RowAssembler {
 
                 break;
             }
-            case VL_NUMBER: {
-                rowAsm.appendVarLenNumber((BigInteger)val);
+            case DECIMAL: {
+                rowAsm.appendDecimal((BigDecimal)val);
 
                 break;
             }
@@ -409,43 +412,15 @@ public class RowAssembler {
      * @return {@code this} for chaining.
      */
     public RowAssembler appendNumber(BigInteger val) {
-        Column col = curCols.column(curCol);
-
         checkType(NativeTypeSpec.NUMBER);
 
-        FixLenNumberNativeType type = (FixLenNumberNativeType)col.type();
+        Column col = curCols.column(curCol);
 
-        int precision = new BigDecimal(val).precision();
-        if (precision > type.precision())
+        NumberNativeType type = (NumberNativeType)col.type();
+
+        if (NumericTypeUtils.precisionDoesNotFit(val, type.precision()))
             throw new IllegalArgumentException("Failed to set number value for column '" + col.name() + "' " +
-                "(max precision exceeds allocated precision) [number=" + val + ", value precision=" + precision +
-                ", max precision=" + type.precision() + "]");
-
-        final byte[] byteArr = val.toByteArray();
-
-        int zeroBytes = type.sizeInBytes() - byteArr.length;
-
-        for (int i = 0; i < zeroBytes; i++)
-            buf.put(curOff + i, (byte)0);
-
-        buf.putBytes(curOff + zeroBytes, byteArr);
-
-        if (isKeyChunk())
-            keyHash += 31 * keyHash + val.hashCode();
-
-        shiftColumn(type.sizeInBytes());
-
-        return this;
-    }
-
-    /**
-     * Appends byte[] value for the current column to the chunk.
-     *
-     * @param val Column value.
-     * @return {@code this} for chaining.
-     */
-    public RowAssembler appendVarLenNumber(BigInteger val) {
-        checkType(NativeTypes.VL_NUMBER);
+                "(max precision exceeds allocated precision) [number=" + val + ", max precision=" + type.precision() + "]");
 
         byte[] bytes = val.toByteArray();
 
@@ -459,6 +434,60 @@ public class RowAssembler {
         curVartblEntry++;
 
         shiftColumn(bytes.length);
+
+        return this;
+    }
+
+    /**
+     * Appends BigDecimal value for the current column to the chunk.
+     *
+     * @param val Column value.
+     * @return {@code this} for chaining.
+     */
+    public RowAssembler appendDecimal(BigDecimal val) {
+        checkType(NativeTypeSpec.DECIMAL);
+
+        Column col = curCols.column(curCol);
+
+        DecimalNativeType type = (DecimalNativeType)col.type();
+
+        if (NumericTypeUtils.precisionDoesNotFit(val.unscaledValue(), type.precision()))
+            throw new IllegalArgumentException("Failed to set decimal value for column '" + col.name() + "' " +
+                "(max precision exceeds allocated precision) [decimal=" + val + ", max precision=" + type.precision() + "]");
+
+        if (val.scale() > type.scale())
+            val = val.setScale(type.scale(), RoundingMode.HALF_UP);
+
+        int scale = val.scale();
+
+        int shift;
+        if(type.scale() == 0)
+            shift = 0;
+        else if (type.scale() <= Byte.MAX_VALUE) {
+            buf.put(curOff, (byte)scale);
+            shift = 1;
+        }
+        else if (type.scale() <= Short.MAX_VALUE) {
+            buf.putShort(curOff, (short)scale);
+            shift = 2;
+        }
+        else {
+            buf.putInt(curOff, scale);
+            shift = 4;
+        }
+
+        byte[] bytes = val.unscaledValue().toByteArray();
+
+        buf.putBytes(curOff + shift, bytes);
+
+        if (isKeyChunk())
+            keyHash = 31 * keyHash + Arrays.hashCode(bytes) + scale;
+
+        writeVarlenOffset(curVartblEntry, curOff - dataOff);
+
+        curVartblEntry++;
+
+        shiftColumn(bytes.length + shift);
 
         return this;
     }

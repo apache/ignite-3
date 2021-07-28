@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.BitSet;
 import java.util.Random;
@@ -64,8 +65,8 @@ public final class TestUtils {
             case NUMBER:
                 return BigInteger.probablePrime(12, rnd);
 
-            case VL_NUMBER:
-                return BigInteger.probablePrime(40, rnd);
+            case DECIMAL:
+                return BigDecimal.valueOf(rnd.nextInt(), 3);
 
             case BITMASK: {
                 BitmaskNativeType maskType = (BitmaskNativeType)type;

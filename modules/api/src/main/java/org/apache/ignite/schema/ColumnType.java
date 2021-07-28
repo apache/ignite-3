@@ -132,10 +132,28 @@ public class ColumnType {
      *
      * @param precision Precision.
      * @param scale Scale.
-     * @return Numeric type.
+     * @return Decimal type.
      */
-    public static NumericColumnType number(int precision, int scale) {
-        return new NumericColumnType(ColumnTypeSpec.DECIMAL, precision, scale);
+    public static DecimalColumnType decimalOf(int precision, int scale) {
+        if (precision <= 0)
+            throw new IllegalArgumentException("Precision [" + precision + "] must be positive integer value.");
+        if(scale < 0)
+            throw new IllegalArgumentException("Scale [" + scale + "] must be non-negative integer value.");
+
+        return new DecimalColumnType(ColumnTypeSpec.DECIMAL, precision, scale);
+    }
+
+    /**
+     * Decimal type factory method with default precision and scale values.
+     *
+     * @return Decimal type.
+     */
+    public static DecimalColumnType decimalOf() {
+        return new DecimalColumnType(
+            ColumnTypeSpec.DECIMAL,
+            DecimalColumnType.DEFAULT_PRECISION,
+            DecimalColumnType.DEFAULT_SCALE
+        );
     }
 
     /**
@@ -178,9 +196,15 @@ public class ColumnType {
     }
 
     /**
-     * Numeric column type.
+     * Decimal column type.
      */
-    public static class NumericColumnType extends ColumnType {
+    public static class DecimalColumnType extends ColumnType {
+        /** Default precision. */
+        public static final int DEFAULT_PRECISION = 19;
+
+        /** Default scale. */
+        public static final int DEFAULT_SCALE = 3;
+
         /** Precision. */
         private final int precision;
 
@@ -188,7 +212,7 @@ public class ColumnType {
         private final int scale;
 
         /** Constructor. */
-        private NumericColumnType(ColumnTypeSpec typeSpec, int precision, int scale) {
+        private DecimalColumnType(ColumnTypeSpec typeSpec, int precision, int scale) {
             super(typeSpec);
 
             this.precision = precision;
@@ -217,7 +241,7 @@ public class ColumnType {
                 return false;
             if (!super.equals(o))
                 return false;
-            NumericColumnType type = (NumericColumnType)o;
+            DecimalColumnType type = (DecimalColumnType)o;
             return precision == type.precision &&
                 scale == type.scale;
         }
@@ -232,7 +256,7 @@ public class ColumnType {
      * Number column type.
      */
     public static class NumberColumnType extends ColumnType {
-        /** Undefined precision. Means an object will be stored as varlen column. */
+        /** Undefined precision. */
         public static final int UNDEFINED = -1;
 
         /** Max precision of value. If -1, column has no precision restrictions. */

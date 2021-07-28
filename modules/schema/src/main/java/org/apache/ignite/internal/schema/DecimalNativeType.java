@@ -17,31 +17,50 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * A fixed-sized type representing a BigInteger with <code>precision</code> precision.
+ * Decimal column type.
  */
-public class FixLenNumberNativeType extends NativeType {
-    /** */
+public class DecimalNativeType extends NativeType {
+    /** Precision. */
     private final int precision;
 
+    /** Scale. */
+    private final int scale;
+
     /**
-     * Creates a number type of size <code>bytes</code>.
+     * The constructor.
      *
-     * @param precision Maximum allowed precision of a BigInteger value.
+     * @param precision Precision.
+     * @param scale Scale.
      */
-    protected FixLenNumberNativeType(int precision) {
-        super(NativeTypeSpec.NUMBER, NumericTypeUtils.byteSizeByPrecision(precision));
+    DecimalNativeType(int precision, int scale) {
+        super(NativeTypeSpec.DECIMAL);
 
         this.precision = precision;
+        this.scale = scale;
     }
 
     /**
-     * @return Maximum allowed precision of a BigInteger value.
+     * @return Precision.
      */
     public int precision() {
         return precision;
+    }
+
+    /**
+     * @return Scale.
+     */
+    public int scale() {
+        return scale;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean mismatch(NativeType type) {
+        return super.mismatch(type)
+            || precision < ((DecimalNativeType)type).precision;
     }
 
     /** {@inheritDoc} */
@@ -52,31 +71,22 @@ public class FixLenNumberNativeType extends NativeType {
         if (o == null || getClass() != o.getClass())
             return false;
 
-        FixLenNumberNativeType that = (FixLenNumberNativeType)o;
+        if (!super.equals(o))
+            return false;
 
-        return precision == that.precision;
+        DecimalNativeType type = (DecimalNativeType)o;
+
+        return precision == type.precision &&
+            scale == type.scale;
     }
 
     /** {@inheritDoc} */
     @Override public int hashCode() {
-        return precision;
-    }
-
-    /** {@inheritDoc} */
-    @Override public int compareTo(NativeType o) {
-        int res = super.compareTo(o);
-
-        if (res == 0) {
-            FixLenNumberNativeType that = (FixLenNumberNativeType)o;
-
-            return Integer.compare(precision, that.precision);
-        }
-        else
-            return res;
+        return Objects.hash(super.hashCode(), precision, scale);
     }
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(FixLenNumberNativeType.class.getSimpleName(), "typeSpec", spec(), "precision", precision());
+        return S.toString(DecimalNativeType.class.getSimpleName(), "name", spec(), "precision", precision, "scale", scale);
     }
 }

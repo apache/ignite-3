@@ -118,8 +118,8 @@ public class AsmSerializerGenerator implements SerializerFactory {
                     ObjectFactory.class)
                 .newInstance(
                     schema,
-                    MarshallerUtil.factoryForClass(schema.keyColumns(), keyClass),
-                    MarshallerUtil.factoryForClass(schema.valueColumns(), valClass));
+                    MarshallerUtil.factoryForClass(keyClass),
+                    MarshallerUtil.factoryForClass(valClass));
 
         }
         catch (Exception | LinkageError e) {
@@ -185,7 +185,7 @@ public class AsmSerializerGenerator implements SerializerFactory {
         Columns columns,
         int firstColIdx
     ) {
-        final BinaryMode mode = MarshallerUtil.mode(columns.column(0), tClass);
+        final BinaryMode mode = MarshallerUtil.mode(tClass);
 
         if (mode == null)
             return new ObjectMarshallerCodeGenerator(columns, tClass, firstColIdx);

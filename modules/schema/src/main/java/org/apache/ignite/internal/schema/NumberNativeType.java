@@ -17,51 +17,31 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Numeric column type.
+ * A number native type representing a BigInteger with <code>precision</code> precision.
  */
-public class NumericNativeType extends NativeType {
-    /** Precision. */
+public class NumberNativeType extends NativeType {
+    /** */
     private final int precision;
 
-    /** Scale. */
-    private final int scale;
-
     /**
-     * The constructor.
+     * Creates a number type of size <code>bytes</code>.
      *
-     * @param precision Precision.
-     * @param scale Scale.
+     * @param precision Maximum allowed precision of a BigInteger value.
      */
-    NumericNativeType(int precision, int scale) {
-        super(NativeTypeSpec.DECIMAL);
+    protected NumberNativeType(int precision) {
+        super(NativeTypeSpec.NUMBER);
 
         this.precision = precision;
-        this.scale = scale;
     }
 
     /**
-     * @return Precision.
+     * @return Maximum allowed precision of a BigInteger value.
      */
     public int precision() {
         return precision;
-    }
-
-    /**
-     * @return Scale.
-     */
-    public int scale() {
-        return scale;
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean mismatch(NativeType type) {
-        return super.mismatch(type)
-            || precision < ((NumericNativeType)type).precision
-            || scale < ((NumericNativeType)type).scale;
     }
 
     /** {@inheritDoc} */
@@ -72,22 +52,37 @@ public class NumericNativeType extends NativeType {
         if (o == null || getClass() != o.getClass())
             return false;
 
-        if (!super.equals(o))
-            return false;
+        NumberNativeType that = (NumberNativeType)o;
 
-        NumericNativeType type = (NumericNativeType)o;
+        return precision == that.precision;
+    }
 
-        return precision == type.precision &&
-            scale == type.scale;
+    /** {@inheritDoc} */
+    @Override public boolean mismatch(NativeType type) {
+        return super.mismatch(type)
+            || precision < ((NumberNativeType)type).precision;
     }
 
     /** {@inheritDoc} */
     @Override public int hashCode() {
-        return Objects.hash(super.hashCode(), precision, scale);
+        return precision;
+    }
+
+    /** {@inheritDoc} */
+    @Override public int compareTo(NativeType o) {
+        int res = super.compareTo(o);
+
+        if (res == 0) {
+            NumberNativeType that = (NumberNativeType)o;
+
+            return Integer.compare(precision, that.precision);
+        }
+        else
+            return res;
     }
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(NumericNativeType.class.getSimpleName(), "name", spec(), "precision", precision, "scale", scale);
+        return S.toString(NumberNativeType.class.getSimpleName(), "typeSpec", spec(), "precision", precision());
     }
 }

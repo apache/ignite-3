@@ -74,8 +74,8 @@ public enum BinaryMode {
     /** BigInteger. */
     NUMBER(NativeTypeSpec.NUMBER),
 
-    /** BigInteger. */
-    VL_NUMBER(NativeTypeSpec.VL_NUMBER);
+    /** BigDecimal. */
+    DECIMAL(NativeTypeSpec.DECIMAL);
 
     /** Natove type spec. */
     private final NativeTypeSpec typeSpec;

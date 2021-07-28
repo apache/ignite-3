@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.table.type;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
@@ -31,6 +33,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.TupleBuilderImpl;
 import org.apache.ignite.internal.table.TupleMarshallerImpl;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,7 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /** */
-public class DecimalTypeSerializerTest {
+public class NumericTypesSerializerTest {
     /** Random. */
     private static Random rnd = new Random();
 
@@ -94,7 +97,7 @@ public class DecimalTypeSerializerTest {
      */
     @ParameterizedTest
     @MethodSource("numbers")
-    public void testFixLenNumber(Pair<BigInteger, BigInteger> pair) {
+    public void testNumber(Pair<BigInteger, BigInteger> pair) {
         schema = new SchemaDescriptor(
             UUID.randomUUID(),
             42,
@@ -121,37 +124,8 @@ public class DecimalTypeSerializerTest {
     /**
      *
      */
-    @ParameterizedTest
-    @MethodSource("numbers")
-    public void testVarLenNumbers(Pair<BigInteger, BigInteger> pair) {
-        schema = new SchemaDescriptor(
-            UUID.randomUUID(),
-            42,
-            new Column[] {new Column("key", NativeTypes.INT64, false)},
-            new Column[] {
-                new Column("number1", NativeTypes.VL_NUMBER, false),
-                new Column("number2", NativeTypes.VL_NUMBER, false)
-            }
-        );
-
-        final TupleBuilderImpl tup = new TupleBuilderImpl(schema);
-
-        tup.set("key", rnd.nextLong());
-        tup.set("number1", pair.getFirst());
-        tup.set("number2", pair.getSecond());
-
-        Tuple keyTuple = new TupleBuilderImpl(schema).set("key", rnd.nextLong()).build();
-
-        final Row row = marshaller.marshal(keyTuple, tup.build());
-
-        assertEquals(row.varLenNumberValue(1), row.varLenNumberValue(2));
-    }
-
-    /**
-     *
-     */
     @Test
-    public void testPrecisionRestrictionsForFixLenNumbers() {
+    public void testPrecisionRestrictionsForNumbers() {
         schema = new SchemaDescriptor(
             UUID.randomUUID(),
             42,
@@ -164,18 +138,67 @@ public class DecimalTypeSerializerTest {
         final TupleBuilderImpl badTup = new TupleBuilderImpl(schema);
 
         badTup.set("key", rnd.nextLong());
-        badTup.set("number1", BigInteger.valueOf(999991L));
+        assertThrows(InvalidTypeException.class, () -> badTup.set("number1", BigInteger.valueOf(999991L)), "Column's type mismatch");
+        assertThrows(InvalidTypeException.class, () -> badTup.set("number1", new BigInteger("111111")), "Column's type mismatch");
+        assertThrows(InvalidTypeException.class, () -> badTup.set("number1", BigInteger.valueOf(-999991L)), "Column's type mismatch");
+        assertThrows(InvalidTypeException.class, () -> badTup.set("number1", new BigInteger("-111111")), "Column's type mismatch");
+    }
 
-        Tuple keyTuple = new TupleBuilderImpl(schema).set("key", rnd.nextLong()).build();
+    /**
+     *
+     */
+    @Test
+    public void testPrecisionRestrictionsForDecimal() {
+        schema = new SchemaDescriptor(
+            UUID.randomUUID(),
+            42,
+            new Column[] {new Column("key", NativeTypes.INT64, false)},
+            new Column[] {
+                new Column("decimalCol", NativeTypes.decimalOf(12, 3), false),
+            }
+        );
 
-        assertThrows(IllegalArgumentException.class, () -> marshaller.marshal(keyTuple, badTup.build()), "Failed to set number value for column");
-
-        final TupleBuilderImpl anotherBadTup = new TupleBuilderImpl(schema);
+        final TupleBuilderImpl badTup = new TupleBuilderImpl(schema);
 
         badTup.set("key", rnd.nextLong());
-        badTup.set("number1", new BigInteger("111111"));
+        assertThrows(InvalidTypeException.class, () -> badTup.set("decimalCol", new BigDecimal("123456789.0123")), "Column's type mismatch");
+        assertThrows(InvalidTypeException.class, () -> badTup.set("decimalCol", new BigDecimal("-1234567890123")), "Column's type mismatch");
+        assertThrows(InvalidTypeException.class, () -> badTup.set("decimalCol", new BigDecimal(123456789.0123d)), "Column's type mismatch");
+    }
 
-        assertThrows(IllegalArgumentException.class, () -> marshaller.marshal(keyTuple, anotherBadTup.build()), "Failed to set number value for column");
+    /**
+     *
+     */
+    @Test
+    public void testScaleRestrictionsForDecimal() {
+        schema = new SchemaDescriptor(
+            UUID.randomUUID(),
+            42,
+            new Column[] {new Column("key", NativeTypes.INT64, false)},
+            new Column[] {
+                new Column("decimalCol1", NativeTypes.decimalOf(22, 0), false),
+                new Column("decimalCol2", NativeTypes.decimalOf(22, 0), false),
+                new Column("decimalCol3", NativeTypes.decimalOf(22, 0), false),
+                new Column("decimalCol4", NativeTypes.decimalOf(22, 0), false),
+                new Column("decimalCol5", NativeTypes.from(ColumnType.decimalOf()), false),
+            }
+        );
 
+        final TupleBuilderImpl tup = new TupleBuilderImpl(schema);
+
+        tup.set("key", rnd.nextLong());
+        tup.set("decimalCol1", new BigDecimal("123456789.0123"));
+        tup.set("decimalCol2", new BigDecimal("123456789.1"));
+        tup.set("decimalCol3", new BigDecimal("123456789.112312315413"));
+        tup.set("decimalCol4", new BigDecimal("0E+132"));
+        tup.set("decimalCol5", new BigDecimal("123456789.0123"));
+
+        final Row row = marshaller.marshal(new TupleBuilderImpl(schema).set("key", rnd.nextLong()).build(), tup.build());
+
+        assertEquals(row.decimalValue(1), new BigDecimal("123456789"));
+        assertEquals(row.decimalValue(2), new BigDecimal("123456789"));
+        assertEquals(row.decimalValue(3), new BigDecimal("123456789"));
+        assertEquals(row.decimalValue(4), new BigDecimal("0"));
+        assertEquals(row.decimalValue(5), new BigDecimal("123456789.012"));
     }
 }

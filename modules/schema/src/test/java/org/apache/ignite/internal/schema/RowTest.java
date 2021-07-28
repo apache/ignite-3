@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -40,7 +41,6 @@ import static org.apache.ignite.internal.schema.NativeTypes.INT64;
 import static org.apache.ignite.internal.schema.NativeTypes.INT16;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.apache.ignite.internal.schema.NativeTypes.UUID;
-import static org.apache.ignite.internal.schema.NativeTypes.VL_NUMBER;
 import static org.apache.ignite.internal.schema.TestUtils.randomBytes;
 import static org.apache.ignite.internal.schema.TestUtils.randomString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -112,8 +112,6 @@ public class RowTest {
             new Column("keyUuidCol", UUID, true),
             new Column("keyBitmask1Col", NativeTypes.bitmaskOf(4), true),
             new Column("keyBitmask2Col", NativeTypes.bitmaskOf(22), true),
-            new Column("keyNumberCol", NativeTypes.numberOf(21), true),
-            new Column("keyNumberCol2", VL_NUMBER, true)
         };
 
         Column[] valCols = new Column[] {
@@ -126,8 +124,6 @@ public class RowTest {
             new Column("valUuidCol", UUID, true),
             new Column("valBitmask1Col", NativeTypes.bitmaskOf(4), true),
             new Column("valBitmask2Col", NativeTypes.bitmaskOf(22), true),
-            new Column("valNumberCol", NativeTypes.numberOf(21), true),
-            new Column("valNumberCol2", VL_NUMBER, true)
         };
 
         checkSchema(keyCols, valCols);
@@ -145,6 +141,8 @@ public class RowTest {
             new Column("keyLongCol", INT64, false),
             new Column("keyBytesCol", BYTES, false),
             new Column("keyStringCol", STRING, false),
+            new Column("keyNumberCol", NativeTypes.numberOf(9), false),
+            new Column("keyDecimalCol", NativeTypes.decimalOf(12, 9), false),
         };
 
         Column[] valCols = new Column[] {
@@ -154,6 +152,8 @@ public class RowTest {
             new Column("keyLongCol", INT64, true),
             new Column("valBytesCol", BYTES, true),
             new Column("valStringCol", STRING, true),
+            new Column("valNumberCol", NativeTypes.numberOf(9), true),
+            new Column("valDecimalCol", NativeTypes.decimalOf(12, 9), true),
         };
 
         checkSchema(keyCols, valCols);
@@ -167,11 +167,15 @@ public class RowTest {
         Column[] keyCols = new Column[] {
             new Column("keyBytesCol", BYTES, false),
             new Column("keyStringCol", STRING, false),
+            new Column("keyNumberCol", NativeTypes.numberOf(9), false),
+            new Column("keyDecimalCol", NativeTypes.decimalOf(12, 9), false),
         };
 
         Column[] valCols = new Column[] {
             new Column("valBytesCol", BYTES, false),
             new Column("valStringCol", STRING, false),
+            new Column("valNumberCol", NativeTypes.numberOf(9), false),
+            new Column("valDecimalCol", NativeTypes.decimalOf(12, 9), false),
         };
 
         checkSchema(keyCols, valCols);
@@ -190,6 +194,8 @@ public class RowTest {
         Column[] valCols = new Column[] {
             new Column("valBytesCol", BYTES, true),
             new Column("valStringCol", STRING, true),
+            new Column("valNumberCol", NativeTypes.numberOf(9), true),
+            new Column("valDecimalCol", NativeTypes.decimalOf(12, 9), true),
         };
 
         checkSchema(keyCols, valCols);
@@ -427,14 +433,24 @@ public class RowTest {
                         nonNullVarLenValSize += RowAssembler.utf8EncodedLength((CharSequence)vals[i]);
                     }
                 }
-                else if (type == NativeTypeSpec.VL_NUMBER) {
+                else if (type == NativeTypeSpec.NUMBER) {
                     if (schema.isKeyColumn(i)) {
                         nonNullVarLenKeyCols++;
-                        nonNullVarLenKeySize += ((BigInteger)vals[i]).toByteArray().length;
+                        nonNullVarLenKeySize += NumericTypeUtils.sizeInBytes((BigInteger)vals[i]);
                     }
                     else {
                         nonNullVarLenValCols++;
-                        nonNullVarLenValSize += ((BigInteger)vals[i]).toByteArray().length;
+                        nonNullVarLenValSize += NumericTypeUtils.sizeInBytes((BigInteger)vals[i]);
+                    }
+                }
+                else if (type == NativeTypeSpec.DECIMAL) {
+                    if (schema.isKeyColumn(i)) {
+                        nonNullVarLenKeyCols++;
+                        nonNullVarLenKeySize += NumericTypeUtils.sizeInBytes((BigDecimal)vals[i], ((DecimalNativeType)schema.column(i).type()));
+                    }
+                    else {
+                        nonNullVarLenValCols++;
+                        nonNullVarLenValSize += NumericTypeUtils.sizeInBytes((BigDecimal)vals[i], ((DecimalNativeType)schema.column(i).type()));
                     }
                 }
                 else
@@ -492,8 +508,8 @@ public class RowTest {
                         asm.appendNumber((BigInteger)vals[i]);
                         break;
 
-                    case VL_NUMBER:
-                        asm.appendVarLenNumber((BigInteger)vals[i]);
+                    case DECIMAL:
+                        asm.appendDecimal((BigDecimal)vals[i]);
                         break;
 
                     case BYTES:

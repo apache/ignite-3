@@ -41,7 +41,6 @@ import static org.apache.ignite.internal.schema.NativeTypes.INT32;
 import static org.apache.ignite.internal.schema.NativeTypes.INT64;
 import static org.apache.ignite.internal.schema.NativeTypes.INT16;
 import static org.apache.ignite.internal.schema.NativeTypes.UUID;
-import static org.apache.ignite.internal.schema.NativeTypes.VL_NUMBER;
 
 /**
  * Build SchemaDescriptor from SchemaTable internal configuration.
@@ -83,10 +82,11 @@ public class SchemaDescriptorConverter {
             case DOUBLE:
                 return DOUBLE;
 
-            case DECIMAL:
-                ColumnType.NumericColumnType numType = (ColumnType.NumericColumnType)colType;
+            case DECIMAL: {
+                ColumnType.DecimalColumnType numType = (ColumnType.DecimalColumnType)colType;
 
                 return NativeTypes.decimalOf(numType.precision(), numType.scale());
+            }
             case UUID:
                 return UUID;
 
@@ -109,12 +109,11 @@ public class SchemaDescriptorConverter {
 
                 return NativeTypes.blobOf(blobLen);
 
-            case NUMBER:
+            case NUMBER: {
                 ColumnType.NumberColumnType numberType = (ColumnType.NumberColumnType)colType;
-                if (numberType.precision() != ColumnType.NumberColumnType.UNDEFINED)
-                    return NativeTypes.numberOf(numberType.precision());
-                return VL_NUMBER;
 
+                return NativeTypes.numberOf(numberType.precision());
+            }
             default:
                 throw new InvalidTypeException("Unexpected type " + type);
         }
@@ -165,8 +164,6 @@ public class SchemaDescriptorConverter {
             case UUID:
                 return java.util.UUID.fromString(dflt);
             case NUMBER:
-                return new BigInteger(dflt);
-            case VL_NUMBER:
                 return new BigInteger(dflt);
             default:
                 throw new SchemaException("Default value is not supported for type: type=" + type.toString());

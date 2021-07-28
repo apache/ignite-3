@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -41,7 +42,6 @@ import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesChange;
 import org.apache.ignite.internal.schema.ColumnImpl;
 import org.apache.ignite.internal.schema.HashIndexImpl;
-import org.apache.ignite.internal.schema.NumericTypeUtils;
 import org.apache.ignite.internal.schema.PartialIndexImpl;
 import org.apache.ignite.internal.schema.PrimaryIndexImpl;
 import org.apache.ignite.internal.schema.SchemaTableImpl;
@@ -280,7 +280,7 @@ public class SchemaConfigurationConverter {
                     break;
 
                 case "DECIMAL":
-                    ColumnType.NumericColumnType numColType = (ColumnType.NumericColumnType)colType;
+                    ColumnType.DecimalColumnType numColType = (ColumnType.DecimalColumnType)colType;
 
                     colTypeChg.changePrecision(numColType.precision());
                     colTypeChg.changeScale(numColType.scale());
@@ -290,9 +290,7 @@ public class SchemaConfigurationConverter {
                 case "NUMBER":
                     ColumnType.NumberColumnType numType = (ColumnType.NumberColumnType)colType;
 
-                    colTypeChg.changeLength(
-                        NumericTypeUtils.byteSizeByPrecision(numType.precision())
-                    );
+                    colTypeChg.changePrecision(numType.precision());
 
                     break;
 
@@ -337,7 +335,7 @@ public class SchemaConfigurationConverter {
                     int prec = colTypeView.precision();
                     int scale = colTypeView.scale();
 
-                    return ColumnType.number(prec, scale);
+                    return ColumnType.decimalOf(prec, scale);
 
                 case "NUMBER":
                     return ColumnType.numberOf();
@@ -572,6 +570,8 @@ public class SchemaConfigurationConverter {
             return ColumnType.UUID;
         else if (cls == BigInteger.class)
             return ColumnType.numberOf();
+        else if (cls == BigDecimal.class)
+            return ColumnType.decimalOf();
 
         return null;
     }

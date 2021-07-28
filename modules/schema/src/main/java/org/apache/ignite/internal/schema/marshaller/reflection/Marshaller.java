@@ -42,7 +42,7 @@ class Marshaller {
      * @return Marshaller.
      */
     static Marshaller createMarshaller(Columns cols, int firstColId, Class<? extends Object> aClass) {
-        final BinaryMode mode = MarshallerUtil.mode(cols.column(0), aClass);
+        final BinaryMode mode = MarshallerUtil.mode(aClass);
 
         if (mode != null) {
             final Column col = cols.column(0);
