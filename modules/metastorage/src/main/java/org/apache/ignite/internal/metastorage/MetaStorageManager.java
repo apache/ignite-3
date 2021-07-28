@@ -157,7 +157,7 @@ public class MetaStorageManager implements IgniteComponent {
             metaStorageNodesOnStart = true;
 
             this.metaStorageSvcFut = CompletableFuture.completedFuture(new MetaStorageServiceImpl(
-                    raftMgr.startRaftGroup(
+                    raftMgr.prepareRaftGroup(
                         METASTORAGE_RAFT_GROUP_NAME,
                         clusterNetSvc.topologyService().allMembers().stream().filter(
                             metaStorageNodesContainsLocPred).
