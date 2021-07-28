@@ -15,34 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.app;
+package org.apache.ignite.query.sql.reactive;
 
-import org.apache.ignite.query.sql.IgniteSql;
-import org.apache.ignite.table.manager.IgniteTables;
-import org.apache.ignite.tx.IgniteTransactions;
+import java.sql.ResultSetMetaData;
+import java.util.concurrent.Flow;
+import org.apache.ignite.query.sql.SqlRow;
 
 /**
- * Ignite node interface. Main entry-point for all Ignite APIs.
+ * Reactive resultset provides methods to subscribe to the query results in reactive way.
+ *
+ * Note: It implies to be used with the reactive framework such as Reactor or R2DBC.
+ *
+ * @see reactor.core.publisher.Flux
+ * @see r2dbc
  */
-public interface Ignite extends AutoCloseable {
+// TODO: add links to frameworks, code examples. See SqlTest.SqlRowSubsvriber.
+public interface ReactiveSqlResultSet extends Flow.Publisher<SqlRow> {
     /**
-     * Gets an object for manipulate Ignite tables.
+     * Return publisher for the ResulSets' metadata.
      *
-     * @return Ignite tables.
+     * @return Metadata publisher.
      */
-    IgniteTables tables();
-
-    /**
-     * Returns a transaction facade.
-     *
-     * @return Ignite transactions.
-     */
-    IgniteTransactions transactions();
-
-    /**
-     * Returns a facade for SQL quering.
-     *
-     * @return Ignite SQL facade.
-     */
-    IgniteSql sql();
+    Flow.Publisher<ResultSetMetaData> metadata();
 }

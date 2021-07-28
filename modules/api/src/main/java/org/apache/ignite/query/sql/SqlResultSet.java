@@ -15,34 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.app;
-
-import org.apache.ignite.query.sql.IgniteSql;
-import org.apache.ignite.table.manager.IgniteTables;
-import org.apache.ignite.tx.IgniteTransactions;
+package org.apache.ignite.query.sql;
 
 /**
- * Ignite node interface. Main entry-point for all Ignite APIs.
+ * SQL result set provides methods to access SQL query resul represented as collection of {@link SqlRow}.
+ *
+ * All the rows in result set have the same structure described in {@link SqlResultSetMeta}.
+ * ResultSet must be closed after usage to free resources.
  */
-public interface Ignite extends AutoCloseable {
+public interface SqlResultSet extends Iterable<SqlRow>, AutoCloseable {
     /**
-     * Gets an object for manipulate Ignite tables.
+     * Returns metadata for the results.
      *
-     * @return Ignite tables.
+     * @return ResultSet metadata.
      */
-    IgniteTables tables();
-
-    /**
-     * Returns a transaction facade.
-     *
-     * @return Ignite transactions.
-     */
-    IgniteTransactions transactions();
-
-    /**
-     * Returns a facade for SQL quering.
-     *
-     * @return Ignite SQL facade.
-     */
-    IgniteSql sql();
+    SqlResultSetMeta metadata();
 }

@@ -15,34 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.app;
+package org.apache.ignite.query.sql;
 
-import org.apache.ignite.query.sql.IgniteSql;
-import org.apache.ignite.table.manager.IgniteTables;
-import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Ignite node interface. Main entry-point for all Ignite APIs.
+ * SQL exception base class.
  */
-public interface Ignite extends AutoCloseable {
-    /**
-     * Gets an object for manipulate Ignite tables.
-     *
-     * @return Ignite tables.
-     */
-    IgniteTables tables();
+//TODO: Do we want to use this instead of java.sql.SQLException ?
+public class SQLException extends IgniteException {
+    public SQLException() {
+    }
 
-    /**
-     * Returns a transaction facade.
-     *
-     * @return Ignite transactions.
-     */
-    IgniteTransactions transactions();
+    public SQLException(String msg) {
+        super(msg);
+    }
 
-    /**
-     * Returns a facade for SQL quering.
-     *
-     * @return Ignite SQL facade.
-     */
-    IgniteSql sql();
+    public SQLException(Throwable cause) {
+        super(cause);
+    }
+
+    public SQLException(String msg, @Nullable Throwable cause) {
+        super(msg, cause);
+    }
 }

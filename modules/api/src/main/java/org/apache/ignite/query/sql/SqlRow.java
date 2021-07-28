@@ -15,34 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.app;
+package org.apache.ignite.query.sql;
 
-import org.apache.ignite.query.sql.IgniteSql;
-import org.apache.ignite.table.manager.IgniteTables;
-import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.table.Tuple;
 
 /**
- * Ignite node interface. Main entry-point for all Ignite APIs.
+ * SQL row provides methods to access row data by column name or id.
+ *
+ * Column description can be retrived from {@link SqlResultSet#metadata()}.
+ * @see SqlColumnMeta
  */
-public interface Ignite extends AutoCloseable {
-    /**
-     * Gets an object for manipulate Ignite tables.
-     *
-     * @return Ignite tables.
-     */
-    IgniteTables tables();
-
-    /**
-     * Returns a transaction facade.
-     *
-     * @return Ignite transactions.
-     */
-    IgniteTransactions transactions();
-
-    /**
-     * Returns a facade for SQL quering.
-     *
-     * @return Ignite SQL facade.
-     */
-    IgniteSql sql();
+public interface SqlRow extends Tuple {
+//TODO: We extends Tuple here just for short. Do we need smth else?
 }
