@@ -67,12 +67,6 @@ public interface IgniteSql {
 
     ///////////////// Query monitoring and management.
     /**
-     * Returns SQL views.
-     */
-    Object views(); //TODO: To be described.
-    //TODO: Add view for runnin queries.
-
-    /**
      * Return info of the queries. //TODO: "running on the node locally"? or "started on the node"? or both?
      *
      * @return Running queries infos.
@@ -86,6 +80,15 @@ public interface IgniteSql {
      */
     void killQuery(UUID queryID);
 
+    /**
+     * Returns SQL views.
+     */
+    Object views(); //TODO: TBD.
+
+    //TODO: View for running queries?
+    //TODO: View for memory Management?
+    //TODO: View for QueryMetrics?
+    //TODO: Any other SystemViews from Igntie 2.0?
 
     ////////////// Statistics management.
     Collection<Object> tableStatistics(String table); //TODO: Local or global? Ready or in-progress? TBD.
@@ -105,5 +108,7 @@ public interface IgniteSql {
 
     //TODO: Do we expect any SQL DDL pragrammatical API here? Why we have tables().create(), but not here?
     //TODO: alterTable()?
+
+    //TODO: Custom function registration. Do we need a view and unregister functionality?
 }
 
