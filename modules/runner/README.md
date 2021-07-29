@@ -171,12 +171,15 @@ node stop will prevent any new components startup and stop already started ones.
 
 Following method was added to Ignition interface:
 ```
-/**
- * Stops node with given node. It's possible to stop both already started node or node that is currently starting.
- *
- * @param name Node name to stop.
- */
- public void stop(@NotNull String name);
+    /**
+     * Stops the node with given {@code name}.
+     * It's possible to stop both already started node or node that is currently starting.
+     * Has no effect if node with specified name doesn't exist.
+     *
+     * @param name Node name to stop.
+     * @throws IllegalArgumentException if null is specified instead of node name.
+     */
+    public void stop(@NotNull String name);
 ```
 It's also possible to stop a node by calling ``close()`` on an already started Ignite instance.
 

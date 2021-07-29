@@ -57,7 +57,7 @@ public interface Ignition {
     public Ignite start(@NotNull String name, @NotNull Path workDir);
 
     /**
-     * Stops node with given {@code name}.
+     * Stops the node with given {@code name}.
      * It's possible to stop both already started node or node that is currently starting.
      * Has no effect if node with specified name doesn't exist.
      *

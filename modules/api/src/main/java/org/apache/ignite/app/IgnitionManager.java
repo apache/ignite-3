@@ -98,11 +98,14 @@ public class IgnitionManager {
     }
 
     /**
-     * Stops node with given node name. It's possible to stop both already started node or node that is currently starting.
+     * Stops the node with given {@code name}.
+     * It's possible to stop both already started node or node that is currently starting.
+     * Has no effect if node with specified name doesn't exist.
      *
-     * @param nodeName Node name to stop.
+     * @param name Node name to stop.
+     * @throws IllegalArgumentException if null is specified instead of node name.
      */
-    public static void stop(@NotNull String nodeName) {
+    public static void stop(@NotNull String name) {
         synchronized (IgnitionManager.class) {
             if (ignition == null) {
                 ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class);
@@ -110,18 +113,21 @@ public class IgnitionManager {
             }
         }
 
-        ignition.stop(nodeName);
+        ignition.stop(name);
     }
 
     /**
-     * Stops node with given node. It's possible to stop both already started node or node that is currently starting.
+     * Stops the node with given {@code name}.
+     * It's possible to stop both already started node or node that is currently starting.
+     * Has no effect if node with specified name doesn't exist.
      *
-     * @param nodeName Node name to stop.
+     * @param name Node name to stop.
      * @param clsLdr The class loader to be used to load provider-configuration files
      *               and provider classes, or {@code null} if the system class loader
      *               (or, failing that, the bootstrap class loader) is to be used
+     * @throws IllegalArgumentException if null is specified instead of node name.
      */
-    public static void stop(@NotNull String nodeName, @Nullable ClassLoader clsLdr) {
+    public static void stop(@NotNull String name, @Nullable ClassLoader clsLdr) {
         synchronized (IgnitionManager.class) {
             if (ignition == null) {
                 ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class, clsLdr);
@@ -129,6 +135,6 @@ public class IgnitionManager {
             }
         }
 
-        ignition.stop(nodeName);
+        ignition.stop(name);
     }
 }
