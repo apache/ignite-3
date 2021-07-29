@@ -68,8 +68,6 @@ public class ClientHandlerModule {
      */
     public void prepareStart(ConfigurationRegistry sysCfg) {
         registry = sysCfg;
-
-        registry.start();
     }
 
     /**
