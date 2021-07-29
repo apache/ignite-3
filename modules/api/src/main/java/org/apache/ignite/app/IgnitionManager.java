@@ -98,7 +98,7 @@ public class IgnitionManager {
     }
 
     /**
-     * Stops node with given node. It's possible to stop both already started node or node that is currently starting.
+     * Stops node with given node name. It's possible to stop both already started node or node that is currently starting.
      *
      * @param nodeName Node name to stop.
      */
