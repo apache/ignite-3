@@ -48,7 +48,6 @@ public interface SqlColumnMeta {
      * @return Value type.
      */
     Class<?> valueClass();
-    //TODO: this maybe more useful in contraty to the previous one.
 
     /**
      * Row column nullability.
@@ -56,5 +55,4 @@ public interface SqlColumnMeta {
      * @return {@code true} if column is nullable, {@code false} otherwise.
      */
     boolean nullable();
-    //TODO: AFAIK, Calcite can derive column type for us.
 }

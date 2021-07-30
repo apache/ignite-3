@@ -17,7 +17,6 @@
 
 package org.apache.ignite.query.sql;
 
-import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.query.sql.reactive.ReactiveSqlResultSet;
@@ -34,11 +33,11 @@ public interface IgniteSql {
      * Shortcut method for running a query.
      *
      * @param sql SQL query template.
-     * @param args Arguments for template (optional)
+     * @param args Arguments for template (optional).
      * @return SQL query resultset.
      * @throws SQLException If failed.
      */
-    SqlResultSet execute(@NotNull String sql, @Nullable Object... args);
+    SqlResultSet execute(@NotNull String sql, Object... args);
 
     /**
      * Shortcut method for running a query in asynchronously.
@@ -62,16 +61,31 @@ public interface IgniteSql {
      */
     ReactiveSqlResultSet executeReactive(String sql, Object... args);
 
-    //TODO: Do we need a separate methods for DML/DDL that do not return the resultset? or extend a resultset?
+    /**
+     * Shortcut method for running a non-query statement.
+     *
+     * @param sql SQL statement template.
+     * @param args Agruments for template (optional).
+     * @return Number of updated rows.
+     */
+    int executeNonQuery(@NotNull String sql, @Nullable Object... args);
+    //TODO: useful for bulk DML query, when we don't care of results.
+    //TODO: in contrary, execute() method may return inserted rows IDs that looks useful if AutoIncrement ID column is used.
+
     //TODO: same methods for Statement.
 
-    ///////////////// Query monitoring and management.
     /**
-     * Return info of the queries. //TODO: "running on the node locally"? or "started on the node"? or both?
+     * Sets query session parameter.
      *
-     * @return Running queries infos.
+     * @param name Parameter name.
+     * @param value Parameter value.
      */
-    Collection<Object> runningQueries(); //TODO: Is it needed here or to be moved into the Views facade?
+    void setParameter(String name, Object value);
+    //TODO: User can set e.g. queryTimeout or force join order or whatever.
+    //TODO: This is similar to SQL "SET" operator which is used in JDBC/ODBC clients for session state manipulation.
+
+
+    //TODO: Move all of this to Session. Maybe facade instance could incapsulate a session implicitely?
 
     /**
      * Kills query by its' id.
@@ -81,34 +95,19 @@ public interface IgniteSql {
     void killQuery(UUID queryID);
 
     /**
-     * Returns SQL views.
+     * Returns statistics facade for table statistics management.
+     *
+     * Table statistics are used by SQL engine for SQL queries planning.
+     *
+     * @return Statistics facade.
      */
-    Object views(); //TODO: TBD.
-
-    //TODO: View for running queries?
-    //TODO: View for memory Management?
-    //TODO: View for QueryMetrics?
-    //TODO: Any other SystemViews from Igntie 2.0?
-
-    ////////////// Statistics management.
-    Collection<Object> tableStatistics(String table); //TODO: Local or global? Ready or in-progress? TBD.
-
-    CompletableFuture<Void> gatherStatistics(String table, Object statisticsConfiguration);
-    //TODO: Creates new statistics in addition, or drop old and replaces with new?
-    //TODO: Should the existed one be refreshed?
-
-    CompletableFuture<Void> refreshStatistics(String table, @Nullable String... optionalStatisticName);
-
-    void dropStatistics(String table, @Nullable String... optionalStatisticName);
-
-    void refreshLocalStatistics(String table, @Nullable String... optionalStatisticName); //TODO: Actually, drops local statistics to be automatically refreshed.
+    IgniteTableStatistics statistics();
+    // TODO: Do we need this here or move to Table facade?
 
 
-    //////////////////// DDL
-
-    //TODO: Do we expect any SQL DDL pragrammatical API here? Why we have tables().create(), but not here?
-    //TODO: alterTable()?
-
+    void registerUserFunction(Class type, String... methodNames); //TODO: Get function details from method annotations.
+    void registerUserFunction(Class type);
+    void unregistedUserFunction(String functionName);
     //TODO: Custom function registration. Do we need a view and unregister functionality?
 }
 

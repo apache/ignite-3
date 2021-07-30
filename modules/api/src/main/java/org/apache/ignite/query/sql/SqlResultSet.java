@@ -17,6 +17,8 @@
 
 package org.apache.ignite.query.sql;
 
+import java.util.UUID;
+
 /**
  * SQL result set provides methods to access SQL query resul represented as collection of {@link SqlRow}.
  *
@@ -30,4 +32,6 @@ public interface SqlResultSet extends Iterable<SqlRow>, AutoCloseable {
      * @return ResultSet metadata.
      */
     SqlResultSetMeta metadata();
+
+    UUID queryId();
 }
