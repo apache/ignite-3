@@ -461,7 +461,7 @@ public class RowAssembler {
         int scale = val.scale();
 
         int shift;
-        if(type.scale() == 0)
+        if (type.scale() == 0)
             shift = 0;
         else if (type.scale() <= Byte.MAX_VALUE) {
             buf.put(curOff, (byte)scale);

@@ -48,7 +48,6 @@ public class NumericTypesSerializerTest {
     /** Random. */
     private static Random rnd = new Random();
 
-
     /** Tuple marshaller. */
     private TupleMarshaller marshaller;
 

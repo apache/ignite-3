@@ -289,7 +289,6 @@ public class FieldAccessorTest {
         Mockito.doAnswer(rowAnswer).when(mockedRow).numberValue(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).decimalValue(Mockito.anyInt());
 
-
         return new Pair<>(mockedAsm, mockedRow);
     }
 

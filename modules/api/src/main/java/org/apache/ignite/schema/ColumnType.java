@@ -137,7 +137,7 @@ public class ColumnType {
     public static DecimalColumnType decimalOf(int precision, int scale) {
         if (precision <= 0)
             throw new IllegalArgumentException("Precision [" + precision + "] must be positive integer value.");
-        if(scale < 0)
+        if (scale < 0)
             throw new IllegalArgumentException("Scale [" + scale + "] must be non-negative integer value.");
 
         return new DecimalColumnType(ColumnTypeSpec.DECIMAL, precision, scale);

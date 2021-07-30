@@ -37,7 +37,7 @@ public class NumericTypeUtils {
      * */
     public static int sizeInBytes(BigDecimal val, DecimalNativeType type) {
         int shift;
-        if(type.scale() == 0)
+        if (type.scale() == 0)
             shift = 0;
         else if (type.scale() <= Byte.MAX_VALUE)
             shift = 1;
