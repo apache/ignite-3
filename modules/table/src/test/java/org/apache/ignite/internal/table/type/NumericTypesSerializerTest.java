@@ -46,7 +46,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 /** */
 public class NumericTypesSerializerTest {
     /** Random. */
-    private static Random rnd = new Random();
+    private Random rnd = new Random();
 
     /** Tuple marshaller. */
     private TupleMarshaller marshaller;
