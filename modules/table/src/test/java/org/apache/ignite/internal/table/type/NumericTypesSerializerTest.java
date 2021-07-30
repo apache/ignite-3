@@ -129,9 +129,7 @@ public class NumericTypesSerializerTest {
             UUID.randomUUID(),
             42,
             new Column[] {new Column("key", NativeTypes.INT64, false)},
-            new Column[] {
-                new Column("number1", NativeTypes.numberOf(5), false),
-            }
+            new Column[] {new Column("number1", NativeTypes.numberOf(5), false)}
         );
 
         final TupleBuilderImpl badTup = new TupleBuilderImpl(schema);
