@@ -17,18 +17,18 @@
 
 package org.apache.ignite.internal.configuration.tree;
 
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
-import org.apache.ignite.lang.IgniteBiTuple;
 
 /**
  * Configuration node implementation for the collection of named {@link InnerNode}s. Unlike implementations of
@@ -40,8 +40,10 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
     /** Name of a synthetic configuration property that describes the order of elements in a named list. */
     public static final String ORDER_IDX = "<order>";
 
-    /** */
-    public static final String ID = "<id>";
+    /**
+     * Name of a synthetic configuration property that's used to store "key" of the named list element in the storage.
+     */
+    public static final String NAME = "<name>";
 
     /** Configuration name for the synthetic key. */
     private final String syntheticKeyName;
@@ -49,8 +51,11 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
     /** Supplier of new node objects when new list element node has to be created. */
     private final Supplier<N> valSupplier;
 
-    /** Internal container for named list element. Maps keys to named list elements nodes. */
-    private final OrderedMap<IgniteBiTuple<String, N>> map;
+    /** Internal container for named list element. Maps keys to named list elements nodes with their internal ids. */
+    private final OrderedMap<ElementDescriptor<N>> map;
+
+    /** Mapping from internal ids to public keys. */
+    private final Map<String, String> reverseIdMap;
 
     /**
      * Default constructor.
@@ -63,6 +68,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
         this.syntheticKeyName = syntheticKeyName;
         this.valSupplier = valSupplier;
         map = new OrderedMap<>();
+        reverseIdMap = new HashMap<>();
     }
 
     /**
@@ -73,7 +79,11 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
     private NamedListNode(NamedListNode<N> node) {
         syntheticKeyName = node.syntheticKeyName;
         valSupplier = node.valSupplier;
-        map = new OrderedMap<>(node.map);
+        map = new OrderedMap<>();
+        reverseIdMap = new HashMap<>(node.reverseIdMap);
+
+        for (String key : node.map.keys())
+            map.put(key, node.map.get(key).clone());
     }
 
     /** {@inheritDoc} */
@@ -88,12 +98,16 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
 
     /** {@inheritDoc} */
     @Override public final N get(String key) {
-        return Optional.ofNullable(map.get(key)).map(IgniteBiTuple::getValue).orElse(null);
+        ElementDescriptor<N> element = map.get(key);
+
+        return element == null ? null : element.value;
     }
 
     /** {@inheritDoc} */
     @Override public N get(int index) throws IndexOutOfBoundsException {
-        return Optional.ofNullable(map.get(index)).map(IgniteBiTuple::getValue).orElse(null);
+        ElementDescriptor<N> element = map.get(index);
+
+        return element == null ? null : element.value;
     }
 
     /** {@inheritDoc} */
@@ -108,11 +122,13 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
 
         checkNewKey(key);
 
-        N val = valSupplier.get();
+        ElementDescriptor<N> element = new ElementDescriptor<>(valSupplier.get());
 
-        map.put(key, new IgniteBiTuple<>(newId(), val));
+        map.put(key, element);
 
-        valConsumer.accept(val);
+        reverseIdMap.put(element.internalId, key);
+
+        valConsumer.accept(element.value);
 
         return this;
     }
@@ -127,11 +143,13 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
 
         checkNewKey(key);
 
-        N val = valSupplier.get();
+        ElementDescriptor<N> element = new ElementDescriptor<>(valSupplier.get());
 
-        map.putByIndex(index, key, new IgniteBiTuple<>(newId(), val));
+        map.putByIndex(index, key, element);
 
-        valConsumer.accept(val);
+        reverseIdMap.put(element.internalId, key);
+
+        valConsumer.accept(element.value);
 
         return this;
     }
@@ -147,11 +165,13 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
 
         checkNewKey(key);
 
-        N val = valSupplier.get();
+        ElementDescriptor<N> element = new ElementDescriptor<>(valSupplier.get());
 
-        map.putAfter(precedingKey, key, new IgniteBiTuple<>(newId(), val));
+        map.putAfter(precedingKey, key, element);
 
-        valConsumer.accept(val);
+        reverseIdMap.put(element.internalId, key);
+
+        valConsumer.accept(element.value);
 
         return this;
     }
@@ -161,18 +181,22 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
 
-        if (map.containsKey(key) && map.get(key) == null)
+        if (map.containsKey(key) && map.get(key).value == null)
             throw new IllegalArgumentException("You can't create entity that has just been deleted [key=" + key + ']');
 
-        IgniteBiTuple<String, N> pair = map.get(key);
+        ElementDescriptor<N> element = map.get(key);
 
-        pair = pair == null
-            ? new IgniteBiTuple<>(newId(), valSupplier.get())
-            : new IgniteBiTuple<>(pair.getKey(), (N)pair.getValue().copy());
+        if (element == null) {
+            element = new ElementDescriptor<>(valSupplier.get());
 
-        map.put(key, pair);
+            reverseIdMap.put(element.internalId, key);
+        }
+        else
+            element = element.copy();
 
-        valConsumer.accept(pair.getValue());
+        map.put(key, element);
+
+        valConsumer.accept(element.value);
 
         return this;
     }
@@ -185,15 +209,19 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
         if (!map.containsKey(oldKey))
             throw new IllegalArgumentException("Element with name " + oldKey + " does not exist.");
 
-        if (map.get(oldKey) == null) {
+        ElementDescriptor<N> element = map.get(oldKey);
+
+        if (element.value == null) {
             throw new IllegalArgumentException(
-                "You can't rename entity that has just been deleted [key=" + oldKey + ']'
+                "Can't rename entity that has just been deleted [key=" + oldKey + ']'
             );
         }
 
         checkNewKey(newKey);
 
         map.rename(oldKey, newKey);
+
+        reverseIdMap.put(element.internalId, newKey);
 
         return this;
     }
@@ -221,7 +249,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
         Objects.requireNonNull(key, "key");
 
         if (map.containsKey(key))
-            map.put(key, null);
+            map.get(key).value = null;
 
         return this;
     }
@@ -236,17 +264,22 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
     }
 
     /**
-     * Sets internal id for the value associated with the passed key. Should not be used in arbitrary code. Please refer
+     * Sets an internal id for the value associated with the passed key. Should not be used in arbitrary code. Refer
      * to {@link ConfigurationUtil#fillFromPrefixMap(ConstructableTreeNode, Map)} for further details on the usage.
      *
-     * @param key Key to update. Should be present in the named list. Nothing will happen if key is missing.
-     * @param id New id to associate with the key.
+     * @param key Key to update. Should be present in the named list. Nothing will happen if the key is missing.
+     * @param internalId New id to associate with the key.
      */
-    public void setInternalId(String key, String id) {
-        IgniteBiTuple<String, N> pair = map.get(key);
+    public void setInternalId(String key, String internalId) {
+        ElementDescriptor<N> element = map.get(key);
 
-        if (pair != null)
-            pair.set1(id);
+        if (element != null) {
+            reverseIdMap.remove(element.internalId);
+
+            element.internalId = internalId;
+
+            reverseIdMap.put(internalId, key);
+        }
     }
 
     /**
@@ -258,9 +291,31 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
      * @throws IllegalArgumentException If {@code key} is not found in the named list.
      */
     public String internalId(String key) {
-        return Optional.ofNullable(map.get(key)).map(IgniteBiTuple::getKey).orElseThrow(
-            () -> new IllegalArgumentException("Element with name " + key + " does not exist.")
-        );
+        ElementDescriptor<N> element = map.get(key);
+
+        if (element == null)
+            throw new IllegalArgumentException("Element with name '" + key + "' does not exist.");
+
+        return element.internalId;
+    }
+
+    /**
+     * Returns public key associated with the internal id.
+     *
+     * @param internalId Internat id.
+     * @return Key.
+     */
+    public String keyByInternalId(String internalId) {
+        return reverseIdMap.get(internalId);
+    }
+
+    /**
+     * Returns collection of internal ids in this named list node.
+     *
+     * @return Set of internal ids.
+     */
+    public Collection<String> internalIds() {
+        return Collections.unmodifiableSet(reverseIdMap.keySet());
     }
 
     /**
@@ -269,7 +324,10 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
      * @param key Element's key.
      */
     public void forceDelete(String key) {
-        map.remove(key);
+        ElementDescriptor<N> removed = map.remove(key);
+
+        if (removed != null)
+            reverseIdMap.remove(removed.internalId);
     }
 
     /**
@@ -292,5 +350,54 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
     /** {@inheritDoc} */
     @Override public NamedListNode<N> copy() {
         return new NamedListNode<>(this);
+    }
+
+    /**
+     * Descriptor for internal named list element representation. Has node itself and its internal id.
+     *
+     * @param <N> Type of the node.
+     */
+    private static class ElementDescriptor<N extends InnerNode> implements Cloneable {
+        /** Element's internal id. */
+        public String internalId;
+
+        /** Element node value. */
+        public N value;
+
+        /**
+         * Constructor.
+         *
+         * @param value Node instance.
+         */
+        ElementDescriptor(N value) {
+            this.value = value;
+            internalId = UUID.randomUUID().toString().replace("-", "");
+        }
+
+        /**
+         * Private constructor with entire fields list.
+         *
+         * @param internalId Internal id.
+         * @param value Node instance.
+         */
+        private ElementDescriptor(String internalId, N value) {
+            this.internalId = internalId;
+            this.value = value;
+        }
+
+        /**
+         * Makes a copy of the element descriptor. Not to be confused with {@link #clone()}.
+         *
+         * @return New instance with the same internal id but copied node instance.
+         * @see InnerNode#copy()
+         */
+        public ElementDescriptor<N> copy() {
+            return new ElementDescriptor<>(internalId, (N)value.copy());
+        }
+
+        /** {@inheritDoc} */
+        @Override protected ElementDescriptor<N> clone() {
+            return new ElementDescriptor<>(internalId, value);
+        }
     }
 }

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.configuration.tree;
 
 import java.io.Serializable;
 import java.util.Map;
-import java.util.regex.Pattern;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
@@ -34,20 +33,16 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static java.lang.String.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.hasEntry;
-import static org.hamcrest.Matchers.hasToString;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.matchesPattern;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /** Test for named list nodes. */
-public class NamedListOrderTest {
-    /** Named list entry od pattern. */
-    private final Pattern idPattern = Pattern.compile("(\\d|\\w){32}");
-
+public class NamedListNodeTest {
     /** Root that has a single named list. */
     @ConfigurationRoot(rootName = "a")
     public static class AConfigurationSchema {
@@ -117,28 +112,30 @@ public class NamedListOrderTest {
         // Create values on several layers at the same time. They all should have <order> = 0.
         a.b().change(b -> b.create("X", x -> x.changeB(xb -> xb.create("Z0", z0 -> {})))).get();
 
+        String xId = ((NamedListNode<?>)a.b().value()).internalId("X");
+        String z0Id = ((NamedListNode<?>)a.b().get("X").b().value()).internalId("Z0");
+
         Map<String, Serializable> storageValues = storage.readAll().values();
 
         assertThat(
             storageValues,
             is(Matchers.<Map<String, Serializable>>allOf(
                 aMapWithSize(6),
-                hasEntry("a.b.X.c", "foo"),
-                hasEntry("a.b.X.<order>", 0),
-                hasEntry(is("a.b.X.<id>"), hasToString(matchesPattern(idPattern))),
-                hasEntry("a.b.X.b.Z0.c", "foo"),
-                hasEntry("a.b.X.b.Z0.<order>", 0),
-                hasEntry(is("a.b.X.b.Z0.<id>"), hasToString(matchesPattern(idPattern)))
+                hasEntry(format("a.b.%s.c", xId), "foo"),
+                hasEntry(format("a.b.%s.<order>", xId), 0),
+                hasEntry(format("a.b.%s.<name>", xId), "X"),
+                hasEntry(format("a.b.%s.b.%s.c", xId, z0Id), "foo"),
+                hasEntry(format("a.b.%s.b.%s.<order>", xId, z0Id), 0),
+                hasEntry(format("a.b.%s.b.%s.<name>", xId, z0Id), "Z0")
             ))
         );
-
-        String xId = (String)storageValues.get("a.b.X.<id>");
-        String z0Id = (String)storageValues.get("a.b.X.b.Z0.<id>");
 
         BConfiguration x = a.b().get("X");
 
         // Append new key. It should have <order> = 1.
         x.b().change(xb -> xb.create("Z5", z5 -> {})).get();
+
+        String z5Id = ((NamedListNode<?>)a.b().get("X").b().value()).internalId("Z5");
 
         storageValues = storage.readAll().values();
 
@@ -146,22 +143,22 @@ public class NamedListOrderTest {
             storageValues,
             is(Matchers.<Map<String, Serializable>>allOf(
                 aMapWithSize(9),
-                hasEntry("a.b.X.c", "foo"),
-                hasEntry("a.b.X.<order>", 0),
-                hasEntry("a.b.X.<id>", xId),
-                hasEntry("a.b.X.b.Z0.c", "foo"),
-                hasEntry("a.b.X.b.Z0.<order>", 0),
-                hasEntry("a.b.X.b.Z0.<id>", z0Id),
-                hasEntry("a.b.X.b.Z5.c", "foo"),
-                hasEntry( "a.b.X.b.Z5.<order>", 1),
-                hasEntry(is("a.b.X.b.Z5.<id>"), hasToString(matchesPattern(idPattern)))
+                hasEntry(format("a.b.%s.c", xId), "foo"),
+                hasEntry(format("a.b.%s.<order>", xId), 0),
+                hasEntry(format("a.b.%s.<name>", xId), "X"),
+                hasEntry(format("a.b.%s.b.%s.c", xId, z0Id), "foo"),
+                hasEntry(format("a.b.%s.b.%s.<order>", xId, z0Id), 0),
+                hasEntry(format("a.b.%s.b.%s.<name>", xId, z0Id), "Z0"),
+                hasEntry(format("a.b.%s.b.%s.c", xId, z5Id), "foo"),
+                hasEntry(format("a.b.%s.b.%s.<order>", xId, z5Id), 1),
+                hasEntry(format("a.b.%s.b.%s.<name>", xId, z5Id), "Z5")
             ))
         );
 
-        String z5Id = (String)storageValues.get("a.b.X.b.Z5.<id>");
-
         // Insert new key somewhere in the middle. Index of Z5 should be updated to 2.
         x.b().change(xb -> xb.create(1, "Z2", z2 -> {})).get();
+
+        String z2Id = ((NamedListNode<?>)a.b().get("X").b().value()).internalId("Z2");
 
         storageValues = storage.readAll().values();
 
@@ -169,25 +166,25 @@ public class NamedListOrderTest {
             storageValues,
             is(Matchers.<Map<String, Serializable>>allOf(
                 aMapWithSize(12),
-                hasEntry("a.b.X.c", "foo"),
-                hasEntry("a.b.X.<order>", 0),
-                hasEntry("a.b.X.<id>", xId),
-                hasEntry("a.b.X.b.Z0.c", "foo"),
-                hasEntry("a.b.X.b.Z0.<order>", 0),
-                hasEntry("a.b.X.b.Z0.<id>", z0Id),
-                hasEntry("a.b.X.b.Z2.c", "foo"),
-                hasEntry("a.b.X.b.Z2.<order>", 1),
-                hasEntry(is("a.b.X.b.Z2.<id>"), hasToString(matchesPattern(idPattern))),
-                hasEntry("a.b.X.b.Z5.c", "foo"),
-                hasEntry( "a.b.X.b.Z5.<order>", 2),
-                hasEntry("a.b.X.b.Z5.<id>", z5Id)
+                hasEntry(format("a.b.%s.c", xId), "foo"),
+                hasEntry(format("a.b.%s.<order>", xId), 0),
+                hasEntry(format("a.b.%s.<name>", xId), "X"),
+                hasEntry(format("a.b.%s.b.%s.c", xId, z0Id), "foo"),
+                hasEntry(format("a.b.%s.b.%s.<order>", xId, z0Id), 0),
+                hasEntry(format("a.b.%s.b.%s.<name>", xId, z0Id), "Z0"),
+                hasEntry(format("a.b.%s.b.%s.c", xId, z2Id), "foo"),
+                hasEntry(format("a.b.%s.b.%s.<order>", xId, z2Id), 1),
+                hasEntry(format("a.b.%s.b.%s.<name>", xId, z2Id), "Z2"),
+                hasEntry(format("a.b.%s.b.%s.c", xId, z5Id), "foo"),
+                hasEntry(format("a.b.%s.b.%s.<order>", xId, z5Id), 2),
+                hasEntry(format("a.b.%s.b.%s.<name>", xId, z5Id), "Z5")
             ))
         );
 
-        String z2Id = (String)storageValues.get("a.b.X.b.Z2.<id>");
-
         // Insert new key somewhere in the middle. Indexes of Z3 and Z5 should be updated to 2 and 3.
         x.b().change(xb -> xb.createAfter("Z2", "Z3", z3 -> {})).get();
+
+        String z3Id = ((NamedListNode<?>)a.b().get("X").b().value()).internalId("Z3");
 
         storageValues = storage.readAll().values();
 
@@ -195,25 +192,23 @@ public class NamedListOrderTest {
             storageValues,
             is(Matchers.<Map<String, Serializable>>allOf(
                 aMapWithSize(15),
-                hasEntry("a.b.X.c", "foo"),
-                hasEntry("a.b.X.<order>", 0),
-                hasEntry("a.b.X.<id>", xId),
-                hasEntry("a.b.X.b.Z0.c", "foo"),
-                hasEntry("a.b.X.b.Z0.<order>", 0),
-                hasEntry("a.b.X.b.Z0.<id>", z0Id),
-                hasEntry("a.b.X.b.Z2.c", "foo"),
-                hasEntry("a.b.X.b.Z2.<order>", 1),
-                hasEntry("a.b.X.b.Z2.<id>", z2Id),
-                hasEntry("a.b.X.b.Z3.c", "foo"),
-                hasEntry("a.b.X.b.Z3.<order>", 2),
-                hasEntry(is("a.b.X.b.Z3.<id>"), hasToString(matchesPattern(idPattern))),
-                hasEntry("a.b.X.b.Z5.c", "foo"),
-                hasEntry( "a.b.X.b.Z5.<order>", 3),
-                hasEntry("a.b.X.b.Z5.<id>", z5Id)
+                hasEntry(format("a.b.%s.c", xId), "foo"),
+                hasEntry(format("a.b.%s.<order>", xId), 0),
+                hasEntry(format("a.b.%s.<name>", xId), "X"),
+                hasEntry(format("a.b.%s.b.%s.c", xId, z0Id), "foo"),
+                hasEntry(format("a.b.%s.b.%s.<order>", xId, z0Id), 0),
+                hasEntry(format("a.b.%s.b.%s.<name>", xId, z0Id), "Z0"),
+                hasEntry(format("a.b.%s.b.%s.c", xId, z2Id), "foo"),
+                hasEntry(format("a.b.%s.b.%s.<order>", xId, z2Id), 1),
+                hasEntry(format("a.b.%s.b.%s.<name>", xId, z2Id), "Z2"),
+                hasEntry(format("a.b.%s.b.%s.c", xId, z3Id), "foo"),
+                hasEntry(format("a.b.%s.b.%s.<order>", xId, z3Id), 2),
+                hasEntry(format("a.b.%s.b.%s.<name>", xId, z3Id), "Z3"),
+                hasEntry(format("a.b.%s.b.%s.c", xId, z5Id), "foo"),
+                hasEntry(format("a.b.%s.b.%s.<order>", xId, z5Id), 3),
+                hasEntry(format("a.b.%s.b.%s.<name>", xId, z5Id), "Z5")
             ))
         );
-
-        String z3Id = (String)storageValues.get("a.b.X.b.Z3.<id>");
 
         // Delete keys from the middle. Indexes of Z3 should be updated to 1.
         x.b().change(xb -> xb.delete("Z2").delete("Z5")).get();
@@ -224,15 +219,15 @@ public class NamedListOrderTest {
             storageValues,
             is(Matchers.<Map<String, Serializable>>allOf(
                 aMapWithSize(9),
-                hasEntry("a.b.X.c", "foo"),
-                hasEntry("a.b.X.<order>", 0),
-                hasEntry("a.b.X.<id>", xId),
-                hasEntry("a.b.X.b.Z0.c", "foo"),
-                hasEntry("a.b.X.b.Z0.<order>", 0),
-                hasEntry("a.b.X.b.Z0.<id>", z0Id),
-                hasEntry("a.b.X.b.Z3.c", "foo"),
-                hasEntry("a.b.X.b.Z3.<order>", 1),
-                hasEntry("a.b.X.b.Z3.<id>", z3Id)
+                hasEntry(format("a.b.%s.c", xId), "foo"),
+                hasEntry(format("a.b.%s.<order>", xId), 0),
+                hasEntry(format("a.b.%s.<name>", xId), "X"),
+                hasEntry(format("a.b.%s.b.%s.c", xId, z0Id), "foo"),
+                hasEntry(format("a.b.%s.b.%s.<order>", xId, z0Id), 0),
+                hasEntry(format("a.b.%s.b.%s.<name>", xId, z0Id), "Z0"),
+                hasEntry(format("a.b.%s.b.%s.c", xId, z3Id), "foo"),
+                hasEntry(format("a.b.%s.b.%s.<order>", xId, z3Id), 1),
+                hasEntry(format("a.b.%s.b.%s.<name>", xId, z3Id), "Z3")
             ))
         );
 
@@ -245,15 +240,15 @@ public class NamedListOrderTest {
             storageValues,
             is(Matchers.<Map<String, Serializable>>allOf(
                 aMapWithSize(9),
-                hasEntry("a.b.X.c", "foo"),
-                hasEntry("a.b.X.<order>", 0),
-                hasEntry("a.b.X.<id>", xId),
-                hasEntry("a.b.X.b.Z1.c", "foo"),
-                hasEntry("a.b.X.b.Z1.<order>", 0),
-                hasEntry("a.b.X.b.Z1.<id>", z0Id),
-                hasEntry("a.b.X.b.Z3.c", "foo"),
-                hasEntry("a.b.X.b.Z3.<order>", 1),
-                hasEntry("a.b.X.b.Z3.<id>", z3Id)
+                hasEntry(format("a.b.%s.c", xId), "foo"),
+                hasEntry(format("a.b.%s.<order>", xId), 0),
+                hasEntry(format("a.b.%s.<name>", xId), "X"),
+                hasEntry(format("a.b.%s.b.%s.c", xId, z0Id), "foo"),
+                hasEntry(format("a.b.%s.b.%s.<order>", xId, z0Id), 0),
+                hasEntry(format("a.b.%s.b.%s.<name>", xId, z0Id), "Z1"),
+                hasEntry(format("a.b.%s.b.%s.c", xId, z3Id), "foo"),
+                hasEntry(format("a.b.%s.b.%s.<order>", xId, z3Id), 1),
+                hasEntry(format("a.b.%s.b.%s.<name>", xId, z3Id), "Z3")
             ))
         );
 
@@ -309,7 +304,7 @@ public class NamedListOrderTest {
         assertThrows(IllegalArgumentException.class, () -> b.rename("X", "Z"));
         assertThrows(IllegalArgumentException.class, () -> b.rename("Y", "X"));
 
-        // Deletion of nonexistent elements doesn't break enything.
+        // Deletion of nonexistent elements doesn't break anything.
         b.delete("X");
         b.delete("Y");
     }

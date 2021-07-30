@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.configuration.ConfigurationChangeException;
+import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -37,7 +38,10 @@ import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
+import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
@@ -45,7 +49,6 @@ import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.configuration.AConfiguration.KEY;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.superRootPatcher;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -305,4 +308,20 @@ public class ConfigurationChangerTest {
         assertEquals("bar", root.childsList().get("name").defStr());
     }
 
+    /**
+     * Convert root node into patching configuration source for the super root.
+     *
+     * @param rootKey Root key.
+     * @param changes Root node.
+     * @return Configuration source.
+     */
+    public static ConfigurationSource superRootPatcher(RootKey rootKey, TraversableTreeNode changes) {
+        ConfigurationSource rootSrc = ConfigurationUtil.nodePatcher(changes);
+
+        return new ConfigurationSource() {
+            @Override public void descend(ConstructableTreeNode node) {
+                node.construct(rootKey.key(), rootSrc);
+            }
+        };
+    }
 }

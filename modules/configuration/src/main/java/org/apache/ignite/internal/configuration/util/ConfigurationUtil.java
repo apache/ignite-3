@@ -27,7 +27,6 @@ import java.util.NoSuchElementException;
 import java.util.RandomAccess;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
@@ -37,6 +36,9 @@ import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 
 /** */
 public class ConfigurationUtil {
+    /** Configuration that does nothing but copy of the configuration value. */
+    private static final ConfigurationSource EMPTY_CFG_SRC = new ConfigurationSource() {};
+
     /**
      * Replaces all {@code .} and {@code \} characters with {@code \.} and {@code \\} respectively.
      *
@@ -263,7 +265,7 @@ public class ConfigurationUtil {
                     assert val == null || val instanceof Map || val instanceof Serializable;
 
                     // Ordering of indexes must be skipped here because they make no sense in this context.
-                    if (key.equals(NamedListNode.ORDER_IDX) || key.equals(NamedListNode.ID))
+                    if (key.equals(NamedListNode.ORDER_IDX) || key.equals(NamedListNode.NAME))
                         continue;
 
                     if (val == null)
@@ -289,21 +291,54 @@ public class ConfigurationUtil {
                 var orderedKeys = new ArrayList<>(((NamedListView<?>)node).namedListKeys());
 
                 for (Map.Entry<String, ?> entry : map.entrySet()) {
-                    String key = entry.getKey();
+                    String internalId = entry.getKey();
                     Object val = entry.getValue();
 
                     assert val == null || val instanceof Map || val instanceof Serializable;
+
+                    String oldKey = node.keyByInternalId(internalId);
 
                     if (val == null) {
                         // Given that this particular method is applied to modify existing trees rather than
                         // creating new trees, a "hack" is required in this place. "construct" is designed to create
                         // "change" objects, thus it would just nullify named list element instead of deleting it.
-                        node.forceDelete(key);
+                        node.forceDelete(oldKey);
                     }
                     else if (val instanceof Map) {
+                        Map<String, ?> map = (Map<String, ?>)val;
+                        int sizeDiff = 0;
+
                         // For every named list entry modification we must take its index into account.
                         // We do this by modifying "orderedKeys" when index is explicitly passed.
-                        Object idxObj = ((Map<?, ?>)val).get(NamedListNode.ORDER_IDX);
+                        Object idxObj = map.get(NamedListNode.ORDER_IDX);
+
+                        if (idxObj != null)
+                            sizeDiff++;
+
+                        String newKey = (String)map.get(NamedListNode.NAME);
+
+                        if (newKey != null)
+                            sizeDiff++;
+
+                        boolean construct = map.size() != sizeDiff;
+
+                        if (oldKey == null) {
+                            node.construct(newKey, new InnerConfigurationSource(map));
+
+                            node.setInternalId(newKey, internalId);
+                        }
+                        else if (newKey != null) {
+                            node.rename(oldKey, newKey);
+
+                            if (construct)
+                                node.construct(newKey, new InnerConfigurationSource(map));
+                        }
+                        else if (construct)
+                            node.construct(oldKey, new InnerConfigurationSource(map));
+                        // Else it's just index adjustment after new elements insertion.
+
+                        if (newKey == null)
+                            newKey = oldKey;
 
                         if (idxObj != null) {
                             assert idxObj instanceof Integer : val;
@@ -319,23 +354,16 @@ public class ConfigurationUtil {
                                 while (idx != orderedKeys.size())
                                     orderedKeys.add(null);
 
-                                orderedKeys.add(key);
+                                orderedKeys.add(newKey);
                             }
                             else
-                                orderedKeys.set(idx, key);
+                                orderedKeys.set(idx, newKey);
                         }
-
-                        node.construct(key, new InnerConfigurationSource((Map<String, ?>)val));
-
-                        Object id = ((Map<?, ?>)val).get(NamedListNode.ID);
-
-                        if (id != null)
-                            node.setInternalId(key, id.toString());
                     }
                     else {
                         assert val instanceof Serializable;
 
-                        node.construct(key, new LeafConfigurationSource((Serializable)val));
+                        node.construct(oldKey, new LeafConfigurationSource((Serializable)val));
                     }
                 }
 
@@ -390,91 +418,65 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Convert root node into patching configuration source for the super root.
+     * Fill {@code node} node with default values where nodes are {@code null}.
      *
-     * @param rootKey Root key.
-     * @param changes Root node.
-     * @return Configuration source.
+     * @param node Node.
      */
-    public static ConfigurationSource superRootPatcher(RootKey rootKey, TraversableTreeNode changes) {
-        ConfigurationSource rootSrc = nodePatcher(changes);
-
-        return new ConfigurationSource() {
-            @Override public void descend(ConstructableTreeNode node) {
-                node.construct(rootKey.key(), rootSrc);
-            }
-        };
-    }
-
-    /**
-     * Apply changes on top of existing node. Creates completely new object while reusing parts of the original tree
-     * that weren't modified.
-     *
-     * @param root Immutable configuration node.
-     * @param changes Change or Init object to be applied.
-     * @param <C> Type of the root.
-     * @return Patched root.
-     */
-    public static <C extends ConstructableTreeNode> C patch(C root, TraversableTreeNode changes) {
-        assert root.getClass() == changes.getClass(); // Yes.
-
-        ConfigurationSource src = nodePatcher(changes);
-
-        assert src != null;
-
-        C copy = (C)root.copy();
-
-        src.descend(copy);
-
-        return copy;
-    }
-
-    /**
-     * Fill {@code dst} node with default values, required to complete {@code src} node.
-     * These two objects can be the same, this would mean that all {@code null} values of {@code scr} will be
-     * replaced with defaults if it's possible.
-     *
-     * @param src Source node.
-     * @param dst Destination node.
-     */
-    public static void addDefaults(InnerNode src, InnerNode dst) {
-        assert src.getClass() == dst.getClass();
-
-        src.traverseChildren(new ConfigurationVisitor<>() {
+    public static void addDefaults(InnerNode node) {
+        node.traverseChildren(new ConfigurationVisitor<>() {
             @Override public Object visitLeafNode(String key, Serializable val) {
                 // If source value is null then inititalise the same value on the destination node.
                 if (val == null)
-                    dst.constructDefault(key);
+                    node.constructDefault(key);
 
                 return null;
             }
 
-            @Override public Object visitInnerNode(String key, InnerNode srcNode) {
-                // Instantiate field in destination node before doing something else.
-                // Not a big deal if it wasn't null.
-                dst.construct(key, new ConfigurationSource() {});
+            @Override public Object visitInnerNode(String key, InnerNode innerNode) {
+                // Instantiate field in destination node before doing something else or copy it if it wasn't null.
+                node.construct(key, EMPTY_CFG_SRC);
 
-                // Get that inner node from destination to continue the processing.
-                InnerNode dstNode = dst.traverseChild(key, innerNodeVisitor());
-
-                // "dstNode" is guaranteed to not be null even if "src" and "dst" match.
-                // Null in "srcNode" means that we should initialize everything that we can in "dstNode"
-                // unconditionally. It's only possible if we pass it as a source as well.
-                addDefaults(srcNode == null ? dstNode : srcNode, dstNode);
+                addDefaults(node.traverseChild(key, innerNodeVisitor()));
 
                 return null;
             }
 
-            @Override public <N extends InnerNode> Object visitNamedListNode(String key, NamedListNode<N> srcNamedList) {
-                // Here we don't need to preemptively initialise corresponsing field, because it can never be null.
-                NamedListNode<?> dstNamedList = dst.traverseChild(key, namedListNodeVisitor());
+            @Override public <N extends InnerNode> Object visitNamedListNode(String key, NamedListNode<N> namedList) {
+                // Copy internal map.
+                node.construct(key, EMPTY_CFG_SRC);
 
-                for (String namedListKey : srcNamedList.namedListKeys()) {
-                    // But, in order to get non-null value from "dstNamedList.get(namedListKey)" we must explicitly
-                    // ensure its existance.
-                    dstNamedList.construct(namedListKey, new ConfigurationSource() {});
+                namedList = (NamedListNode<N>)node.traverseChild(key, namedListNodeVisitor());
 
-                    addDefaults(srcNamedList.get(namedListKey), dstNamedList.get(namedListKey));
+                for (String namedListKey : namedList.namedListKeys()) {
+                    if (namedList.get(namedListKey) != null) {
+                        // Copy the element.
+                        namedList.construct(namedListKey, EMPTY_CFG_SRC);
+
+                        addDefaults(namedList.get(namedListKey));
+                    }
+                }
+
+                return null;
+            }
+        });
+    }
+
+    public static void dropNulls(InnerNode node) {
+        node.traverseChildren(new ConfigurationVisitor<>() {
+            @Override public Object visitInnerNode(String key, InnerNode innerNode) {
+                dropNulls(innerNode);
+
+                return null;
+            }
+
+            @Override public <N extends InnerNode> Object visitNamedListNode(String key, NamedListNode<N> namedList) {
+                for (String namedListKey : namedList.namedListKeys()) {
+                    N element = namedList.get(namedListKey);
+
+                    if (element == null)
+                        namedList.forceDelete(namedListKey);
+                    else
+                        dropNulls(element);
                 }
 
                 return null;
@@ -516,7 +518,7 @@ public class ConfigurationUtil {
         };
     }
 
-    /** @see #patch(ConstructableTreeNode, TraversableTreeNode) */
+    /** @see #nodePatcher(TraversableTreeNode) */
     private static class PatchLeafConfigurationSource implements ConfigurationSource {
         /** */
         private final Serializable val;
@@ -541,7 +543,7 @@ public class ConfigurationUtil {
         }
     }
 
-    /** @see #patch(ConstructableTreeNode, TraversableTreeNode) */
+    /** @see #nodePatcher(TraversableTreeNode) */
     private static class PatchInnerConfigurationSource implements ConfigurationSource {
         /** */
         private final InnerNode srcNode;
@@ -590,7 +592,7 @@ public class ConfigurationUtil {
         }
     }
 
-    /** @see #patch(ConstructableTreeNode, TraversableTreeNode) */
+    /** @see #nodePatcher(TraversableTreeNode) */
     private static class PatchNamedListConfigurationSource implements ConfigurationSource {
         /** */
         private final NamedListNode<?> srcNode;

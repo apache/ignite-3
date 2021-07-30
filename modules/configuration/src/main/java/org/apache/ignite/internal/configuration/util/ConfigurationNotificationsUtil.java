@@ -225,6 +225,7 @@ public class ConfigurationNotificationsUtil {
      * @param newVal New configuration value.
      * @param storageRevision Storage revision.
      * @param futures Write-only list of futures.
+     * @param updater Update closure to be invoked on the listener instance.
      * @param <V> Type of the node.
      * @param <L> Type of the configuration listener.
      */

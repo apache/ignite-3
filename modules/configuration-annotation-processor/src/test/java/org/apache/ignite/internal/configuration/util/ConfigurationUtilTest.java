@@ -39,15 +39,19 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static java.util.Collections.singletonMap;
+import static org.apache.ignite.internal.configuration.tree.NamedListNode.NAME;
 import static org.apache.ignite.internal.configuration.tree.NamedListNode.ORDER_IDX;
 import static org.apache.ignite.internal.configuration.util.ConfigurationFlattener.createFlattenedUpdatesMap;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.nodePatcher;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.hasEntry;
+import static org.hamcrest.Matchers.hasToString;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.matchesPattern;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -259,13 +263,15 @@ public class ConfigurationUtilTest {
 
         ConfigurationUtil.fillFromPrefixMap(parentNode, Map.of(
             "elements", Map.of(
-                "name2", Map.of(
+                "0123456789abcde0123456789abcde", Map.of(
                     "child", Map.of("str", "value2"),
-                    ORDER_IDX, 1
+                    ORDER_IDX, 1,
+                    NAME, "name2"
                 ),
-                "name1", Map.of(
+                "12345689abcdef0123456789abcdef0", Map.of(
                     "child", Map.of("str", "value1"),
-                    ORDER_IDX, 0
+                    ORDER_IDX, 0,
+                    NAME, "name1"
                 )
             )
         ));
@@ -313,9 +319,9 @@ public class ConfigurationUtilTest {
             ),
             is(allOf(
                 aMapWithSize(3),
-                hasEntry("root.elements.name.child.str", (Serializable)"foo"),
-                hasEntry("root.elements.name.<order>", 0),
-                hasEntry(is("root.elements.name.<id>"), notNullValue())
+                hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]child[.]str"), hasToString("foo")),
+                hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]<order>"), is(0)),
+                hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]<name>"), hasToString("name"))
             ))
         );
 
@@ -332,9 +338,9 @@ public class ConfigurationUtilTest {
             ),
             is(allOf(
                 aMapWithSize(3),
-                hasEntry("root.elements.name.child.str", null),
-                hasEntry("root.elements.name.<order>", null),
-                hasEntry("root.elements.name.<id>", null)
+                hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]child[.]str"), nullValue()),
+                hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]<order>"), nullValue()),
+                hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]<name>"), nullValue())
             ))
         );
     }
@@ -362,7 +368,7 @@ public class ConfigurationUtilTest {
     }
 
     /**
-     * Tests basic invariants of {@link ConfigurationUtil#patch(ConstructableTreeNode, TraversableTreeNode)} method.
+     * Tests basic invariants of {@link ConfigurationUtil#nodePatcher(TraversableTreeNode)} method.
      */
     @Test
     public void patch() {
@@ -375,7 +381,7 @@ public class ConfigurationUtilTest {
         );
 
         // Updating config.
-        ParentView updatedRoot = ConfigurationUtil.patch(originalRoot, (TraversableTreeNode)copy(originalRoot).changeElements(elements ->
+        ParentView updatedRoot = patch(originalRoot, (TraversableTreeNode)copy(originalRoot).changeElements(elements ->
             elements.createOrUpdate("name1", element ->
                 element.changeChild(child -> child.changeStr("value2"))
             )
@@ -390,7 +396,7 @@ public class ConfigurationUtilTest {
         assertEquals("value2", updatedRoot.elements().get("name1").child().str());
 
         // Expanding config.
-        ParentView expandedRoot = ConfigurationUtil.patch(originalRoot, (TraversableTreeNode)copy(originalRoot).changeElements(elements ->
+        ParentView expandedRoot = patch(originalRoot, (TraversableTreeNode)copy(originalRoot).changeElements(elements ->
             elements.createOrUpdate("name2", element ->
                 element.changeChild(child -> child.changeStr("value2"))
             )
@@ -406,7 +412,7 @@ public class ConfigurationUtilTest {
         assertEquals("value2", expandedRoot.elements().get("name2").child().str());
 
         // Shrinking config.
-        ParentView shrinkedRoot = (ParentView)ConfigurationUtil.patch((InnerNode)expandedRoot, (TraversableTreeNode)copy(expandedRoot).changeElements(elements ->
+        ParentView shrinkedRoot = (ParentView)patch((InnerNode)expandedRoot, (TraversableTreeNode)copy(expandedRoot).changeElements(elements ->
             elements.delete("name1")
         ));
 
@@ -425,5 +431,26 @@ public class ConfigurationUtilTest {
      */
     private ParentChange copy(ParentView parent) {
         return (ParentChange)((ConstructableTreeNode)parent).copy();
+    }
+
+    /**
+     * Apply changes on top of existing node. Creates completely new object while reusing parts of the original tree
+     * that weren't modified.
+     *
+     * @param root Immutable configuration node.
+     * @param changes Change or Init object to be applied.
+     * @param <C> Type of the root.
+     * @return Patched root.
+     */
+    private static <C extends ConstructableTreeNode> C patch(C root, TraversableTreeNode changes) {
+        ConfigurationSource src = nodePatcher(changes);
+
+        assert src != null;
+
+        C copy = (C)root.copy();
+
+        src.descend(copy);
+
+        return copy;
     }
 }

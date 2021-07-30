@@ -17,7 +17,7 @@
 
 package org.apache.ignite.configuration;
 
-import java.util.concurrent.Future;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
@@ -33,5 +33,5 @@ public interface ConfigurationTree<VIEW, CHANGE> extends ConfigurationProperty<V
      * @param change CHANGE object.
      * @return Future that is completed when configuration change is finished either successfully or not.
      */
-    Future<Void> change(Consumer<CHANGE> change);
+    CompletableFuture<Void> change(Consumer<CHANGE> change);
 }
