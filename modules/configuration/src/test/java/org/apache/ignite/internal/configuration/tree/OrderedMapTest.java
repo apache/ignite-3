@@ -21,6 +21,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -124,7 +125,7 @@ public class OrderedMapTest {
 
         assertEquals("value2", map.get("key4"));
 
-        assertNull(map.get("key2"));
+        assertFalse(map.containsKey("key2"));
 
         assertEquals(List.of("key1", "key4", "key3"), map.keys());
     }

@@ -443,13 +443,9 @@ public class ConfigurationUtilTest {
      * @return Patched root.
      */
     private static <C extends ConstructableTreeNode> C patch(C root, TraversableTreeNode changes) {
-        ConfigurationSource src = nodePatcher(changes);
-
-        assert src != null;
-
         C copy = (C)root.copy();
 
-        src.descend(copy);
+        nodePatcher(changes).descend(copy);
 
         return copy;
     }

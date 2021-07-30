@@ -226,10 +226,6 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
         return this;
     }
 
-    private static String newId() {
-        return UUID.randomUUID().toString().replace("-", "");
-    }
-
     /**
      * Checks that this new key can be inserted into the map.
      * @param key New key.
