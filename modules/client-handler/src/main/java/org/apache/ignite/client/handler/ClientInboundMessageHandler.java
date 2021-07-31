@@ -229,7 +229,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 return ClientTupleUpsertRequest.process(in, ignite.tables());
 
             case ClientOp.TUPLE_UPSERT_SCHEMALESS:
-                return ClientTupleUpsertSchemalessRequest.process(in, out, ignite.tables());
+                return ClientTupleUpsertSchemalessRequest.process(in, ignite.tables());
 
             case ClientOp.TUPLE_GET:
                 return ClientTupleGetRequest.process(in, out, ignite.tables());

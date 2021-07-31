@@ -20,12 +20,10 @@ package org.apache.ignite.client.handler.requests.table;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
-import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.table.manager.IgniteTables;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTupleSchemaless;
 
 /**
@@ -36,13 +34,11 @@ public class ClientTupleUpsertSchemalessRequest {
      * Processes the request.
      *
      * @param in Unpacker.
-     * @param out Packer.
      * @param tables Ignite tables.
      * @return Future.
      * @throws IOException On serialization error.
      */
-    public static CompletableFuture<Void> process(ClientMessageUnpacker in, ClientMessagePacker out,
-                                                    IgniteTables tables)
+    public static CompletableFuture<Void> process(ClientMessageUnpacker in, IgniteTables tables)
             throws IOException {
         var table = readTable(in, tables);
         var tuple = readTupleSchemaless(in, table);

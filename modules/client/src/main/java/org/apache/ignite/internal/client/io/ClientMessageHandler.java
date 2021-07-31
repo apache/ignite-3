@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.client.io;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 import io.netty.buffer.ByteBuf;
 
