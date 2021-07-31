@@ -25,6 +25,9 @@ import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.util.CharsetUtil;
 import org.apache.ignite.lang.IgniteException;
 
+import static org.apache.ignite.client.proto.ClientMessageCommon.HEADER_SIZE;
+import static org.apache.ignite.client.proto.ClientMessageCommon.MAGIC_BYTES;
+
 /**
  * Decodes full client messages:
  * 1. MAGIC for first message.
@@ -32,12 +35,6 @@ import org.apache.ignite.lang.IgniteException;
  * 3. Payload (bytes).
  */
 public class ClientMessageDecoder extends LengthFieldBasedFrameDecoder {
-    /** Magic bytes before handshake. */
-    public static final byte[] MAGIC_BYTES = new byte[]{0x49, 0x47, 0x4E, 0x49}; // IGNI
-
-    /** Message header size. */
-    public static final int HEADER_SIZE = 4;
-
     /** Data buffer. */
     private final byte[] data = new byte[4]; // TODO: Pooled buffers IGNITE-15162.
 

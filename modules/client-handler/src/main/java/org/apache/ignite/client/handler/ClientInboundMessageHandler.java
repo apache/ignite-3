@@ -23,7 +23,6 @@ import java.util.concurrent.CompletableFuture;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.ignite.app.Ignite;
@@ -35,7 +34,7 @@ import org.apache.ignite.client.handler.requests.table.ClientTupleGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertSchemalessRequest;
 import org.apache.ignite.client.proto.ClientErrorCode;
-import org.apache.ignite.client.proto.ClientMessageDecoder;
+import org.apache.ignite.client.proto.ClientMessageCommon;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.client.proto.ClientOp;
@@ -134,7 +133,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     }
 
     private void writeMagic(ChannelHandlerContext ctx) {
-        ctx.write(Unpooled.wrappedBuffer(ClientMessageDecoder.MAGIC_BYTES));
+        ctx.write(Unpooled.wrappedBuffer(ClientMessageCommon.MAGIC_BYTES));
     }
 
     private void write(ClientMessagePacker packer, ChannelHandlerContext ctx) {

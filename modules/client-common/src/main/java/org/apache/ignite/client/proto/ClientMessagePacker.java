@@ -31,7 +31,7 @@ import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessagePacker;
 import org.msgpack.core.buffer.OutputStreamBufferOutput;
 
-import static org.apache.ignite.client.proto.ClientMessageDecoder.HEADER_SIZE;
+import static org.apache.ignite.client.proto.ClientMessageCommon.HEADER_SIZE;
 
 /**
  * Ignite-specific MsgPack extension with Netty-based ByteBuf pooling.

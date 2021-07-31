@@ -19,12 +19,8 @@ package org.apache.ignite.client.proto;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import org.apache.ignite.client.proto.ClientMessageDecoder;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
-
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -64,7 +60,7 @@ public class ClientMessageDecoderTest {
         var buf = new byte[10];
 
         // Magic.
-        System.arraycopy(ClientMessageDecoder.MAGIC_BYTES, 0, buf, 0, 4);
+        System.arraycopy(ClientMessageCommon.MAGIC_BYTES, 0, buf, 0, 4);
 
         // Message size.
         buf[7] = 2;
