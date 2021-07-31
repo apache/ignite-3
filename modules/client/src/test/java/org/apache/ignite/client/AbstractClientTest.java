@@ -42,6 +42,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 public abstract class AbstractClientTest {
     protected static final String DEFAULT_TABLE = "default_test_table";
 
+    protected static ConfigurationRegistry configurationRegistry;
+
     protected static ChannelFuture serverFuture;
 
     protected static Ignite server;
@@ -59,6 +61,7 @@ public abstract class AbstractClientTest {
         client.close();
         serverFuture.cancel(true);
         serverFuture.await();
+        configurationRegistry.stop();
     }
 
     @BeforeEach
@@ -77,19 +80,19 @@ public abstract class AbstractClientTest {
     }
 
     public static ChannelFuture startServer(String host) throws InterruptedException {
-        var registry = new ConfigurationRegistry(
+        configurationRegistry = new ConfigurationRegistry(
                 Collections.singletonList(ClientConnectorConfiguration.KEY),
                 Collections.emptyMap(),
                 Collections.singletonList(new TestConfigurationStorage(ConfigurationType.LOCAL))
         );
 
-        registry.start();
+        configurationRegistry.start();
 
         server = new FakeIgnite();
 
         var module = new ClientHandlerModule(server, NOPLogger.NOP_LOGGER);
 
-        module.prepareStart(registry);
+        module.prepareStart(configurationRegistry);
 
         return module.start();
     }
