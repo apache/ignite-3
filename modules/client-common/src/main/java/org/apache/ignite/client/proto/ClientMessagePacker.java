@@ -32,7 +32,7 @@ import org.msgpack.core.MessagePacker;
 import org.msgpack.core.buffer.OutputStreamBufferOutput;
 
 /**
- * Ignite-specific MsgPack extension.
+ * Ignite-specific MsgPack extension with Netty-based ByteBuf pooling.
  */
 public class ClientMessagePacker extends MessagePacker {
     /** Underlying buffer. */

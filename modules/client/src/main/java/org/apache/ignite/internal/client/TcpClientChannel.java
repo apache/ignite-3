@@ -298,18 +298,17 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** Send handshake request. */
     private void handshakeReq(ProtocolVersion proposedVer) throws IOException {
-        try (var req = new ClientMessagePacker()) {
-            req.packInt(proposedVer.major());
-            req.packInt(proposedVer.minor());
-            req.packInt(proposedVer.patch());
+        var req = new ClientMessagePacker();
+        req.packInt(proposedVer.major());
+        req.packInt(proposedVer.minor());
+        req.packInt(proposedVer.patch());
 
-            req.packInt(2); // Client type: general purpose.
+        req.packInt(2); // Client type: general purpose.
 
-            req.packBinaryHeader(0); // Features.
-            req.packMapHeader(0); // Extensions.
+        req.packBinaryHeader(0); // Features.
+        req.packMapHeader(0); // Extensions.
 
-            write(req).syncUninterruptibly();
-        }
+        write(req).syncUninterruptibly();
     }
 
     /**
