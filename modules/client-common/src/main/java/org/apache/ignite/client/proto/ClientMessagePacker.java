@@ -26,6 +26,7 @@ import java.util.UUID;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufOutputStream;
 import io.netty.buffer.PooledByteBufAllocator;
+import org.apache.ignite.lang.IgniteException;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessagePacker;
 import org.msgpack.core.buffer.OutputStreamBufferOutput;
@@ -59,6 +60,12 @@ public class ClientMessagePacker extends MessagePacker {
      * @return Underlying buffer.
      */
     public ByteBuf getBuffer() {
+        try {
+            flush();
+        } catch (IOException e) {
+            throw new IgniteException(e);
+        }
+
         return buf;
     }
 

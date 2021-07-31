@@ -42,7 +42,10 @@ public class ClientMessagePackerUnpackerTest {
     private void testUUID(UUID u) throws IOException {
         var packer = new ClientMessagePacker();
         packer.packUuid(u);
-        byte[] data = packer.getBuffer().array();
+
+        var buf = packer.getBuffer();
+        byte[] data = new byte[buf.readableBytes()];
+        buf.readBytes(data);
 
         var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data));
         var res = unpacker.unpackUuid();
