@@ -17,22 +17,33 @@
 
 package org.apache.ignite.client.proto;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
-import org.apache.ignite.client.proto.ClientMessagePacker;
-import org.apache.ignite.client.proto.ClientMessageUnpacker;
-import org.junit.jupiter.api.Test;
-import org.msgpack.core.buffer.ArrayBufferInput;
-
 import java.io.IOException;
 import java.util.UUID;
 
+import io.netty.buffer.Unpooled;
+import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 /**
  * Tests Ignite-specific MsgPack extensions.
  */
 public class ClientMessagePackerUnpackerTest {
+    @Test
+    public void testPackerCloseReleasesPooledBuffer() throws Exception {
+        var packer = new ClientMessagePacker();
+        var buf = packer.getBuffer();
+
+        packer.close();
+
+        try (var packer2 = new ClientMessagePacker()) {
+            var buf2 = packer2.getBuffer();
+
+            assertSame(buf, buf2);
+        }
+    }
+
     @Test
     public void testUUID() throws IOException {
         testUUID(UUID.randomUUID());
@@ -40,16 +51,17 @@ public class ClientMessagePackerUnpackerTest {
     }
 
     private void testUUID(UUID u) throws IOException {
-        var packer = new ClientMessagePacker();
-        packer.packUuid(u);
+        try (var packer = new ClientMessagePacker()) {
+            packer.packUuid(u);
 
-        var buf = packer.getBuffer();
-        byte[] data = new byte[buf.readableBytes()];
-        buf.readBytes(data);
+            var buf = packer.getBuffer();
+            byte[] data = new byte[buf.readableBytes()];
+            buf.readBytes(data);
 
-        var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data));
-        var res = unpacker.unpackUuid();
+            var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data));
+            var res = unpacker.unpackUuid();
 
-        assertEquals(u, res);
+            assertEquals(u, res);
+        }
     }
 }

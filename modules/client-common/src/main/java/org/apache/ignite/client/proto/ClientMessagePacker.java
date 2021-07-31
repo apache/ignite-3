@@ -152,4 +152,11 @@ public class ClientMessagePacker extends MessagePacker {
         // TODO: Support all basic types IGNITE-15163
         throw new IOException("Unsupported type, can't serialize: " + val.getClass());
     }
+
+    /** {@inheritDoc} */
+    @Override public void close() throws IOException {
+        super.close();
+
+        buf.release();
+    }
 }
