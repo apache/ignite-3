@@ -19,17 +19,18 @@ package org.apache.ignite.client.handler;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufInputStream;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.ignite.app.Ignite;
+import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTableDropRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
 import org.apache.ignite.client.proto.ClientDataType;
 import org.apache.ignite.client.proto.ClientErrorCode;
 import org.apache.ignite.client.proto.ClientMessagePacker;
@@ -48,9 +49,6 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.TupleBuilder;
 import org.msgpack.core.MessageFormat;
-import org.msgpack.core.MessagePack;
-import org.msgpack.core.buffer.ByteBufferInput;
-import org.msgpack.core.buffer.InputStreamBufferInput;
 import org.slf4j.Logger;
 
 /**
@@ -200,92 +198,50 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-    private CompletableFuture processOperation(ClientMessageUnpacker unpacker, ClientMessagePacker packer, int opCode)
+    private CompletableFuture processOperation(ClientMessageUnpacker in, ClientMessagePacker out, int opCode)
             throws IOException {
         // TODO: Handle all operations asynchronously (add async table API).
         switch (opCode) {
-            case ClientOp.TABLE_DROP: {
-                var tableName = unpacker.unpackString();
+            case ClientOp.TABLE_DROP:
+                return ClientTableDropRequest.process(in, out, ignite.tables());
 
-                ignite.tables().dropTable(tableName);
+            case ClientOp.TABLES_GET:
+                return ClientTablesGetRequest.process(out, ignite.tables());
 
-                break;
-            }
-
-            case ClientOp.TABLES_GET: {
-                List<Table> tables = ignite.tables().tables();
-
-                packer.packMapHeader(tables.size());
-
-                for (var table : tables) {
-                    var tableImpl = (TableImpl) table;
-
-                    packer.packUuid(tableImpl.tableId());
-                    packer.packString(table.tableName());
-                }
-
-                break;
-            }
-
-            case ClientOp.SCHEMAS_GET: {
-                var table = readTable(unpacker);
-
-                if (unpacker.getNextFormat() == MessageFormat.NIL) {
-                    // Return the latest schema.
-                    packer.packMapHeader(1);
-
-                    var schema = table.schemaView().schema();
-
-                    if (schema == null)
-                        throw new IgniteException("Schema registry is not initialized.");
-
-                    writeSchema(packer, schema.version(), schema);
-                }
-                else {
-                    var cnt = unpacker.unpackArrayHeader();
-                    packer.packMapHeader(cnt);
-
-                    for (var i = 0; i < cnt; i++) {
-                        var schemaVer = unpacker.unpackInt();
-                        var schema = table.schemaView().schema(schemaVer);
-                        writeSchema(packer, schemaVer, schema);
-                    }
-                }
-
-                break;
-            }
+            case ClientOp.SCHEMAS_GET:
+                return ClientSchemasGetRequest.process(in, out, ignite.tables());
 
             case ClientOp.TABLE_GET: {
-                String tableName = unpacker.unpackString();
+                String tableName = in.unpackString();
                 Table table = ignite.tables().table(tableName);
 
                 if (table == null)
-                    packer.packNil();
+                    out.packNil();
                 else
-                    packer.packUuid(((TableImpl) table).tableId());
+                    out.packUuid(((TableImpl) table).tableId());
 
                 break;
             }
 
             case ClientOp.TUPLE_UPSERT: {
-                var table = readTable(unpacker);
-                var tuple = readTuple(unpacker, table, false);
+                var table = readTable(in);
+                var tuple = readTuple(in, table, false);
 
                 return table.upsertAsync(tuple);
             }
 
             case ClientOp.TUPLE_UPSERT_SCHEMALESS: {
-                var table = readTable(unpacker);
-                var tuple = readTupleSchemaless(unpacker, table);
+                var table = readTable(in);
+                var tuple = readTupleSchemaless(in, table);
 
                 return table.upsertAsync(tuple);
             }
 
             case ClientOp.TUPLE_GET: {
-                var table = readTable(unpacker);
-                var keyTuple = readTuple(unpacker, table, true);
+                var table = readTable(in);
+                var keyTuple = readTuple(in, table, true);
 
-                return table.getAsync(keyTuple).thenAccept(t -> writeTuple(packer, t));
+                return table.getAsync(keyTuple).thenAccept(t -> writeTuple(out, t));
             }
 
             default:
@@ -295,193 +251,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         return null;
     }
 
-    private void writeSchema(ClientMessagePacker packer, int schemaVer, SchemaDescriptor schema) throws IOException {
-        packer.packInt(schemaVer);
-
-        if (schema == null) {
-            packer.packNil();
-
-            return;
-        }
-
-        var colCnt = schema.columnNames().size();
-        packer.packArrayHeader(colCnt);
-
-        for (var colIdx = 0; colIdx < colCnt; colIdx++) {
-            var col = schema.column(colIdx);
-
-            packer.packArrayHeader(4);
-            packer.packString(col.name());
-            packer.packInt(getClientDataType(col.type().spec()));
-            packer.packBoolean(schema.isKeyColumn(colIdx));
-            packer.packBoolean(col.nullable());
-        }
-    }
-
-    private void writeTuple(ClientMessagePacker packer, Tuple tuple) {
-        try {
-            if (tuple == null) {
-                packer.packNil();
-
-                return;
-            }
-
-            var schema = ((SchemaAware) tuple).schema();
-
-            packer.packInt(schema.version());
-
-            for (var col : schema.keyColumns().columns())
-                writeColumnValue(packer, tuple, col);
-
-            for (var col : schema.valueColumns().columns())
-                writeColumnValue(packer, tuple, col);
-        }
-        catch (Throwable t) {
-            throw new IgniteException("Failed to serialize tuple", t);
-        }
-    }
-
-    private Tuple readTuple(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) throws IOException {
-        var schemaId = unpacker.unpackInt();
-        var schema = table.schemaView().schema(schemaId);
-        var builder = table.tupleBuilder();
-
-        var cnt = keyOnly ? schema.keyColumns().length() : schema.length();
-
-        for (int i = 0; i < cnt; i++) {
-            if (unpacker.getNextFormat() == MessageFormat.NIL) {
-                unpacker.skipValue();
-                continue;
-            }
-
-            readAndSetColumnValue(unpacker, builder, schema.column(i));
-        }
-
-        return builder.build();
-    }
-
-    private Tuple readTupleSchemaless(ClientMessageUnpacker unpacker, TableImpl table) throws IOException {
-        var cnt = unpacker.unpackMapHeader();
-        var builder = table.tupleBuilder();
-
-        for (int i = 0; i < cnt; i++) {
-            var colName = unpacker.unpackString();
-
-            builder.set(colName, unpacker.unpackValue());
-        }
-
-        return builder.build();
-    }
-
-    private TableImpl readTable(ClientMessageUnpacker unpacker) throws IOException {
-        var tableId = unpacker.unpackUuid();
-
-        return ((IgniteTablesInternal)ignite.tables()).table(tableId);
-    }
-
-    private void readAndSetColumnValue(ClientMessageUnpacker unpacker, TupleBuilder builder, Column col)
-            throws IOException {
-        builder.set(col.name(), unpacker.unpackObject(getClientDataType(col.type().spec())));
-    }
-
-    private static int getClientDataType(NativeTypeSpec spec) {
-        switch (spec) {
-            case INT8:
-                return ClientDataType.INT8;
-
-            case INT16:
-                return ClientDataType.INT16;
-
-            case INT32:
-                return ClientDataType.INT32;
-
-            case INT64:
-                return ClientDataType.INT64;
-
-            case FLOAT:
-                return ClientDataType.FLOAT;
-
-            case DOUBLE:
-                return ClientDataType.DOUBLE;
-
-            case DECIMAL:
-                return ClientDataType.DECIMAL;
-
-            case UUID:
-                return ClientDataType.UUID;
-
-            case STRING:
-                return ClientDataType.STRING;
-
-            case BYTES:
-                return ClientDataType.BYTES;
-
-            case BITMASK:
-                return ClientDataType.BITMASK;
-        }
-
-        throw new IgniteException("Unsupported native type: " + spec);
-    }
-
-    private void writeColumnValue(ClientMessagePacker packer, Tuple tuple, Column col) throws IOException {
-        var val = tuple.value(col.name());
-
-        if (val == null) {
-            packer.packNil();
-            return;
-        }
-
-        switch (col.type().spec()) {
-            case INT8:
-                packer.packByte((byte) val);
-                break;
-
-            case INT16:
-                packer.packShort((short) val);
-                break;
-
-            case INT32:
-                packer.packInt((int) val);
-                break;
-
-            case INT64:
-                packer.packLong((long) val);
-                break;
-
-            case FLOAT:
-                packer.packFloat((float) val);
-                break;
-
-            case DOUBLE:
-                packer.packDouble((double) val);
-                break;
-
-            case DECIMAL:
-                packer.packDecimal((BigDecimal) val);
-                break;
-
-            case UUID:
-                packer.packUuid((UUID) val);
-                break;
-
-            case STRING:
-                packer.packString((String) val);
-                break;
-
-            case BYTES:
-                byte[] bytes = (byte[]) val;
-                packer.packBinaryHeader(bytes.length);
-                packer.writePayload(bytes);
-                break;
-
-            case BITMASK:
-                packer.packBitSet((BitSet)val);
-                break;
-
-            default:
-                throw new IgniteException("Data type not supported: " + col.type());
-        }
-    }
 
     /** {@inheritDoc} */
     @Override public void channelReadComplete(ChannelHandlerContext ctx) {
