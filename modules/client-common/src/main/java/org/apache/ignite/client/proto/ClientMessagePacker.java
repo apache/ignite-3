@@ -31,6 +31,8 @@ import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessagePacker;
 import org.msgpack.core.buffer.OutputStreamBufferOutput;
 
+import static org.apache.ignite.client.proto.ClientMessageDecoder.HEADER_SIZE;
+
 /**
  * Ignite-specific MsgPack extension with Netty-based ByteBuf pooling.
  */
@@ -45,7 +47,8 @@ public class ClientMessagePacker extends MessagePacker {
      * Constructor.
      */
     public ClientMessagePacker() {
-        this(PooledByteBufAllocator.DEFAULT.directBuffer());
+        // Reserve 4 bytes for message length.
+        this(PooledByteBufAllocator.DEFAULT.directBuffer().writerIndex(HEADER_SIZE));
     }
 
     /**
@@ -68,6 +71,12 @@ public class ClientMessagePacker extends MessagePacker {
         } catch (IOException e) {
             throw new IgniteException(e);
         }
+
+        var idx = buf.writerIndex();
+
+        buf.writerIndex(0);
+        buf.writeInt(idx);
+        buf.writerIndex(idx);
 
         return buf;
     }

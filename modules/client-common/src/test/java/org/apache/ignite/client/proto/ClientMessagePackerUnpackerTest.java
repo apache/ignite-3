@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
  */
 public class ClientMessagePackerUnpackerTest {
     @Test
-    public void testPackerCloseReleasesPooledBuffer() throws Exception {
+    public void testPackerCloseReleasesPooledBuffer() {
         var packer = new ClientMessagePacker();
         var buf = packer.getBuffer();
 
@@ -55,6 +55,8 @@ public class ClientMessagePackerUnpackerTest {
             packer.packUuid(u);
 
             var buf = packer.getBuffer();
+            buf.readInt(); // Skip message length.
+
             byte[] data = new byte[buf.readableBytes()];
             buf.readBytes(data);
 
