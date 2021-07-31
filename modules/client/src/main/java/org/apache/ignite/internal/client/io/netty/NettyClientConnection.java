@@ -61,7 +61,7 @@ public class NettyClientConnection implements ClientConnection {
     }
 
     /** {@inheritDoc} */
-    @Override public ChannelFuture send(ByteBuffer msg) throws IgniteException {
+    @Override public ChannelFuture send(ByteBuf msg) throws IgniteException {
         return channel.writeAndFlush(msg);
     }
 

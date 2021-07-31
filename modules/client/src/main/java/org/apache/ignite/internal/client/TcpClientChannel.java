@@ -364,7 +364,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** Write bytes to the output stream. */
     private ChannelFuture write(ClientMessagePacker packer) throws IgniteClientConnectionException {
-        var buf = packer.toMessageBuffer().sliceAsByteBuffer();
+        // TODO: Deal with message length.
+        var buf = packer.getBuffer();
 
         return sock.send(buf);
     }

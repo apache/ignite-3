@@ -110,6 +110,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             write(packer, ctx);
         }
         catch (Throwable t) {
+            packer.close();
             packer = getPacker();
 
             ProtocolVersion.LATEST_VER.pack(packer);
@@ -120,7 +121,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     }
 
     private void write(ClientMessagePacker packer, ChannelHandlerContext ctx) {
-        var buf = packer.toMessageBuffer().sliceAsByteBuffer();
+        // TODO: Deal with message length.
+        var buf = packer.getBuffer();
 
         ctx.writeAndFlush(buf);
     }

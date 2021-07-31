@@ -23,20 +23,43 @@ import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.UUID;
 
-import org.msgpack.core.MessageBufferPacker;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufOutputStream;
+import io.netty.buffer.PooledByteBufAllocator;
 import org.msgpack.core.MessagePack;
-import org.msgpack.core.buffer.ArrayBufferOutput;
+import org.msgpack.core.MessagePacker;
+import org.msgpack.core.buffer.OutputStreamBufferOutput;
 
 /**
  * Ignite-specific MsgPack extension.
  */
-public class ClientMessagePacker extends MessageBufferPacker {
+public class ClientMessagePacker extends MessagePacker {
+    /** Underlying buffer. */
+    private final ByteBuf buf;
+
     /**
      * Constructor.
      */
     public ClientMessagePacker() {
-        // TODO: Pooled buffers IGNITE-15162.
-        super(new ArrayBufferOutput(), MessagePack.DEFAULT_PACKER_CONFIG);
+        this(PooledByteBufAllocator.DEFAULT.directBuffer());
+    }
+
+    /**
+     * Constructor.
+     */
+    private ClientMessagePacker(ByteBuf buf) {
+        super(new OutputStreamBufferOutput(new ByteBufOutputStream(buf)), MessagePack.DEFAULT_PACKER_CONFIG);
+
+        this.buf = buf;
+    }
+
+    /**
+     * Gets the underlying buffer.
+     *
+     * @return Underlying buffer.
+     */
+    public ByteBuf getBuffer() {
+        return buf;
     }
 
     /**
