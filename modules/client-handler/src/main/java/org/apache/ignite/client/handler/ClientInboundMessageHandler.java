@@ -192,7 +192,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         // TODO: Handle all operations asynchronously (add async table API).
         switch (opCode) {
             case ClientOp.TABLE_DROP:
-                return ClientTableDropRequest.process(in, out, ignite.tables());
+                return ClientTableDropRequest.process(in, ignite.tables());
 
             case ClientOp.TABLES_GET:
                 return ClientTablesGetRequest.process(out, ignite.tables());
@@ -204,7 +204,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 return ClientTableGetRequest.process(in, out, ignite.tables());
 
             case ClientOp.TUPLE_UPSERT:
-                return ClientTupleUpsertRequest.process(in, out, ignite.tables());
+                return ClientTupleUpsertRequest.process(in, ignite.tables());
 
             case ClientOp.TUPLE_UPSERT_SCHEMALESS:
                 return ClientTupleUpsertSchemalessRequest.process(in, out, ignite.tables());

@@ -22,7 +22,6 @@ import java.math.BigDecimal;
 import java.util.BitSet;
 import java.util.UUID;
 
-import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.proto.ClientDataType;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
@@ -42,7 +41,8 @@ import org.msgpack.core.MessageFormat;
  * Common table functionality.
  */
 public class ClientTableCommon {
-    public static void writeSchema(ClientMessagePacker packer, int schemaVer, SchemaDescriptor schema) throws IOException {
+    public static void writeSchema(ClientMessagePacker packer, int schemaVer, SchemaDescriptor schema)
+            throws IOException {
         packer.packInt(schemaVer);
 
         if (schema == null) {
@@ -126,12 +126,12 @@ public class ClientTableCommon {
         return ((IgniteTablesInternal)tables).table(tableId);
     }
 
-    public static void readAndSetColumnValue(ClientMessageUnpacker unpacker, TupleBuilder builder, Column col)
+    private static void readAndSetColumnValue(ClientMessageUnpacker unpacker, TupleBuilder builder, Column col)
             throws IOException {
         builder.set(col.name(), unpacker.unpackObject(getClientDataType(col.type().spec())));
     }
 
-    public static int getClientDataType(NativeTypeSpec spec) {
+    private static int getClientDataType(NativeTypeSpec spec) {
         switch (spec) {
             case INT8:
                 return ClientDataType.INT8;
@@ -170,7 +170,7 @@ public class ClientTableCommon {
         throw new IgniteException("Unsupported native type: " + spec);
     }
 
-    public static void writeColumnValue(ClientMessagePacker packer, Tuple tuple, Column col) throws IOException {
+    private static void writeColumnValue(ClientMessagePacker packer, Tuple tuple, Column col) throws IOException {
         var val = tuple.value(col.name());
 
         if (val == null) {
