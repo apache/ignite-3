@@ -53,6 +53,8 @@ public class ClientMessagePacker extends MessagePacker {
 
     /**
      * Constructor.
+     *
+     * @param buf Buffer.
      */
     private ClientMessagePacker(ByteBuf buf) {
         super(new OutputStreamBufferOutput(new ByteBufOutputStream(buf)), MessagePack.DEFAULT_PACKER_CONFIG);
@@ -64,6 +66,7 @@ public class ClientMessagePacker extends MessagePacker {
      * Gets the underlying buffer.
      *
      * @return Underlying buffer.
+     * @throws IgniteException When flush fails.
      */
     public ByteBuf getBuffer() {
         try {

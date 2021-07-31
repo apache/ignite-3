@@ -40,7 +40,15 @@ import org.msgpack.core.MessageFormat;
 /**
  * Common table functionality.
  */
-public class ClientTableCommon {
+class ClientTableCommon {
+    /**
+     * Writes a schema.
+     *
+     * @param packer Packer.
+     * @param schemaVer Schema version.
+     * @param schema Schema.
+     * @throws IOException When serialization fails.
+     */
     public static void writeSchema(ClientMessagePacker packer, int schemaVer, SchemaDescriptor schema)
             throws IOException {
         packer.packInt(schemaVer);
@@ -65,6 +73,12 @@ public class ClientTableCommon {
         }
     }
 
+    /**
+     * Writes a tuple.
+     *
+     * @param packer Packer.
+     * @param tuple Tuple.
+     */
     public static void writeTuple(ClientMessagePacker packer, Tuple tuple) {
         try {
             if (tuple == null) {
@@ -88,6 +102,15 @@ public class ClientTableCommon {
         }
     }
 
+    /**
+     * Reads a tuple.
+     *
+     * @param unpacker Unpacker.
+     * @param table Table.
+     * @param keyOnly Whether only key fields are expected.
+     * @return Tuple.
+     * @throws IOException When deserialization fails.
+     */
     public static Tuple readTuple(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) throws IOException {
         var schemaId = unpacker.unpackInt();
         var schema = table.schemaView().schema(schemaId);
@@ -107,7 +130,15 @@ public class ClientTableCommon {
         return builder.build();
     }
 
-    public static Tuple readTupleSchemaless(ClientMessageUnpacker unpacker, TableImpl table) throws IOException {
+
+    /**
+     * Reads a tuple as a map, without schema.
+     *
+     * @param unpacker Unpacker.
+     * @param table Table.
+     * @return Tuple.
+     * @throws IOException When deserialization fails.
+     */public static Tuple readTupleSchemaless(ClientMessageUnpacker unpacker, TableImpl table) throws IOException {
         var cnt = unpacker.unpackMapHeader();
         var builder = table.tupleBuilder();
 
@@ -120,6 +151,14 @@ public class ClientTableCommon {
         return builder.build();
     }
 
+    /**
+     * Reads a table.
+     *
+     * @param unpacker Unpacker.
+     * @param tables Ignite tables.
+     * @return Table.
+     * @throws IOException When deserialization fails.
+     */
     public static TableImpl readTable(ClientMessageUnpacker unpacker, IgniteTables tables) throws IOException {
         var tableId = unpacker.unpackUuid();
 
