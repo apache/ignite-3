@@ -74,10 +74,16 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         var unpacker = getUnpacker((ByteBuf) msg);
         var packer = getPacker();
 
-        if (clientContext == null)
-            handshake(ctx, unpacker, packer);
-        else
-            processOperation(ctx, unpacker, packer);
+        try {
+            if (clientContext == null)
+                handshake(ctx, unpacker, packer);
+            else
+                processOperation(ctx, unpacker, packer);
+        } catch (Throwable t) {
+            // Unpacker pooled buffer will be released by Netty.
+            // Release packer pooled buffer.
+            packer.close();
+        }
     }
 
     private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker, ClientMessagePacker packer)
@@ -111,12 +117,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         }
         catch (Throwable t) {
             packer.close();
-            packer = getPacker();
 
-            ProtocolVersion.LATEST_VER.pack(packer);
-            packer.packInt(ClientErrorCode.FAILED).packString(t.getMessage());
+            try (var errPacker = getPacker()) {
+                ProtocolVersion.LATEST_VER.pack(errPacker);
+                errPacker.packInt(ClientErrorCode.FAILED).packString(t.getMessage());
 
-            write(packer, ctx);
+                write(errPacker, ctx);
+            }
         }
     }
 
@@ -124,16 +131,16 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         // TODO: Deal with message length.
         var buf = packer.getBuffer();
 
+        // writeAndFlush releases pooled buffer.
         ctx.writeAndFlush(buf);
     }
 
-    private void writeError(int requestId, Throwable err, ChannelHandlerContext ctx) {
-        try {
+    private void writeError(long requestId, Throwable err, ChannelHandlerContext ctx) {
+        try (var packer = getPacker()) {
             assert err != null;
 
-            ClientMessagePacker packer = getPacker();
             packer.packInt(ServerMessageType.RESPONSE);
-            packer.packInt(requestId);
+            packer.packLong(requestId);
             packer.packInt(ClientErrorCode.FAILED);
 
             String msg = err.getMessage();
@@ -159,15 +166,17 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         return new ClientMessageUnpacker(buf);
     }
 
-    private void processOperation(ChannelHandlerContext ctx, ClientMessageUnpacker in, ClientMessagePacker out) throws IOException {
-        var opCode = in.unpackInt();
-        var requestId = in.unpackInt();
-
-        out.packInt(ServerMessageType.RESPONSE)
-                .packInt(requestId)
-                .packInt(ClientErrorCode.SUCCESS);
+    private void processOperation(ChannelHandlerContext ctx, ClientMessageUnpacker in, ClientMessagePacker out) {
+        long requestId = -1;
 
         try {
+            var opCode = in.unpackInt();
+            requestId = in.unpackLong();
+
+            out.packInt(ServerMessageType.RESPONSE)
+                    .packLong(requestId)
+                    .packInt(ClientErrorCode.SUCCESS);
+
             var fut = processOperation(in, out, opCode);
 
             if (fut == null) {
@@ -175,16 +184,20 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 write(out, ctx);
             }
             else {
+                var reqId = requestId;
+
                 fut.whenComplete((Object res, Object err) -> {
-                    if (err != null)
-                        writeError(requestId, (Throwable) err, ctx);
-                    else
+                    if (err != null) {
+                        out.close();
+                        writeError(reqId, (Throwable) err, ctx);
+                    } else
                         write(out, ctx);
                 });
             }
-
         }
         catch (Throwable t) {
+            out.close();
+
             writeError(requestId, t, ctx);
         }
     }

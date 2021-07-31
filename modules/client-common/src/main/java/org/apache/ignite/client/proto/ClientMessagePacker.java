@@ -38,6 +38,9 @@ public class ClientMessagePacker extends MessagePacker {
     /** Underlying buffer. */
     private final ByteBuf buf;
 
+    /** Closed flag. */
+    private boolean closed = false;
+
     /**
      * Constructor.
      */
@@ -154,9 +157,11 @@ public class ClientMessagePacker extends MessagePacker {
     }
 
     /** {@inheritDoc} */
-    @Override public void close() throws IOException {
-        super.close();
+    @Override public void close() {
+        if (closed)
+            return;
 
+        closed = true;
         buf.release();
     }
 }

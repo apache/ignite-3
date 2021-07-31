@@ -62,7 +62,7 @@ public class NettyClientConnection implements ClientConnection {
 
     /** {@inheritDoc} */
     @Override public ChannelFuture send(ByteBuf msg) throws IgniteException {
-        // writeAndFlush releases the buffer.
+        // writeAndFlush releases pooled buffer.
         return channel.writeAndFlush(msg);
     }
 
