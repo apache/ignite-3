@@ -64,7 +64,6 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
                         throws Exception {
                     ch.pipeline().addLast(
                             new ClientMessageDecoder(),
-                            new ClientMessageEncoder(),
                             new NettyClientMessageHandler());
                 }
             });

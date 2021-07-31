@@ -19,7 +19,6 @@ package org.apache.ignite.internal.client;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
@@ -32,12 +31,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import org.apache.ignite.client.IgniteClientAuthenticationException;
 import org.apache.ignite.client.IgniteClientAuthorizationException;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.client.proto.ClientErrorCode;
+import org.apache.ignite.client.proto.ClientMessageCommon;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.client.proto.ProtocolVersion;
@@ -48,7 +49,6 @@ import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
 import org.apache.ignite.internal.client.io.ClientMessageHandler;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
-import org.msgpack.core.buffer.ByteBufferInput;
 
 /**
  * Implements {@link ClientChannel} over TCP.
@@ -156,14 +156,16 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             throws IgniteClientException {
         long id = reqId.getAndIncrement();
 
-        try (PayloadOutputChannel payloadCh = new PayloadOutputChannel(this)) {
-            if (closed())
-                throw new IgniteClientConnectionException("Channel is closed");
+        if (closed())
+            throw new IgniteClientConnectionException("Channel is closed");
 
-            ClientRequestFuture fut = new ClientRequestFuture();
+        ClientRequestFuture fut = new ClientRequestFuture();
 
-            pendingReqs.put(id, fut);
+        pendingReqs.put(id, fut);
 
+        PayloadOutputChannel payloadCh = new PayloadOutputChannel(this);
+
+        try {
             var req = payloadCh.out();
 
             req.packInt(opCode);
@@ -178,8 +180,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             });
 
             return fut;
-        }
-        catch (Throwable t) {
+        } catch (Throwable t) {
+            // Close buffer manually on fail. Successful write closes the buffer automatically.
+            payloadCh.close();
             pendingReqs.remove(id);
 
             throw convertException(t);
@@ -298,6 +301,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** Send handshake request. */
     private void handshakeReq(ProtocolVersion proposedVer) throws IOException {
+        sock.send(Unpooled.wrappedBuffer(ClientMessageCommon.MAGIC_BYTES));
+
         var req = new ClientMessagePacker();
         req.packInt(proposedVer.major());
         req.packInt(proposedVer.minor());
@@ -363,7 +368,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** Write bytes to the output stream. */
     private ChannelFuture write(ClientMessagePacker packer) throws IgniteClientConnectionException {
-        // TODO: Deal with message length.
         var buf = packer.getBuffer();
 
         return sock.send(buf);

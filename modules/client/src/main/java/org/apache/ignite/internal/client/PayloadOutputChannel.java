@@ -60,7 +60,7 @@ public class PayloadOutputChannel implements AutoCloseable {
     }
 
     /** {@inheritDoc} */
-    @Override public void close() throws IOException {
+    @Override public void close() {
         out.close();
     }
 }
