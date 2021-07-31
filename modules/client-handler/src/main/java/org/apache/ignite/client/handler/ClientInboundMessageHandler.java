@@ -167,7 +167,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     }
 
     private ClientMessagePacker getPacker() {
-        // TODO: Pooling
         return new ClientMessagePacker();
     }
 
