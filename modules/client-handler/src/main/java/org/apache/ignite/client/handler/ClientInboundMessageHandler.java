@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufInputStream;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.ignite.app.Ignite;
@@ -46,7 +48,9 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.TupleBuilder;
 import org.msgpack.core.MessageFormat;
+import org.msgpack.core.MessagePack;
 import org.msgpack.core.buffer.ByteBufferInput;
+import org.msgpack.core.buffer.InputStreamBufferInput;
 import org.slf4j.Logger;
 
 /**
@@ -79,9 +83,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
     /** {@inheritDoc} */
     @Override public void channelRead(ChannelHandlerContext ctx, Object msg) throws IOException {
-        var buf = (ByteBuffer) msg;
-
-        var unpacker = getUnpacker(buf);
+        var unpacker = getUnpacker((ByteBuf) msg);
         var packer = getPacker();
 
         if (clientContext == null)
@@ -162,8 +164,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         return new ClientMessagePacker();
     }
 
-    private ClientMessageUnpacker getUnpacker(ByteBuffer buf) {
-        return new ClientMessageUnpacker(new ByteBufferInput(buf));
+    private ClientMessageUnpacker getUnpacker(ByteBuf buf) {
+        // TODO: Close objects - check if needed.
+        return new ClientMessageUnpacker(new InputStreamBufferInput(new ByteBufInputStream(buf)));
     }
 
     private void processOperation(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker, ClientMessagePacker packer) throws IOException {
