@@ -72,7 +72,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     }
 
     /** {@inheritDoc} */
-    @Override public void channelRead(ChannelHandlerContext ctx, Object msg) throws IOException {
+    @Override public void channelRead(ChannelHandlerContext ctx, Object msg) {
         var unpacker = getUnpacker((ByteBuf) msg);
         var packer = getPacker();
 
@@ -137,7 +137,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     }
 
     private void write(ClientMessagePacker packer, ChannelHandlerContext ctx) {
-        // TODO: Deal with message length.
         var buf = packer.getBuffer();
 
         // writeAndFlush releases pooled buffer.
