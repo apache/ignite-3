@@ -31,19 +31,19 @@ import static org.apache.ignite.client.proto.ClientMessageCommon.MAGIC_BYTES;
 /**
  * Decodes full client messages:
  * 1. MAGIC for first message.
- * 2. Payload length (varint).
- * 3. Payload (bytes).
+ * 2. Payload length (4 bytes).
+ * 3. Payload (N bytes).
  */
 public class ClientMessageDecoder extends LengthFieldBasedFrameDecoder {
-    /** Data buffer. */
-    private final byte[] data = new byte[4]; // TODO: Pooled buffers IGNITE-15162.
-
     /** Magic decoded flag. */
     private boolean magicDecoded;
 
     /** Magic decoding failed flag. */
     private boolean magicFailed;
 
+    /**
+     * Constructor.
+     */
     public ClientMessageDecoder() {
         super(Integer.MAX_VALUE - HEADER_SIZE, 0, HEADER_SIZE, 0, HEADER_SIZE, true);
     }
@@ -73,9 +73,8 @@ public class ClientMessageDecoder extends LengthFieldBasedFrameDecoder {
         if (byteBuf.readableBytes() < MAGIC_BYTES.length)
             return false;
 
-        assert data.length == MAGIC_BYTES.length;
-
-        byteBuf.readBytes(data, 0, MAGIC_BYTES.length);
+        var data = new byte[MAGIC_BYTES.length];
+        byteBuf.readBytes(data);
 
         magicDecoded = true;
 
