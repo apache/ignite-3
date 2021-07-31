@@ -30,7 +30,6 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.proto.ClientMessageDecoder;
-import org.apache.ignite.client.proto.ClientMessageEncoder;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.lang.IgniteException;
@@ -109,7 +108,6 @@ public class ClientHandlerModule {
                 protected void initChannel(Channel ch) {
                     ch.pipeline().addLast(
                             new ClientMessageDecoder(),
-                            new ClientMessageEncoder(),
                             new ClientInboundMessageHandler(ignite, log));
                 }
             })

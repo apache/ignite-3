@@ -75,7 +75,7 @@ public class ClientMessagePacker extends MessagePacker {
         var idx = buf.writerIndex();
 
         buf.writerIndex(0);
-        buf.writeInt(idx);
+        buf.writeInt(idx - HEADER_SIZE);
         buf.writerIndex(idx);
 
         return buf;
