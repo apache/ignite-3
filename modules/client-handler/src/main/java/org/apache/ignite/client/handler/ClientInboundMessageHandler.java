@@ -18,10 +18,7 @@
 package org.apache.ignite.client.handler;
 
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.util.BitSet;
-import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import io.netty.buffer.ByteBuf;
@@ -30,25 +27,18 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableDropRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
-import org.apache.ignite.client.proto.ClientDataType;
+import org.apache.ignite.client.handler.requests.table.ClientTupleGetRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertSchemalessRequest;
 import org.apache.ignite.client.proto.ClientErrorCode;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.client.proto.ClientOp;
 import org.apache.ignite.client.proto.ProtocolVersion;
 import org.apache.ignite.client.proto.ServerMessageType;
-import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.SchemaAware;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.table.Table;
-import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.TupleBuilder;
-import org.msgpack.core.MessageFormat;
 import org.slf4j.Logger;
 
 /**
@@ -159,36 +149,35 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     }
 
     private ClientMessagePacker getPacker() {
+        // TODO: Pooling
         return new ClientMessagePacker();
     }
 
     private ClientMessageUnpacker getUnpacker(ByteBuf buf) {
-        // TODO: Close objects - check if needed.
-        // TODO: Is the buf pooled, and when it returns to the pool?
         return new ClientMessageUnpacker(buf);
     }
 
-    private void processOperation(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker, ClientMessagePacker packer) throws IOException {
-        var opCode = unpacker.unpackInt();
-        var requestId = unpacker.unpackInt();
+    private void processOperation(ChannelHandlerContext ctx, ClientMessageUnpacker in, ClientMessagePacker out) throws IOException {
+        var opCode = in.unpackInt();
+        var requestId = in.unpackInt();
 
-        packer.packInt(ServerMessageType.RESPONSE)
+        out.packInt(ServerMessageType.RESPONSE)
                 .packInt(requestId)
                 .packInt(ClientErrorCode.SUCCESS);
 
         try {
-            var fut = processOperation(unpacker, packer, opCode);
+            var fut = processOperation(in, out, opCode);
 
             if (fut == null) {
                 // Operation completed synchronously.
-                write(packer, ctx);
+                write(out, ctx);
             }
             else {
                 fut.whenComplete((Object res, Object err) -> {
                     if (err != null)
                         writeError(requestId, (Throwable) err, ctx);
                     else
-                        write(packer, ctx);
+                        write(out, ctx);
                 });
             }
 
@@ -211,46 +200,22 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             case ClientOp.SCHEMAS_GET:
                 return ClientSchemasGetRequest.process(in, out, ignite.tables());
 
-            case ClientOp.TABLE_GET: {
-                String tableName = in.unpackString();
-                Table table = ignite.tables().table(tableName);
+            case ClientOp.TABLE_GET:
+                return ClientTableGetRequest.process(in, out, ignite.tables());
 
-                if (table == null)
-                    out.packNil();
-                else
-                    out.packUuid(((TableImpl) table).tableId());
+            case ClientOp.TUPLE_UPSERT:
+                return ClientTupleUpsertRequest.process(in, out, ignite.tables());
 
-                break;
-            }
+            case ClientOp.TUPLE_UPSERT_SCHEMALESS:
+                return ClientTupleUpsertSchemalessRequest.process(in, out, ignite.tables());
 
-            case ClientOp.TUPLE_UPSERT: {
-                var table = readTable(in);
-                var tuple = readTuple(in, table, false);
-
-                return table.upsertAsync(tuple);
-            }
-
-            case ClientOp.TUPLE_UPSERT_SCHEMALESS: {
-                var table = readTable(in);
-                var tuple = readTupleSchemaless(in, table);
-
-                return table.upsertAsync(tuple);
-            }
-
-            case ClientOp.TUPLE_GET: {
-                var table = readTable(in);
-                var keyTuple = readTuple(in, table, true);
-
-                return table.getAsync(keyTuple).thenAccept(t -> writeTuple(out, t));
-            }
+            case ClientOp.TUPLE_GET:
+                return ClientTupleGetRequest.process(in, out, ignite.tables());
 
             default:
                 throw new IgniteException("Unexpected operation code: " + opCode);
         }
-
-        return null;
     }
-
 
     /** {@inheritDoc} */
     @Override public void channelReadComplete(ChannelHandlerContext ctx) {
