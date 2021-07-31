@@ -23,11 +23,14 @@ import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.UUID;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufInputStream;
 import org.apache.ignite.lang.IgniteException;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessageSizeException;
 import org.msgpack.core.MessageTypeException;
 import org.msgpack.core.MessageUnpacker;
+import org.msgpack.core.buffer.InputStreamBufferInput;
 import org.msgpack.core.buffer.MessageBufferInput;
 
 import static org.apache.ignite.client.proto.ClientDataType.BITMASK;
@@ -48,10 +51,11 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     /**
      * Constructor.
      *
-     * @param in Input.
+     * @param buf Input.
      */
-    public ClientMessageUnpacker(MessageBufferInput in) {
-        super(in, MessagePack.DEFAULT_UNPACKER_CONFIG);
+    public ClientMessageUnpacker(ByteBuf buf) {
+        // TODO: close InputStreamBufferInput and ByteBufInputStream - is this required?
+        super(new InputStreamBufferInput(new ByteBufInputStream(buf)), MessagePack.DEFAULT_UNPACKER_CONFIG);
     }
 
     /**

@@ -31,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
 import org.apache.ignite.client.IgniteClientAuthenticationException;
 import org.apache.ignite.client.IgniteClientAuthorizationException;
@@ -106,7 +107,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     /** {@inheritDoc} */
-    @Override public void onMessage(ByteBuffer buf) throws IOException {
+    @Override public void onMessage(ByteBuf buf) throws IOException {
         processNextMessage(buf);
     }
 
@@ -227,8 +228,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /**
      * Process next message from the input stream and complete corresponding future.
      */
-    private void processNextMessage(ByteBuffer buf) throws IgniteClientException, IOException {
-        var unpacker = new ClientMessageUnpacker(new ByteBufferInput(buf));
+    private void processNextMessage(ByteBuf buf) throws IgniteClientException, IOException {
+        var unpacker = new ClientMessageUnpacker(buf);
 
         if (protocolCtx == null) {
             // Process handshake.

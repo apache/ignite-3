@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.proto;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.junit.jupiter.api.Test;
@@ -42,7 +44,7 @@ public class ClientMessagePackerUnpackerTest {
         packer.packUuid(u);
         byte[] data = packer.toByteArray();
 
-        var unpacker = new ClientMessageUnpacker(new ArrayBufferInput(data));
+        var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data));
         var res = unpacker.unpackUuid();
 
         assertEquals(u, res);

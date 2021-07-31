@@ -166,7 +166,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
     private ClientMessageUnpacker getUnpacker(ByteBuf buf) {
         // TODO: Close objects - check if needed.
-        return new ClientMessageUnpacker(new InputStreamBufferInput(new ByteBufInputStream(buf)));
+        // TODO: Is the buf pooled, and when it returns to the pool?
+        return new ClientMessageUnpacker(buf);
     }
 
     private void processOperation(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker, ClientMessagePacker packer) throws IOException {
