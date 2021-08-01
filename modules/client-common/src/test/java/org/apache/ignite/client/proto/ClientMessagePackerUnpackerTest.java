@@ -43,6 +43,20 @@ public class ClientMessagePackerUnpackerTest {
     }
 
     @Test
+    public void testPackerIncludesFourByteMessageLength() throws IOException {
+        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
+            packer.packInt(1); // 1 byte
+            packer.packString("Foo"); // 4 bytes
+
+            var buf = packer.getBuffer();
+            var len = buf.readInt();
+
+            assertEquals(5, len);
+            assertEquals(9, buf.writerIndex());
+        }
+    }
+
+    @Test
     public void testUUID() throws IOException {
         testUUID(UUID.randomUUID());
         testUUID(new UUID(0, 0));
@@ -53,7 +67,7 @@ public class ClientMessagePackerUnpackerTest {
             packer.packUuid(u);
 
             var buf = packer.getBuffer();
-            buf.readInt(); // Skip message length.
+            var len = buf.readInt();
 
             byte[] data = new byte[buf.readableBytes()];
             buf.readBytes(data);
@@ -61,6 +75,7 @@ public class ClientMessagePackerUnpackerTest {
             try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
                 var res = unpacker.unpackUuid();
 
+                assertEquals(18, len); // 1 ext + 1 ext type + 16 UUID data
                 assertEquals(u, res);
             }
         }
