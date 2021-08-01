@@ -60,10 +60,11 @@ public class ClientMessagePackerUnpackerTest {
             byte[] data = new byte[buf.readableBytes()];
             buf.readBytes(data);
 
-            var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data));
-            var res = unpacker.unpackUuid();
+            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
+                var res = unpacker.unpackUuid();
 
-            assertEquals(u, res);
+                assertEquals(u, res);
+            }
         }
     }
 }
