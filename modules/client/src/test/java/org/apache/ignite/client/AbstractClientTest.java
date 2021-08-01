@@ -20,6 +20,7 @@ package org.apache.ignite.client;
 import java.util.Collections;
 
 import io.netty.channel.ChannelFuture;
+import io.netty.util.ResourceLeakDetector;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.handler.ClientHandlerModule;
@@ -52,6 +53,8 @@ public abstract class AbstractClientTest {
 
     @BeforeAll
     public static void beforeAll() throws Exception {
+        ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
+
         serverFuture = startServer(null);
         client = startClient();
     }
