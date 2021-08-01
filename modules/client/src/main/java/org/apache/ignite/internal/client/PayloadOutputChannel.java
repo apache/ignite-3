@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.client;
 
-import java.io.IOException;
-
 import org.apache.ignite.client.proto.ClientMessagePacker;
 
 /**

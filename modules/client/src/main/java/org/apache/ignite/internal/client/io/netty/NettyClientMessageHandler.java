@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.client.io.netty;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
