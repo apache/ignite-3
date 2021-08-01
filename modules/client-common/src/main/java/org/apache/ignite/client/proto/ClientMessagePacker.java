@@ -69,11 +69,7 @@ public class ClientMessagePacker extends MessagePacker {
             throw new IgniteException(e);
         }
 
-        var idx = buf.writerIndex();
-
-        buf.writerIndex(0);
-        buf.writeInt(idx - HEADER_SIZE);
-        buf.writerIndex(idx);
+        buf.setInt(0, buf.writerIndex() - HEADER_SIZE);
 
         return buf;
     }
