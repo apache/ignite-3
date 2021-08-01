@@ -53,6 +53,18 @@ public class ClientMessagePackerUnpackerTest {
 
             assertEquals(5, len);
             assertEquals(9, buf.writerIndex());
+            assertEquals(Integer.MAX_VALUE, buf.maxCapacity());
+        }
+    }
+
+    @Test
+    public void testEmptyPackerReturnsFourZeroBytes() {
+        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
+            var buf = packer.getBuffer();
+            var len = buf.readInt();
+
+            assertEquals(0, len);
+            assertEquals(4, buf.writerIndex());
         }
     }
 
