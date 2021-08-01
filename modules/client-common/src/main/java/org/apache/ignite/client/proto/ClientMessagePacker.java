@@ -64,7 +64,8 @@ public class ClientMessagePacker extends MessagePacker {
     public ByteBuf getBuffer() {
         try {
             flush();
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new IgniteException(e);
         }
 

@@ -127,7 +127,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 errPacker.packInt(ClientErrorCode.FAILED).packString(t.getMessage());
 
                 write(errPacker, ctx);
-            } catch (Throwable t2) {
+            }
+            catch (Throwable t2) {
                 exceptionCaught(ctx, t2);
             }
         }
