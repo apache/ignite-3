@@ -74,7 +74,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
     /** {@inheritDoc} */
     @Override public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        var unpacker = getUnpacker((ByteBuf) msg);
+        var buf = (ByteBuf) msg;
+        var unpacker = getUnpacker(buf);
         var packer = getPacker(ctx.alloc());
 
         try {
@@ -82,18 +83,16 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 handshake(ctx, unpacker, packer);
             else
                 processOperation(ctx, unpacker, packer);
-        } catch (Throwable t) {
-            // Unpacker pooled buffer will be released by Netty.
-            // Release packer pooled buffer.
-            packer.close();
+        } finally {
+            // Each inbound handler in a pipeline has to release the received messages.
+            buf.release();
         }
     }
 
     private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker, ClientMessagePacker packer)
-            throws IOException {
-        writeMagic(ctx);
-
+             {
         try {
+            writeMagic(ctx);
             var clientVer = ProtocolVersion.unpack(unpacker);
 
             if (!clientVer.equals(ProtocolVersion.LATEST_VER))
@@ -124,11 +123,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             packer.close();
 
             try (var errPacker = getPacker(ctx.alloc())) {
-
                 ProtocolVersion.LATEST_VER.pack(errPacker);
                 errPacker.packInt(ClientErrorCode.FAILED).packString(t.getMessage());
 
                 write(errPacker, ctx);
+            } catch (Throwable t2) {
+                exceptionCaught(ctx, t2);
             }
         }
     }
@@ -167,6 +167,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     }
 
     private ClientMessagePacker getPacker(ByteBufAllocator alloc) {
+        // Outgoing messages are released on write.
         return new ClientMessagePacker(alloc.buffer());
     }
 
