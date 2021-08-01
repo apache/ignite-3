@@ -53,9 +53,6 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * @param buf Input.
      */
     public ClientMessageUnpacker(ByteBuf buf) {
-        // No need to close ByteBufInputStream and InputStreamBufferInput:
-        // all they do is close the underlying resource.
-        // Netty will return ByteBuf to the pool once request handler exits.
         super(new InputStreamBufferInput(new ByteBufInputStream(buf)), MessagePack.DEFAULT_UNPACKER_CONFIG);
     }
 

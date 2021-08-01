@@ -48,6 +48,7 @@ public class ClientMessagePacker extends MessagePacker {
      * @param buf Buffer.
      */
     public ClientMessagePacker(ByteBuf buf) {
+        // Reserve 4 bytes for the message length.
         super(new OutputStreamBufferOutput(new ByteBufOutputStream(buf.writerIndex(HEADER_SIZE))),
                 MessagePack.DEFAULT_PACKER_CONFIG);
 
