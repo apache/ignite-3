@@ -78,6 +78,7 @@ class ClientTableCommon {
      *
      * @param packer Packer.
      * @param tuple Tuple.
+     * @throws IgniteException on failed serialization.
      */
     public static void writeTuple(ClientMessagePacker packer, Tuple tuple) {
         try {
