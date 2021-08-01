@@ -130,7 +130,6 @@ class ClientTableCommon {
         return builder.build();
     }
 
-
     /**
      * Reads a tuple as a map, without schema.
      *

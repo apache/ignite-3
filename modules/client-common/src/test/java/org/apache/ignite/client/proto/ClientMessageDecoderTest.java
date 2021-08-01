@@ -45,7 +45,6 @@ public class ClientMessageDecoderTest {
         assertArrayEquals(new byte[]{33, 44}, bytes);
     }
 
-
     @Test
     void testInvalidMagicThrowsException() {
         byte[] buf = {66, 69, 69, 70, 1, 2, 3};
