@@ -163,7 +163,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         pendingReqs.put(id, fut);
 
-        PayloadOutputChannel payloadCh = new PayloadOutputChannel(this, sock.getBuffer());
+        PayloadOutputChannel payloadCh = new PayloadOutputChannel(this, new ClientMessagePacker(sock.getBuffer()));
 
         try {
             var req = payloadCh.out();

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client;
 
-import io.netty.buffer.ByteBuf;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 
 /**
@@ -34,11 +33,11 @@ public class PayloadOutputChannel implements AutoCloseable {
      * Constructor.
      *
      * @param ch Channel.
-     * @param buf Buffer.
+     * @param out Packer.
      */
-    PayloadOutputChannel(ClientChannel ch, ByteBuf buf) {
-        out = new ClientMessagePacker(buf);
+    PayloadOutputChannel(ClientChannel ch, ClientMessagePacker out) {
         this.ch = ch;
+        this.out = out;
     }
 
     /**
