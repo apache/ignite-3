@@ -20,11 +20,11 @@ package org.apache.ignite.client.proto;
 import java.io.IOException;
 import java.util.UUID;
 
+import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.buffer.Unpooled;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
 
 /**
  * Tests Ignite-specific MsgPack extensions.
@@ -32,16 +32,14 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 public class ClientMessagePackerUnpackerTest {
     @Test
     public void testPackerCloseReleasesPooledBuffer() {
-        var packer = new ClientMessagePacker();
-        var buf = packer.getBuffer();
+        var buf = PooledByteBufAllocator.DEFAULT.directBuffer();
+        var packer = new ClientMessagePacker(buf);
+
+        assertEquals(1, buf.refCnt());
 
         packer.close();
 
-        try (var packer2 = new ClientMessagePacker()) {
-            var buf2 = packer2.getBuffer();
-
-            assertSame(buf, buf2);
-        }
+        assertEquals(0, buf.refCnt());
     }
 
     @Test
@@ -51,7 +49,7 @@ public class ClientMessagePackerUnpackerTest {
     }
 
     private void testUUID(UUID u) throws IOException {
-        try (var packer = new ClientMessagePacker()) {
+        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
             packer.packUuid(u);
 
             var buf = packer.getBuffer();

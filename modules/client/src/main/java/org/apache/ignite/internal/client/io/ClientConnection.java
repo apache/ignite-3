@@ -34,6 +34,13 @@ public interface ClientConnection extends AutoCloseable {
     ChannelFuture send(ByteBuf msg) throws IgniteException;
 
     /**
+     * Gets a buffer to write to.
+     *
+     * @return Buffer.
+     */
+    ByteBuf getBuffer();
+
+    /**
      * Closes the connection.
      */
     @Override void close();

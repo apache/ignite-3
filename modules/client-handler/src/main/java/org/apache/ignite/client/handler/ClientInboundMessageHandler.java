@@ -22,6 +22,7 @@ import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -74,7 +75,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** {@inheritDoc} */
     @Override public void channelRead(ChannelHandlerContext ctx, Object msg) {
         var unpacker = getUnpacker((ByteBuf) msg);
-        var packer = getPacker();
+        var packer = getPacker(ctx.alloc());
 
         try {
             if (clientContext == null)
@@ -122,7 +123,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         catch (Throwable t) {
             packer.close();
 
-            try (var errPacker = getPacker()) {
+            try (var errPacker = getPacker(ctx.alloc())) {
 
                 ProtocolVersion.LATEST_VER.pack(errPacker);
                 errPacker.packInt(ClientErrorCode.FAILED).packString(t.getMessage());
@@ -144,7 +145,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     }
 
     private void writeError(long requestId, Throwable err, ChannelHandlerContext ctx) {
-        try (var packer = getPacker()) {
+        try (var packer = getPacker(ctx.alloc())) {
             assert err != null;
 
             packer.packInt(ServerMessageType.RESPONSE);
@@ -165,8 +166,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-    private ClientMessagePacker getPacker() {
-        return new ClientMessagePacker();
+    private ClientMessagePacker getPacker(ByteBufAllocator alloc) {
+        return new ClientMessagePacker(alloc.buffer());
     }
 
     private ClientMessageUnpacker getUnpacker(ByteBuf buf) {

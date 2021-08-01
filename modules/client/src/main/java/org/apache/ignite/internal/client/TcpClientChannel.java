@@ -163,7 +163,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         pendingReqs.put(id, fut);
 
-        PayloadOutputChannel payloadCh = new PayloadOutputChannel(this);
+        PayloadOutputChannel payloadCh = new PayloadOutputChannel(this, sock.getBuffer());
 
         try {
             var req = payloadCh.out();
@@ -303,7 +303,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private void handshakeReq(ProtocolVersion proposedVer) throws IOException {
         sock.send(Unpooled.wrappedBuffer(ClientMessageCommon.MAGIC_BYTES));
 
-        var req = new ClientMessagePacker();
+        var req = new ClientMessagePacker(sock.getBuffer());
         req.packInt(proposedVer.major());
         req.packInt(proposedVer.minor());
         req.packInt(proposedVer.patch());

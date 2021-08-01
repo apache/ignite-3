@@ -66,6 +66,11 @@ public class NettyClientConnection implements ClientConnection {
     }
 
     /** {@inheritDoc} */
+    @Override public ByteBuf getBuffer() {
+        return channel.alloc().buffer();
+    }
+
+    /** {@inheritDoc} */
     @Override public void close() {
         channel.close();
     }
