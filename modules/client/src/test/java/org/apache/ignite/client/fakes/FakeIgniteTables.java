@@ -20,6 +20,7 @@ package org.apache.ignite.client.fakes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
@@ -63,8 +64,17 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
     }
 
     /** {@inheritDoc} */
+    @Override public CompletableFuture<Table> createTableAsync(String name, Consumer<TableChange> tableInitChange) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
     @Override public void alterTable(String name, Consumer<TableChange> tableChange) {
-        throw new IgniteException("Not supported");
+        throw new UnsupportedOperationException();
+    }
+
+    @Override public CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange) {
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -82,6 +92,10 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
     }
 
     /** {@inheritDoc} */
+    @Override public CompletableFuture<Table> getOrCreateTableAsync(String name, Consumer<TableChange> tableInitChange) {
+        throw new UnsupportedOperationException();    }
+
+    /** {@inheritDoc} */
     @Override public void dropTable(String name) {
         var table = tables.remove(name);
 
@@ -90,8 +104,18 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
     }
 
     /** {@inheritDoc} */
+    @Override public CompletableFuture<Void> dropTableAsync(String name) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
     @Override public List<Table> tables() {
         return new ArrayList<>(tables.values());
+    }
+
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<List<Table>> tablesAsync() {
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -99,11 +123,18 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
         return tables.get(name);
     }
 
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<Table> tableAsync(String name) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
     @NotNull private TableImpl getNewTable(String name) {
         UUID tableId = UUID.randomUUID();
         return new TableImpl(new FakeInternalTable(name, tableId), getSchemaReg(tableId), null, null);
     }
 
+    /** {@inheritDoc} */
     @NotNull private SchemaRegistryImpl getSchemaReg(UUID tableId) {
         return new SchemaRegistryImpl(1, v -> getSchema(v, tableId));
     }
@@ -129,5 +160,4 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
     @Override public TableImpl table(UUID id) {
         return tablesById.get(id);
     }
-
 }
