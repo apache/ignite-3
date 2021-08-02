@@ -240,6 +240,66 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             case ClientOp.TUPLE_GET:
                 return ClientTupleGetRequest.process(in, out, ignite.tables());
 
+            case ClientOp.TUPLE_UPSERT_ALL:
+                throw new UnsupportedOperationException();
+
+            case ClientOp.TUPLE_UPSERT_ALL_SCHEMALESS:
+                throw new UnsupportedOperationException();
+
+            case ClientOp.TUPLE_GET_ALL:
+                throw new UnsupportedOperationException();
+
+            case ClientOp.TUPLE_GET_AND_UPSERT:
+                throw new UnsupportedOperationException();
+
+            case ClientOp.TUPLE_GET_AND_UPSERT_SCHEMALESS:
+                throw new UnsupportedOperationException();
+
+            case ClientOp.TUPLE_INSERT:
+                throw new UnsupportedOperationException();
+
+            case ClientOp.TUPLE_INSERT_SCHEMALESS:
+                throw new UnsupportedOperationException();
+
+            case ClientOp.TUPLE_INSERT_ALL:
+                throw new UnsupportedOperationException();
+
+            case ClientOp.TUPLE_INSERT_ALL_SCHEMALESS:
+                throw new UnsupportedOperationException();
+
+            case ClientOp.TUPLE_REPLACE:
+                throw new UnsupportedOperationException();
+
+            case ClientOp.TUPLE_REPLACE_SCHEMALESS:
+                throw new UnsupportedOperationException();
+
+            case ClientOp.TUPLE_REPLACE2:
+                throw new UnsupportedOperationException();
+
+            case ClientOp.TUPLE_REPLACE2_SCHEMALESS:
+                throw new UnsupportedOperationException();
+
+            case ClientOp.TUPLE_GET_AND_REPLACE:
+                throw new UnsupportedOperationException();
+
+            case ClientOp.TUPLE_GET_AND_REPLACE_SCHEMALESS:
+                throw new UnsupportedOperationException();
+
+            case ClientOp.TUPLE_DELETE:
+                throw new UnsupportedOperationException();
+
+            case ClientOp.TUPLE_DELETE_ALL:
+                throw new UnsupportedOperationException();
+
+            case ClientOp.TUPLE_DELETE_EXACT:
+                throw new UnsupportedOperationException();
+
+            case ClientOp.TUPLE_DELETE_ALL_EXACT:
+                throw new UnsupportedOperationException();
+
+            case ClientOp.TUPLE_GET_AND_DELETE:
+                throw new UnsupportedOperationException();
+
             default:
                 throw new IgniteException("Unexpected operation code: " + opCode);
         }
