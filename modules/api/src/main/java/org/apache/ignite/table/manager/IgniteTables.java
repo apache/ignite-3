@@ -43,7 +43,7 @@ public interface IgniteTables {
      *
      * @param name Table name.
      * @param tableInitChange Table changer.
-     * @return Newly created table.
+     * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Table> createTableAsync(String name, Consumer<TableChange> tableInitChange);
 
@@ -60,7 +60,7 @@ public interface IgniteTables {
      *
      * @param name Table name.
      * @param tableChange Table changer.
-     * @return Future for the operation.
+     * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange);
 
@@ -78,7 +78,7 @@ public interface IgniteTables {
      *
      * @param name Table name.
      * @param tableInitChange Table changer.
-     * @return Existing or newly created table.
+     * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Table> getOrCreateTableAsync(String name, Consumer<TableChange> tableInitChange);
 
@@ -95,7 +95,7 @@ public interface IgniteTables {
      * If a table with the specified name does not exist in the cluster, the operation has no effect.
      *
      * @param name Table name.
-     * @return Future for the operation.
+     * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Void> dropTableAsync(String name);
 
@@ -109,7 +109,7 @@ public interface IgniteTables {
     /**
      * Gets a list of all started tables.
      *
-     * @return List of tables.
+     * @return Future representing pending completion of the operation.
      */
     CompletableFuture<List<Table>> tablesAsync();
 
@@ -125,7 +125,7 @@ public interface IgniteTables {
      * Gets a table by name, if it was created before.
      *
      * @param name Name of the table.
-     * @return Tables with corresponding name or {@code null} if table isn't created.
+     * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Table> tableAsync(String name);
 }
