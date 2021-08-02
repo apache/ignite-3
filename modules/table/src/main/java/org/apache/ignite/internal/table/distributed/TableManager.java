@@ -29,8 +29,10 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
@@ -672,22 +674,34 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override public List<Table> tables() {
-        ArrayList<Table> tables = new ArrayList<>();
-
-        for (String tblName : tableNamesConfigured()) {
-            // TODO: Async continuations
-            Table tbl = tableAsync(tblName, false).join();
-
-            if (tbl != null)
-                tables.add(tbl);
-        }
-
-        return tables;
+        return tablesAsync().join();
     }
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<List<Table>> tablesAsync() {
-        return null;
+        var tableNames = tableNamesConfigured();
+        var tableFuts = new CompletableFuture[tableNames.size()];
+        var i = 0;
+
+        for (String tblName : tableNames)
+            tableFuts[i++] = tableAsync(tblName, false);
+
+        return CompletableFuture.allOf(tableFuts).thenApply(unused -> {
+            var tables = new ArrayList<Table>(tableNames.size());
+
+            try {
+                for (var fut : tableFuts) {
+                    var table = fut.get();
+
+                    if (table != null)
+                        tables.add((Table) table);
+                }
+            } catch (Throwable t) {
+                throw new CompletionException(t);
+            }
+
+            return tables;
+        });
     }
 
     /**
