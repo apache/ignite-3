@@ -165,6 +165,8 @@ public class ClientMessagePacker extends MessagePacker {
             return;
 
         closed = true;
-        buf.release();
+
+        if (buf.refCnt() > 0)
+            buf.release();
     }
 }

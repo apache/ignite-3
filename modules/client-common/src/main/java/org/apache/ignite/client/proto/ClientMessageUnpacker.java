@@ -170,6 +170,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
             return;
 
         closed = true;
-        buf.release();
+
+        if (buf.refCnt() > 0)
+            buf.release();
     }
 }
