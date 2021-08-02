@@ -18,7 +18,6 @@
 package org.apache.ignite.client;
 
 import java.util.Collections;
-
 import io.netty.channel.ChannelFuture;
 import io.netty.util.ResourceLeakDetector;
 import org.apache.ignite.app.Ignite;

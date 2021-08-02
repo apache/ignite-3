@@ -18,7 +18,6 @@
 package org.apache.ignite.client.handler;
 
 import java.net.BindException;
-
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;

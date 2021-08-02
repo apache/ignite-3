@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.client.io.netty;
 
 import java.net.InetSocketAddress;
-
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;

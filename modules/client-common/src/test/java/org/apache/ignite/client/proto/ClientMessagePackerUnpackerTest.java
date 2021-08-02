@@ -19,7 +19,6 @@ package org.apache.ignite.client.proto;
 
 import java.io.IOException;
 import java.util.UUID;
-
 import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.buffer.Unpooled;
 import org.junit.jupiter.api.Test;
