@@ -37,6 +37,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests client tables.
  */
 public class ClientTablesTest extends AbstractClientTest {
+    // TODO:
+    // - fix TODOs in TableManager
+    // - client async tests
+    // - server async tests
     @Test
     public void testTablesWhenTablesExist() {
         server.tables().createTable(DEFAULT_TABLE, null);
