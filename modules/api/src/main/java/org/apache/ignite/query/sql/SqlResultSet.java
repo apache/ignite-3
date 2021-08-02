@@ -33,5 +33,10 @@ public interface SqlResultSet extends Iterable<SqlRow>, AutoCloseable {
      */
     SqlResultSetMeta metadata();
 
+    /**
+     * Returns query unique id.
+     *
+     * @return Query id.
+     */
     UUID queryId();
 }

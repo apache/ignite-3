@@ -23,8 +23,11 @@ import org.apache.ignite.query.sql.IgniteSql;
 import org.apache.ignite.query.sql.SqlResultSet;
 import org.apache.ignite.query.sql.SqlResultSetMeta;
 import org.apache.ignite.query.sql.SqlRow;
+import org.apache.ignite.query.sql.SqlSession;
 import org.apache.ignite.query.sql.reactive.ReactiveSqlResultSet;
 import org.apache.ignite.schema.ColumnType;
+import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -46,6 +49,12 @@ public class SqlTest {
     @Mock
     IgniteSql queryMgr;
 
+    @Mock
+    private IgniteTransactions igniteTx;
+
+    @Mock
+    private Transaction tx;
+
     @BeforeEach
     void setUp() {
         initMock();
@@ -53,23 +62,35 @@ public class SqlTest {
 
     @Test
     public void testSynchronousSql() {
-        SqlResultSet rs = queryMgr.execute("SELECT id, val FROM table WHERE id < {} AND val LIKE {};", 10, "str%");
+        igniteTx.runInTransaction(tx -> {
+            SqlSession sess = queryMgr.session().withTransaction(tx);
 
-        for (SqlRow r : rs) {
-            assertTrue(10 > r.longValue("id"));
-            assertTrue((r.stringValue("val")).startsWith("str"));
-        }
+            SqlResultSet rs = sess.execute("SELECT id, val FROM table WHERE id < {} AND val LIKE {};", 10, "str%");
+
+            for (SqlRow r : rs) {
+                assertTrue(10 > r.longValue("id"));
+                assertTrue((r.stringValue("val")).startsWith("str"));
+            }
+
+            tx.commit();
+        });
+
+        Mockito.verify(tx).commit();
     }
 
     @Test
     public void testAsyncSql() {
-        queryMgr.executeAsync("SELECT id, val FROM table WHERE id == {};", 10)
-            .thenCompose(rs -> {
-                String str = rs.iterator().next().stringValue("val");
+        igniteTx.beginAsync().thenApply(tx -> queryMgr.session().withTransaction(tx))
+            .thenCompose(sess -> sess.executeAsync("SELECT id, val FROM table WHERE id == {};", 10)
+                .thenCompose(rs -> {
+                    String str = rs.iterator().next().stringValue("val");
 
-                return queryMgr.executeAsync("SELECT val FROM table where val LIKE {};", str);
-            })
-            .join();
+                    return sess.executeAsync("SELECT val FROM table where val LIKE {};", str);
+                })
+                .thenApply(ignore -> sess.transaction())
+            ).thenAccept(Transaction::commitAsync);
+
+        Mockito.verify(tx).commitAsync();
     }
 
     @Test
@@ -79,16 +100,23 @@ public class SqlTest {
             assertTrue(row.stringValue("val").startsWith("str"));
         });
 
-        queryMgr.executeReactive("SELECT id, val FROM table WHERE id < {} AND val LIKE {};", 10, "str%")
-            .subscribe(subscriber);
+        igniteTx.beginAsync().thenApply(tx -> queryMgr.session().withTransaction(tx))
+            .thenCompose(session -> {
+                session.executeReactive("SELECT id, val FROM table WHERE id < {} AND val LIKE {};", 10, "str%")
+                    .subscribe(subscriber);
 
-        subscriber.join();
+                return subscriber.exceptionally(th -> {
+                    return session.transaction().rollbackAsync();
+                }).thenApply(ignore -> session.transaction().commitAsync());
+            });
+
+        Mockito.verify(tx).commitAsync();
     }
 
     @Disabled
     @Test
     public void testMetadata() {
-        SqlResultSet rs = queryMgr.execute("SELECT id, val FROM table WHERE id < {} AND val LIKE {}; ", 10, "str%");
+        SqlResultSet rs = queryMgr.session().execute("SELECT id, val FROM table WHERE id < {} AND val LIKE {}; ", 10, "str%");
 
         SqlRow row = rs.iterator().next();
 
@@ -102,15 +130,22 @@ public class SqlTest {
         assertEquals("id", meta.column(0).name());
         assertEquals("val", meta.column(1).name());
 
-        assertEquals(ColumnType.INT64, meta.column(0).type());
-        assertEquals(ColumnType.string(), meta.column(1).type());
+        assertEquals(ColumnType.INT64, meta.column(0).columnType());
+        assertEquals(ColumnType.string(), meta.column(1).columnType());
 
         assertFalse(meta.column(0).nullable());
         assertTrue(meta.column(1).nullable());
     }
 
     private void initMock() {
-        Mockito.when(queryMgr.execute(Mockito.eq("SELECT id, val FROM table WHERE id < {} AND val LIKE {};"), Mockito.any())).
+        SqlSession session = Mockito.mock(SqlSession.class);
+
+        Mockito.when(queryMgr.session()).thenReturn(session);
+
+        Mockito.when(session.withTransaction(tx)).thenReturn(session);
+        Mockito.when(session.transaction()).thenReturn(tx);
+
+        Mockito.when(session.execute(Mockito.eq("SELECT id, val FROM table WHERE id < {} AND val LIKE {};"), Mockito.any())).
             thenAnswer(ans -> Mockito.when(Mockito.mock(SqlResultSet.class).iterator())
                 .thenReturn(List.of(
                     new TestRow().set("id", 1L).set("val", "string 1").build(),
@@ -118,7 +153,7 @@ public class SqlTest {
                     new TestRow().set("id", 5L).set("val", "string 3").build()
                 ).iterator()).getMock());
 
-        Mockito.when(queryMgr.executeAsync(Mockito.eq("SELECT id, val FROM table WHERE id == {};"), Mockito.any()))
+        Mockito.when(session.executeAsync(Mockito.eq("SELECT id, val FROM table WHERE id == {};"), Mockito.any()))
             .thenAnswer(ans -> {
                 Object mock = Mockito.when(Mockito.mock(SqlResultSet.class).iterator())
                     .thenReturn(List.of(new TestRow().set("id", 1L).set("val", "string 1").build()).iterator())
@@ -127,7 +162,7 @@ public class SqlTest {
                 return CompletableFuture.completedFuture(mock);
             });
 
-        Mockito.when(queryMgr.executeAsync(Mockito.eq("SELECT val FROM table where val LIKE {};"), Mockito.any()))
+        Mockito.when(session.executeAsync(Mockito.eq("SELECT val FROM table where val LIKE {};"), Mockito.any()))
             .thenAnswer(ans -> {
                 Object mock = Mockito.when(Mockito.mock(SqlResultSet.class).iterator())
                     .thenReturn(List.of(new TestRow().set("id", 10L).set("val", "string 10").build()).iterator())
@@ -136,7 +171,7 @@ public class SqlTest {
                 return CompletableFuture.completedFuture(mock);
             });
 
-        Mockito.when(queryMgr.executeReactive(Mockito.startsWith("SELECT id, val FROM table WHERE id < {} AND val LIKE {};"), Mockito.any()))
+        Mockito.when(session.executeReactive(Mockito.startsWith("SELECT id, val FROM table WHERE id < {} AND val LIKE {};"), Mockito.any()))
             .thenAnswer(invocation -> {
                 ReactiveSqlResultSet mock = Mockito.mock(ReactiveSqlResultSet.class);
 
@@ -158,12 +193,22 @@ public class SqlTest {
 
                 return mock;
             });
+
+        Mockito.doAnswer(invocation -> {
+            Consumer<Transaction> argument = invocation.getArgument(0);
+
+            argument.accept(tx);
+
+            return null;
+        }).when(igniteTx).runInTransaction(Mockito.any());
+
+        Mockito.when(igniteTx.beginAsync()).thenReturn(CompletableFuture.completedFuture(tx));
     }
 
     /**
      * Dummy subsctiber for test purposes.
      */
-     static class SqlRowSubscriber extends CompletableFuture implements Flow.Subscriber<SqlRow> {
+    static class SqlRowSubscriber extends CompletableFuture implements Flow.Subscriber<SqlRow> {
         private Consumer<SqlRow> rowConsumer;
 
         SqlRowSubscriber(Consumer<SqlRow> rowConsumer) {

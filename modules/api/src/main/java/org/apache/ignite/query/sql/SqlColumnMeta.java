@@ -31,16 +31,13 @@ public interface SqlColumnMeta {
      * @return Column name.
      */
     String name();
-    //TODO: do we expect a CanonicalName here?
-    //TODO: do we want a Table name for real column? Is Calcite supports this?
 
     /**
      * Returns column type.
      *
      * @return Column type.
      */
-    ColumnType type();
-    //TODO: do ever we want to expose ColumnType (NativeType) here? Is it useful or drop this?
+    ColumnType columnType();
 
     /**
      * Returns column value type.
