@@ -19,7 +19,9 @@ package org.apache.ignite.client.handler.requests.table;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.client.proto.ClientDataType;
 import org.apache.ignite.client.proto.ClientMessagePacker;
@@ -117,6 +119,46 @@ class ClientTableCommon {
     public static Tuple readTuple(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) throws IOException {
         var schemaId = unpacker.unpackInt();
         var schema = table.schemaView().schema(schemaId);
+
+        return readTuple(unpacker, table, keyOnly, schema);
+    }
+
+    /**
+     * Reads a tuple.
+     *
+     * @param unpacker Unpacker.
+     * @param table Table.
+     * @param keyOnly Whether only key fields are expected.
+     * @return Tuple.
+     * @throws IOException When deserialization fails.
+     */
+    public static List<Tuple> readTuples(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) throws IOException {
+        var schemaId = unpacker.unpackInt();
+        var schema = table.schemaView().schema(schemaId);
+        var rowCount = unpacker.unpackInt();
+        var res = new ArrayList<Tuple>(rowCount);
+
+        for (int i = 0; i < rowCount; i++)
+            res.add(readTuple(unpacker, table, keyOnly, schema));
+
+        return res;
+    }
+
+    /**
+     * Reads a tuple.
+     *
+     * @param unpacker Unpacker.
+     * @param table Table.
+     * @param keyOnly Whether only key fields are expected.
+     * @return Tuple.
+     * @throws IOException When deserialization fails.
+     */
+    public static Tuple readTuple(
+            ClientMessageUnpacker unpacker,
+            TableImpl table,
+            boolean keyOnly,
+            SchemaDescriptor schema
+    ) throws IOException {
         var builder = table.tupleBuilder();
 
         var cnt = keyOnly ? schema.keyColumns().length() : schema.length();
