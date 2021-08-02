@@ -218,7 +218,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             ClientMessagePacker out,
             int opCode
     ) throws IOException {
-        // TODO: Handle all operations asynchronously (add async table API).
         switch (opCode) {
             case ClientOp.TABLE_DROP:
                 return ClientTableDropRequest.process(in, ignite.tables());
