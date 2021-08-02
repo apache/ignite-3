@@ -22,7 +22,7 @@ import org.apache.ignite.client.proto.ClientMessageUnpacker;
 /**
  * Thin client payload input channel.
  */
-public class PayloadInputChannel {
+public class PayloadInputChannel implements AutoCloseable {
     /** Client channel. */
     private final ClientChannel ch;
 
@@ -56,5 +56,10 @@ public class PayloadInputChannel {
      */
     public ClientMessageUnpacker in() {
         return in;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void close() {
+        in.close();
     }
 }

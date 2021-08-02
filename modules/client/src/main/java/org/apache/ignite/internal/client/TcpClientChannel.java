@@ -201,8 +201,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             if (payload == null || payloadReader == null)
                 return null;
 
-            try {
-                return payloadReader.apply(new PayloadInputChannel(this, payload));
+            try (var in = new PayloadInputChannel(this, payload)) {
+                return payloadReader.apply(in);
             } catch (Exception e) {
                 throw new IgniteException("Failed to deserialize server response: " + e.getMessage(), e);
             }
@@ -327,7 +327,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Receive and handle handshake response. */
     private void handshakeRes(ClientMessageUnpacker unpacker, ProtocolVersion proposedVer)
             throws IgniteClientConnectionException, IgniteClientAuthenticationException {
-        try {
+        try (unpacker) {
             ProtocolVersion srvVer = new ProtocolVersion(unpacker.unpackShort(), unpacker.unpackShort(),
                     unpacker.unpackShort());
 
