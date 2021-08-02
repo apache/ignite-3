@@ -18,7 +18,6 @@
 package org.apache.ignite.client.proto;
 
 import java.util.Arrays;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;

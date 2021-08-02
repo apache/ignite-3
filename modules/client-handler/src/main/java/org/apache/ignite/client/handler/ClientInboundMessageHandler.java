@@ -20,7 +20,6 @@ package org.apache.ignite.client.handler;
 import java.io.IOException;
 import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.Unpooled;
