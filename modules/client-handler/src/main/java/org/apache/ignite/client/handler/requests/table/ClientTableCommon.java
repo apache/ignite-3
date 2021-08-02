@@ -139,7 +139,8 @@ class ClientTableCommon {
      * @param table Table.
      * @return Tuple.
      * @throws IOException When deserialization fails.
-     */public static Tuple readTupleSchemaless(ClientMessageUnpacker unpacker, TableImpl table) throws IOException {
+     */
+    public static Tuple readTupleSchemaless(ClientMessageUnpacker unpacker, TableImpl table) throws IOException {
         var cnt = unpacker.unpackMapHeader();
         var builder = table.tupleBuilder();
 
