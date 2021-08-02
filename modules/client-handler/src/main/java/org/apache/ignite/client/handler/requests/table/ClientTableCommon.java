@@ -124,21 +124,21 @@ class ClientTableCommon {
     }
 
     /**
-     * Reads a tuple.
+     * Reads multiple tuples.
      *
      * @param unpacker Unpacker.
      * @param table Table.
      * @param keyOnly Whether only key fields are expected.
-     * @return Tuple.
+     * @return Tuples.
      * @throws IOException When deserialization fails.
      */
-    public static List<Tuple> readTuples(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) throws IOException {
+    public static ArrayList<Tuple> readTuples(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) throws IOException {
         var schemaId = unpacker.unpackInt();
         var schema = table.schemaView().schema(schemaId);
-        var rowCount = unpacker.unpackInt();
-        var res = new ArrayList<Tuple>(rowCount);
+        var rowCnt = unpacker.unpackInt();
+        var res = new ArrayList<Tuple>(rowCnt);
 
-        for (int i = 0; i < rowCount; i++)
+        for (int i = 0; i < rowCnt; i++)
             res.add(readTuple(unpacker, table, keyOnly, schema));
 
         return res;
@@ -194,6 +194,24 @@ class ClientTableCommon {
         }
 
         return builder.build();
+    }
+
+    /**
+     * Reads multiple tuples as a map, without schema.
+     *
+     * @param unpacker Unpacker.
+     * @param table Table.
+     * @return Tuples.
+     * @throws IOException When deserialization fails.
+     */
+    public static ArrayList<Tuple> readTuplesSchemaless(ClientMessageUnpacker unpacker, TableImpl table) throws IOException {
+        var rowCnt = unpacker.unpackArrayHeader();
+        var res = new ArrayList<Tuple>(rowCnt);
+
+        for (int i = 0; i < rowCnt; i++)
+            res.add(readTupleSchemaless(unpacker, table));
+
+        return res;
     }
 
     /**
