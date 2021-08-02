@@ -40,9 +40,10 @@ public class ClientTupleGetRequest {
      * @return Future.
      * @throws IOException On serialization error.
      */
-    public static CompletableFuture<Void> process(ClientMessageUnpacker in, ClientMessagePacker out,
-                                                  IgniteTables tables)
-            throws IOException {
+    public static CompletableFuture<Void> process(
+            ClientMessageUnpacker in,
+            ClientMessagePacker out,
+            IgniteTables tables) throws IOException {
         var table = readTable(in, tables);
         var keyTuple = readTuple(in, table, true);
 

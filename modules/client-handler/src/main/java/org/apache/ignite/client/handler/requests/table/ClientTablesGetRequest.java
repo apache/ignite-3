@@ -35,8 +35,9 @@ public class ClientTablesGetRequest {
      * @return Future.
      * @throws IOException On serialization error.
      */
-    public static CompletableFuture<Object> process(ClientMessagePacker out, IgniteTables igniteTables)
-            throws IOException {
+    public static CompletableFuture<Object> process(
+            ClientMessagePacker out,
+            IgniteTables igniteTables) throws IOException {
         var tables = igniteTables.tables();
 
         out.packMapHeader(tables.size());

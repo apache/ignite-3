@@ -88,8 +88,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-    private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker, ClientMessagePacker packer)
-             {
+    private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker, ClientMessagePacker packer) {
         try {
             writeMagic(ctx);
             var clientVer = ProtocolVersion.unpack(unpacker);
@@ -211,8 +210,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-    private CompletableFuture processOperation(ClientMessageUnpacker in, ClientMessagePacker out, int opCode)
-            throws IOException {
+    private CompletableFuture processOperation(
+            ClientMessageUnpacker in,
+            ClientMessagePacker out,
+            int opCode) throws IOException {
         // TODO: Handle all operations asynchronously (add async table API).
         switch (opCode) {
             case ClientOp.TABLE_DROP:

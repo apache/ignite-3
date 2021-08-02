@@ -48,8 +48,10 @@ class ClientTableCommon {
      * @param schema Schema.
      * @throws IOException When serialization fails.
      */
-    public static void writeSchema(ClientMessagePacker packer, int schemaVer, SchemaDescriptor schema)
-            throws IOException {
+    public static void writeSchema(
+            ClientMessagePacker packer,
+            int schemaVer,
+            SchemaDescriptor schema) throws IOException {
         packer.packInt(schemaVer);
 
         if (schema == null) {

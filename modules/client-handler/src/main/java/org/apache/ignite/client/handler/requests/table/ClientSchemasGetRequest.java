@@ -42,8 +42,10 @@ public class ClientSchemasGetRequest {
      * @throws IOException On serialization error.
      * @throws IgniteException When schema registry is no initialized.
      */
-    public static CompletableFuture<Object> process(ClientMessageUnpacker in, ClientMessagePacker out, IgniteTables tables)
-            throws IOException {
+    public static CompletableFuture<Object> process(
+            ClientMessageUnpacker in,
+            ClientMessagePacker out,
+            IgniteTables tables) throws IOException {
         var table = readTable(in, tables);
 
         if (in.getNextFormat() == MessageFormat.NIL) {

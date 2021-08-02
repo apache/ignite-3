@@ -37,8 +37,7 @@ public class ClientTupleUpsertRequest {
      * @return Future.
      * @throws IOException On serialization error.
      */
-    public static CompletableFuture<Void> process(ClientMessageUnpacker in, IgniteTables tables)
-            throws IOException {
+    public static CompletableFuture<Void> process(ClientMessageUnpacker in, IgniteTables tables) throws IOException {
         var table = readTable(in, tables);
         var tuple = readTuple(in, table, false);
 

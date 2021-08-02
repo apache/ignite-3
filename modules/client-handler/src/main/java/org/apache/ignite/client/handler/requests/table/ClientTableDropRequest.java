@@ -34,8 +34,9 @@ public class ClientTableDropRequest {
      * @return Future.
      * @throws IOException On serialization error.
      */
-    public static CompletableFuture<Object> process(ClientMessageUnpacker in, IgniteTables tables)
-            throws IOException {
+    public static CompletableFuture<Object> process(
+            ClientMessageUnpacker in,
+            IgniteTables tables) throws IOException {
         var tableName = in.unpackString();
 
         tables.dropTable(tableName);
