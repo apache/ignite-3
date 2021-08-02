@@ -540,32 +540,28 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         listen(TableEvent.CREATE, clo);
 
-        // TODO: Continuation
-        Table tbl = tableAsync(name, true).join();
+        tableAsync(name, true).thenAccept(tbl -> {
+            if (tbl != null) {
+                if (exceptionWhenExist) {
+                    removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(
+                            LoggerMessageHelper.format("Table already exists [name={}]", name)));
+                } else if (tblFut.complete(tbl))
+                    removeListener(TableEvent.CREATE, clo);
+            } else {
+                try {
+                    configurationMgr
+                            .configurationRegistry()
+                            .getConfiguration(TablesConfiguration.KEY)
+                            .tables()
+                            .change(change -> change.create(name, tableInitChange))
+                            .get();
+                } catch (InterruptedException | ExecutionException e) {
+                    LOG.error("Table wasn't created [name=" + name + ']', e);
 
-        if (tbl != null) {
-            if (exceptionWhenExist) {
-                removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(
-                    LoggerMessageHelper.format("Table already exists [name={}]", name)));
+                    removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(e));
+                }
             }
-            else if (tblFut.complete(tbl))
-                removeListener(TableEvent.CREATE, clo);
-        }
-        else {
-            try {
-                configurationMgr
-                    .configurationRegistry()
-                    .getConfiguration(TablesConfiguration.KEY)
-                    .tables()
-                    .change(change -> change.create(name, tableInitChange))
-                    .get();
-            }
-            catch (InterruptedException | ExecutionException e) {
-                LOG.error("Table wasn't created [name=" + name + ']', e);
-
-                removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(e));
-            }
-        }
+        });
 
         return tblFut;
     }
