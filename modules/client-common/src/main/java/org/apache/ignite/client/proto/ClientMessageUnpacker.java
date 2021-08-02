@@ -48,7 +48,7 @@ import static org.apache.ignite.client.proto.ClientDataType.STRING;
  * Releases wrapped buffer on {@link #close()} .
  */
 public class ClientMessageUnpacker extends MessageUnpacker {
-    /** */
+    /** Underlying buffer. */
     private final ByteBuf buf;
 
     /** Closed flag. */
