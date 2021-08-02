@@ -43,7 +43,8 @@ public class ClientTupleGetRequest {
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            IgniteTables tables) throws IOException {
+            IgniteTables tables
+    ) throws IOException {
         var table = readTable(in, tables);
         var keyTuple = readTuple(in, table, true);
 

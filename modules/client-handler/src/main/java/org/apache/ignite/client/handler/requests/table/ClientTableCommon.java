@@ -51,7 +51,8 @@ class ClientTableCommon {
     public static void writeSchema(
             ClientMessagePacker packer,
             int schemaVer,
-            SchemaDescriptor schema) throws IOException {
+            SchemaDescriptor schema
+    ) throws IOException {
         packer.packInt(schemaVer);
 
         if (schema == null) {

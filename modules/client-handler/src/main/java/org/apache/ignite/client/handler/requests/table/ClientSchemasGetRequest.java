@@ -45,7 +45,8 @@ public class ClientSchemasGetRequest {
     public static CompletableFuture<Object> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            IgniteTables tables) throws IOException {
+            IgniteTables tables
+    ) throws IOException {
         var table = readTable(in, tables);
 
         if (in.getNextFormat() == MessageFormat.NIL) {

@@ -37,7 +37,8 @@ public class ClientTablesGetRequest {
      */
     public static CompletableFuture<Object> process(
             ClientMessagePacker out,
-            IgniteTables igniteTables) throws IOException {
+            IgniteTables igniteTables
+    ) throws IOException {
         var tables = igniteTables.tables();
 
         out.packMapHeader(tables.size());

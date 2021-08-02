@@ -36,7 +36,8 @@ public class ClientTableDropRequest {
      */
     public static CompletableFuture<Object> process(
             ClientMessageUnpacker in,
-            IgniteTables tables) throws IOException {
+            IgniteTables tables
+    ) throws IOException {
         var tableName = in.unpackString();
 
         tables.dropTable(tableName);

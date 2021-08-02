@@ -216,7 +216,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     private CompletableFuture processOperation(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            int opCode) throws IOException {
+            int opCode
+    ) throws IOException {
         // TODO: Handle all operations asynchronously (add async table API).
         switch (opCode) {
             case ClientOp.TABLE_DROP:

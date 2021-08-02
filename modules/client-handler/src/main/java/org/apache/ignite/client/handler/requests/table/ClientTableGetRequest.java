@@ -41,7 +41,8 @@ public class ClientTableGetRequest {
     public static CompletableFuture<Object> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            IgniteTables tables) throws IOException {
+            IgniteTables tables
+    ) throws IOException {
         String tableName = in.unpackString();
         Table table = tables.table(tableName);
 
