@@ -69,7 +69,7 @@ public class RpcOptions {
      */
     private ExecutorService clientExecutor;
 
-    /** Striped disruptor for FSMCaller service. */
+    /** Striped disruptor for FSMCaller service. The queue serves of an Append entry requests in the RAFT state machine. */
     private StripedDisruptor<FSMCallerImpl.ApplyTask> fSMCallerExecutorDisruptor;
 
     /** Striped disruptor for Node apply service. */

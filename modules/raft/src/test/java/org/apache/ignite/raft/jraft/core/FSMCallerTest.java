@@ -66,6 +66,9 @@ public class FSMCallerTest {
     private LogManager logManager;
     private ClosureQueueImpl closureQueue;
 
+    /** Disruptor for this service test. */
+    private StripedDisruptor disruptor;
+
     @BeforeEach
     public void setup() {
         this.fsmCaller = new FSMCallerImpl();
@@ -82,7 +85,7 @@ public class FSMCallerTest {
         opts.setClosureQueue(this.closureQueue);
         opts.setRaftMessagesFactory(new RaftMessagesFactory());
         opts.setGroupId("TestSrv");
-        opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<>("TestFSMDisruptor",
+        opts.setfSMCallerExecutorDisruptor(disruptor = new StripedDisruptor<>("TestFSMDisruptor",
             1024,
             () -> new FSMCallerImpl.ApplyTask(),
             1));
@@ -94,6 +97,7 @@ public class FSMCallerTest {
         if (this.fsmCaller != null) {
             this.fsmCaller.shutdown();
             this.fsmCaller.join();
+            disruptor.shutdown();
         }
     }
 

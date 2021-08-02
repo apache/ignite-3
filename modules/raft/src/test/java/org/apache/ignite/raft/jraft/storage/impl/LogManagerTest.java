@@ -71,6 +71,9 @@ public class LogManagerTest extends BaseStorageTest {
 
     private LogStorage logStorage;
 
+    /** Disruptor for this service test. */
+    private StripedDisruptor disruptor;
+
     @BeforeEach
     public void setup() throws Exception {
         this.confManager = new ConfigurationManager();
@@ -91,7 +94,7 @@ public class LogManagerTest extends BaseStorageTest {
         opts.setLogStorage(this.logStorage);
         opts.setRaftOptions(raftOptions);
         opts.setGroupId("TestSrv");
-        opts.setLogManagerDisruptor(new StripedDisruptor<>("TestLogManagerDisruptor",
+        opts.setLogManagerDisruptor(disruptor = new StripedDisruptor<>("TestLogManagerDisruptor",
             1024,
             () -> new LogManagerImpl.StableClosureEvent(),
             1));
@@ -105,6 +108,7 @@ public class LogManagerTest extends BaseStorageTest {
     @AfterEach
     public void teardown() throws Exception {
         this.logStorage.shutdown();
+        disruptor.shutdown();
     }
 
     @Test

@@ -68,6 +68,9 @@ public class ReadOnlyServiceTest {
     @Mock
     private FSMCaller fsmCaller;
 
+    /** Disruptor for this service test. */
+    private StripedDisruptor disruptor;
+
     @BeforeEach
     public void setup() {
         this.readOnlyServiceImpl = new ReadOnlyServiceImpl();
@@ -78,7 +81,7 @@ public class ReadOnlyServiceTest {
         opts.setNode(this.node);
         opts.setRaftOptions(raftOptions);
         opts.setGroupId("TestSrv");
-        opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>("TestReadOnlyServiceDisruptor",
+        opts.setReadOnlyServiceDisruptor(disruptor = new StripedDisruptor<>("TestReadOnlyServiceDisruptor",
             1024,
             () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
             1));
@@ -99,6 +102,7 @@ public class ReadOnlyServiceTest {
     public void teardown() throws Exception {
         this.readOnlyServiceImpl.shutdown();
         this.readOnlyServiceImpl.join();
+        disruptor.shutdown();
     }
 
     @Test
