@@ -39,7 +39,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class ClientTablesTest extends AbstractClientTest {
     // TODO:
     // - fix TODOs in TableManager
-    // - fix server-side handler to use async APIs
     // - client async tests
     // - server async tests
     @Test

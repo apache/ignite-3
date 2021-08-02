@@ -65,7 +65,7 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Table> createTableAsync(String name, Consumer<TableChange> tableInitChange) {
-        throw new UnsupportedOperationException();
+        return CompletableFuture.completedFuture(createTable(name, tableInitChange));
     }
 
     /** {@inheritDoc} */
@@ -93,7 +93,8 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Table> getOrCreateTableAsync(String name, Consumer<TableChange> tableInitChange) {
-        throw new UnsupportedOperationException();    }
+        return CompletableFuture.completedFuture(getOrCreateTable(name, tableInitChange));
+    }
 
     /** {@inheritDoc} */
     @Override public void dropTable(String name) {
@@ -105,7 +106,9 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> dropTableAsync(String name) {
-        throw new UnsupportedOperationException();
+        dropTable(name);
+
+        return CompletableFuture.completedFuture(null);
     }
 
     /** {@inheritDoc} */
@@ -115,7 +118,7 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<List<Table>> tablesAsync() {
-        throw new UnsupportedOperationException();
+        return CompletableFuture.completedFuture(tables());
     }
 
     /** {@inheritDoc} */
@@ -125,7 +128,7 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Table> tableAsync(String name) {
-        throw new UnsupportedOperationException();
+        return CompletableFuture.completedFuture(table(name));
     }
 
     /** {@inheritDoc} */
