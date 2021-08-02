@@ -130,13 +130,11 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
         return CompletableFuture.completedFuture(table(name));
     }
 
-    /** {@inheritDoc} */
     @NotNull private TableImpl getNewTable(String name) {
         UUID tableId = UUID.randomUUID();
         return new TableImpl(new FakeInternalTable(name, tableId), getSchemaReg(tableId), null, null);
     }
 
-    /** {@inheritDoc} */
     @NotNull private SchemaRegistryImpl getSchemaReg(UUID tableId) {
         return new SchemaRegistryImpl(1, v -> getSchema(v, tableId));
     }

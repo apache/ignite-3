@@ -60,6 +60,7 @@ public interface IgniteTables {
      *
      * @param name Table name.
      * @param tableChange Table changer.
+     * @return Future for the operation.
      */
     CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange);
 
@@ -94,6 +95,7 @@ public interface IgniteTables {
      * If a table with the specified name does not exist in the cluster, the operation has no effect.
      *
      * @param name Table name.
+     * @return Future for the operation.
      */
     CompletableFuture<Void> dropTableAsync(String name);
 
