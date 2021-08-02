@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import java.net.InetSocketAddress;
 import java.util.Collections;
 import io.netty.channel.ChannelFuture;
 import io.netty.util.ResourceLeakDetector;
@@ -73,8 +74,11 @@ public abstract class AbstractClientTest {
     }
 
     public static Ignite startClient(String... addrs) {
-        if (addrs == null || addrs.length == 0)
-            addrs = new String[]{"127.0.0.2:10800"};
+        if (addrs == null || addrs.length == 0) {
+            var serverPort = ((InetSocketAddress)serverFuture.channel().localAddress()).getPort();
+
+            addrs = new String[]{"127.0.0.2:" + serverPort};
+        }
 
         var builder = IgniteClient.builder().addresses(addrs);
 
