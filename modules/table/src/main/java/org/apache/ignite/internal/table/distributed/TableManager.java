@@ -488,12 +488,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override public Table createTable(String name, Consumer<TableChange> tableInitChange) {
-        return createTable(name, tableInitChange, true);
+        return createTableAsync(name, tableInitChange).join();
+    }
+
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<Table> createTableAsync(String name, Consumer<TableChange> tableInitChange) {
+        return createTableAsync(name, tableInitChange, true);
     }
 
     /** {@inheritDoc} */
     @Override public Table getOrCreateTable(String name, Consumer<TableChange> tableInitChange) {
-        return createTable(name, tableInitChange, false);
+        return getOrCreateTableAsync(name, tableInitChange).join();
+    }
+
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<Table> getOrCreateTableAsync(String name, Consumer<TableChange> tableInitChange) {
+        return createTableAsync(name, tableInitChange, false);
     }
 
     /**
@@ -505,7 +515,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * {@code false} means the existing table will be returned.
      * @return A table instance.
      */
-    public Table createTable(String name, Consumer<TableChange> tableInitChange, boolean exceptionWhenExist) {
+    private CompletableFuture<Table> createTableAsync(String name, Consumer<TableChange> tableInitChange, boolean exceptionWhenExist) {
         CompletableFuture<Table> tblFut = new CompletableFuture<>();
 
         EventListener<TableEventParameters> clo = new EventListener<>() {
@@ -530,7 +540,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         listen(TableEvent.CREATE, clo);
 
-        Table tbl = table(name, true);
+        // TODO: Continuation
+        Table tbl = tableAsync(name, true).join();
 
         if (tbl != null) {
             if (exceptionWhenExist) {
@@ -556,11 +567,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
         }
 
-        return tblFut.join();
+        return tblFut;
     }
 
     /** {@inheritDoc} */
     @Override public void alterTable(String name, Consumer<TableChange> tableChange) {
+        alterTableAsync(name, tableChange).join();
+    }
+
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange) {
         CompletableFuture<Void> tblFut = new CompletableFuture<>();
 
         listen(TableEvent.ALTER, new EventListener<>() {
@@ -585,8 +601,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         try {
             configurationMgr.configurationRegistry()
-                .getConfiguration(TablesConfiguration.KEY).tables().change(change ->
-                change.createOrUpdate(name, tableChange)).get();
+                    .getConfiguration(TablesConfiguration.KEY).tables().change(change ->
+                    change.createOrUpdate(name, tableChange)).get();
         }
         catch (InterruptedException | ExecutionException e) {
             LOG.error("Table wasn't created [name=" + name + ']', e);
@@ -594,11 +610,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             tblFut.completeExceptionally(e);
         }
 
-        tblFut.join();
+        return tblFut;
     }
 
     /** {@inheritDoc} */
     @Override public void dropTable(String name) {
+        dropTableAsync(name).join();
+    }
+
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<Void> dropTableAsync(String name) {
         CompletableFuture<Void> dropTblFut = new CompletableFuture<>();
 
         EventListener<TableEventParameters> clo = new EventListener<>() {
@@ -637,11 +658,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         else {
             try {
                 configurationMgr
-                    .configurationRegistry()
-                    .getConfiguration(TablesConfiguration.KEY)
-                    .tables()
-                    .change(change -> change.delete(name))
-                    .get();
+                        .configurationRegistry()
+                        .getConfiguration(TablesConfiguration.KEY)
+                        .tables()
+                        .change(change -> change.delete(name))
+                        .get();
             }
             catch (InterruptedException | ExecutionException e) {
                 LOG.error("Table wasn't dropped [name=" + name + ']', e);
@@ -650,7 +671,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
         }
 
-        dropTblFut.join();
+        return dropTblFut;
     }
 
     /** {@inheritDoc} */
@@ -658,13 +679,19 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         ArrayList<Table> tables = new ArrayList<>();
 
         for (String tblName : tableNamesConfigured()) {
-            Table tbl = table(tblName, false);
+            // TODO: Async continuations
+            Table tbl = tableAsync(tblName, false).join();
 
             if (tbl != null)
                 tables.add(tbl);
         }
 
         return tables;
+    }
+
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<List<Table>> tablesAsync() {
+        return null;
     }
 
     /**
@@ -703,7 +730,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override public Table table(String name) {
-        return table(name, true);
+        return tableAsync(name).join();
+    }
+
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<Table> tableAsync(String name) {
+        return tableAsync(name, true);
     }
 
     /**
@@ -756,14 +788,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * false otherwise.
      * @return A table or {@code null} if table does not exist.
      */
-    private Table table(String name, boolean checkConfiguration) {
+    private CompletableFuture<Table> tableAsync(String name, boolean checkConfiguration) {
         if (checkConfiguration && !isTableConfigured(name))
-            return null;
+            return CompletableFuture.completedFuture(null);
 
         Table tbl = tables.get(name);
 
         if (tbl != null)
-            return tbl;
+            return CompletableFuture.completedFuture(tbl);
 
         CompletableFuture<Table> getTblFut = new CompletableFuture<>();
 
@@ -795,7 +827,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             !isTableConfigured(name) && getTblFut.complete(null))
             removeListener(TableEvent.CREATE, clo, null);
 
-        return getTblFut.join();
+        return getTblFut;
     }
 
     /**

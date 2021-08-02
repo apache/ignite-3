@@ -15,9 +15,6 @@
  * limitations under the License.
  */
 
-/**
- * Interface for manage tables.
- */
 package org.apache.ignite.table.manager;
 
 import java.util.List;
