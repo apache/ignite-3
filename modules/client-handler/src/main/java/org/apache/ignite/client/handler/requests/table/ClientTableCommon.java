@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.client.proto.ClientDataType;
@@ -94,6 +95,28 @@ class ClientTableCommon {
 
             var schema = ((SchemaAware) tuple).schema();
 
+            writeTuple(packer, tuple, schema);
+        }
+        catch (Throwable t) {
+            throw new IgniteException("Failed to serialize tuple", t);
+        }
+    }
+
+    /**
+     * Writes a tuple.
+     *
+     * @param packer Packer.
+     * @param tuple Tuple.
+     * @throws IgniteException on failed serialization.
+     */
+    public static void writeTuple(ClientMessagePacker packer, Tuple tuple, SchemaDescriptor schema) {
+        try {
+            if (tuple == null) {
+                packer.packNil();
+
+                return;
+            }
+
             packer.packInt(schema.version());
 
             for (var col : schema.keyColumns().columns())
@@ -101,6 +124,39 @@ class ClientTableCommon {
 
             for (var col : schema.valueColumns().columns())
                 writeColumnValue(packer, tuple, col);
+        }
+        catch (Throwable t) {
+            throw new IgniteException("Failed to serialize tuple", t);
+        }
+    }
+
+    /**
+     * Writes a tuple.
+     *
+     * @param packer Packer.
+     * @param tuples Tuples.
+     * @throws IgniteException on failed serialization.
+     */
+    public static void writeTuples(ClientMessagePacker packer, Collection<Tuple> tuples) {
+        try {
+            if (tuples == null || tuples.size() == 0) {
+                packer.packNil();
+
+                return;
+            }
+
+            SchemaDescriptor schema = null;
+
+            for (Tuple tuple : tuples) {
+                if (schema == null) {
+                    schema = ((SchemaAware) tuple).schema();
+
+                    packer.packInt(schema.version());
+                    packer.packInt(tuples.size());
+                }
+
+                writeTuple(packer, tuple, schema);
+            }
         }
         catch (Throwable t) {
             throw new IgniteException("Failed to serialize tuple", t);
