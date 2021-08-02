@@ -33,6 +33,8 @@ import static org.apache.ignite.client.proto.ClientMessageCommon.HEADER_SIZE;
 
 /**
  * Ignite-specific MsgPack extension based on Netty ByteBuf.
+ * <p>
+ * Releases wrapped buffer on {@link #close()} .
  */
 public class ClientMessagePacker extends MessagePacker {
     /** Underlying buffer. */

@@ -43,9 +43,17 @@ import static org.apache.ignite.client.proto.ClientDataType.INT8;
 import static org.apache.ignite.client.proto.ClientDataType.STRING;
 
 /**
- * Ignite-specific MsgPack extension.
+ * Ignite-specific MsgPack extension based on Netty ByteBuf.
+ * <p>
+ * Releases wrapped buffer on {@link #close()} .
  */
 public class ClientMessageUnpacker extends MessageUnpacker {
+    /** */
+    private final ByteBuf buf;
+
+    /** Closed flag. */
+    private boolean closed = false;
+
     /**
      * Constructor.
      *
@@ -53,6 +61,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      */
     public ClientMessageUnpacker(ByteBuf buf) {
         super(new InputStreamBufferInput(new ByteBufInputStream(buf)), MessagePack.DEFAULT_UNPACKER_CONFIG);
+
+        this.buf = buf;
     }
 
     /**
@@ -152,5 +162,14 @@ public class ClientMessageUnpacker extends MessageUnpacker {
         }
 
         throw new IgniteException("Unknown client data type: " + dataType);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void close() {
+        if (closed)
+            return;
+
+        closed = true;
+        buf.release();
     }
 }

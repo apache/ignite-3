@@ -73,18 +73,15 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
     /** {@inheritDoc} */
     @Override public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        var buf = (ByteBuf) msg;
-        var unpacker = getUnpacker(buf);
-        var packer = getPacker(ctx.alloc());
+        // Each inbound handler in a pipeline has to release the received messages.
+        try (var unpacker = getUnpacker((ByteBuf) msg)) {
+            // Packer buffer is released by Netty on send, or by inner exception handlers below.
+            var packer = getPacker(ctx.alloc());
 
-        try {
             if (clientContext == null)
                 handshake(ctx, unpacker, packer);
             else
                 processOperation(ctx, unpacker, packer);
-        } finally {
-            // Each inbound handler in a pipeline has to release the received messages.
-            buf.release();
         }
     }
 
