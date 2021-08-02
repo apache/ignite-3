@@ -83,6 +83,8 @@ public abstract class AbstractClientTest {
                 Collections.singletonList(new TestConfigurationStorage(ConfigurationType.LOCAL))
         );
 
+        registry.start();
+
         server = new FakeIgnite();
 
         var module = new ClientHandlerModule(server, NOPLogger.NOP_LOGGER);
@@ -102,9 +104,11 @@ public abstract class AbstractClientTest {
         var a = (ClientTupleBuilder) x;
         var b = (ClientTupleBuilder) y;
 
-        assertEquals(a.map().size(), b.map().size());
+        assertEquals(a.columnCount(), b.columnCount());
 
-        for (var kv : a.map().entrySet())
-            assertEquals(kv.getValue(), b.map().get(kv.getKey()), kv.getKey());
+        for (var i = 0; i < a.columnCount(); i++) {
+            assertEquals(a.columnName(i), b.columnName(i));
+            assertEquals((Object)a.value(i), b.value(i));
+        }
     }
 }

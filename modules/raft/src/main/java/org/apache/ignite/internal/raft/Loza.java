@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.raft;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.network.ClusterNode;
@@ -32,7 +34,7 @@ import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
 /**
  * Best raft manager ever since 1982.
  */
-public class Loza {
+public class Loza implements IgniteComponent {
     /** Factory. */
     private static final RaftClientMessagesFactory FACTORY = new RaftClientMessagesFactory();
 
@@ -53,10 +55,21 @@ public class Loza {
      *
      * @param clusterNetSvc Cluster network service.
      */
-    public Loza(ClusterService clusterNetSvc, String dataPath) {
+    public Loza(ClusterService clusterNetSvc, Path dataPath) {
         this.clusterNetSvc = clusterNetSvc;
 
         this.raftServer = new JRaftServerImpl(clusterNetSvc, dataPath);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void start() {
+        raftServer.start();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void stop() throws Exception {
+        // TODO: IGNITE-15161 Implement component's stop.
+        raftServer.stop();
     }
 
     /**

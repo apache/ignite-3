@@ -86,6 +86,8 @@ public class ConfigurationListenerTest {
             Collections.singletonList(testConfigurationStorage)
         );
 
+        registry.start();
+
         registry.startStorageConfigurations(testConfigurationStorage.type());
 
         configuration = registry.getConfiguration(ParentConfiguration.KEY);
