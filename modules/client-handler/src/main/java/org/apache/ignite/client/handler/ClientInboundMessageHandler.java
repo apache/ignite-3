@@ -117,13 +117,16 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         catch (Throwable t) {
             packer.close();
 
-            try (var errPacker = getPacker(ctx.alloc())) {
+            var errPacker = getPacker(ctx.alloc());
+
+            try {
                 ProtocolVersion.LATEST_VER.pack(errPacker);
                 errPacker.packInt(ClientErrorCode.FAILED).packString(t.getMessage());
 
                 write(errPacker, ctx);
             }
             catch (Throwable t2) {
+                errPacker.close();
                 exceptionCaught(ctx, t2);
             }
         }
@@ -141,7 +144,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     }
 
     private void writeError(long requestId, Throwable err, ChannelHandlerContext ctx) {
-        try (var packer = getPacker(ctx.alloc())) {
+        var packer = getPacker(ctx.alloc());
+
+        try {
             assert err != null;
 
             packer.packInt(ServerMessageType.RESPONSE);
@@ -158,6 +163,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             write(packer, ctx);
         }
         catch (Throwable t) {
+            packer.close();
             exceptionCaught(ctx, t);
         }
     }
