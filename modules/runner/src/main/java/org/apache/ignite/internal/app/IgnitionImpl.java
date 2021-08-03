@@ -206,8 +206,6 @@ public class IgnitionImpl implements Ignition {
 
             vaultMgr.putName(nodeName).join();
 
-            boolean cfgBootstrappedFromPds = vaultMgr.bootstrapped();
-
             List<RootKey<?, ?>> rootKeys = Arrays.asList(
                 NetworkConfiguration.KEY,
                 NodeConfiguration.KEY,
@@ -225,16 +223,19 @@ public class IgnitionImpl implements Ignition {
                 new ConfigurationManager(rootKeys, cfgStorages)
             );
 
-            if (!cfgBootstrappedFromPds && cfgContent != null)
+            boolean cfgBootstrappedFromPds = locConfigurationMgr.bootstrapped();
+
+            if (!cfgBootstrappedFromPds && cfgContent != null) {
                 try {
                     locConfigurationMgr.bootstrap(cfgContent, ConfigurationType.LOCAL);
                 }
                 catch (Exception e) {
                     LOG.warn("Unable to parse user-specific configuration, default configuration will be used: {}", e.getMessage());
                 }
+            }
             else if (cfgContent != null)
                 LOG.warn("User specific configuration will be ignored, cause vault was bootstrapped with pds configuration");
-            else
+            else if (!cfgBootstrappedFromPds)
                 locConfigurationMgr.configurationRegistry().startStorageConfigurations(ConfigurationType.LOCAL);
 
             NetworkView netConfigurationView =

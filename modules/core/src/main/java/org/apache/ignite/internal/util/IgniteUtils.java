@@ -24,6 +24,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -34,6 +35,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
+import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -50,6 +52,13 @@ public class IgniteUtils {
     private static final ClassLoader igniteClassLoader = IgniteUtils.class.getClassLoader();
 
     private static final boolean assertionsEnabled;
+
+    /**
+     * Gets the current monotonic time in milliseconds.
+     */
+    public static long monotonicMs() {
+        return TimeUnit.NANOSECONDS.toMillis(System.nanoTime());
+    }
 
     /** Primitive class map. */
     private static final Map<String, Class<?>> primitiveMap = Map.of(
@@ -486,5 +495,44 @@ public class IgniteUtils {
      */
     public static void closeAll(AutoCloseable... closeables) throws Exception {
         closeAll(Arrays.asList(closeables));
+    }
+
+    /**
+     * Short date format pattern for log messages in "quiet" mode.
+     * Only time is included since we don't expect "quiet" mode to be used
+     * for longer runs.
+     */
+    private static final SimpleDateFormat SHORT_DATE_FMT = new SimpleDateFormat("HH:mm:ss");
+
+    /**
+     * @param log Logger.
+     * @param msg Message.
+     */
+    public static void dumpStack(IgniteLogger log, String msg) {
+        String reason = "Dumping stack.";
+
+        var err = new Exception(msg);
+
+        if (log != null)
+            log.error(compact(reason), err);
+        else {
+            System.err.println("[" + SHORT_DATE_FMT.format(new java.util.Date()) + "] (err) " +
+                compact(reason));
+
+            err.printStackTrace(System.err);
+        }
+    }
+
+    /**
+     * Replaces all occurrences of {@code org.apache.ignite.} with {@code o.a.i.},
+     * {@code org.apache.ignite.internal.} with {@code o.a.i.i.},
+     *
+     * @param s String to replace in.
+     * @return Replaces string.
+     */
+    public static String compact(String s) {
+        return s
+            .replace("org.apache.ignite.internal.", "o.a.i.i.")
+            .replace("org.apache.ignite.", "o.a.i.");
     }
 }

@@ -80,6 +80,14 @@ public class ConfigurationManager implements IgniteComponent {
     }
 
     /**
+     *  @return True if the configuration manager was bootstrapped with data
+     *  either from storage.
+     */
+    public boolean bootstrapped() {
+        return confRegistry.bootstrapped();
+    }
+
+    /**
      * Constructor.
      *
      * @param rootKeys Configuration root keys.

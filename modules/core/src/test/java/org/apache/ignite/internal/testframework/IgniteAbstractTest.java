@@ -17,24 +17,65 @@
 
 package org.apache.ignite.internal.testframework;
 
+import java.nio.file.Path;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy;
 import org.apache.ignite.lang.IgniteLogger;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+import static org.apache.ignite.internal.util.IgniteUtils.monotonicMs;
 import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
 import static org.apache.ignite.lang.IgniteSystemProperties.getString;
 
 /**
  * Ignite base test class.
  */
+@ExtendWith({SystemPropertiesExtension.class, WorkDirectoryExtension.class})
 public abstract class IgniteAbstractTest {
     /** Logger. */
     protected static IgniteLogger log;
+
+    /** Tets start milliseconds. */
+    private long testStartMs;
+
+    /** Work directory. */
+    protected Path workDir;
 
     /** Init test env. */
     static {
         S.setSensitiveDataLoggingPolicySupplier(() ->
             SensitiveDataLoggingPolicy.valueOf(getString(IGNITE_SENSITIVE_DATA_LOGGING, "hash").toUpperCase()));
+    }
+
+    /**
+     * Invokes before the test will start.
+     *
+     * @param testInfo Test information oject.
+     * @param workDir Work directory.
+     * @throws Exception If failed.
+     */
+    @BeforeEach
+    public void setup(TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
+        log.info(">>>>>>>>>>>>>>> Start test method: {}.{}, workDir: {}", getClass().getSimpleName(),
+            testInfo.getDisplayName(), workDir.toAbsolutePath());
+
+        this.workDir = workDir;
+        this.testStartMs = monotonicMs();
+    }
+
+    /**
+     * Invokes after the test has finished.
+     *
+     * @param testInfo Test information oject.
+     * @throws Exception If failed.
+     */
+    @AfterEach
+    public void teardown(TestInfo testInfo) throws Exception {
+        log.info(">>>>>>>>>>>>>>> End test method: {}.{}, cost:{} ms.", getClass().getSimpleName(),
+            testInfo.getDisplayName(), monotonicMs() - testStartMs);
     }
 
     /**
