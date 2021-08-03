@@ -233,14 +233,13 @@ public abstract class ConfigurationChanger {
         assert configurationStorage != null : storageType;
 
         try {
-            changeInternally(
-                new ConfigurationSource() {
-                    @Override public void descend(ConstructableTreeNode node) {
-                        addDefaults((InnerNode)node);
-                    }
-                },
-                configurationStorage
-            ).get();
+            ConfigurationSource defaultsCfgSource = new ConfigurationSource() {
+                @Override public void descend(ConstructableTreeNode node) {
+                    addDefaults((InnerNode)node);
+                }
+            };
+
+            changeInternally(defaultsCfgSource, configurationStorage).get();
         }
         catch (ExecutionException e) {
             Throwable cause = e.getCause();

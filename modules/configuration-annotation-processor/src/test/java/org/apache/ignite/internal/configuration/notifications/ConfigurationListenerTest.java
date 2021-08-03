@@ -142,7 +142,7 @@ public class ConfigurationListenerTest {
         assertEquals(List.of("parent", "child", "str"), log);
     }
 
-    /** Tests notifications validity when new named list element is created. */
+    /** Tests notifications validity when a new named list element is created. */
     @Test
     public void namedListNodeOnCreate() throws Exception {
         List<String> log = new ArrayList<>();
@@ -220,7 +220,7 @@ public class ConfigurationListenerTest {
         assertEquals(List.of("parent", "elements", "create"), log);
     }
 
-    /** Tests notifications validity when named list element is edited. */
+    /** Tests notifications validity when a named list element is edited. */
     @Test
     public void namedListNodeOnUpdate() throws Exception {
         configuration.change(parent ->
@@ -310,7 +310,7 @@ public class ConfigurationListenerTest {
     }
 
 
-    /** Tests notifications validity when named list element is renamed. */
+    /** Tests notifications validity when a named list element is renamed. */
     @Test
     public void namedListNodeOnRename() throws Exception {
         configuration.change(parent ->
@@ -409,7 +409,7 @@ public class ConfigurationListenerTest {
         assertEquals(List.of("parent", "elements", "rename"), log);
     }
 
-    /** Tests notifications validity when named list element is deleted. */
+    /** Tests notifications validity when a named list element is deleted. */
     @Test
     public void namedListNodeOnDelete() throws Exception {
         configuration.change(parent ->

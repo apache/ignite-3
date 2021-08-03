@@ -309,7 +309,7 @@ public class ConfigurationChangerTest {
     }
 
     /**
-     * Convert root node into patching configuration source for the super root.
+     * Converts a root node into a patching configuration source for the super root.
      *
      * @param rootKey Root key.
      * @param changes Root node.

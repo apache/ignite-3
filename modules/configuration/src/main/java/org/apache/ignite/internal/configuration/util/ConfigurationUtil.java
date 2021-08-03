@@ -36,7 +36,7 @@ import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 
 /** */
 public class ConfigurationUtil {
-    /** Configuration that does nothing but copy of the configuration value. */
+    /** Configuration source that copies values without modifying tham. */
     private static final ConfigurationSource EMPTY_CFG_SRC = new ConfigurationSource() {};
 
     /**

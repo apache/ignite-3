@@ -101,9 +101,9 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
     }
 
     /**
-     * Returns all child nodes of current configuration tree node.
+     * Returns all child nodes of the current configuration tree node.
      *
-     * @return Map from {@code String} to a corresponding {@link ConfigurationProperty}.
+     * @return Map from childs keys to a corresponding {@link ConfigurationProperty}.
      */
     public Map<String, ConfigurationProperty<?, ?>> members() {
         return Collections.unmodifiableMap(members);

@@ -86,9 +86,9 @@ public interface NamedListChange<Change> extends NamedListView<Change> {
     /**
      * Renames the existing value in the named list configuration. Element with key {@code oldKey} must exist and key
      * {@code newKey} must not. Error will occur if {@code newKey} has just been deleted on the same
-     * {@link NamedListChange} instance. It is necessary to simplify distinguisnment between
+     * {@link NamedListChange} instance (to distinguish between
      * {@link ConfigurationNamedListListener#onRename(String, String, ConfigurationNotificationEvent)} and
-     * {@link ConfigurationNamedListListener#onUpdate(ConfigurationNotificationEvent)} on {@code newKey}.
+     * {@link ConfigurationNamedListListener#onUpdate(ConfigurationNotificationEvent)} on {@code newKey}).
      *
      * @param oldKey Key for the value to be updated.
      * @param newKey New key for the same value.

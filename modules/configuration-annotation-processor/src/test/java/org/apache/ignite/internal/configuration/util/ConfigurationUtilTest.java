@@ -434,8 +434,8 @@ public class ConfigurationUtilTest {
     }
 
     /**
-     * Apply changes on top of existing node. Creates completely new object while reusing parts of the original tree
-     * that weren't modified.
+     * Applies changes on top of an existing node. Creates a completely new object while reusing parts of the original
+     * tree that weren't modified.
      *
      * @param root Immutable configuration node.
      * @param changes Change or Init object to be applied.

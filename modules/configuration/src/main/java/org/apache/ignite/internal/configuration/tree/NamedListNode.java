@@ -367,6 +367,8 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
          */
         ElementDescriptor(N value) {
             this.value = value;
+            // Remove dashes so that id would be a bit shorter and easier to validate in tests.
+            // This string won't be visible by end users anyway.
             internalId = UUID.randomUUID().toString().replace("-", "");
         }
 
