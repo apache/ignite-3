@@ -25,7 +25,7 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTupleSchemaless;
 
 /**
- * Client tuple upsert request.
+ * Client tuple upsert schemaless request.
  */
 public class ClientTupleUpsertSchemalessRequest {
     /**

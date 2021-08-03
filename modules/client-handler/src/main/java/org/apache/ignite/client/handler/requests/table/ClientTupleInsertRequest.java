@@ -26,7 +26,7 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 
 /**
- * Client tuple upsert request.
+ * Client tuple insert request.
  */
 public class ClientTupleInsertRequest {
     /**
