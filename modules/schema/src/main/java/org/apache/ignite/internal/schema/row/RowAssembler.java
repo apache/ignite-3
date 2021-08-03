@@ -439,6 +439,13 @@ public class RowAssembler {
     }
 
     /**
+     * Calculates byte size for BigInteger value.
+     */
+    public static int sizeInBytes(BigInteger val) {
+        return val.bitLength() / 8 + 1;
+    }
+
+    /**
      * Appends BigDecimal value for the current column to the chunk.
      *
      * @param val Column value.
@@ -451,45 +458,34 @@ public class RowAssembler {
 
         DecimalNativeType type = (DecimalNativeType)col.type();
 
-        if (NumericTypeUtils.precisionDoesNotFit(val.unscaledValue(), type.precision()))
+        val = val.setScale(type.scale(), RoundingMode.HALF_UP);
+
+        if (val.precision() > type.precision())
             throw new IllegalArgumentException("Failed to set decimal value for column '" + col.name() + "' " +
-                "(max precision exceeds allocated precision) [decimal=" + val + ", max precision=" + type.precision() + "]");
-
-        if (val.scale() > type.scale())
-            val = val.setScale(type.scale(), RoundingMode.HALF_UP);
-
-        int scale = val.scale();
-
-        int shift;
-        if (type.scale() == 0)
-            shift = 0;
-        else if (type.scale() <= Byte.MAX_VALUE) {
-            buf.put(curOff, (byte)scale);
-            shift = 1;
-        }
-        else if (type.scale() <= Short.MAX_VALUE) {
-            buf.putShort(curOff, (short)scale);
-            shift = 2;
-        }
-        else {
-            buf.putInt(curOff, scale);
-            shift = 4;
-        }
+                "(max precision exceeds allocated precision)" +
+                " [decimal=" + val + ", max precision=" + type.precision() + "]");
 
         byte[] bytes = val.unscaledValue().toByteArray();
 
-        buf.putBytes(curOff + shift, bytes);
+        buf.putBytes(curOff, bytes);
 
         if (isKeyChunk())
-            keyHash = 31 * keyHash + Arrays.hashCode(bytes) + scale;
+            keyHash = 31 * keyHash + Arrays.hashCode(bytes);
 
         writeVarlenOffset(curVartblEntry, curOff - dataOff);
 
         curVartblEntry++;
 
-        shiftColumn(bytes.length + shift);
+        shiftColumn(bytes.length);
 
         return this;
+    }
+
+    /**
+     * Calculates byte size for BigDecimal value.
+     */
+    public static int sizeInBytes(BigDecimal val) {
+        return sizeInBytes(val.unscaledValue());
     }
 
     /**

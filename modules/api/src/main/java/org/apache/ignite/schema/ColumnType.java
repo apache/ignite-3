@@ -124,7 +124,7 @@ public class ColumnType {
      * @return Number type.
      */
     public static NumberColumnType numberOf() {
-        return new NumberColumnType(ColumnTypeSpec.NUMBER, NumberColumnType.UNDEFINED);
+        return new NumberColumnType(ColumnTypeSpec.NUMBER, NumberColumnType.UNLIMITED_PRECISION);
     }
 
     /**
@@ -137,8 +137,13 @@ public class ColumnType {
     public static DecimalColumnType decimalOf(int precision, int scale) {
         if (precision <= 0)
             throw new IllegalArgumentException("Precision [" + precision + "] must be positive integer value.");
+
         if (scale < 0)
             throw new IllegalArgumentException("Scale [" + scale + "] must be non-negative integer value.");
+
+        if (precision < scale)
+            throw new IllegalArgumentException("Precision [" + precision + "] must be" +
+                " not lower than scale [ " + scale + " ].");
 
         return new DecimalColumnType(ColumnTypeSpec.DECIMAL, precision, scale);
     }
@@ -257,7 +262,7 @@ public class ColumnType {
      */
     public static class NumberColumnType extends ColumnType {
         /** Undefined precision. */
-        private static final int UNLIMITED_PRECISION = -1;
+        public static final int UNLIMITED_PRECISION = -1;
 
         /** Max precision of value. If -1, column has no precision restrictions. */
         private final int precision;

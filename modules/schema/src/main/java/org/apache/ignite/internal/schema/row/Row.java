@@ -245,26 +245,9 @@ public class Row implements BinaryRow {
 
         DecimalNativeType type = (DecimalNativeType)schema.column(col).type();
 
-        int shift;
-        int scale;
+        byte[] bytes = readBytes(off, len);
 
-        if (type.scale() == 0) {
-            shift = 0;
-            scale = 0;
-        } else if (type.scale() < Byte.MAX_VALUE) {
-            shift = 1;
-            scale = readByte(off);
-        } else if (type.scale() < Short.MAX_VALUE) {
-            shift = 2;
-            scale = readShort(off);
-        } else {
-            shift = 4;
-            scale = readInteger(off);
-        }
-
-        byte[] bytes = readBytes(off + shift, len - shift);
-
-        return new BigDecimal(new BigInteger(bytes), scale);
+        return new BigDecimal(new BigInteger(bytes), type.scale());
     }
 
     /**

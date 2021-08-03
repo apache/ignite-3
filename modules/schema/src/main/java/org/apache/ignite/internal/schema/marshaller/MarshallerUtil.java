@@ -21,10 +21,9 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.BitSet;
 import java.util.UUID;
-import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NumericTypeUtils;
+import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.util.ObjectFactory;
 
 /**
@@ -48,10 +47,10 @@ public final class MarshallerUtil {
                 return ((CharSequence)val).length() << 1;
 
             case NUMBER:
-                return NumericTypeUtils.sizeInBytes((BigInteger)val);
+                return RowAssembler.sizeInBytes((BigInteger)val);
 
             case DECIMAL:
-                return NumericTypeUtils.sizeInBytes((BigDecimal)val, ((DecimalNativeType)type));
+                return RowAssembler.sizeInBytes((BigDecimal)val);
 
             default:
                 throw new InvalidTypeException("Unsupported variable-length type: " + type);

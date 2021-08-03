@@ -59,8 +59,22 @@ public class DecimalNativeType extends NativeType {
 
     /** {@inheritDoc} */
     @Override public boolean mismatch(NativeType type) {
+        DecimalNativeType type1 = (DecimalNativeType)type;
+
+        int intPartPrecision = integerPartPrecision(precision, scale);
+        int otherIntPartPrecision = integerPartPrecision(type1.precision, type1.scale);
+
         return super.mismatch(type)
-            || precision < ((DecimalNativeType)type).precision;
+            || intPartPrecision < otherIntPartPrecision;
+    }
+
+    /**
+     * Calculates the number of digits before the decimal point.
+     */
+    private static int integerPartPrecision(int precision, int scale) {
+        if (precision > scale)
+            return precision - scale;
+        return 1;
     }
 
     /** {@inheritDoc} */

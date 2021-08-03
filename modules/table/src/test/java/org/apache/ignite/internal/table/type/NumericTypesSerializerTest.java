@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.type;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
@@ -28,12 +29,11 @@ import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.TupleBuilderImpl;
 import org.apache.ignite.internal.table.TupleMarshallerImpl;
+import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.util.Pair;
-import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,9 +47,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class NumericTypesSerializerTest {
     /** Random. */
     private Random rnd = new Random();
-
-    /** Tuple marshaller. */
-    private TupleMarshaller marshaller;
 
     /** Schema descriptor. */
     private SchemaDescriptor schema;
@@ -69,26 +66,20 @@ public class NumericTypesSerializerTest {
         );
     }
 
+    /**
+     * @return List of string decimal representations for test.
+     */
+    private static String[] stringDecimalRepresentation() {
+        return new String[]{"0", "0.00", "123", "-123", "1.23E3", "1.23E+3", "12.3E+7", "12.0", "12.3", "0.00123",
+            "-1.23E-12", "1234.5E-4", "0E+7", "-0", "123456789.0123", "123456789.1", "123456789.112312315413",
+            "123456789.0123", "123.123456789", "123456789.3210"};
+    }
+
     @BeforeEach
     public void setup() {
         long seed = System.currentTimeMillis();
 
         rnd = new Random(seed);
-
-        marshaller = new TupleMarshallerImpl(new SchemaRegistryImpl(v -> null) {
-            @Override public SchemaDescriptor schema() {
-                return schema;
-            }
-
-            @Override public SchemaDescriptor schema(int ver) {
-                return schema;
-            }
-
-            @Override public int lastSchemaVersion() {
-                return schema.version();
-            }
-        });
-
     }
 
     /**
@@ -114,6 +105,8 @@ public class NumericTypesSerializerTest {
         tup.set("number2", pair.getSecond());
 
         Tuple keyTuple = new TupleBuilderImpl(schema).set("key", rnd.nextLong()).build();
+
+        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
 
         final Row row = marshaller.marshal(keyTuple, tup.build());
 
@@ -153,7 +146,7 @@ public class NumericTypesSerializerTest {
             42,
             new Column[] {new Column("key", NativeTypes.INT64, false)},
             new Column[] {
-                new Column("decimalCol", NativeTypes.decimalOf(12, 3), false),
+                new Column("decimalCol", NativeTypes.decimalOf(9, 3), false),
             }
         );
 
@@ -162,42 +155,84 @@ public class NumericTypesSerializerTest {
         badTup.set("key", rnd.nextLong());
         assertThrows(InvalidTypeException.class, () -> badTup.set("decimalCol", new BigDecimal("123456789.0123")), "Column's type mismatch");
         assertThrows(InvalidTypeException.class, () -> badTup.set("decimalCol", new BigDecimal("-1234567890123")), "Column's type mismatch");
-        assertThrows(InvalidTypeException.class, () -> badTup.set("decimalCol", new BigDecimal(123456789.0123d)), "Column's type mismatch");
+        assertThrows(InvalidTypeException.class, () -> badTup.set("decimalCol", new BigDecimal("123456789.0123")), "Column's type mismatch");
+        assertThrows(InvalidTypeException.class, () -> badTup.set("decimalCol", new BigDecimal("12345678.9")), "Column's type mismatch");
     }
 
     /**
      *
      */
     @Test
-    public void testScaleRestrictionsForDecimal() {
+    public void testStringDecimalSpecialCase() {
         schema = new SchemaDescriptor(
             UUID.randomUUID(),
             42,
             new Column[] {new Column("key", NativeTypes.INT64, false)},
             new Column[] {
-                new Column("decimalCol1", NativeTypes.decimalOf(22, 0), false),
-                new Column("decimalCol2", NativeTypes.decimalOf(22, 0), false),
-                new Column("decimalCol3", NativeTypes.decimalOf(22, 0), false),
-                new Column("decimalCol4", NativeTypes.decimalOf(22, 0), false),
-                new Column("decimalCol5", NativeTypes.from(ColumnType.decimalOf()), false),
+                new Column("decimalCol", NativeTypes.decimalOf(1, 0), false),
+            }
+        );
+
+        final TupleBuilderImpl badTup = new TupleBuilderImpl(schema);
+
+        badTup.set("key", rnd.nextLong());
+
+        //Formally BigDecimal("0E+3") is "0000" value representation.
+        //Even though it is zero, we cannot check it at runtime.
+        assertThrows(InvalidTypeException.class, () -> badTup.set("decimalCol", new BigDecimal("0E+3")), "Column's type mismatch");
+    }
+
+    /**
+     *
+     */
+    @ParameterizedTest
+    @MethodSource("stringDecimalRepresentation")
+    public void testUpscaleForDecimal(String decimalStr) {
+        schema = new SchemaDescriptor(
+            UUID.randomUUID(),
+            42,
+            new Column[] {new Column("key", NativeTypes.INT64, false)},
+            new Column[] {
+                new Column("decimalCol1", NativeTypes.decimalOf(9, 0), false)
             }
         );
 
         final TupleBuilderImpl tup = new TupleBuilderImpl(schema);
 
         tup.set("key", rnd.nextLong());
-        tup.set("decimalCol1", new BigDecimal("123456789.0123"));
-        tup.set("decimalCol2", new BigDecimal("123456789.1"));
-        tup.set("decimalCol3", new BigDecimal("123456789.112312315413"));
-        tup.set("decimalCol4", new BigDecimal("0E+132"));
-        tup.set("decimalCol5", new BigDecimal("123456789.0123"));
+        tup.set("decimalCol1", new BigDecimal(decimalStr));
+
+        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
 
         final Row row = marshaller.marshal(new TupleBuilderImpl(schema).set("key", rnd.nextLong()).build(), tup.build());
 
-        assertEquals(row.decimalValue(1), new BigDecimal("123456789"));
-        assertEquals(row.decimalValue(2), new BigDecimal("123456789"));
-        assertEquals(row.decimalValue(3), new BigDecimal("123456789"));
-        assertEquals(row.decimalValue(4), new BigDecimal("0"));
-        assertEquals(row.decimalValue(5), new BigDecimal("123456789.012"));
+        assertEquals(row.decimalValue(1), new BigDecimal(decimalStr).setScale(0, RoundingMode.HALF_UP));
+    }
+
+    /**
+     *
+     */
+    @Test
+    public void testDecimalMaxScale() {
+        schema = new SchemaDescriptor(
+            UUID.randomUUID(),
+            42,
+            new Column[] {new Column("key", NativeTypes.INT64, false)},
+            new Column[] {
+                new Column("decimalCol", NativeTypes.decimalOf(Integer.MAX_VALUE, Integer.MAX_VALUE), false),
+            }
+        );
+
+        final TupleBuilderImpl tup = new TupleBuilderImpl(schema);
+
+        tup.set("key", rnd.nextLong());
+
+        tup.set("decimalCol", BigDecimal.valueOf(123, Integer.MAX_VALUE));
+
+        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+
+        final Row row = marshaller.marshal(new TupleBuilderImpl(schema).set("key", rnd.nextLong()).build(), tup.build());
+
+        assertEquals(row.decimalValue(1), BigDecimal.valueOf(123, Integer.MAX_VALUE));
     }
 }

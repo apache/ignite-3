@@ -155,7 +155,7 @@ public class NativeTypes {
                 return numberOf(NumericTypeUtils.calculatePrecision((BigInteger)val));
 
             case DECIMAL:
-                return decimalOf(NumericTypeUtils.calculatePrecision((BigDecimal)val), ((BigDecimal)val).scale());
+                return decimalOf(((BigDecimal)val).precision(), ((BigDecimal)val).scale());
 
             default:
                 assert false : "Unexpected type: " + spec;

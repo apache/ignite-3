@@ -142,7 +142,7 @@ public class RowTest {
             new Column("keyBytesCol", BYTES, false),
             new Column("keyStringCol", STRING, false),
             new Column("keyNumberCol", NativeTypes.numberOf(9), false),
-            new Column("keyDecimalCol", NativeTypes.decimalOf(12, 9), false),
+            new Column("keyDecimalCol", NativeTypes.decimalOf(20, 3), false),
         };
 
         Column[] valCols = new Column[] {
@@ -153,7 +153,7 @@ public class RowTest {
             new Column("valBytesCol", BYTES, true),
             new Column("valStringCol", STRING, true),
             new Column("valNumberCol", NativeTypes.numberOf(9), true),
-            new Column("valDecimalCol", NativeTypes.decimalOf(12, 9), true),
+            new Column("valDecimalCol", NativeTypes.decimalOf(20, 3), true),
         };
 
         checkSchema(keyCols, valCols);
@@ -168,14 +168,14 @@ public class RowTest {
             new Column("keyBytesCol", BYTES, false),
             new Column("keyStringCol", STRING, false),
             new Column("keyNumberCol", NativeTypes.numberOf(9), false),
-            new Column("keyDecimalCol", NativeTypes.decimalOf(12, 9), false),
+            new Column("keyDecimalCol", NativeTypes.decimalOf(20, 3), false),
         };
 
         Column[] valCols = new Column[] {
             new Column("valBytesCol", BYTES, false),
             new Column("valStringCol", STRING, false),
             new Column("valNumberCol", NativeTypes.numberOf(9), false),
-            new Column("valDecimalCol", NativeTypes.decimalOf(12, 9), false),
+            new Column("valDecimalCol", NativeTypes.decimalOf(20, 3), false),
         };
 
         checkSchema(keyCols, valCols);
@@ -195,7 +195,7 @@ public class RowTest {
             new Column("valBytesCol", BYTES, true),
             new Column("valStringCol", STRING, true),
             new Column("valNumberCol", NativeTypes.numberOf(9), true),
-            new Column("valDecimalCol", NativeTypes.decimalOf(12, 9), true),
+            new Column("valDecimalCol", NativeTypes.decimalOf(20, 3), true),
         };
 
         checkSchema(keyCols, valCols);
@@ -436,21 +436,21 @@ public class RowTest {
                 else if (type == NativeTypeSpec.NUMBER) {
                     if (schema.isKeyColumn(i)) {
                         nonNullVarLenKeyCols++;
-                        nonNullVarLenKeySize += NumericTypeUtils.sizeInBytes((BigInteger)vals[i]);
+                        nonNullVarLenKeySize += RowAssembler.sizeInBytes((BigInteger)vals[i]);
                     }
                     else {
                         nonNullVarLenValCols++;
-                        nonNullVarLenValSize += NumericTypeUtils.sizeInBytes((BigInteger)vals[i]);
+                        nonNullVarLenValSize += RowAssembler.sizeInBytes((BigInteger)vals[i]);
                     }
                 }
                 else if (type == NativeTypeSpec.DECIMAL) {
                     if (schema.isKeyColumn(i)) {
                         nonNullVarLenKeyCols++;
-                        nonNullVarLenKeySize += NumericTypeUtils.sizeInBytes((BigDecimal)vals[i], ((DecimalNativeType)schema.column(i).type()));
+                        nonNullVarLenKeySize += RowAssembler.sizeInBytes((BigDecimal)vals[i]);
                     }
                     else {
                         nonNullVarLenValCols++;
-                        nonNullVarLenValSize += NumericTypeUtils.sizeInBytes((BigDecimal)vals[i], ((DecimalNativeType)schema.column(i).type()));
+                        nonNullVarLenValSize += RowAssembler.sizeInBytes((BigDecimal)vals[i]);
                     }
                 }
                 else
