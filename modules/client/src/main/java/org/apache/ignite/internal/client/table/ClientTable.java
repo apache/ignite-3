@@ -426,12 +426,8 @@ public class ClientTable implements Table {
     private Tuple readTuple(ClientSchema schema, PayloadInputChannel r) {
         var builder = new ClientTupleBuilder(schema);
 
-        try {
-            for (var col : schema.columns())
-                builder.setInternal(col.schemaIndex(), r.in().unpackObject(col.type()));
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        for (var col : schema.columns())
+            builder.setInternal(col.schemaIndex(), r.in().unpackObject(col.type()));
 
         return builder;
     }

@@ -18,13 +18,16 @@
 package org.apache.ignite.client.proto;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.UUID;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import org.apache.ignite.lang.IgniteException;
+import org.msgpack.core.ExtensionTypeHeader;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessageSizeException;
 import org.msgpack.core.MessageTypeException;
@@ -66,15 +69,159 @@ public class ClientMessageUnpacker extends MessageUnpacker {
         this.buf = buf;
     }
 
+
+    /** {@inheritDoc} */
+    @Override public int unpackInt() {
+        try {
+            return super.unpackInt();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public String unpackString() {
+        try {
+            return super.unpackString();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void unpackNil() {
+        try {
+            super.unpackNil();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean unpackBoolean() {
+        try {
+            return super.unpackBoolean();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public byte unpackByte() {
+        try {
+            return super.unpackByte();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public short unpackShort() {
+        try {
+            return super.unpackShort();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public long unpackLong() {
+        try {
+            return super.unpackLong();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public BigInteger unpackBigInteger() {
+        try {
+            return super.unpackBigInteger();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public float unpackFloat() {
+        try {
+            return super.unpackFloat();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public double unpackDouble() {
+        try {
+            return super.unpackDouble();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public int unpackArrayHeader() {
+        try {
+            return super.unpackArrayHeader();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public int unpackMapHeader() {
+        try {
+            return super.unpackMapHeader();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public ExtensionTypeHeader unpackExtensionTypeHeader() {
+        try {
+            return super.unpackExtensionTypeHeader();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public int unpackBinaryHeader() {
+        try {
+            return super.unpackBinaryHeader();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean tryUnpackNil() {
+        try {
+            return super.tryUnpackNil();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public byte[] readPayload(int length) {
+        try {
+            return super.readPayload(length);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     /**
      * Reads an UUID.
      *
      * @return UUID value.
-     * @throws IOException when underlying input throws IOException.
      * @throws MessageTypeException when type is not UUID.
      * @throws MessageSizeException when size is not correct.
      */
-    public UUID unpackUuid() throws IOException {
+    public UUID unpackUuid() {
         var hdr = unpackExtensionTypeHeader();
         var type = hdr.getType();
         var len = hdr.getLength();
@@ -96,20 +243,18 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * Reads a decimal.
      *
      * @return Decimal value.
-     * @throws IOException when underlying input throws IOException.
      */
-    public BigDecimal unpackDecimal() throws IOException {
-        throw new IOException("TODO: IGNITE-15163");
+    public BigDecimal unpackDecimal() {
+        throw new UnsupportedOperationException("TODO: IGNITE-15163");
     }
 
     /**
      * Reads a bit set.
      *
      * @return Bit set.
-     * @throws IOException when underlying input throws IOException.
      */
-    public BitSet unpackBitSet() throws IOException {
-        throw new IOException("TODO: IGNITE-15163");
+    public BitSet unpackBitSet() {
+        throw new UnsupportedOperationException("TODO: IGNITE-15163");
     }
 
     /**
@@ -118,10 +263,9 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * @param dataType Data type code.
      *
      * @return Unpacked object.
-     * @throws IOException when underlying input throws IOException.
      * @throws IgniteException when data type is not valid.
      */
-    public Object unpackObject(int dataType) throws IOException {
+    public Object unpackObject(int dataType) {
         if (tryUnpackNil())
             return null;
 
