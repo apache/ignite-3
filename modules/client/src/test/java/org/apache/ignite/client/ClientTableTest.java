@@ -33,6 +33,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Table tests.
  */
 public class ClientTableTest extends AbstractClientTest {
+    private static final String DEFAULT_NAME = "John";
+
+    private static final Long DEFAULT_ID = 123L;
+
     @Test
     public void testGetWithNullInNotNullableKeyColumnThrowsException() {
         Table table = getDefaultTable();
@@ -48,23 +52,19 @@ public class ClientTableTest extends AbstractClientTest {
     @Test
     public void testUpsertGet() {
         Table table = getDefaultTable();
-
-        var tuple = table.tupleBuilder()
-                .set("id", 123L)
-                .set("name", "John")
-                .build();
+        var tuple = getDefaultTuple(table);
 
         table.upsert(tuple);
 
         Tuple key = table.tupleBuilder().set("id", 123).build();
         var resTuple = table.get(key);
 
-        assertEquals("John", resTuple.stringValue("name"));
-        assertEquals(123L, resTuple.longValue("id"));
+        assertEquals(DEFAULT_NAME, resTuple.stringValue("name"));
+        assertEquals(DEFAULT_ID, resTuple.longValue("id"));
         assertEquals("foo", resTuple.valueOrDefault("bar", "foo"));
 
-        assertEquals("John", resTuple.value(1));
-        assertEquals(123L, (Long) resTuple.value(0));
+        assertEquals(DEFAULT_NAME, resTuple.value(1));
+        assertEquals(DEFAULT_ID, (Long) resTuple.value(0));
 
         assertEquals(2, resTuple.columnCount());
         assertEquals("id", resTuple.columnName(0));
@@ -73,10 +73,10 @@ public class ClientTableTest extends AbstractClientTest {
         var iter = tuple.iterator();
 
         assertTrue(iter.hasNext());
-        assertEquals(123L, iter.next());
+        assertEquals(DEFAULT_ID, iter.next());
 
         assertTrue(iter.hasNext());
-        assertEquals("John", iter.next());
+        assertEquals(DEFAULT_NAME, iter.next());
 
         assertFalse(iter.hasNext());
         assertNull(iter.next());
@@ -100,6 +100,37 @@ public class ClientTableTest extends AbstractClientTest {
         assertEquals("Jack", resTuple.stringValue("name"));
         assertEquals(42L, resTuple.longValue("id"));
         assertTupleEquals(tuple, resTuple);
+    }
+
+    @Test
+    public void testInsert() {
+        Table table = getDefaultTable();
+
+        var tuple = getDefaultTuple(table);
+        var tuple2 = table.tupleBuilder()
+                .set("id", DEFAULT_ID)
+                .set("name", "abc")
+                .build();
+
+        assertTrue(table.insert(tuple));
+        assertFalse(table.insert(tuple));
+        assertFalse(table.insert(tuple2));
+
+        var resTuple = table.get(getDefaultTupleKey(table));
+        assertTupleEquals(tuple, resTuple);
+    }
+
+    private Tuple getDefaultTuple(Table table) {
+        return table.tupleBuilder()
+                .set("id", DEFAULT_ID)
+                .set("name", DEFAULT_NAME)
+                .build();
+    }
+
+    private Tuple getDefaultTupleKey(Table table) {
+        return table.tupleBuilder()
+                .set("id", DEFAULT_ID)
+                .build();
     }
 
     private Table getDefaultTable() {

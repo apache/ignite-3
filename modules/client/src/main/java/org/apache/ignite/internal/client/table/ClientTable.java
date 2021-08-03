@@ -212,7 +212,8 @@ public class ClientTable implements Table {
     @Override public @NotNull CompletableFuture<Boolean> insertAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
-        throw new UnsupportedOperationException();
+        return getLatestSchema().thenCompose(schema -> ch.serviceAsync(ClientOp.TUPLE_INSERT,
+                w -> writeTuple(rec, schema, w, false), r -> r.in().unpackBoolean()));
     }
 
     /** {@inheritDoc} */
