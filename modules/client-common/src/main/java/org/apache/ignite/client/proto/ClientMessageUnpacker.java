@@ -34,6 +34,7 @@ import org.msgpack.core.MessageSizeException;
 import org.msgpack.core.MessageTypeException;
 import org.msgpack.core.MessageUnpacker;
 import org.msgpack.core.buffer.InputStreamBufferInput;
+import org.msgpack.value.ImmutableValue;
 
 import static org.apache.ignite.client.proto.ClientDataType.BITMASK;
 import static org.apache.ignite.client.proto.ClientDataType.BYTES;
@@ -237,6 +238,24 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     @Override public void skipValue() {
         try {
             super.skipValue();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean hasNext() {
+        try {
+            return super.hasNext();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public ImmutableValue unpackValue() {
+        try {
+            return super.unpackValue();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

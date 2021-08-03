@@ -17,8 +17,6 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.table.TableImpl;
@@ -40,17 +38,13 @@ public class ClientTablesGetRequest {
             IgniteTables igniteTables
     ) {
         return igniteTables.tablesAsync().thenAccept(tables -> {
-            try {
-                out.packMapHeader(tables.size());
+            out.packMapHeader(tables.size());
 
-                for (var table : tables) {
-                    var tableImpl = (TableImpl) table;
+            for (var table : tables) {
+                var tableImpl = (TableImpl) table;
 
-                    out.packUuid(tableImpl.tableId());
-                    out.packString(table.tableName());
-                }
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
+                out.packUuid(tableImpl.tableId());
+                out.packString(table.tableName());
             }
         });
     }

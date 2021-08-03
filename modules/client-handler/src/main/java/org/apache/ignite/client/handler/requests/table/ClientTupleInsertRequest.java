@@ -17,8 +17,6 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
@@ -37,23 +35,15 @@ public class ClientTupleInsertRequest {
      * @param in Unpacker.
      * @param tables Ignite tables.
      * @return Future.
-     * @throws IOException On serialization error.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             IgniteTables tables
-    ) throws IOException {
+    ) {
         var table = readTable(in, tables);
         var tuple = readTuple(in, table, false);
 
-        return table.insertAsync(tuple).thenAccept(success -> {
-            try {
-                // TODO: Add unchecked overloads - don't deal with IOException everywhere, we don't care.
-                out.packBoolean(success);
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        });
+        return table.insertAsync(tuple).thenAccept(out::packBoolean);
     }
 }

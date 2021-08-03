@@ -20,6 +20,7 @@ package org.apache.ignite.client.proto;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.UUID;
@@ -29,6 +30,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessagePacker;
 import org.msgpack.core.buffer.OutputStreamBufferOutput;
+import org.msgpack.value.Value;
 
 import static org.apache.ignite.client.proto.ClientMessageCommon.HEADER_SIZE;
 
@@ -77,14 +79,193 @@ public class ClientMessagePacker extends MessagePacker {
         return buf;
     }
 
+    /** {@inheritDoc} */
+    @Override public MessagePacker packNil() {
+        try {
+            return super.packNil();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public MessagePacker packBoolean(boolean b) {
+        try {
+            return super.packBoolean(b);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public MessagePacker packByte(byte b) {
+        try {
+            return super.packByte(b);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public MessagePacker packShort(short v) {
+        try {
+            return super.packShort(v);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public MessagePacker packInt(int r) {
+        try {
+            return super.packInt(r);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public MessagePacker packLong(long v) {
+        try {
+            return super.packLong(v);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public MessagePacker packBigInteger(BigInteger bi) {
+        try {
+            return super.packBigInteger(bi);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public MessagePacker packFloat(float v) {
+        try {
+            return super.packFloat(v);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public MessagePacker packDouble(double v) {
+        try {
+            return super.packDouble(v);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public MessagePacker packString(String s) {
+        try {
+            return super.packString(s);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public MessagePacker packArrayHeader(int arraySize) {
+        try {
+            return super.packArrayHeader(arraySize);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public MessagePacker packMapHeader(int mapSize) {
+        try {
+            return super.packMapHeader(mapSize);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public MessagePacker packValue(Value v) {
+        try {
+            return super.packValue(v);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public MessagePacker packExtensionTypeHeader(byte extType, int payloadLen) {
+        try {
+            return super.packExtensionTypeHeader(extType, payloadLen);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public MessagePacker packBinaryHeader(int len) {
+        try {
+            return super.packBinaryHeader(len);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public MessagePacker packRawStringHeader(int len) {
+        try {
+            return super.packRawStringHeader(len);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public MessagePacker writePayload(byte[] src) {
+        try {
+            return super.writePayload(src);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public MessagePacker writePayload(byte[] src, int off, int len) {
+        try {
+            return super.writePayload(src, off, len);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public MessagePacker addPayload(byte[] src) {
+        try {
+            return super.addPayload(src);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public MessagePacker addPayload(byte[] src, int off, int len) {
+        try {
+            return super.addPayload(src, off, len);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     /**
      * Writes an UUID.
      *
      * @param val UUID value.
      * @return This instance.
-     * @throws IOException when underlying output throws IOException.
      */
-    public ClientMessagePacker packUuid(UUID val) throws IOException {
+    public ClientMessagePacker packUuid(UUID val) {
         packExtensionTypeHeader(ClientMsgPackType.UUID, 16);
 
         var bytes = new byte[16];
@@ -103,10 +284,9 @@ public class ClientMessagePacker extends MessagePacker {
      *
      * @param val Decimal value.
      * @return This instance.
-     * @throws IOException when underlying output throws IOException.
      */
-    public ClientMessagePacker packDecimal(BigDecimal val) throws IOException {
-        throw new IOException("TODO: IGNITE-15163");
+    public ClientMessagePacker packDecimal(BigDecimal val) {
+        throw new UnsupportedOperationException("TODO: IGNITE-15163");
     }
 
     /**
@@ -114,10 +294,9 @@ public class ClientMessagePacker extends MessagePacker {
      *
      * @param val Bit set value.
      * @return This instance.
-     * @throws IOException when underlying output throws IOException.
      */
-    public ClientMessagePacker packBitSet(BitSet val) throws IOException {
-        throw new IOException("TODO: IGNITE-15163");
+    public ClientMessagePacker packBitSet(BitSet val) {
+        throw new UnsupportedOperationException("TODO: IGNITE-15163");
     }
 
     /**
@@ -125,9 +304,8 @@ public class ClientMessagePacker extends MessagePacker {
      *
      * @param val Object value.
      * @return This instance.
-     * @throws IOException when underlying output throws IOException.
      */
-    public ClientMessagePacker packObject(Object val) throws IOException {
+    public ClientMessagePacker packObject(Object val) {
         if (val == null)
             return (ClientMessagePacker) packNil();
 
@@ -158,7 +336,7 @@ public class ClientMessagePacker extends MessagePacker {
             return packBitSet((BitSet) val);
 
         // TODO: Support all basic types IGNITE-15163
-        throw new IOException("Unsupported type, can't serialize: " + val.getClass());
+        throw new UnsupportedOperationException("Unsupported type, can't serialize: " + val.getClass());
     }
 
     /** {@inheritDoc} */

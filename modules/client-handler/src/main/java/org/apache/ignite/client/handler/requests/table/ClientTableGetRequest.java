@@ -45,14 +45,10 @@ public class ClientTableGetRequest {
         String tableName = in.unpackString();
 
         return tables.tableAsync(tableName).thenAccept(table -> {
-            try {
-                if (table == null)
-                    out.packNil();
-                else
-                    out.packUuid(((TableImpl) table).tableId());
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
+            if (table == null)
+                out.packNil();
+            else
+                out.packUuid(((TableImpl) table).tableId());
         });
     }
 }
