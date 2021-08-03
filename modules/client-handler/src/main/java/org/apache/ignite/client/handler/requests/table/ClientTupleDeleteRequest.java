@@ -42,7 +42,7 @@ public class ClientTupleDeleteRequest {
             IgniteTables tables
     ) {
         var table = readTable(in, tables);
-        var tuple = readTuple(in, table, false);
+        var tuple = readTuple(in, table, true);
 
         return table.deleteAsync(tuple).thenAccept(out::packBoolean);
     }

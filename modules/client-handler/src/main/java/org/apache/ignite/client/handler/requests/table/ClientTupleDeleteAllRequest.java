@@ -43,7 +43,7 @@ public class ClientTupleDeleteAllRequest {
             IgniteTables tables
     ) {
         var table = readTable(in, tables);
-        var tuples = readTuples(in, table, false);
+        var tuples = readTuples(in, table, true);
 
         return table.deleteAllAsync(tuples).thenAccept(skippedTuples -> writeTuples(out, tuples));
     }
