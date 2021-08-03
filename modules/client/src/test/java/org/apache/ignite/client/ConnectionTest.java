@@ -46,7 +46,7 @@ public class ConnectionTest extends AbstractClientTest {
     }
 
     @Test
-    public void testInvalidNodeAddresses() throws Exception {
+    public void testInvalidNodeAddresses() {
         var ex = assertThrows(IgniteClientConnectionException.class,
                 () -> testConnection("127.0.0.1:47500"));
 
