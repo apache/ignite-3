@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.raft;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.server.RaftServer;
-import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
+import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Peer;
@@ -32,7 +34,7 @@ import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
 /**
  * Best raft manager ever since 1982.
  */
-public class Loza {
+public class Loza implements IgniteComponent {
     /** Factory. */
     private static final RaftClientMessagesFactory FACTORY = new RaftClientMessagesFactory();
 
@@ -53,51 +55,65 @@ public class Loza {
      *
      * @param clusterNetSvc Cluster network service.
      */
-    public Loza(ClusterService clusterNetSvc) {
+    public Loza(ClusterService clusterNetSvc, Path dataPath) {
         this.clusterNetSvc = clusterNetSvc;
 
-        this.raftServer = new RaftServerImpl(clusterNetSvc, FACTORY);
+        this.raftServer = new JRaftServerImpl(clusterNetSvc, dataPath);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void start() {
+        raftServer.start();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void stop() throws Exception {
+        // TODO: IGNITE-15161 Implement component's stop.
+        raftServer.stop();
     }
 
     /**
-     * Creates a RAFT group.
+     * Creates a raft group service.
+     * If {@code nodes} contains the current node, then raft group starts on the current node.
      *
-     * @param groupId RAFT group id.
-     * @param peers Group peers.
-     * @param lsnr Group listener.
-     * @return A RAFT group client.
+     * @param groupId Raft group id.
+     * @param nodes Raft group nodes.
+     * @param lsnr Raft group listener.
+     * @return A service providing operations on a raft group.
      */
-    public RaftGroupService startRaftGroup(String groupId, List<ClusterNode> peers, RaftGroupListener lsnr) {
-        assert !peers.isEmpty();
+    public RaftGroupService prepareRaftGroup(String groupId, List<ClusterNode> nodes, RaftGroupListener lsnr) {
+        assert !nodes.isEmpty();
 
-        //Now we are using only one node in a raft group.
-        //TODO: IGNITE-13885 Investigate jraft implementation for replication framework based on RAFT protocol.
-        if (peers.get(0).name().equals(clusterNetSvc.topologyService().localMember().name()))
-            raftServer.startRaftGroup(groupId, lsnr, List.of(new Peer(peers.get(0).address())));
+        List<Peer> peers = nodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
+
+        String locNodeName = clusterNetSvc.topologyService().localMember().name();
+
+        if (nodes.stream().map(ClusterNode::name).collect(Collectors.toSet()).contains(locNodeName))
+            raftServer.startRaftGroup(groupId, lsnr, peers);
 
         return new RaftGroupServiceImpl(
             groupId,
             clusterNetSvc,
             FACTORY,
             TIMEOUT,
-            peers.stream().map(i -> new Peer(i.address())).collect(Collectors.toList()),
+            peers,
             true,
             DELAY
         );
     }
 
     /**
-     * Stops a RAFT group.
+     * Stops a raft group on the current node if {@code nodes} contains the current node.
      *
-     * @param groupId RAFT group id.
-     * @param peers Group peers.
+     * @param groupId Raft group id.
+     * @param nodes Raft group nodes.
      */
-    public void stopRaftGroup(String groupId, List<ClusterNode> peers) {
-        assert !peers.isEmpty();
+    public void stopRaftGroup(String groupId, List<ClusterNode> nodes) {
+        assert !nodes.isEmpty();
 
-        //Now we are using only one node in a raft group.
-        //TODO: IGNITE-13885 Investigate jraft implementation for replication framework based on RAFT protocol.
-        if (peers.get(0).name().equals(clusterNetSvc.topologyService().localMember().name()))
+        String locNodeName = clusterNetSvc.topologyService().localMember().name();
+
+        if (nodes.stream().map(ClusterNode::name).collect(Collectors.toSet()).contains(locNodeName))
             raftServer.stopRaftGroup(groupId);
     }
 }

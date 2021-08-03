@@ -22,6 +22,7 @@ package org.apache.ignite.configuration;
 public class ConfigurationChangeException extends RuntimeException {
     /**
      * Constructor.
+     *
      * @param message Error message.
      */
     public ConfigurationChangeException(String message) {
@@ -30,6 +31,7 @@ public class ConfigurationChangeException extends RuntimeException {
 
     /**
      * Constructor.
+     *
      * @param message Error message.
      * @param cause Cause.
      */

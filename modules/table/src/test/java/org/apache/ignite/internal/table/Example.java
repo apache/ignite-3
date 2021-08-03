@@ -258,7 +258,7 @@ public class Example {
         KeyValueView<OrderKey, OrderValue> orderKvView = t.kvView(Mappers.ofKeyClass(OrderKey.class),
             Mappers.ofValueClassBuilder(OrderValue.class)
                 .map("billingDetails", (row) -> {
-                    BinaryObject bObj = row.binaryObjectField("conditionalDetails");
+                    BinaryObject bObj = row.binaryObjectValue("conditionalDetails");
                     int type = row.intValue("type");
 
                     return type == 0 ?
@@ -276,7 +276,7 @@ public class Example {
         // Work with the binary object as in Ignite 2.x
 
         // Additionally, we may have a shortcut similar to primitive methods.
-        binObj = res.binaryObjectField("billingDetails");
+        binObj = res.binaryObjectValue("billingDetails");
 
         // Same with RecordAPI.
         class OrderRecord {
@@ -325,7 +325,7 @@ public class Example {
         // Work with the binary object as in Ignite 2.x
 
         // Additionally, we may have a shortcut similar to primitive methods.
-        binObj = res.binaryObjectField("upgradedObject");
+        binObj = res.binaryObjectValue("upgradedObject");
 
         // Plain byte[] and BinaryObject fields in a class are straightforward.
         class Record {
@@ -373,14 +373,14 @@ public class Example {
         }
 
         RecordView<TruncatedRecord> truncatedView = t.recordView(
-            Mappers.ofRowClassBuilder(TruncatedRecord.class)
+            Mappers.ofRecordClassBuilder(TruncatedRecord.class)
                 .map("upgradedObject", JavaPersonV2.class).build());
 
         // Or we can have a custom conditional type selection.
         RecordView<TruncatedRecord> truncatedView2 = t.recordView(
-            Mappers.ofRowClassBuilder(TruncatedRecord.class)
+            Mappers.ofRecordClassBuilder(TruncatedRecord.class)
                 .map("upgradedObject", (row) -> {
-                    BinaryObject bObj = row.binaryObjectField("upgradedObject");
+                    BinaryObject bObj = row.binaryObjectValue("upgradedObject");
                     int dept = row.intValue("department");
 
                     return dept == 0 ?

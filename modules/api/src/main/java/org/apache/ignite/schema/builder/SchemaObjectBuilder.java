@@ -32,6 +32,8 @@ public interface SchemaObjectBuilder {
     SchemaObjectBuilder withHints(Map<String, String> hints);
 
     /**
+     * Builds schema object.
+     *
      * @return Built object.
      */
     Object build();

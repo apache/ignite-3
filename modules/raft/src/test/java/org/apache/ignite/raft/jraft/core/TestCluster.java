@@ -22,6 +22,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -31,12 +32,13 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NodeFinder;
+import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
@@ -45,16 +47,20 @@ import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.conf.Configuration;
+import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.rpc.TestIgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
+import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.jetbrains.annotations.Nullable;
 
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -81,6 +87,26 @@ public class TestCluster {
     private final int electionTimeoutMs;
     private final Lock lock = new ReentrantLock();
     private final Consumer<NodeOptions> optsClo;
+
+    /**
+     * These disruptors will be used for all RAFT servers in the cluster.
+     */
+    private final HashMap<Endpoint, StripedDisruptor<FSMCallerImpl.ApplyTask>> fsmCallerDusruptors = new HashMap<>();
+
+    /**
+     * These disruptors will be used for all RAFT servers in the cluster.
+     */
+    private final HashMap<Endpoint, StripedDisruptor<NodeImpl.LogEntryAndClosure>> nodeDisruptors = new HashMap<>();
+
+    /**
+     * These disruptors will be used for all RAFT servers in the cluster.
+     */
+    private final HashMap<Endpoint, StripedDisruptor<ReadOnlyServiceImpl.ReadIndexEvent>> readOnlyServiceDisruptors = new HashMap<>();
+
+    /**
+     * These disruptors will be used for all RAFT servers in the cluster.
+     */
+    private final HashMap<Endpoint, StripedDisruptor<LogManagerImpl.StableClosureEvent>> logManagerDisruptors = new HashMap<>();
 
     private JRaftServiceFactory raftServiceFactory = new TestJRaftServiceFactory();
 
@@ -203,28 +229,50 @@ public class TestCluster {
             nodeOptions.setSnapshotUri(serverDataPath + File.separator + "snapshot");
             nodeOptions.setElectionPriority(priority);
 
+            nodeOptions.setfSMCallerExecutorDisruptor(fsmCallerDusruptors.computeIfAbsent(listenAddr, endpoint -> new StripedDisruptor<>(
+                "JRaft-FSMCaller-Disruptor_TestCluster",
+                nodeOptions.getRaftOptions().getDisruptorBufferSize(),
+                () -> new FSMCallerImpl.ApplyTask(),
+                nodeOptions.getStripes())));
+
+            nodeOptions.setNodeApplyDisruptor(nodeDisruptors.computeIfAbsent(listenAddr, endpoint -> new StripedDisruptor<>(
+                "JRaft-NodeImpl-Disruptor_TestCluster",
+                nodeOptions.getRaftOptions().getDisruptorBufferSize(),
+                () -> new NodeImpl.LogEntryAndClosure(),
+                nodeOptions.getStripes())));
+
+            nodeOptions.setReadOnlyServiceDisruptor(readOnlyServiceDisruptors.computeIfAbsent(listenAddr, endpoint -> new StripedDisruptor<>(
+                "JRaft-ReadOnlyService-Disruptor_TestCluster",
+                nodeOptions.getRaftOptions().getDisruptorBufferSize(),
+                () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
+                nodeOptions.getStripes())));
+
+            nodeOptions.setLogManagerDisruptor(logManagerDisruptors.computeIfAbsent(listenAddr, endpoint -> new StripedDisruptor<>(
+                "JRaft-LogManager-Disruptor_TestCluster",
+                nodeOptions.getRaftOptions().getDisruptorBufferSize(),
+                () -> new LogManagerImpl.StableClosureEvent(),
+                nodeOptions.getStripes())));
+
             final MockStateMachine fsm = new MockStateMachine(listenAddr);
             nodeOptions.setFsm(fsm);
 
             if (!emptyPeers)
                 nodeOptions.setInitialConf(new Configuration(this.peers, this.learners));
 
-            List<NetworkAddress> servers = emptyPeers ?
-                List.of() :
-                this.peers.stream()
+            NodeFinder nodeFinder = (emptyPeers ? Stream.<PeerId>empty() : peers.stream())
                     .map(PeerId::getEndpoint)
                     .map(JRaftUtils::addressFromEndpoint)
-                    .collect(Collectors.toList());
+                    .collect(collectingAndThen(toList(), StaticNodeFinder::new));
 
             NodeManager nodeManager = new NodeManager();
 
-            ClusterService clusterService = createClusterService(listenAddr, servers);
+            ClusterService clusterService = createClusterService(listenAddr, nodeFinder);
 
             var rpcClient = new IgniteRpcClient(clusterService);
 
             nodeOptions.setRpcClient(rpcClient);
 
-            var rpcServer = new TestIgniteRpcServer(clusterService, servers, nodeManager, nodeOptions);
+            var rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions);
 
             clusterService.start();
 
@@ -238,7 +286,7 @@ public class TestCluster {
 
                     rpcServer.shutdown();
 
-                    clusterService.shutdown();
+                    clusterService.stop();
                 }
             };
 
@@ -258,10 +306,10 @@ public class TestCluster {
     /**
      * Creates a non-started {@link ClusterService}.
      */
-    private static ClusterService createClusterService(Endpoint endpoint, List<NetworkAddress> members) {
+    private static ClusterService createClusterService(Endpoint endpoint, NodeFinder nodeFinder) {
         var registry = new TestMessageSerializationRegistryImpl();
 
-        var clusterConfig = new ClusterLocalConfiguration(endpoint.toString(), endpoint.getPort(), members, registry);
+        var clusterConfig = new ClusterLocalConfiguration(endpoint.toString(), endpoint.getPort(), nodeFinder, registry);
 
         var clusterServiceFactory = new TestScaleCubeClusterServiceFactory();
 
@@ -318,6 +366,11 @@ public class TestCluster {
         final List<Endpoint> addrs = getAllNodes();
         for (final Endpoint addr : addrs)
             stop(addr);
+
+        fsmCallerDusruptors.values().forEach(StripedDisruptor::shutdown);
+        nodeDisruptors.values().forEach(StripedDisruptor::shutdown);
+        readOnlyServiceDisruptors.values().forEach(StripedDisruptor::shutdown);
+        logManagerDisruptors.values().forEach(StripedDisruptor::shutdown);
     }
 
     public void clean(final Endpoint listenAddr) {
@@ -435,7 +488,7 @@ public class TestCluster {
         this.lock.lock();
         try {
             return this.nodes.stream().map(node -> node.getNodeId().getPeerId().getEndpoint())
-                .collect(Collectors.toList());
+                .collect(toList());
         }
         finally {
             this.lock.unlock();

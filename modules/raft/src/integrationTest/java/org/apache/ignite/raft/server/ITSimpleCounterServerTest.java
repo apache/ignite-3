@@ -17,9 +17,12 @@
 
 package org.apache.ignite.raft.server;
 
+import java.nio.file.Path;
 import java.util.List;
 import org.apache.ignite.internal.raft.server.RaftServer;
-import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
+import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -30,6 +33,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,6 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Single node raft server.
  */
+@ExtendWith(WorkDirectoryExtension.class)
 class ITSimpleCounterServerTest extends RaftServerAbstractTest {
     /**
      * The server implementation.
@@ -66,6 +71,10 @@ class ITSimpleCounterServerTest extends RaftServerAbstractTest {
      */
     private RaftGroupService client2;
 
+    /** */
+    @WorkDirectory
+    private Path dataPath;
+
     /**
      * @param testInfo Test info.
      */
@@ -77,13 +86,15 @@ class ITSimpleCounterServerTest extends RaftServerAbstractTest {
 
         ClusterService service = clusterService(addr.toString(), PORT, List.of(), true);
 
-        server = new RaftServerImpl(service, FACTORY) {
-            @Override public synchronized void shutdown() throws Exception {
-                super.shutdown();
+        server = new JRaftServerImpl(service, dataPath) {
+            @Override public synchronized void stop() {
+                super.stop();
 
-                service.shutdown();
+                service.stop();
             }
         };
+
+        server.start();
 
         ClusterNode serverNode = server.clusterService().topologyService().localMember();
 
@@ -97,7 +108,7 @@ class ITSimpleCounterServerTest extends RaftServerAbstractTest {
             @Override public void shutdown() {
                 super.shutdown();
 
-                clientNode1.shutdown();
+                clientNode1.stop();
             }
         };
 
@@ -108,7 +119,7 @@ class ITSimpleCounterServerTest extends RaftServerAbstractTest {
             @Override public void shutdown() {
                 super.shutdown();
 
-                clientNode2.shutdown();
+                clientNode2.stop();
             }
         };
 
@@ -122,7 +133,7 @@ class ITSimpleCounterServerTest extends RaftServerAbstractTest {
      */
     @AfterEach
     void after() throws Exception {
-        server.shutdown();
+        server.stop();
         client1.shutdown();
         client2.shutdown();
     }
