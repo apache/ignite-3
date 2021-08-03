@@ -18,8 +18,8 @@
 package org.apache.ignite.query.sql;
 
 import java.sql.PreparedStatement;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.query.sql.reactive.ReactiveSqlResultSet;
+import org.apache.ignite.query.sql.async.AsyncSqlSession;
+import org.apache.ignite.query.sql.reactive.ReactiveSqlSession;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -27,50 +27,37 @@ import org.jetbrains.annotations.Nullable;
 /**
  * SQL session.
  */
-public interface SqlSession {
+public interface SqlSession extends AsyncSqlSession, ReactiveSqlSession {
     /**
-     * Shortcut method for running a query.
+     * Executes SQL query synchronously.
      *
      * @param sql SQL query template.
+     * @param tx Transaction (optional).
      * @param args Arguments for template (optional).
      * @return SQL query resultset.
      * @throws SQLException If failed.
      */
-    SqlResultSet execute(@NotNull String sql, Object... args);
+    SqlResultSet executeQuery(@NotNull String sql, @Nullable Transaction tx, Object... args);
 
     /**
-     * Shortcut method for running a query in asynchronously.
-     *
-     * @param sql SQL query template.
-     * @param args Arguments for template (optional)
-     * @return Query future.
-     * @throws SQLException If failed.
-     */
-    CompletableFuture<SqlResultSet> executeAsync(String sql, Object... args);
-    //TODO: May fut.cancel() cancels a query? If so, describe behavior in Javadoc.
-    //TODO: Cassandra API offers pagination API here, for manual fetching control. Is their AsyncResultSet ever usefull?
-
-    /**
-     * Shortcut method for running a query in asynchronously.
-     *
-     * @param sql SQL query template.
-     * @param args Arguments for template (optional)
-     * @return Reactive result.
-     * @throws SQLException If failed.
-     */
-    ReactiveSqlResultSet executeReactive(String sql, Object... args);
-
-    /**
-     * Shortcut method for running a non-query statement.
+     * Executes a non-query statement.
      *
      * @param sql SQL statement template.
+     * @param tx Transaction (optional).
      * @param args Agruments for template (optional).
      * @return Number of updated rows.
      */
-    int executeNonQuery(@NotNull String sql, @Nullable Object... args);
+    int executeUpdate(@NotNull String sql, @Nullable Transaction tx, Object... args);
     //TODO: useful for bulk DML query, when we don't care of results.
     //TODO: in contrary, execute() method may return inserted rows IDs that looks useful if AutoIncrement ID column is used.
 
+    /**
+     * Creates prepared statement.
+     *
+     * @param sql SQL query template.
+     * @return Prepared statement.
+     * @throws SQLException If parsing failed.
+     */
     PreparedStatement preparedStatement(@NotNull String sql);
 
     /**
@@ -83,17 +70,4 @@ public interface SqlSession {
     SqlSession setParameter(@NotNull String name, Object value);
     //TODO: User can set e.g. queryTimeout or force join order or whatever.
     //TODO: This is similar to SQL "SET" operator which is used in JDBC/ODBC clients for session state manipulation.
-
-
-    SqlSession withTransaction(Transaction tx);
-    //TODO: What happens with session if TX will commited/rolledback? Tx link can prevent garbage from being collected by GC.
-    //TODO: Can it be shared?
-    //TODO: Move to PreparedStatement/SqlQuery level?
-
-    /**
-     * Returns current transaction.
-     *
-     * @return Current transaction or null if a table is not enlisted in a transaction.
-     */
-    @Nullable Transaction transaction();
 }
