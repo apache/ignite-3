@@ -50,6 +50,7 @@ public class ClientMessagePacker extends MessagePacker {
      * @param buf Buffer.
      */
     public ClientMessagePacker(ByteBuf buf) {
+        // TODO: Remove intermediate classes and buffers IGNITE-15234.
         // Reserve 4 bytes for the message length.
         super(new OutputStreamBufferOutput(new ByteBufOutputStream(buf.writerIndex(HEADER_SIZE))),
                 MessagePack.DEFAULT_PACKER_CONFIG);

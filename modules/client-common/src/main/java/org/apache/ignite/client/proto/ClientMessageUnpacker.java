@@ -60,6 +60,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * @param buf Input.
      */
     public ClientMessageUnpacker(ByteBuf buf) {
+        // TODO: Remove intermediate classes and buffers IGNITE-15234.
         super(new InputStreamBufferInput(new ByteBufInputStream(buf)), MessagePack.DEFAULT_UNPACKER_CONFIG);
 
         this.buf = buf;
