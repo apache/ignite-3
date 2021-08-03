@@ -79,10 +79,10 @@ public class ClientOp {
     public static final int TUPLE_REPLACE_SCHEMALESS = 23;
 
     /** Replace exact tuple. */
-    public static final int TUPLE_REPLACE2 = 24;
+    public static final int TUPLE_REPLACE_EXACT = 24;
 
     /** Replace exact tuple without schema. */
-    public static final int TUPLE_REPLACE2_SCHEMALESS = 25;
+    public static final int TUPLE_REPLACE_EXACT_SCHEMALESS = 25;
 
     /** Get and replace tuple. */
     public static final int TUPLE_GET_AND_REPLACE = 26;

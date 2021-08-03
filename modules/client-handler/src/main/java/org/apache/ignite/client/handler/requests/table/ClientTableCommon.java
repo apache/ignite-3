@@ -35,6 +35,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.TupleBuilder;
 import org.apache.ignite.table.manager.IgniteTables;
+import org.jetbrains.annotations.NotNull;
 import org.msgpack.core.MessageFormat;
 
 /**
@@ -150,8 +151,7 @@ class ClientTableCommon {
      * @return Tuple.
      */
     public static Tuple readTuple(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) {
-        var schemaId = unpacker.unpackInt();
-        var schema = table.schemaView().schema(schemaId);
+        SchemaDescriptor schema = readSchema(unpacker, table);
 
         return readTuple(unpacker, table, keyOnly, schema);
     }
@@ -165,8 +165,8 @@ class ClientTableCommon {
      * @return Tuples.
      */
     public static ArrayList<Tuple> readTuples(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) {
-        var schemaId = unpacker.unpackInt();
-        var schema = table.schemaView().schema(schemaId);
+        SchemaDescriptor schema = readSchema(unpacker, table);
+
         var rowCnt = unpacker.unpackInt();
         var res = new ArrayList<Tuple>(rowCnt);
 
@@ -174,6 +174,19 @@ class ClientTableCommon {
             res.add(readTuple(unpacker, table, keyOnly, schema));
 
         return res;
+    }
+
+    /**
+     * Reads schema.
+     *
+     * @param unpacker Unpacker.
+     * @param table Table.
+     * @return Schema descriptor.
+     */
+    @NotNull public static SchemaDescriptor readSchema(ClientMessageUnpacker unpacker, TableImpl table) {
+        var schemaId = unpacker.unpackInt();
+
+        return table.schemaView().schema(schemaId);
     }
 
     /**
