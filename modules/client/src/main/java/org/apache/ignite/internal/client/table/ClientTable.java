@@ -116,6 +116,7 @@ public class ClientTable implements Table {
 
     /** {@inheritDoc} */
     @Override public Table withTransaction(Transaction tx) {
+        // TODO: Transactions IGNITE-15240
         throw new UnsupportedOperationException();
     }
 
@@ -313,6 +314,7 @@ public class ClientTable implements Table {
 
     /** {@inheritDoc} */
     @Override public @Nullable Transaction transaction() {
+        // TODO: Transactions IGNITE-15240
         throw new UnsupportedOperationException();
     }
 
