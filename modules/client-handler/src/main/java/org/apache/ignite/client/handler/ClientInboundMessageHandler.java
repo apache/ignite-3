@@ -30,6 +30,9 @@ import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableDropRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTupleDeleteAllExactRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTupleDeleteAllRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTupleDeleteExactRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleDeleteRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleGetAllRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleGetAndReplaceRequest;
@@ -305,13 +308,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 return ClientTupleDeleteRequest.process(in, out, ignite.tables());
 
             case ClientOp.TUPLE_DELETE_ALL:
-                throw new UnsupportedOperationException();
+                return ClientTupleDeleteAllRequest.process(in, out, ignite.tables());
 
             case ClientOp.TUPLE_DELETE_EXACT:
-                throw new UnsupportedOperationException();
+                return ClientTupleDeleteExactRequest.process(in, out, ignite.tables());
 
             case ClientOp.TUPLE_DELETE_ALL_EXACT:
-                throw new UnsupportedOperationException();
+                return ClientTupleDeleteAllExactRequest.process(in, out, ignite.tables());
 
             case ClientOp.TUPLE_GET_AND_DELETE:
                 throw new UnsupportedOperationException();
