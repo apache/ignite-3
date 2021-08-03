@@ -31,6 +31,7 @@ import org.apache.ignite.client.handler.requests.table.ClientTableDropRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleGetAllRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTupleGetAndUpsertRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleInsertRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertAllRequest;
@@ -254,7 +255,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 return ClientTupleGetAllRequest.process(in, out, ignite.tables());
 
             case ClientOp.TUPLE_GET_AND_UPSERT:
-                throw new UnsupportedOperationException();
+                return ClientTupleGetAndUpsertRequest.process(in, out, ignite.tables());
 
             case ClientOp.TUPLE_GET_AND_UPSERT_SCHEMALESS:
                 throw new UnsupportedOperationException();
