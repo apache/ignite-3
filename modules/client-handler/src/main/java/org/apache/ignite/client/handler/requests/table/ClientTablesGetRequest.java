@@ -20,7 +20,6 @@ package org.apache.ignite.client.handler.requests.table;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.manager.IgniteTables;

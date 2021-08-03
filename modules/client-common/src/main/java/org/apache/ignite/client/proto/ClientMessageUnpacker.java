@@ -28,6 +28,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import org.apache.ignite.lang.IgniteException;
 import org.msgpack.core.ExtensionTypeHeader;
+import org.msgpack.core.MessageFormat;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessageSizeException;
 import org.msgpack.core.MessageTypeException;
@@ -209,6 +210,33 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     @Override public byte[] readPayload(int length) {
         try {
             return super.readPayload(length);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public MessageFormat getNextFormat() {
+        try {
+            return super.getNextFormat();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void skipValue(int count) {
+        try {
+            super.skipValue(count);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void skipValue() {
+        try {
+            super.skipValue();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

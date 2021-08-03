@@ -22,7 +22,6 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.client.proto.ClientDataType;
 import org.apache.ignite.client.proto.ClientMessagePacker;
@@ -170,9 +169,8 @@ class ClientTableCommon {
      * @param table Table.
      * @param keyOnly Whether only key fields are expected.
      * @return Tuple.
-     * @throws IOException When deserialization fails.
      */
-    public static Tuple readTuple(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) throws IOException {
+    public static Tuple readTuple(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) {
         var schemaId = unpacker.unpackInt();
         var schema = table.schemaView().schema(schemaId);
 
@@ -186,9 +184,8 @@ class ClientTableCommon {
      * @param table Table.
      * @param keyOnly Whether only key fields are expected.
      * @return Tuples.
-     * @throws IOException When deserialization fails.
      */
-    public static ArrayList<Tuple> readTuples(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) throws IOException {
+    public static ArrayList<Tuple> readTuples(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) {
         var schemaId = unpacker.unpackInt();
         var schema = table.schemaView().schema(schemaId);
         var rowCnt = unpacker.unpackInt();
@@ -207,14 +204,13 @@ class ClientTableCommon {
      * @param table Table.
      * @param keyOnly Whether only key fields are expected.
      * @return Tuple.
-     * @throws IOException When deserialization fails.
      */
     public static Tuple readTuple(
             ClientMessageUnpacker unpacker,
             TableImpl table,
             boolean keyOnly,
             SchemaDescriptor schema
-    ) throws IOException {
+    ) {
         var builder = table.tupleBuilder();
 
         var cnt = keyOnly ? schema.keyColumns().length() : schema.length();
@@ -276,16 +272,14 @@ class ClientTableCommon {
      * @param unpacker Unpacker.
      * @param tables Ignite tables.
      * @return Table.
-     * @throws IOException When deserialization fails.
      */
-    public static TableImpl readTable(ClientMessageUnpacker unpacker, IgniteTables tables) throws IOException {
+    public static TableImpl readTable(ClientMessageUnpacker unpacker, IgniteTables tables) {
         var tableId = unpacker.unpackUuid();
 
         return ((IgniteTablesInternal)tables).table(tableId);
     }
 
-    private static void readAndSetColumnValue(ClientMessageUnpacker unpacker, TupleBuilder builder, Column col)
-            throws IOException {
+    private static void readAndSetColumnValue(ClientMessageUnpacker unpacker, TupleBuilder builder, Column col) {
         builder.set(col.name(), unpacker.unpackObject(getClientDataType(col.type().spec())));
     }
 
