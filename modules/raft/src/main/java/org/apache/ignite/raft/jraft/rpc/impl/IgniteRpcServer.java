@@ -21,17 +21,19 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
-import org.apache.ignite.network.NetworkMessageHandler;
-import org.apache.ignite.raft.client.message.RaftClientMessageGroup;
-import org.apache.ignite.raft.jraft.RaftMessageGroup;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.TopologyEventHandler;
+import org.apache.ignite.raft.client.message.RaftClientMessageGroup;
 import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.jraft.NodeManager;
+import org.apache.ignite.raft.jraft.RaftMessageGroup;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
@@ -59,6 +61,8 @@ import org.jetbrains.annotations.Nullable;
  * TODO https://issues.apache.org/jira/browse/IGNITE-14519 Unsubscribe on shutdown
  */
 public class IgniteRpcServer implements RpcServer<Void> {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteRpcServer.class);
+
     private final ClusterService service;
 
     private final NodeManager nodeManager;
@@ -115,7 +119,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
         registerProcessor(new ActionRequestProcessor(rpcExecutor, raftClientMessagesFactory));
         registerProcessor(new org.apache.ignite.raft.jraft.rpc.impl.client.SnapshotRequestProcessor(rpcExecutor, raftClientMessagesFactory));
 
-        var messageHandler = new RpcMessageHandler();
+        var messageHandler = new RpcMessageHandler(service.localConfiguration());
 
         service.messagingService().addMessageHandler(RaftMessageGroup.class, messageHandler);
         service.messagingService().addMessageHandler(RaftClientMessageGroup.class, messageHandler);
@@ -136,10 +140,20 @@ public class IgniteRpcServer implements RpcServer<Void> {
      * Implementation of a message handler that dispatches the incoming requests to a suitable {@link RpcProcessor}.
      */
     public class RpcMessageHandler implements NetworkMessageHandler {
+        ClusterLocalConfiguration cfg;
+
+        public RpcMessageHandler(ClusterLocalConfiguration cfg) {
+            this.cfg = cfg;
+        }
+
         /** {@inheritDoc} */
         @Override public void onReceived(NetworkMessage message, NetworkAddress senderAddr, String correlationId) {
             Class<? extends NetworkMessage> cls = message.getClass();
             RpcProcessor<NetworkMessage> prc = processors.get(cls.getName());
+
+            if (cfg != null && cfg.getPort() == 5006) {
+                LOG.info("On message received msg: {}", message);
+            }
 
             // TODO asch cache mapping https://issues.apache.org/jira/browse/IGNITE-14832
             if (prc == null) {

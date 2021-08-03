@@ -112,6 +112,8 @@ public class MockStateMachine extends StateMachineAdapter {
 
     @Override
     public void onApply(final Iterator iter) {
+        int upds = 0;
+
         while (iter.hasNext()) {
             this.lock.lock();
             try {
@@ -121,6 +123,9 @@ public class MockStateMachine extends StateMachineAdapter {
                 }
                 this.lastAppliedIndex.set(iter.getIndex());
                 this.logs.add(iter.getData().slice());
+
+                upds++;
+
                 if (iter.done() != null) {
                     iter.done().run(Status.OK());
                 }
@@ -131,6 +136,9 @@ public class MockStateMachine extends StateMachineAdapter {
             this.appliedIndex = iter.getIndex();
             iter.next();
         }
+
+        if (address.getPort() == 5006)
+            LOG.info("DBG: Added log entries [adr={}, size={}, upds={}]", address, logs.size(), upds);
     }
 
     public boolean isLeader() {

@@ -16,6 +16,11 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import com.codahale.metrics.Gauge;
+import com.codahale.metrics.Metric;
+import com.codahale.metrics.MetricFilter;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.MetricSet;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -27,11 +32,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import com.codahale.metrics.Gauge;
-import com.codahale.metrics.Metric;
-import com.codahale.metrics.MetricFilter;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.MetricSet;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.Status;
@@ -575,6 +575,8 @@ public class Replicator implements ThreadId.OnError {
                 .uri(uri)
                 .build();
 
+            long start = System.currentTimeMillis();
+
             this.statInfo.runningState = RunningState.INSTALLING_SNAPSHOT;
             this.statInfo.lastLogIncluded = meta.lastIncludedIndex();
             this.statInfo.lastTermIncluded = meta.lastIncludedTerm();
@@ -585,15 +587,28 @@ public class Replicator implements ThreadId.OnError {
             final long monotonicSendTimeMs = Utils.monotonicMs();
             final int stateVersion = this.version;
             final int seq = getAndIncrementReqSeq();
+
+            if (options.getPeerId().getPort() == 5006 || options.getServerId().getPort() == 5006)
+                LOG.info("InstallSnapshotRequest send for {}", System.currentTimeMillis() - start);
+
             final Future<Message> rpcFuture = this.rpcService.installSnapshot(this.options.getPeerId().getEndpoint(),
                 request, new RpcResponseClosureAdapter<InstallSnapshotResponse>() {
                     @Override
                     public void run(final Status status) {
+                        if (options.getPeerId().getPort() == 5006 || options.getServerId().getPort() == 5006)
+                            LOG.info("InstallSnapshotResponse is received status {} for {}", status.isOk(), System.currentTimeMillis() - start);
+
                         onRpcReturned(Replicator.this.id, RequestType.Snapshot, status, request, getResponse(), seq,
                             stateVersion, monotonicSendTimeMs);
+
+                        if (options.getPeerId().getPort() == 5006 || options.getServerId().getPort() == 5006)
+                            LOG.info("InstallSnapshotRequest/Response is precessed for {}", System.currentTimeMillis() - start);
                     }
                 });
             addInflight(RequestType.Snapshot, this.nextIndex, 0, 0, seq, rpcFuture);
+
+            if (options.getPeerId().getPort() == 5006 || options.getServerId().getPort() == 5006)
+                LOG.info("InstallSnapshotRequest sent for {}", System.currentTimeMillis() - start);
         }
         finally {
             if (doUnlock) {
@@ -683,11 +698,13 @@ public class Replicator implements ThreadId.OnError {
             final long monotonicSendTimeMs = Utils.monotonicMs();
 
             final AppendEntriesRequest request;
+            RpcResponseClosure<AppendEntriesResponse> heartbeatDone;
+            long startTime = System.currentTimeMillis();
+
             if (isHeartbeat) {
                 request = rb.build();
                 // Sending a heartbeat request
                 this.heartbeatCounter++;
-                RpcResponseClosure<AppendEntriesResponse> heartbeatDone;
                 // Prefer passed-in closure.
                 if (heartBeatClosure != null) {
                     heartbeatDone = heartBeatClosure;
@@ -696,12 +713,35 @@ public class Replicator implements ThreadId.OnError {
                     heartbeatDone = new RpcResponseClosureAdapter<AppendEntriesResponse>() {
                         @Override
                         public void run(final Status status) {
+                            if (options.getPeerId().getPort() == 5006) {
+                                LOG.info("Node {} HeartbeatRequest received receipt from {}, isOk {} for {}ms",
+                                    options.getNode().getNodeId(), options.getPeerId(), status.isOk(), (System.currentTimeMillis() - startTime));
+                            }
+
                             onHeartbeatReturned(Replicator.this.id, status, request, getResponse(), monotonicSendTimeMs);
+
+                            if (options.getPeerId().getPort() == 5006) {
+                                LOG.info("HeartbeatRequest processed for {}ms", (System.currentTimeMillis() - startTime));
+                            }
                         }
                     };
                 }
-                this.heartbeatInFly = this.rpcService.appendEntries(this.options.getPeerId().getEndpoint(), request,
-                    this.options.getElectionTimeoutMs() / 2, heartbeatDone);
+
+                if (this.options.getPeerId().getPort() == 5006) {
+                    LOG.info("Node {} send HeartbeatRequest to {} term {} lastCommittedIndex {} for {}ms",
+                        this.options.getNode().getNodeId(),
+                        this.options.getPeerId(),
+                        this.options.getTerm(),
+                        request.committedIndex(),
+                        (System.currentTimeMillis() - startTime));
+                }
+
+                this.heartbeatInFly = this.rpcService.appendEntries(
+                    this.options.getPeerId().getEndpoint(),
+                    request,
+                    this.options.getElectionTimeoutMs() / 2,
+                    heartbeatDone
+                );
             }
             else {
                 // No entries and has empty data means a probe request.
@@ -716,19 +756,43 @@ public class Replicator implements ThreadId.OnError {
                 this.state = State.Probe;
                 final int stateVersion = this.version;
                 final int seq = getAndIncrementReqSeq();
-                final Future<Message> rpcFuture = this.rpcService.appendEntries(this.options.getPeerId().getEndpoint(),
-                    request, -1, new RpcResponseClosureAdapter<AppendEntriesResponse>() {
-                        @Override public void run(final Status status) {
-                            onRpcReturned(Replicator.this.id, RequestType.AppendEntries, status, request,
-                                getResponse(), seq, stateVersion, monotonicSendTimeMs);
+
+                if (this.options.getPeerId().getPort() == 5006) {
+                    LOG.info("Node {} send HeartbeatRequest (empty data) to {} term {} lastCommittedIndex {} for {}ms",
+                        this.options.getNode().getNodeId(),
+                        this.options.getPeerId(),
+                        this.options.getTerm(),
+                        request.committedIndex(),
+                        (System.currentTimeMillis() - startTime));
+                }
+
+                heartbeatDone = new RpcResponseClosureAdapter<AppendEntriesResponse>() {
+                    @Override public void run(final Status status) {
+                        if (options.getPeerId().getPort() == 5006) {
+                            LOG.info("Node {} received HeartbeatRequest receipt (empty data) from {}, isOk {} for {}ms",
+                                options.getNode().getNodeId(), options.getPeerId(), status.isOk(), (System.currentTimeMillis() - startTime));
                         }
 
-                    });
+                        onRpcReturned(Replicator.this.id, RequestType.AppendEntries, status, request,
+                            getResponse(), seq, stateVersion, monotonicSendTimeMs);
+                    }
+
+                };
+
+                final Future<Message> rpcFuture = this.rpcService.appendEntries(
+                    this.options.getPeerId().getEndpoint(),
+                    request,
+                    -1,
+                    heartbeatDone
+                );
 
                 addInflight(RequestType.AppendEntries, this.nextIndex, 0, 0, seq, rpcFuture);
             }
-            LOG.debug("Node {} send HeartbeatRequest to {} term {} lastCommittedIndex {}", this.options.getNode()
-                .getNodeId(), this.options.getPeerId(), this.options.getTerm(), request.committedIndex());
+
+            if (this.options.getPeerId().getPort() == 5006) {
+                LOG.info("Node {} sent HeartbeatRequest for {}ms", options.getNode().getNodeId(),
+                    (System.currentTimeMillis() - startTime));
+            }
         }
         finally {
             this.id.unlock();
@@ -1119,13 +1183,16 @@ public class Replicator implements ThreadId.OnError {
             }
             r.consecutiveErrorTimes = 0;
             if (response.term() > r.options.getTerm()) {
-                if (isLogDebugEnabled) {
+//                if (isLogDebugEnabled) {
+                if (r.options.getPeerId().getPort() == 5006) {
                     sb.append(" fail, greater term ") //
                         .append(response.term()) //
                         .append(" expect term ") //
                         .append(r.options.getTerm());
-                    LOG.debug(sb.toString());
+
+                    LOG.warn(sb.toString());
                 }
+//                }
                 final NodeImpl node = r.options.getNode();
                 r.notifyOnCaughtUp(RaftError.EPERM.getNumber(), true);
                 r.destroy();
@@ -1151,6 +1218,9 @@ public class Replicator implements ThreadId.OnError {
                 LOG.debug(sb.toString());
             }
             if (rpcSendTime > r.lastRpcSendTimestamp) {
+                if (r.options.getPeerId().getPort() == 5006)
+                    LOG.info("Rpc timeout updated [lastRpcSendTimestamp={}]", rpcSendTime);
+
                 r.lastRpcSendTimestamp = rpcSendTime;
             }
             r.startHeartbeatTimer(startTimeMs);

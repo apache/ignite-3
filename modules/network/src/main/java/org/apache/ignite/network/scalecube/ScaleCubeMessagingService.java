@@ -17,13 +17,14 @@
 
 package org.apache.ignite.network.scalecube;
 
+import io.scalecube.cluster.Cluster;
+import io.scalecube.cluster.transport.api.Message;
+import io.scalecube.net.Address;
 import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import io.scalecube.cluster.Cluster;
-import io.scalecube.cluster.transport.api.Message;
-import io.scalecube.net.Address;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.AbstractMessagingService;
 import org.apache.ignite.network.ClusterNode;
@@ -36,6 +37,8 @@ import org.apache.ignite.network.NetworkMessageHandler;
  * Implementation of {@link MessagingService} based on ScaleCube.
  */
 final class ScaleCubeMessagingService extends AbstractMessagingService {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ScaleCubeMessagingService.class);
+
     /**
      * Inner representation of a ScaleCube cluster.
      */
@@ -136,12 +139,18 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
             .correlationId(UUID.randomUUID().toString())
             .build();
 
+        if (addr.port() == 5006)
+            LOG.info("Before to send the message to Scalecube.");
+
         // TODO: IGNITE-15196 Null seems to be an unexpected result on node stopping.
         return cluster
             .requestResponse(fromNetworkAddress(addr), message)
             .timeout(Duration.ofMillis(timeout))
             .toFuture()
             .thenApply(m -> {
+                if (addr.port() == 5006)
+                    LOG.info("When the message already received from Scalecube.");
+
                 if (m == null)
                     throw new CompletionException(new NodeStoppingException());
                 else

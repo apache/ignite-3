@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.util;
 
+import com.codahale.metrics.MetricRegistry;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -37,7 +38,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
-import com.codahale.metrics.MetricRegistry;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Status;
@@ -247,7 +247,7 @@ public final class Utils {
     /**
      * Default init and expand buffer size, it can be set by -Djraft.byte_buf.size=n, default 1024.
      */
-    public static final int RAFT_DATA_BUF_SIZE = SystemPropertyUtil.getInt("jraft.byte_buf.size", 1024);
+    public static final int RAFT_DATA_BUF_SIZE = SystemPropertyUtil.getInt("jraft.byte_buf.size", 256);
 
     /**
      * Default max {@link ByteBufferCollector} size per thread for recycle, it can be set by

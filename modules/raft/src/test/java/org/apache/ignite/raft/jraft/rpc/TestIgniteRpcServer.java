@@ -44,7 +44,7 @@ public class TestIgniteRpcServer extends IgniteRpcServer {
             JRaftUtils.createRequestExecutor(nodeOptions)
         );
 
-        clusterService.messagingService().addMessageHandler(TestMessageGroup.class, new RpcMessageHandler());
+        clusterService.messagingService().addMessageHandler(TestMessageGroup.class, new RpcMessageHandler(null));
 
         this.nodeOptions = nodeOptions;
     }

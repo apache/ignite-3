@@ -16,6 +16,13 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import com.lmax.disruptor.BlockingWaitStrategy;
+import com.lmax.disruptor.EventFactory;
+import com.lmax.disruptor.EventHandler;
+import com.lmax.disruptor.EventTranslator;
+import com.lmax.disruptor.RingBuffer;
+import com.lmax.disruptor.dsl.Disruptor;
+import com.lmax.disruptor.dsl.ProducerType;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -30,13 +37,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
-import com.lmax.disruptor.BlockingWaitStrategy;
-import com.lmax.disruptor.EventFactory;
-import com.lmax.disruptor.EventHandler;
-import com.lmax.disruptor.EventTranslator;
-import com.lmax.disruptor.RingBuffer;
-import com.lmax.disruptor.dsl.Disruptor;
-import com.lmax.disruptor.dsl.ProducerType;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.Closure;
@@ -1884,6 +1884,15 @@ public class NodeImpl implements Node, RaftServerService {
         this.writeLock.lock();
         final int entriesCount = Utils.size(request.entriesList());
         try {
+            if (getNodeId().getPeerId().getPort() == 5006) {
+                LOG.info("Node {} received {} from {}, term={}, currTerm={}.",
+                    getNodeId(),
+                    request.data() == null ? "HeartbeatRequest" : "AppendEntriesRequest",
+                    request.serverId(),
+                    request.term(),
+                    this.currTerm);
+            }
+
             if (!this.state.isActive()) {
                 LOG.warn("Node {} is not in active state, currTerm={}.", getNodeId(), this.currTerm);
                 return RaftRpcFactory.DEFAULT //
@@ -2153,7 +2162,7 @@ public class NodeImpl implements Node, RaftServerService {
             if (st.getCode() == RaftError.ETIMEDOUT.getNumber()
                 && Utils.monotonicMs() - this.replicatorGroup.getLastRpcSendTimestamp(peer) <= this.options
                 .getElectionTimeoutMs()) {
-                LOG.debug("Node {} waits peer {} to catch up.", getNodeId(), peer);
+                LOG.info("Node {} waits peer {} to catch up.", getNodeId(), peer);
                 final OnCaughtUp caughtUp = new OnCaughtUp(this, term, peer, version);
                 final long dueTime = Utils.nowMs() + this.options.getElectionTimeoutMs();
                 if (this.replicatorGroup.waitCaughtUp(peer, this.options.getCatchupMargin(), dueTime, caughtUp)) {
@@ -3298,6 +3307,15 @@ public class NodeImpl implements Node, RaftServerService {
 
     @Override
     public Message handleInstallSnapshot(final InstallSnapshotRequest request, final RpcRequestClosure done) {
+        if (getNodeId().getPeerId().getPort() == 5006) {
+            LOG.info("Node {} received {} from {}, term={}, currTerm={}.",
+                getNodeId(),
+                "InstallSnapshotRequest",
+                request.serverId(),
+                request.term(),
+                this.currTerm);
+        }
+
         if (this.snapshotExecutor == null) {
             return RaftRpcFactory.DEFAULT //
                 .newResponse(raftOptions.getRaftMessagesFactory(), RaftError.EINVAL, "Not supported snapshot");

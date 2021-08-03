@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import com.codahale.metrics.ConsoleReporter;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
@@ -38,7 +39,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Stream;
-import com.codahale.metrics.ConsoleReporter;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteLogger;
@@ -2019,9 +2019,13 @@ public class ITNodeTest {
     public void testInstallLargeSnapshotWithThrottle() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(4);
         cluster = new TestCluster("unitest", dataPath, peers.subList(0, 3));
+        RaftOptions op = new RaftOptions();
+        op.setMaxByteCountPerRpc( 128 * 512);
         for (int i = 0; i < peers.size() - 1; i++) {
             PeerId peer = peers.get(i);
-            boolean started = cluster.start(peer.getEndpoint(), false, 200, false);
+            boolean started = cluster.start(
+                peer.getEndpoint(), false, 200, false, null,
+                op);
             assertTrue(started);
         }
         cluster.waitLeader();
@@ -2055,8 +2059,8 @@ public class ITNodeTest {
 
         // add follower
         PeerId newPeer = peers.get(3);
-        SnapshotThrottle snapshotThrottle = new ThroughputSnapshotThrottle(128, 1);
-        boolean started = cluster.start(newPeer.getEndpoint(), false, 300, false, snapshotThrottle);
+        SnapshotThrottle snapshotThrottle = new ThroughputSnapshotThrottle(16, 1);
+        boolean started = cluster.start(newPeer.getEndpoint(), false, 300, false, snapshotThrottle, op);
         assertTrue(started);
 
         CountDownLatch latch = new CountDownLatch(1);
@@ -2071,6 +2075,8 @@ public class ITNodeTest {
         assertEquals(4, cluster.getFsms().size());
         for (MockStateMachine fsm : cluster.getFsms())
             assertEquals(2000, fsm.getLogs().size());
+
+        System.out.println("ENDED");
     }
 
     @Test
@@ -3494,7 +3500,7 @@ public class ITNodeTest {
     }
 
     private void waitLatch(final CountDownLatch latch) throws InterruptedException {
-        assertTrue(latch.await(30, TimeUnit.SECONDS));
+        assertTrue(latch.await(320, TimeUnit.SECONDS));
     }
 
     @SuppressWarnings({"unused", "SameParameterValue"})
