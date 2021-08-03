@@ -39,6 +39,7 @@ import org.apache.ignite.client.handler.requests.table.ClientTupleInsertAllSchem
 import org.apache.ignite.client.handler.requests.table.ClientTupleInsertRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleInsertSchemalessRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleReplaceExactRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTupleReplaceExactSchemalessRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleReplaceRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleReplaceSchemalessRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertAllRequest;
@@ -289,7 +290,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 return ClientTupleReplaceExactRequest.process(in, out, ignite.tables());
 
             case ClientOp.TUPLE_REPLACE_EXACT_SCHEMALESS:
-                throw new UnsupportedOperationException();
+                return ClientTupleReplaceExactSchemalessRequest.process(in, out, ignite.tables());
 
             case ClientOp.TUPLE_GET_AND_REPLACE:
                 throw new UnsupportedOperationException();
