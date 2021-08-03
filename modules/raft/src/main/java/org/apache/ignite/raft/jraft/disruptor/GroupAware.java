@@ -15,31 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.handler.requests.table;
-
-import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.table.manager.IgniteTables;
+package org.apache.ignite.raft.jraft.disruptor;
 
 /**
- * Client table drop request.
+ * Interface provides group id.
+ * It allows to determine a stripe in Striped disruptor.
  */
-public class ClientTableDropRequest {
+public interface GroupAware {
     /**
-     * Processes the request.
+     * Gets a group id.
      *
-     * @param in Unpacker.
-     * @param tables Ignite tables.
-     * @return Future.
-     * @throws IOException On serialization error.
+     * @return Group id.
      */
-    public static CompletableFuture<Void> process(
-            ClientMessageUnpacker in,
-            IgniteTables tables
-    ) throws IOException {
-        var tableName = in.unpackString();
-
-        return tables.dropTableAsync(tableName);
-    }
+    String groupId();
 }
