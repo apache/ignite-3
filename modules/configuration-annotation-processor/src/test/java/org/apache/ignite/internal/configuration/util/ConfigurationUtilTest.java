@@ -30,7 +30,6 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
-import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 import org.jetbrains.annotations.NotNull;
@@ -42,7 +41,6 @@ import static java.util.Collections.singletonMap;
 import static org.apache.ignite.internal.configuration.tree.NamedListNode.NAME;
 import static org.apache.ignite.internal.configuration.tree.NamedListNode.ORDER_IDX;
 import static org.apache.ignite.internal.configuration.util.ConfigurationFlattener.createFlattenedUpdatesMap;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.nodePatcher;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.allOf;
@@ -53,8 +51,6 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -365,88 +361,5 @@ public class ConfigurationUtilTest {
 
         // Create flat diff between two super trees.
         return createFlattenedUpdatesMap(originalSuperRoot, superRoot);
-    }
-
-    /**
-     * Tests basic invariants of {@link ConfigurationUtil#nodePatcher(TraversableTreeNode)} method.
-     */
-    @Test
-    public void patch() {
-        var originalRoot = newParentInstance();
-
-        originalRoot.changeElements(elements ->
-            elements.create("name1", element ->
-                element.changeChild(child -> child.changeStr("value1"))
-            )
-        );
-
-        // Updating config.
-        ParentView updatedRoot = patch(originalRoot, (TraversableTreeNode)copy(originalRoot).changeElements(elements ->
-            elements.createOrUpdate("name1", element ->
-                element.changeChild(child -> child.changeStr("value2"))
-            )
-        ));
-
-        assertNotSame(originalRoot, updatedRoot);
-        assertNotSame(originalRoot.elements(), updatedRoot.elements());
-        assertNotSame(originalRoot.elements().get("name1"), updatedRoot.elements().get("name1"));
-        assertNotSame(originalRoot.elements().get("name1").child(), updatedRoot.elements().get("name1").child());
-
-        assertEquals("value1", originalRoot.elements().get("name1").child().str());
-        assertEquals("value2", updatedRoot.elements().get("name1").child().str());
-
-        // Expanding config.
-        ParentView expandedRoot = patch(originalRoot, (TraversableTreeNode)copy(originalRoot).changeElements(elements ->
-            elements.createOrUpdate("name2", element ->
-                element.changeChild(child -> child.changeStr("value2"))
-            )
-        ));
-
-        assertNotSame(originalRoot, expandedRoot);
-        assertNotSame(originalRoot.elements(), expandedRoot.elements());
-
-        assertSame(originalRoot.elements().get("name1"), expandedRoot.elements().get("name1"));
-        assertNull(originalRoot.elements().get("name2"));
-        assertNotNull(expandedRoot.elements().get("name2"));
-
-        assertEquals("value2", expandedRoot.elements().get("name2").child().str());
-
-        // Shrinking config.
-        ParentView shrinkedRoot = (ParentView)patch((InnerNode)expandedRoot, (TraversableTreeNode)copy(expandedRoot).changeElements(elements ->
-            elements.delete("name1")
-        ));
-
-        assertNotSame(expandedRoot, shrinkedRoot);
-        assertNotSame(expandedRoot.elements(), shrinkedRoot.elements());
-
-        assertNotNull(expandedRoot.elements().get("name1"));
-        assertNull(shrinkedRoot.elements().get("name1"));
-        assertNotNull(shrinkedRoot.elements().get("name2"));
-    }
-
-    /**
-     * @param parent {@link ParentView} object.
-     * @return Copy of the {@code parent} objects cast to {@link ParentChange}.
-     * @see ConstructableTreeNode#copy()
-     */
-    private ParentChange copy(ParentView parent) {
-        return (ParentChange)((ConstructableTreeNode)parent).copy();
-    }
-
-    /**
-     * Applies changes on top of an existing node. Creates a completely new object while reusing parts of the original
-     * tree that weren't modified.
-     *
-     * @param root Immutable configuration node.
-     * @param changes Change or Init object to be applied.
-     * @param <C> Type of the root.
-     * @return Patched root.
-     */
-    private static <C extends ConstructableTreeNode> C patch(C root, TraversableTreeNode changes) {
-        C copy = (C)root.copy();
-
-        nodePatcher(changes).descend(copy);
-
-        return copy;
     }
 }

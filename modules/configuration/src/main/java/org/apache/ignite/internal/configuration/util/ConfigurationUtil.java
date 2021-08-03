@@ -398,26 +398,6 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Convert tree node into patching configuration source.
-     *
-     * @param changes Tree node that contains prepared changes.
-     * @return Configuration source.
-     */
-    public static ConfigurationSource nodePatcher(TraversableTreeNode changes) {
-        var scrVisitor = new ConfigurationVisitor<ConfigurationSource>() {
-            @Override public ConfigurationSource visitInnerNode(String key, InnerNode node) {
-                return new PatchInnerConfigurationSource(node);
-            }
-
-            @Override public <N extends InnerNode> ConfigurationSource visitNamedListNode(String key, NamedListNode<N> node) {
-                return new PatchNamedListConfigurationSource(node);
-            }
-        };
-
-        return changes.accept(null, scrVisitor);
-    }
-
-    /**
      * Fill {@code node} node with default values where nodes are {@code null}.
      *
      * @param node Node.
@@ -461,6 +441,11 @@ public class ConfigurationUtil {
         });
     }
 
+    /**
+     * Recursively removes all nullified named list elements.
+     *
+     * @param node Inner node for processing.
+     */
     public static void dropNulls(InnerNode node) {
         node.traverseChildren(new ConfigurationVisitor<>() {
             @Override public Object visitInnerNode(String key, InnerNode innerNode) {
@@ -516,114 +501,5 @@ public class ConfigurationUtil {
                 return node;
             }
         };
-    }
-
-    /** @see #nodePatcher(TraversableTreeNode) */
-    private static class PatchLeafConfigurationSource implements ConfigurationSource {
-        /** */
-        private final Serializable val;
-
-        /**
-         * @param val Value.
-         */
-        PatchLeafConfigurationSource(Serializable val) {
-            this.val = val;
-        }
-
-        /** {@inheritDoc} */
-        @Override public <T> T unwrap(Class<T> clazz) {
-            assert clazz.isInstance(val);
-
-            return clazz.cast(val);
-        }
-
-        /** {@inheritDoc} */
-        @Override public void descend(ConstructableTreeNode node) {
-            throw new UnsupportedOperationException("descend");
-        }
-    }
-
-    /** @see #nodePatcher(TraversableTreeNode) */
-    private static class PatchInnerConfigurationSource implements ConfigurationSource {
-        /** */
-        private final InnerNode srcNode;
-
-        /**
-         * @param srcNode Inner node.
-         */
-        PatchInnerConfigurationSource(InnerNode srcNode) {
-            this.srcNode = srcNode;
-        }
-
-        /** {@inheritDoc} */
-        @Override public <T> T unwrap(Class<T> clazz) {
-            throw new UnsupportedOperationException("unwrap");
-        }
-
-        /** {@inheritDoc} */
-        @Override public void descend(ConstructableTreeNode dstNode) {
-            assert srcNode.getClass() == dstNode.getClass() : srcNode.getClass() + " : " + dstNode.getClass();
-
-            if (srcNode == dstNode)
-                return;
-
-            srcNode.traverseChildren(new ConfigurationVisitor<>() {
-                @Override public Void visitLeafNode(String key, Serializable val) {
-                    if (val != null)
-                        dstNode.construct(key, new PatchLeafConfigurationSource(val));
-
-                    return null;
-                }
-
-                @Override public Void visitInnerNode(String key, InnerNode node) {
-                    if (node != null)
-                        dstNode.construct(key, new PatchInnerConfigurationSource(node));
-
-                    return null;
-                }
-
-                @Override public <N extends InnerNode> Void visitNamedListNode(String key, NamedListNode<N> node) {
-                    if (node != null)
-                        dstNode.construct(key, new PatchNamedListConfigurationSource(node));
-
-                    return null;
-                }
-            });
-        }
-    }
-
-    /** @see #nodePatcher(TraversableTreeNode) */
-    private static class PatchNamedListConfigurationSource implements ConfigurationSource {
-        /** */
-        private final NamedListNode<?> srcNode;
-
-        /**
-         * @param srcNode Named list node.
-         */
-        PatchNamedListConfigurationSource(NamedListNode<?> srcNode) {
-            this.srcNode = srcNode;
-        }
-
-        /** {@inheritDoc} */
-        @Override public <T> T unwrap(Class<T> clazz) {
-            throw new UnsupportedOperationException("unwrap");
-        }
-
-        /** {@inheritDoc} */
-        @Override public void descend(ConstructableTreeNode dstNode) {
-            assert srcNode.getClass() == dstNode.getClass();
-
-            if (srcNode == dstNode)
-                return;
-
-            for (String key : srcNode.namedListKeys()) {
-                InnerNode node = srcNode.get(key);
-
-                if (node == null)
-                    ((NamedListNode<?>)dstNode).forceDelete(key); // Same as in fillFromPrefixMap.
-                else if (((NamedListView<?>)dstNode).get(key) != node)
-                    dstNode.construct(key, new PatchInnerConfigurationSource(node));
-            }
-        }
     }
 }

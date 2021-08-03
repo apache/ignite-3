@@ -83,7 +83,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
         reverseIdMap = new HashMap<>(node.reverseIdMap);
 
         for (String key : node.map.keys())
-            map.put(key, node.map.get(key).clone());
+            map.put(key, node.map.get(key).shallowCopy());
     }
 
     /** {@inheritDoc} */
@@ -353,7 +353,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
      *
      * @param <N> Type of the node.
      */
-    private static class ElementDescriptor<N extends InnerNode> implements Cloneable {
+    private static class ElementDescriptor<N extends InnerNode> {
         /** Element's internal id. */
         public String internalId;
 
@@ -384,7 +384,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
         }
 
         /**
-         * Makes a copy of the element descriptor. Not to be confused with {@link #clone()}.
+         * Makes a copy of the element descriptor. Not to be confused with {@link #shallowCopy()}.
          *
          * @return New instance with the same internal id but copied node instance.
          * @see InnerNode#copy()
@@ -393,8 +393,12 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
             return new ElementDescriptor<>(internalId, (N)value.copy());
         }
 
-        /** {@inheritDoc} */
-        @Override protected ElementDescriptor<N> clone() {
+        /**
+         * Makes a copy of the element descriptor, preserving same fields values.
+         *
+         * @return New instance with the same internal id and node instance.
+         */
+        public ElementDescriptor<N> shallowCopy() {
             return new ElementDescriptor<>(internalId, value);
         }
     }
