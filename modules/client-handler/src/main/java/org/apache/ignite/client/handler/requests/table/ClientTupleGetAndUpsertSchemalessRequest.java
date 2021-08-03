@@ -24,12 +24,13 @@ import org.apache.ignite.table.manager.IgniteTables;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTupleSchemaless;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTuple;
 
 /**
  * Client tuple get and upsert request.
  */
-public class ClientTupleGetAndUpsertRequest {
+public class ClientTupleGetAndUpsertSchemalessRequest {
     /**
      * Processes the request.
      *
@@ -44,7 +45,7 @@ public class ClientTupleGetAndUpsertRequest {
             IgniteTables tables
     ) {
         var table = readTable(in, tables);
-        var tuple = readTuple(in, table, false);
+        var tuple = readTupleSchemaless(in, table);
 
         return table.getAndUpsertAsync(tuple).thenAccept(resTuple -> writeTuple(out, resTuple));
     }
