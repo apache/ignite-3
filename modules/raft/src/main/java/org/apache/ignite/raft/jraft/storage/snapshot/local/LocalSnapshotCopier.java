@@ -27,6 +27,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter.FileSource;
 import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter.LocalFileMeta;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -43,14 +44,12 @@ import org.apache.ignite.raft.jraft.util.ArrayDeque;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Copy another machine snapshot to local.
  */
 public class LocalSnapshotCopier extends SnapshotCopier {
-    private static final Logger LOG = LoggerFactory.getLogger(LocalSnapshotCopier.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(LocalSnapshotCopier.class);
 
     private final Lock lock = new ReentrantLock();
     /**
@@ -222,7 +221,7 @@ public class LocalSnapshotCopier extends SnapshotCopier {
             }
         }
         catch (final IOException e) {
-            LOG.error("Failed to check file: {}, writer path: {}.", fileName, this.writer.getPath(), e);
+            LOG.error("Failed to check file: {}, writer path: {}.", e, fileName, this.writer.getPath());
             setError(RaftError.EIO, "Failed to check file: {}, writer path: {}.", fileName, this.writer.getPath());
             return false;
         }
@@ -290,7 +289,7 @@ public class LocalSnapshotCopier extends SnapshotCopier {
         for (final String fileName : remoteFiles) {
             final LocalFileMeta remoteMeta = (LocalFileMeta) this.remoteSnapshot.getFileMeta(fileName);
             Requires.requireNonNull(remoteMeta, "remoteMeta");
-            if (!remoteMeta.hasChecksum()) {
+            if (remoteMeta.checksum() != null) {
                 // Re-download file if this file doesn't have checksum
                 writer.removeFile(fileName);
                 toRemove.add(fileName);
@@ -299,8 +298,8 @@ public class LocalSnapshotCopier extends SnapshotCopier {
 
             LocalFileMeta localMeta = (LocalFileMeta) writer.getFileMeta(fileName);
             if (localMeta != null) {
-                if (localMeta.hasChecksum() && localMeta.getChecksum().equals(remoteMeta.getChecksum())) {
-                    LOG.info("Keep file={} checksum={} in {}", fileName, remoteMeta.getChecksum(), writer.getPath());
+                if (localMeta.checksum() != null && localMeta.checksum().equals(remoteMeta.checksum())) {
+                    LOG.info("Keep file={} checksum={} in {}", fileName, remoteMeta.checksum(), writer.getPath());
                     continue;
                 }
                 // Remove files from writer so that the file is to be copied from
@@ -315,13 +314,13 @@ public class LocalSnapshotCopier extends SnapshotCopier {
             if ((localMeta = (LocalFileMeta) lastSnapshot.getFileMeta(fileName)) == null) {
                 continue;
             }
-            if (!localMeta.hasChecksum() || !localMeta.getChecksum().equals(remoteMeta.getChecksum())) {
+            if (localMeta.checksum() == null || !localMeta.checksum().equals(remoteMeta.checksum())) {
                 continue;
             }
 
-            LOG.info("Found the same file ={} checksum={} in lastSnapshot={}", fileName, remoteMeta.getChecksum(),
+            LOG.info("Found the same file ={} checksum={} in lastSnapshot={}", fileName, remoteMeta.checksum(),
                 lastSnapshot.getPath());
-            if (localMeta.getSource() == FileSource.FILE_SOURCE_LOCAL) {
+            if (localMeta.source() == FileSource.FILE_SOURCE_LOCAL) {
                 final Path sourcePath = Paths.get(lastSnapshot.getPath(), fileName);
                 final Path destPath = Paths.get(writer.getPath(), fileName);
                 IgniteUtils.deleteIfExists(destPath);
@@ -329,7 +328,7 @@ public class LocalSnapshotCopier extends SnapshotCopier {
                     Files.createLink(destPath, sourcePath);
                 }
                 catch (final IOException e) {
-                    LOG.error("Fail to link {} to {}", sourcePath, destPath, e);
+                    LOG.error("Fail to link {} to {}", e, sourcePath, destPath);
                     continue;
                 }
                 // Don't delete linked file

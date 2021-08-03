@@ -81,6 +81,8 @@ public class ConfigurationListenerTest {
             Collections.singletonList(testConfigurationStorage)
         );
 
+        registry.start();
+
         registry.startStorageConfigurations(testConfigurationStorage.type());
 
         configuration = registry.getConfiguration(ParentConfiguration.KEY);
@@ -238,7 +240,7 @@ public class ConfigurationListenerTest {
         log.clear();
 
         configuration.change(parent ->
-            parent.changeElements(elements -> elements.update("name", element -> element.changeStr("foo")))
+            parent.changeElements(elements -> elements.createOrUpdate("name", element -> element.changeStr("foo")))
         ).get(1, SECONDS);
 
         assertEquals(List.of("parent", "elements", "update"), log);

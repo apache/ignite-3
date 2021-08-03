@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import com.codahale.metrics.ConsoleReporter;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
@@ -37,14 +38,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import com.codahale.metrics.ConsoleReporter;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NodeFinder;
+import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.Iterator;
@@ -59,6 +60,7 @@ import org.apache.ignite.raft.jraft.closure.ReadIndexClosure;
 import org.apache.ignite.raft.jraft.closure.SynchronizedClosure;
 import org.apache.ignite.raft.jraft.closure.TaskClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
+import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.Task;
@@ -78,6 +80,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.core.DefaultRaftClientService;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
+import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.ThroughputSnapshotThrottle;
 import org.apache.ignite.raft.jraft.test.TestUtils;
@@ -92,9 +95,9 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -111,7 +114,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ITNodeTest {
-    private static final Logger LOG = LoggerFactory.getLogger(ITNodeTest.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ITNodeTest.class);
 
     private static DumpThread dumpThread;
 
@@ -1036,6 +1039,9 @@ public class ITNodeTest {
         // apply tasks to leader
         sendTestTaskAndWait(leader);
 
+        // wait for all update received, before election of new leader
+        cluster.ensureSame();
+
         // stop leader
         assertTrue(cluster.stop(leader.getNodeId().getPeerId().getEndpoint()));
 
@@ -1045,22 +1051,9 @@ public class ITNodeTest {
 
         assertNotNull(leader);
 
-        // get current leader priority value
-        int leaderPriority = leader.getNodeId().getPeerId().getPriority();
-
-        // get current leader log size
-        int peer1LogSize = cluster.getFsmByPeer(peers.get(1)).getLogs().size();
-        int peer2LogSize = cluster.getFsmByPeer(peers.get(2)).getLogs().size();
-
-        // if the leader is lower priority value
-        if (leaderPriority == 10) {
-            // we just compare the two peers' log size value;
-            assertTrue(peer2LogSize > peer1LogSize);
-        }
-        else {
-            assertEquals(60, leader.getNodeId().getPeerId().getPriority());
-            assertEquals(100, leader.getNodeTargetPriority());
-        }
+        // nodes with the same log size will elect leader only by priority
+        assertEquals(60, leader.getNodeId().getPeerId().getPriority());
+        assertEquals(100, leader.getNodeTargetPriority());
     }
 
     @Test
@@ -1480,7 +1473,7 @@ public class ITNodeTest {
                 if (msg instanceof RpcRequests.RequestVoteRequest) {
                     RpcRequests.RequestVoteRequest msg0 = (RpcRequests.RequestVoteRequest)msg;
 
-                    return !msg0.getPreVote();
+                    return !msg0.preVote();
                 }
 
                 return false;
@@ -2665,7 +2658,8 @@ public class ITNodeTest {
         List<Node> firstFollowers = cluster.getFollowers();
         assertEquals(4, firstFollowers.size());
         for (Node node : firstFollowers) {
-            assertTrue(waitForCondition(() -> ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes() == 1, 5_000));
+            assertTrue(
+                waitForCondition(() -> ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes() == 1, 5_000));
             assertEquals(0, ((MockStateMachine) node.getOptions().getFsm()).getOnStopFollowingTimes());
         }
 
@@ -2681,7 +2675,8 @@ public class ITNodeTest {
         List<Node> secondFollowers = cluster.getFollowers();
         assertEquals(3, secondFollowers.size());
         for (Node node : secondFollowers) {
-            assertEquals(2, ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes());
+            assertTrue(
+                waitForCondition(() -> ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes() == 2, 5_000));
             assertEquals(1, ((MockStateMachine) node.getOptions().getFsm()).getOnStopFollowingTimes());
         }
 
@@ -2697,21 +2692,24 @@ public class ITNodeTest {
         List<Node> thirdFollowers = cluster.getFollowers();
         assertEquals(3, thirdFollowers.size());
         for (int i = 0; i < 3; i++) {
-            if (thirdFollowers.get(i).getNodeId().getPeerId().equals(secondLeader.getNodeId().getPeerId())) {
-                assertEquals(2,
-                    ((MockStateMachine) thirdFollowers.get(i).getOptions().getFsm()).getOnStartFollowingTimes());
+            Node follower = thirdFollowers.get(i);
+            if (follower.getNodeId().getPeerId().equals(secondLeader.getNodeId().getPeerId())) {
+                assertTrue(
+                    waitForCondition(() -> ((MockStateMachine) follower.getOptions().getFsm()).getOnStartFollowingTimes() == 2, 5_000));
                 assertEquals(1,
-                    ((MockStateMachine) thirdFollowers.get(i).getOptions().getFsm()).getOnStopFollowingTimes());
+                    ((MockStateMachine) follower.getOptions().getFsm()).getOnStopFollowingTimes());
                 continue;
             }
-            assertEquals(3, ((MockStateMachine) thirdFollowers.get(i).getOptions().getFsm()).getOnStartFollowingTimes());
-            assertEquals(2, ((MockStateMachine) thirdFollowers.get(i).getOptions().getFsm()).getOnStopFollowingTimes());
+
+            assertTrue(waitForCondition(() -> ((MockStateMachine) follower.getOptions().getFsm()).getOnStartFollowingTimes() == 3, 5_000));
+            assertEquals(2, ((MockStateMachine) follower.getOptions().getFsm()).getOnStopFollowingTimes());
         }
 
         cluster.ensureSame();
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15202")
     public void readCommittedUserLog() throws Exception {
         // setup cluster
         List<PeerId> peers = TestUtils.generatePeers(3);
@@ -3278,7 +3276,7 @@ public class ITNodeTest {
                 if (msg instanceof RpcRequests.RequestVoteRequest) {
                     RpcRequests.RequestVoteRequest msg0 = (RpcRequests.RequestVoteRequest)msg;
 
-                    return !msg0.getPreVote();
+                    return !msg0.preVote();
                 }
 
                 return false;
@@ -3390,21 +3388,51 @@ public class ITNodeTest {
      */
     private RaftGroupService createService(String groupId, PeerId peerId, NodeOptions nodeOptions) {
         Configuration initialConf = nodeOptions.getInitialConf();
+        nodeOptions.setStripes(1);
 
-        var servers = List.<NetworkAddress>of();
+        StripedDisruptor<FSMCallerImpl.ApplyTask> fsmCallerDusruptor;
+        StripedDisruptor<NodeImpl.LogEntryAndClosure> nodeDisruptor;
+        StripedDisruptor<ReadOnlyServiceImpl.ReadIndexEvent> readOnlyServiceDisruptor;
+        StripedDisruptor<LogManagerImpl.StableClosureEvent> logManagerDisruptor;
 
-        if (initialConf != null) {
-            servers = Stream.concat(initialConf.getPeers().stream(), initialConf.getLearners().stream())
+        nodeOptions.setfSMCallerExecutorDisruptor(fsmCallerDusruptor = new StripedDisruptor<>(
+            "JRaft-FSMCaller-Disruptor_ITNodeTest",
+            nodeOptions.getRaftOptions().getDisruptorBufferSize(),
+            () -> new FSMCallerImpl.ApplyTask(),
+            nodeOptions.getStripes()));
+
+        nodeOptions.setNodeApplyDisruptor(nodeDisruptor = new StripedDisruptor<>(
+            "JRaft-NodeImpl-Disruptor_ITNodeTest",
+            nodeOptions.getRaftOptions().getDisruptorBufferSize(),
+            () -> new NodeImpl.LogEntryAndClosure(),
+            nodeOptions.getStripes()));
+
+        nodeOptions.setReadOnlyServiceDisruptor(readOnlyServiceDisruptor = new StripedDisruptor<>(
+            "JRaft-ReadOnlyService-Disruptor_ITNodeTest",
+            nodeOptions.getRaftOptions().getDisruptorBufferSize(),
+            () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
+            nodeOptions.getStripes()));
+
+        nodeOptions.setLogManagerDisruptor(logManagerDisruptor = new StripedDisruptor<>(
+            "JRaft-LogManager-Disruptor_ITNodeTest",
+            nodeOptions.getRaftOptions().getDisruptorBufferSize(),
+            () -> new LogManagerImpl.StableClosureEvent(),
+            nodeOptions.getStripes()));
+
+        Stream<PeerId> peers = initialConf == null ?
+            Stream.empty() :
+            Stream.concat(initialConf.getPeers().stream(), initialConf.getLearners().stream());
+
+        NodeFinder nodeFinder = peers
                 .map(PeerId::getEndpoint)
                 .map(JRaftUtils::addressFromEndpoint)
-                .collect(Collectors.toList());
-        }
+                .collect(collectingAndThen(toList(), StaticNodeFinder::new));
 
         var nodeManager = new NodeManager();
 
-        ClusterService clusterService = createClusterService(peerId.getEndpoint(), servers);
+        ClusterService clusterService = createClusterService(peerId.getEndpoint(), nodeFinder);
 
-        IgniteRpcServer rpcServer = new TestIgniteRpcServer(clusterService, servers, nodeManager, nodeOptions);
+        IgniteRpcServer rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions);
 
         nodeOptions.setRpcClient(new IgniteRpcClient(clusterService));
 
@@ -3414,7 +3442,12 @@ public class ITNodeTest {
             @Override public synchronized void shutdown() {
                 super.shutdown();
 
-                clusterService.shutdown();
+                clusterService.stop();
+
+                fsmCallerDusruptor.shutdown();
+                nodeDisruptor.shutdown();
+                readOnlyServiceDisruptor.shutdown();
+                logManagerDisruptor.shutdown();
             }
         };
 
@@ -3426,10 +3459,10 @@ public class ITNodeTest {
     /**
      * Creates a non-started {@link ClusterService}.
      */
-    private static ClusterService createClusterService(Endpoint endpoint, List<NetworkAddress> members) {
+    private static ClusterService createClusterService(Endpoint endpoint, NodeFinder nodeFinder) {
         var registry = new TestMessageSerializationRegistryImpl();
 
-        var clusterConfig = new ClusterLocalConfiguration(endpoint.toString(), endpoint.getPort(), members, registry);
+        var clusterConfig = new ClusterLocalConfiguration(endpoint.toString(), endpoint.getPort(), nodeFinder, registry);
 
         var clusterServiceFactory = new TestScaleCubeClusterServiceFactory();
 

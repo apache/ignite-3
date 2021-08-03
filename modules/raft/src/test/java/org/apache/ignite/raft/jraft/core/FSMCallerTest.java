@@ -19,18 +19,18 @@ package org.apache.ignite.raft.jraft.core;
 import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.ClosureQueueImpl;
 import org.apache.ignite.raft.jraft.closure.LoadSnapshotClosure;
 import org.apache.ignite.raft.jraft.closure.SaveSnapshotClosure;
+import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.EntryType;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.ErrorType;
 import org.apache.ignite.raft.jraft.entity.LeaderChangeContext;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
-import org.apache.ignite.raft.jraft.entity.NodeId;
-import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RaftException;
@@ -57,6 +57,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @ExtendWith(MockitoExtension.class)
 public class FSMCallerTest {
     private FSMCallerImpl fsmCaller;
+    private FSMCallerOptions opts;
     @Mock
     private NodeImpl node;
     @Mock
@@ -65,21 +66,29 @@ public class FSMCallerTest {
     private LogManager logManager;
     private ClosureQueueImpl closureQueue;
 
+    /** Disruptor for this service test. */
+    private StripedDisruptor disruptor;
+
     @BeforeEach
     public void setup() {
         this.fsmCaller = new FSMCallerImpl();
         NodeOptions options = new NodeOptions();
         options.setCommonExecutor(JRaftUtils.createExecutor("test-executor-", Utils.cpus()));
         this.closureQueue = new ClosureQueueImpl(options);
-        final FSMCallerOptions opts = new FSMCallerOptions();
+        opts = new FSMCallerOptions();
         Mockito.when(this.node.getNodeMetrics()).thenReturn(new NodeMetrics(false));
-        Mockito.when(this.node.getNodeId()).thenReturn(new NodeId("test", new PeerId("localhost", 8082)));
         Mockito.when(this.node.getOptions()).thenReturn(options);
         opts.setNode(this.node);
         opts.setFsm(this.fsm);
         opts.setLogManager(this.logManager);
         opts.setBootstrapId(new LogId(10, 1));
         opts.setClosureQueue(this.closureQueue);
+        opts.setRaftMessagesFactory(new RaftMessagesFactory());
+        opts.setGroupId("TestSrv");
+        opts.setfSMCallerExecutorDisruptor(disruptor = new StripedDisruptor<>("TestFSMDisruptor",
+            1024,
+            () -> new FSMCallerImpl.ApplyTask(),
+            1));
         assertTrue(this.fsmCaller.init(opts));
     }
 
@@ -88,6 +97,7 @@ public class FSMCallerTest {
         if (this.fsmCaller != null) {
             this.fsmCaller.shutdown();
             this.fsmCaller.join();
+            disruptor.shutdown();
         }
     }
 
@@ -138,7 +148,11 @@ public class FSMCallerTest {
     public void testOnSnapshotLoad() throws Exception {
         final SnapshotReader reader = Mockito.mock(SnapshotReader.class);
 
-        final SnapshotMeta meta = SnapshotMeta.newBuilder().setLastIncludedIndex(12).setLastIncludedTerm(1).build();
+        final SnapshotMeta meta = opts.getRaftMessagesFactory()
+            .snapshotMeta()
+            .lastIncludedIndex(12)
+            .lastIncludedTerm(1)
+            .build();
         Mockito.when(reader.load()).thenReturn(meta);
         Mockito.when(this.fsm.onSnapshotLoad(reader)).thenReturn(true);
         final CountDownLatch latch = new CountDownLatch(1);
@@ -164,7 +178,11 @@ public class FSMCallerTest {
     public void testOnSnapshotLoadFSMError() throws Exception {
         final SnapshotReader reader = Mockito.mock(SnapshotReader.class);
 
-        final SnapshotMeta meta = SnapshotMeta.newBuilder().setLastIncludedIndex(12).setLastIncludedTerm(1).build();
+        final SnapshotMeta meta = opts.getRaftMessagesFactory()
+            .snapshotMeta()
+            .lastIncludedIndex(12)
+            .lastIncludedTerm(1)
+            .build();
         Mockito.when(reader.load()).thenReturn(meta);
         Mockito.when(this.fsm.onSnapshotLoad(reader)).thenReturn(false);
         final CountDownLatch latch = new CountDownLatch(1);
@@ -221,7 +239,7 @@ public class FSMCallerTest {
 
             @Override
             public SnapshotWriter start(final SnapshotMeta meta) {
-                assertEquals(10, meta.getLastIncludedIndex());
+                assertEquals(10, meta.lastIncludedIndex());
                 return writer;
             }
         };
@@ -268,7 +286,11 @@ public class FSMCallerTest {
     public void testOnSnapshotLoadStale() throws Exception {
         final SnapshotReader reader = Mockito.mock(SnapshotReader.class);
 
-        final SnapshotMeta meta = SnapshotMeta.newBuilder().setLastIncludedIndex(5).setLastIncludedTerm(1).build();
+        final SnapshotMeta meta = opts.getRaftMessagesFactory()
+            .snapshotMeta()
+            .lastIncludedIndex(5)
+            .lastIncludedTerm(1)
+            .build();
         Mockito.when(reader.load()).thenReturn(meta);
 
         final CountDownLatch latch = new CountDownLatch(1);

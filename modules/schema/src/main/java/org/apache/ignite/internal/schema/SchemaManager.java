@@ -31,6 +31,7 @@ import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.Conditions;
@@ -45,7 +46,6 @@ import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
-import org.apache.ignite.internal.schema.mapping.ColumnMapperBuilder;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -71,7 +71,7 @@ import org.jetbrains.annotations.NotNull;
  * @implSpec Initial schema history MAY be registered without the first outdated versions
  * that could be cleaned up earlier.
  */
-public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> {
+public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(SchemaManager.class);
 
@@ -108,7 +108,10 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         this.configurationMgr = configurationMgr;
         this.metaStorageMgr = metaStorageMgr;
         this.vaultMgr = vaultMgr;
+    }
 
+    /** {@inheritDoc} */
+    @Override public void start() {
         metaStorageMgr.registerWatchByPrefix(new ByteArray(INTERNAL_PREFIX), new WatchListener() {
             @Override public boolean onUpdate(@NotNull WatchEvent events) {
                 for (EntryEvent evt : events.entryEvents()) {
@@ -169,6 +172,11 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         });
     }
 
+    /** {@inheritDoc} */
+    @Override public void stop() {
+        // TODO: IGNITE-15161 Implement component's stop.
+    }
+
     /**
      * Creates schema registry for the table with existed schema or
      * registers initial schema from configuration.
@@ -208,50 +216,12 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * registers initial schema from configuration.
      *
      * @param tblId Table id.
-     * @param tblName Table name.
-     * @return Operation future.
-     */
-    public CompletableFuture<Boolean> updateSchemaForTable(final UUID tblId, String tblName) {
-        return vaultMgr.get(ByteArray.fromString(INTERNAL_PREFIX + tblId)).
-            thenCompose(entry -> {
-                TableConfiguration tblConfig = configurationMgr.configurationRegistry().
-                    getConfiguration(TablesConfiguration.KEY).tables().get(tblName);
-
-                assert !entry.empty();
-
-                final int oldVer = (int)ByteUtils.bytesToLong(entry.value(), 0);
-                final int newVer = oldVer + 1;
-
-                final ByteArray lastVerKey = new ByteArray(INTERNAL_PREFIX + tblId);
-                final ByteArray schemaKey = new ByteArray(INTERNAL_PREFIX + tblId + INTERNAL_VER_SUFFIX + newVer);
-
-                SchemaTable schemaTable = SchemaConfigurationConverter.convert(tblConfig.value());
-                final SchemaDescriptor desc = SchemaDescriptorConverter.convert(tblId, newVer, schemaTable);
-
-                return metaStorageMgr.invoke(Conditions.notExists(schemaKey),
-                    Operations.put(schemaKey, ByteUtils.toBytes(desc)),
-                    Operations.noop())
-                    //TODO: IGNITE-14679 Serialize schema.
-                    .thenCompose(res -> metaStorageMgr.invoke(
-                        Conditions.value(lastVerKey).eq(ByteUtils.longToBytes(oldVer)),
-                        Operations.put(lastVerKey, ByteUtils.longToBytes(newVer)),
-                        Operations.noop()));
-            });
-    }
-
-    /**
-     * Creates schema registry for the table with existed schema or
-     * registers initial schema from configuration.
-     *
-     * @param tblId Table id.
-     * @param tblName Table name.
      * @param oldTbl Old table configuration.
      * @param newTbl New table configuraiton.
      * @return Operation future.
      */
     public CompletableFuture<Boolean> updateSchemaForTable(
         final UUID tblId,
-        String tblName,
         TableView oldTbl,
         TableView newTbl
     ) {
@@ -296,19 +266,21 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         TableView oldTbl,
         SchemaDescriptor newDesc,
         TableView newTbl) {
-        ColumnMapperBuilder mapper = null;
+        ColumnMapper mapper = null;
 
         for (String s : newTbl.columns().namedListKeys()) {
             final ColumnView newColView = newTbl.columns().get(s);
             final ColumnView oldColView = oldTbl.columns().get(s);
 
             if (oldColView == null) {
-                assert !newDesc.isKeyColumn(newDesc.column(newColView.name()).schemaIndex());
+                final Column newCol = newDesc.column(newColView.name());
+
+                assert !newDesc.isKeyColumn(newCol.schemaIndex());
 
                 if (mapper == null)
-                    mapper = ColumnMapping.mapperBuilder(newDesc.length());
+                    mapper = ColumnMapping.createMapper(newDesc);
 
-                mapper.add(newDesc.column(newColView.name()).schemaIndex(), -1); // New column added.
+                mapper.add(newCol); // New column added.
             }
             else {
                 final Column newCol = newDesc.column(newColView.name());
@@ -321,7 +293,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                     continue;
 
                 if (mapper == null)
-                    mapper = ColumnMapping.mapperBuilder(newDesc.length());
+                    mapper = ColumnMapping.createMapper(newDesc);
 
                 mapper.add(newCol.schemaIndex(), oldCol.schemaIndex());
             }
@@ -336,7 +308,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         if (droppedKeyCol.isPresent())
             throw new SchemaModificationException("Dropping of key column is forbidden: [schemaVer=" + newDesc.version() + ", col=" + droppedKeyCol.get());
 
-        return mapper == null ? ColumnMapping.identityMapping() : mapper.build();
+        return mapper == null ? ColumnMapping.identityMapping() : mapper;
     }
 
     /**

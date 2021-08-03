@@ -30,13 +30,14 @@ import java.util.TreeSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
-import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NodeFinder;
+import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.CliService;
 import org.apache.ignite.raft.jraft.JRaftUtils;
@@ -50,13 +51,14 @@ import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static java.lang.Thread.sleep;
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -72,7 +74,7 @@ public class ITCliServiceTest {
     /**
      * The logger.
      */
-    private static final Logger LOG = LoggerFactory.getLogger(ITCliServiceTest.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ITCliServiceTest.class);
 
     private static final int LEARNER_PORT_STEP = 100;
 
@@ -113,14 +115,14 @@ public class ITCliServiceTest {
         CliOptions opts = new CliOptions();
         opts.setClientExecutor(JRaftUtils.createClientExecutor(opts, "client"));
 
-        List<NetworkAddress> memberAddresses = peers.stream()
+        NodeFinder nodeFinder = peers.stream()
             .map(PeerId::getEndpoint)
             .map(JRaftUtils::addressFromEndpoint)
-            .collect(Collectors.toList());
+            .collect(collectingAndThen(toList(), StaticNodeFinder::new));
 
         var registry = new MessageSerializationRegistryImpl();
 
-        var serviceConfig = new ClusterLocalConfiguration("client", TestUtils.INIT_PORT - 1, memberAddresses, registry);
+        var serviceConfig = new ClusterLocalConfiguration("client", TestUtils.INIT_PORT - 1, nodeFinder, registry);
 
         var factory = new TestScaleCubeClusterServiceFactory();
 
@@ -132,7 +134,7 @@ public class ITCliServiceTest {
             @Override public void shutdown() {
                 super.shutdown();
 
-                clientSvc.shutdown();
+                clientSvc.stop();
             }
         };
 
@@ -256,6 +258,7 @@ public class ITCliServiceTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15157")
     public void testAddPeerRemovePeer() throws Exception {
         PeerId peer3 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + 3);
         assertTrue(cluster.start(peer3.getEndpoint()));

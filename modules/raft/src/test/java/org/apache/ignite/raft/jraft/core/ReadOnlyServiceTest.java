@@ -21,8 +21,10 @@ import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.JRaftUtils;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.ReadIndexClosure;
+import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.ReadIndexState;
@@ -31,7 +33,6 @@ import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.ReadOnlyServiceOptions;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosure;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Bytes;
@@ -59,19 +60,31 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class ReadOnlyServiceTest {
     private ReadOnlyServiceImpl readOnlyServiceImpl;
 
+    private RaftMessagesFactory msgFactory;
+
     @Mock
     private NodeImpl node;
 
     @Mock
     private FSMCaller fsmCaller;
 
+    /** Disruptor for this service test. */
+    private StripedDisruptor disruptor;
+
     @BeforeEach
     public void setup() {
         this.readOnlyServiceImpl = new ReadOnlyServiceImpl();
+        RaftOptions raftOptions = new RaftOptions();
+        this.msgFactory = raftOptions.getRaftMessagesFactory();
         final ReadOnlyServiceOptions opts = new ReadOnlyServiceOptions();
         opts.setFsmCaller(this.fsmCaller);
         opts.setNode(this.node);
-        opts.setRaftOptions(new RaftOptions());
+        opts.setRaftOptions(raftOptions);
+        opts.setGroupId("TestSrv");
+        opts.setReadOnlyServiceDisruptor(disruptor = new StripedDisruptor<>("TestReadOnlyServiceDisruptor",
+            1024,
+            () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
+            1));
         NodeOptions nodeOptions = new NodeOptions();
         nodeOptions.setCommonExecutor(JRaftUtils.createExecutor("test-executor", Utils.cpus()));
         nodeOptions.setClientExecutor(JRaftUtils.createClientExecutor(nodeOptions, "unittest"));
@@ -89,6 +102,7 @@ public class ReadOnlyServiceTest {
     public void teardown() throws Exception {
         this.readOnlyServiceImpl.shutdown();
         this.readOnlyServiceImpl.join();
+        disruptor.shutdown();
     }
 
     @Test
@@ -106,9 +120,9 @@ public class ReadOnlyServiceTest {
             @Override public boolean matches(ReadIndexRequest argument) {
                 if (argument != null) {
                     final ReadIndexRequest req = (ReadIndexRequest) argument;
-                    return "test".equals(req.getGroupId()) && "localhost:8081:0".equals(req.getServerId())
-                        && req.getEntriesCount() == 1
-                        && Arrays.equals(requestContext, req.getEntries(0).toByteArray());
+                    return "test".equals(req.groupId()) && "localhost:8081:0".equals(req.serverId())
+                        && Utils.size(req.entriesList()) == 1
+                        && Arrays.equals(requestContext, req.entriesList().get(0).toByteArray());
                 }
                 return false;
             }
@@ -138,9 +152,9 @@ public class ReadOnlyServiceTest {
             @Override public boolean matches(ReadIndexRequest argument) {
                 if (argument != null) {
                     final ReadIndexRequest req = (ReadIndexRequest) argument;
-                    return "test".equals(req.getGroupId()) && "localhost:8081:0".equals(req.getServerId())
-                        && req.getEntriesCount() == 1
-                        && Arrays.equals(requestContext, req.getEntries(0).toByteArray());
+                    return "test".equals(req.groupId()) && "localhost:8081:0".equals(req.serverId())
+                        && Utils.size(req.entriesList()) == 1
+                        && Arrays.equals(requestContext, req.entriesList().get(0).toByteArray());
                 }
                 return false;
             }
@@ -151,7 +165,7 @@ public class ReadOnlyServiceTest {
 
         assertNotNull(closure);
 
-        closure.setResponse(ReadIndexResponse.newBuilder().setIndex(1).setSuccess(true).build());
+        closure.setResponse(msgFactory.readIndexResponse().index(1).success(true).build());
         assertTrue(this.readOnlyServiceImpl.getPendingNotifyStatus().isEmpty());
         closure.run(Status.OK());
         assertEquals(this.readOnlyServiceImpl.getPendingNotifyStatus().size(), 1);
@@ -183,9 +197,9 @@ public class ReadOnlyServiceTest {
             @Override public boolean matches(ReadIndexRequest argument) {
                 if (argument != null) {
                     final ReadIndexRequest req = (ReadIndexRequest) argument;
-                    return "test".equals(req.getGroupId()) && "localhost:8081:0".equals(req.getServerId())
-                        && req.getEntriesCount() == 1
-                        && Arrays.equals(requestContext, req.getEntries(0).toByteArray());
+                    return "test".equals(req.groupId()) && "localhost:8081:0".equals(req.serverId())
+                        && Utils.size(req.entriesList()) == 1
+                        && Arrays.equals(requestContext, req.entriesList().get(0).toByteArray());
                 }
                 return false;
             }
@@ -196,7 +210,7 @@ public class ReadOnlyServiceTest {
 
         assertNotNull(closure);
 
-        closure.setResponse(ReadIndexResponse.newBuilder().setIndex(1).setSuccess(true).build());
+        closure.setResponse(msgFactory.readIndexResponse().index(1).success(true).build());
         closure.run(new Status(-1, "test"));
         latch.await();
     }
@@ -226,9 +240,9 @@ public class ReadOnlyServiceTest {
             @Override public boolean matches(ReadIndexRequest argument) {
                 if (argument != null) {
                     final ReadIndexRequest req = (ReadIndexRequest) argument;
-                    return "test".equals(req.getGroupId()) && "localhost:8081:0".equals(req.getServerId())
-                        && req.getEntriesCount() == 1
-                        && Arrays.equals(requestContext, req.getEntries(0).toByteArray());
+                    return "test".equals(req.groupId()) && "localhost:8081:0".equals(req.serverId())
+                        && Utils.size(req.entriesList()) == 1
+                        && Arrays.equals(requestContext, req.entriesList().get(0).toByteArray());
                 }
                 return false;
             }
@@ -239,7 +253,7 @@ public class ReadOnlyServiceTest {
 
         assertNotNull(closure);
 
-        closure.setResponse(ReadIndexResponse.newBuilder().setIndex(1).setSuccess(true).build());
+        closure.setResponse(msgFactory.readIndexResponse().index(1).success(true).build());
         closure.run(Status.OK());
         latch.await();
     }
