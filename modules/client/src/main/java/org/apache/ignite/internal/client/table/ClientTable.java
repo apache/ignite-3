@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client.table;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -132,6 +133,8 @@ public class ClientTable implements Table {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Tuple> getAsync(@NotNull Tuple keyRec) {
+        Objects.requireNonNull(keyRec);
+
         return getLatestSchema().thenCompose(schema ->
                 ch.serviceAsync(ClientOp.TUPLE_GET, w -> writeTuple(keyRec, schema, w, true), r -> {
                     if (r.in().getNextFormat() == MessageFormat.NIL)
@@ -153,11 +156,13 @@ public class ClientTable implements Table {
 
     /** {@inheritDoc} */
     @Override public Collection<Tuple> getAll(@NotNull Collection<Tuple> keyRecs) {
-        throw new UnsupportedOperationException();
+        return getAllAsync(keyRecs).join();
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<Tuple>> getAllAsync(@NotNull Collection<Tuple> keyRecs) {
+        Objects.requireNonNull(keyRecs);
+
         throw new UnsupportedOperationException();
     }
 
@@ -168,57 +173,69 @@ public class ClientTable implements Table {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> upsertAsync(@NotNull Tuple rec) {
+        Objects.requireNonNull(rec);
+
         return getLatestSchema().thenCompose(schema -> ch.serviceAsync(ClientOp.TUPLE_UPSERT,
                 w -> writeTuple(rec, schema, w, false), r -> null));
     }
 
     /** {@inheritDoc} */
     @Override public void upsertAll(@NotNull Collection<Tuple> recs) {
-        throw new UnsupportedOperationException();
+        upsertAllAsync(recs).join();
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> upsertAllAsync(@NotNull Collection<Tuple> recs) {
+        Objects.requireNonNull(recs);
+
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override public Tuple getAndUpsert(@NotNull Tuple rec) {
-        throw new UnsupportedOperationException();
+        return getAndUpsertAsync(rec).join();
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Tuple> getAndUpsertAsync(@NotNull Tuple rec) {
+        Objects.requireNonNull(rec);
+
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override public boolean insert(@NotNull Tuple rec) {
-        throw new UnsupportedOperationException();
+        return insertAsync(rec).join();
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> insertAsync(@NotNull Tuple rec) {
+        Objects.requireNonNull(rec);
+
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override public Collection<Tuple> insertAll(@NotNull Collection<Tuple> recs) {
-        throw new UnsupportedOperationException();
+        return insertAllAsync(recs).join();
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<Tuple>> insertAllAsync(@NotNull Collection<Tuple> recs) {
+        Objects.requireNonNull(recs);
+
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override public boolean replace(@NotNull Tuple rec) {
-        throw new UnsupportedOperationException();
+        return replaceAsync(rec).join();
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple rec) {
+        Objects.requireNonNull(rec);
+
         throw new UnsupportedOperationException();
     }
 
@@ -229,66 +246,81 @@ public class ClientTable implements Table {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple oldRec, @NotNull Tuple newRec) {
+        Objects.requireNonNull(oldRec);
+        Objects.requireNonNull(newRec);
+
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override public Tuple getAndReplace(@NotNull Tuple rec) {
-        throw new UnsupportedOperationException();
+        return getAndUpsertAsync(rec).join();
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(@NotNull Tuple rec) {
+        Objects.requireNonNull(rec);
+
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override public boolean delete(@NotNull Tuple keyRec) {
-        throw new UnsupportedOperationException();
+        return deleteAsync(keyRec).join();
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> deleteAsync(@NotNull Tuple keyRec) {
+        Objects.requireNonNull(keyRec);
+
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override public boolean deleteExact(@NotNull Tuple rec) {
-        throw new UnsupportedOperationException();
+        return deleteExactAsync(rec).join();
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> deleteExactAsync(@NotNull Tuple rec) {
+        Objects.requireNonNull(rec);
+
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override public Tuple getAndDelete(@NotNull Tuple rec) {
-        throw new UnsupportedOperationException();
+        return getAndDeleteAsync(rec).join();
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Tuple> getAndDeleteAsync(@NotNull Tuple rec) {
+        Objects.requireNonNull(rec);
+
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override public Collection<Tuple> deleteAll(@NotNull Collection<Tuple> recs) {
-        throw new UnsupportedOperationException();
+        return deleteAllAsync(recs).join();
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<Tuple>> deleteAllAsync(@NotNull Collection<Tuple> recs) {
+        Objects.requireNonNull(recs);
+
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override public Collection<Tuple> deleteAllExact(@NotNull Collection<Tuple> recs) {
-        throw new UnsupportedOperationException();
+        return deleteAllExactAsync(recs).join();
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<Tuple>> deleteAllExactAsync(@NotNull Collection<Tuple> recs) {
+        Objects.requireNonNull(recs);
+
         throw new UnsupportedOperationException();
     }
 
