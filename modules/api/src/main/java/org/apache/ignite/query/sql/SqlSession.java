@@ -25,11 +25,11 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * SQL session.
+ * SQL Session provides methods for query execution.
  */
 public interface SqlSession extends AsyncSqlSession, ReactiveSqlSession {
     /**
-     * Executes SQL query synchronously.
+     * Executes SQL query.
      *
      * @param sql SQL query template.
      * @param tx Transaction (optional).
@@ -40,7 +40,7 @@ public interface SqlSession extends AsyncSqlSession, ReactiveSqlSession {
     SqlResultSet executeQuery(@NotNull String sql, @Nullable Transaction tx, Object... args);
 
     /**
-     * Executes a non-query statement.
+     * Executes DML query.
      *
      * @param sql SQL statement template.
      * @param tx Transaction (optional).
@@ -50,6 +50,15 @@ public interface SqlSession extends AsyncSqlSession, ReactiveSqlSession {
     int executeUpdate(@NotNull String sql, @Nullable Transaction tx, Object... args);
     //TODO: useful for bulk DML query, when we don't care of results.
     //TODO: in contrary, execute() method may return inserted rows IDs that looks useful if AutoIncrement ID column is used.
+
+    /**
+     * Executes DDL query.
+     *
+     * @param sql SQL statement template.
+     * @param tx Transaction (optional).
+     * @param args Agruments for template (optional).
+     */
+    void execute(@NotNull String sql, @Nullable Transaction tx, Object... args);
 
     /**
      * Creates prepared statement.

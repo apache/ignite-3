@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
@@ -64,6 +65,9 @@ public class SqlTest {
     public void testSynchronousSql() {
         igniteTx.runInTransaction(tx -> {
             SqlSession sess = queryMgr.session();
+
+//            sess.setParameter("forceJoinOrder", true);
+//            sess.setParameter("useIndexHint", "idx1"); TODO: Where to move query hints?
 
             SqlResultSet rs = sess.executeQuery("SELECT id, val FROM table WHERE id < {} AND val LIKE {};", tx, 10, "str%");
 
