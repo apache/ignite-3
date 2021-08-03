@@ -420,7 +420,8 @@ public class RowAssembler {
 
         if (NumericTypeUtils.precisionDoesNotFit(val, type.precision()))
             throw new IllegalArgumentException("Failed to set number value for column '" + col.name() + "' " +
-                "(max precision exceeds allocated precision) [number=" + val + ", max precision=" + type.precision() + "]");
+                "(max precision exceeds allocated precision) " +
+                "[number=" + val + ", max precision=" + type.precision() + "]");
 
         byte[] bytes = val.toByteArray();
 

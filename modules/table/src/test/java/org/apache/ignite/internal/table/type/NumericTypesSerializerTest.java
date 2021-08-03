@@ -152,11 +152,27 @@ public class NumericTypesSerializerTest {
 
         final TupleBuilderImpl badTup = new TupleBuilderImpl(schema);
 
+        Tuple keyTuple = new TupleBuilderImpl(schema).set("key", rnd.nextLong()).build();
+
+        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+
         badTup.set("key", rnd.nextLong());
-        assertThrows(InvalidTypeException.class, () -> badTup.set("decimalCol", new BigDecimal("123456789.0123")), "Column's type mismatch");
-        assertThrows(InvalidTypeException.class, () -> badTup.set("decimalCol", new BigDecimal("-1234567890123")), "Column's type mismatch");
-        assertThrows(InvalidTypeException.class, () -> badTup.set("decimalCol", new BigDecimal("123456789.0123")), "Column's type mismatch");
-        assertThrows(InvalidTypeException.class, () -> badTup.set("decimalCol", new BigDecimal("12345678.9")), "Column's type mismatch");
+        assertThrows(IllegalArgumentException.class,
+            () -> marshaller.marshal(keyTuple, badTup.set("decimalCol", new BigDecimal("123456789.0123")).build()),
+            "Failed to set decimal value for column"
+        );
+        assertThrows(IllegalArgumentException.class,
+            () -> marshaller.marshal(keyTuple, badTup.set("decimalCol", new BigDecimal("-1234567890123")).build()),
+            "Failed to set decimal value for column"
+        );
+        assertThrows(IllegalArgumentException.class,
+            () -> marshaller.marshal(keyTuple, badTup.set("decimalCol", new BigDecimal("123456789.0123")).build()),
+            "Failed to set decimal value for column"
+        );
+        assertThrows(IllegalArgumentException.class,
+            () -> marshaller.marshal(keyTuple, badTup.set("decimalCol", new BigDecimal("12345678.9")).build()),
+            "Failed to set decimal value for column"
+        );
     }
 
     /**
@@ -173,13 +189,18 @@ public class NumericTypesSerializerTest {
             }
         );
 
-        final TupleBuilderImpl badTup = new TupleBuilderImpl(schema);
+        final TupleBuilderImpl tup = new TupleBuilderImpl(schema);
 
-        badTup.set("key", rnd.nextLong());
+        //representation of "0000" value.
+        tup.set("key", rnd.nextLong()).set("decimalCol", new BigDecimal("0E+3"));
 
-        //Formally BigDecimal("0E+3") is "0000" value representation.
-        //Even though it is zero, we cannot check it at runtime.
-        assertThrows(InvalidTypeException.class, () -> badTup.set("decimalCol", new BigDecimal("0E+3")), "Column's type mismatch");
+        Tuple keyTuple = new TupleBuilderImpl(schema).set("key", rnd.nextLong()).build();
+
+        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+
+        final Row row = marshaller.marshal(keyTuple, tup.build());
+
+        assertEquals(row.decimalValue(1), BigDecimal.ZERO);
     }
 
     /**
