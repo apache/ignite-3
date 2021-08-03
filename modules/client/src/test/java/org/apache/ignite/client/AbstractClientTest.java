@@ -68,6 +68,7 @@ public abstract class AbstractClientTest {
         client.close();
         serverFuture.cancel(true);
         serverFuture.await();
+        serverFuture.channel().closeFuture().await();
         configurationRegistry.stop();
     }
 

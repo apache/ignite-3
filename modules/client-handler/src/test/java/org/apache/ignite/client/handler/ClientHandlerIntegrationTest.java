@@ -61,6 +61,7 @@ public class ClientHandlerIntegrationTest {
     public void tearDown() throws Exception {
         serverFuture.cancel(true);
         serverFuture.await();
+        serverFuture.channel().closeFuture().await();
         configurationRegistry.stop();
     }
 
