@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.table;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
@@ -429,7 +430,7 @@ public class ClientTable implements Table {
             for (var col : schema.columns())
                 builder.setInternal(col.schemaIndex(), r.in().unpackObject(col.type()));
         } catch (IOException e) {
-            throw new CompletionException(e);
+            throw new UncheckedIOException(e);
         }
 
         return builder;

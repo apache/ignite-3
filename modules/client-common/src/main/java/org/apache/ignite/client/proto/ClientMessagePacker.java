@@ -18,6 +18,7 @@
 package org.apache.ignite.client.proto;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
@@ -67,7 +68,7 @@ public class ClientMessagePacker extends MessagePacker {
             flush();
         }
         catch (IOException e) {
-            throw new IgniteException(e);
+            throw new UncheckedIOException(e);
         }
 
         buf.setInt(0, buf.writerIndex() - HEADER_SIZE);

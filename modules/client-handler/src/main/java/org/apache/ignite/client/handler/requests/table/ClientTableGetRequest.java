@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.proto.ClientMessagePacker;
@@ -52,7 +53,7 @@ public class ClientTableGetRequest {
                 else
                     out.packUuid(((TableImpl) table).tableId());
             } catch (IOException e) {
-                throw new CompletionException(e);
+                throw new UncheckedIOException(e);
             }
         });
     }
