@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client;
 
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Collections;

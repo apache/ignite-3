@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client.table;
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
@@ -358,7 +357,7 @@ public class ClientTable implements Table {
         });
     }
 
-    private ClientSchema readSchema(ClientMessageUnpacker in) throws IOException {
+    private ClientSchema readSchema(ClientMessageUnpacker in) {
         var schemaVer = in.unpackInt();
         var colCnt = in.unpackArrayHeader();
 
@@ -399,7 +398,7 @@ public class ClientTable implements Table {
         return IgniteToStringBuilder.toString(ClientTable.class, this);
     }
 
-    private void writeTuple(@NotNull Tuple tuple, ClientSchema schema, PayloadOutputChannel w, boolean keyOnly) throws IOException {
+    private void writeTuple(@NotNull Tuple tuple, ClientSchema schema, PayloadOutputChannel w, boolean keyOnly) {
         var vals = new Object[keyOnly ? schema.keyColumnCount() : schema.columns().length];
         var tupleSize = tuple.columnCount();
 
