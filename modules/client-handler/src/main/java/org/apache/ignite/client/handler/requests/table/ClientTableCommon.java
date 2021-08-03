@@ -134,7 +134,8 @@ class ClientTableCommon {
 
                 packer.packInt(schema.version());
                 packer.packInt(tuples.size());
-            }
+            } else
+                assert schema.version() == ((SchemaAware) tuple).schema().version();
 
             writeTuple(packer, tuple, schema);
         }

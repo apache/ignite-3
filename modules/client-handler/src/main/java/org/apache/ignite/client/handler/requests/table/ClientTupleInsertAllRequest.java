@@ -25,6 +25,7 @@ import org.apache.ignite.table.manager.IgniteTables;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuples;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTuples;
 
 /**
  * Client tuple upsert request.
@@ -45,8 +46,6 @@ public class ClientTupleInsertAllRequest {
         var table = readTable(in, tables);
         var tuples = readTuples(in, table, false);
 
-        return table.insertAllAsync(tuples).thenAccept(skippedTuples -> {
-            // TODO: Can we really find original tuple indices?
-        });
+        return table.insertAllAsync(tuples).thenAccept(skippedTuples -> writeTuples(out, tuples));
     }
 }
