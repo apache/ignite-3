@@ -18,6 +18,8 @@ package org.apache.ignite.raft.jraft.core;
 
 import com.codahale.metrics.ConsoleReporter;
 import java.io.File;
+import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -38,6 +40,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
+import java.util.logging.LogManager;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -90,6 +93,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -151,6 +155,13 @@ public class ITNodeTest {
 
     @BeforeAll
     public static void setupNodeTest() {
+        try {
+            LogManager.getLogManager().readConfiguration(ClassLoader.getSystemResourceAsStream("java.util.logging.properties"));
+        }
+        catch (IOException e) {
+            LOG.error("Logger was not re-configured.", e);
+        }
+
         dumpThread = new DumpThread();
         dumpThread.setName("NodeTest-DumpThread");
         dumpThread.setDaemon(true);
@@ -166,7 +177,11 @@ public class ITNodeTest {
 
     @BeforeEach
     public void setup(TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
-        LOG.info(">>>>>>>>>>>>>>> Start test method: " + testInfo.getDisplayName());
+        LOG.info(">>> Starting test: {}#{}, displayName: {}, workDir: {}",
+            testInfo.getTestClass().map(Class::getSimpleName).orElseGet(() -> "<null>"),
+            testInfo.getTestMethod().map(Method::getName).orElseGet(() -> "<null>"),
+            testInfo.getDisplayName(),
+            workDir.toAbsolutePath());
 
         dataPath = workDir.toString();
 
@@ -190,8 +205,11 @@ public class ITNodeTest {
 
         startedCounter.set(0);
         stoppedCounter.set(0);
-        LOG.info(">>>>>>>>>>>>>>> End test method: " + testInfo.getDisplayName() + ", cost:"
-            + (Utils.monotonicMs() - testStartMs) + " ms.");
+
+        LOG.info(">>> Stopping test: {}#{}, displayName: {}, cost: {}ms.",
+            testInfo.getTestClass().map(Class::getSimpleName).orElseGet(() -> "<null>"),
+            testInfo.getTestMethod().map(Method::getName).orElseGet(() -> "<null>"),
+            testInfo.getDisplayName(), Utils.monotonicMs() - testStartMs);
     }
 
     @Test
@@ -2014,8 +2032,9 @@ public class ITNodeTest {
             assertEquals(30, fsm.getLogs().size());
     }
 
-    @Test // TODO add test for timeout on snapshot install https://issues.apache.org/jira/browse/IGNITE-14832
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-14943")
+//    @Test // TODO add test for timeout on snapshot install https://issues.apache.org/jira/browse/IGNITE-14832
+//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-14943")
+    @RepeatedTest(60)
     public void testInstallLargeSnapshotWithThrottle() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(4);
         cluster = new TestCluster("unitest", dataPath, peers.subList(0, 3));
