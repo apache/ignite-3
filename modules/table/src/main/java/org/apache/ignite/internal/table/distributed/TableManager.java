@@ -710,6 +710,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @return A set of table names.
      */
+    //TODO This is an egregious violation of encapsulation. Current approach has to be revisited.
     private Set<String> tableNamesConfigured() {
         IgniteBiTuple<ByteArray, ByteArray> range = toRange(new ByteArray(PUBLIC_PREFIX));
 
