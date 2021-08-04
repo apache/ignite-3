@@ -25,10 +25,10 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.client.IgniteClientException;
+import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.client.proto.ClientOp;
 import org.apache.ignite.internal.client.PayloadInputChannel;
-import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -136,20 +136,23 @@ public class ClientTable implements Table {
         Objects.requireNonNull(keyRec);
 
         return getLatestSchema().thenCompose(schema ->
-                ch.serviceAsync(ClientOp.TUPLE_GET, w -> writeTuple(keyRec, schema, w, true), r -> {
-                    if (r.in().getNextFormat() == MessageFormat.NIL)
-                        return null;
+                ch.serviceAsync(ClientOp.TUPLE_GET,
+                        w -> writeTuple(keyRec, schema, w.out(), true),
+                        r -> {
+                            if (r.in().getNextFormat() == MessageFormat.NIL)
+                                return null;
 
-                    var schemaVer = r.in().unpackInt();
+                            var schemaVer = r.in().unpackInt();
 
-                    return new IgniteBiTuple<>(r, schemaVer);
-                })).thenCompose(biTuple -> {
+                            return new IgniteBiTuple<>(r, schemaVer);
+                        })).thenCompose(biTuple -> {
             if (biTuple == null)
                 return CompletableFuture.completedFuture(null);
 
             assert biTuple.getKey() != null;
             assert biTuple.getValue() != null;
 
+            // TODO: Try to get existing schema, don't allocate Futures when possible
             return getSchema(biTuple.getValue()).thenApply(schema -> readTuple(schema, biTuple.getKey()));
         });
     }
@@ -176,7 +179,7 @@ public class ClientTable implements Table {
         Objects.requireNonNull(rec);
 
         return getLatestSchema().thenCompose(schema -> ch.serviceAsync(ClientOp.TUPLE_UPSERT,
-                w -> writeTuple(rec, schema, w, false), r -> null));
+                w -> writeTuple(rec, schema, w.out(), false), r -> null));
     }
 
     /** {@inheritDoc} */
@@ -213,7 +216,8 @@ public class ClientTable implements Table {
         Objects.requireNonNull(rec);
 
         return getLatestSchema().thenCompose(schema -> ch.serviceAsync(ClientOp.TUPLE_INSERT,
-                w -> writeTuple(rec, schema, w, false), r -> r.in().unpackBoolean()));
+                w -> writeTuple(rec, schema, w.out(), false),
+                r -> r.in().unpackBoolean()));
     }
 
     /** {@inheritDoc} */
@@ -225,7 +229,12 @@ public class ClientTable implements Table {
     @Override public @NotNull CompletableFuture<Collection<Tuple>> insertAllAsync(@NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        throw new UnsupportedOperationException();
+        return getLatestSchema().thenCompose(schema -> ch.serviceAsync(
+                ClientOp.TUPLE_INSERT_ALL,
+                w -> writeTuples(recs, schema, w.out(), false),
+
+                // TODO: get schema, reuse code
+                r -> readTuples(null, null)));
     }
 
     /** {@inheritDoc} */
@@ -433,7 +442,8 @@ public class ClientTable implements Table {
         return IgniteToStringBuilder.toString(ClientTable.class, this);
     }
 
-    private void writeTuple(@NotNull Tuple tuple, ClientSchema schema, PayloadOutputChannel w, boolean keyOnly) {
+    private void writeTuple(@NotNull Tuple tuple, ClientSchema schema, ClientMessagePacker out, boolean keyOnly) {
+        // TODO: Special case for ClientTupleBuilder - it has columns in order
         var vals = new Object[keyOnly ? schema.keyColumnCount() : schema.columns().length];
         var tupleSize = tuple.columnCount();
 
@@ -447,11 +457,20 @@ public class ClientTable implements Table {
             vals[col.schemaIndex()] = tuple.value(i);
         }
 
-        w.out().packUuid(id);
-        w.out().packInt(schema.version());
+        out.packUuid(id);
+        out.packInt(schema.version());
 
         for (var val : vals)
-            w.out().packObject(val);
+            out.packObject(val);
+    }
+
+    private void writeTuples(
+            @NotNull Collection<Tuple> tuples,
+            ClientSchema schema,
+            ClientMessagePacker out,
+            boolean keyOnly
+    ) {
+        // TODO
     }
 
     private Tuple readTuple(ClientSchema schema, PayloadInputChannel r) {
@@ -461,5 +480,10 @@ public class ClientTable implements Table {
             builder.setInternal(col.schemaIndex(), r.in().unpackObject(col.type()));
 
         return builder;
+    }
+
+    private Collection<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in) {
+        // TODO
+        return null;
     }
 }

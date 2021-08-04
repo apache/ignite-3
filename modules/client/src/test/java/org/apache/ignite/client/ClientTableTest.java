@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Table tests.
@@ -118,6 +119,11 @@ public class ClientTableTest extends AbstractClientTest {
 
         var resTuple = table.get(getDefaultTupleKey(table));
         assertTupleEquals(tuple, resTuple);
+    }
+
+    @Test
+    public void testInsertCustomTuple() {
+        fail("TODO");
     }
 
     private Tuple getDefaultTuple(Table table) {
