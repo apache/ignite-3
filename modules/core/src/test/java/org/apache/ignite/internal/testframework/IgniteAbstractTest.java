@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.testframework;
 
+import java.lang.reflect.Method;
 import java.nio.file.Path;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy;
@@ -59,8 +60,11 @@ public abstract class IgniteAbstractTest {
      */
     @BeforeEach
     public void setup(TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
-        log.info(">>>>>>>>>>>>>>> Start test method: {}.{}, workDir: {}", getClass().getSimpleName(),
-            testInfo.getDisplayName(), workDir.toAbsolutePath());
+        log.info(">>> Starting test: {}#{}, displayName: {}, workDir: {}",
+            testInfo.getTestClass().map(Class::getSimpleName).orElseGet(() -> "<null>"),
+            testInfo.getTestMethod().map(Method::getName).orElseGet(() -> "<null>"),
+            testInfo.getDisplayName(),
+            workDir.toAbsolutePath());
 
         this.workDir = workDir;
         this.testStartMs = monotonicMs();
@@ -74,7 +78,9 @@ public abstract class IgniteAbstractTest {
      */
     @AfterEach
     public void teardown(TestInfo testInfo) throws Exception {
-        log.info(">>>>>>>>>>>>>>> End test method: {}.{}, cost:{} ms.", getClass().getSimpleName(),
+        log.info(">>> Stopping test: {}#{}, displayName: {}, cost:{} ms.",
+            testInfo.getTestClass().map(Class::getSimpleName).orElseGet(() -> "<null>"),
+            testInfo.getTestMethod().map(Method::getName).orElseGet(() -> "<null>"),
             testInfo.getDisplayName(), monotonicMs() - testStartMs);
     }
 
