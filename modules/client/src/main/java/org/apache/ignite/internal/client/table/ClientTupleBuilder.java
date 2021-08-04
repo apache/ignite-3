@@ -241,6 +241,15 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
         vals[columnIndex] = value;
     }
 
+    /**
+     * Gets the schema.
+     *
+     * @return Schema.
+     */
+    public ClientSchema schema() {
+        return schema;
+    }
+
     private void validateColumnIndex(int columnIndex) {
         if (columnIndex < 0)
             throw new IllegalArgumentException("Column index can't be negative");

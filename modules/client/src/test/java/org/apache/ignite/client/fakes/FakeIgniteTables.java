@@ -27,6 +27,7 @@ import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
@@ -135,8 +136,8 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
         return new TableImpl(new FakeInternalTable(name, tableId), getSchemaReg(tableId), null, null);
     }
 
-    @NotNull private SchemaRegistryImpl getSchemaReg(UUID tableId) {
-        return new SchemaRegistryImpl(1, v -> getSchema(v, tableId));
+    @NotNull private SchemaRegistry getSchemaReg(UUID tableId) {
+        return new FakeSchemaRegistry(v -> getSchema(v, tableId));
     }
 
     /**
