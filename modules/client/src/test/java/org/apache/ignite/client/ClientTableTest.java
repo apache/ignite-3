@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import java.util.concurrent.CompletionException;
 
+import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
@@ -104,8 +105,15 @@ public class ClientTableTest extends AbstractClientTest {
     }
 
     @Test
-    public void testGetReturningUnknownSchema() {
-        fail("TODO: Table returns a tuple with yet unknown schema");
+    public void testGetReturningUnknownSchema() throws Exception {
+        // fail("TODO: Table returns a tuple with yet unknown schema");
+        var table = getTableWithNewSchema();
+        Tuple tuple = getDefaultTuple(table);
+        table.upsert(tuple);
+
+        try (var client2 = startClient()) {
+            client2.tables().table(table.tableName()).get(tuple);
+        }
     }
 
     @Test
@@ -156,5 +164,11 @@ public class ClientTableTest extends AbstractClientTest {
         server.tables().getOrCreateTable(DEFAULT_TABLE, tbl -> tbl.changeReplicas(1));
 
         return client.tables().table(DEFAULT_TABLE);
+    }
+
+    private Table getTableWithNewSchema() {
+        server.tables().getOrCreateTable(FakeIgniteTables.TABLE_WITH_NEW_SCHEMA, tbl -> tbl.changeReplicas(1));
+
+        return client.tables().table(FakeIgniteTables.TABLE_WITH_NEW_SCHEMA);
     }
 }

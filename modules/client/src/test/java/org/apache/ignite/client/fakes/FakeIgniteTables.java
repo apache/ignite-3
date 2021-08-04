@@ -146,14 +146,26 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
      * @return Schema descriptor.
      */
     private SchemaDescriptor getSchema(Integer v, UUID tableId) {
-        if (v != 1)
-            return null;
+        switch (v) {
+            case 1:
+                return new SchemaDescriptor(
+                        tableId,
+                        1,
+                        new Column[]{new Column("id", NativeTypes.INT64, false)},
+                        new Column[]{new Column("name", NativeTypes.STRING, true)});
 
-        return new SchemaDescriptor(
-                tableId,
-                1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("name", NativeTypes.STRING, true)});
+            case 2:
+                return new SchemaDescriptor(
+                        tableId,
+                        2,
+                        new Column[]{new Column("id", NativeTypes.INT64, false)},
+                        new Column[]{
+                                new Column("name", NativeTypes.STRING, true),
+                                new Column("xyz", NativeTypes.STRING, true)
+                        });
+        }
+
+        return null;
     }
 
     /** {@inheritDoc} */
