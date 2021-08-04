@@ -203,3 +203,24 @@ Besides local node stopping logic two more actions took place on a cluster as a 
  * Both range and watch cursors will be removed on server side. Given process is linearized with meta storage
   operations by using a meta storage raft.
  * Baseline update and corresponding baseline recalculation with ongoing partition raft groups redeployment.
+
+### Restart node flow.
+
+Motivation:
+A node may leave a topology due to technical reason (hardware problem or operating system interruption) or an administrator's wish (stop the node through API). In the most of those cases, the node requires starting and returns to the topology.
+It makes a restart node is widespread scenario in a distributed system.
+
+Process description:
+Here will be described only node start process, because a node stop is described in another proposal. Also, the stop may happen at any moment, without precautions, due to hardware failure.
+
+Before the node start need to check a persistence storage. If the storage is not initialized, all required properties should be set from bootstrap config or assigned by default. When the storage is initialized and the node ready to start (all required properties in configuration are initialized, and possible storage has some data about distributed structures: tables, services). The node restores memory state from persistence.
+
+The node readies to join a topology. In that place the node theoretically can handle load, but it shouldn't be because the node doesn't join to topology (possibly it missed some distributed updates).
+
+When the node lag behind the topology too much and can't get all Meta Storage update (case when the node is getting Companion exception), the node stops with appropriate message (for example, "Could not join topology because Meta Storage does not have enough history.").
+Otherwise, the node goes through all distributed process (create/drop table, change table schema, start/stop service e.t.c) which had missed when it was offline. Just after recovery Meta Storage, the node started and ready to work as a part of the topology.
+
+There are stages which should passed to implement this:
+1) Determine the node was initialized before, or it is a first node start.
+2) Recovery in-memory state for all components from persistence.
+3) Update a node's state to the distributed one (apply all missed update from Meta Storage).
