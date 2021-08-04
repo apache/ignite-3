@@ -41,7 +41,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Live schema tests.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-14581")
 class LiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
     /**
      * Check exception for unknown column when STRICT_SCHEMA is enabled.

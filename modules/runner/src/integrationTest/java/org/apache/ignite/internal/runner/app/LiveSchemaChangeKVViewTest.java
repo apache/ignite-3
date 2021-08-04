@@ -39,7 +39,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Live schema tests for KV View.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-14581")
 class LiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
     /**
      * Check exception for unknown column when STRICT_SCHEMA is enabled.
