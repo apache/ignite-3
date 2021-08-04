@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.client.proto.ClientMessagePacker;
@@ -135,26 +136,37 @@ public class ClientTable implements Table {
     @Override public @NotNull CompletableFuture<Tuple> getAsync(@NotNull Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
-        return getLatestSchema().thenCompose(schema ->
-                ch.serviceAsync(ClientOp.TUPLE_GET,
-                        w -> writeTuple(keyRec, schema, w.out(), true),
-                        r -> {
-                            if (r.in().getNextFormat() == MessageFormat.NIL)
-                                return null;
+        return getLatestSchema()
+                .thenCompose(schema ->
+                        ch.serviceAsync(ClientOp.TUPLE_GET,
+                                w -> writeTuple(keyRec, schema, w.out(), true),
+                                this::readSchemaVer))
+                // TODO: How do we close the buffer outside of serviceAsync?
+                .thenCompose(this::getSchemaAndReadTuple);
+    }
 
-                            var schemaVer = r.in().unpackInt();
+    @Nullable
+    public IgniteBiTuple<PayloadInputChannel, Integer> readSchemaVer(PayloadInputChannel r) {
+        if (r.in().getNextFormat() == MessageFormat.NIL)
+            return null;
 
-                            return new IgniteBiTuple<>(r, schemaVer);
-                        })).thenCompose(biTuple -> {
-            if (biTuple == null)
-                return CompletableFuture.completedFuture(null);
+        var schemaVer = r.in().unpackInt();
 
-            assert biTuple.getKey() != null;
-            assert biTuple.getValue() != null;
+        return new IgniteBiTuple<>(r, schemaVer);
+    }
 
-            // TODO: Try to get existing schema, don't allocate Futures when possible
-            return getSchema(biTuple.getValue()).thenApply(schema -> readTuple(schema, biTuple.getKey()));
-        });
+    public CompletionStage<Tuple> getSchemaAndReadTuple(IgniteBiTuple<PayloadInputChannel, Integer> biTuple) {
+        if (biTuple == null)
+            return CompletableFuture.completedFuture(null);
+
+        Integer schemaId = biTuple.getValue();
+        PayloadInputChannel r = biTuple.getKey();
+
+        assert r != null;
+        assert schemaId != null;
+
+        // TODO: Try to get existing schema, don't allocate Futures when possible
+        return getSchema(schemaId).thenApply(schema -> readTuple(schema, r));
     }
 
     /** {@inheritDoc} */
