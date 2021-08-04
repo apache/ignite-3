@@ -74,6 +74,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public int unpackInt() {
+        assert !closed;
+
         try {
             return super.unpackInt();
         } catch (IOException e) {
@@ -83,6 +85,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public String unpackString() {
+        assert !closed;
+
         try {
             return super.unpackString();
         } catch (IOException e) {
@@ -92,6 +96,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public void unpackNil() {
+        assert !closed;
+
         try {
             super.unpackNil();
         } catch (IOException e) {
@@ -101,6 +107,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public boolean unpackBoolean() {
+        assert !closed;
+
         try {
             return super.unpackBoolean();
         } catch (IOException e) {
@@ -110,6 +118,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public byte unpackByte() {
+        assert !closed;
+
         try {
             return super.unpackByte();
         } catch (IOException e) {
@@ -119,6 +129,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public short unpackShort() {
+        assert !closed;
+
         try {
             return super.unpackShort();
         } catch (IOException e) {
@@ -128,6 +140,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public long unpackLong() {
+        assert !closed;
+
         try {
             return super.unpackLong();
         } catch (IOException e) {
@@ -137,6 +151,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public BigInteger unpackBigInteger() {
+        assert !closed;
+
         try {
             return super.unpackBigInteger();
         } catch (IOException e) {
@@ -146,6 +162,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public float unpackFloat() {
+        assert !closed;
+
         try {
             return super.unpackFloat();
         } catch (IOException e) {
@@ -155,6 +173,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public double unpackDouble() {
+        assert !closed;
+
         try {
             return super.unpackDouble();
         } catch (IOException e) {
@@ -164,6 +184,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public int unpackArrayHeader() {
+        assert !closed;
+
         try {
             return super.unpackArrayHeader();
         } catch (IOException e) {
@@ -173,6 +195,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public int unpackMapHeader() {
+        assert !closed;
+
         try {
             return super.unpackMapHeader();
         } catch (IOException e) {
@@ -182,6 +206,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public ExtensionTypeHeader unpackExtensionTypeHeader() {
+        assert !closed;
+
         try {
             return super.unpackExtensionTypeHeader();
         } catch (IOException e) {
@@ -191,6 +217,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public int unpackBinaryHeader() {
+        assert !closed;
+
         try {
             return super.unpackBinaryHeader();
         } catch (IOException e) {
@@ -200,6 +228,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public boolean tryUnpackNil() {
+        assert !closed;
+
         try {
             return super.tryUnpackNil();
         } catch (IOException e) {
@@ -209,6 +239,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public byte[] readPayload(int length) {
+        assert !closed;
+
         try {
             return super.readPayload(length);
         } catch (IOException e) {
@@ -218,6 +250,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public MessageFormat getNextFormat() {
+        assert !closed;
+
         try {
             return super.getNextFormat();
         } catch (IOException e) {
@@ -227,6 +261,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public void skipValue(int count) {
+        assert !closed;
+
         try {
             super.skipValue(count);
         } catch (IOException e) {
@@ -236,6 +272,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public void skipValue() {
+        assert !closed;
+
         try {
             super.skipValue();
         } catch (IOException e) {
@@ -245,6 +283,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public boolean hasNext() {
+        assert !closed;
+
         try {
             return super.hasNext();
         } catch (IOException e) {
@@ -254,6 +294,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public ImmutableValue unpackValue() {
+        assert !closed;
+
         try {
             return super.unpackValue();
         } catch (IOException e) {
@@ -269,6 +311,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * @throws MessageSizeException when size is not correct.
      */
     public UUID unpackUuid() {
+        assert !closed;
+
         var hdr = unpackExtensionTypeHeader();
         var type = hdr.getType();
         var len = hdr.getLength();
@@ -292,6 +336,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * @return Decimal value.
      */
     public BigDecimal unpackDecimal() {
+        assert !closed;
+
         throw new UnsupportedOperationException("TODO: IGNITE-15163");
     }
 
@@ -301,6 +347,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * @return Bit set.
      */
     public BitSet unpackBitSet() {
+        assert !closed;
+
         throw new UnsupportedOperationException("TODO: IGNITE-15163");
     }
 

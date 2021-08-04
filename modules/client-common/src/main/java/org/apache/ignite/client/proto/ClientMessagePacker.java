@@ -81,6 +81,8 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packNil() {
+        assert !closed;
+
         try {
             return super.packNil();
         } catch (IOException e) {
@@ -90,6 +92,8 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packBoolean(boolean b) {
+        assert !closed;
+
         try {
             return super.packBoolean(b);
         } catch (IOException e) {
@@ -99,6 +103,8 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packByte(byte b) {
+        assert !closed;
+
         try {
             return super.packByte(b);
         } catch (IOException e) {
@@ -108,6 +114,8 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packShort(short v) {
+        assert !closed;
+
         try {
             return super.packShort(v);
         } catch (IOException e) {
@@ -117,6 +125,8 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packInt(int r) {
+        assert !closed;
+
         try {
             return super.packInt(r);
         } catch (IOException e) {
@@ -126,6 +136,8 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packLong(long v) {
+        assert !closed;
+
         try {
             return super.packLong(v);
         } catch (IOException e) {
@@ -135,6 +147,8 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packBigInteger(BigInteger bi) {
+        assert !closed;
+
         try {
             return super.packBigInteger(bi);
         } catch (IOException e) {
@@ -144,6 +158,8 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packFloat(float v) {
+        assert !closed;
+
         try {
             return super.packFloat(v);
         } catch (IOException e) {
@@ -153,6 +169,8 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packDouble(double v) {
+        assert !closed;
+
         try {
             return super.packDouble(v);
         } catch (IOException e) {
@@ -162,6 +180,8 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packString(String s) {
+        assert !closed;
+
         try {
             return super.packString(s);
         } catch (IOException e) {
@@ -171,6 +191,8 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packArrayHeader(int arraySize) {
+        assert !closed;
+
         try {
             return super.packArrayHeader(arraySize);
         } catch (IOException e) {
@@ -180,6 +202,8 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packMapHeader(int mapSize) {
+        assert !closed;
+
         try {
             return super.packMapHeader(mapSize);
         } catch (IOException e) {
@@ -189,6 +213,8 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packValue(Value v) {
+        assert !closed;
+
         try {
             return super.packValue(v);
         } catch (IOException e) {
@@ -198,6 +224,8 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packExtensionTypeHeader(byte extType, int payloadLen) {
+        assert !closed;
+
         try {
             return super.packExtensionTypeHeader(extType, payloadLen);
         } catch (IOException e) {
@@ -207,6 +235,8 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packBinaryHeader(int len) {
+        assert !closed;
+
         try {
             return super.packBinaryHeader(len);
         } catch (IOException e) {
@@ -216,6 +246,8 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packRawStringHeader(int len) {
+        assert !closed;
+
         try {
             return super.packRawStringHeader(len);
         } catch (IOException e) {
@@ -225,6 +257,8 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker writePayload(byte[] src) {
+        assert !closed;
+
         try {
             return super.writePayload(src);
         } catch (IOException e) {
@@ -234,6 +268,8 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker writePayload(byte[] src, int off, int len) {
+        assert !closed;
+
         try {
             return super.writePayload(src, off, len);
         } catch (IOException e) {
@@ -243,6 +279,8 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker addPayload(byte[] src) {
+        assert !closed;
+
         try {
             return super.addPayload(src);
         } catch (IOException e) {
@@ -252,6 +290,8 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker addPayload(byte[] src, int off, int len) {
+        assert !closed;
+
         try {
             return super.addPayload(src, off, len);
         } catch (IOException e) {
@@ -266,6 +306,8 @@ public class ClientMessagePacker extends MessagePacker {
      * @return This instance.
      */
     public ClientMessagePacker packUuid(UUID val) {
+        assert !closed;
+
         packExtensionTypeHeader(ClientMsgPackType.UUID, 16);
 
         var bytes = new byte[16];
@@ -286,6 +328,8 @@ public class ClientMessagePacker extends MessagePacker {
      * @return This instance.
      */
     public ClientMessagePacker packDecimal(BigDecimal val) {
+        assert !closed;
+
         throw new UnsupportedOperationException("TODO: IGNITE-15163");
     }
 
@@ -296,6 +340,8 @@ public class ClientMessagePacker extends MessagePacker {
      * @return This instance.
      */
     public ClientMessagePacker packBitSet(BitSet val) {
+        assert !closed;
+
         throw new UnsupportedOperationException("TODO: IGNITE-15163");
     }
 
