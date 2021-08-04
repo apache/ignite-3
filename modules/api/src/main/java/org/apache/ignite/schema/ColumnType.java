@@ -296,6 +296,7 @@ public class ColumnType {
 
         /**
          * Constructor.
+         *
          * @param typeSpec Type specification.
          * @param precision Precision.
          */
@@ -307,6 +308,7 @@ public class ColumnType {
 
         /**
          * Returns column precision.
+         *
          * @return Max value precision.
          */
         public int precision() {
