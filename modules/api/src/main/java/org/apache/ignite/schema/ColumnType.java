@@ -110,6 +110,7 @@ public class ColumnType {
      *
      * @param precision Precision of value.
      * @return Number type.
+     * @throws IllegalArgumentException If precision is not positive.
      */
     public static NumberColumnType numberOf(int precision) {
         if (precision <= 0)
@@ -133,6 +134,7 @@ public class ColumnType {
      * @param precision Precision.
      * @param scale Scale.
      * @return Decimal type.
+     * @throws IllegalArgumentException If precision or scale are invalid.
      */
     public static DecimalColumnType decimalOf(int precision, int scale) {
         if (precision <= 0)
@@ -292,7 +294,11 @@ public class ColumnType {
         /** Max precision of value. If -1, column has no precision restrictions. */
         private final int precision;
 
-        /** Constructor. */
+        /**
+         * Constructor.
+         * @param typeSpec Type specification.
+         * @param precision Precision.
+         */
         private NumberColumnType(ColumnTypeSpec typeSpec, int precision) {
             super(typeSpec);
 
@@ -300,6 +306,7 @@ public class ColumnType {
         }
 
         /**
+         * Returns column precision.
          * @return Max value precision.
          */
         public int precision() {
@@ -373,6 +380,7 @@ public class ColumnType {
         /** Binary data. */
         BLOB,
 
+        /** Number. */
         NUMBER,
     }
 
