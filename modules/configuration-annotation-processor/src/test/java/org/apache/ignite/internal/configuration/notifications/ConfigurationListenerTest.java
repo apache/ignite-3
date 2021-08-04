@@ -36,7 +36,6 @@ import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -172,7 +171,7 @@ public class ConfigurationListenerTest {
             return completedFuture(null);
         });
 
-        configuration.elements().listen(new ConfigurationNamedListListener<ChildView>() {
+        configuration.elements().listenElements(new ConfigurationNamedListListener<ChildView>() {
             /** {@inheritDoc} */
             @Override public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {
                 assertNull(ctx.oldValue());
@@ -258,7 +257,7 @@ public class ConfigurationListenerTest {
             return completedFuture(null);
         });
 
-        configuration.elements().listen(new ConfigurationNamedListListener<ChildView>() {
+        configuration.elements().listenElements(new ConfigurationNamedListListener<ChildView>() {
             /** {@inheritDoc} */
             @Override public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {
                 log.add("create");
@@ -353,7 +352,7 @@ public class ConfigurationListenerTest {
             return completedFuture(null);
         });
 
-        configuration.elements().listen(new ConfigurationNamedListListener<ChildView>() {
+        configuration.elements().listenElements(new ConfigurationNamedListListener<ChildView>() {
             /** {@inheritDoc} */
             @Override public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {
                 log.add("create");
@@ -443,7 +442,7 @@ public class ConfigurationListenerTest {
             return completedFuture(null);
         });
 
-        configuration.elements().listen(new ConfigurationNamedListListener<ChildView>() {
+        configuration.elements().listenElements(new ConfigurationNamedListListener<ChildView>() {
             /** {@inheritDoc} */
             @Override public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {
                 log.add("create");
@@ -497,7 +496,6 @@ public class ConfigurationListenerTest {
 
     /** */
     @Test
-    @Disabled("Will be fixed in https://issues.apache.org/jira/browse/IGNITE-15193")
     public void dataRace() throws Exception {
         configuration.change(parent -> parent.changeElements(elements ->
             elements.create("name", e -> {}))

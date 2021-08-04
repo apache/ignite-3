@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration.sample;
 
 import java.util.Arrays;
 import java.util.Collections;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.junit.jupiter.api.AfterEach;
@@ -55,6 +56,8 @@ public class UsageTest {
         );
 
         registry.start();
+
+        registry.startStorageConfigurations(ConfigurationType.LOCAL);
 
         LocalConfiguration root = registry.getConfiguration(LocalConfiguration.KEY);
 
