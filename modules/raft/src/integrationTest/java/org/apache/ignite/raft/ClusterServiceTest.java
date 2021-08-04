@@ -31,6 +31,7 @@ import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
@@ -61,6 +62,7 @@ public class ClusterServiceTest {
     private RaftMessagesFactory raftMessagesFactory = new RaftMessagesFactory();
 
     @Test
+    @Disabled
     public void test() throws Exception {
         ClusterService service1 = clusterService("server1", PORT_1, List.of(new NetworkAddress(getLocalAddress(), PORT_2)), true);
         ClusterService service2 = clusterService("server2", PORT_2, List.of(new NetworkAddress(getLocalAddress(), PORT_1)), true);
