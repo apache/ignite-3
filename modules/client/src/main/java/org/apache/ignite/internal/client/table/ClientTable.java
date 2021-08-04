@@ -140,33 +140,46 @@ public class ClientTable implements Table {
                 .thenCompose(schema ->
                         ch.serviceAsync(ClientOp.TUPLE_GET,
                                 w -> writeTuple(keyRec, schema, w.out(), true),
-                                this::readSchemaVer))
-                // TODO: How do we close the buffer outside of serviceAsync?
+                                r -> {
+                                    if (r.in().getNextFormat() == MessageFormat.NIL)
+                                        return null;
+
+                                    var schemaVer = r.in().unpackInt();
+
+                                    var resSchema = schemaVer == schema.version() ? schema : schemas.get(schemaVer);
+
+                                    if (resSchema != null) {
+                                        return readTuple(schema, r.in());
+                                    }
+
+                                    // Schema is not yet known - request
+                                    return new IgniteBiTuple<>(r.in().copy(), schemaVer);
+                                }))
                 .thenCompose(this::getSchemaAndReadTuple);
     }
 
-    @Nullable
-    public IgniteBiTuple<PayloadInputChannel, Integer> readSchemaVer(PayloadInputChannel r) {
-        if (r.in().getNextFormat() == MessageFormat.NIL)
-            return null;
+    @SuppressWarnings("unchecked")
+    public CompletionStage<Tuple> getSchemaAndReadTuple(Object data) {
+        if (!(data instanceof IgniteBiTuple))
+            return CompletableFuture.completedFuture((Tuple) data);
 
-        var schemaVer = r.in().unpackInt();
+        var biTuple = (IgniteBiTuple<ClientMessageUnpacker, Integer>) data;
 
-        return new IgniteBiTuple<>(r, schemaVer);
-    }
+        var in = biTuple.getKey();
+        var schemaId = biTuple.getValue();
 
-    public CompletionStage<Tuple> getSchemaAndReadTuple(IgniteBiTuple<PayloadInputChannel, Integer> biTuple) {
-        if (biTuple == null)
-            return CompletableFuture.completedFuture(null);
-
-        Integer schemaId = biTuple.getValue();
-        PayloadInputChannel r = biTuple.getKey();
-
-        assert r != null;
+        assert in != null;
         assert schemaId != null;
 
-        // TODO: Try to get existing schema, don't allocate Futures when possible
-        return getSchema(schemaId).thenApply(schema -> readTuple(schema, r));
+        var tupleFut = getSchema(schemaId).thenApply(schema -> readTuple(schema, in));
+
+        // Close copied unpacker.
+        tupleFut.handle((tuple, err) -> {
+            in.close();
+            return null;
+        });
+
+        return tupleFut;
     }
 
     /** {@inheritDoc} */
@@ -485,11 +498,11 @@ public class ClientTable implements Table {
         // TODO
     }
 
-    private Tuple readTuple(ClientSchema schema, PayloadInputChannel r) {
+    private Tuple readTuple(ClientSchema schema, ClientMessageUnpacker in) {
         var builder = new ClientTupleBuilder(schema);
 
         for (var col : schema.columns())
-            builder.setInternal(col.schemaIndex(), r.in().unpackObject(col.type()));
+            builder.setInternal(col.schemaIndex(), in.unpackObject(col.type()));
 
         return builder;
     }

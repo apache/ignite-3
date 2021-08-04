@@ -104,6 +104,11 @@ public class ClientTableTest extends AbstractClientTest {
     }
 
     @Test
+    public void testGetReturningUnknownSchema() {
+        fail("TODO: Table returns a tuple with yet unknown schema");
+    }
+
+    @Test
     public void testInsert() {
         Table table = getDefaultTable();
 

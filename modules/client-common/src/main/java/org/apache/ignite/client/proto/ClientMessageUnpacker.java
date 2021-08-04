@@ -56,6 +56,9 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     /** Underlying buffer. */
     private final ByteBuf buf;
 
+    /** Underlying input. */
+    private final InputStreamBufferInput in;
+
     /** Closed flag. */
     private boolean closed = false;
 
@@ -66,11 +69,15 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      */
     public ClientMessageUnpacker(ByteBuf buf) {
         // TODO: Remove intermediate classes and buffers IGNITE-15234.
-        super(new InputStreamBufferInput(new ByteBufInputStream(buf)), MessagePack.DEFAULT_UNPACKER_CONFIG);
-
-        this.buf = buf;
+        this(new InputStreamBufferInput(new ByteBufInputStream(buf)), buf);
     }
 
+    private ClientMessageUnpacker(InputStreamBufferInput in, ByteBuf buf) {
+        super(in, MessagePack.DEFAULT_UNPACKER_CONFIG);
+
+        this.in = in;
+        this.buf = buf;
+    }
 
     /** {@inheritDoc} */
     @Override public int unpackInt() {
@@ -402,6 +409,21 @@ public class ClientMessageUnpacker extends MessageUnpacker {
         }
 
         throw new IgniteException("Unknown client data type: " + dataType);
+    }
+
+    /**
+     * Creates a copy of this unpacker and the underlying buffer.
+     *
+     * @return Copied unpacker.
+     */
+    public ClientMessageUnpacker copy() {
+        try {
+            in.reset(new ByteBufInputStream(buf.copy()));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+
+        return this;
     }
 
     /** {@inheritDoc} */
