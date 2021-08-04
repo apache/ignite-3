@@ -151,8 +151,9 @@ public class ClientTable implements Table {
                                         return readTuple(schema, r.in());
                                     }
 
-                                    // Schema is not yet known - request
-                                    return new IgniteBiTuple<>(r.in().copy(), schemaVer);
+                                    // Schema is not yet known - request.
+                                    // Retain unpacker - normally it is closed when this method exits.
+                                    return new IgniteBiTuple<>(r.in().retain(), schemaVer);
                                 }))
                 .thenCompose(this::getSchemaAndReadTuple);
     }
@@ -172,7 +173,7 @@ public class ClientTable implements Table {
 
         var tupleFut = getSchema(schemaId).thenApply(schema -> readTuple(schema, in));
 
-        // Close copied unpacker.
+        // Close unpacker.
         tupleFut.handle((tuple, err) -> {
             in.close();
             return null;

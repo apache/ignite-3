@@ -59,8 +59,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     /** Underlying input. */
     private final InputStreamBufferInput in;
 
-    /** Closed flag. */
-    private boolean closed = false;
+    /** Ref count. */
+    private int refCnt = 1;
 
     /**
      * Constructor.
@@ -81,7 +81,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public int unpackInt() {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         try {
             return super.unpackInt();
@@ -92,7 +92,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public String unpackString() {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         try {
             return super.unpackString();
@@ -103,7 +103,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public void unpackNil() {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         try {
             super.unpackNil();
@@ -114,7 +114,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public boolean unpackBoolean() {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         try {
             return super.unpackBoolean();
@@ -125,7 +125,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public byte unpackByte() {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         try {
             return super.unpackByte();
@@ -136,7 +136,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public short unpackShort() {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         try {
             return super.unpackShort();
@@ -147,7 +147,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public long unpackLong() {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         try {
             return super.unpackLong();
@@ -158,7 +158,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public BigInteger unpackBigInteger() {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         try {
             return super.unpackBigInteger();
@@ -169,7 +169,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public float unpackFloat() {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         try {
             return super.unpackFloat();
@@ -180,7 +180,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public double unpackDouble() {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         try {
             return super.unpackDouble();
@@ -191,7 +191,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public int unpackArrayHeader() {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         try {
             return super.unpackArrayHeader();
@@ -202,7 +202,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public int unpackMapHeader() {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         try {
             return super.unpackMapHeader();
@@ -213,7 +213,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public ExtensionTypeHeader unpackExtensionTypeHeader() {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         try {
             return super.unpackExtensionTypeHeader();
@@ -224,7 +224,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public int unpackBinaryHeader() {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         try {
             return super.unpackBinaryHeader();
@@ -235,7 +235,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public boolean tryUnpackNil() {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         try {
             return super.tryUnpackNil();
@@ -246,7 +246,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public byte[] readPayload(int length) {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         try {
             return super.readPayload(length);
@@ -257,7 +257,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public MessageFormat getNextFormat() {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         try {
             return super.getNextFormat();
@@ -268,7 +268,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public void skipValue(int count) {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         try {
             super.skipValue(count);
@@ -279,7 +279,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public void skipValue() {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         try {
             super.skipValue();
@@ -290,7 +290,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public boolean hasNext() {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         try {
             return super.hasNext();
@@ -301,7 +301,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /** {@inheritDoc} */
     @Override public ImmutableValue unpackValue() {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         try {
             return super.unpackValue();
@@ -318,7 +318,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * @throws MessageSizeException when size is not correct.
      */
     public UUID unpackUuid() {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         var hdr = unpackExtensionTypeHeader();
         var type = hdr.getType();
@@ -343,7 +343,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * @return Decimal value.
      */
     public BigDecimal unpackDecimal() {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         throw new UnsupportedOperationException("TODO: IGNITE-15163");
     }
@@ -354,7 +354,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * @return Bit set.
      */
     public BitSet unpackBitSet() {
-        assert !closed : "Unpacker is closed";
+        assert refCnt > 0 : "Unpacker is closed";
 
         throw new UnsupportedOperationException("TODO: IGNITE-15163");
     }
@@ -426,12 +426,23 @@ public class ClientMessageUnpacker extends MessageUnpacker {
         return this;
     }
 
+    /**
+     * Increases the reference count by {@code 1}.
+     */
+    public ClientMessageUnpacker retain() {
+        refCnt++;
+
+        buf.retain();
+
+        return this;
+    }
+
     /** {@inheritDoc} */
     @Override public void close() {
-        if (closed)
+        if (refCnt == 0)
             return;
 
-        closed = true;
+        refCnt--;
 
         if (buf.refCnt() > 0)
             buf.release();
