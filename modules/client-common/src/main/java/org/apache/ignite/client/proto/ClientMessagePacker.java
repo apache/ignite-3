@@ -81,7 +81,7 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packNil() {
-        assert !closed;
+        assert !closed : "Packer is closed";
 
         try {
             return super.packNil();
@@ -92,7 +92,7 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packBoolean(boolean b) {
-        assert !closed;
+        assert !closed : "Packer is closed";
 
         try {
             return super.packBoolean(b);
@@ -103,7 +103,7 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packByte(byte b) {
-        assert !closed;
+        assert !closed : "Packer is closed";
 
         try {
             return super.packByte(b);
@@ -114,7 +114,7 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packShort(short v) {
-        assert !closed;
+        assert !closed : "Packer is closed";
 
         try {
             return super.packShort(v);
@@ -125,7 +125,7 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packInt(int r) {
-        assert !closed;
+        assert !closed : "Packer is closed";
 
         try {
             return super.packInt(r);
@@ -136,7 +136,7 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packLong(long v) {
-        assert !closed;
+        assert !closed : "Packer is closed";
 
         try {
             return super.packLong(v);
@@ -147,7 +147,7 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packBigInteger(BigInteger bi) {
-        assert !closed;
+        assert !closed : "Packer is closed";
 
         try {
             return super.packBigInteger(bi);
@@ -158,7 +158,7 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packFloat(float v) {
-        assert !closed;
+        assert !closed : "Packer is closed";
 
         try {
             return super.packFloat(v);
@@ -169,7 +169,7 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packDouble(double v) {
-        assert !closed;
+        assert !closed : "Packer is closed";
 
         try {
             return super.packDouble(v);
@@ -180,7 +180,7 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packString(String s) {
-        assert !closed;
+        assert !closed : "Packer is closed";
 
         try {
             return super.packString(s);
@@ -191,7 +191,7 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packArrayHeader(int arraySize) {
-        assert !closed;
+        assert !closed : "Packer is closed";
 
         try {
             return super.packArrayHeader(arraySize);
@@ -202,7 +202,7 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packMapHeader(int mapSize) {
-        assert !closed;
+        assert !closed : "Packer is closed";
 
         try {
             return super.packMapHeader(mapSize);
@@ -213,7 +213,7 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packValue(Value v) {
-        assert !closed;
+        assert !closed : "Packer is closed";
 
         try {
             return super.packValue(v);
@@ -224,7 +224,7 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packExtensionTypeHeader(byte extType, int payloadLen) {
-        assert !closed;
+        assert !closed : "Packer is closed";
 
         try {
             return super.packExtensionTypeHeader(extType, payloadLen);
@@ -235,7 +235,7 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packBinaryHeader(int len) {
-        assert !closed;
+        assert !closed : "Packer is closed";
 
         try {
             return super.packBinaryHeader(len);
@@ -246,7 +246,7 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker packRawStringHeader(int len) {
-        assert !closed;
+        assert !closed : "Packer is closed";
 
         try {
             return super.packRawStringHeader(len);
@@ -257,7 +257,7 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker writePayload(byte[] src) {
-        assert !closed;
+        assert !closed : "Packer is closed";
 
         try {
             return super.writePayload(src);
@@ -268,7 +268,7 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker writePayload(byte[] src, int off, int len) {
-        assert !closed;
+        assert !closed : "Packer is closed";
 
         try {
             return super.writePayload(src, off, len);
@@ -279,7 +279,7 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker addPayload(byte[] src) {
-        assert !closed;
+        assert !closed : "Packer is closed";
 
         try {
             return super.addPayload(src);
@@ -290,7 +290,7 @@ public class ClientMessagePacker extends MessagePacker {
 
     /** {@inheritDoc} */
     @Override public MessagePacker addPayload(byte[] src, int off, int len) {
-        assert !closed;
+        assert !closed : "Packer is closed";
 
         try {
             return super.addPayload(src, off, len);
@@ -306,7 +306,7 @@ public class ClientMessagePacker extends MessagePacker {
      * @return This instance.
      */
     public ClientMessagePacker packUuid(UUID val) {
-        assert !closed;
+        assert !closed : "Packer is closed";
 
         packExtensionTypeHeader(ClientMsgPackType.UUID, 16);
 
@@ -328,7 +328,7 @@ public class ClientMessagePacker extends MessagePacker {
      * @return This instance.
      */
     public ClientMessagePacker packDecimal(BigDecimal val) {
-        assert !closed;
+        assert !closed : "Packer is closed";
 
         throw new UnsupportedOperationException("TODO: IGNITE-15163");
     }
@@ -340,7 +340,7 @@ public class ClientMessagePacker extends MessagePacker {
      * @return This instance.
      */
     public ClientMessagePacker packBitSet(BitSet val) {
-        assert !closed;
+        assert !closed : "Packer is closed";
 
         throw new UnsupportedOperationException("TODO: IGNITE-15163");
     }
