@@ -128,7 +128,15 @@ public class ClientTableTest extends AbstractClientTest {
 
     @Test
     public void testInsertCustomTuple() {
-        fail("TODO");
+        Table table = getDefaultTable();
+        var tuple = new CustomTuple(25L, "Foo");
+
+        assertTrue(table.insert(tuple));
+        assertFalse(table.insert(tuple));
+
+        var resTuple = table.get(new CustomTuple(25L, null));
+
+        assertTupleEquals(tuple, resTuple);
     }
 
     private Tuple getDefaultTuple(Table table) {
