@@ -52,7 +52,7 @@ public class UsageTest {
         registry = new ConfigurationRegistry(
             Collections.singletonList(LocalConfiguration.KEY),
             Collections.emptyMap(),
-            Collections.singletonList(new TestConfigurationStorage())
+            Collections.singletonList(new TestConfigurationStorage(ConfigurationType.LOCAL))
         );
 
         registry.start();
@@ -112,7 +112,7 @@ public class UsageTest {
         registry = new ConfigurationRegistry(
             Arrays.asList(NetworkConfiguration.KEY, LocalConfiguration.KEY),
             Collections.emptyMap(),
-            Collections.singletonList(new TestConfigurationStorage())
+            Collections.singletonList(new TestConfigurationStorage(ConfigurationType.LOCAL))
         );
 
         registry.start();
