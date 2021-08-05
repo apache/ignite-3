@@ -183,7 +183,10 @@ public class ClientTable implements Table {
     @Override public @NotNull CompletableFuture<Void> upsertAllAsync(@NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        throw new UnsupportedOperationException();
+        return doSchemaOutOpAsync(
+                ClientOp.TUPLE_UPSERT_ALL,
+                (s, w) -> writeTuples(recs, s, w, false),
+                r -> null);
     }
 
     /** {@inheritDoc} */
@@ -274,7 +277,10 @@ public class ClientTable implements Table {
     @Override public @NotNull CompletableFuture<Boolean> deleteAsync(@NotNull Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
-        throw new UnsupportedOperationException();
+        return doSchemaOutOpAsync(
+                ClientOp.TUPLE_DELETE,
+                (s, w) -> writeTuple(keyRec, s, w, true),
+                ClientMessageUnpacker::unpackBoolean);
     }
 
     /** {@inheritDoc} */
@@ -286,7 +292,10 @@ public class ClientTable implements Table {
     @Override public @NotNull CompletableFuture<Boolean> deleteExactAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
-        throw new UnsupportedOperationException();
+        return doSchemaOutOpAsync(
+                ClientOp.TUPLE_DELETE_EXACT,
+                (s, w) -> writeTuple(rec, s, w, false),
+                ClientMessageUnpacker::unpackBoolean);
     }
 
     /** {@inheritDoc} */
