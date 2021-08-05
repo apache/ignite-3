@@ -243,7 +243,10 @@ public class ClientTable implements Table {
     @Override public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
-        throw new UnsupportedOperationException();
+        return doSchemaOutOpAsync(
+                ClientOp.TUPLE_REPLACE,
+                (s, w) -> writeTuple(rec, s, w, false),
+                ClientMessageUnpacker::unpackBoolean);
     }
 
     /** {@inheritDoc} */
@@ -256,7 +259,13 @@ public class ClientTable implements Table {
         Objects.requireNonNull(oldRec);
         Objects.requireNonNull(newRec);
 
-        throw new UnsupportedOperationException();
+        return doSchemaOutOpAsync(
+                ClientOp.TUPLE_REPLACE,
+                (s, w) -> {
+                    writeTuple(oldRec, s, w, false, false);
+                    writeTuple(newRec, s, w, false, true);
+                },
+                ClientMessageUnpacker::unpackBoolean);
     }
 
     /** {@inheritDoc} */
@@ -445,7 +454,31 @@ public class ClientTable implements Table {
         return IgniteToStringBuilder.toString(ClientTable.class, this);
     }
 
-    private void writeTuple(@NotNull Tuple tuple, ClientSchema schema, ClientMessagePacker out, boolean keyOnly) {
+
+    private void writeTuple(
+            @NotNull Tuple tuple,
+            ClientSchema schema,
+            ClientMessagePacker out
+    ) {
+        writeTuple(tuple, schema, out, false, false);
+    }
+
+    private void writeTuple(
+            @NotNull Tuple tuple,
+            ClientSchema schema,
+            ClientMessagePacker out,
+            boolean keyOnly
+    ) {
+        writeTuple(tuple, schema, out, keyOnly, false);
+    }
+
+    private void writeTuple(
+            @NotNull Tuple tuple,
+            ClientSchema schema,
+            ClientMessagePacker out,
+            boolean keyOnly,
+            boolean skipHeader
+    ) {
         // TODO: Special case for ClientTupleBuilder - it has columns in order
         var vals = new Object[keyOnly ? schema.keyColumnCount() : schema.columns().length];
         var tupleSize = tuple.columnCount();
@@ -460,8 +493,10 @@ public class ClientTable implements Table {
             vals[col.schemaIndex()] = tuple.value(i);
         }
 
-        out.packUuid(id);
-        out.packInt(schema.version());
+        if (!skipHeader) {
+            out.packUuid(id);
+            out.packInt(schema.version());
+        }
 
         for (var val : vals)
             out.packObject(val);
@@ -474,9 +509,10 @@ public class ClientTable implements Table {
             boolean keyOnly
     ) {
         out.packInt(tuples.size());
+        var i = 0;
 
         for (var tuple : tuples)
-            writeTuple(tuple, schema, out, keyOnly);
+            writeTuple(tuple, schema, out, keyOnly, i++ > 0);
     }
 
     private Tuple readTuple(ClientSchema schema, ClientMessageUnpacker in) {
