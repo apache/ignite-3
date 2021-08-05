@@ -25,6 +25,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiFunction;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
@@ -139,29 +140,30 @@ public class ClientTable implements Table {
                 .thenCompose(schema ->
                         ch.serviceAsync(ClientOp.TUPLE_GET,
                                 w -> writeTuple(keyRec, schema, w.out(), true),
-                                r -> {
-                                    if (r.in().getNextFormat() == MessageFormat.NIL)
-                                        return null;
+                                r -> readSchemaAndReadData(schema, r.in(), this::readTuple)))
+                .thenCompose(t -> getSchemaAndReadData(t, this::readTuple));
+    }
 
-                                    var schemaVer = r.in().unpackInt();
+    public <T> Object readSchemaAndReadData(ClientSchema knownSchema, ClientMessageUnpacker in, BiFunction<ClientSchema, ClientMessageUnpacker, T> fn) {
+        if (in.getNextFormat() == MessageFormat.NIL)
+            return null;
 
-                                    var resSchema = schemaVer == schema.version() ? schema : schemas.get(schemaVer);
+        var schemaVer = in.unpackInt();
 
-                                    if (resSchema != null) {
-                                        return readTuple(schema, r.in());
-                                    }
+        var resSchema = schemaVer == knownSchema.version() ? knownSchema : schemas.get(schemaVer);
 
-                                    // Schema is not yet known - request.
-                                    // Retain unpacker - normally it is closed when this method exits.
-                                    return new IgniteBiTuple<>(r.in().retain(), schemaVer);
-                                }))
-                .thenCompose(this::getSchemaAndReadTuple);
+        if (resSchema != null)
+            return fn.apply(knownSchema, in);
+
+        // Schema is not yet known - request.
+        // Retain unpacker - normally it is closed when this method exits.
+        return new IgniteBiTuple<>(in.retain(), schemaVer);
     }
 
     @SuppressWarnings("unchecked")
-    public CompletionStage<Tuple> getSchemaAndReadTuple(Object data) {
+    public <T> CompletionStage<T> getSchemaAndReadData(Object data, BiFunction<ClientSchema, ClientMessageUnpacker, T> fn) {
         if (!(data instanceof IgniteBiTuple))
-            return CompletableFuture.completedFuture((Tuple) data);
+            return CompletableFuture.completedFuture((T) data);
 
         var biTuple = (IgniteBiTuple<ClientMessageUnpacker, Integer>) data;
 
@@ -171,7 +173,7 @@ public class ClientTable implements Table {
         assert in != null;
         assert schemaId != null;
 
-        var tupleFut = getSchema(schemaId).thenApply(schema -> readTuple(schema, in));
+        var tupleFut = getSchema(schemaId).thenApply(schema -> fn.apply(schema, in));
 
         // Close unpacker.
         tupleFut.handle((tuple, err) -> {
