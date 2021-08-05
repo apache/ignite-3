@@ -33,6 +33,11 @@ public class CustomTuple implements Tuple {
     private final String name;
 
     /** */
+    public CustomTuple(Long id) {
+        this(id, null);
+    }
+
+    /** */
     public CustomTuple(Long id, String name) {
         this.id = id;
         this.name = name;

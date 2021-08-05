@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.CompletionException;
 
 import org.apache.ignite.client.fakes.FakeSchemaRegistry;
@@ -158,6 +160,19 @@ public class ClientTableTest extends AbstractClientTest {
         var resTuple = table.get(new CustomTuple(25L, null));
 
         assertTupleEquals(tuple, resTuple);
+    }
+
+    @Test
+    public void testGetAll() {
+        Table table = getDefaultTable();
+        table.insert(new CustomTuple(1L, "1"));
+        table.insert(new CustomTuple(2L, "2"));
+        table.insert(new CustomTuple(3L, "3"));
+
+        List<Tuple> keys = Arrays.asList(new CustomTuple(1L), new CustomTuple(3L));
+        var res = table.getAll(keys);
+
+        assertEquals(2, res.size());
     }
 
     private Tuple getDefaultTuple(Table table) {

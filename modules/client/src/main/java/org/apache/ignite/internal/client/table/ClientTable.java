@@ -154,7 +154,10 @@ public class ClientTable implements Table {
     @Override public @NotNull CompletableFuture<Collection<Tuple>> getAllAsync(@NotNull Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        throw new UnsupportedOperationException();
+        return doSchemaOutInOpAsync(
+                ClientOp.TUPLE_GET_ALL,
+                (s, w) -> writeTuples(keyRecs, s, w, true),
+                this::readTuples);
     }
 
     /** {@inheritDoc} */
@@ -508,11 +511,12 @@ public class ClientTable implements Table {
             ClientMessagePacker out,
             boolean keyOnly
     ) {
+        out.packUuid(id);
+        out.packInt(schema.version());
         out.packInt(tuples.size());
-        var i = 0;
 
         for (var tuple : tuples)
-            writeTuple(tuple, schema, out, keyOnly, i++ > 0);
+            writeTuple(tuple, schema, out, keyOnly, true);
     }
 
     private Tuple readTuple(ClientSchema schema, ClientMessageUnpacker in) {
