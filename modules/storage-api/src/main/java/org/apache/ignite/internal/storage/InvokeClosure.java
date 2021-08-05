@@ -23,7 +23,7 @@ import org.jetbrains.annotations.Nullable;
 /** */
 public interface InvokeClosure {
     /**
-     * @param row Old row or {@code null} if the old row has not been found.
+     * @param row Old row.
      */
     void call(@NotNull DataRow row);
 

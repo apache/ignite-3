@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -71,10 +69,10 @@ import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterNode;
@@ -181,14 +179,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         Path storageDir = partitionsStoreDir.resolve(name);
 
-        if (Files.notExists(storageDir)) {
-            try {
-                Files.createDirectories(storageDir);
-            }
-            catch (IOException e) {
-                throw new IgniteInternalException(e);
-            }
-        }
+        IgniteUtils.createDirectoriesIfNotExist(storageDir);
 
         for (int p = 0; p < partitions; p++) {
             RocksDbStorage storage = new RocksDbStorage(

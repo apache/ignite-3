@@ -29,6 +29,7 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.InvokeClosure;
 import org.apache.ignite.internal.storage.SearchRow;
@@ -133,10 +134,16 @@ public class RocksDbStorage implements Storage {
         Snapshot snapshot = db.getSnapshot();
 
         try (ReadOptions opts = new ReadOptions().setSnapshot(snapshot)) {
+            List<byte[]> values =
+                db.multiGetAsList(opts, keys.stream().map(SearchRow::keyBytes).collect(Collectors.toList()));
+
+            assert keys.size() == values.size();
+
+            int i = 0;
             for (SearchRow key : keys) {
                 byte[] keyBytes = key.keyBytes();
 
-                res.add(new SimpleDataRow(keyBytes, db.get(opts, keyBytes)));
+                res.add(new SimpleDataRow(keyBytes, values.get(i++)));
             }
 
             return res;
@@ -187,7 +194,7 @@ public class RocksDbStorage implements Storage {
 
     /** {@inheritDoc} */
     @Override public Collection<DataRow> insertAll(Collection<? extends DataRow> rows) throws StorageException {
-        rwLock.readLock().lock();
+        rwLock.writeLock().lock();
 
         List<DataRow> cantInsert = new ArrayList<>();
 
@@ -214,7 +221,7 @@ public class RocksDbStorage implements Storage {
 
             snapshot.close();
 
-            rwLock.readLock().unlock();
+            rwLock.writeLock().unlock();
         }
 
         return cantInsert;
@@ -237,7 +244,7 @@ public class RocksDbStorage implements Storage {
 
     /** {@inheritDoc} */
     @Override public Collection<DataRow> removeAll(Collection<? extends SearchRow> keys) {
-        rwLock.readLock().lock();
+        rwLock.writeLock().lock();
 
         List<DataRow> res = new ArrayList<>();
 
@@ -252,9 +259,11 @@ public class RocksDbStorage implements Storage {
 
                 byte[] value = db.get(readOpts, keyBytes);
 
-                res.add(new SimpleDataRow(keyBytes, value));
+                if (value != null) {
+                    res.add(new SimpleDataRow(keyBytes, value));
 
-                batch.delete(keyBytes);
+                    batch.delete(keyBytes);
+                }
             }
 
             db.write(opts, batch);
@@ -267,7 +276,7 @@ public class RocksDbStorage implements Storage {
 
             snapshot.close();
 
-            rwLock.readLock().unlock();
+            rwLock.writeLock().unlock();
         }
 
         return res;
@@ -275,7 +284,7 @@ public class RocksDbStorage implements Storage {
 
     /** {@inheritDoc} */
     @Override public Collection<DataRow> removeAllExact(Collection<? extends DataRow> keyValues) {
-        rwLock.readLock().lock();
+        rwLock.writeLock().lock();
 
         List<DataRow> res = new ArrayList<>();
 
@@ -307,7 +316,7 @@ public class RocksDbStorage implements Storage {
 
             snapshot.close();
 
-            rwLock.readLock().unlock();
+            rwLock.writeLock().unlock();
         }
 
         return res;

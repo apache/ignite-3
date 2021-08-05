@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.raft;
 
 import java.nio.file.Path;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -93,12 +94,15 @@ public class PartitionListener implements RaftGroupListener {
 
                 assert keyRows != null && !keyRows.isEmpty();
 
-                Set<BinaryRow> res = storage
-                    .readAll(keyRows.stream().map(this::extractAndWrapKey).collect(Collectors.toList()))
+                List<SearchRow> keys = keyRows.stream().map(PartitionListener::extractAndWrapKey)
+                    .collect(Collectors.toList());
+
+                List<BinaryRow> res = storage
+                    .readAll(keys)
                     .stream()
                     .filter(DataRow::hasValueBytes)
                     .map(read -> new ByteBufferRow(read.valueBytes()))
-                    .collect(Collectors.toSet());
+                    .collect(Collectors.toList());
 
                 clo.result(new MultiRowsResponse(res));
             }
@@ -160,13 +164,14 @@ public class PartitionListener implements RaftGroupListener {
 
                 assert rows != null && !rows.isEmpty();
 
-                final Set<BinaryRow> res = storage.insertAll(
-                    rows.stream().map(this::extractAndWrapKeyValue).collect(Collectors.toList())
-                ).stream()
+                List<DataRow> keyValues = rows.stream().map(PartitionListener::extractAndWrapKeyValue)
+                    .collect(Collectors.toList());
+
+                List<BinaryRow> res = storage.insertAll(keyValues).stream()
                     .filter(DataRow::hasValueBytes)
                     .map(inserted -> new ByteBufferRow(inserted.valueBytes()))
                     .filter(BinaryRow::hasValue)
-                    .collect(Collectors.toSet());
+                    .collect(Collectors.toList());
 
                 clo.result(new MultiRowsResponse(res));
             }
@@ -175,7 +180,7 @@ public class PartitionListener implements RaftGroupListener {
 
                 assert rows != null && !rows.isEmpty();
 
-                storage.writeAll(rows.stream().map(this::extractAndWrapKeyValue).collect(Collectors.toList()));
+                storage.writeAll(rows.stream().map(PartitionListener::extractAndWrapKeyValue).collect(Collectors.toList()));
 
                 clo.result(null);
             }
@@ -184,13 +189,14 @@ public class PartitionListener implements RaftGroupListener {
 
                 assert rows != null && !rows.isEmpty();
 
-                final Set<BinaryRow> res =
-                    storage.removeAll(rows.stream().map(this::extractAndWrapKey).collect(Collectors.toList()))
-                        .stream()
-                        .filter(DataRow::hasValueBytes)
-                        .map(inserted -> new ByteBufferRow(inserted.valueBytes()))
-                        .filter(BinaryRow::hasValue)
-                        .collect(Collectors.toSet());
+                List<SearchRow> keys = rows.stream().map(PartitionListener::extractAndWrapKey)
+                    .collect(Collectors.toList());
+
+                List<BinaryRow> res = storage.removeAll(keys).stream()
+                    .filter(DataRow::hasValueBytes)
+                    .map(removed -> new ByteBufferRow(removed.valueBytes()))
+                    .filter(BinaryRow::hasValue)
+                    .collect(Collectors.toList());
 
                 clo.result(new MultiRowsResponse(res));
             }
@@ -213,13 +219,14 @@ public class PartitionListener implements RaftGroupListener {
 
                 assert rows != null && !rows.isEmpty();
 
-                final Set<BinaryRow> res =
-                    storage.removeAllExact(rows.stream().map(this::extractAndWrapKeyValue).collect(Collectors.toList()))
-                        .stream()
-                        .filter(DataRow::hasValueBytes)
-                        .map(inserted -> new ByteBufferRow(inserted.valueBytes()))
-                        .filter(BinaryRow::hasValue)
-                        .collect(Collectors.toSet());
+                List<DataRow> keyValues = rows.stream().map(PartitionListener::extractAndWrapKeyValue)
+                    .collect(Collectors.toList());
+
+                List<BinaryRow> res = storage.removeAllExact(keyValues).stream()
+                    .filter(DataRow::hasValueBytes)
+                    .map(inserted -> new ByteBufferRow(inserted.valueBytes()))
+                    .filter(BinaryRow::hasValue)
+                    .collect(Collectors.toList());
 
                 clo.result(new MultiRowsResponse(res));
             }
@@ -319,12 +326,9 @@ public class PartitionListener implements RaftGroupListener {
      * @param row Binary row.
      * @return Data row.
      */
-    @NotNull private DataRow extractAndWrapKeyValue(@NotNull BinaryRow row) {
+    @NotNull private static DataRow extractAndWrapKeyValue(@NotNull BinaryRow row) {
         byte[] key = new byte[row.keySlice().capacity()];
         row.keySlice().get(key);
-
-        byte[] value = new byte[row.keySlice().capacity()];
-        row.keySlice().get(value);
 
         return new SimpleDataRow(key, row.bytes());
     }
@@ -335,7 +339,7 @@ public class PartitionListener implements RaftGroupListener {
      * @param row Binary row.
      * @return Search row.
      */
-    @NotNull private SearchRow extractAndWrapKey(@NotNull BinaryRow row) {
+    @NotNull private static SearchRow extractAndWrapKey(@NotNull BinaryRow row) {
         byte[] key = new byte[row.keySlice().capacity()];
         row.keySlice().get(key);
 

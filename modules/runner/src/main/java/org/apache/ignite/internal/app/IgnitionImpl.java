@@ -52,6 +52,7 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -320,20 +321,6 @@ public class IgnitionImpl implements Ignition {
                 )
             );
 
-            Path partitionsStore = workDir.resolve(PARTITIONS_STORE_PATH);
-
-            if (Files.notExists(partitionsStore)) {
-                try {
-                    Files.createDirectories(partitionsStore);
-                }
-                catch (IOException e) {
-                    throw new IgniteInternalException(
-                        "Failed to create directory for the partitions store: " + e.getMessage(),
-                        e
-                    );
-                }
-            }
-
             // Distributed table manager startup.
             TableManager distributedTblMgr = doStartComponent(
                 nodeName,
@@ -344,7 +331,7 @@ public class IgnitionImpl implements Ignition {
                     schemaMgr,
                     affinityMgr,
                     raftMgr,
-                    partitionsStore
+                    getPartitionsStorePath(workDir)
                 )
             );
 
@@ -393,6 +380,22 @@ public class IgnitionImpl implements Ignition {
 
             throw new IgniteException(errMsg, e);
         }
+    }
+
+    /**
+     * Returns a path to the partitions store directory.
+     * Creates a directory if it doesn't exist.
+     *
+     * @param workDir Ignite work directory.
+     * @return Partitions store path.
+     */
+    @NotNull
+    private static Path getPartitionsStorePath(Path workDir) {
+        Path partitionsStore = workDir.resolve(PARTITIONS_STORE_PATH);
+
+        IgniteUtils.createDirectoriesIfNotExist(partitionsStore);
+
+        return partitionsStore;
     }
 
     /**

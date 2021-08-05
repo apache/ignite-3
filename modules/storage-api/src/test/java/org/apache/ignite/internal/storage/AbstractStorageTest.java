@@ -21,10 +21,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.storage.basic.DeleteExactInvokeClosure;
 import org.apache.ignite.internal.storage.basic.GetAndRemoveInvokeClosure;
@@ -470,13 +472,8 @@ public abstract class AbstractStorageTest {
 
         List<DataRow> rowsFromStorage = new ArrayList<>(storage.readAll(rows));
 
-        Comparator<DataRow> comparator = (o1, o2) -> {
-            int keysComparison = Arrays.compare(o1.keyBytes(), o2.keyBytes());
-            if (keysComparison != 0)
-                return keysComparison;
-
-            return Arrays.compare(o1.valueBytes(), o2.valueBytes());
-        };
+        Comparator<DataRow> comparator = Comparator.comparing(DataRow::keyBytes, Arrays::compare)
+            .thenComparing(DataRow::valueBytes, Arrays::compare);
 
         rows.sort(comparator);
         rowsFromStorage.sort(comparator);
@@ -506,8 +503,16 @@ public abstract class AbstractStorageTest {
     public void testInsertAll() {
         List<DataRow> rows = insertBulk(100);
 
-        Collection<DataRow> cantInsert = storage.insertAll(rows);
-        assertEquals(rows, cantInsert);
+        List<DataRow> oldRows = rows.subList(0, 50);
+
+        List<DataRow> newInsertion = Stream.concat(
+            oldRows.stream(),
+            IntStream.range(100, 150).mapToObj(i -> dataRow(KEY + "_" + i, VALUE + "_" + i))
+        ).collect(Collectors.toList());
+
+        Collection<DataRow> cantInsert = storage.insertAll(newInsertion);
+
+        assertEquals(oldRows, cantInsert);
     }
 
     /**
@@ -529,6 +534,15 @@ public abstract class AbstractStorageTest {
         assertFalse(scan.hasNext());
 
         scan.close();
+    }
+
+    @Test
+    public void testRemoveAllKeyNotExists() throws Exception {
+        Collection<DataRow> removed = storage.removeAll(Collections.singleton(searchRow(KEY)));
+
+        assertNotNull(removed);
+
+        assertTrue(removed.isEmpty());
     }
 
     /**
@@ -585,7 +599,15 @@ public abstract class AbstractStorageTest {
         storage.insertAll(rows);
         rows.forEach(this::checkHasSameEntry);
 
-        return rows;
+        // Clone key and value byte arrays so that returned rows have new references.
+        // This way we check that the ConcurrentHashMapStorage performs an actual array comparison.
+        return rows.stream().map(row -> {
+            byte[] valueBytes = row.valueBytes();
+
+            assert valueBytes != null;
+
+            return new SimpleDataRow(row.keyBytes().clone(), valueBytes.clone());
+        }).collect(Collectors.toList());
     }
 
     /**

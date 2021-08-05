@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.basic;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Objects;
@@ -60,7 +61,8 @@ public class ConcurrentHashMapStorage implements Storage {
 
         try {
             return keys.stream()
-                .map(key -> new SimpleDataRow(key.keyBytes(), map.get(new ByteArray(key.keyBytes()))))
+                .map(SearchRow::keyBytes)
+                .map(key -> new SimpleDataRow(key, map.get(new ByteArray(key))))
                 .collect(Collectors.toList());
         }
         finally {
@@ -99,6 +101,7 @@ public class ConcurrentHashMapStorage implements Storage {
         try {
             return rows.stream()
                 .map(row -> map.putIfAbsent(new ByteArray(row.keyBytes()), row.valueBytes()) == null ? null : row)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
         }
         finally {
@@ -124,7 +127,9 @@ public class ConcurrentHashMapStorage implements Storage {
 
         try {
             return keys.stream()
-                .map(key -> new SimpleDataRow(key.keyBytes(), map.remove(new ByteArray(key.keyBytes()))))
+                .map(SearchRow::keyBytes)
+                .map(key -> new SimpleDataRow(key, map.remove(new ByteArray(key))))
+                .filter(SimpleDataRow::hasValueBytes)
                 .collect(Collectors.toList());
         }
         finally {
@@ -139,8 +144,15 @@ public class ConcurrentHashMapStorage implements Storage {
         try {
             return keyValues.stream()
                 .map(kv -> {
-                    if (map.remove(new ByteArray(kv.keyBytes()), kv.valueBytes()))
+                    ByteArray key = new ByteArray(kv.keyBytes());
+
+                    byte[] currentValue = map.get(key);
+
+                    if (Arrays.equals(currentValue, kv.valueBytes())) {
+                        map.remove(key);
+
                         return kv;
+                    }
 
                     return null;
                 })
