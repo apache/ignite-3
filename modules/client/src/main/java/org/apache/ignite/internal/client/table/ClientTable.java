@@ -206,9 +206,10 @@ public class ClientTable implements Table {
     @Override public @NotNull CompletableFuture<Boolean> insertAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
-        return getLatestSchema().thenCompose(schema -> ch.serviceAsync(ClientOp.TUPLE_INSERT,
-                w -> writeTuple(rec, schema, w.out(), false),
-                r -> r.in().unpackBoolean()));
+        return doSchemaOutOpAsync(
+                ClientOp.TUPLE_INSERT,
+                (s, w) -> writeTuple(rec, s, w, false),
+                ClientMessageUnpacker::unpackBoolean);
     }
 
     /** {@inheritDoc} */
@@ -220,12 +221,10 @@ public class ClientTable implements Table {
     @Override public @NotNull CompletableFuture<Collection<Tuple>> insertAllAsync(@NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        return getLatestSchema().thenCompose(schema -> ch.serviceAsync(
+        return doSchemaOutInOpAsync(
                 ClientOp.TUPLE_INSERT_ALL,
-                w -> writeTuples(recs, schema, w.out(), false),
-
-                // TODO: get schema, reuse code
-                r -> readTuples(null, null)));
+                (s, w) -> writeTuples(recs, s, w, false),
+                this::readTuples);
     }
 
     /** {@inheritDoc} */
