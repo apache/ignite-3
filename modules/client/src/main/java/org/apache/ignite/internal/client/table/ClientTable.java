@@ -25,6 +25,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.client.proto.ClientMessagePacker;
@@ -136,52 +137,10 @@ public class ClientTable implements Table {
     @Override public @NotNull CompletableFuture<Tuple> getAsync(@NotNull Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
-        return getLatestSchema()
-                .thenCompose(schema ->
-                        ch.serviceAsync(ClientOp.TUPLE_GET,
-                                w -> writeTuple(keyRec, schema, w.out(), true),
-                                r -> readSchemaAndReadData(schema, r.in(), this::readTuple)))
-                .thenCompose(t -> getSchemaAndReadData(t, this::readTuple));
-    }
-
-    public <T> Object readSchemaAndReadData(ClientSchema knownSchema, ClientMessageUnpacker in, BiFunction<ClientSchema, ClientMessageUnpacker, T> fn) {
-        if (in.getNextFormat() == MessageFormat.NIL)
-            return null;
-
-        var schemaVer = in.unpackInt();
-
-        var resSchema = schemaVer == knownSchema.version() ? knownSchema : schemas.get(schemaVer);
-
-        if (resSchema != null)
-            return fn.apply(knownSchema, in);
-
-        // Schema is not yet known - request.
-        // Retain unpacker - normally it is closed when this method exits.
-        return new IgniteBiTuple<>(in.retain(), schemaVer);
-    }
-
-    @SuppressWarnings("unchecked")
-    public <T> CompletionStage<T> getSchemaAndReadData(Object data, BiFunction<ClientSchema, ClientMessageUnpacker, T> fn) {
-        if (!(data instanceof IgniteBiTuple))
-            return CompletableFuture.completedFuture((T) data);
-
-        var biTuple = (IgniteBiTuple<ClientMessageUnpacker, Integer>) data;
-
-        var in = biTuple.getKey();
-        var schemaId = biTuple.getValue();
-
-        assert in != null;
-        assert schemaId != null;
-
-        var tupleFut = getSchema(schemaId).thenApply(schema -> fn.apply(schema, in));
-
-        // Close unpacker.
-        tupleFut.handle((tuple, err) -> {
-            in.close();
-            return null;
-        });
-
-        return tupleFut;
+        return doSchemaOpAsync(
+                ClientOp.TUPLE_GET,
+                (s, out) -> writeTuple(keyRec, s, out, true),
+                this::readTuple);
     }
 
     /** {@inheritDoc} */
@@ -514,5 +473,57 @@ public class ClientTable implements Table {
     private Collection<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in) {
         // TODO
         return null;
+    }
+
+    private  <T> CompletableFuture<T> doSchemaOpAsync(
+            int opCode,
+            BiConsumer<ClientSchema, ClientMessagePacker> writer,
+            BiFunction<ClientSchema, ClientMessageUnpacker, T> reader) {
+        return getLatestSchema()
+                .thenCompose(schema ->
+                        ch.serviceAsync(opCode,
+                                w -> writer.accept(schema, w.out()),
+                                r -> readSchemaAndReadData(schema, r.in(), reader)))
+                .thenCompose(t -> loadSchemaAndReadData(t, reader));
+    }
+
+    private <T> Object readSchemaAndReadData(ClientSchema knownSchema, ClientMessageUnpacker in, BiFunction<ClientSchema, ClientMessageUnpacker, T> fn) {
+        if (in.getNextFormat() == MessageFormat.NIL)
+            return null;
+
+        var schemaVer = in.unpackInt();
+
+        var resSchema = schemaVer == knownSchema.version() ? knownSchema : schemas.get(schemaVer);
+
+        if (resSchema != null)
+            return fn.apply(knownSchema, in);
+
+        // Schema is not yet known - request.
+        // Retain unpacker - normally it is closed when this method exits.
+        return new IgniteBiTuple<>(in.retain(), schemaVer);
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> CompletionStage<T> loadSchemaAndReadData(Object data, BiFunction<ClientSchema, ClientMessageUnpacker, T> fn) {
+        if (!(data instanceof IgniteBiTuple))
+            return CompletableFuture.completedFuture((T) data);
+
+        var biTuple = (IgniteBiTuple<ClientMessageUnpacker, Integer>) data;
+
+        var in = biTuple.getKey();
+        var schemaId = biTuple.getValue();
+
+        assert in != null;
+        assert schemaId != null;
+
+        var tupleFut = getSchema(schemaId).thenApply(schema -> fn.apply(schema, in));
+
+        // Close unpacker.
+        tupleFut.handle((tuple, err) -> {
+            in.close();
+            return null;
+        });
+
+        return tupleFut;
     }
 }
