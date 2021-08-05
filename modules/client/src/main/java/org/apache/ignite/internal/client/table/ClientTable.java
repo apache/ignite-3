@@ -203,7 +203,7 @@ public class ClientTable implements Table {
     @Override public @NotNull CompletableFuture<Void> upsertAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
-        // TODO: Convert Tuple to a schema-based representation (Array) as a first step - see writeTuple first part.
+        // TODO IGNITE-15194: Convert Tuple to a schema-order Array as a first step.
         // If it does not match the latest schema, then request latest and convert again.
         return getLatestSchema().thenCompose(schema -> ch.serviceAsync(ClientOp.TUPLE_UPSERT,
                 w -> writeTuple(rec, schema, w.out(), false), r -> null));
