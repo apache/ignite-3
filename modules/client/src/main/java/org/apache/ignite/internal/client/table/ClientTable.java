@@ -139,7 +139,7 @@ public class ClientTable implements Table {
 
         return doSchemaOpAsync(
                 ClientOp.TUPLE_GET,
-                (s, out) -> writeTuple(keyRec, s, out, true),
+                (schema, out) -> writeTuple(keyRec, schema, out, true),
                 this::readTuple);
     }
 
