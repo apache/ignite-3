@@ -97,14 +97,35 @@ class ClientTableCommon {
      * @param tuple Tuple.
      * @throws IgniteException on failed serialization.
      */
-    public static void writeTuple(ClientMessagePacker packer, Tuple tuple, SchemaDescriptor schema) {
+    public static void writeTuple(
+            ClientMessagePacker packer,
+            Tuple tuple,
+            SchemaDescriptor schema
+    ) {
+        writeTuple(packer, tuple, schema, false);
+    }
+
+    /**
+     * Writes a tuple.
+     *
+     * @param packer Packer.
+     * @param tuple Tuple.
+     * @throws IgniteException on failed serialization.
+     */
+    public static void writeTuple(
+            ClientMessagePacker packer,
+            Tuple tuple,
+            SchemaDescriptor schema,
+            boolean skipHeader
+    ) {
         if (tuple == null) {
             packer.packNil();
 
             return;
         }
 
-        packer.packInt(schema.version());
+        if (!skipHeader)
+            packer.packInt(schema.version());
 
         for (var col : schema.keyColumns().columns())
             writeColumnValue(packer, tuple, col);
@@ -138,7 +159,7 @@ class ClientTableCommon {
             } else
                 assert schema.version() == ((SchemaAware) tuple).schema().version();
 
-            writeTuple(packer, tuple, schema);
+            writeTuple(packer, tuple, schema, true);
         }
     }
 
