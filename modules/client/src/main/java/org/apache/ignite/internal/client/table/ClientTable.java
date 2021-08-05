@@ -27,6 +27,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
@@ -137,7 +138,7 @@ public class ClientTable implements Table {
     @Override public @NotNull CompletableFuture<Tuple> getAsync(@NotNull Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
-        return doSchemaOpAsync(
+        return doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (schema, out) -> writeTuple(keyRec, schema, out, true),
                 this::readTuple);
@@ -166,8 +167,10 @@ public class ClientTable implements Table {
 
         // TODO IGNITE-15194: Convert Tuple to a schema-order Array as a first step.
         // If it does not match the latest schema, then request latest and convert again.
-        return getLatestSchema().thenCompose(schema -> ch.serviceAsync(ClientOp.TUPLE_UPSERT,
-                w -> writeTuple(rec, schema, w.out(), false), r -> null));
+        return doSchemaOutOpAsync(
+                ClientOp.TUPLE_UPSERT,
+                (s, w) -> writeTuple(rec, s, w, false),
+                r -> null);
     }
 
     /** {@inheritDoc} */
@@ -475,7 +478,7 @@ public class ClientTable implements Table {
         return null;
     }
 
-    private  <T> CompletableFuture<T> doSchemaOpAsync(
+    private  <T> CompletableFuture<T> doSchemaOutInOpAsync(
             int opCode,
             BiConsumer<ClientSchema, ClientMessagePacker> writer,
             BiFunction<ClientSchema, ClientMessageUnpacker, T> reader) {
@@ -485,6 +488,17 @@ public class ClientTable implements Table {
                                 w -> writer.accept(schema, w.out()),
                                 r -> readSchemaAndReadData(schema, r.in(), reader)))
                 .thenCompose(t -> loadSchemaAndReadData(t, reader));
+    }
+
+    private  <T> CompletableFuture<T> doSchemaOutOpAsync(
+            int opCode,
+            BiConsumer<ClientSchema, ClientMessagePacker> writer,
+            Function<ClientMessageUnpacker, T> reader) {
+        return getLatestSchema()
+                .thenCompose(schema ->
+                        ch.serviceAsync(opCode,
+                                w -> writer.accept(schema, w.out()),
+                                r -> reader.apply(r.in())));
     }
 
     private <T> Object readSchemaAndReadData(ClientSchema knownSchema, ClientMessageUnpacker in, BiFunction<ClientSchema, ClientMessageUnpacker, T> fn) {
