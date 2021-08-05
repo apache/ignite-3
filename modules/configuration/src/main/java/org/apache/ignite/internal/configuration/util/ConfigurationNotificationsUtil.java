@@ -260,7 +260,9 @@ public class ConfigurationNotificationsUtil {
             try {
                 CompletableFuture<?> future = updater.apply(listener, evt);
 
-                if (future != null && (future.isCompletedExceptionally() || future.isCancelled() || !future.isDone()))
+                assert future != null : updater;
+
+                if (future.isCompletedExceptionally() || future.isCancelled() || !future.isDone())
                     futures.add(future);
             }
             catch (Throwable t) {
