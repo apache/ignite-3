@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.table;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
@@ -460,7 +461,10 @@ public class ClientTable implements Table {
             ClientMessagePacker out,
             boolean keyOnly
     ) {
-        // TODO
+        out.packInt(tuples.size());
+
+        for (var tuple : tuples)
+            writeTuple(tuple, schema, out, keyOnly);
     }
 
     private Tuple readTuple(ClientSchema schema, ClientMessageUnpacker in) {
@@ -473,8 +477,13 @@ public class ClientTable implements Table {
     }
 
     private Collection<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in) {
-        // TODO
-        return null;
+        var cnt = in.unpackInt();
+        var res = new ArrayList<Tuple>(cnt);
+
+        for (int i = 0; i < cnt; i++)
+            res.add(readTuple(schema, in));
+
+        return res;
     }
 
     private  <T> CompletableFuture<T> doSchemaOutInOpAsync(
