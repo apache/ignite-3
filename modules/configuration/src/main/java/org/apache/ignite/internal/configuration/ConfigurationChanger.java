@@ -227,13 +227,6 @@ public abstract class ConfigurationChanger {
     }
 
     /**
-     * @return True if at least one value read from a storage, otherwise false.
-     */
-    public boolean bootstrapped() {
-        return bootstrapped;
-    }
-
-    /**
      * Initializes the configuration storage - reads data and sets default values for missing configuration properties.
      * @param storageType Storage type.
      * @throws ConfigurationValidationException If configuration validation failed.
@@ -241,6 +234,9 @@ public abstract class ConfigurationChanger {
      *      storage.
      */
     public void initialize(ConfigurationType storageType) throws ConfigurationValidationException, ConfigurationChangeException {
+        if (bootstrapped)
+            return;
+
         ConfigurationStorage configurationStorage = storageInstances.get(storageType);
 
         assert configurationStorage != null : storageType;

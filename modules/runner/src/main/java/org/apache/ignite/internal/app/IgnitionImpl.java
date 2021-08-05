@@ -223,9 +223,7 @@ public class IgnitionImpl implements Ignition {
                 new ConfigurationManager(rootKeys, cfgStorages)
             );
 
-            boolean cfgBootstrappedFromPds = locConfigurationMgr.bootstrapped();
-
-            if (!cfgBootstrappedFromPds && cfgContent != null) {
+            if (cfgContent != null) {
                 try {
                     locConfigurationMgr.bootstrap(cfgContent, ConfigurationType.LOCAL);
                 }
@@ -233,9 +231,7 @@ public class IgnitionImpl implements Ignition {
                     LOG.warn("Unable to parse user-specific configuration, default configuration will be used: {}", e.getMessage());
                 }
             }
-            else if (cfgContent != null)
-                LOG.warn("User specific configuration will be ignored, cause vault was bootstrapped with pds configuration");
-            else if (!cfgBootstrappedFromPds)
+            else
                 locConfigurationMgr.configurationRegistry().startStorageConfigurations(ConfigurationType.LOCAL);
 
             NetworkView netConfigurationView =

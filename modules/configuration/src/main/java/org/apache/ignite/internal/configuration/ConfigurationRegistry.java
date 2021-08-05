@@ -122,14 +122,6 @@ public class ConfigurationRegistry implements IgniteComponent {
         configurationStorages.forEach(changer::register);
     }
 
-    /**
-     *  @return True if the configuration was bootstrapped with data
-     *  either from storage.
-     */
-    public boolean bootstrapped() {
-        return changer.bootstrapped();
-    }
-
     /** {@inheritDoc} */
     @Override public void stop() {
         if (changer != null)
