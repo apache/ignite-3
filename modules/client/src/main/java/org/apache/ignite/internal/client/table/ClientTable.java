@@ -198,7 +198,10 @@ public class ClientTable implements Table {
     @Override public @NotNull CompletableFuture<Tuple> getAndUpsertAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
-        throw new UnsupportedOperationException();
+        return doSchemaOutInOpAsync(
+                ClientOp.TUPLE_GET_AND_UPSERT,
+                (s, w) -> writeTuple(rec, s, w, false),
+                this::readTuple);
     }
 
     /** {@inheritDoc} */
