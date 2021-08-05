@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletionException;
@@ -170,9 +171,16 @@ public class ClientTableTest extends AbstractClientTest {
         table.insert(new CustomTuple(3L, "3"));
 
         List<Tuple> keys = Arrays.asList(new CustomTuple(1L), new CustomTuple(3L));
-        var res = table.getAll(keys);
+        Tuple[] res = table.getAll(keys).toArray(new Tuple[0]);
+        Arrays.sort(res, (x, y) -> (int) (x.longValue(0) - y.longValue(0)));
 
-        assertEquals(2, res.size());
+        assertEquals(2, res.length);
+
+        assertEquals(1L, res[0].longValue("id"));
+        assertEquals("1", res[0].stringValue("name"));
+
+        assertEquals(3L, res[1].longValue("id"));
+        assertEquals("3", res[1].stringValue("name"));
     }
 
     private Tuple getDefaultTuple(Table table) {
