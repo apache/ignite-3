@@ -19,6 +19,8 @@ package org.apache.ignite.internal.client.table;
 
 import java.util.BitSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 
 import org.apache.ignite.binary.BinaryObject;
@@ -54,7 +56,7 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
 
     /** {@inheritDoc} */
     @Override public TupleBuilder set(String columnName, Object value) {
-        // TODO: Live schema support IGNITE-15194
+        // TODO: Live schema and schema evolution support IGNITE-15194
         var col = schema.column(columnName);
 
         vals[col.schemaIndex()] = value == null ? NULL_OBJ : value;
