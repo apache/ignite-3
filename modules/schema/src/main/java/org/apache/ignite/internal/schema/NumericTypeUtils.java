@@ -36,8 +36,10 @@ public class NumericTypeUtils {
 
     /**
      * Calculates precision for BigInteger value.
+     
+     * Note: BigInteger is converted to BigDecimal as it have no native method for this.
      */
-    public static int calculatePrecision(BigInteger val) {
+    public static int precisionOf(BigInteger bigInt) {
         return new BigDecimal(val).precision();
     }
 }
