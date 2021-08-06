@@ -360,7 +360,7 @@ public class ClientTable implements Table {
         Objects.requireNonNull(recs);
 
         return doSchemaOutInOpAsync(
-                ClientOp.TUPLE_DELETE_EXACT,
+                ClientOp.TUPLE_DELETE_ALL_EXACT,
                 (s, w) -> writeTuples(recs, s, w, false),
                 this::readTuples,
                 Collections.emptyList());
