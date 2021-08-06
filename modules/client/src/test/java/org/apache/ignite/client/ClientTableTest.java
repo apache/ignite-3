@@ -20,8 +20,6 @@ package org.apache.ignite.client;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletionException;
-
-import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.fakes.FakeSchemaRegistry;
 import org.apache.ignite.internal.client.table.ClientTupleBuilder;
 import org.apache.ignite.table.Table;
@@ -44,7 +42,7 @@ public class ClientTableTest extends AbstractClientTest {
 
     @Test
     public void testGetWithNullInNotNullableKeyColumnThrowsException() {
-        Table table = getDefaultTable();
+        var table = defaultTable();
 
         var key = table.tupleBuilder().set("name", "123").build();
 
@@ -56,8 +54,8 @@ public class ClientTableTest extends AbstractClientTest {
 
     @Test
     public void testUpsertGet() {
-        Table table = getDefaultTable();
-        var tuple = getDefaultTuple(table);
+        var table = defaultTable();
+        var tuple = tuple(table);
 
         table.upsert(tuple);
 
@@ -91,7 +89,7 @@ public class ClientTableTest extends AbstractClientTest {
 
     @Test
     public void testUpsertGetAsync() {
-        Table table = getDefaultTable();
+        var table = defaultTable();
 
         var tuple = table.tupleBuilder()
                 .set("id", 42L)
@@ -111,8 +109,8 @@ public class ClientTableTest extends AbstractClientTest {
     public void testGetReturningTupleWithUnknownSchemaRequestsNewSchema() throws Exception {
         FakeSchemaRegistry.lastVer = 2;
 
-        var table = getDefaultTable();
-        Tuple tuple = getDefaultTuple(table);
+        var table = defaultTable();
+        Tuple tuple = tuple(table);
         table.upsert(tuple);
 
         assertEquals(2, ((ClientTupleBuilder)tuple).schema().version());
@@ -121,7 +119,7 @@ public class ClientTableTest extends AbstractClientTest {
 
         try (var client2 = startClient()) {
             Table table2 = client2.tables().table(table.tableName());
-            var tuple2 = getDefaultTuple(table2);
+            var tuple2 = tuple(table2);
             var resTuple = table2.get(tuple2);
 
             assertEquals(1, ((ClientTupleBuilder)tuple2).schema().version());
@@ -134,9 +132,9 @@ public class ClientTableTest extends AbstractClientTest {
 
     @Test
     public void testInsert() {
-        Table table = getDefaultTable();
+        var table = defaultTable();
 
-        var tuple = getDefaultTuple(table);
+        var tuple = tuple(table);
         var tuple2 = table.tupleBuilder()
                 .set("id", DEFAULT_ID)
                 .set("name", "abc")
@@ -146,13 +144,13 @@ public class ClientTableTest extends AbstractClientTest {
         assertFalse(table.insert(tuple));
         assertFalse(table.insert(tuple2));
 
-        var resTuple = table.get(getDefaultTupleKey(table));
+        var resTuple = table.get(defaultTupleKey(table));
         assertTupleEquals(tuple, resTuple);
     }
 
     @Test
     public void testInsertCustomTuple() {
-        Table table = getDefaultTable();
+        var table = defaultTable();
         var tuple = new CustomTuple(25L, "Foo");
 
         assertTrue(table.insert(tuple));
@@ -165,7 +163,7 @@ public class ClientTableTest extends AbstractClientTest {
 
     @Test
     public void testGetAll() {
-        Table table = getDefaultTable();
+        var table = defaultTable();
         table.insert(new CustomTuple(1L, "1"));
         table.insert(new CustomTuple(2L, "2"));
         table.insert(new CustomTuple(3L, "3"));
@@ -185,7 +183,7 @@ public class ClientTableTest extends AbstractClientTest {
 
     @Test
     public void testUpsertAll() {
-        Table table = getDefaultTable();
+        var table = defaultTable();
 
         List<Tuple> data = Arrays.asList(new CustomTuple(1L, "1"), new CustomTuple(2L, "2"));
         table.upsertAll(data);
@@ -203,7 +201,7 @@ public class ClientTableTest extends AbstractClientTest {
 
     @Test
     public void testInsertAll() {
-        Table table = getDefaultTable();
+        var table = defaultTable();
 
         List<Tuple> data = Arrays.asList(new CustomTuple(1L, "1"), new CustomTuple(2L, "2"));
         var skippedTuples = table.insertAll(data);
@@ -221,21 +219,46 @@ public class ClientTableTest extends AbstractClientTest {
         assertEquals("2", table.get(new CustomTuple(2L)).stringValue("name"));
         assertEquals("30", table.get(new CustomTuple(3L)).stringValue("name"));
     }
+    
+    @Test
+    public void testReplace() {
+        var table = defaultTable();
+    }
 
-    private Tuple getDefaultTuple(Table table) {
+    private Tuple tuple() {
+        return defaultTable().tupleBuilder()
+                .set("id", DEFAULT_ID)
+                .set("name", DEFAULT_NAME)
+                .build();
+    }
+
+    private Tuple tuple(Table table) {
         return table.tupleBuilder()
                 .set("id", DEFAULT_ID)
                 .set("name", DEFAULT_NAME)
                 .build();
     }
 
-    private Tuple getDefaultTupleKey(Table table) {
+    private Tuple tuple(Long id) {
+        return defaultTable().tupleBuilder()
+                .set("id", id)
+                .build();
+    }
+
+    private Tuple tuple(Long id, String name) {
+        return defaultTable().tupleBuilder()
+                .set("id", id)
+                .set("name", name)
+                .build();
+    }
+
+    private Tuple defaultTupleKey(Table table) {
         return table.tupleBuilder()
                 .set("id", DEFAULT_ID)
                 .build();
     }
 
-    private Table getDefaultTable() {
+    private Table defaultTable() {
         server.tables().getOrCreateTable(DEFAULT_TABLE, tbl -> tbl.changeReplicas(1));
 
         return client.tables().table(DEFAULT_TABLE);
