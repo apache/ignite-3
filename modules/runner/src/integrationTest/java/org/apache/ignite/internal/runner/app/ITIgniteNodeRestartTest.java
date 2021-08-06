@@ -43,7 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 /**
  * These tests check node restart scenarios.
  */
-public class NodeRestartTest extends IgniteAbstractTest {
+public class ITIgniteNodeRestartTest extends IgniteAbstractTest {
     /** Test node name. */
     public static final String NODE_NAME = "TestNode";
 
