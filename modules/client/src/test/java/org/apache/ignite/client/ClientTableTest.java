@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletionException;
@@ -69,7 +68,7 @@ public class ClientTableTest extends AbstractClientTest {
         assertEquals("foo", resTuple.valueOrDefault("bar", "foo"));
 
         assertEquals(DEFAULT_NAME, resTuple.value(1));
-        assertEquals(DEFAULT_ID, (Long) resTuple.value(0));
+        assertEquals(DEFAULT_ID, resTuple.value(0));
 
         assertEquals(2, resTuple.columnCount());
         assertEquals("id", resTuple.columnName(0));
