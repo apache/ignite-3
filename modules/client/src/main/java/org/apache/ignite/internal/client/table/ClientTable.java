@@ -276,7 +276,7 @@ public class ClientTable implements Table {
 
     /** {@inheritDoc} */
     @Override public Tuple getAndReplace(@NotNull Tuple rec) {
-        return getAndUpsertAsync(rec).join();
+        return getAndReplaceAsync(rec).join();
     }
 
     /** {@inheritDoc} */

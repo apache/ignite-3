@@ -167,7 +167,7 @@ public class FakeInternalTable implements InternalTable {
     @Override public CompletableFuture<BinaryRow> getAndReplace(BinaryRow row, @Nullable Transaction tx) {
         var old = get(row, tx);
 
-        return upsert(row, tx).thenCompose(f -> old);
+        return replace(row, tx).thenCompose(f -> old);
     }
 
     /** {@inheritDoc} */
