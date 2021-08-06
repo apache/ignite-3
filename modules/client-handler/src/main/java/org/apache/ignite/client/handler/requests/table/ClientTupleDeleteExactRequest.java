@@ -33,6 +33,7 @@ public class ClientTupleDeleteExactRequest {
      * Processes the request.
      *
      * @param in Unpacker.
+     * @param out Packer.
      * @param tables Ignite tables.
      * @return Future.
      */

@@ -34,6 +34,7 @@ public class ClientTupleInsertAllSchemalessRequest {
      * Processes the request.
      *
      * @param in Unpacker.
+     * @param out Packer.
      * @param tables Ignite tables.
      * @return Future.
      */

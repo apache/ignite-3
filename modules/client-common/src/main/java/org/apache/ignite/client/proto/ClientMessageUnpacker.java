@@ -341,6 +341,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * Reads a decimal.
      *
      * @return Decimal value.
+     * @throws UnsupportedOperationException Not supported yet.
      */
     public BigDecimal unpackDecimal() {
         assert refCnt > 0 : "Unpacker is closed";
@@ -352,6 +353,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * Reads a bit set.
      *
      * @return Bit set.
+     * @throws UnsupportedOperationException Not supported yet.
      */
     public BitSet unpackBitSet() {
         assert refCnt > 0 : "Unpacker is closed";
@@ -415,6 +417,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * Creates a copy of this unpacker and the underlying buffer.
      *
      * @return Copied unpacker.
+     * @throws UncheckedIOException When buffer operation fails.
      */
     public ClientMessageUnpacker copy() {
         try {
