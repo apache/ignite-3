@@ -105,7 +105,7 @@ public class ClientTableTest extends AbstractClientTest {
 
     @Test
     public void testGetReturningTupleWithUnknownSchemaRequestsNewSchema() throws Exception {
-        FakeSchemaRegistry.lastVer = 2;
+        FakeSchemaRegistry.setLastVer(2);
 
         var table = defaultTable();
         Tuple tuple = tuple(table);
@@ -113,7 +113,7 @@ public class ClientTableTest extends AbstractClientTest {
 
         assertEquals(2, ((ClientTupleBuilder)tuple).schema().version());
 
-        FakeSchemaRegistry.lastVer = 1;
+        FakeSchemaRegistry.setLastVer(1);
 
         try (var client2 = startClient()) {
             Table table2 = client2.tables().table(table.tableName());

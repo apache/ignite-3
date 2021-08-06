@@ -33,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class FakeSchemaRegistry implements SchemaRegistry {
     /** Last registered version. */
-    public static volatile int lastVer = 1;
+    private static volatile int lastVer = 1;
 
     /** Cached schemas. */
     private final ConcurrentNavigableMap<Integer, SchemaDescriptor> schemaCache = new ConcurrentSkipListMap<>();
@@ -48,6 +48,15 @@ public class FakeSchemaRegistry implements SchemaRegistry {
      */
     public FakeSchemaRegistry(Function<Integer, SchemaDescriptor> history) {
         this.history = history;
+    }
+
+    /**
+     * Sets the last schema version
+     *
+     * @param lastVer Last schema version.
+     */
+    public static void setLastVer(int lastVer) {
+        FakeSchemaRegistry.lastVer = lastVer;
     }
 
     /** {@inheritDoc} */
