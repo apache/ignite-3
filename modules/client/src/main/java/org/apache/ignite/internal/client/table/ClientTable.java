@@ -474,7 +474,6 @@ public class ClientTable implements Table {
         return IgniteToStringBuilder.toString(ClientTable.class, this);
     }
 
-
     private void writeTuple(
             @NotNull Tuple tuple,
             ClientSchema schema,

@@ -152,6 +152,7 @@ class ClientTableCommon {
                 writeColumnValue(packer, tuple, col);
         }
     }
+
     /**
      * Writes multiple tuples.
      *
