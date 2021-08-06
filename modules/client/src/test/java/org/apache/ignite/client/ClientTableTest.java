@@ -252,6 +252,17 @@ public class ClientTableTest extends AbstractClientTest {
         assertEquals("2", table.get(tuple(1L)).value("name"));
     }
 
+    @Test
+    public void testDelete() {
+        var table = defaultTable();
+        var tuple = tuple(1L, "1");
+        table.insert(tuple);
+
+        assertFalse(table.delete(tuple(2L)));
+        assertTrue(table.delete(tuple(1L)));
+        assertNull(table.get(tuple(1L)));
+    }
+
     private Tuple tuple() {
         return defaultTable().tupleBuilder()
                 .set("id", DEFAULT_ID)
