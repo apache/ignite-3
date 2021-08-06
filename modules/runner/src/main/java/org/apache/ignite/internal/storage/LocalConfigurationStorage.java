@@ -127,13 +127,6 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public void notifyApplied(long storageRevision) {
-        // No-op.
-        // TODO: implement this method when restart mechanism will be introduced
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-14697
-    }
-
-    /** {@inheritDoc} */
     @Override public ConfigurationType type() {
         return ConfigurationType.LOCAL;
     }

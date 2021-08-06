@@ -97,10 +97,6 @@ public class TestConfigurationStorage implements ConfigurationStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public void notifyApplied(long storageRevision) {
-    }
-
-    /** {@inheritDoc} */
     @Override public ConfigurationType type() {
         return configurationType;
     }
