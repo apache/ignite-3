@@ -305,9 +305,10 @@ public class ClientTableTest extends AbstractClientTest {
         assertEquals(2, skippedTuples.length);
 
         assertEquals(3L, skippedTuples[0].longValue("id"));
-        assertEquals("y", skippedTuples[0].stringValue("name"));
+        assertNull(skippedTuples[0].stringValue("name"));
 
-        assertEquals(4L, skippedTuples[0].longValue("id"));
+        assertEquals(4L, skippedTuples[1].longValue("id"));
+        assertNull(skippedTuples[1].stringValue("name"));
     }
 
     private static Tuple[] sortedTuples(Collection<Tuple> tuples) {

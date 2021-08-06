@@ -346,7 +346,7 @@ public class ClientTable implements Table {
         return doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
                 (s, w) -> writeTuples(recs, s, w, true),
-                this::readTuples,
+                (schema, in) -> readTuples(schema, in, true),
                 Collections.emptyList());
     }
 
@@ -537,20 +537,30 @@ public class ClientTable implements Table {
     }
 
     private Tuple readTuple(ClientSchema schema, ClientMessageUnpacker in) {
+        return readTuple(schema, in, false);
+    }
+
+    private Tuple readTuple(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
         var builder = new ClientTupleBuilder(schema);
 
-        for (var col : schema.columns())
-            builder.setInternal(col.schemaIndex(), in.unpackObject(col.type()));
+        var colCnt = keyOnly ? schema.keyColumnCount() : schema.columns().length;
+
+        for (var i = 0; i < colCnt; i++)
+            builder.setInternal(i, in.unpackObject(schema.columns()[i].type()));
 
         return builder;
     }
 
     private Collection<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in) {
+        return readTuples(schema, in, false);
+    }
+
+    private Collection<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
         var cnt = in.unpackInt();
         var res = new ArrayList<Tuple>(cnt);
 
         for (int i = 0; i < cnt; i++)
-            res.add(readTuple(schema, in));
+            res.add(readTuple(schema, in, keyOnly));
 
         return res;
     }
