@@ -79,18 +79,15 @@ public class ITIgniteNodeRestartTest extends IgniteAbstractTest {
 
         IgnitionManager.stop(ignite.name());
 
-        String updateCfg =
-            "{\n" +
-            "  \"network\": {\n" +
-            "    \"port\":3322,\n" +
-            "  }\n" +
-            "}";
+        int newPort = 3322;
+
+        String updateCfg = "network.port=" + newPort;
 
         ignite = IgnitionManager.start(NODE_NAME, updateCfg, workDir.resolve(NODE_NAME));
 
         nodePort = getNodePort(NODE_NAME);
 
-        assertEquals(3322, nodePort);
+        assertEquals(newPort, nodePort);
 
         IgnitionManager.stop(ignite.name());
     }
