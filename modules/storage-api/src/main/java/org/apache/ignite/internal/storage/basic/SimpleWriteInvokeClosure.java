@@ -24,7 +24,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /** Invoke closure implementation for a write operation. */
-public class SimpleWriteInvokeClosure implements InvokeClosure {
+public class SimpleWriteInvokeClosure implements InvokeClosure<Void> {
     /** Data row to write into storage. */
     private final DataRow newRow;
 

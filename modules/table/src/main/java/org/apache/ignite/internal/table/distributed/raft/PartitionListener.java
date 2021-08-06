@@ -127,7 +127,7 @@ public class PartitionListener implements RaftGroupListener {
 
                 storage.invoke(newRow, writeIfAbsent);
 
-                clo.result(writeIfAbsent.inserts());
+                clo.result(writeIfAbsent.result());
             }
             else if (clo.command() instanceof DeleteCommand) {
                 SearchRow newRow = extractAndWrapKey(((DeleteCommand)clo.command()).getKeyRow());
@@ -136,7 +136,7 @@ public class PartitionListener implements RaftGroupListener {
 
                 storage.invoke(newRow, getAndRemoveClosure);
 
-                clo.result(getAndRemoveClosure.hasData());
+                clo.result(getAndRemoveClosure.result());
             }
             else if (clo.command() instanceof ReplaceCommand) {
                 ReplaceCommand cmd = ((ReplaceCommand)clo.command());
@@ -148,7 +148,7 @@ public class PartitionListener implements RaftGroupListener {
 
                 storage.invoke(expected, replaceClosure);
 
-                clo.result(replaceClosure.replaces());
+                clo.result(replaceClosure.result());
             }
             else if (clo.command() instanceof UpsertCommand) {
                 BinaryRow row = ((UpsertCommand)clo.command()).getRow();
@@ -212,7 +212,7 @@ public class PartitionListener implements RaftGroupListener {
 
                 storage.invoke(keyValue, deleteExact);
 
-                clo.result(deleteExact.deletes());
+                clo.result(deleteExact.result());
             }
             else if (clo.command() instanceof DeleteExactAllCommand) {
                 Set<BinaryRow> rows = ((DeleteExactAllCommand)clo.command()).getRows();
@@ -241,7 +241,7 @@ public class PartitionListener implements RaftGroupListener {
 
                 storage.invoke(keyValue, replaceIfExists);
 
-                clo.result(replaceIfExists.replaces());
+                clo.result(replaceIfExists.result());
             }
             else if (clo.command() instanceof GetAndDeleteCommand) {
                 BinaryRow row = ((GetAndDeleteCommand)clo.command()).getKeyRow();
@@ -254,7 +254,7 @@ public class PartitionListener implements RaftGroupListener {
 
                 storage.invoke(keyRow, getAndRemoveClosure);
 
-                if (getAndRemoveClosure.hasData())
+                if (getAndRemoveClosure.result())
                     clo.result(new SingleRowResponse(new ByteBufferRow(getAndRemoveClosure.oldRow().valueBytes())));
                 else
                     clo.result(new SingleRowResponse(null));

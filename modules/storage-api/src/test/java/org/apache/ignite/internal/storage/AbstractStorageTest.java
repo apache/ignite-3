@@ -188,7 +188,7 @@ public abstract class AbstractStorageTest {
 
         storage.invoke(dataRow, closure);
 
-        assertTrue(closure.inserts());
+        assertTrue(closure.result());
 
         checkHasSameEntry(dataRow);
     }
@@ -204,7 +204,7 @@ public abstract class AbstractStorageTest {
 
         storage.invoke(dataRow, closure);
 
-        assertTrue(closure.inserts());
+        assertTrue(closure.result());
 
         DataRow sameKeyRow = dataRow(KEY, "test");
 
@@ -212,7 +212,7 @@ public abstract class AbstractStorageTest {
 
         storage.invoke(sameKeyRow, sameClosure);
 
-        assertFalse(sameClosure.inserts());
+        assertFalse(sameClosure.result());
 
         checkHasSameEntry(dataRow);
     }
@@ -233,7 +233,7 @@ public abstract class AbstractStorageTest {
 
         storage.invoke(dataRow, closure);
 
-        assertTrue(closure.deletes());
+        assertTrue(closure.result());
 
         checkHasNoEntry(dataRow);
     }
@@ -254,7 +254,7 @@ public abstract class AbstractStorageTest {
 
         storage.invoke(dataRow, closure);
 
-        assertFalse(closure.deletes());
+        assertFalse(closure.result());
 
         checkHasSameEntry(dataRow);
     }
@@ -274,7 +274,7 @@ public abstract class AbstractStorageTest {
 
         storage.invoke(dataRow, closure);
 
-        assertTrue(closure.hasData());
+        assertTrue(closure.result());
 
         checkRowsEqual(dataRow, closure.oldRow());
 
@@ -296,7 +296,7 @@ public abstract class AbstractStorageTest {
 
         storage.invoke(searchRow("test"), closure);
 
-        assertFalse(closure.hasData());
+        assertFalse(closure.result());
 
         assertNull(closure.oldRow().valueBytes());
 
@@ -327,7 +327,7 @@ public abstract class AbstractStorageTest {
 
         assertNotNull(replaced);
 
-        assertTrue(closure.replaces());
+        assertTrue(closure.result());
 
         checkRowsEqual(dataRow, replaced);
 
@@ -352,7 +352,7 @@ public abstract class AbstractStorageTest {
 
         assertNotNull(replaced);
 
-        assertTrue(closure.replaces());
+        assertTrue(closure.result());
 
         assertFalse(replaced.hasValueBytes());
 
@@ -381,7 +381,7 @@ public abstract class AbstractStorageTest {
 
         assertNotNull(replaced);
 
-        assertTrue(closure.replaces());
+        assertTrue(closure.result());
 
         assertTrue(replaced.hasValueBytes());
 
@@ -405,7 +405,7 @@ public abstract class AbstractStorageTest {
 
         assertNotNull(replaced);
 
-        assertFalse(closure.replaces());
+        assertFalse(closure.result());
 
         assertFalse(replaced.hasValueBytes());
 
@@ -432,7 +432,7 @@ public abstract class AbstractStorageTest {
 
         storage.invoke(dataRow, closure);
 
-        assertTrue(closure.replaces());
+        assertTrue(closure.result());
 
         checkHasDifferentEntry(dataRow);
         checkHasSameEntry(newRow);
@@ -458,7 +458,7 @@ public abstract class AbstractStorageTest {
 
         storage.invoke(dataRow, closure);
 
-        assertFalse(closure.replaces());
+        assertFalse(closure.result());
 
         checkHasSameEntry(dataRow);
     }

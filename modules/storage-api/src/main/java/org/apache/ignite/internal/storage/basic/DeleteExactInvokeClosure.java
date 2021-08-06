@@ -27,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Closure that deletes a specific data row with a given key and a given value.
  */
-public class DeleteExactInvokeClosure implements InvokeClosure {
+public class DeleteExactInvokeClosure implements InvokeClosure<Boolean> {
     /** Row to delete. */
     @NotNull
     private final DataRow row;
@@ -59,10 +59,9 @@ public class DeleteExactInvokeClosure implements InvokeClosure {
         return deletes ? OperationType.REMOVE : OperationType.NOOP;
     }
 
-    /**
-     * @return {@code true} if this closure deletes specific row, {@code false} otherwise.
-     */
-    public boolean deletes() {
+    /** {@inheritDoc} */
+    @NotNull
+    @Override public Boolean result() {
         return deletes;
     }
 }

@@ -24,14 +24,14 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /** Invoke closure implementation for read operation. */
-public class SimpleReadInvokeClosure implements InvokeClosure {
+public class SimpleReadInvokeClosure implements InvokeClosure<Void> {
     /** Copy of the row that was passed to {@link #call(DataRow)} method. */
     @Nullable
     private DataRow row;
 
     /** {@inheritDoc} */
     @Override public void call(@NotNull DataRow row) {
-        this.row = row == null ? null : new SimpleDataRow(row.keyBytes(), row.valueBytes());
+        this.row = new SimpleDataRow(row.keyBytes(), row.valueBytes());
     }
 
     /** {@inheritDoc} */

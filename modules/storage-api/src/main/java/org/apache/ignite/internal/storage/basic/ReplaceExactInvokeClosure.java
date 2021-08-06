@@ -27,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Closure that replaces an exact row with a specified key and a specified value.
  */
-public class ReplaceExactInvokeClosure implements InvokeClosure {
+public class ReplaceExactInvokeClosure implements InvokeClosure<Boolean> {
     /** Expected data row. */
     @NotNull
     private final DataRow expectedRow;
@@ -66,10 +66,9 @@ public class ReplaceExactInvokeClosure implements InvokeClosure {
         return replaces ? OperationType.WRITE : OperationType.NOOP;
     }
 
-    /**
-     * @return {@code true} if this closure replaces a row, {@code false} otherwise.
-     */
-    public boolean replaces() {
+    /** {@inheritDoc} */
+    @NotNull
+    @Override public Boolean result() {
         return replaces;
     }
 }

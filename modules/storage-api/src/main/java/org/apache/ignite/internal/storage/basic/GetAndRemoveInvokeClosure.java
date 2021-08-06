@@ -26,14 +26,19 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Closure that removes a data row with a given key and returns it.
  */
-public class GetAndRemoveInvokeClosure implements InvokeClosure {
+public class GetAndRemoveInvokeClosure implements InvokeClosure<Boolean> {
     /** Row that will be removed. */
     @Nullable
     private DataRow rowToRemove;
 
+    /** {@code true} if can delete, {@code false} otherwise. */
+    private boolean deletes;
+
     /** {@inheritDoc} */
     @Override public void call(@NotNull DataRow row) {
         this.rowToRemove = row;
+
+        this.deletes = rowToRemove.hasValueBytes();
     }
 
     /** {@inheritDoc} */
@@ -43,7 +48,7 @@ public class GetAndRemoveInvokeClosure implements InvokeClosure {
 
     /** {@inheritDoc} */
     @Override public @Nullable OperationType operationType() {
-        return OperationType.REMOVE;
+        return deletes ? OperationType.REMOVE : OperationType.NOOP;
     }
 
     /**
@@ -56,12 +61,9 @@ public class GetAndRemoveInvokeClosure implements InvokeClosure {
         return rowToRemove;
     }
 
-    /**
-     * @return {@code true} if the row to remove has a value, {@code false} otherwise.
-     */
-    public boolean hasData() {
-        assert rowToRemove != null;
-
-        return rowToRemove.hasValueBytes();
+    /** {@inheritDoc} */
+    @NotNull
+    @Override public Boolean result() {
+        return deletes;
     }
 }

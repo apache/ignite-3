@@ -24,7 +24,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /** Invoke closure implementation for a remove operation. */
-public class SimpleRemoveInvokeClosure implements InvokeClosure {
+public class SimpleRemoveInvokeClosure implements InvokeClosure<Void> {
     /** {@inheritDoc} */
     @Override public void call(@NotNull DataRow row) {
     }

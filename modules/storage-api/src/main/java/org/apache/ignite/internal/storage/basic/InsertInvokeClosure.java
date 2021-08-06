@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Closure that inserts a new data row.
  */
-public class InsertInvokeClosure implements InvokeClosure {
+public class InsertInvokeClosure implements InvokeClosure<Boolean> {
     /** New row. */
     @NotNull
     private final DataRow newRow;
@@ -58,10 +58,9 @@ public class InsertInvokeClosure implements InvokeClosure {
         return inserts ? OperationType.WRITE : OperationType.NOOP;
     }
 
-    /**
-     * @return {@code true} if this closure inserts a new row, {@code false} otherwise.
-     */
-    public boolean inserts() {
+    /** {@inheritDoc} */
+    @NotNull
+    @Override public Boolean result() {
         return inserts;
     }
 }

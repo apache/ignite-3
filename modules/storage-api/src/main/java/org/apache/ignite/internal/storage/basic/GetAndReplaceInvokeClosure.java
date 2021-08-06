@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Closure that replaces a data row with a given key and returns it.
  */
-public class GetAndReplaceInvokeClosure implements InvokeClosure {
+public class GetAndReplaceInvokeClosure implements InvokeClosure<Boolean> {
     /** New row. */
     @NotNull
     private final DataRow newRow;
@@ -78,10 +78,9 @@ public class GetAndReplaceInvokeClosure implements InvokeClosure {
         return oldRow;
     }
 
-    /**
-     * @return {@code true} if this closure should insert a new row only if a previous value exists.
-     */
-    public boolean replaces() {
+    /** {@inheritDoc} */
+    @NotNull
+    @Override public Boolean result() {
         return replaces;
     }
 }

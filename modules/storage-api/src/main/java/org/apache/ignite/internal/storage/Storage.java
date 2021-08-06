@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage;
 import java.util.Collection;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.util.Cursor;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Interface providing methods to read, remove and update keys in storage.
@@ -102,9 +103,11 @@ public interface Storage extends AutoCloseable {
      *
      * @param key Search key.
      * @param clo Invoke closure.
+     * @param <T> Closure invocation's result type.
      * @throws StorageException If failed to read data or storage is already stopped.
      */
-    public void invoke(SearchRow key, InvokeClosure clo) throws StorageException;
+    @Nullable
+    public <T> T invoke(SearchRow key, InvokeClosure<T> clo) throws StorageException;
 
     /**
      * Creates cursor over the storage data.

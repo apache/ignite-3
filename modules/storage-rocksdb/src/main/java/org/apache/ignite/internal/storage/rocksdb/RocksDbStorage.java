@@ -38,6 +38,7 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.rocksdb.AbstractComparator;
 import org.rocksdb.ComparatorOptions;
 import org.rocksdb.Options;
@@ -273,7 +274,8 @@ public class RocksDbStorage implements Storage {
     }
 
     /** {@inheritDoc} */
-    @Override public void invoke(SearchRow key, InvokeClosure clo) throws StorageException {
+    @Nullable
+    @Override public <T> T invoke(SearchRow key, InvokeClosure<T> clo) throws StorageException {
         try {
             byte[] keyBytes = key.keyBytes();
             byte[] existingDataBytes = db.get(keyBytes);
@@ -294,6 +296,8 @@ public class RocksDbStorage implements Storage {
                 case NOOP:
                     break;
             }
+
+            return clo.result();
         }
         catch (RocksDBException e) {
             throw new StorageException("Failed to access data in the storage", e);

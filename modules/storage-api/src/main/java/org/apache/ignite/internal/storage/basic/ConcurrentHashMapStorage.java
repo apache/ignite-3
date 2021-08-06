@@ -33,6 +33,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Storage implementation based on {@link ConcurrentHashMap}.
@@ -111,7 +112,8 @@ public class ConcurrentHashMapStorage implements Storage {
     }
 
     /** {@inheritDoc} */
-    @Override public void invoke(SearchRow key, InvokeClosure clo) throws StorageException {
+    @Nullable
+    @Override public <T> T invoke(SearchRow key, InvokeClosure<T> clo) throws StorageException {
         byte[] keyBytes = key.keyBytes();
 
         ByteArray mapKey = new ByteArray(keyBytes);
@@ -134,6 +136,8 @@ public class ConcurrentHashMapStorage implements Storage {
             case NOOP:
                 break;
         }
+
+        return clo.result();
     }
 
     /** {@inheritDoc} */
