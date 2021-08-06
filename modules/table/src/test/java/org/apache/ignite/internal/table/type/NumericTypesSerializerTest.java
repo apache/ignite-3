@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.type;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -40,6 +42,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -73,6 +76,23 @@ public class NumericTypesSerializerTest {
         return new String[]{"0", "0.00", "123", "-123", "1.23E3", "1.23E+3", "12.3E+7", "12.0", "12.3", "0.00123",
             "-1.23E-12", "1234.5E-4", "0E+7", "-0", "123456789.0123", "123456789.1", "123456789.112312315413",
             "123456789.0123", "123.123456789", "123456789.3210"};
+    }
+
+    /**
+     * @return List of pairs to compare byte representation.
+     */
+    private static List<Pair<BigDecimal, BigDecimal>> sameDecimals() {
+        return Arrays.asList(
+            new Pair<>(new BigDecimal("10"), BigDecimal.valueOf(10)),
+            new Pair<>(new BigDecimal("10.00"), BigDecimal.valueOf(10)),
+            new Pair<>(new BigDecimal("999999999"), BigDecimal.valueOf(999999999L)),
+            new Pair<>(new BigDecimal("-999999999"), BigDecimal.valueOf(-999999999L)),
+            new Pair<>(new BigDecimal("1E3"), BigDecimal.valueOf(1000)),
+            new Pair<>(new BigDecimal("1E-3"), new BigDecimal("0.001")),
+            new Pair<>(new BigDecimal("0E-3"), new BigDecimal("0.00000")),
+            new Pair<>(new BigDecimal("0E-3"), new BigDecimal("0E+3")),
+            new Pair<>(new BigDecimal("123.3211"), new BigDecimal("123.321"))
+        );
     }
 
     @BeforeEach
@@ -253,5 +273,48 @@ public class NumericTypesSerializerTest {
         final Row row = marshaller.marshal(new TupleBuilderImpl(schema).set("key", rnd.nextLong()).build(), tup.build());
 
         assertEquals(row.decimalValue(1), BigDecimal.valueOf(123, Integer.MAX_VALUE));
+    }
+
+    /**
+     *
+     */
+    @ParameterizedTest
+    @MethodSource("sameDecimals")
+    public void testSameBinaryRepresentation(Pair<BigInteger, BigInteger> pair) throws IOException {
+        schema = new SchemaDescriptor(
+            UUID.randomUUID(),
+            42,
+            new Column[] {new Column("key", NativeTypes.INT64, false)},
+            new Column[] {
+                new Column("decimalCol", NativeTypes.decimalOf(19, 3), false),
+            }
+        );
+
+        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+
+        long randomKey = rnd.nextLong();
+
+        final TupleBuilderImpl firstTup = new TupleBuilderImpl(schema);
+        final TupleBuilderImpl secondTup = new TupleBuilderImpl(schema);
+
+        firstTup.set("key", randomKey).set("decimalCol", pair.getFirst());
+        secondTup.set("key", randomKey).set("decimalCol", pair.getSecond());
+
+        final Row firstRow = marshaller.marshal(new TupleBuilderImpl(schema).set("key", randomKey).build(), firstTup.build());
+        final Row secondRow = marshaller.marshal(new TupleBuilderImpl(schema).set("key", randomKey).build(), secondTup.build());
+
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+
+        firstRow.writeTo(stream);
+
+        byte[] firstRowInBytes = stream.toByteArray();
+
+        stream.reset();
+
+        secondRow.writeTo(stream);
+
+        byte[] secondRowInBytes = stream.toByteArray();
+
+        assertArrayEquals(firstRowInBytes, secondRowInBytes);
     }
 }
