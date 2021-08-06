@@ -38,7 +38,6 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.NumberNativeType;
-import org.apache.ignite.internal.schema.NumericTypeUtils;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 
 import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.KEY_FLAGS_OFFSET;
@@ -207,6 +206,20 @@ public class RowAssembler {
             default:
                 throw new IllegalStateException("Unexpected value: " + col.type());
         }
+    }
+
+    /**
+     * Calculates byte size for BigInteger value.
+     */
+    public static int sizeInBytes(BigInteger val) {
+        return val.bitLength() / 8 + 1;
+    }
+
+    /**
+     * Calculates byte size for BigDecimal value.
+     */
+    public static int sizeInBytes(BigDecimal val) {
+        return sizeInBytes(val.unscaledValue());
     }
 
     /**
@@ -418,7 +431,8 @@ public class RowAssembler {
 
         NumberNativeType type = (NumberNativeType)col.type();
 
-        if (NumericTypeUtils.precisionDoesNotFit(val, type.precision()))
+        //0 is a magic number for "unlimited precision"
+        if (type.precision() > 0 && new BigDecimal(val).precision() > type.precision())
             throw new IllegalArgumentException("Failed to set number value for column '" + col.name() + "' " +
                 "(max precision exceeds allocated precision) " +
                 "[number=" + val + ", max precision=" + type.precision() + "]");
@@ -437,13 +451,6 @@ public class RowAssembler {
         shiftColumn(bytes.length);
 
         return this;
-    }
-
-    /**
-     * Calculates byte size for BigInteger value.
-     */
-    public static int sizeInBytes(BigInteger val) {
-        return val.bitLength() / 8 + 1;
     }
 
     /**
@@ -480,13 +487,6 @@ public class RowAssembler {
         shiftColumn(bytes.length);
 
         return this;
-    }
-
-    /**
-     * Calculates byte size for BigDecimal value.
-     */
-    public static int sizeInBytes(BigDecimal val) {
-        return sizeInBytes(val.unscaledValue());
     }
 
     /**

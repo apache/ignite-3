@@ -289,7 +289,7 @@ public class ColumnType {
      */
     public static class NumberColumnType extends ColumnType {
         /** Undefined precision. */
-        public static final int UNLIMITED_PRECISION = -1;
+        public static final int UNLIMITED_PRECISION = 0;
 
         /** Max precision of value. If -1, column has no precision restrictions. */
         private final int precision;

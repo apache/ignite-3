@@ -152,7 +152,7 @@ public class NativeTypes {
                 return bitmaskOf(((BitSet)val).length());
 
             case NUMBER:
-                return numberOf(NumericTypeUtils.calculatePrecision((BigInteger)val));
+                return numberOf(new BigDecimal((BigInteger)val).precision());
 
             case DECIMAL:
                 return decimalOf(((BigDecimal)val).precision(), ((BigDecimal)val).scale());
