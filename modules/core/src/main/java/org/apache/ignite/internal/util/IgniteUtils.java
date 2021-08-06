@@ -46,6 +46,9 @@ public class IgniteUtils {
     /** Byte bit-mask. */
     private static final int MASK = 0xf;
 
+    /** The moment will be used as a start monotonic time. */
+    private static final long BEGINNING_OF_TIME = System.nanoTime();
+
     /** Version of the JDK. */
     private static final String jdkVer = System.getProperty("java.specification.version");
 
@@ -56,9 +59,10 @@ public class IgniteUtils {
 
     /**
      * Gets the current monotonic time in milliseconds.
+     * This is the amount of milliseconds which passed from an arbitrary moment in the past.
      */
     public static long monotonicMs() {
-        return TimeUnit.NANOSECONDS.toMillis(System.nanoTime());
+        return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - BEGINNING_OF_TIME);
     }
 
     /** Primitive class map. */
@@ -515,25 +519,11 @@ public class IgniteUtils {
         var err = new Exception(msg);
 
         if (log != null)
-            log.error(compact(reason), err);
+            log.error(reason, err);
         else {
-            System.err.println("[" + LocalDateTime.now().format(SHORT_DATE_FMT) + "] (err) " +
-                compact(reason));
+            System.err.println("[" + LocalDateTime.now().format(SHORT_DATE_FMT) + "] (err) " + reason);
 
             err.printStackTrace(System.err);
         }
-    }
-
-    /**
-     * Replaces all occurrences of {@code org.apache.ignite.} with {@code o.a.i.},
-     * {@code org.apache.ignite.internal.} with {@code o.a.i.i.},
-     *
-     * @param s String to replace in.
-     * @return Replaces string.
-     */
-    public static String compact(String s) {
-        return s
-            .replace("org.apache.ignite.internal.", "o.a.i.i.")
-            .replace("org.apache.ignite.", "o.a.i.");
     }
 }
