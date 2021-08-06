@@ -157,7 +157,7 @@ public class FakeInternalTable implements InternalTable {
     @Override public CompletableFuture<Boolean> replace(BinaryRow oldRow, BinaryRow newRow, @Nullable Transaction tx) {
         var old = get(oldRow, tx).getNow(null);
 
-        if (old == null || !old.equals(oldRow))
+        if (old == null || !old.valueSlice().equals(oldRow.valueSlice()))
             return CompletableFuture.completedFuture(false);
 
         return upsert(newRow, tx).thenApply(f -> true);
@@ -184,7 +184,7 @@ public class FakeInternalTable implements InternalTable {
     @Override public CompletableFuture<Boolean> deleteExact(BinaryRow oldRow, @Nullable Transaction tx) {
         var old = get(oldRow, tx).getNow(null);
 
-        if (old != null && old.equals(oldRow))
+        if (old != null && old.valueSlice().equals(oldRow.valueSlice()))
             data.remove(oldRow.keySlice());
 
         return CompletableFuture.completedFuture(old != null);
