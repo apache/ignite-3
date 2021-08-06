@@ -28,6 +28,9 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Fake schema registry for tests.
+ */
 public class FakeSchemaRegistry implements SchemaRegistry {
     /** Last registered version. */
     public static volatile int lastVer = 1;

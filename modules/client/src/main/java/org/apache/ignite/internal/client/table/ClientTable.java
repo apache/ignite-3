@@ -618,7 +618,6 @@ public class ClientTable implements Table {
         return new IgniteBiTuple<>(in.retain(), schemaVer);
     }
 
-    @SuppressWarnings("unchecked")
     private <T> CompletionStage<T> loadSchemaAndReadData(
             Object data,
             BiFunction<ClientSchema, ClientMessageUnpacker, T> fn

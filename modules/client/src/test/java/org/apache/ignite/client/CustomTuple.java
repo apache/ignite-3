@@ -24,7 +24,9 @@ import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 
-@SuppressWarnings("unchecked")
+/**
+ * User-defined test {@link Tuple} implementation.
+ */
 public class CustomTuple implements Tuple {
     /** */
     private final Long id;

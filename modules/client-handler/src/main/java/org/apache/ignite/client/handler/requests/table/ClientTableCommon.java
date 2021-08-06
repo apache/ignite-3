@@ -179,7 +179,7 @@ class ClientTableCommon {
      * @throws IgniteException on failed serialization.
      */
     public static void writeTuples(ClientMessagePacker packer, Collection<Tuple> tuples, boolean keyOnly) {
-        if (tuples == null || tuples.size() == 0) {
+        if (tuples == null || tuples.isEmpty()) {
             packer.packNil();
 
             return;

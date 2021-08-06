@@ -67,7 +67,6 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
-    @SuppressWarnings("unchecked")
     @Override public <T> T valueOrDefault(String columnName, T def) {
         var col = schema.columnSafe(columnName);
 
@@ -258,7 +257,6 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
             throw new IllegalArgumentException("Column index can't be greater than " + (vals.length - 1));
     }
 
-    @SuppressWarnings("unchecked")
     private <T> T getValue(int columnIndex) {
         return convertValue((T)vals[columnIndex]);
     }
