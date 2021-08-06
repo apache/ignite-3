@@ -303,6 +303,29 @@ public class ClientTableTest extends AbstractClientTest {
         var skippedTuples = sortedTuples(table.deleteAll(toDelete));
 
         assertEquals(2, skippedTuples.length);
+        assertNull(table.get(tuple(1L)));
+        assertNotNull(table.get(tuple(2L)));
+
+        assertEquals(3L, skippedTuples[0].longValue("id"));
+        assertNull(skippedTuples[0].stringValue("name"));
+
+        assertEquals(4L, skippedTuples[1].longValue("id"));
+        assertNull(skippedTuples[1].stringValue("name"));
+    }
+
+    @Test
+    public void testDeleteAllExact() {
+        var table = defaultTable();
+
+        List<Tuple> data = Arrays.asList(tuple(1L, "1"), tuple(2L, "2"));
+        table.insertAll(data);
+
+        List<Tuple> toDelete = Arrays.asList(tuple(1L, "1"), tuple(2L, "y"), tuple(3L, "z"));
+        var skippedTuples = sortedTuples(table.deleteAllExact(toDelete));
+
+        assertEquals(2, skippedTuples.length);
+        assertNull(table.get(tuple(1L)));
+        assertNotNull(table.get(tuple(2L)));
 
         assertEquals(3L, skippedTuples[0].longValue("id"));
         assertNull(skippedTuples[0].stringValue("name"));
