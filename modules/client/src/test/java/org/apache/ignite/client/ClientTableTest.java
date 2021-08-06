@@ -256,8 +256,7 @@ public class ClientTableTest extends AbstractClientTest {
     @Test
     public void testDelete() {
         var table = defaultTable();
-        var tuple = tuple(1L, "1");
-        table.insert(tuple);
+        table.insert(tuple(1L, "1"));
 
         assertFalse(table.delete(tuple(2L)));
         assertTrue(table.delete(tuple(1L)));
@@ -278,6 +277,19 @@ public class ClientTableTest extends AbstractClientTest {
 
         assertNull(table.get(tuple(1L)));
         assertNotNull(table.get(tuple(2L)));
+    }
+
+    @Test
+    public void testGetAndDelete() {
+        var table = defaultTable();
+        var tuple = tuple(1L, "1");
+        table.insert(tuple);
+
+        var deleted = table.getAndDelete(tuple(1L));
+
+        assertNull(table.getAndDelete(tuple(1L)));
+        assertNull(table.getAndDelete(tuple(2L)));
+        assertTupleEquals(tuple, deleted);
     }
 
     private Tuple tuple() {
