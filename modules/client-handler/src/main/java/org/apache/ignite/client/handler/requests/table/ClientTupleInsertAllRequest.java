@@ -23,7 +23,6 @@ import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.table.manager.IgniteTables;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuples;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTuples;
 
@@ -46,6 +45,6 @@ public class ClientTupleInsertAllRequest {
         var table = readTable(in, tables);
         var tuples = readTuples(in, table, false);
 
-        return table.insertAllAsync(tuples).thenAccept(skippedTuples -> writeTuples(out, tuples));
+        return table.insertAllAsync(tuples).thenAccept(skippedTuples -> writeTuples(out, skippedTuples));
     }
 }

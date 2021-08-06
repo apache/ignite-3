@@ -573,7 +573,11 @@ public class ClientTable implements Table {
                                 r -> reader.apply(r.in())));
     }
 
-    private <T> Object readSchemaAndReadData(ClientSchema knownSchema, ClientMessageUnpacker in, BiFunction<ClientSchema, ClientMessageUnpacker, T> fn) {
+    private <T> Object readSchemaAndReadData(
+            ClientSchema knownSchema,
+            ClientMessageUnpacker in,
+            BiFunction<ClientSchema, ClientMessageUnpacker, T> fn
+    ) {
         if (in.getNextFormat() == MessageFormat.NIL)
             return null;
 
@@ -590,7 +594,10 @@ public class ClientTable implements Table {
     }
 
     @SuppressWarnings("unchecked")
-    private <T> CompletionStage<T> loadSchemaAndReadData(Object data, BiFunction<ClientSchema, ClientMessageUnpacker, T> fn) {
+    private <T> CompletionStage<T> loadSchemaAndReadData(
+            Object data,
+            BiFunction<ClientSchema, ClientMessageUnpacker, T> fn
+    ) {
         if (!(data instanceof IgniteBiTuple))
             return CompletableFuture.completedFuture((T) data);
 
@@ -602,14 +609,14 @@ public class ClientTable implements Table {
         assert in != null;
         assert schemaId != null;
 
-        var tupleFut = getSchema(schemaId).thenApply(schema -> fn.apply(schema, in));
+        var resFut = getSchema(schemaId).thenApply(schema -> fn.apply(schema, in));
 
         // Close unpacker.
-        tupleFut.handle((tuple, err) -> {
+        resFut.handle((tuple, err) -> {
             in.close();
             return null;
         });
 
-        return tupleFut;
+        return resFut;
     }
 }
