@@ -24,7 +24,8 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -502,7 +503,7 @@ public class IgniteUtils {
      * Only time is included since we don't expect "quiet" mode to be used
      * for longer runs.
      */
-    private static final SimpleDateFormat SHORT_DATE_FMT = new SimpleDateFormat("HH:mm:ss");
+    private static final DateTimeFormatter SHORT_DATE_FMT = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     /**
      * @param log Logger.
@@ -516,7 +517,7 @@ public class IgniteUtils {
         if (log != null)
             log.error(compact(reason), err);
         else {
-            System.err.println("[" + SHORT_DATE_FMT.format(new java.util.Date()) + "] (err) " +
+            System.err.println("[" + LocalDateTime.now().format(SHORT_DATE_FMT) + "] (err) " +
                 compact(reason));
 
             err.printStackTrace(System.err);
