@@ -564,7 +564,7 @@ public class ClientTable implements Table {
         return res;
     }
 
-    private  <T> CompletableFuture<T> doSchemaOutInOpAsync(
+    private <T> CompletableFuture<T> doSchemaOutInOpAsync(
             int opCode,
             BiConsumer<ClientSchema, ClientMessagePacker> writer,
             BiFunction<ClientSchema, ClientMessageUnpacker, T> reader
@@ -572,7 +572,7 @@ public class ClientTable implements Table {
         return doSchemaOutInOpAsync(opCode, writer, reader, null);
     }
 
-    private  <T> CompletableFuture<T> doSchemaOutInOpAsync(
+    private <T> CompletableFuture<T> doSchemaOutInOpAsync(
             int opCode,
             BiConsumer<ClientSchema, ClientMessagePacker> writer,
             BiFunction<ClientSchema, ClientMessageUnpacker, T> reader,
@@ -586,7 +586,7 @@ public class ClientTable implements Table {
                 .thenCompose(t -> loadSchemaAndReadData(t, reader));
     }
 
-    private  <T> CompletableFuture<T> doSchemaOutOpAsync(
+    private <T> CompletableFuture<T> doSchemaOutOpAsync(
             int opCode,
             BiConsumer<ClientSchema, ClientMessagePacker> writer,
             Function<ClientMessageUnpacker, T> reader) {
