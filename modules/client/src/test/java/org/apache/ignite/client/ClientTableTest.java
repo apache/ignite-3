@@ -238,6 +238,20 @@ public class ClientTableTest extends AbstractClientTest {
         assertEquals("3", table.get(tuple(1L)).value("name"));
     }
 
+    @Test
+    public void testGetAndReplace() {
+        var table = defaultTable();
+        var tuple = tuple(1L, "1");
+        table.insert(tuple);
+
+        assertNull(table.getAndReplace(tuple(3L, "3")));
+        assertNull(table.get(tuple(3L)));
+
+        var replaceRes = table.getAndReplace(tuple(1L, "2"));
+        assertTupleEquals(tuple, replaceRes);
+        assertEquals("2", table.get(tuple(1L)).value("name"));
+    }
+
     private Tuple tuple() {
         return defaultTable().tupleBuilder()
                 .set("id", DEFAULT_ID)
