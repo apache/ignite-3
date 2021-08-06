@@ -64,7 +64,7 @@ public class ClientMessagePacker extends MessagePacker {
      * Gets the underlying buffer.
      *
      * @return Underlying buffer.
-     * @throws IgniteException When flush fails.
+     * @throws UncheckedIOException When flush fails.
      */
     public ByteBuf getBuffer() {
         try {
@@ -326,6 +326,7 @@ public class ClientMessagePacker extends MessagePacker {
      *
      * @param val Decimal value.
      * @return This instance.
+     * @throws UnsupportedOperationException Not supported.
      */
     public ClientMessagePacker packDecimal(BigDecimal val) {
         assert !closed : "Packer is closed";
@@ -338,6 +339,7 @@ public class ClientMessagePacker extends MessagePacker {
      *
      * @param val Bit set value.
      * @return This instance.
+     * @throws UnsupportedOperationException Not supported.
      */
     public ClientMessagePacker packBitSet(BitSet val) {
         assert !closed : "Packer is closed";
@@ -350,6 +352,7 @@ public class ClientMessagePacker extends MessagePacker {
      *
      * @param val Object value.
      * @return This instance.
+     * @throws UnsupportedOperationException When type is not supported.
      */
     public ClientMessagePacker packObject(Object val) {
         if (val == null)
