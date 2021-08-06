@@ -266,7 +266,7 @@ public class ClientTable implements Table {
         Objects.requireNonNull(newRec);
 
         return doSchemaOutOpAsync(
-                ClientOp.TUPLE_REPLACE,
+                ClientOp.TUPLE_REPLACE_EXACT,
                 (s, w) -> {
                     writeTuple(oldRec, s, w, false, false);
                     writeTuple(newRec, s, w, false, true);
