@@ -45,6 +45,6 @@ public class ClientTupleDeleteAllRequest {
         var table = readTable(in, tables);
         var tuples = readTuples(in, table, true);
 
-        return table.deleteAllAsync(tuples).thenAccept(skippedTuples -> writeTuples(out, tuples));
+        return table.deleteAllAsync(tuples).thenAccept(skippedTuples -> writeTuples(out, skippedTuples, true));
     }
 }

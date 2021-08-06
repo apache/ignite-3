@@ -102,7 +102,7 @@ class ClientTableCommon {
             Tuple tuple,
             SchemaDescriptor schema
     ) {
-        writeTuple(packer, tuple, schema, false);
+        writeTuple(packer, tuple, schema, false, false);
     }
 
     /**
@@ -118,6 +118,23 @@ class ClientTableCommon {
             SchemaDescriptor schema,
             boolean skipHeader
     ) {
+        writeTuple(packer, tuple, schema, skipHeader, false);
+    }
+
+    /**
+     * Writes a tuple.
+     *
+     * @param packer Packer.
+     * @param tuple Tuple.
+     * @throws IgniteException on failed serialization.
+     */
+    public static void writeTuple(
+            ClientMessagePacker packer,
+            Tuple tuple,
+            SchemaDescriptor schema,
+            boolean skipHeader,
+            boolean keyOnly
+    ) {
         if (tuple == null) {
             packer.packNil();
 
@@ -130,18 +147,30 @@ class ClientTableCommon {
         for (var col : schema.keyColumns().columns())
             writeColumnValue(packer, tuple, col);
 
-        for (var col : schema.valueColumns().columns())
-            writeColumnValue(packer, tuple, col);
+        if (!keyOnly) {
+            for (var col : schema.valueColumns().columns())
+                writeColumnValue(packer, tuple, col);
+        }
     }
-
     /**
-     * Writes a tuple.
+     * Writes multiple tuples.
      *
      * @param packer Packer.
      * @param tuples Tuples.
      * @throws IgniteException on failed serialization.
      */
     public static void writeTuples(ClientMessagePacker packer, Collection<Tuple> tuples) {
+        writeTuples(packer, tuples, false);
+    }
+
+    /**
+     * Writes multiple tuples.
+     *
+     * @param packer Packer.
+     * @param tuples Tuples.
+     * @throws IgniteException on failed serialization.
+     */
+    public static void writeTuples(ClientMessagePacker packer, Collection<Tuple> tuples, boolean keyOnly) {
         if (tuples == null || tuples.size() == 0) {
             packer.packNil();
 
@@ -159,7 +188,7 @@ class ClientTableCommon {
             } else
                 assert schema.version() == ((SchemaAware) tuple).schema().version();
 
-            writeTuple(packer, tuple, schema, true);
+            writeTuple(packer, tuple, schema, true, keyOnly);
         }
     }
 
@@ -335,7 +364,7 @@ class ClientTableCommon {
     }
 
     private static void writeColumnValue(ClientMessagePacker packer, Tuple tuple, Column col) {
-        var val = tuple.value(col.name());
+        var val = tuple.valueOrDefault(col.name(), null);
 
         if (val == null) {
             packer.packNil();
