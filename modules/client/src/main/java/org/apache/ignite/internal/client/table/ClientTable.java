@@ -254,7 +254,7 @@ public class ClientTable implements Table {
 
     /** {@inheritDoc} */
     @Override public boolean replace(@NotNull Tuple oldRec, @NotNull Tuple newRec) {
-        throw new UnsupportedOperationException();
+        return replaceAsync(oldRec, newRec).join();
     }
 
     /** {@inheritDoc} */
@@ -342,7 +342,7 @@ public class ClientTable implements Table {
 
         return doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
-                (s, w) -> writeTuples(recs, s, w, false),
+                (s, w) -> writeTuples(recs, s, w, true),
                 this::readTuples);
     }
 
@@ -355,7 +355,10 @@ public class ClientTable implements Table {
     @Override public @NotNull CompletableFuture<Collection<Tuple>> deleteAllExactAsync(@NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        throw new UnsupportedOperationException();
+        return doSchemaOutInOpAsync(
+                ClientOp.TUPLE_DELETE_EXACT,
+                (s, w) -> writeTuples(recs, s, w, false),
+                this::readTuples);
     }
 
     /** {@inheritDoc} */
