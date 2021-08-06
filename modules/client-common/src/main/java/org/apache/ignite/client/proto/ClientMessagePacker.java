@@ -309,6 +309,7 @@ public class ClientMessagePacker extends MessagePacker {
 
         packExtensionTypeHeader(ClientMsgPackType.UUID, 16);
 
+        // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
         var bytes = new byte[16];
         ByteBuffer bb = ByteBuffer.wrap(bytes);
 
