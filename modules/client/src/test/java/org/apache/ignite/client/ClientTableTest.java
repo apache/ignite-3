@@ -216,6 +216,13 @@ public class ClientTableTest extends AbstractClientTest {
     @Test
     public void testReplace() {
         var table = defaultTable();
+        table.insert(tuple(1L, "1"));
+
+        assertFalse(table.replace(tuple(3L, "3")));
+        assertNull(table.get(tuple(3L)));
+
+        assertTrue(table.replace(tuple(1L, "2")));
+        assertEquals("2", table.get(tuple(1L)).value("name"));
     }
 
     private Tuple tuple() {
