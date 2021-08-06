@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.fakes.FakeSchemaRegistry;
@@ -163,8 +164,7 @@ public class ClientTableTest extends AbstractClientTest {
         table.insert(tuple(3L, "3"));
 
         List<Tuple> keys = Arrays.asList(tuple(1L), tuple(3L));
-        Tuple[] res = table.getAll(keys).toArray(new Tuple[0]);
-        Arrays.sort(res, (x, y) -> (int) (x.longValue(0) - y.longValue(0)));
+        Tuple[] res = sortedTuples(table.getAll(keys));
 
         assertEquals(2, res.length);
 
@@ -290,6 +290,32 @@ public class ClientTableTest extends AbstractClientTest {
         assertNull(table.getAndDelete(tuple(1L)));
         assertNull(table.getAndDelete(tuple(2L)));
         assertTupleEquals(tuple, deleted);
+    }
+
+    @Test
+    public void testDeleteAll() {
+        var table = defaultTable();
+
+        List<Tuple> data = Arrays.asList(tuple(1L, "1"), tuple(2L, "2"));
+        table.insertAll(data);
+
+        List<Tuple> toDelete = Arrays.asList(tuple(1L, "x"), tuple(3L, "y"), tuple(4L, "z"));
+        var skippedTuples = sortedTuples(table.deleteAll(toDelete));
+
+        assertEquals(2, skippedTuples.length);
+
+        assertEquals(3L, skippedTuples[0].longValue("id"));
+        assertEquals("y", skippedTuples[0].stringValue("name"));
+
+        assertEquals(4L, skippedTuples[0].longValue("id"));
+    }
+
+    private static Tuple[] sortedTuples(Collection<Tuple> tuples) {
+        Tuple[] res = tuples.toArray(new Tuple[0]);
+
+        Arrays.sort(res, (x, y) -> (int) (x.longValue(0) - y.longValue(0)));
+
+        return res;
     }
 
     private Tuple tuple() {
