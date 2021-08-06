@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client.table;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -157,7 +158,8 @@ public class ClientTable implements Table {
         return doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
                 (s, w) -> writeTuples(keyRecs, s, w, true),
-                this::readTuples);
+                this::readTuples,
+                Collections.emptyList());
     }
 
     /** {@inheritDoc} */
@@ -173,7 +175,7 @@ public class ClientTable implements Table {
         // If it does not match the latest schema, then request latest and convert again.
         return doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT,
-                (s, w) -> writeTuple(rec, s, w, false),
+                (s, w) -> writeTuple(rec, s, w),
                 r -> null);
     }
 
@@ -234,7 +236,8 @@ public class ClientTable implements Table {
         return doSchemaOutInOpAsync(
                 ClientOp.TUPLE_INSERT_ALL,
                 (s, w) -> writeTuples(recs, s, w, false),
-                this::readTuples);
+                this::readTuples,
+                Collections.emptyList());
     }
 
     /** {@inheritDoc} */
@@ -343,7 +346,8 @@ public class ClientTable implements Table {
         return doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
                 (s, w) -> writeTuples(recs, s, w, true),
-                this::readTuples);
+                this::readTuples,
+                Collections.emptyList());
     }
 
     /** {@inheritDoc} */
@@ -358,7 +362,8 @@ public class ClientTable implements Table {
         return doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
                 (s, w) -> writeTuples(recs, s, w, false),
-                this::readTuples);
+                this::readTuples,
+                Collections.emptyList());
     }
 
     /** {@inheritDoc} */
@@ -553,12 +558,22 @@ public class ClientTable implements Table {
     private  <T> CompletableFuture<T> doSchemaOutInOpAsync(
             int opCode,
             BiConsumer<ClientSchema, ClientMessagePacker> writer,
-            BiFunction<ClientSchema, ClientMessageUnpacker, T> reader) {
+            BiFunction<ClientSchema, ClientMessageUnpacker, T> reader
+    ) {
+        return doSchemaOutInOpAsync(opCode, writer, reader, null);
+    }
+
+    private  <T> CompletableFuture<T> doSchemaOutInOpAsync(
+            int opCode,
+            BiConsumer<ClientSchema, ClientMessagePacker> writer,
+            BiFunction<ClientSchema, ClientMessageUnpacker, T> reader,
+            T defaultValue
+    ) {
         return getLatestSchema()
                 .thenCompose(schema ->
                         ch.serviceAsync(opCode,
                                 w -> writer.accept(schema, w.out()),
-                                r -> readSchemaAndReadData(schema, r.in(), reader)))
+                                r -> readSchemaAndReadData(schema, r.in(), reader, defaultValue)))
                 .thenCompose(t -> loadSchemaAndReadData(t, reader));
     }
 
@@ -576,10 +591,11 @@ public class ClientTable implements Table {
     private <T> Object readSchemaAndReadData(
             ClientSchema knownSchema,
             ClientMessageUnpacker in,
-            BiFunction<ClientSchema, ClientMessageUnpacker, T> fn
+            BiFunction<ClientSchema, ClientMessageUnpacker, T> fn,
+            T defaultValue
     ) {
         if (in.getNextFormat() == MessageFormat.NIL)
-            return null;
+            return defaultValue;
 
         var schemaVer = in.unpackInt();
 
