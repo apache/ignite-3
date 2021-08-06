@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletionException;
 
+import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.fakes.FakeSchemaRegistry;
 import org.apache.ignite.internal.client.table.ClientTupleBuilder;
 import org.apache.ignite.table.Table;
@@ -180,6 +181,11 @@ public class ClientTableTest extends AbstractClientTest {
 
         assertEquals(3L, res[1].longValue("id"));
         assertEquals("3", res[1].stringValue("name"));
+    }
+
+    @Test
+    public void testUpsertAll() {
+        Table table = getDefaultTable();
     }
 
     private Tuple getDefaultTuple(Table table) {

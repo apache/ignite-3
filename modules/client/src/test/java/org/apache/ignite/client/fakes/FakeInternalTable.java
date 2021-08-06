@@ -35,12 +35,21 @@ import java.util.concurrent.ConcurrentHashMap;
  * Fake internal table.
  */
 public class FakeInternalTable implements InternalTable {
+    /** Table name. */
     private final String tableName;
 
+    /** Table ID. */
     private final UUID tableId;
 
+    /** Table data. */
     private final ConcurrentHashMap<ByteBuffer, BinaryRow> data = new ConcurrentHashMap<>();
 
+    /**
+     * Constructor.
+     *
+     * @param tableName Name.
+     * @param tableId Id.
+     */
     public FakeInternalTable(String tableName, UUID tableId) {
         this.tableName = tableName;
         this.tableId = tableId;
