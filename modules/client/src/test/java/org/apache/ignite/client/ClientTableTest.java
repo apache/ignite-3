@@ -59,7 +59,7 @@ public class ClientTableTest extends AbstractClientTest {
 
         table.upsert(tuple);
 
-        Tuple key = table.tupleBuilder().set("id", 123).build();
+        Tuple key = tuple(123L);
         var resTuple = table.get(key);
 
         assertEquals(DEFAULT_NAME, resTuple.stringValue("name"));
@@ -91,12 +91,8 @@ public class ClientTableTest extends AbstractClientTest {
     public void testUpsertGetAsync() {
         var table = defaultTable();
 
-        var tuple = table.tupleBuilder()
-                .set("id", 42L)
-                .set("name", "Jack")
-                .build();
-
-        Tuple key = table.tupleBuilder().set("id", 42).build();
+        var tuple = tuple(42L, "Jack");
+        var key = table.tupleBuilder().set("id", 42).build();
 
         var resTuple = table.upsertAsync(tuple).thenCompose(t -> table.getAsync(key)).join();
 
@@ -134,11 +130,8 @@ public class ClientTableTest extends AbstractClientTest {
     public void testInsert() {
         var table = defaultTable();
 
-        var tuple = tuple(table);
-        var tuple2 = table.tupleBuilder()
-                .set("id", DEFAULT_ID)
-                .set("name", "abc")
-                .build();
+        var tuple = tuple();
+        var tuple2 = tuple(DEFAULT_ID, "abc");
 
         assertTrue(table.insert(tuple));
         assertFalse(table.insert(tuple));
@@ -156,7 +149,7 @@ public class ClientTableTest extends AbstractClientTest {
         assertTrue(table.insert(tuple));
         assertFalse(table.insert(tuple));
 
-        var resTuple = table.get(new CustomTuple(25L, null));
+        var resTuple = table.get(new CustomTuple(25L));
 
         assertTupleEquals(tuple, resTuple);
     }
@@ -164,11 +157,11 @@ public class ClientTableTest extends AbstractClientTest {
     @Test
     public void testGetAll() {
         var table = defaultTable();
-        table.insert(new CustomTuple(1L, "1"));
-        table.insert(new CustomTuple(2L, "2"));
-        table.insert(new CustomTuple(3L, "3"));
+        table.insert(tuple(1L, "1"));
+        table.insert(tuple(2L, "2"));
+        table.insert(tuple(3L, "3"));
 
-        List<Tuple> keys = Arrays.asList(new CustomTuple(1L), new CustomTuple(3L));
+        List<Tuple> keys = Arrays.asList(tuple(1L), tuple(3L));
         Tuple[] res = table.getAll(keys).toArray(new Tuple[0]);
         Arrays.sort(res, (x, y) -> (int) (x.longValue(0) - y.longValue(0)));
 
@@ -185,39 +178,39 @@ public class ClientTableTest extends AbstractClientTest {
     public void testUpsertAll() {
         var table = defaultTable();
 
-        List<Tuple> data = Arrays.asList(new CustomTuple(1L, "1"), new CustomTuple(2L, "2"));
+        List<Tuple> data = Arrays.asList(tuple(1L, "1"), tuple(2L, "2"));
         table.upsertAll(data);
 
-        assertEquals("1", table.get(new CustomTuple(1L)).stringValue("name"));
-        assertEquals("2", table.get(new CustomTuple(2L)).stringValue("name"));
+        assertEquals("1", table.get(tuple(1L)).stringValue("name"));
+        assertEquals("2", table.get(tuple(2L)).stringValue("name"));
 
-        List<Tuple> data2 = Arrays.asList(new CustomTuple(1L, "10"), new CustomTuple(3L, "30"));
+        List<Tuple> data2 = Arrays.asList(tuple(1L, "10"), tuple(3L, "30"));
         table.upsertAll(data2);
 
-        assertEquals("10", table.get(new CustomTuple(1L)).stringValue("name"));
-        assertEquals("2", table.get(new CustomTuple(2L)).stringValue("name"));
-        assertEquals("30", table.get(new CustomTuple(3L)).stringValue("name"));
+        assertEquals("10", table.get(tuple(1L)).stringValue("name"));
+        assertEquals("2", table.get(tuple(2L)).stringValue("name"));
+        assertEquals("30", table.get(tuple(3L)).stringValue("name"));
     }
 
     @Test
     public void testInsertAll() {
         var table = defaultTable();
 
-        List<Tuple> data = Arrays.asList(new CustomTuple(1L, "1"), new CustomTuple(2L, "2"));
+        List<Tuple> data = Arrays.asList(tuple(1L, "1"), tuple(2L, "2"));
         var skippedTuples = table.insertAll(data);
 
         assertEquals(0, skippedTuples.size());
-        assertEquals("1", table.get(new CustomTuple(1L)).stringValue("name"));
-        assertEquals("2", table.get(new CustomTuple(2L)).stringValue("name"));
+        assertEquals("1", table.get(tuple(1L)).stringValue("name"));
+        assertEquals("2", table.get(tuple(2L)).stringValue("name"));
 
-        List<Tuple> data2 = Arrays.asList(new CustomTuple(1L, "10"), new CustomTuple(3L, "30"));
+        List<Tuple> data2 = Arrays.asList(tuple(1L, "10"), tuple(3L, "30"));
         var skippedTuples2 = table.insertAll(data2).toArray(new Tuple[0]);
 
         assertEquals(1, skippedTuples2.length);
         assertEquals(1L, skippedTuples2[0].longValue("id"));
-        assertEquals("1", table.get(new CustomTuple(1L)).stringValue("name"));
-        assertEquals("2", table.get(new CustomTuple(2L)).stringValue("name"));
-        assertEquals("30", table.get(new CustomTuple(3L)).stringValue("name"));
+        assertEquals("1", table.get(tuple(1L)).stringValue("name"));
+        assertEquals("2", table.get(tuple(2L)).stringValue("name"));
+        assertEquals("30", table.get(tuple(3L)).stringValue("name"));
     }
     
     @Test
