@@ -72,9 +72,6 @@ public abstract class ConfigurationChanger {
     /** Annotation classes mapped to validator objects. */
     private Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = new HashMap<>();
 
-    /** The flag is true when at least one value was read from a storage, otherwise false. */
-    private volatile boolean bootstrapped;
-
     /**
      * Closure interface to be used by the configuration changer. An instance of this closure is passed into the constructor and
      * invoked every time when there's an update from any of the storages.
@@ -207,11 +204,8 @@ public abstract class ConfigurationChanger {
 
             InnerNode rootNode = createRootNode(rootKey);
 
-            if (rootPrefixMap != null) {
+            if (rootPrefixMap != null)
                 fillFromPrefixMap(rootNode, rootPrefixMap);
-
-                bootstrapped = true;
-            }
 
             superRoot.addRoot(rootKey, rootNode);
         }
@@ -234,9 +228,6 @@ public abstract class ConfigurationChanger {
      *      storage.
      */
     public void initialize(ConfigurationType storageType) throws ConfigurationValidationException, ConfigurationChangeException {
-        if (bootstrapped)
-            return;
-
         ConfigurationStorage configurationStorage = storageInstances.get(storageType);
 
         assert configurationStorage != null : storageType;

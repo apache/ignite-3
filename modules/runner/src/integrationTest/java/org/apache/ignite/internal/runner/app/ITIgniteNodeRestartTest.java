@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.commons.util.ReflectionUtils;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -52,14 +53,24 @@ public class ITIgniteNodeRestartTest extends IgniteAbstractTest {
 
     /**
      * Restarts empty node.
+     *
+     * @throws Exception If failed.
      */
     @Test
-    public void emptyNodeTest() {
+    public void emptyNodeTest() throws Exception {
         Ignite ignite = IgnitionManager.start(NODE_NAME, null, workDir.resolve(NODE_NAME));
+
+        int nodePort = getNodePort(NODE_NAME);
+
+        assertEquals(47500, nodePort);
 
         IgnitionManager.stop(ignite.name());
 
         ignite = IgnitionManager.start(NODE_NAME, null, workDir.resolve(NODE_NAME));
+
+        nodePort = getNodePort(NODE_NAME);
+
+        assertEquals(47500, nodePort);
 
         IgnitionManager.stop(ignite.name());
     }
@@ -93,6 +104,34 @@ public class ITIgniteNodeRestartTest extends IgniteAbstractTest {
     }
 
     /**
+     * Checks that the only one non-default property overwrites after another configuration is passed on the node
+     * restart.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void twoCustomPropertiesTest() throws Exception {
+        String startCfg = "network: {\n" +
+            "  port:3344,\n" +
+            "  netClusterNodes:[ \"localhost:3344\" ]\n" +
+            "}";
+
+        Ignite ignite = IgnitionManager.start(NODE_NAME, startCfg, workDir.resolve(NODE_NAME));
+
+        assertEquals(3344, getNodePort(NODE_NAME));
+        assertArrayEquals(new String[] {"localhost:3344"}, getClusterNodes(NODE_NAME));
+
+        IgnitionManager.stop(ignite.name());
+
+        ignite = IgnitionManager.start(NODE_NAME, "network.netClusterNodes=[ \"localhost:3344\", \"localhost:3343\" ]", workDir.resolve(NODE_NAME));
+
+        assertEquals(3344, getNodePort(NODE_NAME));
+        assertArrayEquals(new String[] {"localhost:3344", "localhost:3343"}, getClusterNodes(NODE_NAME));
+
+        IgnitionManager.stop(ignite.name());
+    }
+
+    /**
      * Gets current network port.
      *
      * @param nodeName Node name.
@@ -100,6 +139,32 @@ public class ITIgniteNodeRestartTest extends IgniteAbstractTest {
      * @throws Exception If some issue has happened when getting the port.
      */
     private int getNodePort(String nodeName) throws Exception {
+        NetworkConfiguration networkCfgTree = getNetworkCfgTree(nodeName);
+
+        return networkCfgTree.port().value();
+    }
+
+    /**
+     * Gets an array of nodes.
+     *
+     * @param nodeName Node name.
+     * @return Array of node's hosts.
+     * @throws Exception If some issue has happened when getting the nodes.
+     */
+    private String[] getClusterNodes(String nodeName) throws Exception {
+        NetworkConfiguration networkCfgTree = getNetworkCfgTree(nodeName);
+
+        return networkCfgTree.netClusterNodes().value();
+    }
+
+    /**
+     * Gets a network configuration for a node with the name specified.
+     *
+     * @param nodeName Node name.
+     * @return Network configuration.
+     * @throws Exception If failed.
+     */
+    private NetworkConfiguration getNetworkCfgTree(String nodeName) throws Exception {
         Map<String, List<IgniteComponent>> nodesStartedComponents = (Map<String, List<IgniteComponent>>)ReflectionUtils.tryToReadFieldValue(IgnitionImpl.class, "nodesStartedComponents", null).get();
 
         assertNotNull(nodesStartedComponents.get(nodeName));
@@ -108,7 +173,7 @@ public class ITIgniteNodeRestartTest extends IgniteAbstractTest {
 
         ConfigurationManager locCfgMgr = (ConfigurationManager)ReflectionUtils.tryToReadFieldValue(MetaStorageManager.class, "locCfgMgr", metaStorageManager).get();
 
-        return locCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).port().value();
+        return locCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
     }
 
     /**

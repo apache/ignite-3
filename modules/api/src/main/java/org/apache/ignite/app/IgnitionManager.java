@@ -40,6 +40,8 @@ public class IgnitionManager {
      *
      * @param nodeName Name of the node. Must not be {@code null}.
      * @param configStr Node configuration in the HOCON format. Can be {@code null}.
+     *             For the first node start, the configuration applies, all missed fields apply by default values.
+     *             If the node has already been starting before, the configuration overwrites the stored one.
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @return Started Ignite node.
      * @throws IgniteException If error occurs while reading node configuration.
