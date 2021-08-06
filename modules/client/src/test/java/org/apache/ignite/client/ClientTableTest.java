@@ -186,6 +186,19 @@ public class ClientTableTest extends AbstractClientTest {
     @Test
     public void testUpsertAll() {
         Table table = getDefaultTable();
+
+        List<Tuple> data = Arrays.asList(new CustomTuple(1L, "1"), new CustomTuple(2L, "2"));
+        table.upsertAll(data);
+
+        assertEquals("1", table.get(new CustomTuple(1L)).stringValue("name"));
+        assertEquals("2", table.get(new CustomTuple(2L)).stringValue("name"));
+
+        List<Tuple> data2 = Arrays.asList(new CustomTuple(1L, "10"), new CustomTuple(3L, "30"));
+        table.upsertAll(data2);
+
+        assertEquals("10", table.get(new CustomTuple(1L)).stringValue("name"));
+        assertEquals("2", table.get(new CustomTuple(2L)).stringValue("name"));
+        assertEquals("30", table.get(new CustomTuple(3L)).stringValue("name"));
     }
 
     private Tuple getDefaultTuple(Table table) {
