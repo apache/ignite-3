@@ -280,7 +280,10 @@ public class ClientTable implements Table {
     @Override public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
-        throw new UnsupportedOperationException();
+        return doSchemaOutInOpAsync(
+                ClientOp.TUPLE_GET_AND_REPLACE,
+                (s, w) -> writeTuple(rec, s, w, false),
+                this::readTuple);
     }
 
     /** {@inheritDoc} */
@@ -322,7 +325,10 @@ public class ClientTable implements Table {
     @Override public @NotNull CompletableFuture<Tuple> getAndDeleteAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
-        throw new UnsupportedOperationException();
+        return doSchemaOutInOpAsync(
+                ClientOp.TUPLE_GET_AND_DELETE,
+                (s, w) -> writeTuple(rec, s, w, false),
+                this::readTuple);
     }
 
     /** {@inheritDoc} */
@@ -334,7 +340,10 @@ public class ClientTable implements Table {
     @Override public @NotNull CompletableFuture<Collection<Tuple>> deleteAllAsync(@NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        throw new UnsupportedOperationException();
+        return doSchemaOutInOpAsync(
+                ClientOp.TUPLE_DELETE_ALL,
+                (s, w) -> writeTuples(recs, s, w, false),
+                this::readTuples);
     }
 
     /** {@inheritDoc} */
