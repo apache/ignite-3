@@ -95,6 +95,7 @@ class ClientTableCommon {
      *
      * @param packer Packer.
      * @param tuple Tuple.
+     * @param schema Tuple schema.
      * @throws IgniteException on failed serialization.
      */
     public static void writeTuple(
@@ -110,6 +111,8 @@ class ClientTableCommon {
      *
      * @param packer Packer.
      * @param tuple Tuple.
+     * @param schema Tuple schema.
+     * @param skipHeader Whether to skip the tuple header.
      * @throws IgniteException on failed serialization.
      */
     public static void writeTuple(
@@ -126,6 +129,9 @@ class ClientTableCommon {
      *
      * @param packer Packer.
      * @param tuple Tuple.
+     * @param schema Tuple schema.
+     * @param skipHeader Whether to skip the tuple header.
+     * @param keyOnly Whether to write key fields only.
      * @throws IgniteException on failed serialization.
      */
     public static void writeTuple(
@@ -169,6 +175,7 @@ class ClientTableCommon {
      *
      * @param packer Packer.
      * @param tuples Tuples.
+     * @param keyOnly Whether to write key fields only.
      * @throws IgniteException on failed serialization.
      */
     public static void writeTuples(ClientMessagePacker packer, Collection<Tuple> tuples, boolean keyOnly) {
@@ -246,6 +253,7 @@ class ClientTableCommon {
      * @param unpacker Unpacker.
      * @param table Table.
      * @param keyOnly Whether only key fields are expected.
+     * @param schema Tuple schema.
      * @return Tuple.
      */
     public static Tuple readTuple(

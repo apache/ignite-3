@@ -431,6 +431,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
     /**
      * Increases the reference count by {@code 1}.
+     *
+     * @return This instance.
      */
     public ClientMessageUnpacker retain() {
         refCnt++;
