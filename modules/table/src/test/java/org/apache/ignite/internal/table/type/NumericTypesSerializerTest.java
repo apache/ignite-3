@@ -164,7 +164,7 @@ public class NumericTypesSerializerTest {
             "Failed to set decimal value for column"
         );
         assertThrows(IllegalArgumentException.class,
-            () -> marshaller.marshal(keyTuple, badTup.set("decimalCol", new BigDecimal("123456789.0123")).build()),
+            () -> marshaller.marshal(keyTuple, badTup.set("decimalCol", new BigDecimal("1234567")).build()),
             "Failed to set decimal value for column"
         );
         assertThrows(IllegalArgumentException.class,
