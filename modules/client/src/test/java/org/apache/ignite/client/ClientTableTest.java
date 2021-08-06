@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -261,6 +262,22 @@ public class ClientTableTest extends AbstractClientTest {
         assertFalse(table.delete(tuple(2L)));
         assertTrue(table.delete(tuple(1L)));
         assertNull(table.get(tuple(1L)));
+    }
+
+    @Test
+    public void testDeleteExact() {
+        var table = defaultTable();
+        table.insert(tuple(1L, "1"));
+        table.insert(tuple(2L, "2"));
+
+        assertFalse(table.deleteExact(tuple(1L)));
+        assertFalse(table.deleteExact(tuple(1L, "x")));
+        assertTrue(table.deleteExact(tuple(1L, "1")));
+        assertFalse(table.deleteExact(tuple(2L)));
+        assertFalse(table.deleteExact(tuple(3L)));
+
+        assertNull(table.get(tuple(1L)));
+        assertNotNull(table.get(tuple(2L)));
     }
 
     private Tuple tuple() {

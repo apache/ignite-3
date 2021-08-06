@@ -184,10 +184,12 @@ public class FakeInternalTable implements InternalTable {
     @Override public CompletableFuture<Boolean> deleteExact(BinaryRow oldRow, @Nullable Transaction tx) {
         var old = get(oldRow, tx).getNow(null);
 
-        if (old != null && old.valueSlice().equals(oldRow.valueSlice()))
+        if (old != null && old.valueSlice().equals(oldRow.valueSlice())) {
             data.remove(oldRow.keySlice());
+            return CompletableFuture.completedFuture(true);
+        }
 
-        return CompletableFuture.completedFuture(old != null);
+        return CompletableFuture.completedFuture(false);
     }
 
     /** {@inheritDoc} */
