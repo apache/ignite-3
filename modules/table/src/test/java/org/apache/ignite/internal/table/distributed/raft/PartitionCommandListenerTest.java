@@ -69,8 +69,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * There are a tests for a table command listener.
- * All rows should be removed before returning form each test.
+ * Tests for the table command listener.
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class PartitionCommandListenerTest {
@@ -101,7 +100,6 @@ public class PartitionCommandListenerTest {
 
     /**
      * Inserts rows and checks them.
-     * All rows are removed before returning.
      */
     @Test
     public void testInsertCommands() {
@@ -120,7 +118,6 @@ public class PartitionCommandListenerTest {
 
     /**
      * Upserts rows and checks them.
-     * All rows are removed before returning.
      */
     @Test
     public void testUpsertValues() {
@@ -137,7 +134,6 @@ public class PartitionCommandListenerTest {
 
     /**
      * Adds rows, replaces and checks them.
-     * All rows are removed before returning.
      */
     @Test
     public void testReplaceCommand() {
@@ -160,7 +156,6 @@ public class PartitionCommandListenerTest {
 
     /**
      * The test checks PutIfExist command.
-     * All rows are removed before returning.
      */
     @Test
     public void testPutIfExistCommand() {
@@ -183,7 +178,6 @@ public class PartitionCommandListenerTest {
 
     /**
      * The test checks GetAndReplace command.
-     * All rows are removed before returning.
      */
     @Test
     public void testGetAndReplaceCommand() {
@@ -212,7 +206,6 @@ public class PartitionCommandListenerTest {
 
     /**
      * The test checks a batch upsert command.
-     * All rows are removed before returning.
      */
     @Test
     public void testUpsertRowsBatchedAndCheck() {
@@ -231,7 +224,6 @@ public class PartitionCommandListenerTest {
 
     /**
      * The test checks a batch insert command.
-     * All rows are removed before returning.
      */
     @Test
     public void testInsertRowsBatchedAndCheck() {

@@ -23,8 +23,6 @@ import java.util.Iterator;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.storage.DataRow;
@@ -43,9 +41,6 @@ public class ConcurrentHashMapStorage implements Storage {
     /** Storage content. */
     private final ConcurrentMap<ByteArray, byte[]> map = new ConcurrentHashMap<>();
 
-    /** RW lock. */
-    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
-
     /** {@inheritDoc} */
     @Override public DataRow read(SearchRow key) throws StorageException {
         byte[] keyBytes = key.keyBytes();
@@ -57,111 +52,62 @@ public class ConcurrentHashMapStorage implements Storage {
 
     /** {@inheritDoc} */
     @Override public Collection<DataRow> readAll(Collection<? extends SearchRow> keys) {
-        rwLock.writeLock().lock();
-
-        try {
-            return keys.stream()
-                .map(SearchRow::keyBytes)
-                .map(key -> new SimpleDataRow(key, map.get(new ByteArray(key))))
-                .collect(Collectors.toList());
-        }
-        finally {
-            rwLock.writeLock().unlock();
-        }
+        return keys.stream()
+            .map(SearchRow::keyBytes)
+            .map(key -> new SimpleDataRow(key, map.get(new ByteArray(key))))
+            .collect(Collectors.toList());
     }
 
     /** {@inheritDoc} */
     @Override public void write(DataRow row) throws StorageException {
-        rwLock.readLock().lock();
-
-        try {
-            map.put(new ByteArray(row.keyBytes()), row.valueBytes());
-        }
-        finally {
-            rwLock.readLock().unlock();
-        }
+        map.put(new ByteArray(row.keyBytes()), row.valueBytes());
     }
 
     /** {@inheritDoc} */
     @Override public void writeAll(Collection<? extends DataRow> rows) throws StorageException {
-        rwLock.writeLock().lock();
-
-        try {
-            rows.forEach(row -> map.put(new ByteArray(row.keyBytes()), row.valueBytes()));
-        }
-        finally {
-            rwLock.writeLock().unlock();
-        }
+        rows.forEach(row -> map.put(new ByteArray(row.keyBytes()), row.valueBytes()));
     }
 
     /** {@inheritDoc} */
     @Override public Collection<DataRow> insertAll(Collection<? extends DataRow> rows) throws StorageException {
-        rwLock.writeLock().lock();
-
-        try {
-            return rows.stream()
-                .map(row -> map.putIfAbsent(new ByteArray(row.keyBytes()), row.valueBytes()) == null ? null : row)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
-        }
-        finally {
-            rwLock.writeLock().unlock();
-        }
+        return rows.stream()
+            .map(row -> map.putIfAbsent(new ByteArray(row.keyBytes()), row.valueBytes()) == null ? null : row)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
     }
 
     /** {@inheritDoc} */
     @Override public void remove(SearchRow key) throws StorageException {
-        rwLock.readLock().lock();
-
-        try {
-            map.remove(new ByteArray(key.keyBytes()));
-        }
-        finally {
-            rwLock.readLock().unlock();
-        }
+        map.remove(new ByteArray(key.keyBytes()));
     }
 
     /** {@inheritDoc} */
     @Override public Collection<DataRow> removeAll(Collection<? extends SearchRow> keys) {
-        rwLock.writeLock().lock();
-
-        try {
-            return keys.stream()
-                .map(SearchRow::keyBytes)
-                .map(key -> new SimpleDataRow(key, map.remove(new ByteArray(key))))
-                .filter(SimpleDataRow::hasValueBytes)
-                .collect(Collectors.toList());
-        }
-        finally {
-            rwLock.writeLock().unlock();
-        }
+        return keys.stream()
+            .map(SearchRow::keyBytes)
+            .map(key -> new SimpleDataRow(key, map.remove(new ByteArray(key))))
+            .filter(SimpleDataRow::hasValueBytes)
+            .collect(Collectors.toList());
     }
 
     /** {@inheritDoc} */
     @Override public Collection<DataRow> removeAllExact(Collection<? extends DataRow> keyValues) {
-        rwLock.writeLock().lock();
+        return keyValues.stream()
+            .map(kv -> {
+                ByteArray key = new ByteArray(kv.keyBytes());
 
-        try {
-            return keyValues.stream()
-                .map(kv -> {
-                    ByteArray key = new ByteArray(kv.keyBytes());
+                byte[] currentValue = map.get(key);
 
-                    byte[] currentValue = map.get(key);
+                if (Arrays.equals(currentValue, kv.valueBytes())) {
+                    map.remove(key);
 
-                    if (Arrays.equals(currentValue, kv.valueBytes())) {
-                        map.remove(key);
+                    return kv;
+                }
 
-                        return kv;
-                    }
-
-                    return null;
-                })
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
-        }
-        finally {
-            rwLock.writeLock().unlock();
-        }
+                return null;
+            })
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
     }
 
     /** {@inheritDoc} */
@@ -170,30 +116,23 @@ public class ConcurrentHashMapStorage implements Storage {
 
         ByteArray mapKey = new ByteArray(keyBytes);
 
-        rwLock.writeLock().lock();
+        byte[] existingDataBytes = map.get(mapKey);
 
-        try {
-            byte[] existingDataBytes = map.get(mapKey);
+        clo.call(new SimpleDataRow(keyBytes, existingDataBytes));
 
-            clo.call(new SimpleDataRow(keyBytes, existingDataBytes));
+        switch (clo.operationType()) {
+            case WRITE:
+                map.put(mapKey, clo.newRow().valueBytes());
 
-            switch (clo.operationType()) {
-                case WRITE:
-                    map.put(mapKey, clo.newRow().valueBytes());
+                break;
 
-                    break;
+            case REMOVE:
+                map.remove(mapKey);
 
-                case REMOVE:
-                    map.remove(mapKey);
+                break;
 
-                    break;
-
-                case NOOP:
-                    break;
-            }
-        }
-        finally {
-            rwLock.writeLock().unlock();
+            case NOOP:
+                break;
         }
     }
 

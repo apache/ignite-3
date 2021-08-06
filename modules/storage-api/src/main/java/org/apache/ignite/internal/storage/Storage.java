@@ -23,6 +23,8 @@ import org.apache.ignite.internal.util.Cursor;
 
 /**
  * Interface providing methods to read, remove and update keys in storage.
+ * Any locking is not necessary as this storage is used within the RAFT groups where all write operations are
+ * serialized.
  */
 public interface Storage extends AutoCloseable {
     /**

@@ -26,8 +26,6 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.storage.DataRow;
@@ -43,11 +41,9 @@ import org.jetbrains.annotations.NotNull;
 import org.rocksdb.AbstractComparator;
 import org.rocksdb.ComparatorOptions;
 import org.rocksdb.Options;
-import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
-import org.rocksdb.Snapshot;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
 
@@ -70,9 +66,6 @@ public class RocksDbStorage implements Storage {
 
     /** RocksDb instance. */
     private final RocksDB db;
-
-    /** RW lock. */
-    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
 
     /**
      * @param dbPath Path to the folder to store data.
@@ -131,19 +124,17 @@ public class RocksDbStorage implements Storage {
     @Override public Collection<DataRow> readAll(Collection<? extends SearchRow> keys) throws StorageException {
         List<DataRow> res = new ArrayList<>();
 
-        Snapshot snapshot = db.getSnapshot();
+        try {
+            List<byte[]> keysList = keys.stream().map(SearchRow::keyBytes).collect(Collectors.toList());
 
-        try (ReadOptions opts = new ReadOptions().setSnapshot(snapshot)) {
-            List<byte[]> values =
-                db.multiGetAsList(opts, keys.stream().map(SearchRow::keyBytes).collect(Collectors.toList()));
+            List<byte[]> values = db.multiGetAsList(keysList);
 
             assert keys.size() == values.size();
 
-            int i = 0;
-            for (SearchRow key : keys) {
-                byte[] keyBytes = key.keyBytes();
+            for (int i = 0; i < keysList.size(); i++) {
+                byte[] key = keysList.get(i);
 
-                res.add(new SimpleDataRow(keyBytes, values.get(i++)));
+                res.add(new SimpleDataRow(key, values.get(i)));
             }
 
             return res;
@@ -151,32 +142,20 @@ public class RocksDbStorage implements Storage {
         catch (RocksDBException e) {
             throw new StorageException("Failed to read data from the storage", e);
         }
-        finally {
-            db.releaseSnapshot(snapshot);
-
-            snapshot.close();
-        }
     }
 
     /** {@inheritDoc} */
     @Override public void write(DataRow row) throws StorageException {
-        rwLock.readLock().lock();
-
         try {
             db.put(row.keyBytes(), row.valueBytes());
         }
         catch (RocksDBException e) {
             throw new StorageException("Filed to write data to the storage", e);
         }
-        finally {
-            rwLock.readLock().unlock();
-        }
     }
 
     /** {@inheritDoc} */
     @Override public void writeAll(Collection<? extends DataRow> rows) throws StorageException {
-        rwLock.readLock().lock();
-
         try (WriteBatch batch = new WriteBatch();
              WriteOptions opts = new WriteOptions()) {
             for (DataRow row : rows)
@@ -187,25 +166,17 @@ public class RocksDbStorage implements Storage {
         catch (RocksDBException e) {
             throw new StorageException("Filed to write data to the storage", e);
         }
-        finally {
-            rwLock.readLock().unlock();
-        }
     }
 
     /** {@inheritDoc} */
     @Override public Collection<DataRow> insertAll(Collection<? extends DataRow> rows) throws StorageException {
-        rwLock.writeLock().lock();
-
         List<DataRow> cantInsert = new ArrayList<>();
 
-        Snapshot snapshot = db.getSnapshot();
-
         try (WriteBatch batch = new WriteBatch();
-             ReadOptions readOpts = new ReadOptions().setSnapshot(snapshot);
              WriteOptions opts = new WriteOptions()) {
 
             for (DataRow row : rows) {
-                if (db.get(readOpts, row.keyBytes()) == null)
+                if (db.get(row.keyBytes()) == null)
                     batch.put(row.keyBytes(), row.valueBytes());
                 else
                     cantInsert.add(row);
@@ -216,48 +187,31 @@ public class RocksDbStorage implements Storage {
         catch (RocksDBException e) {
             throw new StorageException("Filed to write data to the storage", e);
         }
-        finally {
-            db.releaseSnapshot(snapshot);
-
-            snapshot.close();
-
-            rwLock.writeLock().unlock();
-        }
 
         return cantInsert;
     }
 
     /** {@inheritDoc} */
     @Override public void remove(SearchRow key) throws StorageException {
-        rwLock.readLock().lock();
-
         try {
             db.delete(key.keyBytes());
         }
         catch (RocksDBException e) {
             throw new StorageException("Failed to remove data from the storage", e);
         }
-        finally {
-            rwLock.readLock().unlock();
-        }
     }
 
     /** {@inheritDoc} */
     @Override public Collection<DataRow> removeAll(Collection<? extends SearchRow> keys) {
-        rwLock.writeLock().lock();
-
         List<DataRow> res = new ArrayList<>();
 
-        Snapshot snapshot = db.getSnapshot();
-
         try (WriteBatch batch = new WriteBatch();
-             ReadOptions readOpts = new ReadOptions().setSnapshot(snapshot);
              WriteOptions opts = new WriteOptions()) {
 
             for (SearchRow key : keys) {
                 byte[] keyBytes = key.keyBytes();
 
-                byte[] value = db.get(readOpts, keyBytes);
+                byte[] value = db.get(keyBytes);
 
                 if (value != null) {
                     res.add(new SimpleDataRow(keyBytes, value));
@@ -271,38 +225,41 @@ public class RocksDbStorage implements Storage {
         catch (RocksDBException e) {
             throw new StorageException("Failed to remove data from the storage", e);
         }
-        finally {
-            db.releaseSnapshot(snapshot);
-
-            snapshot.close();
-
-            rwLock.writeLock().unlock();
-        }
 
         return res;
     }
 
     /** {@inheritDoc} */
     @Override public Collection<DataRow> removeAllExact(Collection<? extends DataRow> keyValues) {
-        rwLock.writeLock().lock();
-
         List<DataRow> res = new ArrayList<>();
 
-        Snapshot snapshot = db.getSnapshot();
-
         try (WriteBatch batch = new WriteBatch();
-             ReadOptions readOpts = new ReadOptions().setSnapshot(snapshot);
              WriteOptions opts = new WriteOptions()) {
 
-            for (DataRow kv : keyValues) {
-                byte[] keyBytes = kv.keyBytes();
+            List<byte[]> keys = new ArrayList<>();
+            List<byte[]> expectedValues = new ArrayList<>();
 
-                byte[] value = db.get(readOpts, keyBytes);
+            for (DataRow keyValue : keyValues) {
+                byte[] keyBytes = keyValue.keyBytes();
+                byte[] valueBytes = keyValue.valueBytes();
 
-                if (Arrays.equals(value, kv.valueBytes())) {
-                    res.add(new SimpleDataRow(keyBytes, value));
+                keys.add(keyBytes);
+                expectedValues.add(valueBytes);
+            }
 
-                    batch.delete(keyBytes);
+            List<byte[]> values = db.multiGetAsList(keys);
+
+            assert values.size() == expectedValues.size();
+
+            for (int i = 0; i < keys.size(); i++) {
+                byte[] key = keys.get(i);
+                byte[] expectedValue = expectedValues.get(i);
+                byte[] value = values.get(i);
+
+                if (Arrays.equals(value, expectedValue)) {
+                    res.add(new SimpleDataRow(key, value));
+
+                    batch.delete(key);
                 }
             }
 
@@ -311,21 +268,12 @@ public class RocksDbStorage implements Storage {
         catch (RocksDBException e) {
             throw new StorageException("Failed to remove data from the storage", e);
         }
-        finally {
-            db.releaseSnapshot(snapshot);
-
-            snapshot.close();
-
-            rwLock.writeLock().unlock();
-        }
 
         return res;
     }
 
     /** {@inheritDoc} */
     @Override public void invoke(SearchRow key, InvokeClosure clo) throws StorageException {
-        rwLock.writeLock().lock();
-
         try {
             byte[] keyBytes = key.keyBytes();
             byte[] existingDataBytes = db.get(keyBytes);
@@ -349,9 +297,6 @@ public class RocksDbStorage implements Storage {
         }
         catch (RocksDBException e) {
             throw new StorageException("Failed to access data in the storage", e);
-        }
-        finally {
-            rwLock.writeLock().unlock();
         }
     }
 
