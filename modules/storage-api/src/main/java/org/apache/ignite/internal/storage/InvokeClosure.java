@@ -27,6 +27,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface InvokeClosure<T> {
     /**
+     * In this method closure decides what type of operation should be performed on the storage, based on the
+     * current data in the storage passed as an argument.
+     * The result of the operation can be obtained via the {@link #result()} method.
+     *
      * @param row Old row.
      */
     void call(@NotNull DataRow row);

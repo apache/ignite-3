@@ -94,7 +94,7 @@ public class ConcurrentHashMapStorage implements Storage {
     /** {@inheritDoc} */
     @Override public Collection<DataRow> removeAllExact(Collection<? extends DataRow> keyValues) {
         return keyValues.stream()
-            .map(kv -> {
+            .filter(kv -> {
                 ByteArray key = new ByteArray(kv.keyBytes());
 
                 byte[] currentValue = map.get(key);
@@ -102,12 +102,11 @@ public class ConcurrentHashMapStorage implements Storage {
                 if (Arrays.equals(currentValue, kv.valueBytes())) {
                     map.remove(key);
 
-                    return kv;
+                    return true;
                 }
 
-                return null;
+                return false;
             })
-            .filter(Objects::nonNull)
             .collect(Collectors.toList());
     }
 

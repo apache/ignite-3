@@ -52,7 +52,6 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -393,7 +392,11 @@ public class IgnitionImpl implements Ignition {
     private static Path getPartitionsStorePath(Path workDir) {
         Path partitionsStore = workDir.resolve(PARTITIONS_STORE_PATH);
 
-        IgniteUtils.createDirectoriesIfNotExist(partitionsStore);
+        try {
+            Files.createDirectories(partitionsStore);
+        } catch (IOException e) {
+            throw new IgniteInternalException("Failed to create directory for partitions storage: " + e.getMessage(), e);
+        }
 
         return partitionsStore;
     }

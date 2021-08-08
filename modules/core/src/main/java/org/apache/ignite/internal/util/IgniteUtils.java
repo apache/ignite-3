@@ -34,7 +34,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -487,22 +486,5 @@ public class IgniteUtils {
      */
     public static void closeAll(AutoCloseable... closeables) throws Exception {
         closeAll(Arrays.asList(closeables));
-    }
-
-    /**
-     * Create a directory with the given path and its parents if they not exist.
-     *
-     * @param dir Path to create directories for.
-     * @throws IgniteInternalException If failed to create directories.
-     */
-    public static void createDirectoriesIfNotExist(Path dir) {
-        if (Files.notExists(dir)) {
-            try {
-                Files.createDirectories(dir);
-            }
-            catch (IOException e) {
-                throw new IgniteInternalException(e);
-            }
-        }
     }
 }

@@ -24,7 +24,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Interface providing methods to read, remove and update keys in storage.
- * Any locking is not necessary as this storage is used within the RAFT groups where all write operations are
+ * Any locking is unnecessary as this storage is used within RAFT groups where all write operations are
  * serialized.
  */
 public interface Storage extends AutoCloseable {
