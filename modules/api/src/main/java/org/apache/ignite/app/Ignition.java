@@ -40,8 +40,20 @@ public interface Ignition {
     /**
      * Starts an Ignite node with an optional bootstrap configuration from an input stream with HOCON configs.
      *
-     * @param name Name of the node. Must not be {@code null}.
-     * @param config Input stream from the node configuration in HOCON format. Can be {@code null}.
+     * @param name    Name of the node. Must not be {@code null}.
+     * @param config  Input stream from the node configuration in HOCON format. Can be {@code null}. Optional node
+     *                configuration based on {@link org.apache.ignite.configuration.schemas.runner.NodeConfigurationSchema}
+     *                and {@link org.apache.ignite.configuration.schemas.network.NetworkConfigurationSchema}. Following
+     *                rules will be used for applying the configuration properties:
+     *                <ol>
+     *                    <li>Specified property will override existing one or just apply itself if it wasn't previously specified.</li>
+     *                    <li>All non-specified properties will either use previous value or use default one from corresponding configuration schema </li>
+     *                </ol>
+     *                So that, in case of initial node start (first start ever) specified configuration, supplemented with defaults,
+     *                will be used. If no configuration was provided defaults will be used for all configuration properties.
+     *                In case of node restart, specified properties will override existing ones, non specified properties that also
+     *                weren't specified previously will have default values. Please pay attention that previously specified properties
+     *                will be searched in the {@code workDir} specified by the user.
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @return Started Ignite node.
      */
