@@ -19,11 +19,12 @@ package org.apache.ignite.internal.testframework;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-
+import java.util.function.BooleanSupplier;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static java.lang.Thread.sleep;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
@@ -180,6 +181,31 @@ public final class IgniteTestUtils {
 
             if (th.getCause() == th)
                 break;
+        }
+
+        return false;
+    }
+
+    /**
+     * Waits for the condition.
+     *
+     * @param cond Condition.
+     * @param timeout Timeout.
+     * @return {@code True} if the condition was satisfied within the timeout.
+     */
+    @SuppressWarnings("BusyWait") public static boolean waitForCondition(BooleanSupplier cond, long timeout) {
+        long stop = System.currentTimeMillis() + timeout;
+
+        while (System.currentTimeMillis() < stop) {
+            if (cond.getAsBoolean())
+                return true;
+
+            try {
+                sleep(50);
+            }
+            catch (InterruptedException e) {
+                return false;
+            }
         }
 
         return false;
