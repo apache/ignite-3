@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
-import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
@@ -116,6 +115,9 @@ public class ITMetaStorageServicePersistenceTest {
 
         for (JRaftServerImpl server : servers)
             server.stop();
+
+        for (ClusterService service : cluster)
+            service.stop();
     }
 
     /**
@@ -397,8 +399,9 @@ public class ITMetaStorageServicePersistenceTest {
      * a client.
      *
      * @return Meta storage raft group service instance.
+     * @throws Exception If failed.
      */
-    private RaftGroupService prepareMetaStorage() throws IOException {
+    private RaftGroupService prepareMetaStorage() throws Exception {
         for (int i = 0; i < INITIAL_CONF.size(); i++)
             startServer(i, new RocksDBKeyValueStorage(workDir.resolve(UUID.randomUUID().toString())));
 
@@ -409,18 +412,14 @@ public class ITMetaStorageServicePersistenceTest {
 
     /**
      * Starts a client with a specific address.
+     *
+     * @throws Exception If failed.
      */
-    private RaftGroupService startClient(String groupId, NetworkAddress addr) {
+    private RaftGroupService startClient(String groupId, NetworkAddress addr) throws Exception {
         ClusterService clientNode = clusterService("client_" + groupId + "_", CLIENT_PORT + clients.size(), addr);
 
-        RaftGroupServiceImpl client = new RaftGroupServiceImpl(groupId, clientNode, FACTORY, 10_000,
-            List.of(new Peer(addr)), false, 200) {
-            @Override public void shutdown() {
-                super.shutdown();
-
-                clientNode.stop();
-            }
-        };
+        RaftGroupService client = RaftGroupServiceImpl.start(groupId, clientNode, FACTORY, 10_000,
+            List.of(new Peer(addr)), false, 200).get();
 
         clients.add(client);
 

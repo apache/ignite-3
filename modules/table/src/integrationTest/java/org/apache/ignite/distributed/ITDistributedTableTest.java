@@ -177,7 +177,8 @@ public class ITDistributedTableTest {
             conf
         );
 
-        RaftGroupService partRaftGrp = new RaftGroupServiceImpl(grpId, client, FACTORY, 10_000, conf, true, 200);
+        RaftGroupService partRaftGrp =
+            RaftGroupServiceImpl.start(grpId, client, FACTORY, 10_000, conf, true, 200).get();
 
         Row testRow = getTestRow();
 
@@ -226,9 +227,11 @@ public class ITDistributedTableTest {
 
     /**
      * The test prepares a distributed table and checks operation over various views.
+     *
+     * @throws Exception If failed.
      */
     @Test
-    public void partitionedTable() {
+    public void partitionedTable() throws Exception {
         HashMap<ClusterNode, RaftServer> raftServers = new HashMap<>(NODES);
 
         for (int i = 0; i < NODES; i++) {
@@ -264,7 +267,7 @@ public class ITDistributedTableTest {
                 conf
             );
 
-            partMap.put(p, new RaftGroupServiceImpl(grpId, client, FACTORY, 10_000, conf, true, 200));
+            partMap.put(p, RaftGroupServiceImpl.start(grpId, client, FACTORY, 10_000, conf, true, 200).get());
 
             p++;
         }

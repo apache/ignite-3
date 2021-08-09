@@ -946,7 +946,7 @@ public class ITMetaStorageServiceTest {
      */
     @Disabled // TODO: IGNITE-14693 Add tests for exception handling logic.
     @Test
-    public void testGetThatThrowsCompactedException() {
+    public void testGetThatThrowsCompactedException() throws Exception {
         MetaStorageService metaStorageSvc = prepareMetaStorage(
                 new AbstractKeyValueStorage() {
                     @Override public @NotNull org.apache.ignite.internal.metastorage.server.Entry get(byte[] key) {
@@ -964,7 +964,7 @@ public class ITMetaStorageServiceTest {
      */
     @Disabled // TODO: IGNITE-14693 Add tests for exception handling logic.
     @Test
-    public void testGetThatThrowsOperationTimeoutException() {
+    public void testGetThatThrowsOperationTimeoutException() throws Exception {
         MetaStorageService metaStorageSvc = prepareMetaStorage(
                 new AbstractKeyValueStorage() {
                     @Override public @NotNull org.apache.ignite.internal.metastorage.server.Entry get(byte[] key) {
@@ -1018,7 +1018,7 @@ public class ITMetaStorageServiceTest {
 
         List<Peer> peers = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
 
-        RaftGroupService metaStorageRaftGrpSvc = new RaftGroupServiceImpl(
+        RaftGroupService metaStorageRaftGrpSvc = RaftGroupServiceImpl.start(
             METASTORAGE_RAFT_GROUP_NAME,
             cluster.get(1),
             FACTORY,
@@ -1026,7 +1026,7 @@ public class ITMetaStorageServiceTest {
             peers,
             true,
             200
-        );
+        ).get();
 
         MetaStorageService metaStorageSvc2 =  new MetaStorageServiceImpl(metaStorageRaftGrpSvc, NODE_ID_1);
 
@@ -1092,7 +1092,7 @@ public class ITMetaStorageServiceTest {
      * @param keyValStorageMock {@link KeyValueStorage} mock.
      * @return {@link MetaStorageService} instance.
      */
-    private MetaStorageService prepareMetaStorage(KeyValueStorage keyValStorageMock) {
+    private MetaStorageService prepareMetaStorage(KeyValueStorage keyValStorageMock) throws Exception {
         List<Peer> peers = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
 
         metaStorageRaftSrv = new RaftServerImpl(cluster.get(0), FACTORY);
@@ -1102,7 +1102,7 @@ public class ITMetaStorageServiceTest {
         metaStorageRaftSrv.
             startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(keyValStorageMock), peers);
 
-        RaftGroupService metaStorageRaftGrpSvc = new RaftGroupServiceImpl(
+        RaftGroupService metaStorageRaftGrpSvc = RaftGroupServiceImpl.start(
             METASTORAGE_RAFT_GROUP_NAME,
             cluster.get(1),
             FACTORY,
@@ -1110,7 +1110,7 @@ public class ITMetaStorageServiceTest {
             peers,
             true,
             200
-        );
+        ).get();
 
         return new MetaStorageServiceImpl(metaStorageRaftGrpSvc, NODE_ID_0);
     }
