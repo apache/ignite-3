@@ -1,11 +1,12 @@
 /*
- * Copyright 2019 GridGain Systems, Inc. and Contributors.
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * Licensed under the GridGain Community Edition License (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     https://www.gridgain.com/products/software/community-edition/gridgain-community-edition-license
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,6 +23,7 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.logging.Formatter;
+import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import org.apache.ignite.internal.tostring.S;
 
@@ -29,18 +31,31 @@ import org.apache.ignite.internal.tostring.S;
  * Formatter for JUL logger.
  */
 public class JavaLoggerFormatter extends Formatter {
-    // The integer values must match that of {@code java.util.logging.Level}
-    // objects.
-    private static final int SEVERITY_OFF     = Integer.MAX_VALUE;
-    private static final int SEVERITY_SEVERE  = 1000;
-    private static final int SEVERITY_WARNING = 900;
-    private static final int SEVERITY_INFO    = 800;
-    private static final int SEVERITY_CONFIG  = 700;
-    private static final int SEVERITY_FINE    = 500;
-    private static final int SEVERITY_FINER   = 400;
-    private static final int SEVERITY_ALL     = Integer.MIN_VALUE;
+    /** See {@link Level#OFF} */
+    private static final int SEVERITY_OFF = Integer.MAX_VALUE;
 
-    // ascending order for binary search matching the list of enum constants
+    /** See {@link Level#SEVERE} */
+    private static final int SEVERITY_SEVERE = 1000;
+
+    /** See {@link Level#WARNING} */
+    private static final int SEVERITY_WARNING = 900;
+
+    /** See {@link Level#INFO} */
+    private static final int SEVERITY_INFO = 800;
+
+    /** See {@link Level#CONFIG} */
+    private static final int SEVERITY_CONFIG = 700;
+
+    /** See {@link Level#FINE} */
+    private static final int SEVERITY_FINE = 500;
+
+    /** See {@link Level#FINER} */
+    private static final int SEVERITY_FINER = 400;
+
+    /** See {@link Level#ALL} */
+    private static final int SEVERITY_ALL = Integer.MIN_VALUE;
+
+    /** Ascending order for binary search matching the list of severity constants. */
     private static final int[] LEVEL_VALUES = new int[] {
         SEVERITY_ALL, SEVERITY_FINER,
         SEVERITY_FINE, SEVERITY_CONFIG, SEVERITY_INFO,
