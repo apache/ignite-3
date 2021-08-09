@@ -30,6 +30,7 @@ import org.apache.ignite.internal.configuration.storage.ConfigurationStorageList
 import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.client.Condition;
 import org.apache.ignite.internal.metastorage.client.Conditions;
 import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.metastorage.client.EntryEvent;
@@ -83,7 +84,20 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     /** Configuration changes listener. */
     private volatile ConfigurationStorageListener lsnr;
 
-    /** Storage version. It stores actual meta storage revision, that is applied to configuration manager. */
+    /**
+     * Currently known change id. Either matches or will soon match the Meta Storage revision of the latest
+     * configuration update. It is possible that {@code changeId} is already updated but notifications are not yet
+     * handled, thus revision is valid but not applied. This is fine.
+     * <p/>
+     * Given that {@link #MASTER_KEY} is updated on every configuration change, one could assume that {@code changeId}
+     * matches the revision of {@link #MASTER_KEY}.
+     * <p/>
+     * This is true for all cases except for node restart. Key-specific revision values are lost on local vault copy
+     * after restart, so stored {@link MetaStorageManager#APPLIED_REV} value is used instead. This fact has very
+     * important side effect: it's no longer possible to use {@link Condition.RevisionCondition#eq} on
+     * {@link #MASTER_KEY} in {@link DistributedConfigurationStorage#write(Map, long)}.
+     * {@link Condition.RevisionCondition#le(long)} must be used instead.
+     */
     private final AtomicLong changeId = new AtomicLong(0L);
 
     /**
