@@ -111,11 +111,9 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
 
         Data entries = new Data(newValues, ver.incrementAndGet());
 
-        return vaultMgr.putAll(data).thenApply(res -> {
-            lsnr.onEntriesChanged(entries);
-
-            return true;
-        });
+        return vaultMgr.putAll(data)
+            .thenCompose(v -> lsnr.onEntriesChanged(entries))
+            .thenApply(v -> true);
     }
 
     /** {@inheritDoc} */

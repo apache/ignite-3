@@ -86,7 +86,7 @@ public class TestConfigurationStorage implements ConfigurationStorage {
 
         version.incrementAndGet();
 
-        listeners.forEach(listener -> listener.onEntriesChanged(new Data(newValues, version.get())));
+        listeners.forEach(listener -> listener.onEntriesChanged(new Data(newValues, version.get())).join());
 
         return CompletableFuture.completedFuture(true);
     }
