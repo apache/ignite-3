@@ -31,28 +31,28 @@ import org.apache.ignite.internal.tostring.S;
  * Formatter for JUL logger.
  */
 public class JavaLoggerFormatter extends Formatter {
-    /** See {@link Level#OFF} */
+    /** See {@link Level#OFF}. */
     private static final int SEVERITY_OFF = Integer.MAX_VALUE;
 
-    /** See {@link Level#SEVERE} */
+    /** See {@link Level#SEVERE}. */
     private static final int SEVERITY_SEVERE = 1000;
 
-    /** See {@link Level#WARNING} */
+    /** See {@link Level#WARNING}. */
     private static final int SEVERITY_WARNING = 900;
 
-    /** See {@link Level#INFO} */
+    /** See {@link Level#INFO}. */
     private static final int SEVERITY_INFO = 800;
 
-    /** See {@link Level#CONFIG} */
+    /** See {@link Level#CONFIG}. */
     private static final int SEVERITY_CONFIG = 700;
 
-    /** See {@link Level#FINE} */
+    /** See {@link Level#FINE}. */
     private static final int SEVERITY_FINE = 500;
 
-    /** See {@link Level#FINER} */
+    /** See {@link Level#FINER}. */
     private static final int SEVERITY_FINER = 400;
 
-    /** See {@link Level#ALL} */
+    /** See {@link Level#ALL}. */
     private static final int SEVERITY_ALL = Integer.MIN_VALUE;
 
     /** Ascending order for binary search matching the list of severity constants. */
