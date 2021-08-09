@@ -65,7 +65,7 @@ public class JavaLoggerFormatter extends Formatter {
     /** Name for anonymous loggers. */
     public static final String ANONYMOUS_LOGGER_NAME = "UNKNOWN";
 
-    /** */
+    /** Date formatter. */
     private static final ThreadLocal<SimpleDateFormat> DATE_FORMATTER = new ThreadLocal<SimpleDateFormat>() {
         /** {@inheritDoc} */
         @Override protected SimpleDateFormat initialValue() {
