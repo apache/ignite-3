@@ -97,6 +97,10 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      * important side effect: it's no longer possible to use {@link Condition.RevisionCondition#eq} on
      * {@link #MASTER_KEY} in {@link DistributedConfigurationStorage#write(Map, long)}.
      * {@link Condition.RevisionCondition#le(long)} must be used instead.
+     *
+     * @see #MASTER_KEY
+     * @see MetaStorageManager#APPLIED_REV
+     * @see #write(Map, long)
      */
     private final AtomicLong changeId = new AtomicLong(0L);
 
@@ -142,7 +146,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
         assert data.isEmpty() || appliedRevision > 0;
 
-        changeId.set(appliedRevision);
+        changeId.set(data.isEmpty() ? 0 : appliedRevision);
 
         return new Data(data, appliedRevision);
     }
@@ -173,20 +177,32 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
         operations.add(Operations.put(MASTER_KEY, ByteUtils.longToBytes(curChangeId)));
 
-        if (curChangeId == 0) {
-            return metaStorageMgr.invoke(
-                Conditions.notExists(MASTER_KEY),
-                operations,
-                Set.of(Operations.noop())
-            );
-        }
-        else {
-            return metaStorageMgr.invoke(
-                Conditions.revision(MASTER_KEY).le(curChangeId),
-                operations,
-                Set.of(Operations.noop())
-            );
-        }
+        // Condition for a valid MetaStorage data update. Several possibilities here:
+        //  - First update ever, MASTER_KEY property must be absent from MetaStorage.
+        //  - Current node has already performed some updates or received them from MetaStorage watch listener. In this
+        //    case "curChangeId" must match the MASTER_KEY revision exactly.
+        //  - Current node has been restarted and received updates from MetaStorage watch listeners after that. Same as
+        //    above, "curChangeId" must match the MASTER_KEY revision exactly.
+        //  - Current node has been restarted and have not received any updates from MetaStorage watch listeners yet.
+        //    In this case "curChangeId" matches APPLIED_REV, which may or may not match the MASTER_KEY revision. Two
+        //    options here:
+        //     - MASTER_KEY is missing in local MetaStorage copy. This means that current not have not performed nor
+        //       observed any configuration changes. Valid condition is "MASTER_KEY does not exist".
+        //     - MASTER_KEY is present in local MetaStorage copy. The MASTER_KEY revision is unknown but is less than or
+        //       equal to APPLIED_REV. Obviously, there have been no updates from the future yet. It's also guaranteed
+        //       that the next received configuration update will have the MASTER_KEY revision strictly greated than
+        //       current APPLIED_REV. This allows us to conclude that "MASTER_KEY revision <= curChangeId" is a valid
+        //       condition for update.
+        // Joing all of the above, we conclude that the following condition must be used:
+        Condition condition = curChangeId == 0L
+            ? Conditions.notExists(MASTER_KEY)
+            : Conditions.revision(MASTER_KEY).le(curChangeId);
+
+        return metaStorageMgr.invoke(
+            condition,
+            operations,
+            Set.of(Operations.noop())
+        );
     }
 
     /** {@inheritDoc} */
