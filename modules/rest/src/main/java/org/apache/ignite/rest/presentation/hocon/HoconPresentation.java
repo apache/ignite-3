@@ -67,13 +67,13 @@ public class HoconPresentation implements ConfigurationPresentation<String> {
             RuntimeException e;
 
             if (t instanceof IllegalArgumentException)
-                e = (IllegalArgumentException)t;
+                e = (RuntimeException)t;
             else if (t.getCause() instanceof IllegalArgumentException)
-                e = (IllegalArgumentException)t.getCause();
+                e = (RuntimeException)t.getCause();
             else if (t instanceof ConfigurationValidationException)
-                e = (ConfigurationValidationException)t;
+                e = (RuntimeException)t;
             else if (t.getCause() instanceof ConfigurationValidationException)
-                e = (ConfigurationValidationException)t.getCause();
+                e = (RuntimeException)t.getCause();
             else if (t instanceof ConfigException.Parse)
                 e = new IllegalArgumentException(t);
             else
