@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.network.recovery;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import io.netty.channel.Channel;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.handshake.HandshakeAction;
@@ -51,7 +51,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Recovery protocol handshake tests.
@@ -160,18 +159,14 @@ public class RecoveryHandshakeTest {
             clients.add(startManager(4001 + i));
 
         // A key is the client's consistent id, a value is the channel between the client and the server
-        Map<String, NettySender> channelsToServer = clients.stream().collect(
-            Collectors.toMap(
-                ConnectionManager::consistentId,
-                manager -> {
-                    try {
-                        return manager.channel(server.consistentId(), server.getLocalAddress()).get(3, TimeUnit.SECONDS);
-                    } catch (Exception e) {
-                        fail(e);
-                        return null;
-                    }
-            })
-        );
+        var channelsToServer = new HashMap<String, NettySender>();
+
+        for (ConnectionManager client : clients) {
+            channelsToServer.put(
+                client.consistentId(),
+                client.channel(server.consistentId(), server.getLocalAddress()).get(3, TimeUnit.SECONDS)
+            );
+        }
 
         assertTrue(waitForCondition(() -> server.channels().size() == clientCount, TimeUnit.SECONDS.toMillis(3)));
 
