@@ -198,11 +198,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
             ? Conditions.notExists(MASTER_KEY)
             : Conditions.revision(MASTER_KEY).le(curChangeId);
 
-        return metaStorageMgr.invoke(
-            condition,
-            operations,
-            Set.of(Operations.noop())
-        );
+        return metaStorageMgr.invoke(condition, operations, Set.of(Operations.noop()));
     }
 
     /** {@inheritDoc} */
