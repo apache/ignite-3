@@ -47,16 +47,23 @@ import org.apache.ignite.internal.table.distributed.command.UpsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
 import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
+import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -85,7 +92,12 @@ public class PartitionCommandListenerTest {
      */
     @BeforeAll
     public static void before() {
-        commandListener = new PartitionListener();
+        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        NetworkAddress addr = new NetworkAddress("127.0.0.1", 5003);
+        Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(addr);
+
+        commandListener =
+            new PartitionListener(new VersionedRowStore(new TxManagerImpl(clusterService), new HeapLockManager()));
     }
 
     /**

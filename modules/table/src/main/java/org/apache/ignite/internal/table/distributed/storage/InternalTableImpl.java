@@ -45,6 +45,8 @@ import org.apache.ignite.internal.table.distributed.command.response.MultiRowsRe
 import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.Timestamp;
+import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.schema.SchemaMode;
 import org.jetbrains.annotations.NotNull;
@@ -110,7 +112,14 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<BinaryRow> get(BinaryRow keyRow, InternalTransaction tx) {
-        return partitionMap.get(partId(keyRow)).<SingleRowResponse>run(new GetCommand(keyRow))
+        RaftGroupService service = partitionMap.get(partId(keyRow));
+
+        Peer leader = service.leader();
+
+        if (leader == null)
+            throw new IgniteInternalException();
+
+        return service.<SingleRowResponse>run(new GetCommand(keyRow))
             .thenApply(SingleRowResponse::getValue);
     }
 

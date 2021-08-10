@@ -93,7 +93,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                             try {
                                 fsm.getListener().onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<>() {
                                     @Override public ReadCommand command() {
-                                        return (ReadCommand)request.command();
+                                        return (ReadCommand) request.command();
                                     }
 
                                     @Override public void result(Serializable res) {

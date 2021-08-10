@@ -17,10 +17,16 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import java.util.Collections;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.tx.TransactionException;
 
 /** */
 public class TransactionImpl implements InternalTransaction {
@@ -29,6 +35,9 @@ public class TransactionImpl implements InternalTransaction {
 
     /** TX manager. */
     private final TxManager txManager;
+
+    /** */
+    private Set<NetworkAddress> nodes = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     /**
      * @param txManager The tx managert.
@@ -44,23 +53,49 @@ public class TransactionImpl implements InternalTransaction {
         return timestamp;
     }
 
+    @Override public Set<NetworkAddress> nodes() {
+        return nodes;
+    }
+
+    @Override public TxState state() {
+        return txManager.state(timestamp);
+    }
+
+    /**
+     * @param node The node.
+     * @return {@code True} if node is enlisted into the transaction.
+     */
+    @Override public boolean enlist(NetworkAddress node) {
+        return nodes.add(node);
+    }
+
     /** {@inheritDoc} */
-    @Override public void commit() {
-        // txManager.commit(timestamp);
+    @Override public void commit() throws TransactionException {
+        try {
+            txManager.commitAsync(this).get();
+        }
+        catch (Exception e) {
+            throw new TransactionException(e);
+        }
     }
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> commitAsync() {
-        return null;
+        return txManager.commitAsync(this);
     }
 
     /** {@inheritDoc} */
-    @Override public void rollback() {
-
+    @Override public void rollback() throws TransactionException {
+        try {
+            txManager.rollbackAsync(this).get();
+        }
+        catch (Exception e) {
+            throw new TransactionException(e);
+        }
     }
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> rollbackAsync() {
-        return null;
+        return txManager.rollbackAsync(this);
     }
 }

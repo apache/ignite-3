@@ -20,12 +20,19 @@ package org.apache.ignite.internal.table;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -40,9 +47,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * TODO: IGNITE-14487 Check non-key fields in Tuple is ignored for keys.
  * TODO: IGNITE-14487 Check key fields in Tuple is ignored for value or exception is thrown?
  */
+@ExtendWith(MockitoExtension.class)
 public class KVViewOperationsTest {
     /** Table ID test value. */
     public final java.util.UUID tableId = java.util.UUID.randomUUID();
+
+    @Mock
+    private ClusterService clusterService;
+
+    private InternalTable createTable() {
+        return new DummyInternalTableImpl(new VersionedRowStore(new TxManagerImpl(clusterService), new HeapLockManager()));
+    }
 
     /**
      *
@@ -57,7 +72,7 @@ public class KVViewOperationsTest {
         );
 
         KeyValueBinaryView tbl =
-            new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null);
+            new KVBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null);
 
         final Tuple key = tbl.tupleBuilder().set("id", 1L).build();
         final Tuple val = tbl.tupleBuilder().set("val", 11L).build();
@@ -101,7 +116,7 @@ public class KVViewOperationsTest {
         );
 
         KeyValueBinaryView tbl =
-            new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null);
+            new KVBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null);
 
         final Tuple key = tbl.tupleBuilder().set("id", 1L).build();
         final Tuple val = tbl.tupleBuilder().set("val", 11L).build();
@@ -135,7 +150,7 @@ public class KVViewOperationsTest {
         );
 
         KeyValueBinaryView tbl =
-            new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null);
+            new KVBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null);
 
         final Tuple key = tbl.tupleBuilder().set("id", 1L).build();
         final Tuple val = tbl.tupleBuilder().set("val", 11L).build();
@@ -171,7 +186,7 @@ public class KVViewOperationsTest {
         );
 
         KeyValueBinaryView tbl =
-            new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null);
+            new KVBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null);
 
         final Tuple key = tbl.tupleBuilder().set("id", 1L).build();
         final Tuple key2 = tbl.tupleBuilder().set("id", 2L).build();
@@ -215,7 +230,7 @@ public class KVViewOperationsTest {
         );
 
         KeyValueBinaryView tbl =
-            new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null);
+            new KVBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null);
 
         final Tuple key = tbl.tupleBuilder().set("id", 1L).build();
         final Tuple key2 = tbl.tupleBuilder().set("id", 2L).build();
@@ -273,7 +288,7 @@ public class KVViewOperationsTest {
         );
 
         KeyValueBinaryView tbl =
-            new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null);
+            new KVBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null);
 
         final Tuple key = tbl.tupleBuilder().set("id", 1L).build();
         final Tuple key2 = tbl.tupleBuilder().set("id", 2L).build();
@@ -320,7 +335,7 @@ public class KVViewOperationsTest {
         );
 
         KeyValueBinaryView tbl =
-            new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null);
+            new KVBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null);
 
         final Tuple key = tbl.tupleBuilder().set("id", 1L).build();
         final Tuple key2 = tbl.tupleBuilder().set("id", 2L).build();

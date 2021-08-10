@@ -214,7 +214,7 @@ public class TableManagerTest {
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-14578")
     @Test
     public void testStaticTableConfigured() {
-        TableManager tableManager = new TableManager(cfrMgr, mm, sm, am, rm);
+        TableManager tableManager = new TableManager(cfrMgr, mm, sm, am, rm, null);
 
         assertEquals(1, tableManager.tables().size());
 
@@ -447,7 +447,7 @@ public class TableManagerTest {
             return null;
         }).when(am).listen(same(AffinityEvent.CALCULATED), any());
 
-        TableManager tableManager = new TableManager(cfrMgr, mm, sm, am, rm);
+        TableManager tableManager = new TableManager(cfrMgr, mm, sm, am, rm, null);
 
         TableImpl tbl2;
 

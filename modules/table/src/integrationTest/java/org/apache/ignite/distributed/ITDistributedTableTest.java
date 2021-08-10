@@ -44,8 +44,11 @@ import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
@@ -169,7 +172,8 @@ public class ITDistributedTableTest {
 
         List<Peer> conf = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
 
-        partSrv.startRaftGroup(grpId, new PartitionListener(), conf);
+        partSrv.startRaftGroup(grpId,
+            new PartitionListener(new VersionedRowStore(new TxManagerImpl(cluster.get(0)), new HeapLockManager())), conf);
 
         RaftGroupService partRaftGrp = new RaftGroupServiceImpl(grpId, client, FACTORY, 10_000, conf, true, 200);
 
@@ -252,7 +256,8 @@ public class ITDistributedTableTest {
 
             List<Peer> conf = List.of(new Peer(partNodes.get(0).address()));
 
-            rs.startRaftGroup(grpId, new PartitionListener(), conf);
+            rs.startRaftGroup(grpId, new PartitionListener(new VersionedRowStore(new TxManagerImpl(rs.clusterService()),
+                new HeapLockManager())), conf);
 
             partMap.put(p, new RaftGroupServiceImpl(grpId, client, FACTORY, 10_000, conf, true, 200));
 

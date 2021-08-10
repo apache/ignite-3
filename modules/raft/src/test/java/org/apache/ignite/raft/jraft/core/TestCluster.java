@@ -138,12 +138,12 @@ public class TestCluster {
 
     public TestCluster(final String name, final String dataPath, final List<PeerId> peers,
         final int electionTimeoutMs) {
-        this(name, dataPath, peers, new LinkedHashSet<>(), ELECTION_TIMEOUT_MILLIS, null);
+        this(name, dataPath, peers, new LinkedHashSet<>(), electionTimeoutMs, null);
     }
 
     public TestCluster(final String name, final String dataPath, final List<PeerId> peers,
         final LinkedHashSet<PeerId> learners, final int electionTimeoutMs) {
-        this(name, dataPath, peers, learners, ELECTION_TIMEOUT_MILLIS, null);
+        this(name, dataPath, peers, learners, electionTimeoutMs, null);
     }
 
     public TestCluster(final String name, final String dataPath, final List<PeerId> peers,

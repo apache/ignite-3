@@ -21,13 +21,18 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.TestTupleBuilder;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -45,6 +50,13 @@ public class TableBinaryViewOperationsTest {
     /** Table ID test value. */
     public final java.util.UUID tableId = java.util.UUID.randomUUID();
 
+    @Mock
+    private ClusterService clusterService;
+
+    private InternalTable createTable() {
+        return new DummyInternalTableImpl(new VersionedRowStore(new TxManagerImpl(clusterService), new HeapLockManager()));
+    }
+
     /**
      *
      */
@@ -57,7 +69,7 @@ public class TableBinaryViewOperationsTest {
             new Column[]{new Column("val", NativeTypes.INT64, false)}
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
+        Table tbl = new TableImpl(createTable(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple tuple = tbl.tupleBuilder().set("id", 1L).set("val", 11L).build();
         final Tuple newTuple = tbl.tupleBuilder().set("id", 1L).set("val", 22L).build();
@@ -92,7 +104,7 @@ public class TableBinaryViewOperationsTest {
             new Column[]{new Column("val", NativeTypes.INT64, false)}
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
+        Table tbl = new TableImpl(createTable(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple tuple = tbl.tupleBuilder().set("id", 1L).set("val", 11L).build();
         final Tuple newTuple = tbl.tupleBuilder().set("id", 1L).set("val", 22L).build();
@@ -128,7 +140,7 @@ public class TableBinaryViewOperationsTest {
             new Column[]{new Column("val", NativeTypes.INT64, false)}
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
+        Table tbl = new TableImpl(createTable(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple tuple = tbl.tupleBuilder().set("id", 1L).set("val", 11L).build();
         final Tuple newTuple = tbl.tupleBuilder().set("id", 1L).set("val", 22L).build();
@@ -161,7 +173,7 @@ public class TableBinaryViewOperationsTest {
             new Column[]{new Column("val", NativeTypes.INT64, false)}
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
+        Table tbl = new TableImpl(createTable(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple tuple = tbl.tupleBuilder().set("id", 1L).set("val", 11L).build();
 
@@ -192,7 +204,7 @@ public class TableBinaryViewOperationsTest {
             new Column[]{new Column("val", NativeTypes.INT64, false)}
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
+        Table tbl = new TableImpl(createTable(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple keyTuple = tbl.tupleBuilder().set("id", 1L).build();
         final Tuple tuple = tbl.tupleBuilder().set("id", 1L).set("val", 11L).build();
@@ -244,7 +256,7 @@ public class TableBinaryViewOperationsTest {
             new Column[]{new Column("val", NativeTypes.INT64, false)}
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
+        Table tbl = new TableImpl(createTable(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple keyTuple = tbl.tupleBuilder().set("id", 1L).build();
         final Tuple tuple = tbl.tupleBuilder().set("id", 1L).set("val", 11L).build();
@@ -280,7 +292,7 @@ public class TableBinaryViewOperationsTest {
             new Column[]{new Column("val", NativeTypes.INT64, false)}
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
+        Table tbl = new TableImpl(createTable(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple keyTuple = tbl.tupleBuilder().set("id", 1L).build();
         final Tuple tuple = tbl.tupleBuilder().set("id", 1L).set("val", 11L).build();
@@ -321,7 +333,7 @@ public class TableBinaryViewOperationsTest {
             }
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
+        Table tbl = new TableImpl(createTable(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple keyTuple0 = new TestTupleBuilder().set("id", 0).set("id1", 0).build();
         final Tuple keyTuple1 = new TestTupleBuilder().set("id1", 0).build();
@@ -357,7 +369,7 @@ public class TableBinaryViewOperationsTest {
             }
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
+        Table tbl = new TableImpl(createTable(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple keyTuple0 = tbl.tupleBuilder().set("id", 0L).build();
         final Tuple keyTuple1 = tbl.tupleBuilder().set("id", 1L).build();

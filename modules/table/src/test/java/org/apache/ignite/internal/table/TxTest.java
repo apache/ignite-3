@@ -22,11 +22,16 @@ import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.table.impl.DummyInternalTableWithTxImpl;
+import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
+import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
-import org.apache.ignite.internal.tx.Timestamp;
-import org.apache.ignite.internal.tx.impl.TransactionImpl;
+import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -43,6 +48,7 @@ import org.mockito.quality.Strictness;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 /** */
 @ExtendWith(MockitoExtension.class)
@@ -50,6 +56,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class TxTest {
     /** Table ID test value. */
     public final java.util.UUID tableId = java.util.UUID.randomUUID();
+
+    /** */
+    private static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
     /** Accounts table. */
     private Table accounts;
@@ -67,14 +76,36 @@ public class TxTest {
     @Mock
     private IgniteTransactions igniteTransactions;
 
+    @Mock
+    private ClusterService clusterService;
+
     /** */
-    private Transaction tx;
+    private TxManager txManager;
+
+    /** */
+    private LockManager lockManager;
+
+    /** */
+    private InternalTable table;
+
+    private InternalTable createTable() {
+        return new DummyInternalTableImpl(new VersionedRowStore(new TxManagerImpl(clusterService), new HeapLockManager()));
+    }
 
     /**
      * Initialize the test state.
      */
     @BeforeEach
     public void before() {
+        clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(ADDR);
+
+        txManager = new TxManagerImpl(clusterService);
+
+        lockManager = new HeapLockManager();
+
+        table = new DummyInternalTableImpl(new VersionedRowStore(txManager, lockManager));
+
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
@@ -82,14 +113,14 @@ public class TxTest {
             new Column[]{new Column("balance", NativeTypes.DOUBLE, false)}
         );
 
-        accounts = new TableImpl(new DummyInternalTableWithTxImpl(), new DummySchemaManagerImpl(schema), null, null);
+        accounts = new TableImpl(table, new DummySchemaManagerImpl(schema), null, null);
         Tuple r1 = accounts.tupleBuilder().set("accountNumber", 1L).set("balance", BALANCE_1).build();
         Tuple r2 = accounts.tupleBuilder().set("accountNumber", 2L).set("balance", BALANCE_2).build();
 
         accounts.insert(r1);
         accounts.insert(r2);
 
-        tx = new TransactionImpl(null, Timestamp.nextVersion());
+        Transaction tx = txManager.begin();
 
         Mockito.doAnswer(invocation -> {
             Consumer<Transaction> argument = invocation.getArgument(0);
@@ -155,7 +186,7 @@ public class TxTest {
                     txAcc.upsertAsync(makeValue(2, pair.getSecond().doubleValue("balance") + DELTA))
                     )
                 )
-                .thenApply(ignore -> txAcc.transaction())
+                .thenApply(ignored -> txAcc.transaction())
             ).thenCompose(Transaction::commitAsync).join();
 
         assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
@@ -175,7 +206,7 @@ public class TxTest {
                     txAcc.putAsync(makeKey(2), makeValue(2, pair.getSecond().doubleValue("balance") + DELTA))
                     )
                 )
-                .thenApply(ignore -> txAcc.transaction())
+                .thenApply(ignored -> txAcc.transaction())
             ).thenCompose(Transaction::commitAsync).join();
 
         assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));

@@ -61,8 +61,11 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -70,6 +73,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.schema.PrimaryIndex;
 import org.apache.ignite.table.Table;
@@ -105,6 +109,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Affinity manager. */
     private final AffinityManager affMgr;
 
+    /** Affinity manager. */
+    private final ClusterService clusterNetSvc;
+
     /** Tables. */
     private final Map<String, TableImpl> tables = new ConcurrentHashMap<>();
 
@@ -113,25 +120,27 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /**
      * Creates a new table manager.
-     *
-     * @param configurationMgr Configuration manager.
+     *  @param configurationMgr Configuration manager.
      * @param metaStorageMgr Meta storage manager.
      * @param schemaMgr Schema manager.
      * @param affMgr Affinity manager.
      * @param raftMgr Raft manager.
+     * @param clusterNetSvc
      */
     public TableManager(
         ConfigurationManager configurationMgr,
         MetaStorageManager metaStorageMgr,
         SchemaManager schemaMgr,
         AffinityManager affMgr,
-        Loza raftMgr
+        Loza raftMgr,
+        ClusterService clusterNetSvc
     ) {
         this.configurationMgr = configurationMgr;
         this.metaStorageMgr = metaStorageMgr;
         this.affMgr = affMgr;
         this.raftMgr = raftMgr;
         this.schemaMgr = schemaMgr;
+        this.clusterNetSvc = clusterNetSvc;
     }
 
     /** {@inheritDoc} */
@@ -165,11 +174,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         HashMap<Integer, RaftGroupService> partitionMap = new HashMap<>(partitions);
 
+        // TODO FIXME asch refactor to components.
         for (int p = 0; p < partitions; p++) {
             partitionMap.put(p, raftMgr.prepareRaftGroup(
                 raftGroupName(tblId, p),
                 assignment.get(p),
-                new PartitionListener()
+                new PartitionListener(new VersionedRowStore(new TxManagerImpl(clusterNetSvc), new HeapLockManager()))
             ));
         }
 

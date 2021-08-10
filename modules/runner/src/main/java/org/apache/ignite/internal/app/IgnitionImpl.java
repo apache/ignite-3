@@ -324,7 +324,8 @@ public class IgnitionImpl implements Ignition {
                     metaStorageMgr,
                     schemaMgr,
                     affinityMgr,
-                    raftMgr
+                    raftMgr,
+                    clusterNetSvc
                 )
             );
 

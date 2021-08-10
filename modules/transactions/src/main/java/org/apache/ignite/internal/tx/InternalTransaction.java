@@ -17,8 +17,16 @@
 
 package org.apache.ignite.internal.tx;
 
+import java.util.Set;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.Transaction;
 
 public interface InternalTransaction extends Transaction {
     Timestamp timestamp();
+
+    Set<NetworkAddress> nodes();
+
+    TxState state();
+
+    boolean enlist(NetworkAddress node);
 }

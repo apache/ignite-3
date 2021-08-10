@@ -17,6 +17,27 @@
 
 package org.apache.ignite.internal.tx;
 
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.tx.impl.TransactionImpl;
+
+/**
+ * TODO: local tx ?
+ */
 public interface TxManager {
+    /**
+     * Starts a transaction coordinated by local node.
+     *
+     * @return The transaction.
+     */
     InternalTransaction begin();
+
+    TxState state(Timestamp ts);
+
+    boolean changeState(Timestamp ts, TxState before, TxState after);
+
+    void forget(Timestamp ts);
+
+    CompletableFuture<Void> commitAsync(TransactionImpl transaction);
+
+    CompletableFuture<Void> rollbackAsync(TransactionImpl transaction);
 }
