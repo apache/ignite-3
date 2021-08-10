@@ -63,7 +63,7 @@ public class ConfigCommandTest extends AbstractCliTest {
         networkPort = getAvailablePort();
 
         String configStr = "network.port=" + networkPort + "\n" +
-            "rest.port=" + restPort;
+            "rest.port=" + restPort + "\n" + "rest.portRange=0";
 
         IgnitionManager.start("node1", configStr, workDir);
 
@@ -73,9 +73,9 @@ public class ConfigCommandTest extends AbstractCliTest {
         out = new ByteArrayOutputStream();
     }
 
-    // TODO: IGNITE-14581 Node must be stopped here.
     @AfterEach
     private void tearDown() {
+        IgnitionManager.stop("node1");
         ctx.stop();
     }
 
