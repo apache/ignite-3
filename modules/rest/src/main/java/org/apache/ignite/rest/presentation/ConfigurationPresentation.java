@@ -17,7 +17,13 @@
 
 package org.apache.ignite.rest.presentation;
 
-/** */
+import org.jetbrains.annotations.Nullable;
+
+/**
+ * Representing a configuration to/from representation form.
+ *
+ * @param <R> Representation form.
+ */
 public interface ConfigurationPresentation<R> {
     /**
      * Converts to presentation whole system configuration (all system modules are included).
@@ -35,12 +41,12 @@ public interface ConfigurationPresentation<R> {
      *
      * @return Requested configuration fraction or whole configuration if {@code null} was passed.
      */
-    R representByPath(String path);
+    R representByPath(@Nullable String path);
 
     /**
      * Converts and applies configuration update request to system configuration.
      *
-     * @param configUpdate Configuration update request in representation form.
+     * @param cfgUpdate Configuration update request in representation form.
      */
-    void update(R configUpdate);
+    void update(R cfgUpdate);
 }
