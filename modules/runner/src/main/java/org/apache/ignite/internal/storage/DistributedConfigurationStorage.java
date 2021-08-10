@@ -190,10 +190,10 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         //       observed any configuration changes. Valid condition is "MASTER_KEY does not exist".
         //     - MASTER_KEY is present in local MetaStorage copy. The MASTER_KEY revision is unknown but is less than or
         //       equal to APPLIED_REV. Obviously, there have been no updates from the future yet. It's also guaranteed
-        //       that the next received configuration update will have the MASTER_KEY revision strictly greated than
-        //       current APPLIED_REV. This allows us to conclude that "MASTER_KEY revision <= curChangeId" is a valid
+        //       that the next received configuration update will have the MASTER_KEY revision strictly greater than
+        //       current APPLIED_REV. This allows to conclude that "MASTER_KEY revision <= curChangeId" is a valid
         //       condition for update.
-        // Joing all of the above, we conclude that the following condition must be used:
+        // Joing all of the above, it's concluded that the following condition must be used:
         Condition condition = curChangeId == 0L
             ? Conditions.notExists(MASTER_KEY)
             : Conditions.revision(MASTER_KEY).le(curChangeId);
