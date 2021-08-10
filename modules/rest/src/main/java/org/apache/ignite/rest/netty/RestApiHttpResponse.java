@@ -17,16 +17,14 @@
 
 package org.apache.ignite.rest.netty;
 
-import com.typesafe.config.impl.ConfigImpl;
+import com.google.gson.Gson;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
-
-import static com.typesafe.config.ConfigRenderOptions.concise;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Simple wrapper of HTTP response with some helper methods for filling it with headers and content.
@@ -72,13 +70,12 @@ public class RestApiHttpResponse {
     /**
      * Set JSON representation of input object as response body.
      *
-     * NOTE: Additional parameter conversion may be required depending on the serializer.
-     *
      * @param content Content object.
      * @return Updated response.
      */
     public RestApiHttpResponse json(Object content) {
-        this.content = ConfigImpl.fromAnyRef(content, null).render(concise()).getBytes(UTF_8);
+        // TODO: IGNITE-14344 Gson object should not be created on every response
+        this.content = new Gson().toJson(content).getBytes(StandardCharsets.UTF_8);
         headers().set(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON.toString());
         return this;
     }

@@ -17,21 +17,15 @@
 
 package org.apache.ignite.rest;
 
-import java.util.AbstractMap;
-import java.util.Set;
-
 /**
  * Error result represent a tuple of error type and user-friendly error message.
  */
-public class ErrorResult extends AbstractMap<String, String> {
+public class ErrorResult {
     /** Error type describing the class of the error occurred. */
     private final String type;
 
     /** User-friendly error message. */
     private final String message;
-
-    /** Entries. */
-    private final Set<Entry<String, String>> entries;
 
     /**
      * Constructor.
@@ -42,8 +36,6 @@ public class ErrorResult extends AbstractMap<String, String> {
     public ErrorResult(String type, String message) {
         this.type = type;
         this.message = message;
-
-        entries = Set.of(new SimpleEntry<>("type", type), new SimpleEntry<>("message", message));
     }
 
     /**
@@ -58,10 +50,5 @@ public class ErrorResult extends AbstractMap<String, String> {
      */
     public String message() {
         return message;
-    }
-
-    /** {@inheritDoc} */
-    @Override public Set<Entry<String, String>> entrySet() {
-        return entries;
     }
 }

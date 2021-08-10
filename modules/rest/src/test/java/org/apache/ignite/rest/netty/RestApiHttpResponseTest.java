@@ -39,7 +39,7 @@ public class RestApiHttpResponseTest {
 
         Map<?, String> value = Map.of(
             "{root:{foo:foo,subCfg:{bar:bar}}}", "\"{root:{foo:foo,subCfg:{bar:bar}}}\"",
-            Map.of("err", new ErrorResult("t", "m")), "{\"err\":{\"message\":\"m\",\"type\":\"t\"}}"
+            Map.of("err", new ErrorResult("t", "m")), "{\"err\":{\"type\":\"t\",\"message\":\"m\"}}"
         );
 
         for (Map.Entry<?, String> e : value.entrySet()) {

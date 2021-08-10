@@ -63,19 +63,19 @@ public class HoconPresentation implements ConfigurationPresentation<String> {
         try {
             registry.change(HoconConverter.hoconSource(parseString(cfgUpdate).root()), null).get();
         }
+        catch (IllegalArgumentException | ConfigurationValidationException e) {
+            throw e;
+        }
+        catch (ConfigException.Parse e) {
+            throw new IllegalArgumentException(e);
+        }
         catch (Throwable t) {
             RuntimeException e;
 
-            if (t instanceof IllegalArgumentException)
-                e = (RuntimeException)t;
-            else if (t.getCause() instanceof IllegalArgumentException)
+            if (t.getCause() instanceof IllegalArgumentException)
                 e = (RuntimeException)t.getCause();
-            else if (t instanceof ConfigurationValidationException)
-                e = (RuntimeException)t;
             else if (t.getCause() instanceof ConfigurationValidationException)
                 e = (RuntimeException)t.getCause();
-            else if (t instanceof ConfigException.Parse)
-                e = new IllegalArgumentException(t);
             else
                 e = new RuntimeException(t);
 
