@@ -186,7 +186,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         //  - Current node has been restarted and have not received any updates from MetaStorage watch listeners yet.
         //    In this case "curChangeId" matches APPLIED_REV, which may or may not match the MASTER_KEY revision. Two
         //    options here:
-        //     - MASTER_KEY is missing in local MetaStorage copy. This means that current not have not performed nor
+        //     - MASTER_KEY is missing in local MetaStorage copy. This means that current node have not performed nor
         //       observed any configuration changes. Valid condition is "MASTER_KEY does not exist".
         //     - MASTER_KEY is present in local MetaStorage copy. The MASTER_KEY revision is unknown but is less than or
         //       equal to APPLIED_REV. Obviously, there have been no updates from the future yet. It's also guaranteed
