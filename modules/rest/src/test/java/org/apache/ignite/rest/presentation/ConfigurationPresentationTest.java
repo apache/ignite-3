@@ -109,15 +109,10 @@ public class ConfigurationPresentationTest {
     /** */
     @Test
     void testCorrectRepresentCfgByPath() {
-        Map<String, String> paths = Map.of(
-            "root", "{\"foo\":\"foo\",\"subCfg\":{\"bar\":\"bar\"}}",
-            "root.foo", "\"foo\"",
-            "root.subCfg", "{\"bar\":\"bar\"}",
-            "root.subCfg.bar", "\"bar\""
-        );
-
-        for (Map.Entry<String, String> e : paths.entrySet())
-            assertEquals(e.getValue(), cfgPresentation.representByPath(e.getKey()));
+        assertEquals("{\"foo\":\"foo\",\"subCfg\":{\"bar\":\"bar\"}}", cfgPresentation.representByPath("root"));
+        assertEquals("\"foo\"", cfgPresentation.representByPath("root.foo"));
+        assertEquals("{\"bar\":\"bar\"}", cfgPresentation.representByPath("root.subCfg"));
+        assertEquals("\"bar\"", cfgPresentation.representByPath("root.subCfg.bar"));
     }
 
     /** */
@@ -154,16 +149,24 @@ public class ConfigurationPresentationTest {
     /** */
     @Test
     void testErrorUpdateCfg() {
-        Map<String, Class<? extends RuntimeException>> errors = Map.of(
-            "{\"root\":{\"foo\":100,\"subCfg\":{\"bar\":\"foo\"}}}", IllegalArgumentException.class,
-            "{\"root0\":{\"foo\":\"foo\",\"subCfg\":{\"bar\":\"foo\"}}}", IllegalArgumentException.class,
-            "{", IllegalArgumentException.class,
-            "", IllegalArgumentException.class,
-            "{\"root\":{\"foo\":\"error\",\"subCfg\":{\"bar\":\"foo\"}}}", ConfigurationValidationException.class
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> cfgPresentation.update("{\"root\":{\"foo\":100,\"subCfg\":{\"bar\":\"foo\"}}}")
         );
 
-        for (Map.Entry<String, Class<? extends RuntimeException>> e : errors.entrySet())
-            assertThrows(e.getValue(), () -> cfgPresentation.update(e.getKey()), e.getKey());
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> cfgPresentation.update("{\"root0\":{\"foo\":\"foo\",\"subCfg\":{\"bar\":\"foo\"}}}")
+        );
+
+        assertThrows(IllegalArgumentException.class, () -> cfgPresentation.update("{"));
+
+        assertThrows(IllegalArgumentException.class, () -> cfgPresentation.update(""));
+
+        assertThrows(
+            ConfigurationValidationException.class,
+            () -> cfgPresentation.update("{\"root\":{\"foo\":\"error\",\"subCfg\":{\"bar\":\"foo\"}}}")
+        );
     }
 
     /**

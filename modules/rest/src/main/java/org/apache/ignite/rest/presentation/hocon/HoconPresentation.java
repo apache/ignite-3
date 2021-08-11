@@ -17,11 +17,12 @@
 
 package org.apache.ignite.rest.presentation.hocon;
 
-import com.typesafe.config.ConfigException;
 import java.util.List;
+import com.typesafe.config.ConfigException;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.rest.presentation.ConfigurationPresentation;
 import org.jetbrains.annotations.Nullable;
 
@@ -77,7 +78,7 @@ public class HoconPresentation implements ConfigurationPresentation<String> {
             else if (t.getCause() instanceof ConfigurationValidationException)
                 e = (RuntimeException)t.getCause();
             else
-                e = new RuntimeException(t);
+                e = new IgniteException(t);
 
             throw e;
         }

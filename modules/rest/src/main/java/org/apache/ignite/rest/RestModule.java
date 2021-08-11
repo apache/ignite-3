@@ -35,6 +35,7 @@ import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestView;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.rest.netty.RestApiInitializer;
 import org.apache.ignite.rest.presentation.ConfigurationPresentation;
@@ -115,11 +116,20 @@ public class RestModule {
                             .readCharSequence(req.request().content().readableBytes(), StandardCharsets.UTF_8)
                             .toString());
                 }
-                catch (RuntimeException e) {
-                    String t = e instanceof IllegalArgumentException || e instanceof ConfigurationValidationException ?
-                        "VALIDATION_EXCEPTION" : "APPLICATION_EXCEPTION";
+                catch (IllegalArgumentException e) {
+                    ErrorResult eRes = new ErrorResult("INVALID_CONFIG_FORMAT", e.getMessage());
 
-                    ErrorResult eRes = new ErrorResult(t, e.getMessage());
+                    resp.status(BAD_REQUEST);
+                    resp.json(Map.of("error", eRes));
+                }
+                catch (ConfigurationValidationException e) {
+                    ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", e.getMessage());
+
+                    resp.status(BAD_REQUEST);
+                    resp.json(Map.of("error", eRes));
+                }
+                catch (IgniteException e) {
+                    ErrorResult eRes = new ErrorResult("APPLICATION_EXCEPTION", e.getMessage());
 
                     resp.status(BAD_REQUEST);
                     resp.json(Map.of("error", eRes));
