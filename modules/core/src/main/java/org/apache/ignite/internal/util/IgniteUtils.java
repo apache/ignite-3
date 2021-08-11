@@ -510,8 +510,12 @@ public class IgniteUtils {
     private static final DateTimeFormatter SHORT_DATE_FMT = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     /**
+     * Prints stack trace of the current thread to provided logger.
+     *
      * @param log Logger.
-     * @param msg Message.
+     * @param msg Message to print with the stack.
+     *
+     * @deprecated Calls to this method should never be committed to master.
      */
     public static void dumpStack(IgniteLogger log, String msg) {
         String reason = "Dumping stack.";

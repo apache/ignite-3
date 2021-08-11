@@ -49,7 +49,7 @@ public interface Ignition {
      *                  <li>Specified property overrides existing one or just applies itself if it wasn't
      *                      previously specified.</li>
      *                  <li>All non-specified properties either use previous value or use default one from
-     *                      corresponding configuration schema </li>
+     *                      corresponding configuration schema.</li>
      *                </ol>
      *                So that, in case of initial node start (first start ever) specified configuration, supplemented
      *                with defaults, is used. If no configuration was provided defaults are used for all
