@@ -77,7 +77,7 @@ public abstract class IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @AfterEach
-    public void teardown(TestInfo testInfo) throws Exception {
+    public void tearDown(TestInfo testInfo) throws Exception {
         log.info(">>> Stopping test: {}#{}, displayName: {}, cost: {}ms.",
             testInfo.getTestClass().map(Class::getSimpleName).orElseGet(() -> "<null>"),
             testInfo.getTestMethod().map(Method::getName).orElseGet(() -> "<null>"),
