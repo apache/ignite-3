@@ -20,7 +20,6 @@ package org.apache.ignite.internal.schema;
 import org.apache.ignite.schema.ColumnType;
 import org.junit.jupiter.api.Test;
 
-import static org.apache.ignite.internal.schema.NativeTypes.*;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.DATE;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
@@ -34,7 +33,9 @@ import static org.apache.ignite.internal.schema.NativeTypes.UUID;
 import static org.apache.ignite.internal.schema.NativeTypes.bitmaskOf;
 import static org.apache.ignite.internal.schema.NativeTypes.blobOf;
 import static org.apache.ignite.internal.schema.NativeTypes.datetime;
+import static org.apache.ignite.internal.schema.NativeTypes.decimalOf;
 import static org.apache.ignite.internal.schema.NativeTypes.from;
+import static org.apache.ignite.internal.schema.NativeTypes.numberOf;
 import static org.apache.ignite.internal.schema.NativeTypes.stringOf;
 import static org.apache.ignite.internal.schema.NativeTypes.time;
 import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
