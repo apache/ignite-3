@@ -19,6 +19,8 @@ package org.apache.ignite.internal.schema.configuration;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -114,17 +116,17 @@ public class SchemaDescriptorConverter {
                 return NativeTypes.blobOf(blobLen);
             }
             case TIME: {
-                ColumnType.NumericColumnType temporalType = (ColumnType.NumericColumnType)colType;
+                ColumnType.TemporalColumnType temporalType = (ColumnType.TemporalColumnType)colType;
 
                 return NativeTypes.time(temporalType.precision());
             }
             case DATETIME: {
-                ColumnType.NumericColumnType temporalType = (ColumnType.NumericColumnType)colType;
+                ColumnType.TemporalColumnType temporalType = (ColumnType.TemporalColumnType)colType;
 
                 return NativeTypes.datetime(temporalType.precision());
             }
             case TIMESTAMP: {
-                ColumnType.NumericColumnType temporalType = (ColumnType.NumericColumnType)colType;
+                ColumnType.TemporalColumnType temporalType = (ColumnType.TemporalColumnType)colType;
 
                 return NativeTypes.timestamp(temporalType.precision());
             }
