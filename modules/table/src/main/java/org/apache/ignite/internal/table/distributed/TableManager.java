@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -43,6 +47,7 @@ import org.apache.ignite.internal.affinity.AffinityManager;
 import org.apache.ignite.internal.affinity.event.AffinityEvent;
 import org.apache.ignite.internal.affinity.event.AffinityEventParameters;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -57,6 +62,7 @@ import org.apache.ignite.internal.schema.SchemaModificationException;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
+import org.apache.ignite.internal.storage.rocksdb.RocksDbStorage;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -64,12 +70,16 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
+import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterNode;
@@ -109,8 +119,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Affinity manager. */
     private final AffinityManager affMgr;
 
-    /** Affinity manager. */
-    private final ClusterService clusterNetSvc;
+    /** TX manager. */
+    private final TxManager txManager;
+
+    /** Lock manager. */
+    private final LockManager lockManager;
+
+    /** Partitions store directory. */
+    private final Path partitionsStoreDir;
 
     /** Tables. */
     private final Map<String, TableImpl> tables = new ConcurrentHashMap<>();
@@ -120,12 +136,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /**
      * Creates a new table manager.
-     *  @param configurationMgr Configuration manager.
+     * @param configurationMgr Configuration manager.
      * @param metaStorageMgr Meta storage manager.
      * @param schemaMgr Schema manager.
      * @param affMgr Affinity manager.
      * @param raftMgr Raft manager.
-     * @param clusterNetSvc
+     * @param partitionsStoreDir Partitions store directory.
+     * @param clusterNetSvc Cluster service.
      */
     public TableManager(
         ConfigurationManager configurationMgr,
@@ -133,14 +150,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         SchemaManager schemaMgr,
         AffinityManager affMgr,
         Loza raftMgr,
-        ClusterService clusterNetSvc
+        Path partitionsStoreDir,
+        TxManager txManager,
+        LockManager lockManager
     ) {
         this.configurationMgr = configurationMgr;
         this.metaStorageMgr = metaStorageMgr;
         this.affMgr = affMgr;
         this.raftMgr = raftMgr;
         this.schemaMgr = schemaMgr;
-        this.clusterNetSvc = clusterNetSvc;
+        this.partitionsStoreDir = partitionsStoreDir;
+        this.txManager = txManager;
+        this.lockManager = lockManager;
     }
 
     /** {@inheritDoc} */
@@ -174,12 +195,27 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         HashMap<Integer, RaftGroupService> partitionMap = new HashMap<>(partitions);
 
-        // TODO FIXME asch refactor to components.
+        Path storageDir = partitionsStoreDir.resolve(name);
+
+        try {
+            Files.createDirectories(storageDir);
+        } catch (IOException e) {
+            throw new IgniteInternalException(
+                "Failed to create partitions store directory for " + name + ": " + e.getMessage(),
+                e
+            );
+        }
+
         for (int p = 0; p < partitions; p++) {
+            RocksDbStorage storage = new RocksDbStorage(
+                storageDir.resolve(String.valueOf(p)),
+                ByteBuffer::compareTo
+            );
+
             partitionMap.put(p, raftMgr.prepareRaftGroup(
                 raftGroupName(tblId, p),
                 assignment.get(p),
-                new PartitionListener(new VersionedRowStore(new TxManagerImpl(clusterNetSvc), new HeapLockManager()))
+                new PartitionListener(new VersionedRowStore(storage, txManager, lockManager))
             ));
         }
 
@@ -718,26 +754,20 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @return A set of table names.
      */
-    private HashSet<String> tableNamesConfigured() {
+    //TODO This is an egregious violation of encapsulation. Current approach has to be revisited.
+    private Set<String> tableNamesConfigured() {
         IgniteBiTuple<ByteArray, ByteArray> range = toRange(new ByteArray(PUBLIC_PREFIX));
 
-        HashSet<String> tableNames = new HashSet<>();
+        Set<String> tableNames = new HashSet<>();
 
         try (Cursor<Entry> cursor = metaStorageMgr.range(range.get1(), range.get2())) {
             while (cursor.hasNext()) {
                 Entry entry = cursor.next();
 
-                String keyTail = entry.key().toString().substring(PUBLIC_PREFIX.length());
+                List<String> keySplit = ConfigurationUtil.split(entry.key().toString());
 
-                int idx = -1;
-
-                //noinspection StatementWithEmptyBody
-                while ((idx = keyTail.indexOf('.', idx + 1)) > 0 && keyTail.charAt(idx - 1) == '\\')
-                    ;
-
-                String tablName = keyTail.substring(0, idx);
-
-                tableNames.add(ConfigurationUtil.unescape(tablName));
+                if (keySplit.size() == 5 && NamedListNode.NAME.equals(keySplit.get(4)))
+                    tableNames.add(ByteUtils.fromBytes(entry.value()).toString());
             }
         }
         catch (Exception e) {
@@ -856,11 +886,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return True if table configured, false otherwise.
      */
     private boolean isTableConfigured(String name) {
-        return metaStorageMgr.invoke(Conditions.exists(
-            new ByteArray(PUBLIC_PREFIX + ConfigurationUtil.escape(name) + ".name")),
-            Operations.noop(),
-            Operations.noop()
-        ).join();
+        return tableNamesConfigured().contains(name);
     }
 
     /**

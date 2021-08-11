@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import java.lang.reflect.Method;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -36,6 +37,8 @@ import org.apache.ignite.internal.affinity.AffinityManager;
 import org.apache.ignite.internal.affinity.event.AffinityEvent;
 import org.apache.ignite.internal.affinity.event.AffinityEventParameters;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -49,6 +52,11 @@ import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConver
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
@@ -67,6 +75,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.platform.commons.util.ReflectionUtils;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -86,7 +96,8 @@ import static org.mockito.Mockito.when;
 /**
  * Tests scenarios for table manager.
  */
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, WorkDirectoryExtension.class})
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class TableManagerTest {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(TableManagerTest.class);
@@ -130,6 +141,17 @@ public class TableManagerTest {
     /** Raft manager. */
     @Mock(lenient = true)
     private Loza rm;
+
+    /** TX manager. */
+    @Mock(lenient = true)
+    private TxManager tm;
+
+    /** TX manager. */
+    @Mock(lenient = true)
+    private LockManager lm;
+
+    @WorkDirectory
+    private Path workDir;
 
     /** Test node. */
     private final ClusterNode node = new ClusterNode(
@@ -214,7 +236,7 @@ public class TableManagerTest {
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-14578")
     @Test
     public void testStaticTableConfigured() {
-        TableManager tableManager = new TableManager(cfrMgr, mm, sm, am, rm, null);
+        TableManager tableManager = new TableManager(cfrMgr, mm, sm, am, rm, workDir, tm, lm);
 
         assertEquals(1, tableManager.tables().size());
 
@@ -447,7 +469,7 @@ public class TableManagerTest {
             return null;
         }).when(am).listen(same(AffinityEvent.CALCULATED), any());
 
-        TableManager tableManager = new TableManager(cfrMgr, mm, sm, am, rm, null);
+        TableManager tableManager = new TableManager(cfrMgr, mm, sm, am, rm, workDir, tm, lm);
 
         TableImpl tbl2;
 
@@ -488,8 +510,9 @@ public class TableManagerTest {
 
                     Entry mockEntry = mock(Entry.class);
 
-                    when(mockEntry.key()).thenReturn(new ByteArray(PUBLIC_PREFIX +
-                        ConfigurationUtil.escape(schemaTable.canonicalName()) + ".name"));
+                    when(mockEntry.key()).thenReturn(new ByteArray(PUBLIC_PREFIX + "uuid." + NamedListNode.NAME));
+
+                    when(mockEntry.value()).thenReturn(ByteUtils.toBytes(schemaTable.canonicalName()));
 
                     when(cursor.next()).thenReturn(mockEntry);
 

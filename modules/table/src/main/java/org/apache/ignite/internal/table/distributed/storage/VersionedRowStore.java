@@ -1,14 +1,21 @@
 package org.apache.ignite.internal.table.distributed.storage;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.storage.DataRow;
+import org.apache.ignite.internal.storage.SearchRow;
+import org.apache.ignite.internal.storage.Storage;
+import org.apache.ignite.internal.storage.basic.DeleteExactInvokeClosure;
+import org.apache.ignite.internal.storage.basic.GetAndRemoveInvokeClosure;
+import org.apache.ignite.internal.storage.basic.GetAndReplaceInvokeClosure;
+import org.apache.ignite.internal.storage.basic.InsertInvokeClosure;
+import org.apache.ignite.internal.storage.basic.ReplaceExactInvokeClosure;
+import org.apache.ignite.internal.storage.basic.SimpleDataRow;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.Timestamp;
@@ -21,8 +28,8 @@ import org.jetbrains.annotations.Nullable;
  *
  */
 public class VersionedRowStore {
-    /** In-memory dummy store. TODO refactor to interface */
-    private final Map<KeyWrapper, Value> store = new HashMap<>();
+    /** Storage delegate. */
+    private final Storage storage;
     
     /** */
     private TxManager txManager;
@@ -30,7 +37,13 @@ public class VersionedRowStore {
     /** */
     private LockManager lockManager;
 
-    public VersionedRowStore(TxManager txManager, LockManager lockManager) {
+    /**
+     * @param storage The storage.
+     * @param txManager The TX manager.
+     * @param lockManager The lock manager.
+     */
+    public VersionedRowStore(Storage storage, TxManager txManager, LockManager lockManager) {
+        this.storage = storage;
         this.txManager = txManager;
         this.lockManager = lockManager;
     }
@@ -39,16 +52,38 @@ public class VersionedRowStore {
     public CompletableFuture<BinaryRow> get(@NotNull BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        return CompletableFuture.completedFuture(resolve(store.get(extractAndWrapKey(row)), tx.timestamp()));
+        DataRow readValue = storage.read(extractAndWrapKey(row));
+
+        ByteBufferRow responseRow = null;
+
+        if (readValue.hasValueBytes())
+            responseRow = new ByteBufferRow(readValue.valueBytes());
+
+        return CompletableFuture.completedFuture(responseRow);
+    }
+
+    /** {@inheritDoc} */
+    public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows, InternalTransaction tx) {
+        assert keyRows != null && !keyRows.isEmpty();
+
+        List<SearchRow> keys = keyRows.stream().map(VersionedRowStore::extractAndWrapKey)
+            .collect(Collectors.toList());
+
+        List<BinaryRow> res = storage
+            .readAll(keys)
+            .stream()
+            .filter(DataRow::hasValueBytes)
+            .map(read -> new ByteBufferRow(read.valueBytes()))
+            .collect(Collectors.toList());
+
+        return CompletableFuture.completedFuture(res);
     }
 
     /** {@inheritDoc} */
     public CompletableFuture<Void> upsert(@NotNull BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        store.compute(extractAndWrapKey(row), (key, value) ->
-            value == null ? new Value(row, null, tx.timestamp()) :
-                new Value(row, value.oldRow == null ? value.newRow : value.oldRow, tx.timestamp())); // Keep first old value.
+        storage.write(extractAndWrapKeyValue(row));
 
         return CompletableFuture.completedFuture(null);
     }
@@ -57,47 +92,38 @@ public class VersionedRowStore {
     public CompletableFuture<BinaryRow> getAndUpsert(@NotNull BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        KeyWrapper key = extractAndWrapKey(row);
+        DataRow keyValue = extractAndWrapKeyValue(row);
 
-        final Value old = store.get(key);
+        var getAndReplace = new GetAndReplaceInvokeClosure(keyValue, false);
 
-        store.put(key, new Value(row, old == null ? null : old.oldRow, tx.timestamp()));
+        storage.invoke(keyValue, getAndReplace);
 
-        return CompletableFuture.completedFuture(old.newRow);
+        DataRow oldRow = getAndReplace.oldRow();
+
+        if (oldRow.hasValueBytes())
+            return CompletableFuture.completedFuture(new ByteBufferRow(oldRow.valueBytes()));
+        else
+            return CompletableFuture.completedFuture(null);
     }
 
     /** {@inheritDoc} */
     public CompletableFuture<Boolean> delete(BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        final KeyWrapper key = extractAndWrapKey(row);
+        SearchRow newRow = extractAndWrapKey(row);
 
-        final Value old = store.get(key);
+        var getAndRemoveClosure = new GetAndRemoveInvokeClosure();
 
-        store.put(key, new Value(null, old == null ? null : old.oldRow, tx.timestamp()));
+        storage.invoke(newRow, getAndRemoveClosure);
 
-        return CompletableFuture.completedFuture(old != null);
-    }
-
-    /** {@inheritDoc} */
-    public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows, InternalTransaction tx) {
-        assert keyRows != null && !keyRows.isEmpty();
-
-        final List<BinaryRow> res = keyRows.stream()
-            .map(this::extractAndWrapKey)
-            .map(store::get)
-            .map(value -> resolve(value, tx.timestamp()))
-            .collect(Collectors.toList());
-
-        return CompletableFuture.completedFuture(res);
+        return CompletableFuture.completedFuture(getAndRemoveClosure.result());
     }
 
     /** {@inheritDoc} */
     public CompletableFuture<Void> upsertAll(Collection<BinaryRow> rows, InternalTransaction tx) {
         assert rows != null && !rows.isEmpty();
 
-        for (BinaryRow row : rows)
-            upsert(row, tx);
+        storage.writeAll(rows.stream().map(VersionedRowStore::extractAndWrapKeyValue).collect(Collectors.toList()));
 
         return CompletableFuture.completedFuture(null);
     }
@@ -106,14 +132,11 @@ public class VersionedRowStore {
     public CompletableFuture<Boolean> insert(BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        KeyWrapper key = extractAndWrapKey(row);
+        DataRow newRow = extractAndWrapKeyValue(row);
 
-        Value old = store.get(key);
+        InsertInvokeClosure writeIfAbsent = new InsertInvokeClosure(newRow);
 
-        if (old != null && old.newRow != null)
-            return CompletableFuture.completedFuture(false);
-
-        store.put(key, new Value(row, null, tx == null ? null : tx.timestamp()));
+        storage.invoke(newRow, writeIfAbsent);
 
         return CompletableFuture.completedFuture(true);
     }
@@ -122,31 +145,29 @@ public class VersionedRowStore {
     public CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> rows, InternalTransaction tx) {
         assert rows != null && !rows.isEmpty();
 
-        Collection<BinaryRow> inserted = new ArrayList<>();
+        List<DataRow> keyValues = rows.stream().map(VersionedRowStore::extractAndWrapKeyValue)
+            .collect(Collectors.toList());
 
-        for (BinaryRow row : rows) {
-            CompletableFuture<Boolean> fut = insert(row, tx);
+        List<BinaryRow> res = storage.insertAll(keyValues).stream()
+            .filter(DataRow::hasValueBytes)
+            .map(inserted -> new ByteBufferRow(inserted.valueBytes()))
+            .filter(BinaryRow::hasValue)
+            .collect(Collectors.toList());
 
-            if (fut.isDone())
-                inserted.add(row);
-        }
-
-        return CompletableFuture.completedFuture(inserted);
+        return CompletableFuture.completedFuture(res);
     }
 
     /** {@inheritDoc} */
     public CompletableFuture<Boolean> replace(BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        final KeyWrapper key = extractAndWrapKey(row);
-        final Value oldRow = store.get(key);
+        DataRow keyValue = extractAndWrapKeyValue(row);
 
-        if (oldRow == null || oldRow.newRow == null)
-            return CompletableFuture.completedFuture(false);
+        var replaceIfExists = new GetAndReplaceInvokeClosure(keyValue, true);
 
-        store.put(key, new Value(row, oldRow.oldRow, tx.timestamp()));
+        storage.invoke(keyValue, replaceIfExists);
 
-        return CompletableFuture.completedFuture(true);
+        return CompletableFuture.completedFuture(replaceIfExists.result());
     }
 
     /** {@inheritDoc} */
@@ -154,16 +175,14 @@ public class VersionedRowStore {
         assert oldRow != null;
         assert newRow != null;
 
-        final KeyWrapper key = extractAndWrapKey(oldRow);
+        DataRow expected = extractAndWrapKeyValue(oldRow);
+        DataRow newR = extractAndWrapKeyValue(newRow);
 
-        final Value old = store.get(key);
+        var replaceClosure = new ReplaceExactInvokeClosure(expected, newR);
 
-        if (old == null || old.newRow == null)
-            return CompletableFuture.completedFuture(false);
+        storage.invoke(expected, replaceClosure);
 
-        store.put(key, new Value(newRow, old.oldRow, tx.timestamp()));
-
-        return CompletableFuture.completedFuture(true);
+        return CompletableFuture.completedFuture(replaceClosure.result());
     }
 
     public CompletableFuture<BinaryRow> getAndReplace(BinaryRow row, InternalTransaction ts) {
@@ -175,15 +194,13 @@ public class VersionedRowStore {
         assert row != null;
         assert row.hasValue();
 
-        final KeyWrapper key = extractAndWrapKey(row);
-        final Value old = store.get(key);
+        DataRow keyValue = extractAndWrapKeyValue(row);
 
-        if (old == null || old.newRow == null || !equalValues(row, old.newRow))
-            return CompletableFuture.completedFuture(false);
+        var deleteExact = new DeleteExactInvokeClosure(keyValue);
 
-        store.put(key, new Value(row, old.oldRow, tx.timestamp()));
+        storage.invoke(keyValue, deleteExact);
 
-        return CompletableFuture.completedFuture(true);
+        return CompletableFuture.completedFuture(deleteExact.result());
     }
 
     public CompletableFuture<BinaryRow> getAndDelete(BinaryRow row, InternalTransaction ts) {
@@ -191,23 +208,58 @@ public class VersionedRowStore {
     }
 
     public CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows, InternalTransaction ts) {
-        return null;
+        List<SearchRow> keys = rows.stream().map(VersionedRowStore::extractAndWrapKey)
+            .collect(Collectors.toList());
+
+        List<BinaryRow> res = storage.removeAll(keys).stream()
+            .filter(DataRow::hasValueBytes)
+            .map(removed -> new ByteBufferRow(removed.valueBytes()))
+            .filter(BinaryRow::hasValue)
+            .collect(Collectors.toList());
+
+        return CompletableFuture.completedFuture(res);
     }
 
     public CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows,
         InternalTransaction ts) {
-        return null;
+        assert rows != null && !rows.isEmpty();
+
+        List<DataRow> keyValues = rows.stream().map(VersionedRowStore::extractAndWrapKeyValue)
+            .collect(Collectors.toList());
+
+        List<BinaryRow> res = storage.removeAllExact(keyValues).stream()
+            .filter(DataRow::hasValueBytes)
+            .map(inserted -> new ByteBufferRow(inserted.valueBytes()))
+            .filter(BinaryRow::hasValue)
+            .collect(Collectors.toList());
+
+        return CompletableFuture.completedFuture(res);
     }
 
     /**
-     * @param row Row.
-     * @return Extracted key.
+     * Extracts a key and a value from the {@link BinaryRow} and wraps it in a {@link DataRow}.
+     *
+     * @param row Binary row.
+     * @return Data row.
      */
-    @NotNull private KeyWrapper extractAndWrapKey(@NotNull BinaryRow row) {
-        final byte[] bytes = new byte[row.keySlice().capacity()];
-        row.keySlice().get(bytes);
+    @NotNull private static DataRow extractAndWrapKeyValue(@NotNull BinaryRow row) {
+        byte[] key = new byte[row.keySlice().capacity()];
+        row.keySlice().get(key);
 
-        return new KeyWrapper(bytes, row.hash());
+        return new SimpleDataRow(key, row.bytes());
+    }
+
+    /**
+     * Extracts a key from the {@link BinaryRow} and wraps it in a {@link SearchRow}.
+     *
+     * @param row Binary row.
+     * @return Search row.
+     */
+    @NotNull private static SearchRow extractAndWrapKey(@NotNull BinaryRow row) {
+        byte[] key = new byte[row.keySlice().capacity()];
+        row.keySlice().get(key);
+
+        return new SimpleDataRow(key, null);
     }
 
     /**
@@ -250,22 +302,16 @@ public class VersionedRowStore {
         }
     }
 
-    public void reset(@NotNull BinaryRow row) {
-        final KeyWrapper key = extractAndWrapKey(row);
-
-        Value val = store.get(key);
-
-        assert val != null;
-
-        store.put(key, new Value(val.oldRow, null, null));
-    }
-
     public void commit(Timestamp timestamp) {
 
     }
 
     public void rollback(Timestamp timestamp) {
 
+    }
+
+    public void close() throws Exception {
+        storage.close();
     }
 
     private static class Value {

@@ -75,8 +75,19 @@ public class HeapLockManager implements LockManager {
         return lockState(key).queue();
     }
 
+    /** {@inheritDoc} */
     @Override public Waiter waiter(Object key, Timestamp timestamp) {
         return lockState(key).waiter(timestamp);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void start() {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
+    @Override public void stop() throws Exception {
+        // No-op.
     }
 
     /** A lock state. */

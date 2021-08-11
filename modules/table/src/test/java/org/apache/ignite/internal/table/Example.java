@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjects;
+import org.apache.ignite.internal.storage.basic.ConcurrentHashMapStorage;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -46,7 +47,8 @@ public class Example {
      * @return Table implementation.
      */
     private static List<Table> tableFactory() {
-        return Collections.singletonList(new TableImpl(new DummyInternalTableImpl(new VersionedRowStore(new TxManagerImpl(null), new HeapLockManager())), null, null, null));
+        return Collections.singletonList(new TableImpl(new DummyInternalTableImpl(new VersionedRowStore(
+            new ConcurrentHashMapStorage(), new TxManagerImpl(null), new HeapLockManager())), null, null, null));
     }
 
     /**

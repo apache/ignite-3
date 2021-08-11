@@ -41,11 +41,11 @@ import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
 import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Partition command handler.
@@ -197,7 +197,12 @@ public class PartitionListener implements RaftGroupListener {
 
     /** {@inheritDoc} */
     @Override public void onShutdown() {
-        // No-op.
+        try {
+            storage.close();
+        }
+        catch (Exception e) {
+            throw new IgniteInternalException("Failed to close storage: " + e.getMessage(), e);
+        }
     }
 
     /**
@@ -258,18 +263,5 @@ public class PartitionListener implements RaftGroupListener {
             return false;
 
         return row.valueSlice().compareTo(row2.valueSlice()) == 0;
-    }
-
-    /**
-     * Makes a wrapped key from a table row.
-     *
-     * @param row Row.
-     * @return Extracted key.
-     */
-    @NotNull private KeyWrapper extractAndWrapKey(@NotNull BinaryRow row) {
-        final byte[] bytes = new byte[row.keySlice().capacity()];
-        row.keySlice().get(bytes);
-
-        return new KeyWrapper(bytes, row.hash());
     }
 }

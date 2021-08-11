@@ -19,12 +19,13 @@ package org.apache.ignite.internal.tx;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
  * Lock manager allows to acquire locks in shared and exclusive mode and supports deadlock prevention by timestamp
  * ordering.
  */
-public interface LockManager {
+public interface LockManager extends IgniteComponent {
     /**
      * @param key The key.
      * @param timestamp The timestamp.

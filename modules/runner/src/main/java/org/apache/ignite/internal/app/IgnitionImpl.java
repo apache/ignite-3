@@ -52,6 +52,10 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -80,6 +84,11 @@ public class IgnitionImpl implements Ignition {
      * Path to the persistent storage used by the {@link VaultService} component.
      */
     private static final Path VAULT_DB_PATH = Paths.get("vault");
+
+    /**
+     * Path for the partitions persistent storage.
+     */
+    private static final Path PARTITIONS_STORE_PATH = Paths.get("db");
 
     /** */
     private static final String[] BANNER = {
@@ -315,6 +324,20 @@ public class IgnitionImpl implements Ignition {
                 )
             );
 
+            // TX manager startup.
+            TxManager txManager = doStartComponent(
+                nodeName,
+                startedComponents,
+                new TxManagerImpl(clusterNetSvc)
+            );
+
+            // Lock manager startup.
+            LockManager lockManager = doStartComponent(
+                nodeName,
+                startedComponents,
+                new HeapLockManager()
+            );
+
             // Distributed table manager startup.
             TableManager distributedTblMgr = doStartComponent(
                 nodeName,
@@ -325,7 +348,9 @@ public class IgnitionImpl implements Ignition {
                     schemaMgr,
                     affinityMgr,
                     raftMgr,
-                    clusterNetSvc
+                    getPartitionsStorePath(workDir),
+                    txManager,
+                    lockManager
                 )
             );
 
@@ -374,6 +399,26 @@ public class IgnitionImpl implements Ignition {
 
             throw new IgniteException(errMsg, e);
         }
+    }
+
+    /**
+     * Returns a path to the partitions store directory.
+     * Creates a directory if it doesn't exist.
+     *
+     * @param workDir Ignite work directory.
+     * @return Partitions store path.
+     */
+    @NotNull
+    private static Path getPartitionsStorePath(Path workDir) {
+        Path partitionsStore = workDir.resolve(PARTITIONS_STORE_PATH);
+
+        try {
+            Files.createDirectories(partitionsStore);
+        } catch (IOException e) {
+            throw new IgniteInternalException("Failed to create directory for partitions storage: " + e.getMessage(), e);
+        }
+
+        return partitionsStore;
     }
 
     /**

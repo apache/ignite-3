@@ -79,4 +79,12 @@ public class TxManagerImpl implements TxManager {
     @Override public boolean changeState(Timestamp ts, TxState before, TxState after) {
         return states.replace(ts, before, after);
     }
+
+    @Override public void start() {
+        // No-op.
+    }
+
+    @Override public void stop() throws Exception {
+        // No-op.
+    }
 }

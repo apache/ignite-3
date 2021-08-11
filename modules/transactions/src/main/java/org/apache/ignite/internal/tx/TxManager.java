@@ -18,12 +18,13 @@
 package org.apache.ignite.internal.tx;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.tx.impl.TransactionImpl;
 
 /**
  * TODO: local tx ?
  */
-public interface TxManager {
+public interface TxManager extends IgniteComponent {
     /**
      * Starts a transaction coordinated by local node.
      *

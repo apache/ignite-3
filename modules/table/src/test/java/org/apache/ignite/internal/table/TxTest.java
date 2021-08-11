@@ -22,6 +22,7 @@ import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.storage.basic.ConcurrentHashMapStorage;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -88,10 +89,6 @@ public class TxTest {
     /** */
     private InternalTable table;
 
-    private InternalTable createTable() {
-        return new DummyInternalTableImpl(new VersionedRowStore(new TxManagerImpl(clusterService), new HeapLockManager()));
-    }
-
     /**
      * Initialize the test state.
      */
@@ -104,7 +101,7 @@ public class TxTest {
 
         lockManager = new HeapLockManager();
 
-        table = new DummyInternalTableImpl(new VersionedRowStore(txManager, lockManager));
+        table = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapStorage(), txManager, lockManager));
 
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,

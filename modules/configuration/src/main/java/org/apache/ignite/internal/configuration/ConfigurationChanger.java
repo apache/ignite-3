@@ -52,9 +52,8 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.configuration.util.ConfigurationFlattener.createFlattenedUpdatesMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.dropNulls;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.fillFromPrefixMap;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.nodePatcher;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.patch;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.toPrefixMap;
 
 /**
@@ -233,30 +232,31 @@ public abstract class ConfigurationChanger {
 
         assert configurationStorage != null : storageType;
 
-        StorageRoots storageRoots = storagesRootsMap.get(storageType);
-
-        SuperRoot superRoot = storageRoots.roots;
-        SuperRoot defaultsNode = new SuperRoot(rootCreator());
-
-        addDefaults(superRoot, defaultsNode);
-
-        List<ValidationIssue> validationIssues = ValidationUtil.validate(
-            superRoot,
-            defaultsNode,
-            this::getRootNode,
-            cachedAnnotations,
-            validators
-        );
-
-        if (!validationIssues.isEmpty())
-            throw new ConfigurationValidationException(validationIssues);
-
         try {
-            changeInternally(nodePatcher(defaultsNode), storageInstances.get(storageType)).get();
+            ConfigurationSource defaultsCfgSource = new ConfigurationSource() {
+                @Override public void descend(ConstructableTreeNode node) {
+                    addDefaults((InnerNode)node);
+                }
+            };
+
+            changeInternally(defaultsCfgSource, configurationStorage).get();
         }
-        catch (InterruptedException | ExecutionException e) {
+        catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+
+            if (cause instanceof ConfigurationValidationException)
+                throw (ConfigurationValidationException)cause;
+
+            if (cause instanceof ConfigurationChangeException)
+                throw (ConfigurationChangeException)cause;
+
             throw new ConfigurationChangeException(
                 "Failed to write defalut configuration values into the storage " + configurationStorage.getClass(), e
+            );
+        }
+        catch (InterruptedException e) {
+            throw new ConfigurationChangeException(
+                "Failed to initialize configuration storage " + configurationStorage.getClass(), e
             );
         }
     }
@@ -358,23 +358,19 @@ public abstract class ConfigurationChanger {
 
                 src.descend(changes);
 
-                SuperRoot patchedSuperRoot = patch(curRoots, changes);
+                addDefaults(changes);
 
-                SuperRoot defaultsNode = new SuperRoot(rootCreator());
-
-                addDefaults(patchedSuperRoot, defaultsNode);
-
-                SuperRoot patchedChanges = patch(changes, defaultsNode);
-
-                Map<String, Serializable> allChanges = createFlattenedUpdatesMap(curRoots, patchedChanges);
+                Map<String, Serializable> allChanges = createFlattenedUpdatesMap(curRoots, changes);
 
                 // Unlikely but still possible.
                 if (allChanges.isEmpty())
                     return null;
 
+                dropNulls(changes);
+
                 List<ValidationIssue> validationIssues = ValidationUtil.validate(
                     curRoots,
-                    patch(patchedSuperRoot, defaultsNode),
+                    changes,
                     this::getRootNode,
                     cachedAnnotations,
                     validators
@@ -412,11 +408,13 @@ public abstract class ConfigurationChanger {
     }
 
     /**
-     * Update configuration from storage listener.
+     * Updates configuration from storage listener.
+     *
      * @param storageType Type of the storage that propagated these changes.
      * @param changedEntries Changed data.
+     * @return Future that signifies update completion.
      */
-    private void updateFromListener(
+    private CompletableFuture<Void> updateFromListener(
         ConfigurationType storageType,
         Data changedEntries
     ) {
@@ -431,20 +429,17 @@ public abstract class ConfigurationChanger {
 
         fillFromPrefixMap(newSuperRoot, dataValuesPrefixMap);
 
-        StorageRoots newStorageRoots = new StorageRoots(newSuperRoot, changedEntries.changeId());
+        long newChangeId = changedEntries.changeId();
+
+        StorageRoots newStorageRoots = new StorageRoots(newSuperRoot, newChangeId);
 
         storagesRootsMap.put(storageType, newStorageRoots);
 
-        ConfigurationStorage storage = storageInstances.get(storageType);
-
-        long storageRevision = changedEntries.changeId();
-
-        // This will also be updated during the metastorage integration.
-        notificator.notify(
+        return notificator.notify(
             oldSuperRoot,
             newSuperRoot,
-            storageRevision
-        ).whenCompleteAsync((res, throwable) -> storage.notifyApplied(storageRevision), pool);
+            newChangeId
+        );
     }
 
     /**

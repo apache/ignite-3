@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.Collections;
 import io.netty.channel.ChannelFuture;
@@ -26,6 +27,7 @@ import org.apache.ignite.app.Ignite;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,21 +50,25 @@ public class ClientHandlerIntegrationTest {
 
     private ConfigurationRegistry configurationRegistry;
 
+    private int serverPort;
+
     @BeforeEach
     public void setUp() throws Exception {
         serverFuture = startServer();
+        serverPort = ((InetSocketAddress)serverFuture.channel().localAddress()).getPort();
     }
 
     @AfterEach
     public void tearDown() throws Exception {
         serverFuture.cancel(true);
         serverFuture.await();
+        serverFuture.channel().closeFuture().await();
         configurationRegistry.stop();
     }
 
     @Test
     void testHandshakeInvalidMagicHeaderDropsConnection() throws Exception {
-        try (var sock = new Socket("127.0.0.1", 10800)) {
+        try (var sock = new Socket("127.0.0.1", serverPort)) {
             OutputStream out = sock.getOutputStream();
             out.write(new byte[]{63, 64, 65, 66, 67});
             out.flush();
@@ -73,7 +79,7 @@ public class ClientHandlerIntegrationTest {
 
     @Test
     void testHandshakeValidReturnsSuccess() throws Exception {
-        try (var sock = new Socket("127.0.0.1", 10800)) {
+        try (var sock = new Socket("127.0.0.1", serverPort)) {
             OutputStream out = sock.getOutputStream();
 
             // Magic: IGNI
@@ -125,7 +131,7 @@ public class ClientHandlerIntegrationTest {
 
     @Test
     void testHandshakeInvalidVersionReturnsError() throws Exception {
-        try (var sock = new Socket("127.0.0.1", 10800)) {
+        try (var sock = new Socket("127.0.0.1", serverPort)) {
             OutputStream out = sock.getOutputStream();
 
             // Magic: IGNI

@@ -26,8 +26,8 @@ import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
-import org.apache.ignite.internal.client.table.ClientTupleBuilder;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -51,11 +51,15 @@ public abstract class AbstractClientTest {
 
     protected static Ignite client;
 
+    protected static int serverPort;
+
     @BeforeAll
     public static void beforeAll() throws Exception {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
         serverFuture = startServer(null);
+        serverPort = ((InetSocketAddress)serverFuture.channel().localAddress()).getPort();
+
         client = startClient();
     }
 
@@ -64,6 +68,7 @@ public abstract class AbstractClientTest {
         client.close();
         serverFuture.cancel(true);
         serverFuture.await();
+        serverFuture.channel().closeFuture().await();
         configurationRegistry.stop();
     }
 
@@ -74,11 +79,8 @@ public abstract class AbstractClientTest {
     }
 
     public static Ignite startClient(String... addrs) {
-        if (addrs == null || addrs.length == 0) {
-            var serverPort = ((InetSocketAddress)serverFuture.channel().localAddress()).getPort();
-
+        if (addrs == null || addrs.length == 0)
             addrs = new String[]{"127.0.0.2:" + serverPort};
-        }
 
         var builder = IgniteClient.builder().addresses(addrs);
 
@@ -104,20 +106,22 @@ public abstract class AbstractClientTest {
     }
 
     public static void assertTupleEquals(Tuple x, Tuple y) {
-        if (x == null)
+        if (x == null) {
             assertNull(y);
+            return;
+        }
 
-        if (y == null)
+        if (y == null) {
+            //noinspection ConstantConditions
             assertNull(x);
+            return;
+        }
 
-        var a = (ClientTupleBuilder) x;
-        var b = (ClientTupleBuilder) y;
+        assertEquals(x.columnCount(), y.columnCount());
 
-        assertEquals(a.columnCount(), b.columnCount());
-
-        for (var i = 0; i < a.columnCount(); i++) {
-            assertEquals(a.columnName(i), b.columnName(i));
-            assertEquals((Object)a.value(i), b.value(i));
+        for (var i = 0; i < x.columnCount(); i++) {
+            assertEquals(x.columnName(i), y.columnName(i));
+            assertEquals((Object) x.value(i), y.value(i));
         }
     }
 }

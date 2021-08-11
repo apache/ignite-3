@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.storage.basic.ConcurrentHashMapStorage;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -56,7 +57,8 @@ public class KVViewOperationsTest {
     private ClusterService clusterService;
 
     private InternalTable createTable() {
-        return new DummyInternalTableImpl(new VersionedRowStore(new TxManagerImpl(clusterService), new HeapLockManager()));
+        return new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapStorage(),
+            new TxManagerImpl(clusterService), new HeapLockManager()));
     }
 
     /**
