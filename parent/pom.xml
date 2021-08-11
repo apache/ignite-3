@@ -798,9 +798,6 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${maven.surefire.plugin.version}</version>
-                    <configuration>
-                        <argLine>-Djava.util.logging.config.file=../../config/java.util.logging.properties</argLine>
-                    </configuration>
                 </plugin>
 
                 <plugin>
@@ -827,9 +824,6 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <version>${maven.failsafe.plugin.version}</version>
-                    <configuration>
-                        <argLine>-Djava.util.logging.config.file=../../config/java.util.logging.properties</argLine>
-                    </configuration>
                 </plugin>
 
                 <plugin>
@@ -962,6 +956,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
+                    <argLine>-Djava.util.logging.config.file=../../config/java.util.logging.properties</argLine>
                     <excludes>
                         <exclude>**/IT*.java</exclude>
                     </excludes>
@@ -975,6 +970,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <configuration>
+                    <argLine>-Djava.util.logging.config.file=../../config/java.util.logging.properties</argLine>
                     <useModulePath>false</useModulePath>
                 </configuration>
                 <executions>

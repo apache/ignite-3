@@ -19,9 +19,10 @@ package org.apache.ignite.lang;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.logging.Formatter;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
@@ -66,10 +67,10 @@ public class JavaLoggerFormatter extends Formatter {
     public static final String ANONYMOUS_LOGGER_NAME = "UNKNOWN";
 
     /** Date formatter. */
-    private static final ThreadLocal<SimpleDateFormat> DATE_FORMATTER = new ThreadLocal<SimpleDateFormat>() {
+    private static final ThreadLocal<DateTimeFormatter> DATE_FORMATTER = new ThreadLocal<>() {
         /** {@inheritDoc} */
-        @Override protected SimpleDateFormat initialValue() {
-            return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss:SSS Z");
+        @Override protected DateTimeFormatter initialValue() {
+            return DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss:SSS Z");
         }
     };
 
@@ -96,8 +97,8 @@ public class JavaLoggerFormatter extends Formatter {
             ex = "\n" + stackTrace;
         }
 
-        return DATE_FORMATTER.get().format(new Date(record.getMillis())) + " [" +
-            toLevel(record.getLevel().intValue()) + "][" +
+        return DATE_FORMATTER.get().format(Instant.ofEpochMilli(record.getMillis()).atZone(ZoneId.systemDefault())) +
+            " [" + toLevel(record.getLevel().intValue()) + "][" +
             threadName + "][" +
             logName + "] " +
             formatMessage(record) +
