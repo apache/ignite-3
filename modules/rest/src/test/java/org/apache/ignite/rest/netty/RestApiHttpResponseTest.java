@@ -17,9 +17,9 @@
 
 package org.apache.ignite.rest.netty;
 
+import java.util.Map;
 import io.netty.handler.codec.http.DefaultHttpResponse;
 import io.netty.handler.codec.http.HttpVersion;
-import java.util.Map;
 import org.apache.ignite.rest.ErrorResult;
 import org.junit.jupiter.api.Test;
 
