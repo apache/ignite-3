@@ -226,7 +226,7 @@ class ITScaleCubeNetworkMessagingTest {
         ClusterService member0 = testCluster.members.get(0);
         ClusterService member1 = testCluster.members.get(1);
 
-        // we don't register a message listener on the receiving size, so all "invoke"s should timeout
+        // we don't register a message listener on the receiving side, so all "invoke"s should timeout
 
         // perform two invokes to test that multiple requests can get cancelled
         CompletableFuture<NetworkMessage> invoke0 = member0.messagingService().invoke(
