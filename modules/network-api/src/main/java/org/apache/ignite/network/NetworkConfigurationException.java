@@ -23,6 +23,7 @@ package org.apache.ignite.network;
 public class NetworkConfigurationException extends RuntimeException {
     /**
      * Constructor.
+     *
      * @param message Exception message.
      */
     public NetworkConfigurationException(String message) {
@@ -31,6 +32,7 @@ public class NetworkConfigurationException extends RuntimeException {
 
     /**
      * Constructor.
+     *
      * @param message Exception message.
      * @param cause Cause of the exception.
      */
