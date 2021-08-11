@@ -106,7 +106,7 @@ class ITScaleCubeNetworkMessagingTest {
             alice.messagingService().weakSend(member, testMessage);
 
         boolean messagesReceived = messageReceivedLatch.await(3, TimeUnit.SECONDS);
-        assertTrue(null);
+        assertTrue(messagesReceived);
 
         testCluster.members.stream()
             .map(member -> member.localConfiguration().getName())
