@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -69,6 +71,12 @@ public final class TestUtils {
 
             case BYTES:
                 return randomBytes(rnd, rnd.nextInt(255));
+
+            case NUMBER:
+                return BigInteger.probablePrime(12, rnd);
+
+            case DECIMAL:
+                return BigDecimal.valueOf(rnd.nextInt(), 3);
 
             case BITMASK: {
                 BitmaskNativeType maskType = (BitmaskNativeType)type;

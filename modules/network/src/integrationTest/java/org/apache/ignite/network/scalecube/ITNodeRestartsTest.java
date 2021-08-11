@@ -37,26 +37,28 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests if a topology size is correct after some nodes are restarted in quick succession.
  */
 class ITNodeRestartsTest {
-    /** */
+    /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(ITNodeRestartsTest.class);
 
-    /** */
+    /** Serialization registry. */
     private final MessageSerializationRegistry serializationRegistry = new TestMessageSerializationRegistryImpl();
 
-    /** */
+    /** Network factory. */
     private final ClusterServiceFactory networkFactory = new TestScaleCubeClusterServiceFactory();
 
-    /** */
+    /** Created {@link ClusterService}s. Needed for resource management. */
     private List<ClusterService> services;
 
-    /** */
+    /** Tear down method. */
     @AfterEach
-    void after() {
+    void tearDown() {
         for (ClusterService service : services)
-            service.shutdown();
+            service.stop();
     }
 
-    /** */
+    /**
+     * Tests that restarting nodes get discovered in an established topology.
+     */
     @Test
     public void testRestarts() {
         final int initPort = 3344;
@@ -78,10 +80,10 @@ class ITNodeRestartsTest {
         List<NetworkAddress> addresses = nodeFinder.findNodes();
 
         LOG.info("Shutdown {}", addresses.get(idx0));
-        services.get(idx0).shutdown();
+        services.get(idx0).stop();
 
         LOG.info("Shutdown {}", addresses.get(idx1));
-        services.get(idx1).shutdown();
+        services.get(idx1).stop();
 
         LOG.info("Starting {}", addresses.get(idx0));
         ClusterService svc0 = startNetwork(addresses.get(idx0), nodeFinder);
@@ -99,7 +101,13 @@ class ITNodeRestartsTest {
         LOG.info("Reached stable state");
     }
 
-    /** */
+    /**
+     * Creates a {@link ClusterService} using the given local address and the node finder.
+     *
+     * @param addr Node address.
+     * @param nodeFinder Node finder.
+     * @return Created Cluster Service.
+     */
     private ClusterService startNetwork(NetworkAddress addr, NodeFinder nodeFinder) {
         var context = new ClusterLocalConfiguration(addr.toString(), addr.port(), nodeFinder, serializationRegistry);
 
@@ -111,6 +119,8 @@ class ITNodeRestartsTest {
     }
 
     /**
+     * Blocks until the given topology reaches {@code expected} amount of members.
+     *
      * @param service  The service.
      * @param expected Expected count.
      * @param timeout  The timeout.

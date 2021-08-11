@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration.sample;
 
 import java.util.Arrays;
 import java.util.Collections;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.junit.jupiter.api.AfterEach;
@@ -51,8 +52,12 @@ public class UsageTest {
         registry = new ConfigurationRegistry(
             Collections.singletonList(LocalConfiguration.KEY),
             Collections.emptyMap(),
-            Collections.singletonList(new TestConfigurationStorage())
+            Collections.singletonList(new TestConfigurationStorage(ConfigurationType.LOCAL))
         );
+
+        registry.start();
+
+        registry.startStorageConfigurations(ConfigurationType.LOCAL);
 
         LocalConfiguration root = registry.getConfiguration(LocalConfiguration.KEY);
 
@@ -107,8 +112,10 @@ public class UsageTest {
         registry = new ConfigurationRegistry(
             Arrays.asList(NetworkConfiguration.KEY, LocalConfiguration.KEY),
             Collections.emptyMap(),
-            Collections.singletonList(new TestConfigurationStorage())
+            Collections.singletonList(new TestConfigurationStorage(ConfigurationType.LOCAL))
         );
+
+        registry.start();
 
         registry.getConfiguration(LocalConfiguration.KEY).change(local ->
             local.changeBaseline(baseline ->

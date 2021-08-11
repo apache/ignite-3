@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema;
 import org.apache.ignite.schema.ColumnType;
 import org.junit.jupiter.api.Test;
 
+import static org.apache.ignite.internal.schema.NativeTypes.*;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.DATE;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
@@ -75,15 +76,15 @@ public class NativeTypeTest {
         assertTrue(INT16.compareTo(DATE) < 0);
         assertTrue(DATE.compareTo(INT32) < 0);
 
-        assertTrue(DATE.compareTo(NativeTypes.time(0)) < 0);
-        assertTrue(INT32.compareTo(NativeTypes.time(4)) < 0);
-        assertTrue(NativeTypes.time(3).compareTo(NativeTypes.time(4)) < 0);
-        assertTrue(NativeTypes.time(9).compareTo(NativeTypes.datetime(0)) < 0);
+        assertTrue(DATE.compareTo(time(0)) < 0);
+        assertTrue(INT32.compareTo(time(4)) < 0);
+        assertTrue(time(3).compareTo(time(4)) < 0);
+        assertTrue(time(9).compareTo(datetime(0)) < 0);
 
-        assertTrue(NativeTypes.datetime(3).compareTo(INT64) < 0);
-        assertTrue(INT64.compareTo(NativeTypes.datetime(4)) < 0);
+        assertTrue(datetime(3).compareTo(INT64) < 0);
+        assertTrue(INT64.compareTo(datetime(4)) < 0);
 
-        assertTrue(INT64.compareTo(NativeTypes.timestamp(1)) < 0);
+        assertTrue(INT64.compareTo(timestamp(1)) < 0);
     }
 
     /**
@@ -93,9 +94,9 @@ public class NativeTypeTest {
     public void compareFixlenTypesByDesc() {
         assertTrue(FLOAT.compareTo(INT32) < 0);
         assertTrue(datetime(0).compareTo(INT64) < 0);
-        assertTrue(INT32.compareTo(NativeTypes.time(0)) < 0);
-        assertTrue(INT32.compareTo(NativeTypes.time(3)) < 0);
-        assertTrue(INT64.compareTo(NativeTypes.timestamp(0)) < 0);
+        assertTrue(INT32.compareTo(time(0)) < 0);
+        assertTrue(INT32.compareTo(time(3)) < 0);
+        assertTrue(INT64.compareTo(timestamp(0)) < 0);
     }
 
     /**
@@ -122,9 +123,9 @@ public class NativeTypeTest {
         assertEquals(12, timestamp(1).sizeInBytes());
         assertEquals(12, timestamp(9).sizeInBytes());
 
-        assertEquals(0, NativeTypes.datetime().compareTo(NativeTypes.datetime(6)));
-        assertEquals(0, NativeTypes.time().compareTo(NativeTypes.time(6)));
-        assertEquals(0, NativeTypes.timestamp().compareTo(NativeTypes.timestamp(6)));
+        assertEquals(0, datetime().compareTo(datetime(6)));
+        assertEquals(0, time().compareTo(time(6)));
+        assertEquals(0, timestamp().compareTo(timestamp(6)));
     }
 
     /**
@@ -172,6 +173,8 @@ public class NativeTypeTest {
             assertEquals(blobOf(i), from(ColumnType.blobOf(i)));
             assertEquals(stringOf(i), from(ColumnType.stringOf(i)));
             assertEquals(bitmaskOf(i), from(ColumnType.bitmaskOf(i)));
+            assertEquals(numberOf(i), from(ColumnType.numberOf(i)));
+            assertEquals(decimalOf(i, i), from(ColumnType.decimalOf(i, i)));
         }
 
         for (int i = 0; i <= 9; i++) {

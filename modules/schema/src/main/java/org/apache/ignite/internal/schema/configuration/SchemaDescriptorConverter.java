@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
@@ -86,7 +87,7 @@ public class SchemaDescriptorConverter {
                 return DOUBLE;
 
             case DECIMAL: {
-                ColumnType.NumericColumnType numType = (ColumnType.NumericColumnType)colType;
+                ColumnType.DecimalColumnType numType = (ColumnType.DecimalColumnType)colType;
 
                 return NativeTypes.decimalOf(numType.precision(), numType.scale());
             }
@@ -128,6 +129,11 @@ public class SchemaDescriptorConverter {
                 return NativeTypes.timestamp(temporalType.precision());
             }
 
+            case NUMBER: {
+                ColumnType.NumberColumnType numberType = (ColumnType.NumberColumnType)colType;
+
+                return NativeTypes.numberOf(numberType.precision());
+            }
             default:
                 throw new InvalidTypeException("Unexpected type " + type);
         }
@@ -172,7 +178,9 @@ public class SchemaDescriptorConverter {
             case DOUBLE:
                 return Double.parseDouble(dflt);
             case DECIMAL:
-                return new BigDecimal(dflt);
+                return new BigDecimal(dflt).setScale(((DecimalNativeType)type).scale(), RoundingMode.HALF_UP);
+            case NUMBER:
+                return new BigInteger(dflt);
             case STRING:
                 return dflt;
             case UUID:

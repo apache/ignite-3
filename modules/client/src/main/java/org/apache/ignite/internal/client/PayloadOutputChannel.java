@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.client;
 
-import java.io.IOException;
-
 import org.apache.ignite.client.proto.ClientMessagePacker;
 
 /**
@@ -35,10 +33,11 @@ public class PayloadOutputChannel implements AutoCloseable {
      * Constructor.
      *
      * @param ch Channel.
+     * @param out Packer.
      */
-    PayloadOutputChannel(ClientChannel ch) {
-        out = new ClientMessagePacker();
+    PayloadOutputChannel(ClientChannel ch, ClientMessagePacker out) {
         this.ch = ch;
+        this.out = out;
     }
 
     /**
@@ -60,7 +59,7 @@ public class PayloadOutputChannel implements AutoCloseable {
     }
 
     /** {@inheritDoc} */
-    @Override public void close() throws IOException {
+    @Override public void close() {
         out.close();
     }
 }
