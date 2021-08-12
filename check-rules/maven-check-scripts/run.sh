@@ -16,7 +16,8 @@ set -o nounset; set -o errexit; set -o pipefail; set -o errtrace; set -o functra
 
 cleanup() {
     rm -rf current-list \
-           sorted-list
+           sorted-list \
+           unused-properties.txt
 }
 trap cleanup EXIT SIGINT ERR
 

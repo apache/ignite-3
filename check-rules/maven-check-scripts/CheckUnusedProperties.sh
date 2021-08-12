@@ -27,7 +27,7 @@ xpath -e "project/properties/*" parent/pom.xml 2>&1 | \
         fi
     done
     if [ "${FOUND}" == "false" ]; then
-        echo "${property}" > %FILE_UNUSED_PROPERTIES%
+        echo "${property}" > unused-properties.txt
         echo "[ERROR] Found unused property: ${property}"
     fi
 done
