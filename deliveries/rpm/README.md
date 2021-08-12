@@ -7,14 +7,10 @@
 
 * **Packages**: rpm-build
 
-* **Assemble Apache Ignite**:
+* **Assembled and prepared Apache Ignite**:
 ```bash
 cd <project root>
-mvn clean package
-```
-
-* **Copied Apache Ignite CLI binary in RPM build directory**:
-```bash
+mvn clean package -Dmaven.test.skip
 cp -rfv modules/cli/target/ignite \
         deliveries/rpm/
 ```
