@@ -38,7 +38,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * Integration test for {@code ignite config} commands.
  */
 public class ConfigCommandTest extends AbstractCliTest {
-
     /** DI context. */
     private ApplicationContext ctx;
 
