@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -145,7 +146,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** {@inheritDoc} */
     @Override public void start() {
         //TODO: IGNITE-14652 Change a metastorage update in listeners to multi-invoke
-        configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().listen(
+        configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().listenElements(
             new ConfigurationNamedListListener<TableView>() {
                 @Override public @NotNull CompletableFuture<?> onCreate(ConfigurationNotificationEvent<TableView> ctx) {
                     assert ctx.oldValue() == null;
@@ -157,6 +158,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     assert ctx.newValue() == null;
 
                     return onTableDrop(ctx.storageRevision(), ctx.oldValue());
+                }
+
+                @Override public @NotNull CompletableFuture<?> onRename(@NotNull String oldName, @NotNull String newName, @NotNull ConfigurationNotificationEvent<TableView> ctx) {
+                    throw new UnsupportedOperationException("Not implemented yet.");
                 }
 
                 @Override public @NotNull CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<TableView> ctx) {
@@ -645,7 +650,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<List<Table>> tablesAsync() {
-        var tableNames = tableNamesConfigured();
+        Set<String > tableNames = tableNamesConfigured();
         var tableFuts = new CompletableFuture[tableNames.size()];
         var i = 0;
 
