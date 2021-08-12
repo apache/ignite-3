@@ -67,7 +67,7 @@ bash check-rules/maven-check-scripts/run.sh
 ```
 from root of the project.
 
-Linux, MacOS, WSL or alike environment is required.
+Linux, MacOS, WSL (Windows Subsystem on Linux) or alike environment is required.
 `xpath` should be present in PATH
 ***
 
