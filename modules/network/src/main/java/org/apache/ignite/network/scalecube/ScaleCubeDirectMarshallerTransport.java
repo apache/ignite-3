@@ -61,7 +61,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
     /** Message sink. */
     private final FluxSink<Message> sink = subject.sink();
 
-    /** Close handler */
+    /** Close handler. */
     private final MonoProcessor<Void> stop = MonoProcessor.create();
 
     /** On stop. */
@@ -73,13 +73,15 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
     /** Message factory. */
     private final NetworkMessagesFactory messageFactory;
 
-    /** */
+    /** Topology service. */
     private final ScaleCubeTopologyService topologyService;
 
     /** Node address. */
     private Address address;
 
     /**
+     * Constructor.
+     *
      * @param connectionManager connection manager
      * @param topologyService topology service
      * @param messageFactory message factory
