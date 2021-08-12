@@ -35,7 +35,9 @@ import io.netty.handler.logging.LoggingHandler;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestView;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.rest.netty.RestApiInitializer;
 import org.apache.ignite.rest.presentation.ConfigurationPresentation;
@@ -50,8 +52,7 @@ import static io.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
  * It is started on port 10300 by default but it is possible to change this in configuration itself.
  * Refer to default config file in resources for the example.
  */
-public class RestModule {
-
+public class RestModule implements IgniteComponent {
     /** */
     public static final int DFLT_PORT = 10300;
 
@@ -61,39 +62,30 @@ public class RestModule {
     /** */
     private static final String PATH_PARAM = "selector";
 
-    /** */
-    private ConfigurationRegistry sysConf;
-
     /** Ignite logger. */
     private final IgniteLogger LOG = IgniteLogger.forClass(RestModule.class);
 
     /** */
-    private volatile ConfigurationPresentation<String> presentation;
+    private final ConfigurationRegistry sysConf;
 
     /** */
-    private final IgniteLogger log;
+    private volatile ConfigurationPresentation<String> presentation;
 
     /**
-     * @param log Logger.
+     * Creates a new instance of REST module.
+     *
+     * @param nodeCfgMgr Node configuration manager.
      */
-    public RestModule(IgniteLogger log) {
-        this.log = log;
+    public RestModule(ConfigurationManager nodeCfgMgr) {
+        sysConf = nodeCfgMgr.configurationRegistry();
     }
 
-    /**
-     * @param sysCfg Configuration registry.
-     */
-    public void prepareStart(ConfigurationRegistry sysCfg) {
-        sysConf = sysCfg;
+    /** {@inheritDoc} */
+    public void start() {
+        presentation = new JsonPresentation(sysConf);
 
-        presentation = new JsonPresentation(sysCfg);
-    }
-
-    /**
-     * @return REST channel future.
-     */
-    public ChannelFuture start() {
         var router = new Router();
+
         router
             .get(CONF_URL, (req, resp) -> {
                 resp.json(presentation.represent());
@@ -147,7 +139,7 @@ public class RestModule {
                 }
             });
 
-        return startRestEndpoint(router);
+        startRestEndpoint(router);
     }
 
     /** */
@@ -200,7 +192,7 @@ public class RestModule {
             String msg = "Cannot start REST endpoint. " +
                 "All ports in range [" + desiredPort + ", " + (desiredPort + portRange) + "] are in use.";
 
-            log.error(msg);
+            LOG.error(msg);
 
             parentGrp.shutdownGracefully();
             childGrp.shutdownGracefully();
@@ -208,8 +200,12 @@ public class RestModule {
             throw new RuntimeException(msg);
         }
 
-        log.info("REST protocol started successfully on port " + port);
+        LOG.info("REST protocol started successfully on port " + port);
 
         return ch.closeFuture();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void stop() throws Exception {
     }
 }

@@ -343,16 +343,15 @@ public class IgnitionImpl implements Ignition {
                 )
             );
 
+            RestModule restModule = doStartComponent(
+                nodeName,
+                startedComponents,
+                new RestModule(nodeConfigurationMgr));
+
             // Deploy all resisted watches cause all components are ready and have registered their listeners.
             metaStorageMgr.deployWatches();
 
             AtomicBoolean explicitStop = new AtomicBoolean();
-
-            RestModule restModule = new RestModule(IgniteLogger.forClass(RestModule.class));
-
-            restModule.prepareStart(locConfigurationMgr.configurationRegistry());
-
-            restModule.start();
 
             nodesStatus.computeIfPresent(nodeName, (name, state) -> {
                 switch (state) {
