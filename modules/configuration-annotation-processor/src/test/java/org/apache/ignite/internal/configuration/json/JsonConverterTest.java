@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.configuration.json;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -27,7 +27,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -39,6 +38,7 @@ import org.junit.jupiter.api.function.Executable;
 
 import static com.google.gson.JsonParser.parseString;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.configuration.json.JsonConverter.jsonSource;
 import static org.apache.ignite.internal.configuration.json.JsonConverter.jsonVisitor;
 import static org.hamcrest.CoreMatchers.containsString;
@@ -53,7 +53,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 public class JsonConverterTest {
     /** */
-    @ConfigurationRoot(rootName = "root", type = ConfigurationType.LOCAL)
+    @ConfigurationRoot(rootName = "root", type = LOCAL)
     public static class JsonRootConfigurationSchema {
         /** */
         @NamedConfigValue
@@ -158,9 +158,9 @@ public class JsonConverterTest {
     @BeforeEach
     public void before() {
         registry = new ConfigurationRegistry(
-            Collections.singletonList(JsonRootConfiguration.KEY),
-            Collections.emptyMap(),
-            Collections.singletonList(new TestConfigurationStorage(ConfigurationType.LOCAL))
+            List.of(JsonRootConfiguration.KEY),
+            Map.of(),
+            new TestConfigurationStorage(LOCAL)
         );
 
         registry.start();

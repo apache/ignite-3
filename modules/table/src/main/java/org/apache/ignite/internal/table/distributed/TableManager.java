@@ -151,7 +151,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** {@inheritDoc} */
     @Override public void start() {
         //TODO: IGNITE-14652 Change a metastorage update in listeners to multi-invoke
-        configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().listen(ctx -> {
+        configurationMgr.registry().getConfiguration(TablesConfiguration.KEY).tables().listen(ctx -> {
             return onConfigurationChanged(ctx.storageRevision(), ctx.oldValue(), ctx.newValue());
         });
     }
@@ -581,7 +581,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             } else {
                 try {
                     configurationMgr
-                            .configurationRegistry()
+                            .registry()
                             .getConfiguration(TablesConfiguration.KEY)
                             .tables()
                             .change(change -> change.create(name, tableInitChange))
@@ -627,7 +627,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         });
 
         try {
-            configurationMgr.configurationRegistry()
+            configurationMgr.registry()
                     .getConfiguration(TablesConfiguration.KEY).tables().change(change ->
                     change.createOrUpdate(name, tableChange)).get();
         }
@@ -685,7 +685,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         else {
             try {
                 configurationMgr
-                        .configurationRegistry()
+                        .registry()
                         .getConfiguration(TablesConfiguration.KEY)
                         .tables()
                         .change(change -> change.delete(name))

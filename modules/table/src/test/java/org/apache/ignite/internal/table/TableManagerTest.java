@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -28,8 +27,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
@@ -76,6 +73,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
+import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -121,8 +120,11 @@ public class TableManagerTest {
     /** Node name. */
     private static final String NODE_NAME = "node1";
 
-    /** Configuration manager. */
-    private ConfigurationManager cfrMgr;
+    /** Configuration manager (node configuration). */
+    private ConfigurationManager nodeCfgMgr;
+
+    /** Configuration manager (cluster configuration). */
+    private ConfigurationManager clusterCfgMgr;
 
     /** MetaStorage manager. */
     @Mock(lenient = true)
@@ -154,21 +156,28 @@ public class TableManagerTest {
     @BeforeEach
     void setUp() {
         try {
-            cfrMgr = new ConfigurationManager(rootConfigurationKeys(), Arrays.asList(
-                new TestConfigurationStorage(ConfigurationType.LOCAL),
-                new TestConfigurationStorage(ConfigurationType.DISTRIBUTED)));
+            nodeCfgMgr = new ConfigurationManager(
+                List.of(NodeConfiguration.KEY),
+                new TestConfigurationStorage(LOCAL)
+            );
 
-            cfrMgr.start();
+            clusterCfgMgr = new ConfigurationManager(
+                List.of(ClusterConfiguration.KEY, TablesConfiguration.KEY),
+                new TestConfigurationStorage(DISTRIBUTED)
+            );
 
-            cfrMgr.bootstrap("{\n" +
+            nodeCfgMgr.start();
+            clusterCfgMgr.start();
+
+            nodeCfgMgr.bootstrap("{\n" +
                 "   \"node\":{\n" +
                 "      \"metastorageNodes\":[\n" +
                 "         \"" + NODE_NAME + "\"\n" +
                 "      ]\n" +
                 "   }\n" +
-                "}", ConfigurationType.LOCAL);
+                "}");
 
-            cfrMgr.bootstrap("{\n" +
+            clusterCfgMgr.bootstrap("{\n" +
                 "   \"cluster\":{\n" +
                 "   \"metastorageNodes\":[\n" +
                 "      \"" + NODE_NAME + "\"\n" +
@@ -205,7 +214,7 @@ public class TableManagerTest {
                 "         }\n" +
                 "      }\n" +
                 "   }\n" +
-                "}", ConfigurationType.DISTRIBUTED);
+                "}");
         }
         catch (Exception e) {
             LOG.error("Failed to bootstrap the test configuration manager.", e);
@@ -217,7 +226,8 @@ public class TableManagerTest {
     /** Stop configuration manager. */
     @AfterEach
     void tearDown() {
-        cfrMgr.stop();
+        nodeCfgMgr.stop();
+        clusterCfgMgr.stop();
     }
 
     /**
@@ -226,7 +236,7 @@ public class TableManagerTest {
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15255")
     @Test
     public void testStaticTableConfigured() {
-        TableManager tableManager = new TableManager(cfrMgr, mm, sm, am, rm, workDir);
+        TableManager tableManager = new TableManager(clusterCfgMgr, mm, sm, am, rm, workDir);
 
         assertEquals(1, tableManager.tables().size());
 
@@ -459,7 +469,7 @@ public class TableManagerTest {
             return null;
         }).when(am).listen(same(AffinityEvent.CALCULATED), any());
 
-        TableManager tableManager = new TableManager(cfrMgr, mm, sm, am, rm, workDir);
+        TableManager tableManager = new TableManager(clusterCfgMgr, mm, sm, am, rm, workDir);
 
         TableImpl tbl2;
 
@@ -478,7 +488,7 @@ public class TableManagerTest {
 
             int tablesBeforeCreation = tableManager.tables().size();
 
-            cfrMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().listen(ctx -> {
+            clusterCfgMgr.registry().getConfiguration(TablesConfiguration.KEY).tables().listen(ctx -> {
                 boolean createTbl = ctx.newValue().get(schemaTable.canonicalName()) != null &&
                     ctx.oldValue().get(schemaTable.canonicalName()) == null;
 
@@ -529,18 +539,5 @@ public class TableManagerTest {
         }
 
         return tbl2;
-    }
-
-    /**
-     * Gets a list of configuration keys to use in the test scenario.
-     *
-     * @return List of root configuration keys.
-     */
-    private static List<RootKey<?, ?>> rootConfigurationKeys() {
-        return Arrays.asList(
-            NodeConfiguration.KEY,
-            ClusterConfiguration.KEY,
-            TablesConfiguration.KEY
-        );
     }
 }

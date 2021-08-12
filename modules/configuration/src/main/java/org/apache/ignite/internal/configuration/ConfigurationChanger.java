@@ -66,11 +66,12 @@ public abstract class ConfigurationChanger {
     /** */
     private final Map<String, RootKey<?, ?>> rootKeys = new TreeMap<>();
 
+    // TODO: 12.08.2021 Need to remove.
     /** Map that has all the trees in accordance to their storages. */
     private final Map<ConfigurationType, StorageRoots> storagesRootsMap = new ConcurrentHashMap<>();
 
     /** Annotation classes mapped to validator objects. */
-    private Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = new HashMap<>();
+    private final Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = new HashMap<>();
 
     /**
      * Closure interface to be used by the configuration changer. An instance of this closure is passed into the constructor and

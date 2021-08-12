@@ -24,8 +24,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -43,7 +41,6 @@ import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.affinity.AffinityManager;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.processors.query.calcite.SqlQueryProcessor;
@@ -206,36 +203,31 @@ public class IgnitionImpl implements Ignition {
 
             vaultMgr.putName(nodeName).join();
 
-            List<RootKey<?, ?>> rootKeys = Arrays.asList(
+            List<RootKey<?, ?>> nodeRootKeys = List.of(
                 NetworkConfiguration.KEY,
-                NodeConfiguration.KEY,
-                ClusterConfiguration.KEY,
-                TablesConfiguration.KEY
+                NodeConfiguration.KEY
             );
-
-            List<ConfigurationStorage> cfgStorages =
-                new ArrayList<>(Collections.singletonList(new LocalConfigurationStorage(vaultMgr)));
 
             // Bootstrap node configuration manager.
             ConfigurationManager nodeConfigurationMgr = doStartComponent(
                 nodeName,
                 startedComponents,
-                new ConfigurationManager(rootKeys, cfgStorages)
+                new ConfigurationManager(nodeRootKeys, new LocalConfigurationStorage(vaultMgr))
             );
 
             if (cfgContent != null) {
                 try {
-                    nodeConfigurationMgr.bootstrap(cfgContent, ConfigurationType.LOCAL);
+                    nodeConfigurationMgr.bootstrap(cfgContent);
                 }
                 catch (Exception e) {
                     LOG.warn("Unable to parse user-specific configuration, default configuration will be used: {}", e.getMessage());
                 }
             }
             else
-                nodeConfigurationMgr.configurationRegistry().startStorageConfigurations(ConfigurationType.LOCAL);
+                nodeConfigurationMgr.registry().startStorageConfigurations(ConfigurationType.LOCAL);
 
             NetworkView netConfigurationView =
-                nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).value();
+                nodeConfigurationMgr.registry().getConfiguration(NetworkConfiguration.KEY).value();
 
             var serializationRegistry = new MessageSerializationRegistryImpl();
 
@@ -275,13 +267,17 @@ public class IgnitionImpl implements Ignition {
             );
 
             // TODO IGNITE-14578 Bootstrap configuration manager with distributed configuration.
-            cfgStorages.add(new DistributedConfigurationStorage(metaStorageMgr, vaultMgr));
+
+            List<RootKey<?, ?>> clusterRootKeys = List.of(
+                ClusterConfiguration.KEY,
+                TablesConfiguration.KEY
+            );
 
             // Start cluster configuration manager.
             ConfigurationManager clusterConfigurationMgr = doStartComponent(
                 nodeName,
                 startedComponents,
-                new ConfigurationManager(rootKeys, cfgStorages)
+                new ConfigurationManager(clusterRootKeys, new DistributedConfigurationStorage(metaStorageMgr, vaultMgr))
             );
 
             // Baseline manager startup.

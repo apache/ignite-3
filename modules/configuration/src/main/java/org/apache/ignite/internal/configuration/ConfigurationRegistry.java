@@ -52,6 +52,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.configuration.util.ConfigurationNotificationsUtil.notifyListeners;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
 
 /** */
@@ -68,8 +69,8 @@ public class ConfigurationRegistry implements IgniteComponent {
     /** Validators. */
     private final Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators;
 
-    /** Configuration storages. */
-    private final Collection<ConfigurationStorage> configurationStorages;
+    /** Configuration storage. */
+    private final ConfigurationStorage storage;
 
     /** */
     private volatile ConfigurationChanger changer;
@@ -82,16 +83,19 @@ public class ConfigurationRegistry implements IgniteComponent {
      *
      * @param rootKeys Configuration root keys.
      * @param validators Validators.
-     * @param configurationStorages Configuration Storages.
+     * @param storage Configuration storage.
+     * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type.
      */
     public ConfigurationRegistry(
         Collection<RootKey<?, ?>> rootKeys,
         Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators,
-        Collection<ConfigurationStorage> configurationStorages
+        ConfigurationStorage storage
     ) {
+        checkConfigurationType(rootKeys, storage);
+
         this.rootKeys = rootKeys;
         this.validators = validators;
-        this.configurationStorages = configurationStorages;
+        this.storage = storage;
     }
 
     /** {@inheritDoc} */
@@ -119,7 +123,7 @@ public class ConfigurationRegistry implements IgniteComponent {
 
         validators.forEach(changer::addValidators);
 
-        configurationStorages.forEach(changer::register);
+        changer.register(storage);
     }
 
     /** {@inheritDoc} */
