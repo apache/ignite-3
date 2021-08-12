@@ -343,7 +343,7 @@ public class IgnitionImpl implements Ignition {
                 )
             );
 
-            RestModule restModule = doStartComponent(
+            doStartComponent(
                 nodeName,
                 startedComponents,
                 new RestModule(nodeConfigurationMgr));
