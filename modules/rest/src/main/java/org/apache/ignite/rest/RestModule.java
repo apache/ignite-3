@@ -81,7 +81,7 @@ public class RestModule implements IgniteComponent {
     }
 
     /** {@inheritDoc} */
-    public void start() {
+    @Override public void start() {
         presentation = new JsonPresentation(sysConf);
 
         var router = new Router();
