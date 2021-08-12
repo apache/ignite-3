@@ -19,8 +19,9 @@ package org.apache.ignite.internal.table;
 
 import java.util.Objects;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.Row;
+import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -30,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>
  * Provides methods to access columns values by column names.
  */
-public class TableRow extends RowChunkAdapter {
+public class TableRow extends RowChunkAdapter implements SchemaAware {
     /** Schema. */
     private final SchemaDescriptor schema;
 
@@ -82,12 +83,12 @@ public class TableRow extends RowChunkAdapter {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean contains(String colName) {
-        return schema.column(colName) != null;
+    @Override public SchemaDescriptor schema() {
+        return schema;
     }
 
     /** Key column chunk. */
-    private class KeyRowChunk extends RowChunkAdapter {
+    private class KeyRowChunk extends RowChunkAdapter implements SchemaAware {
         /** {@inheritDoc} */
         @Override protected Row row() {
             return row;
@@ -106,8 +107,8 @@ public class TableRow extends RowChunkAdapter {
         }
 
         /** {@inheritDoc} */
-        @Override public boolean contains(String colName) {
-            return schema.column(colName) != null;
+        @Override public SchemaDescriptor schema() {
+            return schema;
         }
     }
 
@@ -131,8 +132,8 @@ public class TableRow extends RowChunkAdapter {
         }
 
         /** {@inheritDoc} */
-        @Override public boolean contains(String colName) {
-            return schema.column(colName) != null;
+        @Override public SchemaDescriptor schema() {
+            return schema;
         }
     }
 }

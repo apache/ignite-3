@@ -17,7 +17,6 @@
 
 package org.apache.ignite.network;
 
-import java.util.List;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**
@@ -33,28 +32,32 @@ public class ClusterLocalConfiguration {
     /** The port. */
     private final int port;
 
-    /** Addresses of other nodes. */
-    private final List<NetworkAddress> memberAddresses;
+    /** Node finder. */
+    private final NodeFinder nodeFinder;
 
     /** Message mapper providers. */
     private final MessageSerializationRegistry serializationRegistry;
 
     /**
+     * Constructor.
+     *
      * @param name Local name.
      * @param port Local port.
-     * @param memberAddresses Other cluster member addresses.
+     * @param nodeFinder Node finder for discovering the initial cluster members.
      * @param serializationRegistry Message serialization registry.
      */
     public ClusterLocalConfiguration(
-        String name, int port, List<NetworkAddress> memberAddresses, MessageSerializationRegistry serializationRegistry
+        String name, int port, NodeFinder nodeFinder, MessageSerializationRegistry serializationRegistry
     ) {
         this.name = name;
         this.port = port;
-        this.memberAddresses = List.copyOf(memberAddresses);
+        this.nodeFinder = nodeFinder;
         this.serializationRegistry = serializationRegistry;
     }
 
     /**
+     * Returns the network alias of the node.
+     *
      * @return Network alias of a node.
      */
     public String getName() {
@@ -62,6 +65,8 @@ public class ClusterLocalConfiguration {
     }
 
     /**
+     * Returns the local network port of the node.
+     *
      * @return Port.
      */
     public int getPort() {
@@ -69,13 +74,17 @@ public class ClusterLocalConfiguration {
     }
 
     /**
-     * @return Addresses of other nodes.
+     * Returns the Node Finder for discovering the initial cluster members.
+     *
+     * @return Node Finder.
      */
-    public List<NetworkAddress> getMemberAddresses() {
-        return memberAddresses;
+    public NodeFinder getNodeFinder() {
+        return nodeFinder;
     }
 
     /**
+     * Returns the message serialization registry.
+     *
      * @return Message serialization registry.
      */
     public MessageSerializationRegistry getSerializationRegistry() {

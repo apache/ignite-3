@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -25,11 +27,11 @@ import java.util.Random;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.Row;
-import org.apache.ignite.internal.schema.RowAssembler;
 import org.apache.ignite.internal.schema.TestUtils;
 import org.apache.ignite.internal.schema.marshaller.BinaryMode;
 import org.apache.ignite.internal.schema.marshaller.SerializationException;
+import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.util.Pair;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,15 +39,15 @@ import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
-import static org.apache.ignite.internal.schema.NativeTypes.INT8;
+import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
 import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
+import static org.apache.ignite.internal.schema.NativeTypes.INT16;
 import static org.apache.ignite.internal.schema.NativeTypes.INT32;
 import static org.apache.ignite.internal.schema.NativeTypes.INT64;
-import static org.apache.ignite.internal.schema.NativeTypes.INT16;
-import static org.apache.ignite.internal.schema.NativeTypes.UUID;
-import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
+import static org.apache.ignite.internal.schema.NativeTypes.INT8;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
+import static org.apache.ignite.internal.schema.NativeTypes.UUID;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -93,6 +95,8 @@ public class FieldAccessorTest {
             new Column("bitmaskCol", NativeTypes.bitmaskOf(9), false),
             new Column("stringCol", STRING, false),
             new Column("bytesCol", BYTES, false),
+            new Column("numberCol", NativeTypes.numberOf(21), false),
+            new Column("decimalCol", NativeTypes.decimalOf(19, 3), false),
         };
 
         final Pair<RowAssembler, Row> mocks = createMocks();
@@ -134,6 +138,8 @@ public class FieldAccessorTest {
         assertEquals(obj.bitmaskCol, restoredObj.bitmaskCol);
         assertEquals(obj.stringCol, restoredObj.stringCol);
         assertArrayEquals(obj.bytesCol, restoredObj.bytesCol);
+        assertEquals(obj.numberCol, restoredObj.numberCol);
+        assertEquals(obj.decimalCol, restoredObj.decimalCol);
     }
 
     /**
@@ -260,6 +266,8 @@ public class FieldAccessorTest {
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendBitmask(Mockito.any(BitSet.class));
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendString(Mockito.anyString());
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendBytes(Mockito.any(byte[].class));
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendNumber(Mockito.any(BigInteger.class));
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendDecimal(Mockito.any(BigDecimal.class));
 
         Mockito.doAnswer(rowAnswer).when(mockedRow).byteValue(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).byteValueBoxed(Mockito.anyInt());
@@ -278,6 +286,8 @@ public class FieldAccessorTest {
         Mockito.doAnswer(rowAnswer).when(mockedRow).bitmaskValue(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).stringValue(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).bytesValue(Mockito.anyInt());
+        Mockito.doAnswer(rowAnswer).when(mockedRow).numberValue(Mockito.anyInt());
+        Mockito.doAnswer(rowAnswer).when(mockedRow).decimalValue(Mockito.anyInt());
 
         return new Pair<>(mockedAsm, mockedRow);
     }
@@ -311,6 +321,8 @@ public class FieldAccessorTest {
             obj.bitmaskCol = TestUtils.randomBitSet(rnd, rnd.nextInt(42));
             obj.stringCol = TestUtils.randomString(rnd, rnd.nextInt(255));
             obj.bytesCol = TestUtils.randomBytes(rnd, rnd.nextInt(255));
+            obj.numberCol = (BigInteger)TestUtils.generateRandomValue(rnd, NativeTypes.numberOf(12));
+            obj.decimalCol = (BigDecimal) TestUtils.generateRandomValue(rnd, NativeTypes.decimalOf(19, 3));
 
             return obj;
         }
@@ -349,6 +361,10 @@ public class FieldAccessorTest {
 
         private byte[] bytesCol;
 
+        private BigInteger numberCol;
+
+        private BigDecimal decimalCol;
+
         /** {@inheritDoc} */
         @Override public boolean equals(Object o) {
             if (this == o)
@@ -371,7 +387,9 @@ public class FieldAccessorTest {
                 Objects.equals(uuidCol, object.uuidCol) &&
                 Objects.equals(bitmaskCol, object.bitmaskCol) &&
                 Objects.equals(stringCol, object.stringCol) &&
-                Arrays.equals(bytesCol, object.bytesCol);
+                Arrays.equals(bytesCol, object.bytesCol) &&
+                Objects.equals(numberCol, object.numberCol) &&
+                Objects.equals(decimalCol, object.decimalCol);
         }
 
         /** {@inheritDoc} */

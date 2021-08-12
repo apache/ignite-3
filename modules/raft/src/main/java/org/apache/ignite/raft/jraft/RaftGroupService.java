@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft;
 
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -25,14 +26,12 @@ import org.apache.ignite.raft.jraft.rpc.RpcServer;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A raft group service.
  */
 public class RaftGroupService {
-    private static final Logger LOG = LoggerFactory.getLogger(RaftGroupService.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(RaftGroupService.class);
 
     private volatile boolean started = false;
 
@@ -50,11 +49,6 @@ public class RaftGroupService {
      * The raft RPC server
      */
     private RpcServer rpcServer;
-
-    /**
-     * If we want to share the rpcServer instance, then we can't stop it when shutdown.
-     */
-    private final boolean sharedRpcServer;
 
     /**
      * The raft group id
@@ -80,26 +74,12 @@ public class RaftGroupService {
      */
     public RaftGroupService(final String groupId, final PeerId serverId, final NodeOptions nodeOptions,
         final RpcServer rpcServer, final NodeManager nodeManager) {
-        this(groupId, serverId, nodeOptions, rpcServer, nodeManager, false);
-    }
-
-    /**
-     * @param groupId Group Id.
-     * @param serverId Server id.
-     * @param nodeOptions Node options.
-     * @param rpcServer RPC server.
-     * @param nodeManager Node manager.
-     * @param sharedRpcServer {@code True} if a shared server.
-     */
-    public RaftGroupService(final String groupId, final PeerId serverId, final NodeOptions nodeOptions,
-        final RpcServer rpcServer, final NodeManager nodeManager, final boolean sharedRpcServer) {
         super();
         this.groupId = groupId;
         this.serverId = serverId;
         this.nodeOptions = nodeOptions;
         this.rpcServer = rpcServer;
         this.nodeManager = nodeManager;
-        this.sharedRpcServer = sharedRpcServer;
     }
 
     public synchronized Node getRaftNode() {
@@ -122,14 +102,6 @@ public class RaftGroupService {
         }
 
         assert this.nodeOptions.getRpcClient() != null;
-
-        // Should start RPC server before node initialization to avoid race.
-        if (!sharedRpcServer) {
-            this.rpcServer.init(null);
-        }
-        else {
-            LOG.info("RPC server is shared by RaftGroupService.");
-        }
 
         this.node = new NodeImpl(groupId, serverId);
 
@@ -155,16 +127,6 @@ public class RaftGroupService {
 
     public synchronized void shutdown() {
         // TODO asch remove handlers before shutting down raft node https://issues.apache.org/jira/browse/IGNITE-14519
-        if (this.rpcServer != null && !this.sharedRpcServer) {
-            try {
-                this.rpcServer.shutdown();
-            }
-            catch (Exception e) {
-                LOG.error("Failed to shutdown the server", e);
-            }
-            this.rpcServer = null;
-        }
-
         if (!this.started) {
             return;
         }

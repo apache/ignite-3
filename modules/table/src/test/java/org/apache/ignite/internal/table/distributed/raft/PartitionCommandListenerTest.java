@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
+import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
@@ -25,12 +27,12 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.Row;
-import org.apache.ignite.internal.schema.RowAssembler;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.storage.rocksdb.RocksDbStorage;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteExactAllCommand;
@@ -48,11 +50,14 @@ import org.apache.ignite.internal.table.distributed.command.UpsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
 import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -64,12 +69,16 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * There are a tests for a table command listener.
- * All rows should be removed before returning form each test.
+ * Tests for the table command listener.
  */
+@ExtendWith(WorkDirectoryExtension.class)
 public class PartitionCommandListenerTest {
     /** Key count. */
     public static final int KEY_COUNT = 100;
+
+    /** Work directory. */
+    @WorkDirectory
+    private Path dataPath;
 
     /** Schema. */
     public static SchemaDescriptor SCHEMA = new SchemaDescriptor(UUID.randomUUID(),
@@ -79,19 +88,18 @@ public class PartitionCommandListenerTest {
     );
 
     /** Table command listener. */
-    private static PartitionListener commandListener;
+    private PartitionListener commandListener;
 
     /**
      * Initializes a table listener before tests.
      */
-    @BeforeAll
-    public static void before() {
-        commandListener = new PartitionListener();
+    @BeforeEach
+    public void before() {
+        commandListener = new PartitionListener(new RocksDbStorage(dataPath.resolve("db"), ByteBuffer::compareTo));
     }
 
     /**
      * Inserts rows and checks them.
-     * All rows are removed before returning.
      */
     @Test
     public void testInsertCommands() {
@@ -110,7 +118,6 @@ public class PartitionCommandListenerTest {
 
     /**
      * Upserts rows and checks them.
-     * All rows are removed before returning.
      */
     @Test
     public void testUpsertValues() {
@@ -127,7 +134,6 @@ public class PartitionCommandListenerTest {
 
     /**
      * Adds rows, replaces and checks them.
-     * All rows are removed before returning.
      */
     @Test
     public void testReplaceCommand() {
@@ -150,7 +156,6 @@ public class PartitionCommandListenerTest {
 
     /**
      * The test checks PutIfExist command.
-     * All rows are removed before returning.
      */
     @Test
     public void testPutIfExistCommand() {
@@ -173,7 +178,6 @@ public class PartitionCommandListenerTest {
 
     /**
      * The test checks GetAndReplace command.
-     * All rows are removed before returning.
      */
     @Test
     public void testGetAndReplaceCommand() {
@@ -202,7 +206,6 @@ public class PartitionCommandListenerTest {
 
     /**
      * The test checks a batch upsert command.
-     * All rows are removed before returning.
      */
     @Test
     public void testUpsertRowsBatchedAndCheck() {
@@ -221,7 +224,6 @@ public class PartitionCommandListenerTest {
 
     /**
      * The test checks a batch insert command.
-     * All rows are removed before returning.
      */
     @Test
     public void testInsertRowsBatchedAndCheck() {
@@ -677,11 +679,11 @@ public class PartitionCommandListenerTest {
      * @return Row.
      */
     @NotNull private Row getTestKey(int key) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 4096, 0, 0);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
 
         rowBuilder.appendInt(key);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.build()));
+        return new Row(SCHEMA, rowBuilder.build());
     }
 
     /**
@@ -690,11 +692,11 @@ public class PartitionCommandListenerTest {
      * @return Row.
      */
     @NotNull private Row getTestRow(int key, int val) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 4096, 0, 0);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
 
         rowBuilder.appendInt(key);
         rowBuilder.appendInt(val);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.build()));
+        return new Row(SCHEMA, rowBuilder.build());
     }
 }

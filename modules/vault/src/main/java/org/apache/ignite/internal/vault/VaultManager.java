@@ -20,6 +20,7 @@ package org.apache.ignite.internal.vault;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.jetbrains.annotations.NotNull;
@@ -29,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
  * VaultManager is responsible for handling {@link VaultService} lifecycle
  * and providing interface for managing local keys.
  */
-public class VaultManager implements AutoCloseable {
+public class VaultManager implements IgniteComponent {
     /** Special key, which reserved for storing the name of the current node. */
     private static final ByteArray NODE_NAME = new ByteArray("node_name");
 
@@ -44,14 +45,15 @@ public class VaultManager implements AutoCloseable {
         this.vaultSvc = vaultSvc;
     }
 
-    /**
-     * @return {@code true} if VaultService beneath given VaultManager was bootstrapped with data
-     * either from PDS or from user initial bootstrap configuration.
-     *
-     * TODO: https://issues.apache.org/jira/browse/IGNITE-14956
-     */
-    public boolean bootstrapped() {
-        return false;
+    /** {@inheritDoc} */
+    @Override public void start() {
+        vaultSvc.start();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void stop() throws Exception {
+        // TODO: IGNITE-15161 Implement component's stop.
+        vaultSvc.close();
     }
 
     /**
@@ -129,10 +131,5 @@ public class VaultManager implements AutoCloseable {
         return vaultSvc.get(NODE_NAME)
             .thenApply(VaultEntry::value)
             .thenApply(name -> name == null ? null : new String(name, StandardCharsets.UTF_8));
-    }
-
-    /** {@inheritDoc} */
-    @Override public void close() throws Exception {
-        vaultSvc.close();
     }
 }

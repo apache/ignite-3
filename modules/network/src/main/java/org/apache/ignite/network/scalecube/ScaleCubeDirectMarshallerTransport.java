@@ -35,6 +35,7 @@ import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
@@ -60,7 +61,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
     /** Message sink. */
     private final FluxSink<Message> sink = subject.sink();
 
-    /** Close handler */
+    /** Close handler. */
     private final MonoProcessor<Void> stop = MonoProcessor.create();
 
     /** On stop. */
@@ -72,13 +73,15 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
     /** Message factory. */
     private final NetworkMessagesFactory messageFactory;
 
-    /** */
+    /** Topology service. */
     private final ScaleCubeTopologyService topologyService;
 
     /** Node address. */
     private Address address;
 
     /**
+     * Constructor.
+     *
      * @param connectionManager connection manager
      * @param topologyService topology service
      * @param messageFactory message factory
@@ -130,8 +133,8 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
         return Mono.defer(() -> {
             LOG.info("Stopping {}", address);
 
-            // Complete incoming messages observable
-            sink.complete();
+            // Fail all incoming message listeners on stop
+            sink.error(new NodeStoppingException());
 
             LOG.info("Stopped {}", address);
             return Mono.empty();

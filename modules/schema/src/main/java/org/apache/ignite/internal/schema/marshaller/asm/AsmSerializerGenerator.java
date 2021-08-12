@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.schema.marshaller.asm;
 
+import java.io.StringWriter;
+import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.concurrent.TimeUnit;
+import javax.annotation.processing.Generated;
 import com.facebook.presto.bytecode.Access;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.ClassDefinition;
@@ -31,17 +36,10 @@ import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.control.TryCatch;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.expression.BytecodeExpressions;
-import java.io.StringWriter;
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.concurrent.TimeUnit;
-import javax.annotation.processing.Generated;
 import jdk.jfr.Experimental;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.Row;
-import org.apache.ignite.internal.schema.RowAssembler;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.AbstractSerializer;
 import org.apache.ignite.internal.schema.marshaller.BinaryMode;
@@ -49,6 +47,8 @@ import org.apache.ignite.internal.schema.marshaller.MarshallerUtil;
 import org.apache.ignite.internal.schema.marshaller.SerializationException;
 import org.apache.ignite.internal.schema.marshaller.Serializer;
 import org.apache.ignite.internal.schema.marshaller.SerializerFactory;
+import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -246,8 +246,6 @@ public class AsmSerializerGenerator implements SerializerFactory {
 
         final Variable varlenKeyCols = scope.declareVariable("varlenKeyCols", body, BytecodeExpressions.defaultValue(int.class));
         final Variable varlenValueCols = scope.declareVariable("varlenValueCols", body, BytecodeExpressions.defaultValue(int.class));
-        final Variable varlenKeyColsSize = scope.declareVariable("varlenKeyColsSize", body, BytecodeExpressions.defaultValue(int.class));
-        final Variable varlenValueColsSize = scope.declareVariable("varlenValueColsSize", body, BytecodeExpressions.defaultValue(int.class));
 
         final Variable keyCols = scope.declareVariable(Columns.class, "keyCols");
         final Variable valCols = scope.declareVariable(Columns.class, "valCols");
@@ -268,13 +266,7 @@ public class AsmSerializerGenerator implements SerializerFactory {
 
                 body.append(keyMarsh.getValue(classDef.getType(), scope.getVariable("key"), i)).putVariable(tmp);
                 body.append(new IfStatement().condition(BytecodeExpressions.isNotNull(tmp)).ifTrue(
-                    new BytecodeBlock()
-                        .append(varlenKeyCols.increment())
-                        .append(BytecodeExpressions.add(
-                            varlenKeyColsSize,
-                            getColumnValueSize(tmp, keyCols, i))
-                        )
-                        .putVariable(varlenKeyColsSize))
+                    new BytecodeBlock().append(varlenKeyCols.increment()))
                 );
             }
         }
@@ -288,22 +280,13 @@ public class AsmSerializerGenerator implements SerializerFactory {
 
                 body.append(valMarsh.getValue(classDef.getType(), scope.getVariable("val"), i)).putVariable(tmp);
                 body.append(new IfStatement().condition(BytecodeExpressions.isNotNull(tmp)).ifTrue(
-                    new BytecodeBlock()
-                        .append(varlenValueCols.increment())
-                        .append(BytecodeExpressions.add(
-                            varlenValueColsSize,
-                            getColumnValueSize(tmp, valCols, i))
-                        )
-                        .putVariable(varlenValueColsSize))
+                    new BytecodeBlock().append(varlenValueCols.increment()))
                 );
             }
         }
 
         body.append(BytecodeExpressions.newInstance(RowAssembler.class,
             methodDef.getThis().getField("schema", SchemaDescriptor.class),
-            BytecodeExpressions.invokeStatic(RowAssembler.class, "rowSize", int.class,
-                keyCols, varlenKeyCols, varlenKeyColsSize,
-                valCols, varlenValueCols, varlenValueColsSize),
             varlenKeyCols,
             varlenValueCols));
 
@@ -354,7 +337,7 @@ public class AsmSerializerGenerator implements SerializerFactory {
                     asm,
                     methodDef.getScope().getVariable("val"))
             )
-            .append(asm.invoke("build", byte[].class))
+            .append(asm.invoke("toBytes", byte[].class))
             .retObject();
 
         final Variable ex = methodDef.getScope().createTempVariable(Throwable.class);

@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.storage.impl;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.NodeMetrics;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.ErrorType;
@@ -31,15 +32,13 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.RaftMetaStorage;
 import org.apache.ignite.raft.jraft.storage.io.MessageFile;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Raft meta storage,it's not thread-safe.
  */
 public class LocalRaftMetaStorage implements RaftMetaStorage {
 
-    private static final Logger LOG = LoggerFactory.getLogger(LocalRaftMetaStorage.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(LocalRaftMetaStorage.class);
     private static final String RAFT_META = "raft_meta";
 
     private boolean isInited;
@@ -86,8 +85,8 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
         try {
             final StablePBMeta meta = pbFile.load();
             if (meta != null) {
-                this.term = meta.getTerm();
-                return this.votedFor.parse(meta.getVotedfor());
+                this.term = meta.term();
+                return this.votedFor.parse(meta.votedFor());
             }
             return true;
         }
@@ -106,9 +105,9 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
 
     private boolean save() {
         final long start = Utils.monotonicMs();
-        final StablePBMeta meta = StablePBMeta.newBuilder() //
-            .setTerm(this.term) //
-            .setVotedfor(this.votedFor.toString()) //
+        final StablePBMeta meta = raftOptions.getRaftMessagesFactory().stablePBMeta()
+            .term(this.term) //
+            .votedFor(this.votedFor.toString()) //
             .build();
         final MessageFile pbFile = newPbFile();
         try {

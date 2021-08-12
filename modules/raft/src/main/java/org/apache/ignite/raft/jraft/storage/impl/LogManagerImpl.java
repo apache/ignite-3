@@ -16,29 +16,27 @@
  */
 package org.apache.ignite.raft.jraft.storage.impl;
 
-import com.lmax.disruptor.EventFactory;
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.EventTranslator;
 import com.lmax.disruptor.RingBuffer;
-import com.lmax.disruptor.TimeoutBlockingWaitStrategy;
-import com.lmax.disruptor.dsl.Disruptor;
-import com.lmax.disruptor.dsl.ProducerType;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.core.NodeMetrics;
+import org.apache.ignite.raft.jraft.disruptor.GroupAware;
+import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.EntryType;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.ErrorType;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -55,16 +53,11 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.util.ArrayDeque;
-import org.apache.ignite.raft.jraft.util.DisruptorBuilder;
 import org.apache.ignite.raft.jraft.util.DisruptorMetricSet;
-import org.apache.ignite.raft.jraft.util.LogExceptionHandler;
-import org.apache.ignite.raft.jraft.util.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.SegmentList;
 import org.apache.ignite.raft.jraft.util.ThreadHelper;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * LogManager implementation.
@@ -72,7 +65,10 @@ import org.slf4j.LoggerFactory;
 public class LogManagerImpl implements LogManager {
     private static final int APPEND_LOG_RETRY_TIMES = 50;
 
-    private static final Logger LOG = LoggerFactory.getLogger(LogManagerImpl.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(LogManagerImpl.class);
+
+    /** Raft group id. */
+    String groupId;
 
     private LogStorage logStorage;
     private ConfigurationManager configManager;
@@ -90,7 +86,7 @@ public class LogManagerImpl implements LogManager {
     private volatile long lastLogIndex;
     private volatile LogId lastSnapshotId = new LogId(0, 0);
     private final Map<Long, WaitMeta> waitMap = new HashMap<>();
-    private Disruptor<StableClosureEvent> disruptor;
+    private StripedDisruptor<StableClosureEvent> disruptor;
     private RingBuffer<StableClosureEvent> diskQueue;
     private RaftOptions raftOptions;
     private volatile CountDownLatch shutDownLatch;
@@ -107,20 +103,22 @@ public class LogManagerImpl implements LogManager {
         LAST_LOG_ID // get last log id
     }
 
-    private static class StableClosureEvent {
+    public static class StableClosureEvent implements GroupAware {
+        /** Raft group id. */
+        String groupId;
+
         StableClosure done;
         EventType type;
 
+        /** {@inheritDoc} */
+        @Override public String groupId() {
+            return groupId;
+        }
+
         void reset() {
+            this.groupId = null;
             this.done = null;
             this.type = null;
-        }
-    }
-
-    private static class StableClosureEventFactory implements EventFactory<StableClosureEvent> {
-        @Override
-        public StableClosureEvent newInstance() {
-            return new StableClosureEvent();
         }
     }
 
@@ -176,6 +174,7 @@ public class LogManagerImpl implements LogManager {
             this.logStorage = opts.getLogStorage();
             this.configManager = opts.getConfigurationManager();
             this.nodeOptions = opts.getNode().getOptions();
+            this.groupId = opts.getGroupId();
 
             LogStorageOptions lsOpts = new LogStorageOptions();
             lsOpts.setConfigurationManager(this.configManager);
@@ -189,22 +188,11 @@ public class LogManagerImpl implements LogManager {
             this.lastLogIndex = this.logStorage.getLastLogIndex();
             this.diskId = new LogId(this.lastLogIndex, getTermFromLogStorage(this.lastLogIndex));
             this.fsmCaller = opts.getFsmCaller();
-            this.disruptor = DisruptorBuilder.<StableClosureEvent>newInstance() //
-                .setEventFactory(new StableClosureEventFactory()) //
-                .setRingBufferSize(opts.getDisruptorBufferSize()) //
-                .setThreadFactory(new NamedThreadFactory("JRaft-LogManager-Disruptor-" +
-                    opts.getNode().getOptions().getServerName() + "-" + opts.getNode().getNodeId(), true)) //
-                .setProducerType(ProducerType.MULTI) //
-                /*
-                 *  Use timeout strategy in log manager. If timeout happens, it will called reportError to halt the node.
-                 */
-                .setWaitStrategy(new TimeoutBlockingWaitStrategy(
-                    this.raftOptions.getDisruptorPublishEventWaitTimeoutSecs(), TimeUnit.SECONDS)) //
-                .build();
-            this.disruptor.handleEventsWith(new StableClosureEventHandler());
-            this.disruptor.setDefaultExceptionHandler(new LogExceptionHandler<Object>(this.getClass().getSimpleName(),
-                (event, ex) -> reportError(-1, "LogManager handle event error")));
-            this.diskQueue = this.disruptor.start();
+            this.disruptor = opts.getLogManagerDisruptor();
+
+            this.diskQueue = disruptor.subscribe(groupId, new StableClosureEventHandler(),
+                (event, ex) -> reportError(-1, "LogManager handle event error"));
+
             if (this.nodeMetrics.getMetricRegistry() != null) {
                 this.nodeMetrics.getMetricRegistry().register("jraft-log-manager-disruptor",
                     new DisruptorMetricSet(this.diskQueue));
@@ -220,6 +208,7 @@ public class LogManagerImpl implements LogManager {
         this.shutDownLatch = new CountDownLatch(1);
         Utils.runInThread(nodeOptions.getCommonExecutor(), () -> this.diskQueue.publishEvent((event, sequence) -> {
             event.reset();
+            event.groupId = groupId;
             event.type = EventType.SHUTDOWN;
         }));
     }
@@ -230,7 +219,7 @@ public class LogManagerImpl implements LogManager {
             return;
         }
         this.shutDownLatch.await();
-        this.disruptor.shutdown();
+        this.disruptor.unsubscribe(groupId);
     }
 
     @Override
@@ -329,6 +318,7 @@ public class LogManagerImpl implements LogManager {
             int retryTimes = 0;
             final EventTranslator<StableClosureEvent> translator = (event, sequence) -> {
                 event.reset();
+                event.groupId = groupId;
                 event.type = EventType.OTHER;
                 event.done = done;
             };
@@ -364,6 +354,7 @@ public class LogManagerImpl implements LogManager {
         }
         if (!this.diskQueue.tryPublishEvent((event, sequence) -> {
             event.reset();
+            event.groupId = groupId;
             event.type = type;
             event.done = done;
         })) {
@@ -377,6 +368,7 @@ public class LogManagerImpl implements LogManager {
             Utils.runClosureInThread(nodeOptions.getCommonExecutor(), done, new Status(RaftError.ESTOP, "Log manager is stopped."));
             return true;
         }
+
         return this.diskQueue.tryPublishEvent(translator);
     }
 
@@ -476,7 +468,7 @@ public class LogManagerImpl implements LogManager {
                         this.storage.get(i).run(st);
                     }
                     catch (Throwable t) {
-                        LOG.error("Fail to run closure with status: {}.", st, t);
+                        LOG.error("Fail to run closure with status: {}.", t, st);
                     }
                 }
                 this.toAppend.clear();
@@ -613,20 +605,20 @@ public class LogManagerImpl implements LogManager {
         LOG.debug("set snapshot: {}.", meta);
         this.writeLock.lock();
         try {
-            if (meta.getLastIncludedIndex() <= this.lastSnapshotId.getIndex()) {
+            if (meta.lastIncludedIndex() <= this.lastSnapshotId.getIndex()) {
                 return;
             }
             final Configuration conf = confFromMeta(meta);
             final Configuration oldConf = oldConfFromMeta(meta);
 
-            final ConfigurationEntry entry = new ConfigurationEntry(new LogId(meta.getLastIncludedIndex(),
-                meta.getLastIncludedTerm()), conf, oldConf);
+            final ConfigurationEntry entry = new ConfigurationEntry(new LogId(meta.lastIncludedIndex(),
+                meta.lastIncludedTerm()), conf, oldConf);
             this.configManager.setSnapshot(entry);
-            final long term = unsafeGetTerm(meta.getLastIncludedIndex());
+            final long term = unsafeGetTerm(meta.lastIncludedIndex());
             final long savedLastSnapshotIndex = this.lastSnapshotId.getIndex();
 
-            this.lastSnapshotId.setIndex(meta.getLastIncludedIndex());
-            this.lastSnapshotId.setTerm(meta.getLastIncludedTerm());
+            this.lastSnapshotId.setIndex(meta.lastIncludedIndex());
+            this.lastSnapshotId.setTerm(meta.lastIncludedTerm());
 
             if (this.lastSnapshotId.compareTo(this.appliedId) > 0) {
                 this.appliedId = this.lastSnapshotId.copy();
@@ -643,9 +635,9 @@ public class LogManagerImpl implements LogManager {
             if (term == 0) {
                 // last_included_index is larger than last_index
                 // FIXME: what if last_included_index is less than first_index?
-                truncatePrefix(meta.getLastIncludedIndex() + 1);
+                truncatePrefix(meta.lastIncludedIndex() + 1);
             }
-            else if (term == meta.getLastIncludedTerm()) {
+            else if (term == meta.lastIncludedTerm()) {
                 // Truncating log to the index of the last snapshot.
                 // We don't truncate log before the last snapshot immediately since
                 // some log around last_snapshot_index is probably needed by some
@@ -656,8 +648,8 @@ public class LogManagerImpl implements LogManager {
                 }
             }
             else {
-                if (!reset(meta.getLastIncludedIndex() + 1)) {
-                    LOG.warn("Reset log manager failed, nextLogIndex={}.", meta.getLastIncludedIndex() + 1);
+                if (!reset(meta.lastIncludedIndex() + 1)) {
+                    LOG.warn("Reset log manager failed, nextLogIndex={}.", meta.lastIncludedIndex() + 1);
                 }
             }
         }
@@ -669,31 +661,44 @@ public class LogManagerImpl implements LogManager {
 
     private Configuration oldConfFromMeta(final SnapshotMeta meta) {
         final Configuration oldConf = new Configuration();
-        for (int i = 0; i < meta.getOldPeersCount(); i++) {
-            final PeerId peer = new PeerId();
-            peer.parse(meta.getOldPeers(i));
-            oldConf.addPeer(peer);
+
+        if (meta.oldPeersList() != null) {
+            for (String oldPeer : meta.oldPeersList()) {
+                final PeerId peer = new PeerId();
+                peer.parse(oldPeer);
+                oldConf.addPeer(peer);
+            }
         }
-        for (int i = 0; i < meta.getOldLearnersCount(); i++) {
-            final PeerId peer = new PeerId();
-            peer.parse(meta.getOldLearners(i));
-            oldConf.addLearner(peer);
+
+        if (meta.oldLearnersList() != null) {
+            for (String oldLearner : meta.oldLearnersList()) {
+                final PeerId peer = new PeerId();
+                peer.parse(oldLearner);
+                oldConf.addLearner(peer);
+            }
         }
+
         return oldConf;
     }
 
     private Configuration confFromMeta(final SnapshotMeta meta) {
         final Configuration conf = new Configuration();
-        for (int i = 0; i < meta.getPeersCount(); i++) {
-            final PeerId peer = new PeerId();
-            peer.parse(meta.getPeers(i));
-            conf.addPeer(peer);
+        if (meta.peersList() != null) {
+            for (String metaPeer : meta.peersList()) {
+                final PeerId peer = new PeerId();
+                peer.parse(metaPeer);
+                conf.addPeer(peer);
+            }
         }
-        for (int i = 0; i < meta.getLearnersCount(); i++) {
-            final PeerId peer = new PeerId();
-            peer.parse(meta.getLearners(i));
-            conf.addLearner(peer);
+
+        if (meta.learnersList() != null) {
+            for (String learner : meta.learnersList()) {
+                final PeerId peer = new PeerId();
+                peer.parse(learner);
+                conf.addLearner(peer);
+            }
         }
+
         return conf;
     }
 

@@ -31,6 +31,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -159,8 +160,10 @@ public class JsonConverterTest {
         registry = new ConfigurationRegistry(
             Collections.singletonList(JsonRootConfiguration.KEY),
             Collections.emptyMap(),
-            Collections.singletonList(new TestConfigurationStorage())
+            Collections.singletonList(new TestConfigurationStorage(ConfigurationType.LOCAL))
         );
+
+        registry.start();
 
         configuration = registry.getConfiguration(JsonRootConfiguration.KEY);
     }

@@ -18,15 +18,30 @@
 package org.apache.ignite.app;
 
 import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.tx.IgniteTransactions;
 
 /**
  * Ignite node interface. Main entry-point for all Ignite APIs.
  */
 public interface Ignite extends AutoCloseable {
     /**
+     * Returns ignite node name.
+     *
+     * @return Ignite node name.
+     */
+    String name();
+
+    /**
      * Gets an object for manipulate Ignite tables.
      *
      * @return Ignite tables.
      */
     IgniteTables tables();
+
+    /**
+     * Returns a transaction facade.
+     *
+     * @return Ignite transactions.
+     */
+    IgniteTransactions transactions();
 }

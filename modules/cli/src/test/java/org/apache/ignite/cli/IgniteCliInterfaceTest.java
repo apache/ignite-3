@@ -17,8 +17,6 @@
 
 package org.apache.ignite.cli;
 
-import io.micronaut.context.ApplicationContext;
-import io.micronaut.context.env.Environment;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -31,6 +29,8 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.stream.Collectors;
+import io.micronaut.context.ApplicationContext;
+import io.micronaut.context.env.Environment;
 import org.apache.ignite.cli.builtins.init.InitIgniteCommand;
 import org.apache.ignite.cli.builtins.module.ModuleManager;
 import org.apache.ignite.cli.builtins.module.ModuleRegistry;
@@ -88,7 +88,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
     }
 
     @AfterEach
-    private void tearDown() {
+    void tearDown() {
         ctx.stop();
     }
 
@@ -551,7 +551,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             Assertions.assertEquals(0, exitCode);
             verify(httpClient).send(
                 argThat(r -> "http://localhost:8081/management/v1/configuration/".equals(r.uri().toString()) &&
-                    "POST".equals(r.method()) &&
+                    "PUT".equals(r.method()) &&
                     r.bodyPublisher().get().contentLength() == expSentContent.getBytes().length &&
                     "application/json".equals(r.headers().firstValue("Content-Type").get())),
                 any());
@@ -578,7 +578,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             Assertions.assertEquals(0, exitCode);
             verify(httpClient).send(
                 argThat(r -> "http://localhost:8081/management/v1/configuration/".equals(r.uri().toString()) &&
-                    "POST".equals(r.method()) &&
+                    "PUT".equals(r.method()) &&
                     r.bodyPublisher().get().contentLength() == expSentContent.getBytes().length &&
                     "application/json".equals(r.headers().firstValue("Content-Type").get())),
                 any());

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.distributed;
 
+import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -26,37 +28,40 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
+import org.apache.ignite.internal.raft.server.RaftServer;
+import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.Row;
-import org.apache.ignite.internal.schema.RowAssembler;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.storage.rocksdb.RocksDbStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
+import org.apache.ignite.network.LocalPortRangeNodeFinder;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
-import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
-import org.apache.ignite.internal.raft.server.RaftServer;
-import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -64,6 +69,7 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -73,6 +79,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Distributed internal table tests.
  */
+@ExtendWith(WorkDirectoryExtension.class)
 public class ITDistributedTableTest {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(ITDistributedTableTest.class);
@@ -108,24 +115,27 @@ public class ITDistributedTableTest {
     /** Cluster. */
     private ArrayList<ClusterService> cluster = new ArrayList<>();
 
+    /** */
+    @WorkDirectory
+    private Path dataPath;
+
     /**
      * Start all cluster nodes before each test.
      */
     @BeforeEach
     public void beforeTest() {
-        List<NetworkAddress> allNodes = IntStream.range(NODE_PORT_BASE, NODE_PORT_BASE + NODES)
-            .mapToObj(port -> new NetworkAddress("localhost", port))
-            .collect(Collectors.toList());
+        var nodeFinder = new LocalPortRangeNodeFinder(NODE_PORT_BASE, NODE_PORT_BASE + NODES);
 
-        for (int i = 0; i < NODES; i++)
-            cluster.add(startClient("node_" + i, NODE_PORT_BASE + i, allNodes));
+        nodeFinder.findNodes().stream()
+            .map(addr -> startClient(addr.toString(), addr.port(), nodeFinder))
+            .forEach(cluster::add);
 
         for (ClusterService node : cluster)
             assertTrue(waitForTopology(node, NODES, 1000));
 
         LOG.info("Cluster started.");
 
-        client = startClient("client", NODE_PORT_BASE + NODES, allNodes);
+        client = startClient("client", NODE_PORT_BASE + NODES, nodeFinder);
 
         assertTrue(waitForTopology(client, NODES + 1, 1000));
 
@@ -140,10 +150,10 @@ public class ITDistributedTableTest {
     @AfterEach
     public void afterTest() throws Exception {
         for (ClusterService node : cluster) {
-            node.shutdown();
+            node.stop();
         }
 
-        client.shutdown();
+        client.stop();
     }
 
     /**
@@ -155,11 +165,17 @@ public class ITDistributedTableTest {
     public void partitionListener() throws Exception {
         String grpId = "part";
 
-        RaftServer partSrv = new RaftServerImpl(cluster.get(0), FACTORY);
+        RaftServer partSrv = new JRaftServerImpl(cluster.get(0), dataPath);
+
+        partSrv.start();
 
         List<Peer> conf = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
 
-        partSrv.startRaftGroup(grpId, new PartitionListener(), conf);
+        partSrv.startRaftGroup(
+            grpId,
+            new PartitionListener(new RocksDbStorage(dataPath.resolve("db"), ByteBuffer::compareTo)),
+            conf
+        );
 
         RaftGroupService partRaftGrp = new RaftGroupServiceImpl(grpId, client, FACTORY, 10_000, conf, true, 200);
 
@@ -178,7 +194,7 @@ public class ITDistributedTableTest {
 
         assertEquals(testRow.longValue(1), new Row(SCHEMA, getFut.get().getValue()).longValue(1));
 
-        partSrv.shutdown();
+        partSrv.stop();
     }
 
     /**
@@ -187,11 +203,11 @@ public class ITDistributedTableTest {
      * @return Row.
      */
     @NotNull private Row getTestKey() {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 4096, 0, 0);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
 
         rowBuilder.appendLong(1L);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.build()));
+        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
     }
 
     /**
@@ -200,12 +216,12 @@ public class ITDistributedTableTest {
      * @return Row.
      */
     @NotNull private Row getTestRow() {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 4096, 0, 0);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
 
         rowBuilder.appendLong(1L);
         rowBuilder.appendLong(10L);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.build()));
+        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
     }
 
     /**
@@ -215,8 +231,13 @@ public class ITDistributedTableTest {
     public void partitionedTable() {
         HashMap<ClusterNode, RaftServer> raftServers = new HashMap<>(NODES);
 
-        for (int i = 0; i < NODES; i++)
-            raftServers.put(cluster.get(i).topologyService().localMember(), new RaftServerImpl(cluster.get(i), FACTORY));
+        for (int i = 0; i < NODES; i++) {
+            var raftSrv = new JRaftServerImpl(cluster.get(i), dataPath);
+
+            raftSrv.start();
+
+            raftServers.put(cluster.get(i).topologyService().localMember(), raftSrv);
+        }
 
         List<List<ClusterNode>> assignment = RendezvousAffinityFunction.assignPartitions(
             cluster.stream().map(node -> node.topologyService().localMember()).collect(Collectors.toList()),
@@ -237,7 +258,11 @@ public class ITDistributedTableTest {
 
             List<Peer> conf = List.of(new Peer(partNodes.get(0).address()));
 
-            rs.startRaftGroup(grpId, new PartitionListener(), conf);
+            rs.startRaftGroup(
+                grpId,
+                new PartitionListener(new RocksDbStorage(dataPath.resolve("part" + p), ByteBuffer::compareTo)),
+                conf
+            );
 
             partMap.put(p, new RaftGroupServiceImpl(grpId, client, FACTORY, 10_000, conf, true, 200));
 
@@ -265,7 +290,7 @@ public class ITDistributedTableTest {
             @Override public Row resolve(BinaryRow row) {
                 return new Row(SCHEMA, row);
             }
-        });
+        }, null, null);
 
         partitionedTableView(tbl, PARTS * 10);
 
@@ -501,11 +526,11 @@ public class ITDistributedTableTest {
     /**
      * @param name Node name.
      * @param port Local port.
-     * @param servers Server nodes of the cluster.
+     * @param nodeFinder Node finder.
      * @return The client cluster view.
      */
-    private ClusterService startClient(String name, int port, List<NetworkAddress> servers) {
-        var context = new ClusterLocalConfiguration(name, port, servers, SERIALIZATION_REGISTRY);
+    private static ClusterService startClient(String name, int port, NodeFinder nodeFinder) {
+        var context = new ClusterLocalConfiguration(name, port, nodeFinder, SERIALIZATION_REGISTRY);
         var network = NETWORK_FACTORY.createClusterService(context);
         network.start();
         return network;

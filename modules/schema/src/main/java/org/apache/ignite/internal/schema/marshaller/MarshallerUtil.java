@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.schema.marshaller;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.RowAssembler;
+import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.util.ObjectFactory;
 
 /**
@@ -41,7 +43,14 @@ public final class MarshallerUtil {
                 return ((byte[])val).length;
 
             case STRING:
-                return RowAssembler.utf8EncodedLength((CharSequence)val);
+                // Overestimating size here prevents from later unwanted row buffer expanding.
+                return ((CharSequence)val).length() << 1;
+
+            case NUMBER:
+                return RowAssembler.sizeInBytes((BigInteger)val);
+
+            case DECIMAL:
+                return RowAssembler.sizeInBytes((BigDecimal)val);
 
             default:
                 throw new InvalidTypeException("Unsupported variable-length type: " + type);
@@ -94,6 +103,10 @@ public final class MarshallerUtil {
             return BinaryMode.UUID;
         else if (cls == BitSet.class)
             return BinaryMode.BITSET;
+        else if (cls == BigInteger.class)
+            return BinaryMode.NUMBER;
+        else if (cls == BigDecimal.class)
+            return BinaryMode.DECIMAL;
 
         return null;
     }

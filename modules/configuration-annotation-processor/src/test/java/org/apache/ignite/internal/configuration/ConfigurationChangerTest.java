@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
@@ -38,17 +39,15 @@ import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
-import org.apache.ignite.internal.configuration.tree.InnerNode;
-import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
+import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
+import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.configuration.AConfiguration.KEY;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.superRootPatcher;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -109,17 +108,16 @@ public class ConfigurationChangerTest {
      */
     @Test
     public void testSimpleConfigurationChange() throws Exception {
-        final TestConfigurationStorage storage = new TestConfigurationStorage();
+        var storage = new TestConfigurationStorage(ConfigurationType.LOCAL);
 
-        ConfigurationChanger changer = new TestConfigurationChanger();
+        ConfigurationChanger changer = new TestConfigurationChanger(cgen);
         changer.addRootKey(KEY);
         changer.register(storage);
 
-        AChange data = ((AChange)changer.createRootNode(KEY))
+        changer.change(source(KEY, (AChange parent) -> parent
             .changeChild(change -> change.changeIntCfg(1).changeStrCfg("1"))
-            .changeElements(change -> change.create("a", element -> element.changeStrCfg("1")));
-
-        changer.change(superRootPatcher(KEY, (TraversableTreeNode)data), null).get(1, SECONDS);
+            .changeElements(change -> change.create("a", element -> element.changeStrCfg("1")))
+        ), null).get(1, SECONDS);
 
         AView newRoot = (AView)changer.getRootNode(KEY);
 
@@ -133,30 +131,28 @@ public class ConfigurationChangerTest {
      */
     @Test
     public void testModifiedFromAnotherStorage() throws Exception {
-        final TestConfigurationStorage storage = new TestConfigurationStorage();
+        var storage = new TestConfigurationStorage(ConfigurationType.LOCAL);
 
-        ConfigurationChanger changer1 = new TestConfigurationChanger();
+        ConfigurationChanger changer1 = new TestConfigurationChanger(cgen);
         changer1.addRootKey(KEY);
         changer1.register(storage);
 
-        ConfigurationChanger changer2 = new TestConfigurationChanger();
+        ConfigurationChanger changer2 = new TestConfigurationChanger(cgen);
         changer2.addRootKey(KEY);
         changer2.register(storage);
 
-        AChange data1 = ((AChange)changer1.createRootNode(KEY))
+        changer1.change(source(KEY, (AChange parent) -> parent
             .changeChild(change -> change.changeIntCfg(1).changeStrCfg("1"))
-            .changeElements(change -> change.create("a", element -> element.changeStrCfg("1")));
+            .changeElements(change -> change.create("a", element -> element.changeStrCfg("1")))
+        ), null).get(1, SECONDS);
 
-        changer1.change(superRootPatcher(KEY, (TraversableTreeNode)data1), null).get(1, SECONDS);
-
-        AChange data2 = ((AChange)changer2.createRootNode(KEY))
+        changer2.change(source(KEY, (AChange parent) -> parent
             .changeChild(change -> change.changeIntCfg(2).changeStrCfg("2"))
             .changeElements(change -> change
-                .create("a", element -> element.changeStrCfg("2"))
+                .createOrUpdate("a", element -> element.changeStrCfg("2"))
                 .create("b", element -> element.changeStrCfg("2"))
-            );
-
-        changer2.change(superRootPatcher(KEY, (TraversableTreeNode)data2), null).get(1, SECONDS);
+            )
+        ), null).get(1, SECONDS);
 
         AView newRoot1 = (AView)changer1.getRootNode(KEY);
 
@@ -178,21 +174,20 @@ public class ConfigurationChangerTest {
      */
     @Test
     public void testModifiedFromAnotherStorageWithIncompatibleChanges() throws Exception {
-        final TestConfigurationStorage storage = new TestConfigurationStorage();
+        var storage = new TestConfigurationStorage(ConfigurationType.LOCAL);
 
-        ConfigurationChanger changer1 = new TestConfigurationChanger();
+        ConfigurationChanger changer1 = new TestConfigurationChanger(cgen);
         changer1.addRootKey(KEY);
         changer1.register(storage);
 
-        ConfigurationChanger changer2 = new TestConfigurationChanger();
+        ConfigurationChanger changer2 = new TestConfigurationChanger(cgen);
         changer2.addRootKey(KEY);
         changer2.register(storage);
 
-        AChange data1 = ((AChange)changer1.createRootNode(KEY))
+        changer1.change(source(KEY, (AChange parent) -> parent
             .changeChild(change -> change.changeIntCfg(1).changeStrCfg("1"))
-            .changeElements(change -> change.create("a", element -> element.changeStrCfg("1")));
-
-        changer1.change(superRootPatcher(KEY, (TraversableTreeNode)data1), null).get(1, SECONDS);
+            .changeElements(change -> change.create("a", element -> element.changeStrCfg("1")))
+        ), null).get(1, SECONDS);
 
         changer2.addValidator(MaybeInvalid.class, new Validator<MaybeInvalid, Object>() {
             @Override public void validate(MaybeInvalid annotation, ValidationContext<Object> ctx) {
@@ -200,14 +195,13 @@ public class ConfigurationChangerTest {
             }
         });
 
-        AChange data2 = ((AChange)changer2.createRootNode(KEY))
+        assertThrows(ExecutionException.class, () -> changer2.change(source(KEY, (AChange parent) -> parent
             .changeChild(change -> change.changeIntCfg(2).changeStrCfg("2"))
             .changeElements(change -> change
                 .create("a", element -> element.changeStrCfg("2"))
                 .create("b", element -> element.changeStrCfg("2"))
-            );
-
-        assertThrows(ExecutionException.class, () -> changer2.change(superRootPatcher(KEY, (TraversableTreeNode)data2), null).get(1, SECONDS));
+            )
+        ), null).get(1, SECONDS));
 
         AView newRoot = (AView)changer2.getRootNode(KEY);
 
@@ -221,9 +215,9 @@ public class ConfigurationChangerTest {
      */
     @Test
     public void testFailedToWrite() {
-        final TestConfigurationStorage storage = new TestConfigurationStorage();
+        var storage = new TestConfigurationStorage(ConfigurationType.LOCAL);
 
-        ConfigurationChanger changer = new TestConfigurationChanger();
+        ConfigurationChanger changer = new TestConfigurationChanger(cgen);
         changer.addRootKey(KEY);
 
         storage.fail(true);
@@ -236,9 +230,9 @@ public class ConfigurationChangerTest {
 
         storage.fail(true);
 
-        AChange data = ((AChange)changer.createRootNode(KEY)).changeChild(child -> child.changeIntCfg(1));
-
-        assertThrows(ExecutionException.class, () -> changer.change(superRootPatcher(KEY, (TraversableTreeNode)data), null).get(1, SECONDS));
+        assertThrows(ExecutionException.class, () -> changer.change(source(KEY, (AChange parent) -> parent
+            .changeChild(child -> child.changeIntCfg(1))
+        ), null).get(1, SECONDS));
 
         storage.fail(false);
 
@@ -281,11 +275,11 @@ public class ConfigurationChangerTest {
 
     @Test
     public void defaultsOnInit() throws Exception {
-        var changer = new TestConfigurationChanger();
+        var changer = new TestConfigurationChanger(cgen);
 
         changer.addRootKey(DefaultsConfiguration.KEY);
 
-        TestConfigurationStorage storage = new TestConfigurationStorage();
+        var storage = new TestConfigurationStorage(ConfigurationType.LOCAL);
 
         changer.register(storage);
 
@@ -297,32 +291,28 @@ public class ConfigurationChangerTest {
         assertEquals("bar", root.child().defStr());
         assertEquals(List.of("xyz"), Arrays.asList(root.child().arr()));
 
-        DefaultsChange change = ((DefaultsChange)changer.createRootNode(DefaultsConfiguration.KEY)).changeChildsList(childs ->
-            childs.create("name", child -> {})
-        );
-
-        changer.change(superRootPatcher(DefaultsConfiguration.KEY, (TraversableTreeNode)change), null).get(1, SECONDS);
+        changer.change(source(DefaultsConfiguration.KEY, (DefaultsChange def) -> def
+            .changeChildsList(childs ->
+                childs.create("name", child -> {})
+            )
+        ), null).get(1, SECONDS);
 
         root = (DefaultsView)changer.getRootNode(DefaultsConfiguration.KEY);
 
         assertEquals("bar", root.childsList().get("name").defStr());
     }
 
-    private static class TestConfigurationChanger extends ConfigurationChanger {
-        TestConfigurationChanger() {
-            super((oldRoot, newRoot, revision) -> completedFuture(null));
-        }
+    private static <Change> ConfigurationSource source(RootKey<?, ? super Change> rootKey, Consumer<Change> changer) {
+        return new ConfigurationSource() {
+            @Override public void descend(ConstructableTreeNode node) {
+                ConfigurationSource changerSrc = new ConfigurationSource() {
+                    @Override public void descend(ConstructableTreeNode node) {
+                        changer.accept((Change)node);
+                    }
+                };
 
-        /** {@inheritDoc} */
-        @Override public void addRootKey(RootKey<?, ?> rootKey) {
-            super.addRootKey(rootKey);
-
-            cgen.compileRootSchema(rootKey.schemaClass());
-        }
-
-        /** {@inheritDoc} */
-        @Override public InnerNode createRootNode(RootKey<?, ?> rootKey) {
-            return cgen.instantiateNode(rootKey.schemaClass());
-        }
+                node.construct(rootKey.key(), changerSrc);
+            }
+        };
     }
 }

@@ -72,7 +72,7 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
 
         var transport = new ScaleCubeDirectMarshallerTransport(connectionManager, topologyService, messageFactory);
 
-        var cluster = new ClusterImpl(defaultConfig())
+        var cluster = new ClusterImpl(clusterConfig())
             .handler(cl -> new ClusterMessageHandler() {
                 /** {@inheritDoc} */
                 @Override public void onMessage(Message message) {
@@ -86,7 +86,7 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
             })
             .config(opts -> opts.memberAlias(consistentId))
             .transport(opts -> opts.transportFactory(new DelegatingTransportFactory(messagingService, config -> transport)))
-            .membership(opts -> opts.seedMembers(parseAddresses(context.getMemberAddresses())));
+            .membership(opts -> opts.seedMembers(parseAddresses(context.getNodeFinder().findNodes())));
 
         // resolve cyclic dependencies
         messagingService.setCluster(cluster);
@@ -102,7 +102,7 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
             }
 
             /** {@inheritDoc} */
-            @Override public void shutdown() {
+            @Override public void stop() {
                 // local member will be null, if cluster has not been started
                 if (cluster.member() == null)
                     return;
@@ -112,6 +112,16 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
                 cluster.shutdown();
                 cluster.onShutdown().block();
                 connectionManager.stop();
+            }
+
+            /** {@inheritDoc} */
+            @Override public void beforeNodeStop() {
+                stop();
+            }
+
+            /** {@inheritDoc} */
+            @Override public boolean isStopped() {
+                return cluster.isShutdown();
             }
 
             /**
@@ -134,9 +144,12 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
     }
 
     /**
-     * @return The default configuration.
+     * Returns ScaleCube's cluster configuration. Can be overridden in subclasses for finer control of the created
+     * {@link ClusterService} instances.
+     *
+     * @return Cluster configuration.
      */
-    protected ClusterConfig defaultConfig() {
+    protected ClusterConfig clusterConfig() {
         return ClusterConfig.defaultConfig();
     }
 

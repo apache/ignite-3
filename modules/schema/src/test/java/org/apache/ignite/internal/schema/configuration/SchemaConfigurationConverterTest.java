@@ -21,10 +21,12 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.HashIndex;
 import org.apache.ignite.schema.PartialIndex;
@@ -39,6 +41,7 @@ import org.apache.ignite.schema.builder.PartialIndexBuilder;
 import org.apache.ignite.schema.builder.PrimaryIndexBuilder;
 import org.apache.ignite.schema.builder.SchemaTableBuilder;
 import org.apache.ignite.schema.builder.SortedIndexBuilder;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -67,7 +70,9 @@ public class SchemaConfigurationConverterTest {
         confRegistry = new ConfigurationRegistry(
             Collections.singleton(TablesConfiguration.KEY),
             Collections.singletonMap(TableValidator.class, Collections.singleton(SchemaTableValidatorImpl.INSTANCE)),
-            Collections.singleton(new TestConfigurationStorage()));
+            Collections.singleton(new TestConfigurationStorage(ConfigurationType.DISTRIBUTED)));
+
+        confRegistry.start();
 
         tblBuilder = SchemaBuilders.tableBuilder("SNAME","TNAME")
             .columns(
@@ -83,9 +88,14 @@ public class SchemaConfigurationConverterTest {
         confRegistry.getConfiguration(TablesConfiguration.KEY).change(
             ch -> {
                 SchemaConfigurationConverter.createTable(tbl, ch)
-                    .changeTables(tblsCh -> tblsCh.create(tbl.canonicalName(),
+                    .changeTables(tblsCh -> tblsCh.createOrUpdate(tbl.canonicalName(),
                         tblCh -> tblCh.changeReplicas(1)));
             }).get();
+    }
+
+    @AfterEach
+    void tearDown() {
+        confRegistry.stop();
     }
 
     /**
