@@ -120,10 +120,10 @@ public class TableManagerTest {
     /** Node name. */
     private static final String NODE_NAME = "node1";
 
-    /** Configuration manager (node configuration). */
+    /** Node configuration manager. */
     private ConfigurationManager nodeCfgMgr;
 
-    /** Configuration manager (cluster configuration). */
+    /** Cluster configuration manager. */
     private ConfigurationManager clusterCfgMgr;
 
     /** MetaStorage manager. */
@@ -236,7 +236,7 @@ public class TableManagerTest {
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15255")
     @Test
     public void testStaticTableConfigured() {
-        TableManager tableManager = new TableManager(clusterCfgMgr, mm, sm, am, rm, workDir);
+        TableManager tableManager = new TableManager(nodeCfgMgr, clusterCfgMgr, mm, sm, am, rm, workDir);
 
         assertEquals(1, tableManager.tables().size());
 
@@ -469,7 +469,7 @@ public class TableManagerTest {
             return null;
         }).when(am).listen(same(AffinityEvent.CALCULATED), any());
 
-        TableManager tableManager = new TableManager(clusterCfgMgr, mm, sm, am, rm, workDir);
+        TableManager tableManager = new TableManager(nodeCfgMgr, clusterCfgMgr, mm, sm, am, rm, workDir);
 
         TableImpl tbl2;
 

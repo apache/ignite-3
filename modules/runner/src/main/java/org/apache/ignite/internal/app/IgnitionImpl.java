@@ -209,7 +209,7 @@ public class IgnitionImpl implements Ignition {
             );
 
             // Bootstrap node configuration manager.
-            ConfigurationManager nodeConfigurationMgr = doStartComponent(
+            ConfigurationManager nodeCfgMgr = doStartComponent(
                 nodeName,
                 startedComponents,
                 new ConfigurationManager(nodeRootKeys, new LocalConfigurationStorage(vaultMgr))
@@ -217,17 +217,17 @@ public class IgnitionImpl implements Ignition {
 
             if (cfgContent != null) {
                 try {
-                    nodeConfigurationMgr.bootstrap(cfgContent);
+                    nodeCfgMgr.bootstrap(cfgContent);
                 }
                 catch (Exception e) {
                     LOG.warn("Unable to parse user-specific configuration, default configuration will be used: {}", e.getMessage());
                 }
             }
             else
-                nodeConfigurationMgr.registry().startStorageConfigurations(ConfigurationType.LOCAL);
+                nodeCfgMgr.registry().startStorageConfigurations(ConfigurationType.LOCAL);
 
             NetworkView netConfigurationView =
-                nodeConfigurationMgr.registry().getConfiguration(NetworkConfiguration.KEY).value();
+                nodeCfgMgr.registry().getConfiguration(NetworkConfiguration.KEY).value();
 
             var serializationRegistry = new MessageSerializationRegistryImpl();
 
@@ -260,7 +260,7 @@ public class IgnitionImpl implements Ignition {
                 startedComponents,
                 new MetaStorageManager(
                     vaultMgr,
-                    nodeConfigurationMgr,
+                    nodeCfgMgr,
                     clusterNetSvc,
                     raftMgr
                 )
@@ -274,7 +274,7 @@ public class IgnitionImpl implements Ignition {
             );
 
             // Start cluster configuration manager.
-            ConfigurationManager clusterConfigurationMgr = doStartComponent(
+            ConfigurationManager clusterCfgMgr = doStartComponent(
                 nodeName,
                 startedComponents,
                 new ConfigurationManager(clusterRootKeys, new DistributedConfigurationStorage(metaStorageMgr, vaultMgr))
@@ -285,7 +285,7 @@ public class IgnitionImpl implements Ignition {
                 nodeName,
                 startedComponents,
                 new BaselineManager(
-                    clusterConfigurationMgr,
+                    clusterCfgMgr,
                     metaStorageMgr,
                     clusterNetSvc
                 )
@@ -296,7 +296,7 @@ public class IgnitionImpl implements Ignition {
                 nodeName,
                 startedComponents,
                 new AffinityManager(
-                    clusterConfigurationMgr,
+                    clusterCfgMgr,
                     metaStorageMgr,
                     baselineMgr
                 )
@@ -307,7 +307,7 @@ public class IgnitionImpl implements Ignition {
                 nodeName,
                 startedComponents,
                 new SchemaManager(
-                    clusterConfigurationMgr,
+                    clusterCfgMgr,
                     metaStorageMgr,
                     vaultMgr
                 )
@@ -318,7 +318,8 @@ public class IgnitionImpl implements Ignition {
                 nodeName,
                 startedComponents,
                 new TableManager(
-                    clusterConfigurationMgr,
+                    nodeCfgMgr,
+                    clusterCfgMgr,
                     metaStorageMgr,
                     schemaMgr,
                     affinityMgr,
@@ -365,8 +366,8 @@ public class IgnitionImpl implements Ignition {
                 nodeName,
                 distributedTblMgr,
                 qryProc,
-                nodeConfigurationMgr,
-                clusterConfigurationMgr
+                nodeCfgMgr,
+                clusterCfgMgr
             );
         }
         catch (Exception e) {
