@@ -100,9 +100,7 @@ public class PartitionListener implements RaftGroupListener {
             else if (clo.command() instanceof ReplaceCommand) {
                 ReplaceCommand cmd = ((ReplaceCommand)clo.command());
 
-                BinaryRow expected = cmd.getOldRow();
-
-                clo.result(storage.replace(expected, null).join());
+                clo.result(storage.replace(cmd.getOldRow(), cmd.getRow(), null).join());
             }
             else if (clo.command() instanceof UpsertCommand) {
                 BinaryRow row = ((UpsertCommand)clo.command()).getRow();

@@ -138,7 +138,7 @@ public class VersionedRowStore {
 
         storage.invoke(newRow, writeIfAbsent);
 
-        return CompletableFuture.completedFuture(true);
+        return CompletableFuture.completedFuture(writeIfAbsent.result());
     }
 
     /** {@inheritDoc} */
@@ -186,7 +186,17 @@ public class VersionedRowStore {
     }
 
     public CompletableFuture<BinaryRow> getAndReplace(BinaryRow row, InternalTransaction ts) {
-        return null;
+        DataRow keyValue = extractAndWrapKeyValue(row);
+
+        var getAndReplace = new GetAndReplaceInvokeClosure(keyValue, true);
+
+        storage.invoke(keyValue, getAndReplace);
+
+        DataRow oldRow = getAndReplace.oldRow();
+
+        BinaryRow res = oldRow.hasValueBytes() ? new ByteBufferRow(oldRow.valueBytes()) : null;
+
+        return CompletableFuture.completedFuture(res);
     }
 
     /** {@inheritDoc} */
@@ -204,7 +214,16 @@ public class VersionedRowStore {
     }
 
     public CompletableFuture<BinaryRow> getAndDelete(BinaryRow row, InternalTransaction ts) {
-        return null;
+        SearchRow keyRow = extractAndWrapKey(row);
+
+        var getAndRemoveClosure = new GetAndRemoveInvokeClosure();
+
+        storage.invoke(keyRow, getAndRemoveClosure);
+
+        if (getAndRemoveClosure.result())
+            return CompletableFuture.completedFuture(new ByteBufferRow(getAndRemoveClosure.oldRow().valueBytes()));
+        else
+            return CompletableFuture.completedFuture(null);
     }
 
     public CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows, InternalTransaction ts) {
@@ -246,7 +265,7 @@ public class VersionedRowStore {
         byte[] key = new byte[row.keySlice().capacity()];
         row.keySlice().get(key);
 
-        return new SimpleDataRow(key, row.bytes());
+        return new SimpleDataRow(key, row.hasValue() ? row.bytes() : null);
     }
 
     /**

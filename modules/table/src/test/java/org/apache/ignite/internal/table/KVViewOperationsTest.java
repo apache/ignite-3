@@ -56,6 +56,9 @@ public class KVViewOperationsTest {
     @Mock
     private ClusterService clusterService;
 
+    /**
+     * @return The table.
+     */
     private InternalTable createTable() {
         return new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapStorage(),
             new TxManagerImpl(clusterService), new HeapLockManager()));

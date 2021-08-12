@@ -61,7 +61,10 @@ public class ConcurrentHashMapStorage implements Storage {
 
     /** {@inheritDoc} */
     @Override public void write(DataRow row) throws StorageException {
-        map.put(new ByteArray(row.keyBytes()), row.valueBytes());
+        if (row.hasValueBytes())
+            map.put(new ByteArray(row.keyBytes()), row.valueBytes());
+        else
+            map.remove(new ByteArray(row.keyBytes()));
     }
 
     /** {@inheritDoc} */
@@ -123,7 +126,10 @@ public class ConcurrentHashMapStorage implements Storage {
 
         switch (clo.operationType()) {
             case WRITE:
-                map.put(mapKey, clo.newRow().valueBytes());
+                if (clo.newRow().hasValueBytes())
+                    map.put(mapKey, clo.newRow().valueBytes());
+                else
+                    map.remove(mapKey);
 
                 break;
 
