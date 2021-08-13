@@ -118,24 +118,23 @@ class ITThinClientConnectionTest {
      * Check that thin client can connect to any server node and work with table API.
      */
     @Test
-    void testThinClientConnectsToServerNodesAndExecutesBasicTableOperations() {
-        var client1 = IgniteClient.builder().addresses("127.0.0.1:10800").build();
-        var client2 = IgniteClient.builder().addresses("127.0.0.1:10801").build();
+    void testThinClientConnectsToServerNodesAndExecutesBasicTableOperations() throws Exception {
+        for (var addr : new String[] {"127.0.0.1:10800", "127.0.0.1:10801"}) {
+            try (var client = IgniteClient.builder().addresses(addr).build()) {
+                List<Table> tables = client.tables().tables();
+                assertEquals(1, tables.size());
 
-        for (var client : new Ignite[] {client1, client2}) {
-            List<Table> tables = client.tables().tables();
-            assertEquals(1, tables.size());
+                Table table = tables.get(0);
+                assertEquals(String.format("%s.%s", SCHEMA_NAME, TABLE_NAME), table.tableName());
 
-            Table table = tables.get(0);
-            assertEquals(String.format("%s.%s", SCHEMA_NAME, TABLE_NAME), table.tableName());
+                var tuple = table.tupleBuilder().set(KEY, 1).set(VAL, "Hello").build();
+                var keyTuple = table.tupleBuilder().set(KEY, 1).build();
 
-            var tuple = table.tupleBuilder().set(KEY, 1).set(VAL, "Hello").build();
-            var keyTuple = table.tupleBuilder().set(KEY, 1).build();
+                table.upsert(tuple);
+                assertEquals("Hello", table.get(keyTuple).stringValue(VAL));
 
-            table.upsert(tuple);
-            assertEquals("Hello", table.get(keyTuple).stringValue(VAL));
-
-            assertTrue(table.delete(keyTuple));
+                assertTrue(table.delete(keyTuple));
+            }
         }
     }
 }
