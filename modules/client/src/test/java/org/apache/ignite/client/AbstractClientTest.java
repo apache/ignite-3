@@ -96,9 +96,7 @@ public abstract class AbstractClientTest {
 
         server = new FakeIgnite();
 
-        var module = new ClientHandlerModule(server, NOPLogger.NOP_LOGGER);
-
-        module.prepareStart(configurationRegistry);
+        var module = new ClientHandlerModule(server.tables(), configurationRegistry);
         module.start();
 
         return module;
