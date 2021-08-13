@@ -88,7 +88,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     private final long retryDelay;
 
     /** */
-    private static final ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
+    private final ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
 
     /**
      * Constructor.

@@ -82,8 +82,10 @@ public class ConnectionManager {
     /** Client handshake manager factory. */
     private final Supplier<HandshakeManager> clientHandshakeManagerFactory;
 
+    /** Start flag. */
     private final AtomicBoolean started = new AtomicBoolean(false);
 
+    /** Stop flag. */
     private final AtomicBoolean stopped = new AtomicBoolean(false);
 
     /**
