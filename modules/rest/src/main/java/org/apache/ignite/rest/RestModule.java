@@ -19,7 +19,6 @@ package org.apache.ignite.rest;
 
 import java.net.BindException;
 import java.util.Map;
-import com.google.gson.JsonSyntaxException;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -36,12 +35,13 @@ import org.apache.ignite.configuration.validation.ConfigurationValidationExcepti
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.rest.netty.RestApiHttpRequest;
 import org.apache.ignite.rest.netty.RestApiHttpResponse;
 import org.apache.ignite.rest.netty.RestApiInitializer;
 import org.apache.ignite.rest.presentation.ConfigurationPresentation;
-import org.apache.ignite.rest.presentation.json.JsonPresentation;
+import org.apache.ignite.rest.presentation.hocon.HoconPresentation;
 import org.apache.ignite.rest.routes.Router;
 
 import static io.netty.handler.codec.http.HttpHeaderValues.APPLICATION_JSON;
@@ -80,7 +80,7 @@ public class RestModule implements IgniteComponent {
     private final ConfigurationPresentation<String> clusterCfgPresentation;
 
     /**
-     * Constructor.
+     * Creates a new instance of REST module.
      *
      * @param nodeCfgMgr Node configuration manager.
      * @param clusterCfgMgr Cluster configuration manager.
@@ -91,8 +91,8 @@ public class RestModule implements IgniteComponent {
     ) {
         nodeCfgRegistry = nodeCfgMgr.registry();
 
-        nodeCfgPresentation = new JsonPresentation(nodeCfgMgr.registry());
-        clusterCfgPresentation = new JsonPresentation(clusterCfgMgr.registry());
+        nodeCfgPresentation = new HoconPresentation(nodeCfgMgr.registry());
+        clusterCfgPresentation = new HoconPresentation(clusterCfgMgr.registry());
     }
 
     /** {@inheritDoc} */
@@ -218,9 +218,9 @@ public class RestModule implements IgniteComponent {
         ConfigurationPresentation<String> presentation
     ) {
         try {
-            String path = req.queryParams().get(PATH_PARAM);
+            String cfgPath = req.queryParams().get(PATH_PARAM);
 
-            res.json(presentation.representByPath(path));
+            res.json(presentation.representByPath(cfgPath));
         }
         catch (IllegalArgumentException pathE) {
             ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", pathE.getMessage());
@@ -251,28 +251,20 @@ public class RestModule implements IgniteComponent {
 
             presentation.update(updateReq);
         }
-        catch (IllegalArgumentException argE) {
-            ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", argE.getMessage());
+        catch (IllegalArgumentException e) {
+            ErrorResult eRes = new ErrorResult("INVALID_CONFIG_FORMAT", e.getMessage());
 
             res.status(BAD_REQUEST);
             res.json(Map.of("error", eRes));
         }
-        catch (ConfigurationValidationException validationE) {
-            ErrorResult eRes = new ErrorResult("APPLICATION_EXCEPTION", validationE.getMessage());
-
-            res.status(BAD_REQUEST);
-            res.json(Map.of("error", eRes));
-            res.json(eRes);
-        }
-        catch (JsonSyntaxException e) {
-            String msg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
-
-            ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", msg);
-            res.status(BAD_REQUEST);
-            res.json(Map.of("error", eRes));
-        }
-        catch (Exception e) {
+        catch (ConfigurationValidationException e) {
             ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", e.getMessage());
+
+            res.status(BAD_REQUEST);
+            res.json(Map.of("error", eRes));
+        }
+        catch (IgniteException e) {
+            ErrorResult eRes = new ErrorResult("APPLICATION_EXCEPTION", e.getMessage());
 
             res.status(BAD_REQUEST);
             res.json(Map.of("error", eRes));
