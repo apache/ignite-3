@@ -32,7 +32,6 @@ import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.slf4j.helpers.NOPLogger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -54,10 +53,10 @@ public abstract class AbstractClientTest {
     protected static int serverPort;
 
     @BeforeAll
-    public static void beforeAll() throws Exception {
+    public static void beforeAll() {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
-        serverModule = startServer(null);
+        serverModule = startServer();
         serverPort = ((InetSocketAddress) Objects.requireNonNull(serverModule.localAddress())).getPort();
 
         client = startClient();
@@ -85,7 +84,7 @@ public abstract class AbstractClientTest {
         return builder.build();
     }
 
-    public static ClientHandlerModule startServer(String host) {
+    public static ClientHandlerModule startServer() {
         configurationRegistry = new ConfigurationRegistry(
                 Collections.singletonList(ClientConnectorConfiguration.KEY),
                 Collections.emptyMap(),
@@ -93,6 +92,10 @@ public abstract class AbstractClientTest {
         );
 
         configurationRegistry.start();
+
+        configurationRegistry.getConfiguration(ClientConnectorConfiguration.KEY).change(
+                local -> local.changePort(10800).changePortRange(10)
+        ).join();
 
         server = new FakeIgnite();
 
