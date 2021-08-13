@@ -66,7 +66,7 @@ public class ConfigCommandTest extends AbstractCliTest {
         networkPort = getAvailablePort();
 
         String configStr = "network.port=" + networkPort + "\n" +
-            "rest.port=" + restPort + "\n" + "rest.portRange=0" +
+            "rest.port=" + restPort + "\n" + "rest.portRange=0" + "\n" +
             "clientConnector.port=" + clientPort + "\n" + "clientConnector.portRange=0";
 
         IgnitionManager.start("node1", configStr, workDir);
