@@ -17,8 +17,13 @@
 
 package org.apache.ignite.raft.jraft.rpc;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
@@ -86,10 +91,24 @@ public class IgniteRpcTest extends AbstractRpcTest {
     private static ClusterService createService(String name, int port, NetworkAddress... servers) {
         var registry = new MessageSerializationRegistryImpl();
         var nodeFinder = new StaticNodeFinder(List.of(servers));
-        var context = new ClusterLocalConfiguration(name, port, nodeFinder, registry);
+        var ctx = new ClusterLocalConfiguration(name, registry);
         var factory = new TestScaleCubeClusterServiceFactory();
 
-        return factory.createClusterService(context);
+        ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
+            Collections.singleton(NetworkConfiguration.KEY),
+            Collections.singleton(new TestConfigurationStorage(ConfigurationType.LOCAL))
+        );
+
+        nodeConfigurationMgr.start();
+
+        nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).
+            change(netCfg -> netCfg.changePort(port));
+
+        return factory.createClusterService(
+            ctx,
+            nodeConfigurationMgr,
+            () -> nodeFinder
+        );
     }
 
     /** {@inheritDoc} */

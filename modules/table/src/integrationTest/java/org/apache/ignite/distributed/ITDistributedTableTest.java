@@ -21,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -28,7 +29,11 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -530,10 +535,27 @@ public class ITDistributedTableTest {
      * @return The client cluster view.
      */
     private static ClusterService startClient(String name, int port, NodeFinder nodeFinder) {
-        var context = new ClusterLocalConfiguration(name, port, nodeFinder, SERIALIZATION_REGISTRY);
-        var network = NETWORK_FACTORY.createClusterService(context);
-        network.start();
-        return network;
+        var ctx = new ClusterLocalConfiguration(name, SERIALIZATION_REGISTRY);
+
+        ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
+            Collections.singleton(NetworkConfiguration.KEY),
+            Collections.singleton(new TestConfigurationStorage(ConfigurationType.LOCAL))
+        );
+
+        nodeConfigurationMgr.start();
+
+        nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).
+            change(netCfg -> netCfg.changePort(port));
+
+        var net = NETWORK_FACTORY.createClusterService(
+            ctx,
+            nodeConfigurationMgr,
+            () -> nodeFinder
+        );
+
+        net.start();
+
+        return net;
     }
 
     /**

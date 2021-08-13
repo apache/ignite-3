@@ -22,6 +22,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -33,6 +34,10 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
@@ -309,11 +314,25 @@ public class TestCluster {
     private static ClusterService createClusterService(Endpoint endpoint, NodeFinder nodeFinder) {
         var registry = new TestMessageSerializationRegistryImpl();
 
-        var clusterConfig = new ClusterLocalConfiguration(endpoint.toString(), endpoint.getPort(), nodeFinder, registry);
+        var clusterCfg = new ClusterLocalConfiguration(endpoint.toString(), registry);
 
-        var clusterServiceFactory = new TestScaleCubeClusterServiceFactory();
+        var clusterSvcFactory = new TestScaleCubeClusterServiceFactory();
 
-        return clusterServiceFactory.createClusterService(clusterConfig);
+        ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
+            Collections.singleton(NetworkConfiguration.KEY),
+            Collections.singleton(new TestConfigurationStorage(ConfigurationType.LOCAL))
+        );
+
+        nodeConfigurationMgr.start();
+
+        nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).
+            change(netCfg -> netCfg.changePort(endpoint.getPort()));
+
+        return clusterSvcFactory.createClusterService(
+            clusterCfg,
+            nodeConfigurationMgr,
+            () -> nodeFinder
+        );
     }
 
     public Node getNode(Endpoint endpoint) {

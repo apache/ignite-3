@@ -20,6 +20,7 @@ import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -31,6 +32,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.transport.api.Transport;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
@@ -442,13 +447,26 @@ class ITScaleCubeNetworkMessagingTest {
          * @return Started cluster node.
          */
         private ClusterService startNode(NetworkAddress addr, NodeFinder nodeFinder, boolean initial) {
-            var context =
-                new ClusterLocalConfiguration(addr.toString(), addr.port(), nodeFinder, serializationRegistry);
+            var ctx = new ClusterLocalConfiguration(addr.toString(), serializationRegistry);
 
-            ClusterService clusterService = networkFactory.createClusterService(context);
+            ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
+                Collections.singleton(NetworkConfiguration.KEY),
+                Collections.singleton(new TestConfigurationStorage(ConfigurationType.LOCAL))
+            );
+
+            nodeConfigurationMgr.start();
+
+            nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).
+                change(netCfg -> netCfg.changePort(addr.port()));
+
+            ClusterService clusterSvc = networkFactory.createClusterService(
+                ctx,
+                nodeConfigurationMgr,
+                () -> nodeFinder
+            );
 
             if (initial)
-                clusterService.topologyService().addEventHandler(new TopologyEventHandler() {
+                clusterSvc.topologyService().addEventHandler(new TopologyEventHandler() {
                     /** {@inheritDoc} */
                     @Override public void onAppeared(ClusterNode member) {
                         startupLatch.countDown();
@@ -459,7 +477,7 @@ class ITScaleCubeNetworkMessagingTest {
                     }
                 });
 
-            return clusterService;
+            return clusterSvc;
         }
 
         /**

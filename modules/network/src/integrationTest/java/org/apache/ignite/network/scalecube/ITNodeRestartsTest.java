@@ -17,8 +17,13 @@
 package org.apache.ignite.network.scalecube;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
@@ -109,13 +114,27 @@ class ITNodeRestartsTest {
      * @return Created Cluster Service.
      */
     private ClusterService startNetwork(NetworkAddress addr, NodeFinder nodeFinder) {
-        var context = new ClusterLocalConfiguration(addr.toString(), addr.port(), nodeFinder, serializationRegistry);
+        var ctx = new ClusterLocalConfiguration(addr.toString(), serializationRegistry);
 
-        ClusterService clusterService = networkFactory.createClusterService(context);
+        ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
+            Collections.singleton(NetworkConfiguration.KEY),
+            Collections.singleton(new TestConfigurationStorage(ConfigurationType.LOCAL))
+        );
 
-        clusterService.start();
+        nodeConfigurationMgr.start();
 
-        return clusterService;
+        nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).
+            change(netCfg -> netCfg.changePort(addr.port()));
+
+        ClusterService clusterSvc = networkFactory.createClusterService(
+            ctx,
+            nodeConfigurationMgr,
+            () -> nodeFinder
+        );
+
+        clusterSvc.start();
+
+        return clusterSvc;
     }
 
     /**

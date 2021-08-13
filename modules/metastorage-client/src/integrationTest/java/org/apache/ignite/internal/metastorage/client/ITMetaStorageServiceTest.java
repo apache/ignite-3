@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metastorage.client;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
@@ -1051,9 +1056,23 @@ public class ITMetaStorageServiceTest {
      * @return The client cluster view.
      */
     private static ClusterService startClusterNode(NetworkAddress addr, NodeFinder nodeFinder) {
-        var ctx = new ClusterLocalConfiguration(addr.toString(), addr.port(), nodeFinder, SERIALIZATION_REGISTRY);
+        var ctx = new ClusterLocalConfiguration(addr.toString(), SERIALIZATION_REGISTRY);
 
-        var net = NETWORK_FACTORY.createClusterService(ctx);
+        ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
+            Collections.singleton(NetworkConfiguration.KEY),
+            Collections.singleton(new TestConfigurationStorage(ConfigurationType.LOCAL))
+        );
+
+        nodeConfigurationMgr.start();
+
+        nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).
+            change(netCfg -> netCfg.changePort(addr.port()));
+
+        var net = NETWORK_FACTORY.createClusterService(
+            ctx,
+            nodeConfigurationMgr,
+            () -> nodeFinder
+        );
 
         net.start();
 

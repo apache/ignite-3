@@ -30,6 +30,10 @@ import java.util.TreeSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteLogger;
@@ -122,11 +126,25 @@ public class ITCliServiceTest {
 
         var registry = new MessageSerializationRegistryImpl();
 
-        var serviceConfig = new ClusterLocalConfiguration("client", TestUtils.INIT_PORT - 1, nodeFinder, registry);
+        var serviceConfig = new ClusterLocalConfiguration("client", registry);
 
         var factory = new TestScaleCubeClusterServiceFactory();
 
-        ClusterService clientSvc = factory.createClusterService(serviceConfig);
+        ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
+            Collections.singleton(NetworkConfiguration.KEY),
+            Collections.singleton(new TestConfigurationStorage(ConfigurationType.LOCAL))
+        );
+
+        nodeConfigurationMgr.start();
+
+        nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).
+            change(netCfg -> netCfg.changePort(TestUtils.INIT_PORT - 1));
+
+        ClusterService clientSvc =  factory.createClusterService(
+            serviceConfig,
+            nodeConfigurationMgr,
+            () -> nodeFinder
+        );
 
         clientSvc.start();
 

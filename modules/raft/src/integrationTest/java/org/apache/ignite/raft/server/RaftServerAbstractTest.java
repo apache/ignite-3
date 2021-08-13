@@ -17,7 +17,12 @@
 
 package org.apache.ignite.raft.server;
 
+import java.util.Collections;
 import java.util.List;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
@@ -53,17 +58,31 @@ abstract class RaftServerAbstractTest {
     /**
      * @param name Node name.
      * @param port Local port.
-     * @param servers Server nodes of the cluster.
+     * @param srvs Server nodes of the cluster.
      * @return The client cluster view.
      */
-    protected ClusterService clusterService(String name, int port, List<NetworkAddress> servers, boolean start) {
-        var context = new ClusterLocalConfiguration(name, port, new StaticNodeFinder(servers), SERIALIZATION_REGISTRY);
+    protected ClusterService clusterService(String name, int port, List<NetworkAddress> srvs, boolean start) {
+        var ctx = new ClusterLocalConfiguration(name, SERIALIZATION_REGISTRY);
 
-        var network = NETWORK_FACTORY.createClusterService(context);
+        ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
+            Collections.singleton(NetworkConfiguration.KEY),
+            Collections.singleton(new TestConfigurationStorage(ConfigurationType.LOCAL))
+        );
+
+        nodeConfigurationMgr.start();
+
+        nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).
+            change(netCfg -> netCfg.changePort(port));
+
+        ClusterService net = NETWORK_FACTORY.createClusterService(
+            ctx,
+            nodeConfigurationMgr,
+            () -> new StaticNodeFinder(srvs)
+        );
 
         if (start)
-            network.start();
+            net.start();
 
-        return network;
+        return net;
     }
 }

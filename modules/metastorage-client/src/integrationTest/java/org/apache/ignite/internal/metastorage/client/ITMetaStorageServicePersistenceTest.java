@@ -24,12 +24,17 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDBKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
@@ -346,15 +351,29 @@ public class ITMetaStorageServicePersistenceTest {
     private ClusterService clusterService(String name, int port, NetworkAddress otherPeer) {
         var nodeFinder = new StaticNodeFinder(List.of(otherPeer));
 
-        var context = new ClusterLocalConfiguration(name, port, nodeFinder, SERIALIZATION_REGISTRY);
+        var ctx = new ClusterLocalConfiguration(name, SERIALIZATION_REGISTRY);
 
-        var network = NETWORK_FACTORY.createClusterService(context);
+        ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
+            Collections.singleton(NetworkConfiguration.KEY),
+            Collections.singleton(new TestConfigurationStorage(ConfigurationType.LOCAL))
+        );
 
-        network.start();
+        nodeConfigurationMgr.start();
 
-        cluster.add(network);
+        nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).
+            change(netCfg -> netCfg.changePort(port));
 
-        return network;
+        var net = NETWORK_FACTORY.createClusterService(
+            ctx,
+            nodeConfigurationMgr,
+            () -> nodeFinder
+        );
+
+        net.start();
+
+        cluster.add(net);
+
+        return net;
     }
 
     /**
