@@ -35,6 +35,7 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkView;
+import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
@@ -62,6 +63,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
+import org.apache.ignite.rest.RestModule;
 import org.apache.ignite.utils.IgniteProperties;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -205,7 +207,8 @@ public class IgnitionImpl implements Ignition {
 
             List<RootKey<?, ?>> nodeRootKeys = List.of(
                 NetworkConfiguration.KEY,
-                NodeConfiguration.KEY
+                NodeConfiguration.KEY,
+                RestConfiguration.KEY
             );
 
             // Bootstrap node configuration manager.
@@ -337,7 +340,11 @@ public class IgnitionImpl implements Ignition {
                 )
             );
 
-            // TODO IGNITE-14579 Start rest manager.
+            doStartComponent(
+                nodeName,
+                startedComponents,
+                new RestModule(nodeCfgMgr, clusterCfgMgr)
+            );
 
             // Deploy all resisted watches cause all components are ready and have registered their listeners.
             metaStorageMgr.deployWatches();
