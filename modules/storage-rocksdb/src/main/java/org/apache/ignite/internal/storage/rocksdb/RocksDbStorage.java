@@ -17,15 +17,23 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.storage.DataRow;
@@ -39,12 +47,18 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 import org.rocksdb.AbstractComparator;
 import org.rocksdb.ComparatorOptions;
+import org.rocksdb.EnvOptions;
+import org.rocksdb.IngestExternalFileOptions;
 import org.rocksdb.Options;
+import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
+import org.rocksdb.Snapshot;
+import org.rocksdb.SstFileWriter;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
 
@@ -52,6 +66,12 @@ import org.rocksdb.WriteOptions;
  * Storage implementation based on a single RocksDB instance.
  */
 public class RocksDbStorage implements Storage {
+    /** Suffix for the temporary snapshot folder */
+    private static final String TMP_SUFFIX = ".tmp";
+
+    /** Snapshot file name. */
+    private static final String SNAPSHOT_FILE_NAME = "snapshot";
+
     static {
         RocksDB.loadLibrary();
     }
@@ -68,6 +88,12 @@ public class RocksDbStorage implements Storage {
     /** RocksDb instance. */
     private final RocksDB db;
 
+    /** DB path. */
+    private final Path dbPath;
+
+    /** Thread-pool for snapshot operations execution. */
+    private final ExecutorService snapshotExecutor = Executors.newSingleThreadExecutor();
+
     /**
      * @param dbPath Path to the folder to store data.
      * @param comparator Keys comparator.
@@ -75,6 +101,8 @@ public class RocksDbStorage implements Storage {
      */
     public RocksDbStorage(Path dbPath, Comparator<ByteBuffer> comparator) throws StorageException {
         try {
+            this.dbPath = dbPath;
+
             comparatorOptions = new ComparatorOptions();
 
             this.comparator = new AbstractComparator(comparatorOptions) {
@@ -310,11 +338,107 @@ public class RocksDbStorage implements Storage {
     }
 
     /** {@inheritDoc} */
+    @Override public @NotNull CompletableFuture<Void> snapshot(Path snapshotPath) {
+        Path tempPath = Paths.get(snapshotPath.toString() + TMP_SUFFIX);
+
+        // Create a RocksDB point-in-time snapshot
+        Snapshot snapshot = db.getSnapshot();
+
+        return CompletableFuture.runAsync(() -> {
+            // (Re)create the temporary directory
+            IgniteUtils.deleteIfExists(tempPath);
+
+            try {
+                Files.createDirectories(tempPath);
+            }
+            catch (IOException e) {
+                throw new IgniteInternalException("Failed to create directory: " + tempPath, e);
+            }
+        }, snapshotExecutor)
+        .thenCompose(aVoid -> createSstFile(db, snapshot, tempPath))
+        .whenComplete((aVoid, throwable) -> {
+            // Release a snapshot
+            db.releaseSnapshot(snapshot);
+
+            // Snapshot is not actually closed here, because a Snapshot instance doesn't own a pointer, the
+            // database does. Calling close to maintain the AutoCloseable semantics
+            snapshot.close();
+
+            if (throwable != null)
+                return;
+
+            // Delete snapshot directory if it already exists
+            IgniteUtils.deleteIfExists(snapshotPath);
+
+            try {
+                // Rename the temporary directory
+                Files.move(tempPath, snapshotPath);
+            }
+            catch (IOException e) {
+                throw new IgniteInternalException("Failed to rename: " + tempPath + " to " + snapshotPath, e);
+            }
+        });
+    }
+
+    /**
+     * Creates an SST file for the database.
+     *
+     * @param db RocksDB instance.
+     * @param snapshot Point-in-time snapshot.
+     * @param path Directory to put the SST file in.
+     * @return Future representing pending completion of the operation.
+     */
+    private CompletableFuture<Void> createSstFile(RocksDB db, Snapshot snapshot, Path path) {
+        return CompletableFuture.runAsync(() -> {
+            try (
+                EnvOptions envOptions = new EnvOptions();
+                Options options = new Options();
+                ReadOptions readOptions = new ReadOptions().setSnapshot(snapshot);
+                RocksIterator it = db.newIterator(readOptions);
+                SstFileWriter sstFileWriter = new SstFileWriter(envOptions, options)
+            ) {
+                Path sstFile = path.resolve(SNAPSHOT_FILE_NAME);
+
+                sstFileWriter.open(sstFile.toString());
+
+                it.seekToFirst();
+
+                for (; it.isValid(); it.next())
+                    sstFileWriter.put(it.key(), it.value());
+
+                it.status();
+
+                sstFileWriter.finish();
+            }
+            catch (Throwable t) {
+                throw new IgniteInternalException("Failed to write snapshot: " + t.getMessage(), t);
+            }
+        }, snapshotExecutor);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void restoreSnapshot(Path path) {
+        try (IngestExternalFileOptions ingestOptions = new IngestExternalFileOptions()) {
+            Path data = path.resolve(SNAPSHOT_FILE_NAME);
+
+            if (!Files.exists(data))
+                throw new IgniteInternalException("Snapshot not found: " + data);
+
+            db.ingestExternalFile(Collections.singletonList(data.toString()), ingestOptions);
+        }
+        catch (RocksDBException e) {
+            throw new IgniteInternalException("Fail to ingest sst file at path: " + path, e);
+        }
+    }
+
+    /** {@inheritDoc} */
     @Override public void close() throws Exception {
+        IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
+
         IgniteUtils.closeAll(comparatorOptions, comparator, options, db);
     }
 
-    /** Cusror wrapper over the RocksIterator object with custom filter. */
+    /** Cursor wrapper over the RocksIterator object with custom filter. */
     private static class ScanCursor implements Cursor<DataRow> {
         /** Iterator from RocksDB. */
         private final RocksIterator iter;
@@ -378,5 +502,13 @@ public class RocksDbStorage implements Storage {
         @Override public void close() throws Exception {
             iter.close();
         }
+    }
+
+    /**
+     * @return Path to the database.
+     */
+    @TestOnly
+    public Path getDbPath() {
+        return dbPath;
     }
 }
