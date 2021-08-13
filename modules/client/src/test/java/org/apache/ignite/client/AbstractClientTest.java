@@ -19,7 +19,7 @@ package org.apache.ignite.client;
 
 import java.net.InetSocketAddress;
 import java.util.Collections;
-import io.netty.channel.ChannelFuture;
+import java.util.Objects;
 import io.netty.util.ResourceLeakDetector;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
@@ -45,7 +45,7 @@ public abstract class AbstractClientTest {
 
     protected static ConfigurationRegistry configurationRegistry;
 
-    protected static ChannelFuture serverFuture;
+    protected static ClientHandlerModule serverModule;
 
     protected static Ignite server;
 
@@ -57,8 +57,8 @@ public abstract class AbstractClientTest {
     public static void beforeAll() throws Exception {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
-        serverFuture = startServer(null);
-        serverPort = ((InetSocketAddress)serverFuture.channel().localAddress()).getPort();
+        serverModule = startServer(null);
+        serverPort = ((InetSocketAddress) Objects.requireNonNull(serverModule.localAddress())).getPort();
 
         client = startClient();
     }
@@ -66,9 +66,7 @@ public abstract class AbstractClientTest {
     @AfterAll
     public static void afterAll() throws Exception {
         client.close();
-        serverFuture.cancel(true);
-        serverFuture.await();
-        serverFuture.channel().closeFuture().await();
+        serverModule.stop();
         configurationRegistry.stop();
     }
 
@@ -87,7 +85,7 @@ public abstract class AbstractClientTest {
         return builder.build();
     }
 
-    public static ChannelFuture startServer(String host) throws InterruptedException {
+    public static ClientHandlerModule startServer(String host) {
         configurationRegistry = new ConfigurationRegistry(
                 Collections.singletonList(ClientConnectorConfiguration.KEY),
                 Collections.emptyMap(),
@@ -101,8 +99,9 @@ public abstract class AbstractClientTest {
         var module = new ClientHandlerModule(server, NOPLogger.NOP_LOGGER);
 
         module.prepareStart(configurationRegistry);
+        module.start();
 
-        return module.start();
+        return module;
     }
 
     public static void assertTupleEquals(Tuple x, Tuple y) {

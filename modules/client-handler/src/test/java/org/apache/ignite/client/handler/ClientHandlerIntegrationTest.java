@@ -22,7 +22,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.Collections;
-import io.netty.channel.ChannelFuture;
+import java.util.Objects;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
@@ -46,23 +46,21 @@ public class ClientHandlerIntegrationTest {
     /** Magic bytes. */
     private static final byte[] MAGIC = new byte[]{0x49, 0x47, 0x4E, 0x49};
 
-    private ChannelFuture serverFuture;
+    private ClientHandlerModule serverModule;
 
     private ConfigurationRegistry configurationRegistry;
 
     private int serverPort;
 
     @BeforeEach
-    public void setUp() throws Exception {
-        serverFuture = startServer();
-        serverPort = ((InetSocketAddress)serverFuture.channel().localAddress()).getPort();
+    public void setUp() {
+        serverModule = startServer();
+        serverPort = ((InetSocketAddress) Objects.requireNonNull(serverModule.localAddress())).getPort();
     }
 
     @AfterEach
     public void tearDown() throws Exception {
-        serverFuture.cancel(true);
-        serverFuture.await();
-        serverFuture.channel().closeFuture().await();
+        serverModule.stop();
         configurationRegistry.stop();
     }
 
@@ -177,7 +175,7 @@ public class ClientHandlerIntegrationTest {
         }
     }
 
-    private ChannelFuture startServer() throws InterruptedException {
+    private ClientHandlerModule startServer() {
         configurationRegistry = new ConfigurationRegistry(
                 Collections.singletonList(ClientConnectorConfiguration.KEY),
                 Collections.emptyMap(),
@@ -189,8 +187,9 @@ public class ClientHandlerIntegrationTest {
         var module = new ClientHandlerModule(mock(Ignite.class), NOPLogger.NOP_LOGGER);
 
         module.prepareStart(configurationRegistry);
+        module.start();
 
-        return module.start();
+        return module;
     }
 
     private void writeAndFlushLoop(Socket socket) throws Exception {

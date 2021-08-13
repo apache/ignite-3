@@ -18,6 +18,8 @@
 package org.apache.ignite.client.handler;
 
 import java.net.BindException;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -31,14 +33,16 @@ import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.proto.ClientMessageDecoder;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
  * Client handler module maintains TCP endpoint for thin client connections.
  *
  */
-public class ClientHandlerModule {
+public class ClientHandlerModule implements IgniteComponent {
     /** Configuration registry. */
     private ConfigurationRegistry registry;
 
@@ -47,6 +51,9 @@ public class ClientHandlerModule {
 
     /** Logger. */
     private final Logger log;
+
+    /** Netty channel future. */
+    private ChannelFuture channelFuture;
 
     /**
      * Constructor.
@@ -68,14 +75,36 @@ public class ClientHandlerModule {
         registry = sysCfg;
     }
 
+    /** {@inheritDoc} */
+    @Override public void start() {
+        if (channelFuture != null)
+            throw new IgniteException("ClientHandlerModule is already started.");
+
+        try {
+            channelFuture = startEndpoint();
+        } catch (InterruptedException e) {
+            throw new IgniteException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void stop() throws Exception {
+        if (channelFuture != null) {
+            channelFuture.cancel(true);
+            channelFuture.await();
+            channelFuture.channel().closeFuture().await();
+
+            channelFuture = null;
+        }
+    }
+
     /**
-     * Starts the module.
+     * Returns the local address where this handler is bound to.
      *
-     * @return channel future.
-     * @throws InterruptedException If thread has been interrupted during the start.
+     * @return the local address of this module, or {@code null} if this module is not started.
      */
-    public ChannelFuture start() throws InterruptedException {
-        return startEndpoint();
+    public @Nullable SocketAddress localAddress() {
+        return channelFuture == null ? null : channelFuture.channel().localAddress();
     }
 
     /**
