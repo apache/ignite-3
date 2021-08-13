@@ -25,7 +25,7 @@ import java.util.Collections;
 import java.util.Objects;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
-import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.junit.jupiter.api.AfterEach;
@@ -47,7 +47,7 @@ public class ClientHandlerIntegrationTest {
 
     private ClientHandlerModule serverModule;
 
-    private ConfigurationRegistry configurationRegistry;
+    private ConfigurationManager configurationManager;
 
     private int serverPort;
 
@@ -60,7 +60,7 @@ public class ClientHandlerIntegrationTest {
     @AfterEach
     public void tearDown() throws Exception {
         serverModule.stop();
-        configurationRegistry.stop();
+        configurationManager.stop();
     }
 
     @Test
@@ -175,15 +175,20 @@ public class ClientHandlerIntegrationTest {
     }
 
     private ClientHandlerModule startServer() {
-        configurationRegistry = new ConfigurationRegistry(
+        configurationManager = new ConfigurationManager(
                 Collections.singletonList(ClientConnectorConfiguration.KEY),
-                Collections.emptyMap(),
                 Collections.singletonList(new TestConfigurationStorage(ConfigurationType.LOCAL))
         );
 
-        configurationRegistry.start();
+        configurationManager.start();
 
-        var module = new ClientHandlerModule(mock(IgniteTables.class), configurationRegistry);
+        var registry = configurationManager.configurationRegistry();
+
+        registry.getConfiguration(ClientConnectorConfiguration.KEY).change(
+                local -> local.changePort(10800).changePortRange(10)
+        ).join();
+
+        var module = new ClientHandlerModule(mock(IgniteTables.class), registry);
 
         module.start();
 
