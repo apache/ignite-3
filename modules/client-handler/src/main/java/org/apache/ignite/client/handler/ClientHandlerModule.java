@@ -133,7 +133,7 @@ public class ClientHandlerModule implements IgniteComponent {
             .childOption(ChannelOption.SO_KEEPALIVE, true)
             .childOption(ChannelOption.TCP_NODELAY, true);
 
-        for (int portCandidate = desiredPort; portCandidate < desiredPort + portRange; portCandidate++) {
+        for (int portCandidate = desiredPort; portCandidate <= desiredPort + portRange; portCandidate++) {
             ChannelFuture bindRes = b.bind(portCandidate).await();
 
             if (bindRes.isSuccess()) {
