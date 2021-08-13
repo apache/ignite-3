@@ -93,11 +93,10 @@ public class ClientHandlerModule {
         int portRange = configuration.portRange().value() == null ? 100 : configuration.portRange().value();
 
         int port = 0;
-
         Channel ch = null;
 
+        // TODO: Reuse Netty infrastructure from network module IGNITE-15307.
         EventLoopGroup eventLoopGroup = new NioEventLoopGroup();
-
         ServerBootstrap b = new ServerBootstrap();
 
         b.group(eventLoopGroup)
