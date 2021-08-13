@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import java.util.List;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -26,11 +27,8 @@ import org.apache.ignite.schema.SchemaMode;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.TupleBuilder;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -52,7 +50,7 @@ class LiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         KeyValueBinaryView view = grid.get(1).tables().table(TABLE).kvView();
 
-        assertThrows(ColumnNotFoundException.class, () -> view.tupleBuilder().set("key", 1L).set("unknownColumn", 10).build());
+        assertThrows(ColumnNotFoundException.class, () -> view.tuple().set("key", 1L).set("unknownColumn", 10));
     }
 
     /**
@@ -70,8 +68,8 @@ class LiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         KeyValueBinaryView kvBinaryView = tbl.kvView();
 
-        Tuple key = kvBinaryView.tupleBuilder().set("key", 1L).build();
-        Tuple val = kvBinaryView.tupleBuilder().set("valStrNew", "111").set("valIntNew", 333).build();
+        Tuple key = kvBinaryView.tuple().set("key", 1L);
+        Tuple val = kvBinaryView.tuple().set("valStrNew", "111").set("valIntNew", 333);
 
         kvBinaryView.put(key, val);
 
@@ -95,8 +93,8 @@ class LiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         KeyValueBinaryView kvBinaryView = tbl.kvView();
 
-        Tuple key = kvBinaryView.tupleBuilder().set("key", 1L).build();
-        Tuple val = kvBinaryView.tupleBuilder().set("valStrNew", "111").set("valIntNew", 333).build();
+        Tuple key = kvBinaryView.tuple().set("key", 1L);
+        Tuple val = kvBinaryView.tuple().set("valStrNew", "111").set("valIntNew", 333);
 
         kvBinaryView.put(key, val);
 
@@ -107,8 +105,8 @@ class LiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         ((TableImpl)tbl).schemaType(SchemaMode.STRICT_SCHEMA);
 
-        Tuple anotherKey = kvBinaryView.tupleBuilder().set("key", 2L).build();
-        Tuple anotherVal = kvBinaryView.tupleBuilder().set("valStrNew", "111").set("valIntNew", 333).build();
+        Tuple anotherKey = kvBinaryView.tuple().set("key", 2L);
+        Tuple anotherVal = kvBinaryView.tuple().set("valStrNew", "111").set("valIntNew", 333);
 
         kvBinaryView.put(anotherKey, anotherVal);
 
@@ -117,7 +115,7 @@ class LiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
         assertEquals("111", newRes.value("valStrNew"));
         assertEquals(Integer.valueOf(333), newRes.value("valIntNew"));
 
-        assertThrows(ColumnNotFoundException.class, () -> kvBinaryView.tupleBuilder().set("key", 1L).set("unknownColumn", 10).build());
+        assertThrows(ColumnNotFoundException.class, () -> kvBinaryView.tuple().set("key", 1L).set("unknownColumn", 10));
     }
 
     /**
@@ -135,12 +133,12 @@ class LiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         KeyValueBinaryView view = tbl.kvView();
 
-        Tuple oldSchemaKey = view.tupleBuilder().set("key", 32L).build();
-        Tuple oldSchemaVal = view.tupleBuilder().set("valInt", 111).set("valStr", "str").build();
+        Tuple oldSchemaKey = view.tuple().set("key", 32L);
+        Tuple oldSchemaVal = view.tuple().set("valInt", 111).set("valStr", "str");
 
         view.put(oldSchemaKey, oldSchemaVal);
 
-        Tuple upsertOldSchemaVal = view.tupleBuilder().set("valStrNew", "111").set("valIntNew", 333).build();
+        Tuple upsertOldSchemaVal = view.tuple().set("valStrNew", "111").set("valIntNew", 333);
 
         view.put(oldSchemaKey, upsertOldSchemaVal);
 
@@ -165,11 +163,11 @@ class LiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         KeyValueBinaryView view = tbl.kvView();
 
-        Tuple oldSchemaKey = view.tupleBuilder().set("key", 32L).build();
+        Tuple oldSchemaKey = view.tuple().set("key", 32L);
 
-        Tuple oldSchemaVal = view.tupleBuilder().set("valInt", 111).set("valStr", "str").build();
-        Tuple upsertOldSchemaVal = view.tupleBuilder().set("valStrNew", "111").set("valIntNew", 333).build();
-        Tuple secondUpsertOldSchemaVal = view.tupleBuilder().set("valStrNew", "111").set("valIntNew", 333).set("anotherNewVal", 48L).build();
+        Tuple oldSchemaVal = view.tuple().set("valInt", 111).set("valStr", "str");
+        Tuple upsertOldSchemaVal = view.tuple().set("valStrNew", "111").set("valIntNew", 333);
+        Tuple secondUpsertOldSchemaVal = view.tuple().set("valStrNew", "111").set("valIntNew", 333).set("anotherNewVal", 48L);
 
         view.put(oldSchemaKey, oldSchemaVal);
         view.put(oldSchemaKey, upsertOldSchemaVal);
@@ -197,11 +195,11 @@ class LiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         KeyValueBinaryView view = tbl.kvView();
 
-        Tuple oldSchemaKey = view.tupleBuilder().set("key", 32L).build();
-        Tuple oldSchemaVal = view.tupleBuilder().set("valInt", 111).set("valStr", "str").build();
+        Tuple oldSchemaKey = view.tuple().set("key", 32L);
+        Tuple oldSchemaVal = view.tuple().set("valInt", 111).set("valStr", "str");
 
-        Tuple newSchemaKey = view.tupleBuilder().set("key", 1L).build();
-        Tuple newSchemaVal = view.tupleBuilder().set("valStrNew", "111").set("valIntNew", 333).build();
+        Tuple newSchemaKey = view.tuple().set("key", 1L);
+        Tuple newSchemaVal = view.tuple().set("valStrNew", "111").set("valIntNew", 333);
 
         view.put(newSchemaKey, newSchemaVal);
         view.put(oldSchemaKey, oldSchemaVal);
@@ -211,7 +209,7 @@ class LiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
         assertEquals("111", res.value("valStrNew"));
         assertEquals(Integer.valueOf(333), res.value("valIntNew"));
 
-        TupleBuilder newVerBuilder = tbl.tupleBuilder();
+        Tuple newVerBuilder = tbl.tuple();
 
         SchemaDescriptor schema = ((SchemaAware)newVerBuilder).schema();
 

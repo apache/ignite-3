@@ -29,7 +29,6 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.TupleBuilder;
 
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 
@@ -38,7 +37,8 @@ import static org.apache.ignite.internal.schema.configuration.SchemaConfiguratio
  *
  * Allows to create columns implicitly by adding previously nonexistent columns during insert.
  */
-public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
+// Move all logic to table and drop this class.
+public class LiveSchemaTupleBuilderImpl extends TupleImpl {
     /** Live schema column values. */
     private Map<String, Object> extraColumnsMap;
 
@@ -69,7 +69,7 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
     }
 
     /** {@inheritDoc} */
-    @Override public TupleBuilder set(String columnName, Object val) {
+    @Override public Tuple set(String columnName, Object val) {
         Column col = schema().column(columnName);
 
         if (col == null) {
@@ -89,7 +89,8 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
     }
 
     /** {@inheritDoc} */
-    @Override public Tuple build() {
+    //TOOD: Mpve to table.
+    public Tuple build() {
         if (extraColumnsMap == null)
             return this;
 

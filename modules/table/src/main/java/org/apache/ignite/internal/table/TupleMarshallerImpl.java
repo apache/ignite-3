@@ -88,8 +88,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @throws SchemaMismatchException If validation failed.
      */
     private void validate(Tuple tuple, Columns columns) {
-        if (tuple instanceof TupleBuilderImpl) {
-            TupleBuilderImpl t0 = (TupleBuilderImpl)tuple;
+        if (tuple instanceof TupleImpl) {
+            TupleImpl t0 = (TupleImpl)tuple;
 
             SchemaDescriptor expSchema = schemaReg.schema(t0.schema().version());
 

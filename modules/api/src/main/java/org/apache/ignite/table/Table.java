@@ -112,7 +112,7 @@ public interface Table extends TableView<Tuple> {
     /**
      * Factory method shortcut.
      *
-     * @return Tuple builder.
+     * @return Tuple.
      */
-    TupleBuilder tupleBuilder();
+    Tuple tuple();
 }

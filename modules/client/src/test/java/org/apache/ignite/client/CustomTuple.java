@@ -76,6 +76,10 @@ public class CustomTuple implements Tuple {
         return def;
     }
 
+    @Override public Tuple set(String columnName, Object value) {
+        throw new UnsupportedOperationException("Tuple is immutable.");
+    }
+
     @Override public <T> T value(String columnName) {
         return valueOrDefault(columnName, null);
     }

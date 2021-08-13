@@ -21,7 +21,6 @@ import java.util.BitSet;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjects;
@@ -29,13 +28,12 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.TupleBuilder;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * Buildable tuple.
  */
-public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
+public class TupleImpl implements Tuple, SchemaAware {
     /** Columns values. */
     protected Map<String, Object> map;
 
@@ -47,15 +45,12 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
      *
      * @param schemaDesc Schema descriptor.
      */
-    public TupleBuilderImpl(SchemaDescriptor schemaDesc) {
-        Objects.requireNonNull(schemaDesc);
-
-        this.schemaDesc = schemaDesc;
-        map = new HashMap<>(schemaDesc.length());
+    public TupleImpl(SchemaDescriptor schemaDesc) {
+        map = new HashMap<>();
     }
 
     /** {@inheritDoc} */
-    @Override public TupleBuilder set(String columnName, Object val) {
+    @Override public Tuple set(String columnName, Object val) {
         getColumnOrThrow(columnName).validate(val);
 
         map.put(columnName, val);
@@ -70,18 +65,13 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
      * @param value Value to set.
      * @return {@code this} for chaining.
      */
-    public TupleBuilder set(Column col, Object value) {
+    public Tuple set(Column col, Object value) {
         assert col != null;
 
         col.validate(value);
 
         map.put(col.name(), value);
 
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override public Tuple build() {
         return this;
     }
 

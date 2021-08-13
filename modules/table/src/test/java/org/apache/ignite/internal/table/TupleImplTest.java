@@ -36,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * Should be in sync with org.apache.ignite.client.ClientTupleBuilderTest.
  */
-public class TupleBuilderImplTest {
+public class TupleImplTest {
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(UUID.randomUUID(), 1,
             new Column[] {new Column("id", NativeTypes.INT64, false)},
             new Column[] {new Column("name", NativeTypes.STRING, true)
@@ -62,33 +62,33 @@ public class TupleBuilderImplTest {
 
     @Test
     public void testValueOrDefaultReturnsDefaultWhenColumnIsNotPresent() {
-        assertEquals("foo", getBuilder().valueOrDefault("x", "foo"));
+        assertEquals("foo", createTuple().valueOrDefault("x", "foo"));
     }
 
     @Test
     public void testValueOrDefaultReturnsDefaultWhenColumnIsPresentButNotSet() {
-        assertEquals("foo", getBuilder().valueOrDefault("name", "foo"));
+        assertEquals("foo", createTuple().valueOrDefault("name", "foo"));
     }
 
     @Test
     public void testValueOrDefaultReturnsNullWhenColumnIsSetToNull() {
-        var tuple = getBuilder().set("name", null).build();
+        var tuple = createTuple().set("name", null);
 
         assertNull(tuple.valueOrDefault("name", "foo"));
     }
 
     @Test
     public void testSetThrowsWhenColumnIsNotPresent() {
-        var ex = assertThrows(IgniteException.class, () -> getBuilder().set("x", "y"));
+        var ex = assertThrows(IgniteException.class, () -> createTuple().set("x", "y"));
         assertTrue(ex.getMessage().startsWith("Column not found"), ex.getMessage());
     }
 
     @Test
     public void testValueThrowsWhenColumnIsNotPresent() {
-        var ex = assertThrows(IgniteException.class, () -> getBuilder().value("x"));
+        var ex = assertThrows(IgniteException.class, () -> createTuple().value("x"));
         assertTrue(ex.getMessage().startsWith("Column not found"), ex.getMessage());
 
-        var ex2 = assertThrows(IllegalArgumentException.class, () -> getBuilder().value(100));
+        var ex2 = assertThrows(IllegalArgumentException.class, () -> createTuple().value(100));
         assertTrue(ex2.getMessage().startsWith("Column index can't be greater than 1"), ex2.getMessage());
     }
 
@@ -120,14 +120,13 @@ public class TupleBuilderImplTest {
         assertNull(getTuple().columnIndex("foo"));
     }
 
-    private static TupleBuilderImpl getBuilder() {
-        return new TupleBuilderImpl(SCHEMA);
+    private static TupleImpl createTuple() {
+        return new TupleImpl(SCHEMA);
     }
 
     private static Tuple getTuple() {
-        return new TupleBuilderImpl(SCHEMA)
+        return new TupleImpl(SCHEMA)
                 .set("id", 3L)
-                .set("name", "Shirt")
-                .build();
+                .set("name", "Shirt");
     }
 }

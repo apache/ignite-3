@@ -22,7 +22,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.fakes.FakeSchemaRegistry;
-import org.apache.ignite.internal.client.table.ClientTupleBuilder;
+import org.apache.ignite.internal.client.table.ClientTuple;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
@@ -46,7 +46,7 @@ public class ClientTableTest extends AbstractClientTest {
     public void testGetWithNullInNotNullableKeyColumnThrowsException() {
         var table = defaultTable();
 
-        var key = table.tupleBuilder().set("name", "123").build();
+        var key = table.tuple().set("name", "123");
 
         var ex = assertThrows(CompletionException.class, () -> table.get(key));
 
@@ -94,7 +94,7 @@ public class ClientTableTest extends AbstractClientTest {
         var table = defaultTable();
 
         var tuple = tuple(42L, "Jack");
-        var key = table.tupleBuilder().set("id", 42).build();
+        var key = table.tuple().set("id", 42);
 
         var resTuple = table.upsertAsync(tuple).thenCompose(t -> table.getAsync(key)).join();
 
@@ -111,7 +111,7 @@ public class ClientTableTest extends AbstractClientTest {
         Tuple tuple = tuple(table);
         table.upsert(tuple);
 
-        assertEquals(2, ((ClientTupleBuilder)tuple).schema().version());
+        assertEquals(2, ((ClientTuple)tuple).schema().version());
 
         FakeSchemaRegistry.setLastVer(1);
 
@@ -120,8 +120,8 @@ public class ClientTableTest extends AbstractClientTest {
             var tuple2 = tuple(table2);
             var resTuple = table2.get(tuple2);
 
-            assertEquals(1, ((ClientTupleBuilder)tuple2).schema().version());
-            assertEquals(2, ((ClientTupleBuilder)resTuple).schema().version());
+            assertEquals(1, ((ClientTuple)tuple2).schema().version());
+            assertEquals(2, ((ClientTuple)resTuple).schema().version());
 
             assertEquals(DEFAULT_NAME, resTuple.stringValue("name"));
             assertEquals(DEFAULT_ID, resTuple.longValue("id"));
@@ -343,36 +343,31 @@ public class ClientTableTest extends AbstractClientTest {
     }
 
     private Tuple tuple() {
-        return defaultTable().tupleBuilder()
+        return defaultTable().tuple()
                 .set("id", DEFAULT_ID)
-                .set("name", DEFAULT_NAME)
-                .build();
+                .set("name", DEFAULT_NAME);
     }
 
     private Tuple tuple(Table table) {
-        return table.tupleBuilder()
+        return table.tuple()
                 .set("id", DEFAULT_ID)
-                .set("name", DEFAULT_NAME)
-                .build();
+                .set("name", DEFAULT_NAME);
     }
 
     private Tuple tuple(Long id) {
-        return defaultTable().tupleBuilder()
-                .set("id", id)
-                .build();
+        return defaultTable().tuple()
+                .set("id", id);
     }
 
     private Tuple tuple(Long id, String name) {
-        return defaultTable().tupleBuilder()
+        return defaultTable().tuple()
                 .set("id", id)
-                .set("name", name)
-                .build();
+                .set("name", name);
     }
 
     private Tuple defaultTupleKey(Table table) {
-        return table.tupleBuilder()
-                .set("id", DEFAULT_ID)
-                .build();
+        return table.tuple()
+                .set("id", DEFAULT_ID);
     }
 
     private Table defaultTable() {

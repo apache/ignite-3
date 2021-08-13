@@ -29,7 +29,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.table.TupleBuilderImpl;
+import org.apache.ignite.internal.table.TupleImpl;
 import org.apache.ignite.internal.table.TupleMarshallerImpl;
 import org.apache.ignite.table.Tuple;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -156,14 +156,14 @@ public class TupleMarshallerVarlenOnlyBenchmark {
     public void measureTupleBuildAndMarshallerCost(Blackhole bh) {
         final Columns cols = schema.valueColumns();
 
-        final TupleBuilderImpl valBld = new TupleBuilderImpl(schema);
+        final TupleImpl valBld = new TupleImpl(schema);
 
         for (int i = 0; i < cols.length(); i++)
             valBld.set(cols.column(i).name(), val);
 
-        Tuple keyTuple = new TupleBuilderImpl(schema).set("key", rnd.nextLong()).build();
+        Tuple keyTuple = new TupleImpl(schema).set("key", rnd.nextLong());
 
-        final Row row = marshaller.marshal(keyTuple, valBld.build());
+        final Row row = marshaller.marshal(keyTuple, valBld);
 
         bh.consume(row);
     }

@@ -49,7 +49,7 @@ public class StrictSchemaOperationsTest {
 
         Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
-        assertThrows(ColumnNotFoundException.class, () -> tbl.tupleBuilder().set("invalidCol", 0));
+        assertThrows(ColumnNotFoundException.class, () -> tbl.tuple().set("invalidCol", 0));
     }
 
     /**
@@ -70,13 +70,13 @@ public class StrictSchemaOperationsTest {
         Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         // Check not-nullable column.
-        assertThrows(IllegalArgumentException.class, () -> tbl.tupleBuilder().set("id", null));
+        assertThrows(IllegalArgumentException.class, () -> tbl.tuple().set("id", null));
 
         // Check length of the string column
-        assertThrows(InvalidTypeException.class, () -> tbl.tupleBuilder().set("valString", "qweqwe"));
+        assertThrows(InvalidTypeException.class, () -> tbl.tuple().set("valString", "qweqwe"));
 
         // Check length of the string column
-        assertThrows(InvalidTypeException.class, () -> tbl.tupleBuilder().set("valBytes", new byte[] {0, 1, 2, 3}));
+        assertThrows(InvalidTypeException.class, () -> tbl.tuple().set("valBytes", new byte[] {0, 1, 2, 3}));
     }
 
     /**
@@ -95,14 +95,14 @@ public class StrictSchemaOperationsTest {
 
         Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
-        tbl.tupleBuilder().set("valString", "qwe");
-        tbl.tupleBuilder().set("valString", "qw");
-        tbl.tupleBuilder().set("valString", "q");
-        tbl.tupleBuilder().set("valString", "");
-        tbl.tupleBuilder().set("valString", null);
+        tbl.tuple().set("valString", "qwe");
+        tbl.tuple().set("valString", "qw");
+        tbl.tuple().set("valString", "q");
+        tbl.tuple().set("valString", "");
+        tbl.tuple().set("valString", null);
 
         // Chek string 3 char length and 9 bytes.
-        tbl.tupleBuilder().set("valString", "我是谁");
+        tbl.tuple().set("valString", "我是谁");
     }
 
     /**
@@ -121,11 +121,11 @@ public class StrictSchemaOperationsTest {
 
         Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
-        tbl.tupleBuilder().set("valUnlimited", null);
-        tbl.tupleBuilder().set("valLimited", null);
-        tbl.tupleBuilder().set("valUnlimited", new byte[2]);
-        tbl.tupleBuilder().set("valLimited", new byte[2]);
-        tbl.tupleBuilder().set("valUnlimited", new byte[3]);
-        assertThrows(InvalidTypeException.class, () -> tbl.tupleBuilder().set("valLimited", new byte[3]));
+        tbl.tuple().set("valUnlimited", null);
+        tbl.tuple().set("valLimited", null);
+        tbl.tuple().set("valUnlimited", new byte[2]);
+        tbl.tuple().set("valLimited", new byte[2]);
+        tbl.tuple().set("valUnlimited", new byte[3]);
+        assertThrows(InvalidTypeException.class, () -> tbl.tuple().set("valLimited", new byte[3]));
     }
 }

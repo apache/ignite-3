@@ -37,7 +37,6 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.TupleBuilder;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.RecordMapper;
 import org.apache.ignite.table.mapper.ValueMapper;
@@ -391,10 +390,10 @@ public class TableImpl extends AbstractTableView implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public TupleBuilder tupleBuilder() {
+    @Override public Tuple tuple() {
         switch (tbl.schemaMode()) {
             case STRICT_SCHEMA:
-                return new TupleBuilderImpl(schemaReg.schema());
+                return new TupleImpl(schemaReg.schema());
             case LIVE_SCHEMA:
                 return new LiveSchemaTupleBuilderImpl(schemaReg, tbl.tableName(), tblMgr);
         }

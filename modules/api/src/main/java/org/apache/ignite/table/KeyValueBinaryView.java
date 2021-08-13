@@ -27,9 +27,9 @@ public interface KeyValueBinaryView extends KeyValueView<Tuple, Tuple> {
     /**
      * Factory method shortcut.
      *
-     * @return Tuple builder.
+     * @return Tuple.
      */
-    TupleBuilder tupleBuilder();
+    Tuple tuple();
 
     /** {@inheritDoc} */
     @Override KeyValueBinaryView withTransaction(Transaction tx);

@@ -72,6 +72,11 @@ public abstract class RowChunkAdapter implements Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
+    @Override public Tuple set(String columnName, Object value) {
+        throw new UnsupportedOperationException("Tuple is immutable.");
+    }
+
+    /** {@inheritDoc} */
     @Override public <T> T value(String columnName) {
         final Column col = columnByName(columnName);
 

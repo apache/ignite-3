@@ -31,7 +31,6 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.TupleBuilder;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 
@@ -308,10 +307,10 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinar
     }
 
     /** {@inheritDoc} */
-    @Override public TupleBuilder tupleBuilder() {
+    @Override public Tuple tuple() {
         switch (tbl.schemaMode()) {
             case STRICT_SCHEMA:
-                return new TupleBuilderImpl(schemaReg.schema());
+                return new TupleImpl(schemaReg.schema());
             case LIVE_SCHEMA:
                 return new LiveSchemaTupleBuilderImpl(schemaReg, tbl.tableName(), tblMgr);
         }

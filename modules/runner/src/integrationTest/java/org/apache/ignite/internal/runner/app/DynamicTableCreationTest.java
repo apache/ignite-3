@@ -123,15 +123,15 @@ class DynamicTableCreationTest {
         Table tbl1 = clusterNodes.get(1).tables().table(schTbl1.canonicalName());
         KeyValueBinaryView kvView1 = tbl1.kvView();
 
-        tbl1.insert(tbl1.tupleBuilder().set("key", 1L).set("val", 111).build());
-        kvView1.put(tbl1.tupleBuilder().set("key", 2L).build(), tbl1.tupleBuilder().set("val", 222).build());
+        tbl1.insert(tbl1.tuple().set("key", 1L).set("val", 111));
+        kvView1.put(tbl1.tuple().set("key", 2L), tbl1.tuple().set("val", 222));
 
         // Get data on node 2.
         Table tbl2 = clusterNodes.get(2).tables().table(schTbl1.canonicalName());
         KeyValueBinaryView kvView2 = tbl2.kvView();
 
-        final Tuple keyTuple1 = tbl2.tupleBuilder().set("key", 1L).build();
-        final Tuple keyTuple2 = kvView2.tupleBuilder().set("key", 2L).build();
+        final Tuple keyTuple1 = tbl2.tuple().set("key", 1L);
+        final Tuple keyTuple2 = kvView2.tuple().set("key", 2L);
 
         assertThrows(SchemaMismatchException.class, () -> kvView2.get(keyTuple1).value("key"));
         assertThrows(SchemaMismatchException.class, () -> kvView2.get(keyTuple1).value("key"));
@@ -187,18 +187,18 @@ class DynamicTableCreationTest {
         Table tbl1 = clusterNodes.get(1).tables().table(scmTbl1.canonicalName());
         KeyValueBinaryView kvView1 = tbl1.kvView();
 
-        tbl1.insert(tbl1.tupleBuilder().set("key", uuid).set("affKey", 42L)
-            .set("valStr", "String value").set("valInt", 73).set("valNull", null).build());
+        tbl1.insert(tbl1.tuple().set("key", uuid).set("affKey", 42L)
+            .set("valStr", "String value").set("valInt", 73).set("valNull", null));
 
-        kvView1.put(kvView1.tupleBuilder().set("key", uuid2).set("affKey", 4242L).build(),
-            kvView1.tupleBuilder().set("valStr", "String value 2").set("valInt", 7373).set("valNull", null).build());
+        kvView1.put(kvView1.tuple().set("key", uuid2).set("affKey", 4242L),
+            kvView1.tuple().set("valStr", "String value 2").set("valInt", 7373).set("valNull", null));
 
         // Get data on node 2.
         Table tbl2 = clusterNodes.get(2).tables().table(scmTbl1.canonicalName());
         KeyValueBinaryView kvView2 = tbl2.kvView();
 
-        final Tuple keyTuple1 = tbl2.tupleBuilder().set("key", uuid).set("affKey", 42L).build();
-        final Tuple keyTuple2 = tbl2.tupleBuilder().set("key", uuid2).set("affKey", 4242L).build();
+        final Tuple keyTuple1 = tbl2.tuple().set("key", uuid).set("affKey", 42L);
+        final Tuple keyTuple2 = tbl2.tuple().set("key", uuid2).set("affKey", 4242L);
 
         // KV view must NOT return key columns in value.
         assertThrows(SchemaMismatchException.class, () -> kvView2.get(keyTuple1).value("key"));

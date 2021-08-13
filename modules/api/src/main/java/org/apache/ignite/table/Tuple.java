@@ -61,6 +61,15 @@ public interface Tuple extends Iterable<Object> {
     <T> T valueOrDefault(String columnName, T def);
 
     /**
+     * Sets column value.
+     *
+     * @param columnName Column name.
+     * @param value Value to set.
+     * @return {@code this} for chaining.
+     */
+    Tuple set(String columnName, Object value);
+
+    /**
      * Gets column value for given column name.
      *
      * @param columnName Column name.

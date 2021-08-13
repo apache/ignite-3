@@ -23,7 +23,7 @@ import java.util.UUID;
 import org.apache.ignite.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
-import org.apache.ignite.internal.client.table.ClientTupleBuilder;
+import org.apache.ignite.internal.client.table.ClientTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
@@ -37,7 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  *
  * Should be in sync with org.apache.ignite.internal.table.TupleBuilderImplTest.
  */
-public class ClientTupleBuilderTest {
+public class ClientTupleTest {
     private static final ClientSchema SCHEMA = new ClientSchema(1, new ClientColumn[] {
             new ClientColumn("id", ClientDataType.INT64, false, true, 0),
             new ClientColumn("name", ClientDataType.STRING, false, false, 1)
@@ -73,14 +73,14 @@ public class ClientTupleBuilderTest {
 
     @Test
     public void testValueOrDefaultReturnsNullWhenColumnIsSetToNull() {
-        var tuple = getBuilder().set("name", null).build();
+        var tuple = getBuilder().set("name", null);
 
         assertNull(tuple.valueOrDefault("name", "foo"));
     }
 
     @Test
     public void testEmptySchemaThrows() {
-        assertThrows(AssertionError.class, () -> new ClientTupleBuilder(new ClientSchema(1, new ClientColumn[0])));
+        assertThrows(AssertionError.class, () -> new ClientTuple(new ClientSchema(1, new ClientColumn[0])));
     }
 
     @Test
@@ -142,7 +142,7 @@ public class ClientTupleBuilderTest {
 
         var uuid = UUID.randomUUID();
 
-        var builder = new ClientTupleBuilder(schema)
+        var tuple = new ClientTuple(schema)
                 .set("i8", (byte)1)
                 .set("i16", (short)2)
                 .set("i32", (int)3)
@@ -152,8 +152,6 @@ public class ClientTupleBuilderTest {
                 .set("uuid", uuid)
                 .set("str", "8")
                 .set("bits", new BitSet(3));
-
-        var tuple = builder.build();
 
         assertEquals(1, tuple.byteValue(0));
         assertEquals(1, tuple.byteValue("i8"));
@@ -183,14 +181,13 @@ public class ClientTupleBuilderTest {
         assertEquals(0, tuple.bitmaskValue("bits").length());
     }
 
-    private static ClientTupleBuilder getBuilder() {
-        return new ClientTupleBuilder(SCHEMA);
+    private static ClientTuple getBuilder() {
+        return new ClientTuple(SCHEMA);
     }
 
     private static Tuple getTuple() {
-        return new ClientTupleBuilder(SCHEMA)
+        return new ClientTuple(SCHEMA)
                 .set("id", 3L)
-                .set("name", "Shirt")
-                .build();
+                .set("name", "Shirt");
     }
 }
