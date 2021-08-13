@@ -50,8 +50,8 @@ public class ClientHandlerModule implements IgniteComponent {
     /** Ignite tables API. */
     private final IgniteTables igniteTables;
 
-    /** Netty channel future. */
-    private ChannelFuture channelFuture;
+    /** Netty channel. */
+    private Channel channel;
 
     /**
      * Constructor.
@@ -72,11 +72,11 @@ public class ClientHandlerModule implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override public void start() {
-        if (channelFuture != null)
+        if (channel != null)
             throw new IgniteException("ClientHandlerModule is already started.");
 
         try {
-            channelFuture = startEndpoint();
+            channel = startEndpoint().channel();
         } catch (InterruptedException e) {
             throw new IgniteException(e);
         }
@@ -84,12 +84,10 @@ public class ClientHandlerModule implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override public void stop() throws Exception {
-        if (channelFuture != null) {
-            channelFuture.cancel(true);
-            channelFuture.await();
-            channelFuture.channel().closeFuture().await();
+        if (channel != null) {
+            channel.close().await();
 
-            channelFuture = null;
+            channel = null;
         }
     }
 
@@ -99,7 +97,7 @@ public class ClientHandlerModule implements IgniteComponent {
      * @return the local address of this module, or {@code null} if this module is not started.
      */
     public @Nullable SocketAddress localAddress() {
-        return channelFuture == null ? null : channelFuture.channel().localAddress();
+        return channel == null ? null : channel.localAddress();
     }
 
     /**
