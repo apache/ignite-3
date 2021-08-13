@@ -58,13 +58,13 @@ public class CustomTuple implements Tuple {
         return null;
     }
 
-    @Override public Integer columnIndex(String columnName) {
+    @Override public int columnIndex(String columnName) {
         switch (columnName) {
             case "id": return 0;
             case "name": return 1;
         }
 
-        return null;
+        return -1;
     }
 
     @Override public <T> T valueOrDefault(String columnName, T def) {

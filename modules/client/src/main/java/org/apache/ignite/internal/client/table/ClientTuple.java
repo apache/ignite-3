@@ -99,10 +99,10 @@ public final class ClientTuple implements Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override public Integer columnIndex(String columnName) {
+    @Override public int columnIndex(String columnName) {
         var col = schema.columnSafe(columnName);
 
-        return col == null ? null : col.schemaIndex();
+        return col == null ? -1 : col.schemaIndex();
     }
 
     /** {@inheritDoc} */

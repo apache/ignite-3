@@ -122,8 +122,8 @@ public class ClientTupleTest {
     }
 
     @Test
-    public void testColumnIndexReturnsNullForMissingColumns() {
-        assertNull(getTuple().columnIndex("foo"));
+    public void testColumnIndexForMissingColumns() {
+        assertEquals(-1, getTuple().columnIndex("foo"));
     }
 
     @Test

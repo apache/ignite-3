@@ -55,10 +55,10 @@ public abstract class RowChunkAdapter implements Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
-    @Override public Integer columnIndex(String columnName) {
+    @Override public int columnIndex(String columnName) {
         var col = schema().column(columnName);
 
-        return col == null ? null : col.schemaIndex();
+        return col == null ? -1 : col.schemaIndex();
     }
 
     /** {@inheritDoc} */

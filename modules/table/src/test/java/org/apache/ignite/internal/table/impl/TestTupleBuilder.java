@@ -67,7 +67,7 @@ public class TestTupleBuilder implements Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override public Integer columnIndex(String columnName) {
+    @Override public int columnIndex(String columnName) {
         throw new UnsupportedOperationException();
     }
 

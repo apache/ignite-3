@@ -46,6 +46,7 @@ public class TupleImpl implements Tuple, SchemaAware {
      * @param schemaDesc Schema descriptor.
      */
     public TupleImpl(SchemaDescriptor schemaDesc) {
+        this.schemaDesc = schemaDesc;
         map = new HashMap<>();
     }
 
@@ -81,10 +82,10 @@ public class TupleImpl implements Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
-    @Override public Integer columnIndex(String columnName) {
+    @Override public int columnIndex(String columnName) {
         var col = schemaDesc.column(columnName);
 
-        return col == null ? null : col.schemaIndex();
+        return col == null ? -1 : col.schemaIndex();
     }
 
     /** {@inheritDoc} */

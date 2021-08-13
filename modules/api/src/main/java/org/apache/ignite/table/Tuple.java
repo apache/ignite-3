@@ -46,9 +46,9 @@ public interface Tuple extends Iterable<Object> {
      * Gets the index of the column with the specified name.
      *
      * @param columnName Column name.
-     * @return Column index, or null when a column with given name is not present.
+     * @return Column index, or {@code -1} when a column with given name is not present.
      */
-    Integer columnIndex(String columnName);
+    int columnIndex(String columnName);
 
     /**
      * Gets column value when a column with specified name is present in this tuple; returns default value otherwise.
