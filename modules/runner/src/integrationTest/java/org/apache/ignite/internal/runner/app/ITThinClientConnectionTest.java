@@ -40,6 +40,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests thin client connecting to a real server node.
@@ -133,6 +134,8 @@ class ITThinClientConnectionTest {
 
             table.upsert(tuple);
             assertEquals("Hello", table.get(keyTuple).stringValue(VAL));
+
+            assertTrue(table.delete(keyTuple));
         }
     }
 }
