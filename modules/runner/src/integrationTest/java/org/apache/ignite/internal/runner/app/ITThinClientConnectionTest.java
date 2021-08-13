@@ -25,21 +25,26 @@ import java.util.Map;
 import com.google.common.collect.Lists;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Tests thin client connecting to a real server node.
  */
 @ExtendWith(WorkDirectoryExtension.class)
 class ITThinClientConnectionTest {
+    /** */
+    private static final String TABLE_NAME = "tbl1";
+
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {{
         put("node0", "{\n" +
@@ -76,6 +81,8 @@ class ITThinClientConnectionTest {
         nodesBootstrapCfg.forEach((nodeName, configStr) ->
                 startedNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
         );
+
+        startedNodes.get(0).tables().createTable(TABLE_NAME, t -> t.changeReplicas(1));
     }
 
     /** */
@@ -89,6 +96,11 @@ class ITThinClientConnectionTest {
      */
     @Test
     void testThinClientConnectsToServerNodes() {
-        fail("TODO");
+        var client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
+
+        List<Table> tables = client.tables().tables();
+
+        assertEquals(1, tables.size());
+        assertEquals(TABLE_NAME, tables.get(0).tableName());
     }
 }
