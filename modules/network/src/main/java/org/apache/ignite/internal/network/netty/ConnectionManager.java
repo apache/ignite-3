@@ -254,16 +254,17 @@ public class ConnectionManager {
             clients.values().stream().map(NettyClient::stop),
             Stream.of(server.stop())
         );
-         CompletableFuture<Void> stopFut = CompletableFuture.allOf(stream.toArray(CompletableFuture<?>[]::new));
 
-         try {
-             stopFut.join();
-             // TODO: IGNITE-14538 quietPeriod and timeout should be configurable.
-             clientWorkerGroup.shutdownGracefully(0L, 15, TimeUnit.SECONDS).sync();
-         }
-         catch (Exception e) {
-             LOG.warn("Failed to stop the ConnectionManager: {}", e.getMessage());
-         }
+        CompletableFuture<Void> stopFut = CompletableFuture.allOf(stream.toArray(CompletableFuture<?>[]::new));
+
+        try {
+            stopFut.join();
+            // TODO: IGNITE-14538 quietPeriod and timeout should be configurable.
+            clientWorkerGroup.shutdownGracefully(0L, 15, TimeUnit.SECONDS).sync();
+        }
+        catch (Exception e) {
+            LOG.warn("Failed to stop the ConnectionManager: {}", e.getMessage());
+        }
     }
 
     /**

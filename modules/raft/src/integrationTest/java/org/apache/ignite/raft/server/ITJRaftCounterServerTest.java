@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -205,7 +206,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
             "client_" + groupId + "_", CLIENT_PORT + clients.size(), List.of(addr), true);
 
         RaftGroupService client = RaftGroupServiceImpl.start(groupId, clientNode, FACTORY, 10_000,
-            List.of(new Peer(addr)), false, 200).get();
+            List.of(new Peer(addr)), false, 200).get(3, TimeUnit.SECONDS);
 
         clients.add(client);
 

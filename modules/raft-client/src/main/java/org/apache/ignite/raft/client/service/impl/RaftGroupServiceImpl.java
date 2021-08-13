@@ -24,7 +24,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
@@ -140,20 +140,17 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         boolean getLeader,
         long retryDelay
     ) {
+        var service = new RaftGroupServiceImpl(groupId, cluster, factory, timeout, peers, null, retryDelay);
+
         if (!getLeader) {
-            return CompletableFuture.completedFuture(
-                new RaftGroupServiceImpl(groupId, cluster, factory, timeout, peers, null, retryDelay)
-            );
+            return CompletableFuture.completedFuture(service);
         }
 
-        return getLeader(groupId, factory, cluster, peers, timeout, retryDelay).handle((leader, throwable) -> {
-            if (throwable != null) {
+        return service.refreshLeader().handle((unused, throwable) -> {
+            if (throwable != null)
                 LOG.error("Failed to refresh a leader", throwable);
 
-                return new RaftGroupServiceImpl(groupId, cluster, factory, timeout, peers, null, retryDelay);
-            }
-
-            return new RaftGroupServiceImpl(groupId, cluster, factory, timeout, peers, leader, retryDelay);
+            return service;
         });
     }
 
@@ -187,48 +184,16 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         return learners;
     }
 
-    /**
-     * Sends a {@link GetLeaderRequest}.
-     *
-     * @param groupId Raft group id.
-     * @param factory Message factory.
-     * @param cluster Cluster service.
-     * @param peers List of all peers.
-     * @param timeout Timeout.
-     * @param retryDelay Retry delay.
-     * @return Future representing pending completion of the request.
-     */
-    private static CompletableFuture<Peer> getLeader(
-        String groupId,
-        RaftClientMessagesFactory factory,
-        ClusterService cluster,
-        List<Peer> peers,
-        long timeout,
-        long retryDelay
-    ) {
-        GetLeaderRequest req = factory.getLeaderRequest().groupId(groupId).build();
-
-        var fut = new CompletableFuture<GetLeaderResponse>();
-
-        sendWithRetry(
-            peers,
-            randomNode(peers),
-            req,
-            currentTimeMillis() + timeout,
-            cluster,
-            timeout,
-            retryDelay,
-            leader -> {},
-            fut
-        );
-
-        return fut.thenApply(GetLeaderResponse::leader);
-    }
-
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> refreshLeader() {
-        return getLeader(groupId, factory, cluster, peers, timeout, retryDelay).thenApply(leader -> {
-            this.leader = leader;
+        GetLeaderRequest req = factory.getLeaderRequest().groupId(groupId).build();
+
+        CompletableFuture<GetLeaderResponse> fut = new CompletableFuture<>();
+
+        sendWithRetry(randomNode(), req, currentTimeMillis() + timeout, fut);
+
+        return fut.thenApply(resp -> {
+            leader = resp.leader();
 
             return null;
         });
@@ -410,34 +375,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param <R> Response type.
      */
     private <R> void sendWithRetry(Peer peer, Object req, long stopTime, CompletableFuture<R> fut) {
-        sendWithRetry(peers, peer, req, stopTime, cluster, timeout, retryDelay, leader -> this.leader = leader, fut);
-    }
-
-    /**
-     * Retries a request until success or timeout.
-     *
-     * @param peers List of all peers.
-     * @param peer Target peer.
-     * @param req Request.
-     * @param stopTime Stop time.
-     * @param cluster Cluster service.
-     * @param timeout Timeout.
-     * @param retryDelay Retry delay.
-     * @param leaderChangedListener Leader changed listener.
-     * @param fut Future.
-     * @param <R> Response type.
-     */
-    private static <R> void sendWithRetry(
-        List<Peer> peers,
-        Peer peer,
-        Object req,
-        long stopTime,
-        ClusterService cluster,
-        long timeout,
-        long retryDelay,
-        Consumer<Peer> leaderChangedListener,
-        CompletableFuture<R> fut
-    ) {
         if (currentTimeMillis() >= stopTime) {
             fut.completeExceptionally(new TimeoutException());
 
@@ -446,70 +383,73 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         CompletableFuture<?> fut0 = cluster.messagingService().invoke(peer.address(), (NetworkMessage) req, timeout);
 
-        fut0.whenComplete((resp, err) -> {
-            if (err != null) {
-                if (recoverable(err)) {
-                    executor.schedule(() -> {
-                        sendWithRetry(peers, randomNode(peers), req, stopTime, cluster, timeout, retryDelay, leaderChangedListener, fut);
+        fut0.whenComplete(new BiConsumer<Object, Throwable>() {
+            @Override public void accept(Object resp, Throwable err) {
+                if (err != null) {
+                    if (recoverable(err)) {
+                        executor.schedule(() -> {
+                            sendWithRetry(randomNode(), req, stopTime, fut);
 
-                        return null;
-                    }, retryDelay, TimeUnit.MILLISECONDS);
+                            return null;
+                        }, retryDelay, TimeUnit.MILLISECONDS);
+                    }
+                    else
+                        fut.completeExceptionally(err);
                 }
-                else
-                    fut.completeExceptionally(err);
-            }
-            else if (resp instanceof RaftErrorResponse) {
-                RaftErrorResponse resp0 = (RaftErrorResponse) resp;
+                else if (resp instanceof RaftErrorResponse) {
+                    RaftErrorResponse resp0 = (RaftErrorResponse) resp;
 
-                if (resp0.errorCode() == null) { // Handle OK response.
-                    leaderChangedListener.accept(peer); // The OK response was received from a leader.
+                    if (resp0.errorCode() == null) { // Handle OK response.
+                        leader = peer; // The OK response was received from a leader.
 
-                    fut.complete(null); // Void response.
+                        fut.complete(null); // Void response.
+                    }
+                    else if (resp0.errorCode().equals(NO_LEADER)) {
+                        executor.schedule(() -> {
+                            sendWithRetry(randomNode(), req, stopTime, fut);
+
+                            return null;
+                        }, retryDelay, TimeUnit.MILLISECONDS);
+                    }
+                    else if (resp0.errorCode().equals(LEADER_CHANGED)) {
+                        leader = resp0.newLeader(); // Update a leader.
+
+                        executor.schedule(() -> {
+                            sendWithRetry(resp0.newLeader(), req, stopTime, fut);
+
+                            return null;
+                        }, retryDelay, TimeUnit.MILLISECONDS);
+                    }
+                    else
+                        fut.completeExceptionally(new RaftException(resp0.errorCode(), resp0.errorMessage()));
                 }
-                else if (resp0.errorCode().equals(NO_LEADER)) {
-                    executor.schedule(() -> {
-                        sendWithRetry(peers, randomNode(peers), req, stopTime, cluster, timeout, retryDelay, leaderChangedListener, fut);
+                else {
+                    leader = peer; // The OK response was received from a leader.
 
-                        return null;
-                    }, retryDelay, TimeUnit.MILLISECONDS);
+                    fut.complete((R) resp);
                 }
-                else if (resp0.errorCode().equals(LEADER_CHANGED)) {
-                    leaderChangedListener.accept(resp0.newLeader());
-
-                    executor.schedule(() -> {
-                        sendWithRetry(peers, resp0.newLeader(), req, stopTime, cluster, timeout, retryDelay, leaderChangedListener, fut);
-
-                        return null;
-                    }, retryDelay, TimeUnit.MILLISECONDS);
-                }
-                else
-                    fut.completeExceptionally(new RaftException(resp0.errorCode(), resp0.errorMessage()));
-            }
-            else {
-                leaderChangedListener.accept(peer); // The OK response was received from a leader.
-
-                fut.complete((R) resp);
             }
         });
     }
 
     /**
      * Checks if an error is recoverable, for example, {@link java.net.ConnectException}.
-     *
      * @param t The throwable.
      * @return {@code True} if this is a recoverable exception.
      */
-    private static boolean recoverable(Throwable t) {
+    private boolean recoverable(Throwable t) {
         return t.getCause() instanceof IOException;
     }
 
     /**
      * @return Random node.
      */
-    private static Peer randomNode(List<Peer> peers) {
-        if (peers == null || peers.isEmpty())
+    private Peer randomNode() {
+        List<Peer> peers0 = peers;
+
+        if (peers0 == null || peers0.isEmpty())
             return null;
 
-        return peers.get(current().nextInt(peers.size()));
+        return peers0.get(current().nextInt(peers0.size()));
     }
 }

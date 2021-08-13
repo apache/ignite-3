@@ -19,6 +19,7 @@ package org.apache.ignite.raft.server;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -105,12 +106,12 @@ class ITSimpleCounterServerTest extends RaftServerAbstractTest {
         ClusterService clientNode1 = clusterService("localhost:" + (PORT + 1), PORT + 1, List.of(addr), true);
 
         client1 = RaftGroupServiceImpl.start(COUNTER_GROUP_ID_0, clientNode1, FACTORY, 1000,
-            List.of(new Peer(serverNode.address())), false, 200).get();
+            List.of(new Peer(serverNode.address())), false, 200).get(3, TimeUnit.SECONDS);
 
         ClusterService clientNode2 = clusterService("localhost:" + (PORT + 2), PORT + 2, List.of(addr), true);
 
         client2 = RaftGroupServiceImpl.start(COUNTER_GROUP_ID_1, clientNode2, FACTORY, 1000,
-            List.of(new Peer(serverNode.address())), false, 200).get();
+            List.of(new Peer(serverNode.address())), false, 200).get(3, TimeUnit.SECONDS);
 
         assertTrue(waitForTopology(service, 2, 1000));
         assertTrue(waitForTopology(clientNode1, 2, 1000));

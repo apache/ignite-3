@@ -29,6 +29,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.metastorage.common.OperationType;
@@ -1026,7 +1027,7 @@ public class ITMetaStorageServiceTest {
             peers,
             true,
             200
-        ).get();
+        ).get(3, TimeUnit.SECONDS);
 
         MetaStorageService metaStorageSvc2 =  new MetaStorageServiceImpl(metaStorageRaftGrpSvc, NODE_ID_1);
 
@@ -1110,7 +1111,7 @@ public class ITMetaStorageServiceTest {
             peers,
             true,
             200
-        ).get();
+        ).get(3, TimeUnit.SECONDS);
 
         return new MetaStorageServiceImpl(metaStorageRaftGrpSvc, NODE_ID_0);
     }
