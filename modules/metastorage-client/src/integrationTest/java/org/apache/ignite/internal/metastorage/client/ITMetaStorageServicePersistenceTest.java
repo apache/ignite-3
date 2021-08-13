@@ -24,17 +24,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDBKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
@@ -44,7 +39,6 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
@@ -56,6 +50,7 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
+import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -346,37 +341,6 @@ public class ITMetaStorageServicePersistenceTest {
     }
 
     /**
-     * Creates a cluster service.
-     */
-    private ClusterService clusterService(String name, int port, NetworkAddress otherPeer) {
-        var nodeFinder = new StaticNodeFinder(List.of(otherPeer));
-
-        var ctx = new ClusterLocalConfiguration(name, SERIALIZATION_REGISTRY);
-
-        ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
-            Collections.singleton(NetworkConfiguration.KEY),
-            Collections.singleton(new TestConfigurationStorage(ConfigurationType.LOCAL))
-        );
-
-        nodeConfigurationMgr.start();
-
-        nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).
-            change(netCfg -> netCfg.changePort(port));
-
-        var net = NETWORK_FACTORY.createClusterService(
-            ctx,
-            nodeConfigurationMgr,
-            () -> nodeFinder
-        );
-
-        net.start();
-
-        cluster.add(net);
-
-        return net;
-    }
-
-    /**
      * Starts a raft server.
      *
      * @param idx Server index (affects port of the server).
@@ -384,17 +348,23 @@ public class ITMetaStorageServicePersistenceTest {
      * @return Server.
      */
     private JRaftServerImpl startServer(int idx, KeyValueStorage storage) {
-        var addr = new NetworkAddress(getLocalAddress(), PORT);
+        ClusterService svc = ClusterServiceTestUtils.clusterService(
+            "server" + idx,
+            PORT + idx,
+            new StaticNodeFinder(List.of(new NetworkAddress(getLocalAddress(), PORT))),
+            SERIALIZATION_REGISTRY,
+            NETWORK_FACTORY
+        );
 
-        ClusterService service = clusterService("server" + idx, PORT + idx, addr);
+        cluster.add(svc);
 
         Path jraft = workDir.resolve("jraft" + idx);
 
-        JRaftServerImpl server = new JRaftServerImpl(service, jraft) {
+        JRaftServerImpl server = new JRaftServerImpl(svc, jraft) {
             @Override public void stop() {
                 super.stop();
 
-                service.stop();
+                svc.stop();
             }
         };
 
@@ -430,7 +400,15 @@ public class ITMetaStorageServicePersistenceTest {
      * Starts a client with a specific address.
      */
     private RaftGroupService startClient(String groupId, NetworkAddress addr) {
-        ClusterService clientNode = clusterService("client_" + groupId + "_", CLIENT_PORT + clients.size(), addr);
+        ClusterService clientNode = ClusterServiceTestUtils.clusterService(
+            "client_" + groupId + "_",
+            CLIENT_PORT + clients.size(),
+            new StaticNodeFinder(List.of(addr)),
+            SERIALIZATION_REGISTRY,
+            NETWORK_FACTORY
+        );
+
+        cluster.add(clientNode);
 
         RaftGroupServiceImpl client = new RaftGroupServiceImpl(groupId, clientNode, FACTORY, 10_000,
             List.of(new Peer(addr)), false, 200) {

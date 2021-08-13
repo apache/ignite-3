@@ -30,14 +30,9 @@ import java.util.TreeSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NodeFinder;
@@ -53,6 +48,7 @@ import org.apache.ignite.raft.jraft.entity.Task;
 import org.apache.ignite.raft.jraft.option.CliOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.test.TestUtils;
+import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -126,24 +122,14 @@ public class ITCliServiceTest {
 
         var registry = new MessageSerializationRegistryImpl();
 
-        var serviceConfig = new ClusterLocalConfiguration("client", registry);
-
         var factory = new TestScaleCubeClusterServiceFactory();
 
-        ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
-            Collections.singleton(NetworkConfiguration.KEY),
-            Collections.singleton(new TestConfigurationStorage(ConfigurationType.LOCAL))
-        );
-
-        nodeConfigurationMgr.start();
-
-        nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).
-            change(netCfg -> netCfg.changePort(TestUtils.INIT_PORT - 1));
-
-        ClusterService clientSvc =  factory.createClusterService(
-            serviceConfig,
-            nodeConfigurationMgr,
-            () -> nodeFinder
+        ClusterService clientSvc = ClusterServiceTestUtils.clusterService(
+            "client",
+            TestUtils.INIT_PORT - 1,
+            nodeFinder,
+            registry,
+            factory
         );
 
         clientSvc.start();

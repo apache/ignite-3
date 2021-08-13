@@ -46,6 +46,7 @@ import org.apache.ignite.network.LocalPortRangeNodeFinder;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NodeFinder;
+import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.TestMessage;
 import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
 import org.apache.ignite.network.TestMessageTypes;
@@ -53,6 +54,7 @@ import org.apache.ignite.network.TestMessagesFactory;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.annotations.MessageGroup;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
@@ -408,10 +410,10 @@ class ITScaleCubeNetworkMessagingTest {
      */
     private static final class Cluster {
         /** Network factory. */
-        private final ClusterServiceFactory networkFactory = new TestScaleCubeClusterServiceFactory();
+        private static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
         /** Serialization registry. */
-        private final MessageSerializationRegistry serializationRegistry = new TestMessageSerializationRegistryImpl();
+        private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new TestMessageSerializationRegistryImpl();
 
         /** Members of the cluster. */
         final List<ClusterService> members;
@@ -447,26 +449,16 @@ class ITScaleCubeNetworkMessagingTest {
          * @return Started cluster node.
          */
         private ClusterService startNode(NetworkAddress addr, NodeFinder nodeFinder, boolean initial) {
-            var ctx = new ClusterLocalConfiguration(addr.toString(), serializationRegistry);
-
-            ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
-                Collections.singleton(NetworkConfiguration.KEY),
-                Collections.singleton(new TestConfigurationStorage(ConfigurationType.LOCAL))
-            );
-
-            nodeConfigurationMgr.start();
-
-            nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).
-                change(netCfg -> netCfg.changePort(addr.port()));
-
-            ClusterService clusterSvc = networkFactory.createClusterService(
-                ctx,
-                nodeConfigurationMgr,
-                () -> nodeFinder
+            ClusterService svc = ClusterServiceTestUtils.clusterService(
+                addr.toString(),
+                addr.port(),
+                nodeFinder,
+                SERIALIZATION_REGISTRY,
+                NETWORK_FACTORY
             );
 
             if (initial)
-                clusterSvc.topologyService().addEventHandler(new TopologyEventHandler() {
+                svc.topologyService().addEventHandler(new TopologyEventHandler() {
                     /** {@inheritDoc} */
                     @Override public void onAppeared(ClusterNode member) {
                         startupLatch.countDown();
@@ -477,7 +469,7 @@ class ITScaleCubeNetworkMessagingTest {
                     }
                 });
 
-            return clusterSvc;
+            return svc;
         }
 
         /**

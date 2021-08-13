@@ -62,6 +62,7 @@ import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Endpoint;
+import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.Nullable;
 
 import static java.util.stream.Collectors.collectingAndThen;
@@ -271,7 +272,13 @@ public class TestCluster {
 
             NodeManager nodeManager = new NodeManager();
 
-            ClusterService clusterService = createClusterService(listenAddr, nodeFinder);
+            ClusterService clusterService = ClusterServiceTestUtils.clusterService(
+                listenAddr.toString(),
+                listenAddr.getPort(),
+                nodeFinder,
+                new TestMessageSerializationRegistryImpl(),
+                new TestScaleCubeClusterServiceFactory()
+            );
 
             var rpcClient = new IgniteRpcClient(clusterService);
 
@@ -306,33 +313,6 @@ public class TestCluster {
         finally {
             this.lock.unlock();
         }
-    }
-
-    /**
-     * Creates a non-started {@link ClusterService}.
-     */
-    private static ClusterService createClusterService(Endpoint endpoint, NodeFinder nodeFinder) {
-        var registry = new TestMessageSerializationRegistryImpl();
-
-        var clusterCfg = new ClusterLocalConfiguration(endpoint.toString(), registry);
-
-        var clusterSvcFactory = new TestScaleCubeClusterServiceFactory();
-
-        ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
-            Collections.singleton(NetworkConfiguration.KEY),
-            Collections.singleton(new TestConfigurationStorage(ConfigurationType.LOCAL))
-        );
-
-        nodeConfigurationMgr.start();
-
-        nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).
-            change(netCfg -> netCfg.changePort(endpoint.getPort()));
-
-        return clusterSvcFactory.createClusterService(
-            clusterCfg,
-            nodeConfigurationMgr,
-            () -> nodeFinder
-        );
     }
 
     public Node getNode(Endpoint endpoint) {

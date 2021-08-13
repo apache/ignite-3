@@ -33,6 +33,7 @@ import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
+import org.apache.ignite.utils.ClusterServiceTestUtils;
 
 /**
  * Abstract test for raft server.
@@ -62,27 +63,17 @@ abstract class RaftServerAbstractTest {
      * @return The client cluster view.
      */
     protected ClusterService clusterService(String name, int port, List<NetworkAddress> srvs, boolean start) {
-        var ctx = new ClusterLocalConfiguration(name, SERIALIZATION_REGISTRY);
-
-        ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
-            Collections.singleton(NetworkConfiguration.KEY),
-            Collections.singleton(new TestConfigurationStorage(ConfigurationType.LOCAL))
-        );
-
-        nodeConfigurationMgr.start();
-
-        nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).
-            change(netCfg -> netCfg.changePort(port));
-
-        ClusterService net = NETWORK_FACTORY.createClusterService(
-            ctx,
-            nodeConfigurationMgr,
-            () -> new StaticNodeFinder(srvs)
+        ClusterService clusterSvc = ClusterServiceTestUtils.clusterService(
+            name,
+            port,
+            new StaticNodeFinder(srvs),
+            SERIALIZATION_REGISTRY,
+            NETWORK_FACTORY
         );
 
         if (start)
-            net.start();
+            clusterSvc.start();
 
-        return net;
+        return clusterSvc;
     }
 }

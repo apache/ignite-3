@@ -20,7 +20,6 @@ package org.apache.ignite.internal.metastorage.client;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -32,10 +31,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
@@ -47,19 +42,17 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.LocalPortRangeNodeFinder;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
-import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
+import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -185,7 +178,13 @@ public class ITMetaStorageServiceTest {
         var nodeFinder = new LocalPortRangeNodeFinder(NODE_PORT_BASE, NODE_PORT_BASE + NODES);
 
         nodeFinder.findNodes().stream()
-            .map(addr -> startClusterNode(addr, nodeFinder))
+            .map(addr -> ClusterServiceTestUtils.clusterService(
+                addr.toString(),
+                addr.port(),
+                nodeFinder,
+                SERIALIZATION_REGISTRY,
+                NETWORK_FACTORY)
+            )
             .forEach(cluster::add);
 
         for (ClusterService node : cluster)
@@ -1048,35 +1047,6 @@ public class ITMetaStorageServiceTest {
         assertThrows(NoSuchElementException.class, () -> cursor2Node0.iterator().next());
 
         assertEquals(EXPECTED_RESULT_ENTRY, (cursorNode1.iterator().next()));
-    }
-
-    /**
-     * @param addr Node address.
-     * @param nodeFinder Node finder.
-     * @return The client cluster view.
-     */
-    private static ClusterService startClusterNode(NetworkAddress addr, NodeFinder nodeFinder) {
-        var ctx = new ClusterLocalConfiguration(addr.toString(), SERIALIZATION_REGISTRY);
-
-        ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
-            Collections.singleton(NetworkConfiguration.KEY),
-            Collections.singleton(new TestConfigurationStorage(ConfigurationType.LOCAL))
-        );
-
-        nodeConfigurationMgr.start();
-
-        nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).
-            change(netCfg -> netCfg.changePort(addr.port()));
-
-        var net = NETWORK_FACTORY.createClusterService(
-            ctx,
-            nodeConfigurationMgr,
-            () -> nodeFinder
-        );
-
-        net.start();
-
-        return net;
     }
 
     /**

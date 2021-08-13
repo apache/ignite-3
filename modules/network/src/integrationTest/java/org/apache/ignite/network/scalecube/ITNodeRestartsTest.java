@@ -17,22 +17,16 @@
 package org.apache.ignite.network.scalecube;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.LocalPortRangeNodeFinder;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -46,10 +40,10 @@ class ITNodeRestartsTest {
     private static final IgniteLogger LOG = IgniteLogger.forClass(ITNodeRestartsTest.class);
 
     /** Serialization registry. */
-    private final MessageSerializationRegistry serializationRegistry = new TestMessageSerializationRegistryImpl();
+    private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new TestMessageSerializationRegistryImpl();
 
     /** Network factory. */
-    private final ClusterServiceFactory networkFactory = new TestScaleCubeClusterServiceFactory();
+    private static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
     /** Created {@link ClusterService}s. Needed for resource management. */
     private List<ClusterService> services;
@@ -71,7 +65,15 @@ class ITNodeRestartsTest {
         var nodeFinder = new LocalPortRangeNodeFinder(initPort, initPort + 5);
 
         services = nodeFinder.findNodes().stream()
-            .map(addr -> startNetwork(addr, nodeFinder))
+            .map(
+                addr -> ClusterServiceTestUtils.clusterService(
+                    addr.toString(),
+                    addr.port(),
+                    nodeFinder,
+                    SERIALIZATION_REGISTRY,
+                    NETWORK_FACTORY
+                )
+            )
             .collect(Collectors.toCollection(ArrayList::new)); // ensure mutability
 
         for (ClusterService service : services) {
@@ -91,11 +93,26 @@ class ITNodeRestartsTest {
         services.get(idx1).stop();
 
         LOG.info("Starting {}", addresses.get(idx0));
-        ClusterService svc0 = startNetwork(addresses.get(idx0), nodeFinder);
+
+        ClusterService svc0 = ClusterServiceTestUtils.clusterService(
+            addresses.get(idx0).toString(),
+            addresses.get(idx0).port(),
+            nodeFinder,
+            SERIALIZATION_REGISTRY,
+            NETWORK_FACTORY
+        );
+
         services.set(idx0, svc0);
 
         LOG.info("Starting {}", addresses.get(idx1));
-        ClusterService svc2 = startNetwork(addresses.get(idx1), nodeFinder);
+
+        ClusterService svc2 = ClusterServiceTestUtils.clusterService(
+            addresses.get(idx1).toString(),
+            addresses.get(idx1).port(),
+            nodeFinder,
+            SERIALIZATION_REGISTRY,
+            NETWORK_FACTORY
+        );
         services.set(idx1, svc2);
 
         for (ClusterService service : services) {
@@ -104,37 +121,6 @@ class ITNodeRestartsTest {
         }
 
         LOG.info("Reached stable state");
-    }
-
-    /**
-     * Creates a {@link ClusterService} using the given local address and the node finder.
-     *
-     * @param addr Node address.
-     * @param nodeFinder Node finder.
-     * @return Created Cluster Service.
-     */
-    private ClusterService startNetwork(NetworkAddress addr, NodeFinder nodeFinder) {
-        var ctx = new ClusterLocalConfiguration(addr.toString(), serializationRegistry);
-
-        ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
-            Collections.singleton(NetworkConfiguration.KEY),
-            Collections.singleton(new TestConfigurationStorage(ConfigurationType.LOCAL))
-        );
-
-        nodeConfigurationMgr.start();
-
-        nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).
-            change(netCfg -> netCfg.changePort(addr.port()));
-
-        ClusterService clusterSvc = networkFactory.createClusterService(
-            ctx,
-            nodeConfigurationMgr,
-            () -> nodeFinder
-        );
-
-        clusterSvc.start();
-
-        return clusterSvc;
     }
 
     /**

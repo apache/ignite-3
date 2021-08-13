@@ -91,6 +91,7 @@ import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Bits;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.Utils;
+import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -3434,7 +3435,13 @@ public class ITNodeTest {
 
         var nodeManager = new NodeManager();
 
-        ClusterService clusterService = createClusterService(peerId.getEndpoint(), nodeFinder);
+        ClusterService clusterService = ClusterServiceTestUtils.clusterService(
+            peerId.getEndpoint().toString(),
+            peerId.getEndpoint().getPort(),
+            nodeFinder,
+            new TestMessageSerializationRegistryImpl(),
+            new TestScaleCubeClusterServiceFactory()
+        );
 
         IgniteRpcServer rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions);
 
@@ -3458,33 +3465,6 @@ public class ITNodeTest {
         services.add(service);
 
         return service;
-    }
-
-    /**
-     * Creates a non-started {@link ClusterService}.
-     */
-    private static ClusterService createClusterService(Endpoint endpoint, NodeFinder nodeFinder) {
-        var registry = new TestMessageSerializationRegistryImpl();
-
-        var clusterCfg = new ClusterLocalConfiguration(endpoint.toString(), registry);
-
-        var clusterSvcFactory = new TestScaleCubeClusterServiceFactory();
-
-        ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
-            Collections.singleton(NetworkConfiguration.KEY),
-            Collections.singleton(new TestConfigurationStorage(ConfigurationType.LOCAL))
-        );
-
-        nodeConfigurationMgr.start();
-
-        nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).
-            change(netCfg -> netCfg.changePort(endpoint.getPort()));
-
-        return clusterSvcFactory.createClusterService(
-            clusterCfg,
-            nodeConfigurationMgr,
-            () -> nodeFinder
-        );
     }
 
     private void sendTestTaskAndWait(final Node node) throws InterruptedException {

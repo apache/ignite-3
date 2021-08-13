@@ -44,6 +44,7 @@ import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
+import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -88,7 +89,13 @@ public class ITDistributedConfigurationStorageTest {
         Node(Path workDir) {
             vaultManager = new VaultManager(new PersistentVaultService(workDir.resolve("vault")));
 
-            clusterService = createClusterService(addr);
+            clusterService = ClusterServiceTestUtils.clusterService(
+                addr.toString(),
+                addr.port(),
+                new StaticNodeFinder(List.of(addr)),
+                new MessageSerializationRegistryImpl(),
+                new TestScaleCubeClusterServiceFactory()
+            );
 
             raftManager = new Loza(clusterService, workDir);
 
@@ -106,32 +113,6 @@ public class ITDistributedConfigurationStorageTest {
             );
 
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);
-        }
-
-        /**
-         * Creates a test {@link ClusterService}.
-         */
-        private static ClusterService createClusterService(NetworkAddress addr) {
-            var registry = new MessageSerializationRegistryImpl();
-            var nodeFinder = new StaticNodeFinder(List.of(addr));
-            var ctx = new ClusterLocalConfiguration(addr.toString(), registry);
-            var factory = new TestScaleCubeClusterServiceFactory();
-
-            ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
-                Collections.singleton(NetworkConfiguration.KEY),
-                Collections.singleton(new TestConfigurationStorage(ConfigurationType.LOCAL))
-            );
-
-            nodeConfigurationMgr.start();
-
-            nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).
-                change(netCfg -> netCfg.changePort(addr.port()));
-
-            return factory.createClusterService(
-                ctx,
-                nodeConfigurationMgr,
-                () -> nodeFinder
-            );
         }
 
         /**
