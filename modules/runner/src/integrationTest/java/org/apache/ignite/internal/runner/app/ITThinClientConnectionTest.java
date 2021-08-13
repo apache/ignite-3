@@ -52,6 +52,12 @@ class ITThinClientConnectionTest {
     /** */
     private static final String TABLE_NAME = "tbl1";
 
+    /** */
+    private final String KEY = "key";
+
+    /** */
+    private final String VAL = "val";
+
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {{
         put("node0", "{\n" +
@@ -90,9 +96,9 @@ class ITThinClientConnectionTest {
         );
 
         SchemaTable schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
-                SchemaBuilders.column("key", ColumnType.INT32).asNonNull().build(),
-                SchemaBuilders.column("val", ColumnType.string()).asNullable().build()
-        ).withPrimaryKey("key").build();
+                SchemaBuilders.column(KEY, ColumnType.INT32).asNonNull().build(),
+                SchemaBuilders.column(VAL, ColumnType.string()).asNullable().build()
+        ).withPrimaryKey(KEY).build();
 
         startedNodes.get(0).tables().createTable(schTbl.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl, tblCh)
@@ -108,18 +114,25 @@ class ITThinClientConnectionTest {
     }
 
     /**
-     * Check that thin client can connect to any server node.
+     * Check that thin client can connect to any server node and work with table API.
      */
     @Test
-    void testThinClientConnectsToServerNodes() {
+    void testThinClientConnectsToServerNodesAndExecutesBasicTableOperations() {
         var client1 = IgniteClient.builder().addresses("127.0.0.1:10800").build();
         var client2 = IgniteClient.builder().addresses("127.0.0.1:10801").build();
 
         for (var client : new Ignite[] {client1, client2}) {
             List<Table> tables = client.tables().tables();
-
             assertEquals(1, tables.size());
-            assertEquals(String.format("%s.%s", SCHEMA_NAME, TABLE_NAME), tables.get(0).tableName());
+
+            Table table = tables.get(0);
+            assertEquals(String.format("%s.%s", SCHEMA_NAME, TABLE_NAME), table.tableName());
+
+            var tuple = table.tupleBuilder().set(KEY, 1).set(VAL, "Hello").build();
+            var keyTuple = table.tupleBuilder().set(KEY, 1).build();
+
+            table.upsert(tuple);
+            assertEquals("Hello", table.get(keyTuple).stringValue(VAL));
         }
     }
 }
