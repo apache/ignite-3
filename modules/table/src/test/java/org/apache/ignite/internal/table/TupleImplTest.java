@@ -105,8 +105,8 @@ public class TupleImplTest {
 
     @Test
     public void testColumnNameThrowsOnInvalidIndex() {
-        var ex = assertThrows(IllegalArgumentException.class, () -> getTuple().columnName(-1));
-        assertEquals("Column index can't be negative", ex.getMessage());
+        var ex = assertThrows(IndexOutOfBoundsException.class, () -> getTuple().columnName(-1));
+        assertEquals("Index -1 out of bounds for length 2", ex.getMessage());
     }
 
     @Test

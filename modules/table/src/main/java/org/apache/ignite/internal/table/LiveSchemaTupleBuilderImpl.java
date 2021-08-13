@@ -70,8 +70,7 @@ public class LiveSchemaTupleBuilderImpl extends TupleImpl {
 
     /** {@inheritDoc} */
     @Override public Tuple set(String columnName, Object val) {
-        Column col = schema().column(columnName);
-
+        Column col = null;
         if (col == null) {
             if (val == null)
                 return this;
@@ -94,19 +93,19 @@ public class LiveSchemaTupleBuilderImpl extends TupleImpl {
         if (extraColumnsMap == null)
             return this;
 
-        while (!extraColumnsMap.isEmpty()) {
-            createColumns(extraColumnsMap);
-
-            this.schema(schemaRegistry.schema());
-
-            Map<String, Object> colMap = map;
-            map = new HashMap<>();
-
-            extraColumnsMap.forEach(colMap::put);
-            extraColumnsMap.clear();
-
-            colMap.forEach(this::set);
-        }
+//        while (!extraColumnsMap.isEmpty()) {
+//            createColumns(extraColumnsMap);
+//
+//            this.schema(schemaRegistry.schema());
+//
+//            Map<String, Object> colMap = map;
+//            map = new HashMap<>();
+//
+//            extraColumnsMap.forEach(colMap::put);
+//            extraColumnsMap.clear();
+//
+//            colMap.forEach(this::set);
+//        }
 
         return this;
     }

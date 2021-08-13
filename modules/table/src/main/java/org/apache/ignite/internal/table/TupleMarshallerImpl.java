@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.Objects;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
+import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
@@ -88,11 +89,11 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @throws SchemaMismatchException If validation failed.
      */
     private void validate(Tuple tuple, Columns columns) {
-        if (tuple instanceof TupleImpl) {
-            TupleImpl t0 = (TupleImpl)tuple;
-
+        if (tuple instanceof SchemaAware) {
+            SchemaAware t0 = ((SchemaAware)tuple);
             SchemaDescriptor expSchema = schemaReg.schema(t0.schema().version());
 
+            //TODO: Does it make sense to check 'tableId' and 'version' equality instead of reference?
             if (!Objects.equals(t0.schema(), expSchema))
                 throw new SchemaMismatchException("Unexpected schema: [expected=" + expSchema + ", actual=" + t0.schema() + ']');
         }
