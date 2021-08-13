@@ -36,6 +36,7 @@ import org.apache.ignite.app.Ignition;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkView;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
@@ -214,7 +215,8 @@ public class IgnitionImpl implements Ignition {
                 NodeConfiguration.KEY,
                 ClusterConfiguration.KEY,
                 TablesConfiguration.KEY,
-                RestConfiguration.KEY
+                RestConfiguration.KEY,
+                ClientConnectorConfiguration.KEY
             );
 
             List<ConfigurationStorage> cfgStorages =
