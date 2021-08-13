@@ -18,7 +18,6 @@
 package org.apache.ignite.client.handler;
 
 import java.net.BindException;
-import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -29,28 +28,27 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.proto.ClientMessageDecoder;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
 
 /**
  * Client handler module maintains TCP endpoint for thin client connections.
- *
  */
 public class ClientHandlerModule implements IgniteComponent {
+    /** The logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ClientHandlerModule.class);
+
     /** Configuration registry. */
-    private ConfigurationRegistry registry;
+    private final ConfigurationRegistry registry;
 
-    /** Ignite API entry poiny. */
-    private final Ignite ignite;
-
-    /** Logger. */
-    private final Logger log;
+    /** Ignite tables API. */
+    private final IgniteTables igniteTables;
 
     /** Netty channel future. */
     private ChannelFuture channelFuture;
@@ -58,21 +56,18 @@ public class ClientHandlerModule implements IgniteComponent {
     /**
      * Constructor.
      *
-     * @param ignite Ignite.
-     * @param log Logger.
+     * @param igniteTables Ignite.
+     * @param registry Configuration registry.
      */
-    public ClientHandlerModule(Ignite ignite, Logger log) {
-        this.ignite = ignite;
-        this.log = log;
-    }
+    public ClientHandlerModule(
+            IgniteTables igniteTables,
+            ConfigurationRegistry registry
+    ) {
+        assert igniteTables != null;
+        assert registry != null;
 
-    /**
-     * Prepares to start the module.
-     *
-     * @param sysCfg Configuration registry.
-     */
-    public void prepareStart(ConfigurationRegistry sysCfg) {
-        registry = sysCfg;
+        this.igniteTables = igniteTables;
+        this.registry = registry;
     }
 
     /** {@inheritDoc} */
@@ -135,7 +130,7 @@ public class ClientHandlerModule implements IgniteComponent {
                 protected void initChannel(Channel ch) {
                     ch.pipeline().addLast(
                             new ClientMessageDecoder(),
-                            new ClientInboundMessageHandler(ignite, log));
+                            new ClientInboundMessageHandler(igniteTables));
                 }
             })
             .childOption(ChannelOption.SO_KEEPALIVE, true)
@@ -161,14 +156,14 @@ public class ClientHandlerModule implements IgniteComponent {
             String msg = "Cannot start thin client connector endpoint. " +
                 "All ports in range [" + desiredPort + ", " + (desiredPort + portRange) + "] are in use.";
 
-            log.error(msg);
+            LOG.error(msg);
 
             eventLoopGroup.shutdownGracefully();
 
             throw new IgniteException(msg);
         }
 
-        log.info("Thin client connector started successfully on port " + port);
+        LOG.info("Thin client connector started successfully on port " + port);
 
         return ch.closeFuture();
     }

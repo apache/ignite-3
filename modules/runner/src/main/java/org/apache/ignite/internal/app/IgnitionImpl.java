@@ -33,6 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.Ignition;
+import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
@@ -347,6 +348,11 @@ public class IgnitionImpl implements Ignition {
                 nodeName,
                 startedComponents,
                 new RestModule(nodeConfigurationMgr));
+
+            doStartComponent(
+                nodeName,
+                startedComponents,
+                new ClientHandlerModule(distributedTblMgr, nodeConfigurationMgr.configurationRegistry()));
 
             // Deploy all resisted watches cause all components are ready and have registered their listeners.
             metaStorageMgr.deployWatches();
