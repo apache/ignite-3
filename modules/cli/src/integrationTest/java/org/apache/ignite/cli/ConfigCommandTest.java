@@ -85,7 +85,7 @@ public class ConfigCommandTest extends AbstractCliTest {
             "set",
             "--node-endpoint",
             "localhost:" + restPort,
-            "--type", "node", //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15285
+            "--type", "node", //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
             "node.metastorageNodes=[\"localhost1\"]"
         );
 
@@ -105,7 +105,7 @@ public class ConfigCommandTest extends AbstractCliTest {
             "get",
             "--node-endpoint",
             "localhost:" + restPort,
-            "--type", "node" //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15285
+            "--type", "node" //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
         );
 
         assertEquals(0, exitCode);
@@ -126,7 +126,7 @@ public class ConfigCommandTest extends AbstractCliTest {
             "localhost:" + restPort,
             "--selector",
             "network",
-            "--type", "node" //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15285
+            "--type", "node" //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
         );
 
         assertEquals(0, exitCode);

@@ -70,9 +70,9 @@ public class ConfigurationClient {
      * @param port Host REST port.
      * @param rawHoconPath HOCON dot-delimited path of requested configuration.
      * @param type Configuration type: {@code node} or {@code cluster}.
-     *      TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15285
      * @return JSON string with node configuration.
      */
+    //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
     public String get(
         String host,
         int port,
@@ -113,8 +113,8 @@ public class ConfigurationClient {
      * @param out PrintWriter for printing user messages.
      * @param cs ColorScheme to enrich user messages.
      * @param type Configuration type: {@code node} or {@code cluster}.
-     *      TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15285
      */
+    //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
     public void set(String host, int port, String rawHoconData, PrintWriter out, ColorScheme cs, String type) {
         var req = HttpRequest
             .newBuilder()

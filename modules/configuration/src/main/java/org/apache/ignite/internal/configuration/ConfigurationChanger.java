@@ -19,10 +19,8 @@ package org.apache.ignite.internal.configuration;
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,7 +30,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
@@ -44,6 +41,7 @@ import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.validation.MemberKey;
 import org.apache.ignite.internal.configuration.validation.ValidationUtil;
+import org.jetbrains.annotations.NotNull;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
@@ -92,9 +90,10 @@ public abstract class ConfigurationChanger {
          * @param oldRoot Old roots values. All these roots always belong to a single storage.
          * @param newRoot New values for the same roots as in {@code oldRoot}.
          * @param storageRevision Revision of the storage.
-         * @return Future that must signify when processing is completed. Exceptional completion is not expected.
+         * @return Not-null future that must signify when processing is completed. Exceptional completion is not
+         *      expected.
          */
-        CompletableFuture<Void> notify(SuperRoot oldRoot, SuperRoot newRoot, long storageRevision);
+        @NotNull CompletableFuture<Void> notify(SuperRoot oldRoot, SuperRoot newRoot, long storageRevision);
     }
 
     /**
@@ -105,17 +104,17 @@ public abstract class ConfigurationChanger {
         private final SuperRoot roots;
 
         /** Version associated with the currently known storage state. */
-        private final long ver;
+        private final long version;
 
         /**
          * Constructor.
          *
          * @param roots Forest.
-         * @param ver Version associated with the currently known storage state.
+         * @param version Version associated with the currently known storage state.
          */
-        private StorageRoots(SuperRoot roots, long ver) {
+        private StorageRoots(SuperRoot roots, long version) {
             this.roots = roots;
-            this.ver = ver;
+            this.version = version;
         }
     }
 
@@ -144,7 +143,7 @@ public abstract class ConfigurationChanger {
     }
 
     /**
-     * Created new {@code Node} object that corresponds to passed root keys root configuration node.
+     * Creates new {@code Node} object that corresponds to passed root keys root configuration node.
      *
      * @param rootKey Root key.
      * @return New {@link InnerNode} instance that represents root.
@@ -206,14 +205,14 @@ public abstract class ConfigurationChanger {
      */
     public void initializeDefaults() throws ConfigurationValidationException, ConfigurationChangeException {
         try {
-            ConfigurationSource defaultsCfgSrc = new ConfigurationSource() {
+            ConfigurationSource defaultsCfgSource = new ConfigurationSource() {
                 /** {@inheritDoc} */
                 @Override public void descend(ConstructableTreeNode node) {
                     addDefaults((InnerNode)node);
                 }
             };
 
-            changeInternally(defaultsCfgSrc).get();
+            changeInternally(defaultsCfgSource ).get();
         }
         catch (ExecutionException e) {
             Throwable cause = e.getCause();
@@ -225,7 +224,7 @@ public abstract class ConfigurationChanger {
                 throw (ConfigurationChangeException)cause;
 
             throw new ConfigurationChangeException(
-                "Failed to write defalut configuration values into the storage " + storage.getClass(), e
+                "Failed to write default configuration values into the storage " + storage.getClass(), e
             );
         }
         catch (InterruptedException e) {
@@ -238,54 +237,16 @@ public abstract class ConfigurationChanger {
     /**
      * Changes the configuration.
      *
-     * @param src Configuration source to create patch from.
+     * @param source Configuration source to create patch from.
      * @return Future that is completed on change completion.
      */
-    public CompletableFuture<Void> change(ConfigurationSource src) {
-        Set<ConfigurationType> storagesTypes = new HashSet<>();
+    public CompletableFuture<Void> change(ConfigurationSource source) {
+        source.reset();
 
-        ConstructableTreeNode collector = new ConstructableTreeNode() {
-            /** {@inheritDoc} */
-            @Override public void construct(String key, ConfigurationSource src) throws NoSuchElementException {
-                RootKey<?, ?> rootKey = rootKeys.get(key);
-
-                if (rootKey == null)
-                    throw new NoSuchElementException(key);
-
-                storagesTypes.add(rootKey.type());
-            }
-
-            /** {@inheritDoc} */
-            @Override public ConstructableTreeNode copy() {
-                throw new UnsupportedOperationException("copy");
-            }
-        };
-
-        src.reset();
-
-        src.descend(collector);
-
-        assert !storagesTypes.isEmpty();
-
-        if (storagesTypes.size() != 1) {
-            return CompletableFuture.failedFuture(
-                new ConfigurationChangeException(
-                    "Cannot handle change request with configuration patches belonging to different storages."
-                )
-            );
-        }
-        else if (storagesTypes.iterator().next() != storage.type()) {
-            return CompletableFuture.failedFuture(
-                new ConfigurationChangeException("Mismatched storage passed.")
-            );
-        }
-
-        return changeInternally(src);
+        return changeInternally(source);
     }
 
-    /**
-     * Stop component.
-     */
+    /** Stop component. */
     public void stop() {
         pool.shutdownNow();
     }
@@ -354,7 +315,7 @@ public abstract class ConfigurationChanger {
             .thenCompose(allChanges -> {
                 if (allChanges == null)
                     return completedFuture(true);
-                return storage.write(allChanges, storageRoots0.ver)
+                return storage.write(allChanges, storageRoots0.version)
                     .exceptionally(throwable -> {
                         throw new ConfigurationChangeException("Failed to change configuration", throwable);
                     });

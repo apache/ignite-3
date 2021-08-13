@@ -57,17 +57,6 @@ public class ConfigurationManager implements IgniteComponent {
         registry = new ConfigurationRegistry(rootKeys, validators, storage);
     }
 
-    /**
-     * Constructor.
-     *
-     * @param rootKeys Configuration root keys.
-     * @param storage Configuration storage.
-     * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type.
-     */
-    public ConfigurationManager(Collection<RootKey<?, ?>> rootKeys, ConfigurationStorage storage) {
-        this(rootKeys, Map.of(), storage);
-    }
-
     /** {@inheritDoc} */
     @Override public void start() {
         registry.start();
@@ -97,7 +86,7 @@ public class ConfigurationManager implements IgniteComponent {
      *
      * @return Configuration registry.
      */
-    public ConfigurationRegistry registry() {
+    public ConfigurationRegistry configurationRegistry() {
         return registry;
     }
 }

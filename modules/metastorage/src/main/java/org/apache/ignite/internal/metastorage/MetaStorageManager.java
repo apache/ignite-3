@@ -144,7 +144,7 @@ public class MetaStorageManager implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override public void start() {
-        String[] metastorageNodes = this.locCfgMgr.registry().getConfiguration(NodeConfiguration.KEY)
+        String[] metastorageNodes = this.locCfgMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
             .metastorageNodes().value();
 
         Predicate<ClusterNode> metaStorageNodesContainsLocPred =
@@ -611,7 +611,7 @@ public class MetaStorageManager implements IgniteComponent {
      */
     public boolean hasMetastorageLocally(ConfigurationManager configurationMgr) {
         String[] metastorageMembers = configurationMgr
-            .registry()
+            .configurationRegistry()
             .getConfiguration(NodeConfiguration.KEY)
             .metastorageNodes()
             .value();

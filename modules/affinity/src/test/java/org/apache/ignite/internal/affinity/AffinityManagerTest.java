@@ -21,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.RootKey;
@@ -80,7 +81,11 @@ public class AffinityManagerTest {
     @BeforeEach
     void setUp() {
         try {
-            cfrMgr = new ConfigurationManager(rootConfigurationKeys(), new TestConfigurationStorage(DISTRIBUTED));
+            cfrMgr = new ConfigurationManager(
+                rootConfigurationKeys(),
+                Map.of(),
+                new TestConfigurationStorage(DISTRIBUTED)
+            );
 
             cfrMgr.start();
 

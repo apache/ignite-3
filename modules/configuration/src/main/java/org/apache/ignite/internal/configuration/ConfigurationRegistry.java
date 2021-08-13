@@ -22,6 +22,7 @@ import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -88,9 +89,9 @@ public class ConfigurationRegistry implements IgniteComponent {
 
         Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators0 = new HashMap<>(validators);
 
-        validators0.put(Min.class, Set.of(new MinValidator()));
-        validators0.put(Max.class, Set.of(new MaxValidator()));
-        validators0.put(Immutable.class, Set.of(new ImmutableValidator()));
+        validators0.computeIfAbsent(Min.class, a -> new HashSet<>()).add(new MinValidator());
+        validators0.computeIfAbsent(Max.class, a -> new HashSet<>()).add(new MaxValidator());
+        validators0.computeIfAbsent(Immutable.class, a -> new HashSet<>()).add(new ImmutableValidator());
 
         changer = new ConfigurationChanger(this::notificator, rootKeys, validators0, storage) {
             /** {@inheritDoc} */
@@ -122,7 +123,7 @@ public class ConfigurationRegistry implements IgniteComponent {
     /**
      * Initializes the configuration storage - reads data and sets default values for missing configuration properties.
      */
-    public void initializeDefaultsStorage() {
+    public void initializeDefaults() {
         changer.initializeDefaults();
 
         for (RootKey<?, ?> rootKey : rootKeys) {
@@ -155,11 +156,11 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @throws IllegalArgumentException If {@code path} is not found in current configuration.
      */
     public <T> T represent(List<String> path, ConfigurationVisitor<T> visitor) throws IllegalArgumentException {
-        SuperRoot mergedSuperRoot = changer.superRoot();
+        SuperRoot superRoot = changer.superRoot();
 
         Object node;
         try {
-            node = ConfigurationUtil.find(path, mergedSuperRoot);
+            node = ConfigurationUtil.find(path, superRoot);
         }
         catch (KeyNotFoundException e) {
             throw new IllegalArgumentException(e.getMessage());

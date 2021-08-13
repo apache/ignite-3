@@ -92,13 +92,13 @@ public class IgniteImpl implements Ignite {
      * @return Node configuration.
      */
     public ConfigurationRegistry nodeConfiguration() {
-        return nodeConfigurationMgr.registry();
+        return nodeConfigurationMgr.configurationRegistry();
     }
 
     /**
      * @return Cluster configuration.
      */
     public ConfigurationRegistry clusterConfiguration() {
-        return clusterConfigurationMgr.registry();
+        return clusterConfigurationMgr.configurationRegistry();
     }
 }

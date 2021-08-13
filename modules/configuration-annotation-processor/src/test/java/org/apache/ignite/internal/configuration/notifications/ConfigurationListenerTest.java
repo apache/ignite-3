@@ -82,7 +82,7 @@ public class ConfigurationListenerTest {
 
         registry.start();
 
-        registry.initializeDefaultsStorage();
+        registry.initializeDefaults();
 
         configuration = registry.getConfiguration(ParentConfiguration.KEY);
     }

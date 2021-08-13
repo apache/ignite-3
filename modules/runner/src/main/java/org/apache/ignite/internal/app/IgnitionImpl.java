@@ -214,7 +214,11 @@ public class IgnitionImpl implements Ignition {
             ConfigurationManager nodeCfgMgr = doStartComponent(
                 nodeName,
                 startedComponents,
-                new ConfigurationManager(nodeRootKeys, new LocalConfigurationStorage(vaultMgr))
+                new ConfigurationManager(
+                    nodeRootKeys,
+                    Map.of(),
+                    new LocalConfigurationStorage(vaultMgr)
+                )
             );
 
             if (cfgContent != null) {
@@ -226,10 +230,10 @@ public class IgnitionImpl implements Ignition {
                 }
             }
             else
-                nodeCfgMgr.registry().initializeDefaultsStorage();
+                nodeCfgMgr.configurationRegistry().initializeDefaults();
 
             NetworkView netConfigurationView =
-                nodeCfgMgr.registry().getConfiguration(NetworkConfiguration.KEY).value();
+                nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).value();
 
             var serializationRegistry = new MessageSerializationRegistryImpl();
 
@@ -281,6 +285,7 @@ public class IgnitionImpl implements Ignition {
                 startedComponents,
                 new ConfigurationManager(
                     clusterRootKeys,
+                    Map.of(),
                     new DistributedConfigurationStorage(metaStorageMgr, vaultMgr)
                 )
             );

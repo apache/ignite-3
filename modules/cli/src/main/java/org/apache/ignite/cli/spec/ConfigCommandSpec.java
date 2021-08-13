@@ -54,16 +54,13 @@ public class ConfigCommandSpec extends CategorySpec {
         )
         private String selector;
 
-        /**
-         * Configuration type: {@code node} or {@code cluster}.
-         *
-         * TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15285
-         */
+        /** Configuration type: {@code node} or {@code cluster}. */
         @CommandLine.Option(
             names = "--type",
             description = "Configuration type (\"node\" or \"cluster\")",
             required = true
         )
+        //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
         private String type;
 
         /** {@inheritDoc} */
@@ -94,11 +91,8 @@ public class ConfigCommandSpec extends CategorySpec {
         @CommandLine.Mixin
         private CfgHostnameOptions cfgHostnameOptions;
 
-        /**
-         * Configuration type: {@code node} or {@code cluster}.
-         *
-         * TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15285
-         */
+        /** Configuration type: {@code node} or {@code cluster}. */
+        //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
         @CommandLine.Option(
             names = "--type",
             description = "Configuration type (\"node\" or \"cluster\")",

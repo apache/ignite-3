@@ -128,7 +128,7 @@ public class AffinityManager extends Producer<AffinityEvent, AffinityEventParame
      * @return A future which will complete when the assignment is calculated.
      */
     public CompletableFuture<Boolean> calculateAssignments(UUID tblId, String tblName) {
-        TableConfiguration tblConfig = configurationMgr.registry()
+        TableConfiguration tblConfig = configurationMgr.configurationRegistry()
             .getConfiguration(TablesConfiguration.KEY).tables().get(tblName);
 
         var key = new ByteArray(INTERNAL_PREFIX + tblId);

@@ -21,7 +21,6 @@ import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
-import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
@@ -34,9 +33,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 public class TestConfigurationChanger extends ConfigurationChanger {
     /** Runtime implementations generator for node classes. */
     private final ConfigurationAsmGenerator cgen;
-
-    /** Root keys. */
-    private final Collection<RootKey<?, ?>> rootKeys;
 
     /**
      * Constructor.
@@ -61,14 +57,8 @@ public class TestConfigurationChanger extends ConfigurationChanger {
         );
 
         this.cgen = cgen;
-        this.rootKeys = rootKeys;
-    }
 
-    /** {@inheritDoc} */
-    @Override public void start() throws ConfigurationChangeException {
         rootKeys.forEach(key -> cgen.compileRootSchema(key.schemaClass()));
-
-        super.start();
     }
 
     /** {@inheritDoc} */

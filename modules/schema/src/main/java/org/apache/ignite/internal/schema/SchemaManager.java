@@ -188,7 +188,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     public CompletableFuture<Boolean> initSchemaForTable(final UUID tblId, String tblName) {
         return vaultMgr.get(ByteArray.fromString(INTERNAL_PREFIX + tblId)).
             thenCompose(entry -> {
-                TableConfiguration tblConfig = configurationMgr.registry().
+                TableConfiguration tblConfig = configurationMgr.configurationRegistry().
                     getConfiguration(TablesConfiguration.KEY).tables().get(tblName);
 
                 assert entry.empty();

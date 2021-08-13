@@ -89,7 +89,11 @@ public class ITDistributedConfigurationStorageTest {
 
             List<RootKey<?, ?>> rootKeys = List.of(NodeConfiguration.KEY);
 
-            cfgManager = new ConfigurationManager(rootKeys, new LocalConfigurationStorage(vaultManager));
+            cfgManager = new ConfigurationManager(
+                rootKeys,
+                Map.of(),
+                new LocalConfigurationStorage(vaultManager)
+            );
 
             metaStorageManager = new MetaStorageManager(
                 vaultManager,

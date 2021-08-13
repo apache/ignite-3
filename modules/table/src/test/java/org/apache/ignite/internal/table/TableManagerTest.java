@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Phaser;
@@ -158,11 +159,13 @@ public class TableManagerTest {
         try {
             nodeCfgMgr = new ConfigurationManager(
                 List.of(NodeConfiguration.KEY),
+                Map.of(),
                 new TestConfigurationStorage(LOCAL)
             );
 
             clusterCfgMgr = new ConfigurationManager(
                 List.of(ClusterConfiguration.KEY, TablesConfiguration.KEY),
+                Map.of(),
                 new TestConfigurationStorage(DISTRIBUTED)
             );
 
@@ -488,7 +491,7 @@ public class TableManagerTest {
 
             int tablesBeforeCreation = tableManager.tables().size();
 
-            clusterCfgMgr.registry().getConfiguration(TablesConfiguration.KEY).tables().listen(ctx -> {
+            clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().listen(ctx -> {
                 boolean createTbl = ctx.newValue().get(schemaTable.canonicalName()) != null &&
                     ctx.oldValue().get(schemaTable.canonicalName()) == null;
 

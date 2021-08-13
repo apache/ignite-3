@@ -484,6 +484,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         }
 
         /** */
+        //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
         @Test
         @DisplayName("get --node-endpoint localhost:8081 --type node")
         void get() throws IOException, InterruptedException {
@@ -508,7 +509,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                 "}\n", out.toString());
         }
 
-        /** //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15285 */
+        /** */
+        //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
         @Test
         @DisplayName("get --node-endpoint localhost:8081 --selector local.baseline --type node")
         void getSubtree() throws IOException, InterruptedException {
@@ -533,7 +535,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                 "}\n", out.toString());
         }
 
-        /** //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15285 */
+        /** */
+        //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
         @Test
         @DisplayName("set --node-endpoint localhost:8081 local.baseline.autoAdjust.enabled=true --type node")
         void setHocon() throws IOException, InterruptedException {
@@ -560,7 +563,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                 " command to view the updated configuration.\n", out.toString());
         }
 
-        /** //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15285 */
+        /** */
+        //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
         @Test
         @DisplayName(
             "set --node-endpoint localhost:8081 {\"local\":{\"baseline\":{\"autoAdjust\":{\"enabled\":true}}}} " +

@@ -89,10 +89,10 @@ public class RestModule implements IgniteComponent {
         ConfigurationManager nodeCfgMgr,
         ConfigurationManager clusterCfgMgr
     ) {
-        nodeCfgRegistry = nodeCfgMgr.registry();
+        nodeCfgRegistry = nodeCfgMgr.configurationRegistry();
 
-        nodeCfgPresentation = new HoconPresentation(nodeCfgMgr.registry());
-        clusterCfgPresentation = new HoconPresentation(clusterCfgMgr.registry());
+        nodeCfgPresentation = new HoconPresentation(nodeCfgMgr.configurationRegistry());
+        clusterCfgPresentation = new HoconPresentation(clusterCfgMgr.configurationRegistry());
     }
 
     /** {@inheritDoc} */
@@ -134,8 +134,9 @@ public class RestModule implements IgniteComponent {
      * Start endpoint.
      *
      * @param router Dispatcher of http requests.
+     * @return Future which will be notified when this channel is closed.
      */
-    private void startRestEndpoint(Router router) {
+    private ChannelFuture startRestEndpoint(Router router) {
         RestView restConfigurationView = nodeCfgRegistry.getConfiguration(RestConfiguration.KEY).value();
 
         int desiredPort = restConfigurationView.port();
@@ -199,6 +200,8 @@ public class RestModule implements IgniteComponent {
 
         if (LOG.isInfoEnabled())
             LOG.info("REST protocol started successfully on port " + port);
+
+        return ch.closeFuture();
     }
 
     /** {@inheritDoc} */
