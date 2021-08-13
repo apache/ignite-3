@@ -110,11 +110,16 @@ public class ClientHandlerModule implements IgniteComponent {
      * @throws IgniteException When startup has failed.
      */
     private ChannelFuture startEndpoint() throws InterruptedException {
+        // TODO: Handle defaults IGNITE-15164.
+        int desiredPort = 10800;
+        int portRange = 100;
+
         var configuration = registry.getConfiguration(ClientConnectorConfiguration.KEY);
 
-        // TODO: Handle defaults IGNITE-15164.
-        int desiredPort = configuration.port().value() == null ? 10800 : configuration.port().value();
-        int portRange = configuration.portRange().value() == null ? 100 : configuration.portRange().value();
+        if (configuration != null) {
+            desiredPort = configuration.port().value() == null ? desiredPort : configuration.port().value();
+            portRange = configuration.portRange().value() == null ? portRange : configuration.portRange().value();
+        }
 
         int port = 0;
         Channel ch = null;

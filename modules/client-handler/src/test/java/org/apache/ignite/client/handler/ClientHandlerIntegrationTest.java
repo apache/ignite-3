@@ -23,16 +23,15 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.Collections;
 import java.util.Objects;
-import org.apache.ignite.app.Ignite;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.table.manager.IgniteTables;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.msgpack.core.MessagePack;
-import org.slf4j.helpers.NOPLogger;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -184,9 +183,8 @@ public class ClientHandlerIntegrationTest {
 
         configurationRegistry.start();
 
-        var module = new ClientHandlerModule(mock(Ignite.class), NOPLogger.NOP_LOGGER);
+        var module = new ClientHandlerModule(mock(IgniteTables.class), configurationRegistry);
 
-        module.prepareStart(configurationRegistry);
         module.start();
 
         return module;
