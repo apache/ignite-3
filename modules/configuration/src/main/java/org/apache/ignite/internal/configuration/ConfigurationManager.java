@@ -39,9 +39,6 @@ public class ConfigurationManager implements IgniteComponent {
     /** Configuration registry. */
     private final ConfigurationRegistry registry;
 
-    /** Configuration storage. */
-    private final ConfigurationStorage storage;
-
     /**
      * Constructor.
      *
@@ -56,8 +53,6 @@ public class ConfigurationManager implements IgniteComponent {
         ConfigurationStorage storage
     ) {
         checkConfigurationType(rootKeys, storage);
-
-        this.storage = storage;
 
         registry = new ConfigurationRegistry(rootKeys, validators, storage);
     }
@@ -94,7 +89,7 @@ public class ConfigurationManager implements IgniteComponent {
     public void bootstrap(String hoconStr) throws InterruptedException, ExecutionException {
         ConfigObject hoconCfg = ConfigFactory.parseString(hoconStr).root();
 
-        registry.change(HoconConverter.hoconSource(hoconCfg), storage).get();
+        registry.change(HoconConverter.hoconSource(hoconCfg)).get();
     }
 
     /**

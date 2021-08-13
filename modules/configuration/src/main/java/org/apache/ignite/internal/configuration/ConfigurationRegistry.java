@@ -29,7 +29,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Max;
 import org.apache.ignite.configuration.validation.Min;
@@ -48,8 +47,6 @@ import org.apache.ignite.internal.configuration.validation.MaxValidator;
 import org.apache.ignite.internal.configuration.validation.MinValidator;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.lang.IgniteLogger;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.configuration.util.ConfigurationNotificationsUtil.notifyListeners;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
@@ -66,16 +63,10 @@ public class ConfigurationRegistry implements IgniteComponent {
     /** Root keys. */
     private final Collection<RootKey<?, ?>> rootKeys;
 
-    /** Validators. */
-    private final Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators;
+    /** Configuration change handler. */
+    private final ConfigurationChanger changer;
 
-    /** Configuration storage. */
-    private final ConfigurationStorage storage;
-
-    /** */
-    private volatile ConfigurationChanger changer;
-
-    /** */
+    /** Configuration generator. */
     private final ConfigurationAsmGenerator cgen = new ConfigurationAsmGenerator();
 
     /**
@@ -94,36 +85,32 @@ public class ConfigurationRegistry implements IgniteComponent {
         checkConfigurationType(rootKeys, storage);
 
         this.rootKeys = rootKeys;
-        this.validators = validators;
-        this.storage = storage;
-    }
 
-    /** {@inheritDoc} */
-    @Override public void start() {
-        this.changer = new ConfigurationChanger(this::notificator) {
+        Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators0 = new HashMap<>(validators);
+
+        validators0.put(Min.class, Set.of(new MinValidator()));
+        validators0.put(Max.class, Set.of(new MaxValidator()));
+        validators0.put(Immutable.class, Set.of(new ImmutableValidator()));
+
+        changer = new ConfigurationChanger(this::notificator, rootKeys, validators0, storage) {
             /** {@inheritDoc} */
             @Override public InnerNode createRootNode(RootKey<?, ?> rootKey) {
                 return cgen.instantiateNode(rootKey.schemaClass());
             }
         };
+    }
 
-        changer.addValidator(Min.class, new MinValidator());
-        changer.addValidator(Max.class, new MaxValidator());
-        changer.addValidator(Immutable.class, new ImmutableValidator());
-
+    /** {@inheritDoc} */
+    @Override public void start() {
         rootKeys.forEach(rootKey -> {
             cgen.compileRootSchema(rootKey.schemaClass());
-
-            changer.addRootKey(rootKey);
 
             DynamicConfiguration<?, ?> cfg = cgen.instantiateCfg(rootKey, changer);
 
             configs.put(rootKey.key(), cfg);
         });
 
-        validators.forEach(changer::addValidators);
-
-        changer.register(storage);
+        changer.start();
     }
 
     /** {@inheritDoc} */
@@ -133,16 +120,12 @@ public class ConfigurationRegistry implements IgniteComponent {
     }
 
     /**
-     * Starts storage configurations.
-     * @param storageType Storage type.
+     * Initializes the configuration storage - reads data and sets default values for missing configuration properties.
      */
-    public void startStorageConfigurations(ConfigurationType storageType) {
-        changer.initialize(storageType);
+    public void initializeDefaultsStorage() {
+        changer.initializeDefaults();
 
         for (RootKey<?, ?> rootKey : rootKeys) {
-            if (rootKey.type() != storageType)
-                continue;
-
             DynamicConfiguration<?, ?> dynCfg = configs.get(rootKey.key());
 
             ConfigurationNotificationsUtil.touch(dynCfg);
@@ -151,6 +134,7 @@ public class ConfigurationRegistry implements IgniteComponent {
 
     /**
      * Gets the public configuration tree.
+     *
      * @param rootKey Root key.
      * @param <V> View type.
      * @param <C> Change type.
@@ -171,7 +155,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @throws IllegalArgumentException If {@code path} is not found in current configuration.
      */
     public <T> T represent(List<String> path, ConfigurationVisitor<T> visitor) throws IllegalArgumentException {
-        SuperRoot mergedSuperRoot = changer.mergedSuperRoot();
+        SuperRoot mergedSuperRoot = changer.superRoot();
 
         Object node;
         try {
@@ -191,20 +175,27 @@ public class ConfigurationRegistry implements IgniteComponent {
 
     /**
      * Change configuration.
-     * @param changesSource Configuration source to create patch from it.
-     * @param storage Expected storage for the changes. Can be null, this will mean that derived storage will be used
-     * unconditionaly.
+     *
+     * @param changesSrc Configuration source to create patch from it.
      * @return Future that is completed on change completion.
      */
-    public CompletableFuture<Void> change(ConfigurationSource changesSource, @Nullable ConfigurationStorage storage) {
-        return changer.change(changesSource, storage);
+    public CompletableFuture<Void> change(ConfigurationSource changesSrc) {
+        return changer.change(changesSrc);
     }
 
-    /** */
-    private @NotNull CompletableFuture<Void> notificator(SuperRoot oldSuperRoot, SuperRoot newSuperRoot, long storageRevision) {
+    /**
+     * Configuration change notifier.
+     *
+     * @param oldSuperRoot Old roots values. All these roots always belong to a single storage.
+     * @param newSuperRoot New values for the same roots as in {@code oldRoot}.
+     * @param storageRevision Revision of the storage.
+     * @return Future that must signify when processing is completed. Exceptional completion is not expected.
+     */
+    private CompletableFuture<Void> notificator(SuperRoot oldSuperRoot, SuperRoot newSuperRoot, long storageRevision) {
         List<CompletableFuture<?>> futures = new ArrayList<>();
 
         newSuperRoot.traverseChildren(new ConfigurationVisitor<Void>() {
+            /** {@inheritDoc} */
             @Override public Void visitInnerNode(String key, InnerNode newRoot) {
                 InnerNode oldRoot = oldSuperRoot.traverseChild(key, innerNodeVisitor());
 

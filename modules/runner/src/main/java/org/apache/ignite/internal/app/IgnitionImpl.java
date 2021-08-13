@@ -32,7 +32,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.Ignition;
 import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkView;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
@@ -227,7 +226,7 @@ public class IgnitionImpl implements Ignition {
                 }
             }
             else
-                nodeCfgMgr.registry().startStorageConfigurations(ConfigurationType.LOCAL);
+                nodeCfgMgr.registry().initializeDefaultsStorage();
 
             NetworkView netConfigurationView =
                 nodeCfgMgr.registry().getConfiguration(NetworkConfiguration.KEY).value();
@@ -280,7 +279,10 @@ public class IgnitionImpl implements Ignition {
             ConfigurationManager clusterCfgMgr = doStartComponent(
                 nodeName,
                 startedComponents,
-                new ConfigurationManager(clusterRootKeys, new DistributedConfigurationStorage(metaStorageMgr, vaultMgr))
+                new ConfigurationManager(
+                    clusterRootKeys,
+                    new DistributedConfigurationStorage(metaStorageMgr, vaultMgr)
+                )
             );
 
             // Baseline manager startup.

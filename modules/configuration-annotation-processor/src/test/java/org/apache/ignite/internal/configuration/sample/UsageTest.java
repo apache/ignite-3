@@ -57,7 +57,7 @@ public class UsageTest {
 
         registry.start();
 
-        registry.startStorageConfigurations(LOCAL);
+        registry.initializeDefaultsStorage();
 
         LocalConfiguration root = registry.getConfiguration(LocalConfiguration.KEY);
 

@@ -17,8 +17,15 @@
 
 package org.apache.ignite.internal.configuration;
 
+import java.lang.annotation.Annotation;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
+import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
+import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -28,20 +35,40 @@ public class TestConfigurationChanger extends ConfigurationChanger {
     /** Runtime implementations generator for node classes. */
     private final ConfigurationAsmGenerator cgen;
 
+    /** Root keys. */
+    private final Collection<RootKey<?, ?>> rootKeys;
+
     /**
+     * Constructor.
+     *
      * @param cgen Runtime implementations generator for node classes. Will be used to instantiate nodes objects.
+     * @param rootKeys Configuration root keys.
+     * @param validators Validators.
+     * @param storage Configuration storage.
+     * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type.
      */
-    public TestConfigurationChanger(ConfigurationAsmGenerator cgen) {
-        super((oldRoot, newRoot, revision) -> completedFuture(null));
+    public TestConfigurationChanger(
+        ConfigurationAsmGenerator cgen,
+        Collection<RootKey<?, ?>> rootKeys,
+        Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators,
+        ConfigurationStorage storage
+    ) {
+        super(
+            (oldRoot, newRoot, revision) -> completedFuture(null),
+            rootKeys,
+            validators,
+            storage
+        );
 
         this.cgen = cgen;
+        this.rootKeys = rootKeys;
     }
 
     /** {@inheritDoc} */
-    @Override public void addRootKey(RootKey<?, ?> rootKey) {
-        super.addRootKey(rootKey);
+    @Override public void start() throws ConfigurationChangeException {
+        rootKeys.forEach(key -> cgen.compileRootSchema(key.schemaClass()));
 
-        cgen.compileRootSchema(rootKey.schemaClass());
+        super.start();
     }
 
     /** {@inheritDoc} */

@@ -553,7 +553,7 @@ public class HoconConverterTest {
      */
     private void change(String hocon) throws Throwable {
         try {
-            registry.change(hoconSource(ConfigFactory.parseString(hocon).root()), null).get(1, SECONDS);
+            registry.change(hoconSource(ConfigFactory.parseString(hocon).root())).get(1, SECONDS);
         }
         catch (ExecutionException e) {
             throw e.getCause();
