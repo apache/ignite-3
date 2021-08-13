@@ -485,18 +485,18 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
         /** */
         @Test
-        @DisplayName("get --node-endpoint localhost:8081")
+        @DisplayName("get --node-endpoint localhost:8081 --type node")
         void get() throws IOException, InterruptedException {
             when(res.statusCode()).thenReturn(HttpURLConnection.HTTP_OK);
             when(res.body()).thenReturn("{\"baseline\":{\"autoAdjust\":{\"enabled\":true}}}");
             when(httpClient.<String>send(any(), any())).thenReturn(res);
 
             var exitCode =
-                cmd(ctx).execute("config get --node-endpoint localhost:8081".split(" "));
+                cmd(ctx).execute("config get --node-endpoint localhost:8081 --type node".split(" "));
 
             Assertions.assertEquals(0, exitCode);
             verify(httpClient).send(
-                argThat(r -> "http://localhost:8081/management/v1/configuration/".equals(r.uri().toString()) &&
+                argThat(r -> "http://localhost:8081/management/v1/configuration/node/".equals(r.uri().toString()) &&
                     "application/json".equals(r.headers().firstValue("Content-Type").get())),
                 any());
             assertEquals("{\n" +
@@ -508,9 +508,9 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                 "}\n", out.toString());
         }
 
-        /** */
+        /** //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15285 */
         @Test
-        @DisplayName("get --node-endpoint localhost:8081 --selector local.baseline")
+        @DisplayName("get --node-endpoint localhost:8081 --selector local.baseline --type node")
         void getSubtree() throws IOException, InterruptedException {
             when(res.statusCode()).thenReturn(HttpURLConnection.HTTP_OK);
             when(res.body()).thenReturn("{\"autoAdjust\":{\"enabled\":true}}");
@@ -518,12 +518,12 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             var exitCode =
                 cmd(ctx).execute(("config get --node-endpoint localhost:8081 " +
-                    "--selector local.baseline").split(" "));
+                    "--selector local.baseline --type node").split(" "));
 
             Assertions.assertEquals(0, exitCode);
             verify(httpClient).send(
                 argThat(r ->
-                    "http://localhost:8081/management/v1/configuration/local.baseline".equals(r.uri().toString()) &&
+                    "http://localhost:8081/management/v1/configuration/node/local.baseline".equals(r.uri().toString()) &&
                     "application/json".equals(r.headers().firstValue("Content-Type").get())),
                 any());
             assertEquals("{\n" +
@@ -533,9 +533,9 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                 "}\n", out.toString());
         }
 
-        /** */
+        /** //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15285 */
         @Test
-        @DisplayName("set --node-endpoint localhost:8081 local.baseline.autoAdjust.enabled=true")
+        @DisplayName("set --node-endpoint localhost:8081 local.baseline.autoAdjust.enabled=true --type node")
         void setHocon() throws IOException, InterruptedException {
             when(res.statusCode()).thenReturn(HttpURLConnection.HTTP_OK);
             when(httpClient.<String>send(any(), any())).thenReturn(res);
@@ -545,12 +545,12 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             var cmd = cmd(ctx);
             var exitCode =
                 cmd.execute(("config set --node-endpoint localhost:8081 " +
-                    "local.baseline.autoAdjust.enabled=true"
+                    "local.baseline.autoAdjust.enabled=true --type node"
                     ).split(" "));
 
             Assertions.assertEquals(0, exitCode);
             verify(httpClient).send(
-                argThat(r -> "http://localhost:8081/management/v1/configuration/".equals(r.uri().toString()) &&
+                argThat(r -> "http://localhost:8081/management/v1/configuration/node/".equals(r.uri().toString()) &&
                     "PUT".equals(r.method()) &&
                     r.bodyPublisher().get().contentLength() == expSentContent.getBytes().length &&
                     "application/json".equals(r.headers().firstValue("Content-Type").get())),
@@ -560,9 +560,12 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                 " command to view the updated configuration.\n", out.toString());
         }
 
-        /** */
+        /** //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15285 */
         @Test
-        @DisplayName("set --node-endpoint localhost:8081 {\"local\":{\"baseline\":{\"autoAdjust\":{\"enabled\":true}}}}")
+        @DisplayName(
+            "set --node-endpoint localhost:8081 {\"local\":{\"baseline\":{\"autoAdjust\":{\"enabled\":true}}}} " +
+                "--type node"
+        )
         void setJson() throws IOException, InterruptedException {
             when(res.statusCode()).thenReturn(HttpURLConnection.HTTP_OK);
             when(httpClient.<String>send(any(), any())).thenReturn(res);
@@ -572,12 +575,12 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             var cmd = cmd(ctx);
             var exitCode =
                 cmd.execute(("config set --node-endpoint localhost:8081 " +
-                    "local.baseline.autoAdjust.enabled=true"
+                    "local.baseline.autoAdjust.enabled=true --type node"
                 ).split(" "));
 
             Assertions.assertEquals(0, exitCode);
             verify(httpClient).send(
-                argThat(r -> "http://localhost:8081/management/v1/configuration/".equals(r.uri().toString()) &&
+                argThat(r -> "http://localhost:8081/management/v1/configuration/node/".equals(r.uri().toString()) &&
                     "PUT".equals(r.method()) &&
                     r.bodyPublisher().get().contentLength() == expSentContent.getBytes().length &&
                     "application/json".equals(r.headers().firstValue("Content-Type").get())),
