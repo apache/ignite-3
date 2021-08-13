@@ -17,18 +17,14 @@ set -o nounset; set -o errexit; set -o pipefail; set -o errtrace; set -o functra
 
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )/../.."
 POMS=$(find ${ROOT} -name pom.xml)
-xpath -q -e "project/properties/*" ${ROOT}/parent/pom.xml 2>&1 | \
-  grep -E "<.*\.version>" | \
-  sed -r 's|<(.*)>.*<\/.*>|\1|' | \
-  while read -r property; do
-    FOUND=false
-    for pom in ${POMS}; do
-        if grep -qE "\\$.*${property}" "${pom}"; then
-            FOUND=true
-        fi
+for pom in ${POMS}; do
+    total_count="$(xpath -q -e "count(project/dependencies/dependency)" "${pom}")"
+    for i in $(seq 1 1 ${total_count}); do
+        xpath -q -e "project/dependencies/dependency[${i}]/*/text()" "${pom}" | \
+          sed ':a;N;$!ba;s/\n/:/g'
+    done | \
+      sort | \
+      uniq -d | while read -r dependency; do
+        echo "[ERROR] Found duplicate dependency in '$(sed -r "s|${ROOT}/||" <<< ${pom})': ${dependency}"
     done
-    if [ "${FOUND}" == "false" ]; then
-        echo "${property}" > unused-properties.txt
-        echo "[ERROR] Found unused property: ${property}"
-    fi
 done

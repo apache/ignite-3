@@ -30,10 +30,11 @@ for script in CheckDependencyAndPluginVersionsNotInParent.sh \
               CheckModulesInRootPomAreSorted.sh \
               CheckPropertiesNotInParent.sh \
               CheckUnusedDependenciesAndPluginsInParent.sh \
-              CheckUnusedProperties.sh; do
+              CheckUnusedProperties.sh \
+              CheckDuplicateDependencies.sh; do
     echo -n " * Executing ${script}... "
     bash ${DIR__MAVEN_CHECK_SCRIPTS}/${script} && \
-        echo "[OK]" || {
+        echo "Done" || {
             echo "[ERROR]"
             exit 1
         }
