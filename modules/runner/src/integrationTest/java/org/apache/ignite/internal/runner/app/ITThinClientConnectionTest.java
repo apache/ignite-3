@@ -26,9 +26,13 @@ import com.google.common.collect.Lists;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.schema.ColumnType;
+import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,6 +46,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 class ITThinClientConnectionTest {
+    /** */
+    private static final String SCHEMA_NAME = "PUB";
+
     /** */
     private static final String TABLE_NAME = "tbl1";
 
@@ -82,7 +89,16 @@ class ITThinClientConnectionTest {
                 startedNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
         );
 
-        startedNodes.get(0).tables().createTable(TABLE_NAME, t -> t.changeReplicas(1));
+        SchemaTable schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
+                SchemaBuilders.column("key", ColumnType.INT32).asNonNull().build(),
+                SchemaBuilders.column("val", ColumnType.string()).asNullable().build()
+        ).withPrimaryKey("key").build();
+
+        startedNodes.get(0).tables().createTable(schTbl.canonicalName(), tblCh ->
+                SchemaConfigurationConverter.convert(schTbl, tblCh)
+                        .changeReplicas(1)
+                        .changePartitions(10)
+        );
     }
 
     /** */
@@ -96,11 +112,14 @@ class ITThinClientConnectionTest {
      */
     @Test
     void testThinClientConnectsToServerNodes() {
-        var client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
+        var client1 = IgniteClient.builder().addresses("127.0.0.1:10800").build();
+        var client2 = IgniteClient.builder().addresses("127.0.0.1:10801").build();
 
-        List<Table> tables = client.tables().tables();
+        for (var client : new Ignite[] {client1, client2}) {
+            List<Table> tables = client.tables().tables();
 
-        assertEquals(1, tables.size());
-        assertEquals(TABLE_NAME, tables.get(0).tableName());
+            assertEquals(1, tables.size());
+            assertEquals(String.format("%s.%s", SCHEMA_NAME, TABLE_NAME), tables.get(0).tableName());
+        }
     }
 }
