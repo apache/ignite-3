@@ -168,7 +168,7 @@ public class ClientHandlerModule implements IgniteComponent {
             throw new IgniteException(msg);
         }
 
-        LOG.info("Thin client connector started successfully on port " + port);
+        LOG.info("Thin client protocol started successfully on port " + port);
 
         return ch.closeFuture();
     }
