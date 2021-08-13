@@ -153,11 +153,10 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
 
     /** {@inheritDoc} */
     @Override public Mono<Void> stop() {
-        return Mono.defer(
-            () -> {
-                stop.onComplete();
-                return onStop;
-            });
+        return Mono.defer(() -> {
+            stop.onComplete();
+            return onStop;
+        });
     }
 
     /** {@inheritDoc} */
