@@ -27,6 +27,7 @@ import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -46,7 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests thin client connecting to a real server node.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-class ITThinClientConnectionTest {
+public class ITThinClientConnectionTest extends IgniteAbstractTest {
     /** */
     private static final String SCHEMA_NAME = "PUB";
 
@@ -91,7 +92,7 @@ class ITThinClientConnectionTest {
 
     /** */
     @BeforeEach
-    void setUo() throws Exception {
+    void setUp() throws Exception {
         nodesBootstrapCfg.forEach((nodeName, configStr) ->
                 startedNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
         );
