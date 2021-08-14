@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.runner.app;
 
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -84,7 +83,7 @@ public class ITThinClientConnectionTest extends IgniteAbstractTest {
 
     /** */
     @BeforeEach
-    void setUp() {
+    void setup() {
         nodesBootstrapCfg.forEach((nodeName, configStr) ->
                 startedNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
         );
