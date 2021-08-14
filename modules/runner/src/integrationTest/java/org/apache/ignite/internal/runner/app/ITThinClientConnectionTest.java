@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -27,6 +28,7 @@ import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -35,6 +37,7 @@ import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -83,7 +86,9 @@ public class ITThinClientConnectionTest extends IgniteAbstractTest {
 
     /** */
     @BeforeEach
-    void setup() {
+    @Override public void setup(TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
+        super.setup(testInfo, workDir);
+
         nodesBootstrapCfg.forEach((nodeName, configStr) ->
                 startedNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
         );
