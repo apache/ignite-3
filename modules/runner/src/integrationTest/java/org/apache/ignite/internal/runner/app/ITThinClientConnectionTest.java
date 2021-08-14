@@ -28,8 +28,6 @@ import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -38,7 +36,6 @@ import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -46,7 +43,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests thin client connecting to a real server node.
  */
-@ExtendWith(WorkDirectoryExtension.class)
 public class ITThinClientConnectionTest extends IgniteAbstractTest {
     /** */
     private static final String SCHEMA_NAME = "PUB";
@@ -87,12 +83,8 @@ public class ITThinClientConnectionTest extends IgniteAbstractTest {
     private final List<Ignite> startedNodes = new ArrayList<>();
 
     /** */
-    @WorkDirectory
-    private Path workDir;
-
-    /** */
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         nodesBootstrapCfg.forEach((nodeName, configStr) ->
                 startedNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
         );
