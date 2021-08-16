@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.proto.query.event;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.proto;
 
-import java.util.Arrays;
 import java.util.UUID;
 import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.buffer.Unpooled;
