@@ -23,9 +23,11 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.Collections;
 import java.util.Objects;
+import io.netty.channel.ChannelFuture;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.junit.jupiter.api.AfterEach;
@@ -175,9 +177,10 @@ public class ClientHandlerIntegrationTest {
     }
 
     private ClientHandlerModule startServer() {
-        configurationManager = new ConfigurationManager(
-                Collections.singletonList(ClientConnectorConfiguration.KEY),
-                Collections.singletonList(new TestConfigurationStorage(ConfigurationType.LOCAL))
+        configurationRegistry = new ConfigurationRegistry(
+            List.of(ClientConnectorConfiguration.KEY),
+            Map.of(),
+            new TestConfigurationStorage(LOCAL)
         );
 
         configurationManager.start();

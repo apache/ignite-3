@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
-import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
@@ -27,6 +26,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -52,6 +52,7 @@ import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -116,6 +117,9 @@ public class ITMetaStorageServicePersistenceTest {
 
         for (JRaftServerImpl server : servers)
             server.stop();
+
+        for (ClusterService service : cluster)
+            service.stop();
     }
 
     /**
@@ -160,6 +164,7 @@ public class ITMetaStorageServicePersistenceTest {
      */
     @ParameterizedTest
     @MethodSource("testSnapshotData")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15298")
     public void testSnapshot(TestData testData) throws Exception {
         ByteArray firstKey = ByteArray.fromString("first");
         byte[] firstValue = "firstValue".getBytes(StandardCharsets.UTF_8);
@@ -397,8 +402,9 @@ public class ITMetaStorageServicePersistenceTest {
      * a client.
      *
      * @return Meta storage raft group service instance.
+     * @throws Exception If failed.
      */
-    private RaftGroupService prepareMetaStorage() throws IOException {
+    private RaftGroupService prepareMetaStorage() throws Exception {
         for (int i = 0; i < INITIAL_CONF.size(); i++)
             startServer(i, new RocksDBKeyValueStorage(workDir.resolve(UUID.randomUUID().toString())));
 
@@ -409,18 +415,14 @@ public class ITMetaStorageServicePersistenceTest {
 
     /**
      * Starts a client with a specific address.
+     *
+     * @throws Exception If failed.
      */
-    private RaftGroupService startClient(String groupId, NetworkAddress addr) {
+    private RaftGroupService startClient(String groupId, NetworkAddress addr) throws Exception {
         ClusterService clientNode = clusterService("client_" + groupId + "_", CLIENT_PORT + clients.size(), addr);
 
-        RaftGroupServiceImpl client = new RaftGroupServiceImpl(groupId, clientNode, FACTORY, 10_000,
-            List.of(new Peer(addr)), false, 200) {
-            @Override public void shutdown() {
-                super.shutdown();
-
-                clientNode.stop();
-            }
-        };
+        RaftGroupService client = RaftGroupServiceImpl.start(groupId, clientNode, FACTORY, 10_000,
+            List.of(new Peer(addr)), false, 200).get(3, TimeUnit.SECONDS);
 
         clients.add(client);
 
