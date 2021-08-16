@@ -68,7 +68,7 @@ public class IgniteImpl implements Ignite {
 
     /**
      * For test purposes only.
-     * //TODO Should be removed after sqk api appears in Ignite interface.
+     * TODO IGNITE-15314 Should be removed after sql api appears in Ignite interface.
      * */
     protected IgniteImpl() {
         this.name = null;
