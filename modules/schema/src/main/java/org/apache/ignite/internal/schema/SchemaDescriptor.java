@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
@@ -130,11 +131,7 @@ public class SchemaDescriptor implements Serializable {
      * @param colIdx Column index.
      */
     public void validateColumnIndex(int colIdx) {
-        if (colIdx < 0)
-            throw new IllegalArgumentException("Column index can't be negative");
-
-        if (colIdx >= length())
-            throw new IllegalArgumentException("Column index can't be greater than " + (length() - 1));
+        Objects.checkIndex(colIdx, length());
     }
 
     /**

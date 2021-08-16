@@ -50,7 +50,7 @@ public class StrictSchemaOperationsTest {
 
         Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
-        assertThrows(SchemaMismatchException.class, () -> tbl.insert(tbl.tuple().set("invalidCol", 0)));
+        assertThrows(SchemaMismatchException.class, () -> tbl.insert(Tuple.create().set("invalidCol", 0)));
     }
 
     /**
@@ -71,13 +71,13 @@ public class StrictSchemaOperationsTest {
         Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         // Check not-nullable column.
-        assertThrows(IllegalArgumentException.class, () -> tbl.insert(tbl.tuple().set("id", null)));
+        assertThrows(IllegalArgumentException.class, () -> tbl.insert(Tuple.create().set("id", null)));
 
         // Check length of the string column
-        assertThrows(InvalidTypeException.class, () -> tbl.insert(tbl.tuple().set("valString", "qweqwe")));
+        assertThrows(InvalidTypeException.class, () -> tbl.insert(Tuple.create().set("valString", "qweqwe")));
 
         // Check length of the string column
-        assertThrows(InvalidTypeException.class, () -> tbl.insert(tbl.tuple().set("valBytes", new byte[] {0, 1, 2, 3})));
+        assertThrows(InvalidTypeException.class, () -> tbl.insert(Tuple.create().set("valBytes", new byte[] {0, 1, 2, 3})));
     }
 
     /**
@@ -96,7 +96,7 @@ public class StrictSchemaOperationsTest {
 
         Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
-        Tuple tuple = tbl.tuple().set("id", 1L);
+        Tuple tuple = Tuple.create().set("id", 1L);
 
         tbl.insert(tuple.set("valString", "qwe"));
         tbl.insert(tuple.set("valString", "qw"));
@@ -124,7 +124,7 @@ public class StrictSchemaOperationsTest {
 
         Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
-        Tuple tuple = tbl.tuple().set("id", 1L);
+        Tuple tuple = Tuple.create().set("id", 1L);
 
         tbl.insert(tuple.set("valUnlimited", null));
         tbl.insert(tuple.set("valLimited", null));

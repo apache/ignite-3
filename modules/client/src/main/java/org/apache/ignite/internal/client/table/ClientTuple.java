@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.table;
 
 import java.util.BitSet;
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.table.Tuple;
@@ -81,7 +82,7 @@ public final class ClientTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override public <T> T value(int columnIndex) {
-        validateColumnIndex(columnIndex);
+        Objects.checkIndex(columnIndex, vals.length);
 
         return getValue(columnIndex);
     }
@@ -93,7 +94,7 @@ public final class ClientTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override public String columnName(int columnIndex) {
-        validateColumnIndex(columnIndex);
+        Objects.checkIndex(columnIndex, vals.length);
 
         return schema.columns()[columnIndex].name();
     }
@@ -241,14 +242,6 @@ public final class ClientTuple implements Tuple {
      */
     public ClientSchema schema() {
         return schema;
-    }
-
-    private void validateColumnIndex(int columnIndex) {
-        if (columnIndex < 0)
-            throw new IllegalArgumentException("Column index can't be negative");
-
-        if (columnIndex >= vals.length)
-            throw new IllegalArgumentException("Column index can't be greater than " + (vals.length - 1));
     }
 
     private <T> T getValue(int columnIndex) {

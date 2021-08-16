@@ -82,8 +82,8 @@ public class TxTest {
         );
 
         accounts = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
-        Tuple r1 = accounts.tuple().set("accountNumber", 1L).set("balance", BALANCE_1);
-        Tuple r2 = accounts.tuple().set("accountNumber", 2L).set("balance", BALANCE_2);
+        Tuple r1 = Tuple.create().set("accountNumber", 1L).set("balance", BALANCE_1);
+        Tuple r2 = Tuple.create().set("accountNumber", 2L).set("balance", BALANCE_2);
 
         accounts.insert(r1);
         accounts.insert(r2);
@@ -194,7 +194,7 @@ public class TxTest {
      * @return The key tuple.
      */
     private Tuple makeKey(long id) {
-        return accounts.tuple().set("accountNumber", id);
+        return Tuple.create().set("accountNumber", id);
     }
 
     /**
@@ -203,6 +203,6 @@ public class TxTest {
      * @return The value tuple.
      */
     private Tuple makeValue(long id, double balance) {
-        return accounts.tuple().set("accountNumber", id).set("balance", balance);
+        return Tuple.create().set("accountNumber", id).set("balance", balance);
     }
 }

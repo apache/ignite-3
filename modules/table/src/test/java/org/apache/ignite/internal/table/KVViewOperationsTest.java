@@ -59,10 +59,10 @@ public class KVViewOperationsTest {
         KeyValueBinaryView tbl =
             new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
-        final Tuple key = tbl.tuple().set("id", 1L);
-        final Tuple val = tbl.tuple().set("val", 11L);
-        final Tuple val2 = tbl.tuple().set("val", 22L);
-        final Tuple val3 = tbl.tuple().set("val", 33L);
+        final Tuple key = Tuple.create().set("id", 1L);
+        final Tuple val = Tuple.create().set("val", 11L);
+        final Tuple val2 = Tuple.create().set("val", 22L);
+        final Tuple val3 = Tuple.create().set("val", 33L);
 
         assertNull(tbl.get(key));
 
@@ -70,13 +70,13 @@ public class KVViewOperationsTest {
         tbl.put(key, val);
 
         assertEqualsValues(schema, val, tbl.get(key));
-        assertEqualsValues(schema, val, tbl.get(tbl.tuple().set("id", 1L).set("val", -1L)));
+        assertEqualsValues(schema, val, tbl.get(Tuple.create().set("id", 1L).set("val", -1L)));
 
         // Update KV pair.
         tbl.put(key, val2);
 
         assertEqualsValues(schema, val2, tbl.get(key));
-        assertEqualsValues(schema, val2, tbl.get(tbl.tuple().set("id", 1L).set("val", -1L)));
+        assertEqualsValues(schema, val2, tbl.get(Tuple.create().set("id", 1L).set("val", -1L)));
 
         // Remove KV pair.
         tbl.put(key, null);
@@ -103,9 +103,9 @@ public class KVViewOperationsTest {
         KeyValueBinaryView tbl =
             new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
-        final Tuple key = tbl.tuple().set("id", 1L);
-        final Tuple val = tbl.tuple().set("val", 11L);
-        final Tuple val2 = tbl.tuple().set("val", 22L);
+        final Tuple key = Tuple.create().set("id", 1L);
+        final Tuple val = Tuple.create().set("val", 11L);
+        final Tuple val2 = Tuple.create().set("val", 22L);
 
         assertNull(tbl.get(key));
 
@@ -113,13 +113,13 @@ public class KVViewOperationsTest {
         assertTrue(tbl.putIfAbsent(key, val));
 
         assertEqualsValues(schema, val, tbl.get(key));
-        assertEqualsValues(schema, val, tbl.get(tbl.tuple().set("id", 1L).set("val", -1L)));
+        assertEqualsValues(schema, val, tbl.get(Tuple.create().set("id", 1L).set("val", -1L)));
 
         // Update KV pair.
         assertFalse(tbl.putIfAbsent(key, val2));
 
         assertEqualsValues(schema, val, tbl.get(key));
-        assertEqualsValues(schema, val, tbl.get(tbl.tuple().set("id", 1L).set("val", -1L)));
+        assertEqualsValues(schema, val, tbl.get(Tuple.create().set("id", 1L).set("val", -1L)));
     }
 
     /**
@@ -137,10 +137,10 @@ public class KVViewOperationsTest {
         KeyValueBinaryView tbl =
             new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
-        final Tuple key = tbl.tuple().set("id", 1L);
-        final Tuple val = tbl.tuple().set("val", 11L);
-        final Tuple val2 = tbl.tuple().set("val", 22L);
-        final Tuple val3 = tbl.tuple().set("val", 33L);
+        final Tuple key = Tuple.create().set("id", 1L);
+        final Tuple val = Tuple.create().set("val", 11L);
+        final Tuple val2 = Tuple.create().set("val", 22L);
+        final Tuple val3 = Tuple.create().set("val", 33L);
 
         assertNull(tbl.get(key));
 
@@ -148,14 +148,14 @@ public class KVViewOperationsTest {
         assertNull(tbl.getAndPut(key, val));
 
         assertEqualsValues(schema, val, tbl.get(key));
-        assertEqualsValues(schema, val, tbl.get(tbl.tuple().set("id", 1L).set("val", -1L)));
+        assertEqualsValues(schema, val, tbl.get(Tuple.create().set("id", 1L).set("val", -1L)));
 
         // Check non-value fields is ignored.
         assertEqualsValues(schema, val, tbl.getAndPut(key, val2));
-        assertEqualsValues(schema, val2, tbl.getAndPut(key, tbl.tuple().set("id", 2L).set("val", 33L)));
+        assertEqualsValues(schema, val2, tbl.getAndPut(key, Tuple.create().set("id", 2L).set("val", 33L)));
 
         assertEqualsValues(schema, val3, tbl.get(key));
-        assertNull(tbl.get(tbl.tuple().set("id", 2L)));
+        assertNull(tbl.get(Tuple.create().set("id", 2L)));
     }
 
     /**
@@ -173,10 +173,10 @@ public class KVViewOperationsTest {
         KeyValueBinaryView tbl =
             new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
-        final Tuple key = tbl.tuple().set("id", 1L);
-        final Tuple key2 = tbl.tuple().set("id", 2L);
-        final Tuple val = tbl.tuple().set("val", 11L);
-        final Tuple val2 = tbl.tuple().set("val", 22L);
+        final Tuple key = Tuple.create().set("id", 1L);
+        final Tuple key2 = Tuple.create().set("id", 2L);
+        final Tuple val = Tuple.create().set("val", 11L);
+        final Tuple val2 = Tuple.create().set("val", 22L);
 
         // Put KV pair.
         tbl.put(key, val);
@@ -194,7 +194,7 @@ public class KVViewOperationsTest {
         assertEqualsValues(schema, val2, tbl.get(key));
 
         // Delete existed key.
-        assertTrue(tbl.remove(tbl.tuple().set("id", 1L).set("val", -1L)));
+        assertTrue(tbl.remove(Tuple.create().set("id", 1L).set("val", -1L)));
         assertNull(tbl.get(key));
 
         // Delete not existed key.
@@ -214,13 +214,13 @@ public class KVViewOperationsTest {
             new Column[] {new Column("val", NativeTypes.INT64, false)}
         );
 
-        KeyValueBinaryView tbl =
+        final KeyValueBinaryView tbl =
             new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
-        final Tuple key = tbl.tuple().set("id", 1L);
-        final Tuple key2 = tbl.tuple().set("id", 2L);
-        final Tuple val = tbl.tuple().set("val", 11L);
-        final Tuple val2 = tbl.tuple().set("val", 22L);
+        final Tuple key = Tuple.create().set("id", 1L);
+        final Tuple key2 = Tuple.create().set("id", 2L);
+        final Tuple val = Tuple.create().set("val", 11L);
+        final Tuple val2 = Tuple.create().set("val", 22L);
 
         // Put KV pair.
         tbl.put(key, val);
@@ -239,7 +239,7 @@ public class KVViewOperationsTest {
         assertNull(tbl.get(key));
 
         // Try to remove non-existed key.
-        assertThrows(IllegalArgumentException.class, () -> tbl.remove(key, null));
+        assertThrows(Exception.class, () -> tbl.remove(key, null));
         assertNull(tbl.get(key));
 
         // Put KV pair.
@@ -247,14 +247,12 @@ public class KVViewOperationsTest {
         assertEqualsValues(schema, val2, tbl.get(key));
 
         // Check null value ignored.
-        assertThrows(IllegalArgumentException.class, () -> tbl.remove(key, null));
+        assertThrows(Exception.class, () -> tbl.remove(key, null));
         assertEqualsValues(schema, val2, tbl.get(key));
 
         // Delete KV pair with expected value.
         assertTrue(tbl.remove(key, val2));
         assertNull(tbl.get(key));
-
-        assertThrows(IllegalArgumentException.class, () -> tbl.remove(key2, null));
 
         assertFalse(tbl.remove(key2, val2));
         assertNull(tbl.get(key2));
@@ -275,11 +273,11 @@ public class KVViewOperationsTest {
         KeyValueBinaryView tbl =
             new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
-        final Tuple key = tbl.tuple().set("id", 1L);
-        final Tuple key2 = tbl.tuple().set("id", 2L);
-        final Tuple val = tbl.tuple().set("val", 11L);
-        final Tuple val2 = tbl.tuple().set("val", 22L);
-        final Tuple val3 = tbl.tuple().set("val", 33L);
+        final Tuple key = Tuple.create().set("id", 1L);
+        final Tuple key2 = Tuple.create().set("id", 2L);
+        final Tuple val = Tuple.create().set("val", 11L);
+        final Tuple val2 = Tuple.create().set("val", 22L);
+        final Tuple val3 = Tuple.create().set("val", 33L);
 
         // Ignore replace operation for non-existed KV pair.
         assertFalse(tbl.replace(key, val));
@@ -322,11 +320,11 @@ public class KVViewOperationsTest {
         KeyValueBinaryView tbl =
             new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
-        final Tuple key = tbl.tuple().set("id", 1L);
-        final Tuple key2 = tbl.tuple().set("id", 2L);
-        final Tuple val = tbl.tuple().set("val", 11L);
-        final Tuple val2 = tbl.tuple().set("val", 22L);
-        final Tuple val3 = tbl.tuple().set("val", 33L);
+        final Tuple key = Tuple.create().set("id", 1L);
+        final Tuple key2 = Tuple.create().set("id", 2L);
+        final Tuple val = Tuple.create().set("val", 11L);
+        final Tuple val2 = Tuple.create().set("val", 22L);
+        final Tuple val3 = Tuple.create().set("val", 33L);
 
         // Insert KV pair.
         assertTrue(tbl.replace(key, null, val));

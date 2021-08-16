@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.table;
 
-import org.apache.ignite.table.Tuple;
+import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -37,9 +37,24 @@ public class TupleImplTest {
     }
 
     @Test
+    public void testValueThrowsOnInvalidColumnName() {
+        var ex = assertThrows(IgniteException.class, () -> getTuple().value("x"));
+        assertEquals("Column not found: columnName=x", ex.getMessage());
+    }
+
+    @Test
     public void testValueReturnsValueByIndex() {
         assertEquals(3L, (Long) getTuple().value(0));
         assertEquals("Shirt", getTuple().value(1));
+    }
+
+    @Test
+    public void testValueThrowsOnInvalidIndex() {
+        var ex = assertThrows(IndexOutOfBoundsException.class, () -> getTuple().value(-1));
+        assertEquals("Index -1 out of bounds for length 2", ex.getMessage());
+
+        ex = assertThrows(IndexOutOfBoundsException.class, () -> getTuple().value(3));
+        assertEquals("Index 3 out of bounds for length 2", ex.getMessage());
     }
 
     @Test
@@ -55,6 +70,7 @@ public class TupleImplTest {
 
     @Test
     public void testValueReturnsOverwrittenValue() {
+        assertEquals("foo", createTuple().set("name", "foo").value("name"));
         assertEquals("foo", createTuple().set("name", "foo").valueOrDefault("name", "bar"));
     }
 
@@ -94,6 +110,9 @@ public class TupleImplTest {
     public void testColumnNameThrowsOnInvalidIndex() {
         var ex = assertThrows(IndexOutOfBoundsException.class, () -> getTuple().columnName(-1));
         assertEquals("Index -1 out of bounds for length 2", ex.getMessage());
+
+        ex = assertThrows(IndexOutOfBoundsException.class, () -> getTuple().columnName(3));
+        assertEquals("Index 3 out of bounds for length 2", ex.getMessage());
     }
 
     @Test

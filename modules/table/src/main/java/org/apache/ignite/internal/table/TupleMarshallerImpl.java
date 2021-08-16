@@ -82,29 +82,6 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
         validate(keyTuple, schema.keyColumns());
 
-        return marshal(schema, keyTuple, valTuple);
-    }
-
-    /** {@inheritDoc} */
-    @Override public Row marshalKey(@NotNull Tuple tuple) {
-        final SchemaDescriptor schema = schemaReg.schema();
-
-        validate(tuple, schema.keyColumns());
-
-        final RowAssembler rowBuilder = createAssembler(schema, tuple, null);
-
-        Columns cols = schema.keyColumns();
-
-        for (int i = 0; i < cols.length(); i++) {
-            final Column col = cols.column(i);
-
-            writeColumn(rowBuilder, col, tuple);
-        }
-
-        return new Row(schema, rowBuilder.build());
-    }
-
-    @NotNull private Row marshal(SchemaDescriptor schema, @NotNull Tuple keyTuple, @Nullable Tuple valTuple) {
         final RowAssembler rowBuilder = createAssembler(schema, keyTuple, valTuple);
 
         for (int i = 0; i < schema.keyColumns().length(); i++) {
@@ -121,6 +98,25 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
                 writeColumn(rowBuilder, col, valTuple);
             }
+        }
+
+        return new Row(schema, rowBuilder.build());
+    }
+
+    /** {@inheritDoc} */
+    @Override public Row marshalKey(@NotNull Tuple tuple) {
+        final SchemaDescriptor schema = schemaReg.schema();
+
+        validate(tuple, schema.keyColumns());
+
+        final RowAssembler rowBuilder = createAssembler(schema, tuple, null);
+
+        Columns cols = schema.keyColumns();
+
+        for (int i = 0; i < cols.length(); i++) {
+            final Column col = cols.column(i);
+
+            writeColumn(rowBuilder, col, tuple);
         }
 
         return new Row(schema, rowBuilder.build());

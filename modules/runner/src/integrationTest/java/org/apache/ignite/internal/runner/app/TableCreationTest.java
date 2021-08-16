@@ -184,14 +184,14 @@ class TableCreationTest {
             Table tbl1 = clusterNodes.get(1).tables().table("tbl1");
             KeyValueBinaryView kvView1 = tbl1.kvView();
 
-            tbl1.insert(tbl1.tuple().set("key", 1L).set("val", 111));
-            kvView1.put(tbl1.tuple().set("key", 2L), tbl1.tuple().set("val", 222));
+            tbl1.insert(Tuple.create().set("key", 1L).set("val", 111));
+            kvView1.put(Tuple.create().set("key", 2L), Tuple.create().set("val", 222));
 
             Table tbl2 = clusterNodes.get(2).tables().table("tbl1");
             KeyValueBinaryView kvView2 = tbl2.kvView();
 
-            final Tuple keyTuple1 = tbl2.tuple().set("key", 1L);
-            final Tuple keyTuple2 = kvView2.tuple().set("key", 2L);
+            final Tuple keyTuple1 = Tuple.create().set("key", 1L);
+            final Tuple keyTuple2 = Tuple.create().set("key", 2L);
 
             assertEquals(111, (Integer)tbl2.get(keyTuple1).value("val"));
             assertEquals(111, (Integer)kvView1.get(keyTuple1).value("val"));
@@ -207,18 +207,18 @@ class TableCreationTest {
             Table tbl1 = clusterNodes.get(1).tables().table("tbl1");
             KeyValueBinaryView kvView1 = tbl1.kvView();
 
-            tbl1.insert(tbl1.tuple().set("key", uuid).set("affKey", 42L)
+            tbl1.insert(Tuple.create().set("key", uuid).set("affKey", 42L)
                 .set("valStr", "String value").set("valInt", 73).set("valNullable", null));
 
-            kvView1.put(kvView1.tuple().set("key", uuid2).set("affKey", 4242L),
-                kvView1.tuple().set("valStr", "String value 2").set("valInt", 7373).set("valNullable", null));
+            kvView1.put(Tuple.create().set("key", uuid2).set("affKey", 4242L),
+                Tuple.create().set("valStr", "String value 2").set("valInt", 7373).set("valNullable", null));
 
             // Get data on node 2.
             Table tbl2 = clusterNodes.get(2).tables().table("tbl1");
             KeyValueBinaryView kvView2 = tbl2.kvView();
 
-            final Tuple keyTuple1 = tbl2.tuple().set("key", uuid).set("affKey", 42L);
-            final Tuple keyTuple2 = kvView2.tuple().set("key", uuid2).set("affKey", 4242L);
+            final Tuple keyTuple1 = Tuple.create().set("key", uuid).set("affKey", 42L);
+            final Tuple keyTuple2 = Tuple.create().set("key", uuid2).set("affKey", 4242L);
 
             assertEquals("String value", tbl2.get(keyTuple1).value("valStr"));
             assertEquals("String value", kvView2.get(keyTuple1).value("valStr"));

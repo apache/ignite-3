@@ -94,8 +94,8 @@ public class ClientTupleTest {
         var ex = assertThrows(IgniteException.class, () -> getBuilder().value("x"));
         assertEquals("Column is not present in schema: x", ex.getMessage());
 
-        var ex2 = assertThrows(IllegalArgumentException.class, () -> getBuilder().value(100));
-        assertEquals("Column index can't be greater than 1", ex2.getMessage());
+        var ex2 = assertThrows(IndexOutOfBoundsException.class, () -> getBuilder().value(100));
+        assertEquals("Index 100 out of bounds for length 2", ex2.getMessage());
     }
 
     @Test
@@ -111,8 +111,8 @@ public class ClientTupleTest {
 
     @Test
     public void testColumnNameThrowsOnInvalidIndex() {
-        var ex = assertThrows(IllegalArgumentException.class, () -> getTuple().columnName(-1));
-        assertEquals("Column index can't be negative", ex.getMessage());
+        var ex = assertThrows(IndexOutOfBoundsException.class, () -> getTuple().columnName(-1));
+        assertEquals("Index -1 out of bounds for length 2", ex.getMessage());
     }
 
     @Test

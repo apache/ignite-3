@@ -293,11 +293,6 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinar
     }
 
     /** {@inheritDoc} */
-    @Override public Tuple tuple() {
-        return new TupleImpl();
-    }
-
-    /** {@inheritDoc} */
     @Override public KVBinaryViewImpl withTransaction(Transaction tx) {
         return new KVBinaryViewImpl(tbl, schemaReg, tblMgr, tx);
     }

@@ -389,11 +389,6 @@ public class TableImpl extends AbstractTableView implements Table {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
-    /** {@inheritDoc} */
-    @Override public Tuple tuple() {
-        return new TupleImpl();
-    }
-
     /**
      * @return Marshaller.
      */

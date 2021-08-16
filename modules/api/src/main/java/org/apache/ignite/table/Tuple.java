@@ -20,6 +20,7 @@ package org.apache.ignite.table;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
+import org.apache.ignite.lang.IgniteException;
 
 /**
  * Tuple represents arbitrary set of columns whose values is accessible by column name.
@@ -28,6 +29,15 @@ import org.apache.ignite.binary.BinaryObject;
  */
 public interface Tuple extends Iterable<Object> {
     /**
+     * Factory method for tuple.
+     *
+     * @return Tuple.
+     */
+    static Tuple create() {
+        return new TupleImpl();
+    }
+
+   /**
      * Gets the number of columns in this tuple.
      *
      * @return Number of columns.
@@ -39,6 +49,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column name.
+     * @throws IndexOutOfBoundsException If a value for a column with given index was never set.
      */
     String columnName(int columnIndex);
 
@@ -75,8 +86,9 @@ public interface Tuple extends Iterable<Object> {
      * @param columnName Column name.
      * @param <T> Value type.
      * @return Column value.
+     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
      */
-    <T> T value(String columnName);
+    <T> T value(String columnName) throws IgniteException;
 
     /**
      * Gets column value for given column index.
@@ -84,6 +96,7 @@ public interface Tuple extends Iterable<Object> {
      * @param columnIndex Column index.
      * @param <T> Value type.
      * @return Column value.
+     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
      */
     <T> T value(int columnIndex);
 
@@ -92,6 +105,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
      */
     BinaryObject binaryObjectValue(String columnName);
 
@@ -100,6 +114,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
      */
     BinaryObject binaryObjectValue(int columnIndex);
 
@@ -108,6 +123,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
      */
     byte byteValue(String columnName);
 
@@ -116,6 +132,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
      */
     byte byteValue(int columnIndex);
 
@@ -124,6 +141,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
      */
     short shortValue(String columnName);
 
@@ -132,6 +150,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
      */
     short shortValue(int columnIndex);
 
@@ -140,6 +159,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
      */
     int intValue(String columnName);
 
@@ -148,6 +168,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
      */
     int intValue(int columnIndex);
 
@@ -156,6 +177,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
      */
     long longValue(String columnName);
 
@@ -164,6 +186,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
      */
     long longValue(int columnIndex);
 
@@ -172,6 +195,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
      */
     float floatValue(String columnName);
 
@@ -180,6 +204,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
      */
     float floatValue(int columnIndex);
 
@@ -188,6 +213,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
      */
     double doubleValue(String columnName);
 
@@ -196,6 +222,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
      */
     double doubleValue(int columnIndex);
 
@@ -204,6 +231,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
      */
     String stringValue(String columnName);
 
@@ -212,6 +240,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
      */
     String stringValue(int columnIndex);
 
@@ -220,6 +249,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
      */
     UUID uuidValue(String columnName);
 
@@ -228,6 +258,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
      */
     UUID uuidValue(int columnIndex);
 
@@ -236,6 +267,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
      */
     BitSet bitmaskValue(String columnName);
 
@@ -244,6 +276,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
      */
     BitSet bitmaskValue(int columnIndex);
 }

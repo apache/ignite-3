@@ -126,11 +126,6 @@ public class ClientTable implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public Tuple tuple() {
-        return new ClientTuple(getLatestSchema().join());
-    }
-
-    /** {@inheritDoc} */
     @Override public Tuple get(@NotNull Tuple keyRec) {
         return getAsync(keyRec).join();
     }

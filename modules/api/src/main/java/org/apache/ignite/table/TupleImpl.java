@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.table;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -25,12 +25,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
-import org.apache.ignite.binary.BinaryObjects;
-import org.apache.ignite.table.Tuple;
+import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Buildable tuple.
+ * Simple tuple implementation.
  */
 public class TupleImpl implements Tuple {
     /** Column name -&gt; index. */
@@ -43,7 +42,7 @@ public class TupleImpl implements Tuple {
     private final ArrayList<Object> vals;
 
     /**
-     * Creates tuple builder.
+     * Creates tuple.
      */
     public TupleImpl() {
         colIdxMap = new HashMap<>();
@@ -97,7 +96,10 @@ public class TupleImpl implements Tuple {
     @Override public <T> T value(String columnName) {
         int idx = columnIndex(columnName);
 
-        return idx == -1 ? null : (T)vals.get(idx);
+        if (idx == -1)
+            throw new IgniteException("Column not found: columnName=" + columnName);
+
+        return (T)vals.get(idx);
     }
 
     /** {@inheritDoc} */
@@ -109,9 +111,7 @@ public class TupleImpl implements Tuple {
 
     /** {@inheritDoc} */
     @Override public BinaryObject binaryObjectValue(String columnName) {
-        byte[] data = value(columnName);
-
-        return BinaryObjects.wrap(data);
+        return value(columnName);
     }
 
     /** {@inheritDoc} */

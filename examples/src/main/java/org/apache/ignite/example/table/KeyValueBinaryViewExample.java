@@ -87,10 +87,10 @@ public class KeyValueBinaryViewExample {
         //
         //---------------------------------------------------------------------------------
 
-        Tuple key = accounts.tuple()
+        Tuple key = Tuple.create()
             .set("accountNumber", 123456);
 
-        Tuple value = accounts.tuple()
+        Tuple value = Tuple.create()
             .set("firstName", "Val")
             .set("lastName", "Kulichenko")
             .set("balance", 100.00d);
