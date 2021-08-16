@@ -98,8 +98,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         this.log = log;
 
         //TODO IGNITE-15314 Refactor after sql api appears in Ignite interface.
-        QueryEventHandler processor = new QueryEventHandlerImpl(((IgniteImpl)ignite).queryEngine());
-        this.handler = new ClientSqlRequestHandler(processor);
+        if (ignite instanceof IgniteImpl) {
+            QueryEventHandler processor = new QueryEventHandlerImpl(((IgniteImpl)ignite).queryEngine());
+            this.handler = new ClientSqlRequestHandler(processor);
+        } else
+            this.handler = null;
     }
 
     /** {@inheritDoc} */
