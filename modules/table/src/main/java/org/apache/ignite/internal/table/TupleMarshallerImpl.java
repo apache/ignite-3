@@ -18,35 +18,58 @@
 package org.apache.ignite.internal.table;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
+import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.schema.ColumnType;
+import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.schema.SchemaMode;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
 
 /**
  * Tuple marshaller implementation.
  */
 public class TupleMarshallerImpl implements TupleMarshaller {
+    /** Poison object. */
+    private static final Object POISON_OBJECT = new Object();
+
     /** Schema manager. */
     private final SchemaRegistry schemaReg;
 
+    /** Table manager. */
+    private final TableManager tblMgr;
+
+    /** Internal table. */
+    private final InternalTable tbl;
+
     /**
-     * Constructor.
+     * Creates tuple marshaller.
      *
+     * @param tblMgr Table manager.
+     * @param tbl Internal table.
      * @param schemaReg Schema manager.
      */
-    public TupleMarshallerImpl(SchemaRegistry schemaReg) {
+    public TupleMarshallerImpl(TableManager tblMgr, InternalTable tbl, SchemaRegistry schemaReg) {
         this.schemaReg = schemaReg;
+        this.tblMgr = tblMgr;
+        this.tbl = tbl;
     }
 
     /** {@inheritDoc} */
@@ -56,10 +79,33 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
     /** {@inheritDoc} */
     @Override public Row marshal(@NotNull Tuple keyTuple, @Nullable Tuple valTuple) {
-        final SchemaDescriptor schema = schemaReg.schema();
+        final SchemaDescriptor schema = valTuple != null ? schemaForTuple(valTuple) : schemaReg.schema();
 
         validate(keyTuple, schema.keyColumns());
 
+        return marshal(schema, keyTuple, valTuple);
+    }
+
+    /** {@inheritDoc} */
+    @Override public Row marshalKey(@NotNull Tuple tuple) {
+        final SchemaDescriptor schema = schemaReg.schema();
+
+        validate(tuple, schema.keyColumns());
+
+        final RowAssembler rowBuilder = createAssembler(schema, tuple, null);
+
+        Columns cols = schema.keyColumns();
+
+        for (int i = 0; i < cols.length(); i++) {
+            final Column col = cols.column(i);
+
+            writeColumn(rowBuilder, col, tuple);
+        }
+
+        return new Row(schema, rowBuilder.build());
+    }
+
+    @NotNull private Row marshal(SchemaDescriptor schema, @NotNull Tuple keyTuple, @Nullable Tuple valTuple) {
         final RowAssembler rowBuilder = createAssembler(schema, keyTuple, valTuple);
 
         for (int i = 0; i < schema.keyColumns().length(); i++) {
@@ -82,6 +128,92 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     }
 
     /**
+     * Returns the latest schema if it is compatible with the tuple,
+     * or upgrade the schema if Live schema is on, otherwise fails.
+     *
+     * @param tuple Tuple to validate.
+     * @return Schema the given tuple matches to.
+     * @throws SchemaMismatchException If the tuple is incompatible and a schema can't be upgraded.
+     */
+    private SchemaDescriptor schemaForTuple(Tuple tuple) {
+        SchemaDescriptor schema = schemaReg.schema();
+
+        while (!isMatch(tuple, schema)) {
+            Set<org.apache.ignite.schema.Column> extraCols = extraColumns(schema, tuple);
+
+            if (tbl.schemaMode() == SchemaMode.STRICT_SCHEMA) {
+                throw new SchemaMismatchException("Strict schema doesn't allow extra columns: colNames=" +
+                    extraCols.stream().map(c -> c.name()).collect(Collectors.joining()));
+            }
+
+            createColumns(extraCols);
+
+            assert schemaReg.lastSchemaVersion() > schema.version() : "Schema upgrade was async or delayed.";
+
+            schema = schemaReg.schema();
+        }
+
+        return schema;
+    }
+
+    /**
+     * Checks if the tuple match the schema.
+     *
+     * @return {@code True} if the tuple matches schema, {@code false} otherwise.
+     * @throws InvalidTypeException If column of incompatible type found.
+     */
+    private boolean isMatch(Tuple tuple, SchemaDescriptor schema) {
+        int schemaColsFound = 0;
+
+        for (int i = 0; i < schema.length(); i++) {
+            Column col = schema.column(i);
+
+            Object val = tuple.valueOrDefault(col.name(), POISON_OBJECT);
+
+            if (val == POISON_OBJECT) // Tuple has no value for column.
+                continue;
+
+            schemaColsFound++;
+
+            col.validate(val); //TODO: validate default value???
+        }
+
+        return tuple.columnCount() == schemaColsFound;
+    }
+
+    /**
+     * Extract columns from the tuple that are missed in schema.
+     *
+     * @param schema Schema to validate against.
+     * @param tuple Tuple to validate.
+     * @return Extra columns.
+     */
+    private Set<org.apache.ignite.schema.Column> extraColumns(SchemaDescriptor schema, Tuple tuple) {
+        Set<org.apache.ignite.schema.Column> extraColumns = new HashSet<>();
+
+        for (int i = 0; i < tuple.columnCount(); i++) {
+            String colName = tuple.columnName(i);
+
+            if (schema.column(colName) != null)
+                continue;
+
+            Object colValue = tuple.value(i);
+
+            if (colValue == null) // Can't detect type of 'null'
+                throw new InvalidTypeException("Live schema upgrade for 'null' value is not supported yet.");
+
+            ColumnType colType = SchemaConfigurationConverter.columnType(colValue.getClass());
+
+            if (colType == null) // No native support for type.
+                throw new InvalidTypeException("Live schema upgrade for type [" + colValue.getClass() + "] is not supported.");
+
+            extraColumns.add(SchemaBuilders.column(colName, colType).asNullable().build());
+        }
+
+        return extraColumns;
+    }
+
+    /**
      * Validates columns values.
      *
      * @param tuple Tuple to validate.
@@ -94,12 +226,11 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             SchemaDescriptor expSchema = schemaReg.schema(t0.schema().version());
 
             //TODO: Does it make sense to check 'tableId' and 'version' equality instead of reference?
-            if (!Objects.equals(t0.schema(), expSchema))
-                throw new SchemaMismatchException("Unexpected schema: [expected=" + expSchema + ", actual=" + t0.schema() + ']');
+            if (Objects.equals(t0.schema(), expSchema))
+                return;
         }
-        else {
-            Arrays.stream(columns.columns()).forEach(c -> c.validate(tuple.value(c.name())));
-        }
+
+        Arrays.stream(columns.columns()).forEach(c -> c.validate(tuple.value(c.name())));
     }
 
     /**
@@ -162,11 +293,29 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     }
 
     /**
+     * Updates the schema with new columns.
+     *
+     * @param extraCols Columns to add.
+     */
+    private void createColumns(Set<org.apache.ignite.schema.Column> newCols) {
+        //TODO: Introduce internal TableManager and use UUID instead of names ???
+        tblMgr.alterTable(tbl.tableName(), chng -> chng.changeColumns(cols -> {
+            int colIdx = chng.columns().size();
+            //TODO: avoid 'colIdx' or replace with correct last colIdx.
+
+            for (org.apache.ignite.schema.Column column : newCols) {
+                cols.create(String.valueOf(colIdx), colChg -> convert(column, colChg));
+                colIdx++;
+            }
+        }));
+    }
+
+    /**
      * Tuple statistics record.
      */
     private static class TupleStatistics {
         /** Cached zero statistics. */
-        static final TupleStatistics ZERO_VARLEN_STATISTICS = new TupleStatistics(0,0);
+        static final TupleStatistics ZERO_VARLEN_STATISTICS = new TupleStatistics(0, 0);
 
         /** Number of non-null varlen columns. */
         int nonNullVarlen;

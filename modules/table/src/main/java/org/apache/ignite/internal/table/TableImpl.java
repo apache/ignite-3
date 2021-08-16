@@ -65,7 +65,7 @@ public class TableImpl extends AbstractTableView implements Table {
     public TableImpl(InternalTable tbl, SchemaRegistry schemaReg, TableManager tblMgr, @Nullable Transaction tx) {
         super(tbl, schemaReg, tx);
 
-        marsh = new TupleMarshallerImpl(schemaReg);
+        marsh = new TupleMarshallerImpl(tblMgr, tbl, schemaReg);
 
         this.tblMgr = tblMgr;
     }
@@ -122,7 +122,7 @@ public class TableImpl extends AbstractTableView implements Table {
     @Override public @NotNull CompletableFuture<Tuple> getAsync(@NotNull Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
-        final Row keyRow = marshaller().marshal(keyRec, null); // Convert to portable format to pass TX/storage layer.
+        final Row keyRow = marshaller().marshalKey(keyRec); // Convert to portable format to pass TX/storage layer.
 
         return tbl.get(keyRow, tx).thenApply(this::wrap);
     }
@@ -139,7 +139,7 @@ public class TableImpl extends AbstractTableView implements Table {
         HashSet<BinaryRow> keys = new HashSet<>(keyRecs.size());
 
         for (Tuple keyRec : keyRecs) {
-            final Row keyRow = marshaller().marshal(keyRec, null);
+            final Row keyRow = marshaller().marshalKey(keyRec);
 
             keys.add(keyRow);
         }
@@ -282,7 +282,7 @@ public class TableImpl extends AbstractTableView implements Table {
     @Override public @NotNull CompletableFuture<Boolean> deleteAsync(@NotNull Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
-        final Row keyRow = marshaller().marshal(keyRec, null);
+        final Row keyRow = marshaller().marshalKey(keyRec);
 
         return tbl.delete(keyRow, tx);
     }
@@ -310,7 +310,7 @@ public class TableImpl extends AbstractTableView implements Table {
     @Override public @NotNull CompletableFuture<Tuple> getAndDeleteAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
-        final Row row = marshaller().marshal(rec);
+        final Row row = marshaller().marshalKey(rec);
 
         return tbl.getAndDelete(row, tx).thenApply(this::wrap);
     }
@@ -327,7 +327,7 @@ public class TableImpl extends AbstractTableView implements Table {
         HashSet<BinaryRow> keys = new HashSet<>(recs.size());
 
         for (Tuple keyRec : recs) {
-            final Row keyRow = marshaller().marshal(keyRec, null);
+            final Row keyRow = marshaller().marshalKey(keyRec);
 
             keys.add(keyRow);
         }
@@ -391,13 +391,7 @@ public class TableImpl extends AbstractTableView implements Table {
 
     /** {@inheritDoc} */
     @Override public Tuple tuple() {
-        switch (tbl.schemaMode()) {
-            case STRICT_SCHEMA:
-                return new TupleImpl(schemaReg.schema());
-            case LIVE_SCHEMA:
-                return new LiveSchemaTupleBuilderImpl(schemaReg, tbl.tableName(), tblMgr);
-        }
-        throw new IllegalArgumentException("Unknown schema type: " + tbl.schemaMode());
+        return new TupleImpl();
     }
 
     /**

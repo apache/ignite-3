@@ -57,7 +57,7 @@ public class KVViewOperationsTest {
         );
 
         KeyValueBinaryView tbl =
-            new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null);
+            new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple key = tbl.tuple().set("id", 1L);
         final Tuple val = tbl.tuple().set("val", 11L);
@@ -101,7 +101,7 @@ public class KVViewOperationsTest {
         );
 
         KeyValueBinaryView tbl =
-            new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null);
+            new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple key = tbl.tuple().set("id", 1L);
         final Tuple val = tbl.tuple().set("val", 11L);
@@ -135,7 +135,7 @@ public class KVViewOperationsTest {
         );
 
         KeyValueBinaryView tbl =
-            new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null);
+            new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple key = tbl.tuple().set("id", 1L);
         final Tuple val = tbl.tuple().set("val", 11L);
@@ -171,7 +171,7 @@ public class KVViewOperationsTest {
         );
 
         KeyValueBinaryView tbl =
-            new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null);
+            new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple key = tbl.tuple().set("id", 1L);
         final Tuple key2 = tbl.tuple().set("id", 2L);
@@ -215,7 +215,7 @@ public class KVViewOperationsTest {
         );
 
         KeyValueBinaryView tbl =
-            new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null);
+            new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple key = tbl.tuple().set("id", 1L);
         final Tuple key2 = tbl.tuple().set("id", 2L);
@@ -239,7 +239,7 @@ public class KVViewOperationsTest {
         assertNull(tbl.get(key));
 
         // Try to remove non-existed key.
-        assertThrows(NullPointerException.class, () -> tbl.remove(key, null));
+        assertThrows(IllegalArgumentException.class, () -> tbl.remove(key, null));
         assertNull(tbl.get(key));
 
         // Put KV pair.
@@ -247,14 +247,14 @@ public class KVViewOperationsTest {
         assertEqualsValues(schema, val2, tbl.get(key));
 
         // Check null value ignored.
-        assertThrows(NullPointerException.class, () -> tbl.remove(key, null));
+        assertThrows(IllegalArgumentException.class, () -> tbl.remove(key, null));
         assertEqualsValues(schema, val2, tbl.get(key));
 
         // Delete KV pair with expected value.
         assertTrue(tbl.remove(key, val2));
         assertNull(tbl.get(key));
 
-        assertThrows(NullPointerException.class, () -> tbl.remove(key2, null));
+        assertThrows(IllegalArgumentException.class, () -> tbl.remove(key2, null));
 
         assertFalse(tbl.remove(key2, val2));
         assertNull(tbl.get(key2));
@@ -273,7 +273,7 @@ public class KVViewOperationsTest {
         );
 
         KeyValueBinaryView tbl =
-            new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null);
+            new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple key = tbl.tuple().set("id", 1L);
         final Tuple key2 = tbl.tuple().set("id", 2L);
@@ -320,7 +320,7 @@ public class KVViewOperationsTest {
         );
 
         KeyValueBinaryView tbl =
-            new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null);
+            new KVBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple key = tbl.tuple().set("id", 1L);
         final Tuple key2 = tbl.tuple().set("id", 2L);

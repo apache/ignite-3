@@ -24,6 +24,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -49,7 +50,7 @@ public class StrictSchemaOperationsTest {
 
         Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
-        assertThrows(ColumnNotFoundException.class, () -> tbl.tuple().set("invalidCol", 0));
+        assertThrows(SchemaMismatchException.class, () -> tbl.insert(tbl.tuple().set("invalidCol", 0)));
     }
 
     /**
@@ -70,13 +71,13 @@ public class StrictSchemaOperationsTest {
         Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         // Check not-nullable column.
-        assertThrows(IllegalArgumentException.class, () -> tbl.tuple().set("id", null));
+        assertThrows(IllegalArgumentException.class, () -> tbl.insert(tbl.tuple().set("id", null)));
 
         // Check length of the string column
-        assertThrows(InvalidTypeException.class, () -> tbl.tuple().set("valString", "qweqwe"));
+        assertThrows(InvalidTypeException.class, () -> tbl.insert(tbl.tuple().set("valString", "qweqwe")));
 
         // Check length of the string column
-        assertThrows(InvalidTypeException.class, () -> tbl.tuple().set("valBytes", new byte[] {0, 1, 2, 3}));
+        assertThrows(InvalidTypeException.class, () -> tbl.insert(tbl.tuple().set("valBytes", new byte[] {0, 1, 2, 3})));
     }
 
     /**
@@ -95,14 +96,16 @@ public class StrictSchemaOperationsTest {
 
         Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
-        tbl.tuple().set("valString", "qwe");
-        tbl.tuple().set("valString", "qw");
-        tbl.tuple().set("valString", "q");
-        tbl.tuple().set("valString", "");
-        tbl.tuple().set("valString", null);
+        Tuple tuple = tbl.tuple().set("id" , 1L);
 
-        // Chek string 3 char length and 9 bytes.
-        tbl.tuple().set("valString", "我是谁");
+        tbl.insert(tuple.set("valString", "qwe"));
+        tbl.insert(tuple.set("valString", "qw"));
+        tbl.insert(tuple.set("valString", "q"));
+        tbl.insert(tuple.set("valString", ""));
+        tbl.insert(tuple.set("valString", null));
+
+        // Check string 3 char length and 9 bytes.
+        tbl.insert(tuple.set("valString", "我是谁"));
     }
 
     /**
@@ -121,11 +124,15 @@ public class StrictSchemaOperationsTest {
 
         Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
-        tbl.tuple().set("valUnlimited", null);
-        tbl.tuple().set("valLimited", null);
-        tbl.tuple().set("valUnlimited", new byte[2]);
-        tbl.tuple().set("valLimited", new byte[2]);
-        tbl.tuple().set("valUnlimited", new byte[3]);
-        assertThrows(InvalidTypeException.class, () -> tbl.tuple().set("valLimited", new byte[3]));
+        Tuple tuple = tbl.tuple().set("id", 1L);
+
+        tbl.insert(tuple.set("valUnlimited", null));
+        tbl.insert(tuple.set("valLimited", null));
+        tbl.insert(tuple.set("valUnlimited", new byte[2]));
+        tbl.insert(tuple.set("valLimited", new byte[2]));
+        tbl.insert(tuple.set("valUnlimited", new byte[3]));
+
+        assertThrows(InvalidTypeException.class, () -> tbl.insert(tuple.set("valLimited", new byte[3])));
+
     }
 }

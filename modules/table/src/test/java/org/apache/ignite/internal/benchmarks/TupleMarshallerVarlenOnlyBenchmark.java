@@ -121,7 +121,7 @@ public class TupleMarshallerVarlenOnlyBenchmark {
                 .toArray(Column[]::new)
         );
 
-        marshaller = new TupleMarshallerImpl(new SchemaRegistryImpl(v -> null) {
+        marshaller = new TupleMarshallerImpl(null, null, new SchemaRegistryImpl(v -> null) {
             @Override public SchemaDescriptor schema() {
                 return schema;
             }
@@ -156,12 +156,12 @@ public class TupleMarshallerVarlenOnlyBenchmark {
     public void measureTupleBuildAndMarshallerCost(Blackhole bh) {
         final Columns cols = schema.valueColumns();
 
-        final TupleImpl valBld = new TupleImpl(schema);
+        final TupleImpl valBld = new TupleImpl();
 
         for (int i = 0; i < cols.length(); i++)
             valBld.set(cols.column(i).name(), val);
 
-        Tuple keyTuple = new TupleImpl(schema).set("key", rnd.nextLong());
+        Tuple keyTuple = new TupleImpl().set("key", rnd.nextLong());
 
         final Row row = marshaller.marshal(keyTuple, valBld);
 

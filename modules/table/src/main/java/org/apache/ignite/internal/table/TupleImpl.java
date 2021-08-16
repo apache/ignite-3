@@ -26,7 +26,6 @@ import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjects;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 
@@ -45,11 +44,8 @@ public class TupleImpl implements Tuple {
 
     /**
      * Creates tuple builder.
-     *
-     * @param schemaDesc Schema descriptor.
      */
-    //TODO: Drop schema parameter.
-    public TupleImpl(SchemaDescriptor schemaDesc) {
+    public TupleImpl() {
         colIdxMap = new HashMap<>();
         vals = new ArrayList();
         colNames = new ArrayList();
@@ -101,7 +97,7 @@ public class TupleImpl implements Tuple {
     @Override public <T> T value(String columnName) {
         int idx = columnIndex(columnName);
 
-        return (T)vals.get(idx);
+        return idx == -1 ?  null : (T)vals.get(idx);
     }
 
     /** {@inheritDoc} */

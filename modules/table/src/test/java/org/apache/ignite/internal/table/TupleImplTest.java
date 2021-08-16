@@ -18,18 +18,15 @@
 package org.apache.ignite.internal.table;
 
 import java.util.UUID;
-
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests server tuple builder implementation.
@@ -61,13 +58,13 @@ public class TupleImplTest {
     }
 
     @Test
-    public void testValueOrDefaultReturnsDefaultWhenColumnIsNotPresent() {
+    public void testValueOrDefaultReturnsDefaultWhenColumnIsNotSet() {
         assertEquals("foo", createTuple().valueOrDefault("x", "foo"));
     }
 
     @Test
-    public void testValueOrDefaultReturnsDefaultWhenColumnIsPresentButNotSet() {
-        assertEquals("foo", createTuple().valueOrDefault("name", "foo"));
+    public void testValueReturnsOverwrittenValue() {
+        assertEquals("foo", createTuple().set("name", "foo").valueOrDefault("name", "bar"));
     }
 
     @Test
@@ -75,21 +72,6 @@ public class TupleImplTest {
         var tuple = createTuple().set("name", null);
 
         assertNull(tuple.valueOrDefault("name", "foo"));
-    }
-
-    @Test
-    public void testSetThrowsWhenColumnIsNotPresent() {
-        var ex = assertThrows(IgniteException.class, () -> createTuple().set("x", "y"));
-        assertTrue(ex.getMessage().startsWith("Column not found"), ex.getMessage());
-    }
-
-    @Test
-    public void testValueThrowsWhenColumnIsNotPresent() {
-        var ex = assertThrows(IgniteException.class, () -> createTuple().value("x"));
-        assertTrue(ex.getMessage().startsWith("Column not found"), ex.getMessage());
-
-        var ex2 = assertThrows(IllegalArgumentException.class, () -> createTuple().value(100));
-        assertTrue(ex2.getMessage().startsWith("Column index can't be greater than 1"), ex2.getMessage());
     }
 
     @Test
@@ -121,11 +103,11 @@ public class TupleImplTest {
     }
 
     private static TupleImpl createTuple() {
-        return new TupleImpl(SCHEMA);
+        return new TupleImpl();
     }
 
     private static Tuple getTuple() {
-        return new TupleImpl(SCHEMA)
+        return new TupleImpl()
                 .set("id", 3L)
                 .set("name", "Shirt");
     }

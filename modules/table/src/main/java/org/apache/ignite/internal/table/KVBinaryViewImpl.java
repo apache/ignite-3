@@ -46,20 +46,6 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinar
 
     /**
      * Constructor.
-     * @param tbl Table storage.
-     * @param schemaReg Schema registry.
-     * @param tx The transaction.
-     */
-    public KVBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaReg, Transaction tx) {
-        super(tbl, schemaReg, tx);
-
-        marsh = new TupleMarshallerImpl(schemaReg);
-
-        tblMgr = null;
-    }
-
-    /**
-     * Constructor.
      *
      * @param tbl Table storage.
      * @param schemaReg Schema registry.
@@ -67,9 +53,9 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinar
     public KVBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaReg, TableManager tblMgr, Transaction tx) {
         super(tbl, schemaReg, tx);
 
-        marsh = new TupleMarshallerImpl(schemaReg);
-
         this.tblMgr = tblMgr;
+
+        marsh = new TupleMarshallerImpl(tblMgr, tbl, schemaReg);
     }
 
     /** {@inheritDoc} */
@@ -308,19 +294,12 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinar
 
     /** {@inheritDoc} */
     @Override public Tuple tuple() {
-        switch (tbl.schemaMode()) {
-            case STRICT_SCHEMA:
-                return new TupleImpl(schemaReg.schema());
-            case LIVE_SCHEMA:
-                return new LiveSchemaTupleBuilderImpl(schemaReg, tbl.tableName(), tblMgr);
-        }
-        
-        throw new IllegalArgumentException("Unknown schema type: " + tbl.schemaMode());
+        return new TupleImpl();
     }
 
     /** {@inheritDoc} */
     @Override public KVBinaryViewImpl withTransaction(Transaction tx) {
-        return new KVBinaryViewImpl(tbl, schemaReg, tx);
+        return new KVBinaryViewImpl(tbl, schemaReg, tblMgr, tx);
     }
 
     /**
