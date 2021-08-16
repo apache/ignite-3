@@ -17,10 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import java.util.UUID;
-import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
@@ -34,11 +30,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Should be in sync with org.apache.ignite.client.ClientTupleBuilderTest.
  */
 public class TupleImplTest {
-    private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(UUID.randomUUID(), 1,
-            new Column[] {new Column("id", NativeTypes.INT64, false)},
-            new Column[] {new Column("name", NativeTypes.STRING, true)
-    });
-
     @Test
     public void testValueReturnsValueByName() {
         assertEquals(3L, (Long) getTuple().value("id"));
@@ -76,7 +67,21 @@ public class TupleImplTest {
 
     @Test
     public void testColumnCountReturnsSchemaSize() {
-        assertEquals(SCHEMA.length(), getTuple().columnCount());
+        assertEquals(0, createTuple().columnCount());
+
+        Tuple tuple = getTuple();
+
+        assertEquals(2, tuple.columnCount());
+        assertEquals(2, tuple.set("id", -1).columnCount());
+
+        tuple.valueOrDefault("name", "foo");
+        assertEquals(2, tuple.columnCount());
+
+        tuple.valueOrDefault("foo", "bar");
+        assertEquals(2, tuple.columnCount());
+
+        tuple.set("foo", "bar");
+        assertEquals(3, tuple.columnCount());
     }
 
     @Test
