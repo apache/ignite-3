@@ -1,0 +1,111 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.client.proto.query.event;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import org.apache.ignite.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.tostring.S;
+
+/**
+ * JDBC query fetch result.
+ */
+public class JdbcQueryFetchResult extends JdbcResponse {
+    /** Query result rows. */
+    private List<List<Object>> items;
+
+    /** Flag indicating the query has no unfetched results. */
+    private boolean last;
+
+    /**
+     * Default constructor is used for deserialization.
+     */
+    public JdbcQueryFetchResult() {
+
+    }
+
+    /**
+     * Constructor.
+     */
+    public JdbcQueryFetchResult(int status, String err) {
+        super(status, err);
+    }
+
+    /**
+     * @param items Query result rows.
+     * @param last Flag indicating the query has no unfetched results.
+     */
+    public JdbcQueryFetchResult(List<List<Object>> items, boolean last) {
+        this.items = items;
+        this.last = last;
+    }
+
+    /**
+     * @return Query result rows.
+     */
+    public List<List<Object>> items() {
+        return items;
+    }
+
+    /**
+     * @return Flag indicating the query has no unfetched results.
+     */
+    public boolean last() {
+        return last;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void writeBinary(ClientMessagePacker packer) throws IOException {
+        super.writeBinary(packer);
+
+        if (status() != STATUS_SUCCESS)
+            return;
+
+        packer.packBoolean(last);
+
+        packer.packInt(items.size());
+
+        for (List<Object> item : items)
+            packer.packObjectArray(item.toArray());
+    }
+
+    /** {@inheritDoc} */
+    @Override public void readBinary(ClientMessageUnpacker unpacker) throws IOException {
+        super.readBinary(unpacker);
+
+        if (status() != STATUS_SUCCESS)
+            return;
+
+        last = unpacker.unpackBoolean();
+
+        int size = unpacker.unpackInt();
+
+        items = new ArrayList<>(size);
+
+        for (int i = 0; i < size; i++)
+            items.add(Arrays.asList(unpacker.unpackObjectArray()));
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(JdbcQueryFetchResult.class, this);
+    }
+}
