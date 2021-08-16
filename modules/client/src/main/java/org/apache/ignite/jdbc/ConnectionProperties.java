@@ -22,7 +22,7 @@ import org.apache.ignite.internal.client.HostAndPortRange;
 import org.apache.ignite.internal.client.ProtocolBitmaskFeature;
 
 /**
- * Provide access and manipulations with connect0000ion JDBC properties.
+ * Provide access and manipulations with connection JDBC properties.
  */
 interface ConnectionProperties {
     /** SSL mode: DISABLE. */
