@@ -154,7 +154,6 @@ public class ITThinClientConnectionTest extends IgniteAbstractTest {
      * @return Client handler module.
      * @throws Exception When failed.
      */
-    @SuppressWarnings({"OptionalGetWithoutIsPresent", "unchecked"})
     private static ClientHandlerModule getClientHandlerModule(String nodeName) throws Exception {
         Field field = IgnitionImpl.class.getDeclaredField("nodesStartedComponents");
         field.setAccessible(true);
@@ -169,6 +168,6 @@ public class ITThinClientConnectionTest extends IgniteAbstractTest {
                 .filter(ClientHandlerModule.class::isInstance)
                 .map(ClientHandlerModule.class::cast)
                 .findFirst()
-                .get();
+                .orElseThrow();
     }
 }
