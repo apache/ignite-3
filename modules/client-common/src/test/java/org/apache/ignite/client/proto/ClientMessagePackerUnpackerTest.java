@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client.proto;
 
-import java.io.IOException;
+import java.util.Arrays;
 import java.util.UUID;
 import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.buffer.Unpooled;
@@ -43,7 +43,7 @@ public class ClientMessagePackerUnpackerTest {
     }
 
     @Test
-    public void testPackerIncludesFourByteMessageLength() throws IOException {
+    public void testPackerIncludesFourByteMessageLength() {
         try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
             packer.packInt(1); // 1 byte
             packer.packString("Foo"); // 4 bytes
@@ -69,12 +69,12 @@ public class ClientMessagePackerUnpackerTest {
     }
 
     @Test
-    public void testUUID() throws IOException {
+    public void testUUID() {
         testUUID(UUID.randomUUID());
         testUUID(new UUID(0, 0));
     }
 
-    private void testUUID(UUID u) throws IOException {
+    private void testUUID(UUID u) {
         try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
             packer.packUuid(u);
 
@@ -94,7 +94,7 @@ public class ClientMessagePackerUnpackerTest {
     }
 
     @Test
-    public void testIntegerArray() throws IOException {
+    public void testIntegerArray() {
         try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
             int[] arr = new int[] {4, 8, 15, 16, 23, 42};
 
@@ -115,10 +115,9 @@ public class ClientMessagePackerUnpackerTest {
     }
 
     @Test
-    public void testObjectArray() throws IOException {
+    public void testObjectArray() {
         try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
-            Object[] args = new Object[] {Integer.MAX_VALUE - 1, Long.MAX_VALUE - 1, "15", 16.0, 23.0d, new UUID(4, 2), null};
-
+            Object[] args = new Object[] {(byte)4, (short)8, 15, 16L, 23.0f, 42.0d, "TEST_STRING", null, UUID.randomUUID(), false};
             packer.packObjectArray(args);
 
             var buf = packer.getBuffer();
@@ -130,6 +129,7 @@ public class ClientMessagePackerUnpackerTest {
             try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
                 unpacker.skipValue(4);
                 Object[] res = unpacker.unpackObjectArray();
+                System.out.println(Arrays.toString(res));
                 assertArrayEquals(args, res);
             }
         }

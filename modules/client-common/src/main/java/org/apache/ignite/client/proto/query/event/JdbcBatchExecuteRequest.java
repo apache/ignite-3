@@ -89,21 +89,17 @@ public class JdbcBatchExecuteRequest implements JdbcClientMessage {
     @Override public void writeBinary(ClientMessagePacker packer) {
         packer.packString(schemaName);
 
-        if (queries == null || queries.isEmpty())
-            packer.packInt(0);
-        else {
-            packer.packInt(queries.size());
+        packer.packArrayHeader(queries.size());
 
-            for (JdbcQuery q : queries)
-                q.writeBinary(packer);
-        }
+        for (JdbcQuery q : queries)
+            q.writeBinary(packer);
     }
 
     /** {@inheritDoc} */
     @Override public void readBinary(ClientMessageUnpacker unpacker) {
         schemaName = unpacker.unpackString();
 
-        int n = unpacker.unpackInt();
+        int n = unpacker.unpackArrayHeader();
 
         queries = new ArrayList<>(n);
 

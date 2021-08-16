@@ -26,6 +26,7 @@ import java.util.BitSet;
 import java.util.UUID;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.msgpack.core.ExtensionTypeHeader;
 import org.msgpack.core.MessageFormat;
@@ -34,9 +35,7 @@ import org.msgpack.core.MessageSizeException;
 import org.msgpack.core.MessageTypeException;
 import org.msgpack.core.MessageUnpacker;
 import org.msgpack.core.buffer.InputStreamBufferInput;
-import org.msgpack.value.ExtensionValue;
 import org.msgpack.value.ImmutableValue;
-import org.msgpack.value.IntegerValue;
 
 import static org.apache.ignite.client.proto.ClientDataType.BITMASK;
 import static org.apache.ignite.client.proto.ClientDataType.BYTES;
@@ -371,7 +370,10 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     public int[] unpackIntArray() {
         assert refCnt > 0 : "Unpacker is closed";
 
-        int size = unpackInt();
+        int size = unpackArrayHeader();
+
+        if (size == 0)
+            return ArrayUtils.INT_EMPTY_ARRAY;
 
         int[] res = new int[size];
 
@@ -445,95 +447,78 @@ public class ClientMessageUnpacker extends MessageUnpacker {
         if (tryUnpackNil())
             return null;
 
-        int size = unpackInt();
+        int size = unpackArrayHeader();
 
         if (size == 0)
-            return new Object[size];
+            return ArrayUtils.OBJECT_EMPTY_ARRAY;
 
         Object[] args = new Object[size];
 
         for (int i = 0; i < size; i++) {
-            if (tryUnpackNil())
-                continue;
+            MessageFormat format = getNextFormat();
 
-            ImmutableValue v = unpackValue();
+            switch (format) {
+                case NIL:
+                    unpackNil();
 
-            switch (v.getValueType()) {
+                    break;
                 case BOOLEAN:
-                    args[i] = v.asBooleanValue().getBoolean();
+                    args[i] = unpackBoolean();
 
                     break;
-                case INTEGER:
-                    args[i] = extractNumberValue(v.asIntegerValue());
+                case FLOAT32:
+                    args[i] = unpackFloat();
 
                     break;
-                case FLOAT:
-                    args[i] = v.asFloatValue().toDouble();
+                case FLOAT64:
+                    args[i] = unpackDouble();
 
                     break;
-                case STRING:
-                    args[i] = v.asStringValue().asString();
+                case POSFIXINT:
+                    args[i] = extractExtendedValue(unpackInt());
 
                     break;
-                case BINARY:
-                    args[i] = v.asBinaryValue().asByteArray();
+                case FIXSTR:
+                case STR8:
+                case STR16:
+                case STR32:
+                    args[i] = unpackString();
 
                     break;
-                case EXTENSION: {
-                    ExtensionValue val = v.asExtensionValue();
-
-                    if (val.getType() == ClientMsgPackType.UUID) {
-                        args[i] = bytesToUUID(val);
-                        continue;
-                    } else
-                        throw new IllegalStateException("Unexpected extended value type: " + val.getType());
-                }
                 default:
-                    throw new IllegalStateException("Unexpected value type: " + v.getValueType());
+                    throw new IllegalStateException("Unexpected value type: " + format);
             }
         }
         return args;
     }
 
     /**
-     * Extracts number value according to value range.
+     * Extracts extended value value according to value type code.
      *
-     * @param iv IntegerValue.
-     * @return Numeric java object selected based on the value range.
+     * @param type Type code.
+     * @return Java object.
+     * @throws IllegalStateException in case of unexpected type.
      */
-    private Object extractNumberValue(IntegerValue iv) {
-        if (iv.isInByteRange())
-            return iv.asByte();
-        if (iv.isInShortRange())
-            return iv.asShort();
-        if (iv.isInIntRange())
-            return iv.asInt();
-        else if (iv.isInLongRange())
-            return iv.asLong();
+    private Object extractExtendedValue(int type) {
+        switch (type) {
+            case INT8:
+                return unpackByte();
 
-        return iv.toBigInteger();
-    }
+            case INT16:
+                return unpackShort();
 
-    /**
-     * Reads an UUID.
-     *
-     * @param val ExtensionValue.
-     * @return UUID value.
-     * @throws MessageTypeException when type is not UUID.
-     * @throws MessageSizeException when size is not correct.
-     */
-    private Object bytesToUUID(ExtensionValue val) {
-        if (val.getType() != ClientMsgPackType.UUID)
-            throw new MessageTypeException("Expected UUID extension (1), but got " + val.getType());
+            case INT32:
+                return unpackInt();
 
-        byte[] data = val.getData();
+            case INT64:
+                return unpackLong();
 
-        if (data.length != 16)
-            throw new MessageSizeException("Expected 16 bytes for UUID extension, but got " + data.length, data.length);
+            case ClientDataType.UUID:
+                return unpackUuid();
 
-        ByteBuffer bb = ByteBuffer.wrap(data);
-
-        return new UUID(bb.getLong(), bb.getLong());
+            default:
+                throw new IllegalStateException("Unexpected value type code: " + type);
+        }
     }
 
     /**

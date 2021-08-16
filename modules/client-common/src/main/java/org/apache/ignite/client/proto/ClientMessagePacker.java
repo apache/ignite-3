@@ -427,7 +427,7 @@ public class ClientMessagePacker extends MessagePacker {
             return this;
         }
 
-        packInt(args.length);
+        packArrayHeader(args.length);
 
         for (Object arg : args) {
             if (arg == null) {
@@ -440,22 +440,32 @@ public class ClientMessagePacker extends MessagePacker {
 
             if (cls == Boolean.class)
                 packBoolean((Boolean)arg);
-            else if (cls == Byte.class)
+            else if (cls == Byte.class) {
+                packInt(ClientDataType.INT8);
                 packByte((Byte)arg);
-            else if (cls == Short.class)
+            }
+            else if (cls == Short.class) {
+                packInt(ClientDataType.INT16);
                 packShort((Short)arg);
-            else if (cls == Integer.class)
+            }
+            else if (cls == Integer.class) {
+                packInt(ClientDataType.INT32);
                 packInt((Integer)arg);
-            else if (cls == Long.class)
+            }
+            else if (cls == Long.class) {
+                packInt(ClientDataType.INT64);
                 packLong((Long)arg);
+            }
             else if (cls == Float.class)
                 packFloat((Float)arg);
             else if (cls == Double.class)
                 packDouble((Double)arg);
             else if (cls == String.class)
                 packString((String)arg);
-            else if (cls == UUID.class)
+            else if (cls == UUID.class) {
+                packInt(ClientDataType.UUID);
                 packUuid((UUID)arg);
+            }
             else if (cls == byte[].class)
                 writeByteArray((byte[])arg);
             else
