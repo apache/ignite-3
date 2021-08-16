@@ -21,15 +21,19 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.msgpack.core.MessagePack;
 
+import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -172,6 +176,11 @@ public class ClientHandlerIntegrationTest {
     }
 
     private ClientHandlerModule startServer() {
+        configurationManager = new ConfigurationManager(
+                List.of(ClientConnectorConfiguration.KEY),
+                Map.of(),
+                new TestConfigurationStorage(LOCAL));
+
         configurationManager.start();
 
         var registry = configurationManager.configurationRegistry();
