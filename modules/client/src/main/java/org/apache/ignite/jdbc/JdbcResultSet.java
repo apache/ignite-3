@@ -47,7 +47,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.client.proto.query.IgniteQueryErrorCode;
-import org.apache.ignite.client.proto.query.QueryEventHandler;
+import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.client.proto.query.SqlStateCode;
 import org.apache.ignite.client.proto.query.event.JdbcQueryCloseRequest;
 import org.apache.ignite.client.proto.query.event.JdbcQueryCloseResult;
@@ -121,7 +121,7 @@ public class JdbcResultSet implements ResultSet {
     private boolean closeStmt;
 
     /** Query request handler. */
-    private QueryEventHandler qryHandler;
+    private JdbcQueryEventHandler qryHandler;
 
     /**
      * Creates new result set.
@@ -138,7 +138,7 @@ public class JdbcResultSet implements ResultSet {
      * @param qryHandler QueryEventHandler (local or remote).
      */
     JdbcResultSet(JdbcStatement stmt, long cursorId, int fetchSize, boolean finished,
-        List<List<Object>> rows, boolean isQry, boolean autoClose, long updCnt, boolean closeStmt, QueryEventHandler qryHandler) {
+        List<List<Object>> rows, boolean isQry, boolean autoClose, long updCnt, boolean closeStmt, JdbcQueryEventHandler qryHandler) {
         assert stmt != null;
         assert fetchSize > 0;
 

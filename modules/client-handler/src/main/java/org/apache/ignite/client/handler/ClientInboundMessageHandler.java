@@ -64,7 +64,7 @@ import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.client.proto.ClientOp;
 import org.apache.ignite.client.proto.ProtocolVersion;
 import org.apache.ignite.client.proto.ServerMessageType;
-import org.apache.ignite.client.proto.query.QueryEventHandler;
+import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.client.proto.query.QueryEventHandlerImpl;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.lang.IgniteException;
@@ -85,7 +85,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     private ClientContext clientContext;
 
     /** Handler. */
-    private final QueryEventHandler handler;
+    private final JdbcQueryEventHandler handler;
 
     /**
      * Constructor.

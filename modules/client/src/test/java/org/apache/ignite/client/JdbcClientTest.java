@@ -24,9 +24,10 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.client.fakes.FakeIgniteQueryProcessor;
-import org.apache.ignite.client.proto.query.QueryEventHandler;
+import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.client.proto.query.QueryEventHandlerImpl;
 import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.client.query.JdbcClientQueryEventHandler;
 import org.apache.ignite.jdbc.ConnectionPropertiesImpl;
 import org.apache.ignite.jdbc.JdbcConnection;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -48,11 +49,11 @@ public class JdbcClientTest extends AbstractClientTest {
     static List<JdbcConnection> connections() {
         ConnectionPropertiesImpl props = new ConnectionPropertiesImpl();
 
-        QueryEventHandler hnd = ((TcpIgniteClient)client).queryHandler();
+        JdbcQueryEventHandler hnd = new JdbcClientQueryEventHandler((TcpIgniteClient)client);
 
         var remoteCon = new JdbcConnection(hnd, props);
 
-        QueryEventHandler processor = new QueryEventHandlerImpl(new FakeIgniteQueryProcessor());
+        JdbcQueryEventHandler processor = new QueryEventHandlerImpl(new FakeIgniteQueryProcessor());
 
         JdbcConnection locCon = new JdbcConnection(processor, props);
 

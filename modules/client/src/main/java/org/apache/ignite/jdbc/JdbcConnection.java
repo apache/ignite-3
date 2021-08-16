@@ -43,10 +43,11 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.client.proto.query.QueryEventHandler;
+import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.client.proto.query.SqlStateCode;
 import org.apache.ignite.internal.client.HostAndPortRange;
 import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.client.query.JdbcClientQueryEventHandler;
 import org.jetbrains.annotations.Nullable;
 
 import static java.sql.ResultSet.CLOSE_CURSORS_AT_COMMIT;
@@ -69,7 +70,7 @@ public class JdbcConnection implements Connection {
     private final Object stmtsMux = new Object();
 
     /** Handler. */
-    private final QueryEventHandler handler;
+    private final JdbcQueryEventHandler handler;
 
     /** Schema name. */
     private String schema;
@@ -110,7 +111,7 @@ public class JdbcConnection implements Connection {
      * @param handler Handler.
      * @param props Properties.
      */
-    public JdbcConnection(QueryEventHandler handler, ConnectionProperties props) {
+    public JdbcConnection(JdbcQueryEventHandler handler, ConnectionProperties props) {
         this.connProps = props;
         this.handler = handler;
 
@@ -142,7 +143,7 @@ public class JdbcConnection implements Connection {
             .addresses(Arrays.toString(Arrays.stream(objects).map(Object::toString).toArray()))
             .build());
 
-        this.handler = client.queryHandler();
+        this.handler = new JdbcClientQueryEventHandler(client);
 
         txIsolation = Connection.TRANSACTION_NONE;
 
@@ -667,7 +668,7 @@ public class JdbcConnection implements Connection {
      *
      * @return Handler.
      */
-    public QueryEventHandler handler() {
+    public JdbcQueryEventHandler handler() {
         return handler;
     }
 

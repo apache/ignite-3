@@ -23,9 +23,8 @@ import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientException;
-import org.apache.ignite.client.proto.query.QueryEventHandler;
+import org.apache.ignite.client.proto.query.event.JdbcClientMessage;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
-import org.apache.ignite.internal.client.query.ClientQueryEventHandler;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -39,9 +38,6 @@ public class TcpIgniteClient implements Ignite {
 
     /** Tables. */
     private final ClientTables tables;
-
-    /** Tables. */
-    private final QueryEventHandler queryProcessor;
 
     /**
      * Constructor.
@@ -72,7 +68,6 @@ public class TcpIgniteClient implements Ignite {
         }
 
         tables = new ClientTables(ch);
-        queryProcessor = new ClientQueryEventHandler(ch);
     }
 
     /**
@@ -90,15 +85,6 @@ public class TcpIgniteClient implements Ignite {
         return tables;
     }
 
-    /**
-     * Get the query event handler implementation.
-     *
-     * @return QueryEventHandler handler.
-     */
-    public QueryEventHandler queryHandler() {
-        return queryProcessor;
-    }
-
     /** {@inheritDoc} */
     @Override public IgniteTransactions transactions() {
         return null;
@@ -113,5 +99,19 @@ public class TcpIgniteClient implements Ignite {
     @Override public String name() {
         // TODO: improve and finalize IGNITE-15164.
         return null;
+    }
+
+    /**
+     * Send JdbcClientMessage request to server size and reads JdbcClientMessage result.
+     *
+     * @param opCode Operation code.
+     * @param req JdbcClientMessage request.
+     * @param res JdbcClientMessage result.
+     */
+    public void sendRequest(int opCode, JdbcClientMessage req, JdbcClientMessage res) {
+        ch.serviceAsync(opCode, w -> req.writeBinary(w.out()), p -> {
+            res.readBinary(p.in());
+            return res;
+        }).join();
     }
 }

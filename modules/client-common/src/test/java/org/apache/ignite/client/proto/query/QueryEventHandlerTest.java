@@ -75,7 +75,7 @@ public class QueryEventHandlerTest {
     public void testSelectQueryRequestMultipleStatements() {
         int cursorSize = 10;
 
-        QueryEventHandler hnd = prepareHandlerForMultiState(cursorSize);
+        JdbcQueryEventHandler hnd = prepareHandlerForMultiState(cursorSize);
 
         JdbcQueryExecuteRequest qryReq = getJdbcQueryExecuteRequest(10);
 
@@ -105,7 +105,7 @@ public class QueryEventHandlerTest {
      * @param cursorSize Size of the cursors array.
      * @return Query event handler.
      */
-    private QueryEventHandler prepareHandlerForMultiState(int cursorSize) {
+    private JdbcQueryEventHandler prepareHandlerForMultiState(int cursorSize) {
         when(cursor.getQueryType()).thenReturn(SqlQueryType.QUERY);
         when(cursor.hasNext()).thenReturn(true);
 
@@ -126,7 +126,7 @@ public class QueryEventHandlerTest {
      */
     @Test
     public void testFetchQueryRequest() {
-        QueryEventHandler hnd = getHandler(SqlQueryType.QUERY, "42");
+        JdbcQueryEventHandler hnd = getHandler(SqlQueryType.QUERY, "42");
 
         JdbcQueryExecuteRequest qryReq = getJdbcQueryExecuteRequest(10);
 
@@ -149,7 +149,7 @@ public class QueryEventHandlerTest {
      */
     @Test
     public void testDMLQuery() {
-        QueryEventHandler hnd = getHandler(SqlQueryType.DML, 1L);
+        JdbcQueryEventHandler hnd = getHandler(SqlQueryType.DML, 1L);
 
         when(cursor.hasNext()).thenReturn(true).thenReturn(false);
 
@@ -174,7 +174,7 @@ public class QueryEventHandlerTest {
      */
     @Test
     public void testBatchQuery() {
-        QueryEventHandler hnd = new QueryEventHandlerImpl(processor);
+        JdbcQueryEventHandler hnd = new QueryEventHandlerImpl(processor);
 
         var req = new JdbcBatchExecuteRequest(
             "PUBLIC",
@@ -192,7 +192,7 @@ public class QueryEventHandlerTest {
      */
     @Test
     public void testSelectQueryBadRequest() {
-        QueryEventHandler hnd = new QueryEventHandlerImpl(processor);
+        JdbcQueryEventHandler hnd = new QueryEventHandlerImpl(processor);
 
         JdbcQueryExecuteRequest qryReq = getJdbcQueryExecuteRequest(10);
 
@@ -225,7 +225,7 @@ public class QueryEventHandlerTest {
      */
     @Test
     public void testFetchQueryBadRequests() {
-        QueryEventHandler hnd = getHandler(SqlQueryType.QUERY, "42");
+        JdbcQueryEventHandler hnd = getHandler(SqlQueryType.QUERY, "42");
 
         JdbcQueryExecuteRequest qryReq = getJdbcQueryExecuteRequest(1);
 
@@ -251,7 +251,7 @@ public class QueryEventHandlerTest {
      */
     @Test
     public void testCloseRequest() {
-        QueryEventHandler hnd = getHandler(SqlQueryType.QUERY, "42");
+        JdbcQueryEventHandler hnd = getHandler(SqlQueryType.QUERY, "42");
 
         JdbcQueryExecuteRequest qryReq = getJdbcQueryExecuteRequest(1);
 
@@ -287,7 +287,7 @@ public class QueryEventHandlerTest {
      * @param val Value in result set.
      * @return Query event handler.
      */
-    private QueryEventHandler getHandler(SqlQueryType type, Object val) {
+    private JdbcQueryEventHandler getHandler(SqlQueryType type, Object val) {
         when(cursor.getQueryType()).thenReturn(type);
         when(cursor.hasNext()).thenReturn(true);
 
