@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -230,7 +229,14 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 return;
         }
 
-        Arrays.stream(columns.columns()).forEach(c -> c.validate(tuple.value(c.name())));
+        for (int i = 0; i < columns.length(); i++) {
+            Column col = columns.column(i);
+
+            Object value = tuple.valueOrDefault(col.name(), POISON_OBJECT);
+
+            if (value != POISON_OBJECT)
+                col.validate(value);
+        }
     }
 
     /**
