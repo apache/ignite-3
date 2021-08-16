@@ -99,7 +99,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         // TODO: IGNITE-15161 Implement component's stop.
     }
 
-    public List<SqlCursor<List<?>>> query(String schemaName, String qry, Object... params) {
+    /** {@inheritDoc} */
+    @Override public List<SqlCursor<List<?>>> query(String schemaName, String qry, Object... params) {
         return executionSrvc.executeQuery(schemaName, qry, params);
     }
 

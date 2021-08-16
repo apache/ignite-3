@@ -69,7 +69,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
 
     /** {@inheritDoc} */
     @Override public ResultSet executeQuery() throws SQLException {
-        executeWithArguments(JdbcStatementType.SELECT_STATEMENT_TYPE);
+        executeWithArguments();
 
         ResultSet rs = getResultSet();
 
@@ -81,7 +81,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
 
     /** {@inheritDoc} */
     @Override public int executeUpdate() throws SQLException {
-        executeWithArguments(JdbcStatementType.UPDATE_STMT_TYPE);
+        executeWithArguments();
 
         int res = getUpdateCount();
 
@@ -93,7 +93,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
 
     /** {@inheritDoc} */
     @Override public boolean execute() throws SQLException {
-        executeWithArguments(JdbcStatementType.ANY_STATEMENT_TYPE);
+        executeWithArguments();
 
         return resSets.get(0).isQuery();
     }
@@ -101,8 +101,6 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     /** {@inheritDoc} */
     @Override public void addBatch() throws SQLException {
         ensureNotClosed();
-
-//        checkStatementBatchEmpty();
 
         batchSize++;
 
@@ -532,10 +530,9 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     /**
      * Execute query with arguments and nullify them afterwards.
      *
-     * @param stmtType Expected statement type.
      * @throws SQLException If failed.
      */
-    private void executeWithArguments(JdbcStatementType stmtType) throws SQLException {
+    private void executeWithArguments() throws SQLException {
         execute0(sql, args);
     }
 }
