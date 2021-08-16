@@ -357,7 +357,7 @@ public class ClientMessagePacker extends MessagePacker {
         assert !closed : "Packer is closed";
 
         if (arr == null) {
-            packInt(0);
+            packNil();
 
             return this;
         }
