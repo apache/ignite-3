@@ -78,7 +78,7 @@ public class SchemaConfigurationConverterTest {
 
         confRegistry.start();
 
-        tblBuilder = SchemaBuilders.tableBuilder("SNAME","TNAME")
+        tblBuilder = SchemaBuilders.tableBuilder("SNAME", "TNAME")
             .columns(
                 SchemaBuilders.column("COL1", ColumnType.DOUBLE).build(),
                 SchemaBuilders.column("COL2", ColumnType.DOUBLE).build(),
@@ -109,7 +109,7 @@ public class SchemaConfigurationConverterTest {
     public void testConvertHashIndex() throws ExecutionException, InterruptedException {
         HashIndexBuilder builder = SchemaBuilders.hashIndex("testHI")
             .withColumns("A", "B", "C")
-            .withHints(Collections.singletonMap("param","value"));
+            .withHints(Collections.singletonMap("param", "value"));
         HashIndex idx = builder.build();
 
         getTbl().change(ch -> SchemaConfigurationConverter.addIndex(idx, ch)).get();

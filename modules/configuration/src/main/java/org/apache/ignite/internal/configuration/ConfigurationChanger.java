@@ -244,8 +244,6 @@ public abstract class ConfigurationChanger {
      * @return Future that is completed on change completion.
      */
     public CompletableFuture<Void> change(ConfigurationSource source) {
-        source.reset();
-
         return changeInternally(source);
     }
 
