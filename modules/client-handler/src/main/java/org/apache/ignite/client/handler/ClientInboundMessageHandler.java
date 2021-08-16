@@ -26,6 +26,7 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.ignite.app.Ignite;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlRequestHandler;
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableDropRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
@@ -60,6 +61,9 @@ import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.client.proto.ClientOp;
 import org.apache.ignite.client.proto.ProtocolVersion;
 import org.apache.ignite.client.proto.ServerMessageType;
+import org.apache.ignite.client.proto.query.QueryEventHandler;
+import org.apache.ignite.client.proto.query.QueryEventHandlerImpl;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.slf4j.Logger;
 
@@ -77,6 +81,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** Context. */
     private ClientContext clientContext;
 
+    /** Handler. */
+    private final ClientSqlRequestHandler handler;
+
     /**
      * Constructor.
      *
@@ -89,6 +96,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
         this.ignite = ignite;
         this.log = log;
+
+        QueryEventHandler processor = new QueryEventHandlerImpl(((IgniteImpl)ignite).queryEngine());
+        this.handler = new ClientSqlRequestHandler(processor);
     }
 
     /** {@inheritDoc} */
@@ -319,6 +329,18 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             case ClientOp.TUPLE_GET_AND_DELETE:
                 return ClientTupleGetAndDeleteRequest.process(in, out, ignite.tables());
+
+            case ClientOp.SQL_EXEC:
+                return handler.execute(in, out);
+
+            case ClientOp.SQL_EXEC_BATCH:
+                return handler.executeBatch(in, out);
+
+            case ClientOp.SQL_NEXT:
+                return handler.next(in, out);
+
+            case ClientOp.SQL_CURSOR_CLOSE:
+                return handler.close(in, out);
 
             default:
                 throw new IgniteException("Unexpected operation code: " + opCode);
