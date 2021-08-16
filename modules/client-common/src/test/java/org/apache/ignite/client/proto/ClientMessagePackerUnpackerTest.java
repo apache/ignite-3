@@ -129,7 +129,6 @@ public class ClientMessagePackerUnpackerTest {
             try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
                 unpacker.skipValue(4);
                 Object[] res = unpacker.unpackObjectArray();
-                System.out.println(Arrays.toString(res));
                 assertArrayEquals(args, res);
             }
         }
