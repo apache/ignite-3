@@ -96,7 +96,7 @@ public class StrictSchemaOperationsTest {
 
         Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
-        Tuple tuple = tbl.tuple().set("id" , 1L);
+        Tuple tuple = tbl.tuple().set("id", 1L);
 
         tbl.insert(tuple.set("valString", "qwe"));
         tbl.insert(tuple.set("valString", "qw"));

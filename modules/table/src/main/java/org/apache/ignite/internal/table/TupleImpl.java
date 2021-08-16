@@ -97,7 +97,7 @@ public class TupleImpl implements Tuple {
     @Override public <T> T value(String columnName) {
         int idx = columnIndex(columnName);
 
-        return idx == -1 ?  null : (T)vals.get(idx);
+        return idx == -1 ? null : (T)vals.get(idx);
     }
 
     /** {@inheritDoc} */
