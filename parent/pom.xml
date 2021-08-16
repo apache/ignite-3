@@ -1006,8 +1006,8 @@
                     <argLine>-Djava.util.logging.config.file=../../config/java.util.logging.properties</argLine>
                     <properties>
                         <configurationParameters>
-                            junit.jupiter.execution.timeout.default = 10
-                            junit.jupiter.execution.timeout.lifecycle.method.default = 10
+                            junit.jupiter.execution.timeout.default = 1
+                            junit.jupiter.execution.timeout.lifecycle.method.default = 1
                         </configurationParameters>
                     </properties>
                     <excludes>
@@ -1026,8 +1026,8 @@
                     <argLine>-Djava.util.logging.config.file=../../config/java.util.logging.properties</argLine>
                     <properties>
                         <configurationParameters>
-                            junit.jupiter.execution.timeout.default = 30
-                            junit.jupiter.execution.timeout.lifecycle.method.default = 10
+                            junit.jupiter.execution.timeout.default = 1
+                            junit.jupiter.execution.timeout.lifecycle.method.default = 1
                         </configurationParameters>
                     </properties>
                     <useModulePath>false</useModulePath>
