@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -37,15 +38,24 @@ public class ClientTablesGetRequest {
             ClientMessagePacker out,
             IgniteTables igniteTables
     ) {
-        return igniteTables.tablesAsync().thenAccept(tables -> {
-            out.packMapHeader(tables.size());
+        var res = new CompletableFuture<Void>();
 
-            for (var table : tables) {
-                var tableImpl = (TableImpl) table;
+        // TODO: This is test code, to be removed before merge.
+        ForkJoinPool.commonPool().execute(() -> {
+            igniteTables.tablesAsync().thenAccept(tables -> {
+                out.packMapHeader(tables.size());
 
-                out.packUuid(tableImpl.tableId());
-                out.packString(table.tableName());
-            }
+                for (var table : tables) {
+                    var tableImpl = (TableImpl) table;
+
+                    out.packUuid(tableImpl.tableId());
+                    out.packString(table.tableName());
+                }
+
+                res.complete(null);
+            });
         });
+
+        return res;
     }
 }
