@@ -70,7 +70,7 @@ public abstract class ConfigurationChanger {
     private final Map<String, RootKey<?, ?>> rootKeys;
 
     /** Validators. */
-    private final Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators;
+    private final Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators;
 
     /** Configuration storage. */
     private final ConfigurationStorage storage;
@@ -133,7 +133,7 @@ public abstract class ConfigurationChanger {
     public ConfigurationChanger(
         Notificator notificator,
         Collection<RootKey<?, ?>> rootKeys,
-        Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators,
+        Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators,
         ConfigurationStorage storage
     ) {
         checkConfigurationType(rootKeys, storage);
@@ -215,7 +215,7 @@ public abstract class ConfigurationChanger {
                 }
             };
 
-            changeInternally(defaultsCfgSource ).get();
+            changeInternally(defaultsCfgSource).get();
         }
         catch (ExecutionException e) {
             Throwable cause = e.getCause();
@@ -253,8 +253,10 @@ public abstract class ConfigurationChanger {
     public void stop() {
         pool.shutdownNow();
 
-        if (storageRoots != null)
-            storageRoots.changeFuture.completeExceptionally(new NodeStoppingException());
+        StorageRoots roots = storageRoots;
+
+        if (roots != null)
+            roots.changeFuture.completeExceptionally(new NodeStoppingException());
     }
 
     /**
@@ -283,11 +285,11 @@ public abstract class ConfigurationChanger {
      * @return fut Future that will be completed after changes are written to the storage.
      */
     private CompletableFuture<Void> changeInternally(ConfigurationSource src) {
-        StorageRoots storageRoots0 = storageRoots;
+        StorageRoots localRoots = storageRoots;
 
         return CompletableFuture
             .supplyAsync(() -> {
-                SuperRoot curRoots = storageRoots0.roots;
+                SuperRoot curRoots = localRoots.roots;
 
                 SuperRoot changes = curRoots.copy();
 
@@ -322,12 +324,12 @@ public abstract class ConfigurationChanger {
                 if (allChanges == null)
                     return completedFuture(null);
 
-                return storage.write(allChanges, storageRoots.version)
+                return storage.write(allChanges, localRoots.version)
                     .thenCompose(casResult -> {
                         if (casResult)
-                            return storageRoots.changeFuture;
+                            return localRoots.changeFuture;
                         else
-                            return storageRoots.changeFuture.thenCompose(v -> changeInternally(src));
+                            return localRoots.changeFuture.thenCompose(v -> changeInternally(src));
                     })
                     .exceptionally(throwable -> {
                         throw new ConfigurationChangeException("Failed to change configuration", throwable);

@@ -46,7 +46,7 @@ public class TestConfigurationChanger extends ConfigurationChanger {
     public TestConfigurationChanger(
         ConfigurationAsmGenerator cgen,
         Collection<RootKey<?, ?>> rootKeys,
-        Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators,
+        Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators,
         ConfigurationStorage storage
     ) {
         super(

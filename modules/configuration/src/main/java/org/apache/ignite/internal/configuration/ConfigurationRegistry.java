@@ -87,7 +87,7 @@ public class ConfigurationRegistry implements IgniteComponent {
 
         this.rootKeys = rootKeys;
 
-        Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators0 = new HashMap<>(validators);
+        Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators0 = new HashMap<>(validators);
 
         validators0.computeIfAbsent(Min.class, a -> new HashSet<>()).add(new MinValidator());
         validators0.computeIfAbsent(Max.class, a -> new HashSet<>()).add(new MaxValidator());
