@@ -57,8 +57,6 @@ import static org.apache.ignite.client.proto.query.SqlStateCode.CONNECTION_CLOSE
 
 /**
  * JDBC connection implementation.
- *
- * See documentation of {@link IgniteJdbcDriver} for details.
  */
 public class JdbcConnection implements Connection {
     /** Default schema. */
@@ -71,7 +69,7 @@ public class JdbcConnection implements Connection {
     private final Object stmtsMux = new Object();
 
     /** Handler. */
-    public final QueryEventHandler handler;
+    private final QueryEventHandler handler;
 
     /** Schema name. */
     private String schema;
@@ -662,6 +660,15 @@ public class JdbcConnection implements Connection {
         ensureNotClosed();
 
         Connection.super.setShardingKey(shardingKey);
+    }
+
+    /**
+     * Get the query event handler.
+     *
+     * @return Handler.
+     */
+    public QueryEventHandler handler() {
+        return handler;
     }
 
     /** {@inheritDoc} */

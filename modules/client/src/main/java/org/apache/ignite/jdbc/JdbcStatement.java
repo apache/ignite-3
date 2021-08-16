@@ -130,7 +130,7 @@ public class JdbcStatement implements Statement {
         JdbcQueryExecuteRequest req = new JdbcQueryExecuteRequest(schema, pageSize,
             maxRows, conn.getAutoCommit(), false, sql, args == null ? null : args.toArray(new Object[args.size()]));
 
-        JdbcQueryExecuteResult res = conn.handler.query(req);
+        JdbcQueryExecuteResult res = conn.handler().query(req);
 
         if (res.status() != JdbcResponse.STATUS_SUCCESS)
             throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
@@ -145,7 +145,7 @@ public class JdbcStatement implements Statement {
         for (JdbcQuerySingleResult jdbcRes : res.results()) {
             resSets.add(new JdbcResultSet(this, jdbcRes.cursorId(), pageSize,
                 jdbcRes.last(), jdbcRes.items(), jdbcRes.isQuery(), false, jdbcRes.updateCount(),
-                closeOnCompletion, conn.handler));
+                closeOnCompletion, conn.handler()));
         }
 
         assert !resSets.isEmpty() : "At least one results set is expected";
@@ -383,7 +383,7 @@ public class JdbcStatement implements Statement {
         JdbcBatchExecuteRequest req = new JdbcBatchExecuteRequest(conn.getSchema(), batch, conn.getAutoCommit());
 
         try {
-            JdbcBatchExecuteResult res = conn.handler.batch(req);
+            JdbcBatchExecuteResult res = conn.handler().batch(req);
 
             if (res.status() != JdbcResponse.STATUS_SUCCESS) {
                 throw new BatchUpdateException(res.err(),
