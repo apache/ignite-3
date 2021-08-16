@@ -23,11 +23,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
  *
  */
 public interface QueryProcessor extends IgniteComponent {
-    /**
-     * @param schemaName
-     * @param qry
-     * @param params
-     * @return
-     */
+    /** */
     List<SqlCursor<List<?>>> query(String schemaName, String qry, Object... params);
 }
