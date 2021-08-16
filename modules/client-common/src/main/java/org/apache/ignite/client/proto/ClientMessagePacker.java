@@ -362,7 +362,7 @@ public class ClientMessagePacker extends MessagePacker {
             return this;
         }
 
-        packInt(arr.length);
+        packArrayHeader(arr.length);
 
         for (int i : arr)
             packInt(i);
