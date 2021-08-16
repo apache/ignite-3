@@ -90,6 +90,11 @@ public class TcpIgniteClient implements Ignite {
         return tables;
     }
 
+    /**
+     * Get the query event handler implementation.
+     *
+     * @return QueryEventHandler handler.
+     */
     public QueryEventHandler queryHandler() {
         return queryProcessor;
     }
