@@ -23,6 +23,7 @@ import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.buffer.Unpooled;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -88,6 +89,48 @@ public class ClientMessagePackerUnpackerTest {
 
                 assertEquals(18, len); // 1 ext + 1 ext type + 16 UUID data
                 assertEquals(u, res);
+            }
+        }
+    }
+
+    @Test
+    public void testIntegerArray() throws IOException {
+        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
+            int[] arr = new int[] {4, 8, 15, 16, 23, 42};
+
+            packer.packIntArray(arr);
+
+            var buf = packer.getBuffer();
+
+            byte[] data = new byte[buf.readableBytes()];
+
+            buf.readBytes(data);
+
+            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
+                unpacker.skipValue(4);
+                int[] res = unpacker.unpackIntArray();
+                assertArrayEquals(arr, res);
+            }
+        }
+    }
+
+    @Test
+    public void testObjectArray() throws IOException {
+        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
+            Object[] args = new Object[] {Integer.MAX_VALUE - 1, Long.MAX_VALUE - 1, "15", 16.0, 23.0d, new UUID(4, 2), null};
+
+            packer.packObjectArray(args);
+
+            var buf = packer.getBuffer();
+
+            byte[] data = new byte[buf.readableBytes()];
+
+            buf.readBytes(data);
+
+            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
+                unpacker.skipValue(4);
+                Object[] res = unpacker.unpackObjectArray();
+                assertArrayEquals(args, res);
             }
         }
     }

@@ -34,7 +34,9 @@ import org.msgpack.core.MessageSizeException;
 import org.msgpack.core.MessageTypeException;
 import org.msgpack.core.MessageUnpacker;
 import org.msgpack.core.buffer.InputStreamBufferInput;
+import org.msgpack.value.ExtensionValue;
 import org.msgpack.value.ImmutableValue;
+import org.msgpack.value.IntegerValue;
 
 import static org.apache.ignite.client.proto.ClientDataType.BITMASK;
 import static org.apache.ignite.client.proto.ClientDataType.BYTES;
@@ -362,6 +364,24 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     /**
+     * Reads an integer array.
+     *
+     * @return Integer array.
+     */
+    public int[] unpackIntArray() {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        int size = unpackInt();
+
+        int[] res = new int[size];
+
+        for (int i = 0; i < size; i++)
+            res[i] = unpackInt();
+
+        return res;
+    }
+
+    /**
      * Unpacks an object based on the specified type.
      *
      * @param dataType Data type code.
@@ -411,6 +431,106 @@ public class ClientMessageUnpacker extends MessageUnpacker {
         }
 
         throw new IgniteException("Unknown client data type: " + dataType);
+    }
+
+    /**
+     * Packs an object.
+     *
+     * @return Object array.
+     */
+    public Object[] unpackObjectArray() {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        if (tryUnpackNil())
+            return null;
+
+        int size = unpackInt();
+
+        if (size == 0)
+            return new Object[size];
+
+        Object[] args = new Object[size];
+
+        for (int i = 0; i < size; i++) {
+            if (tryUnpackNil())
+                continue;
+
+            ImmutableValue v = unpackValue();
+
+            switch (v.getValueType()) {
+                case BOOLEAN:
+                    args[i] = v.asBooleanValue().getBoolean();
+
+                    break;
+                case INTEGER:
+                    args[i] = extractNumberValue(v.asIntegerValue());
+
+                    break;
+                case FLOAT:
+                    args[i] = v.asFloatValue().toDouble();
+
+                    break;
+                case STRING:
+                    args[i] = v.asStringValue().asString();
+
+                    break;
+                case BINARY:
+                    args[i] = v.asBinaryValue().asByteArray();
+
+                    break;
+                case EXTENSION: {
+                    ExtensionValue val = v.asExtensionValue();
+
+                    if (val.getType() == ClientMsgPackType.UUID) {
+                        args[i] = bytesToUUID(val);
+                        continue;
+                    } else
+                        throw new IllegalStateException("Unexpected extended value type: " + val.getType());
+                }
+                default:
+                    throw new IllegalStateException("Unexpected value type: " + v.getValueType());
+            }
+        }
+        return args;
+    }
+
+    /**
+     * @param iv IntegerValue.
+     * @return Numeric java object selected based on the value range.
+     */
+    private Object extractNumberValue(IntegerValue iv) {
+        if (iv.isInByteRange())
+            return iv.asByte();
+        if (iv.isInShortRange())
+            return iv.asShort();
+        if (iv.isInIntRange())
+            return iv.asInt();
+        else if (iv.isInLongRange())
+            return iv.asLong();
+
+        return iv.toBigInteger();
+    }
+
+    /**
+     * Reads an UUID.
+     *
+     * @param val ExtensionValue.
+     * @return UUID value.
+     * @throws MessageTypeException when type is not UUID.
+     * @throws MessageSizeException when size is not correct.
+     */
+    private Object bytesToUUID(ExtensionValue val) {
+        if (val.getType() != ClientMsgPackType.UUID)
+            throw new MessageTypeException("Expected UUID extension (1), but got " + val.getType());
+
+        byte[] data = val.getData();
+
+        if (data.length != 16)
+            throw new MessageSizeException("Expected 16 bytes for UUID extension, but got " + data.length, data.length);
+
+        ByteBuffer bb = ByteBuffer.wrap(data);
+
+        return new UUID(bb.getLong(), bb.getLong());
     }
 
     /**

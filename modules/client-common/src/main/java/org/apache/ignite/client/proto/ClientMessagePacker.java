@@ -348,6 +348,30 @@ public class ClientMessagePacker extends MessagePacker {
     }
 
     /**
+     * Writes an integer array.
+     *
+     * @param arr Integer array value.
+     * @return This instance.
+     * @throws IOException when underlying output throws IOException.
+     */
+    public ClientMessagePacker packIntArray(int[] arr) throws IOException {
+        assert !closed : "Packer is closed";
+
+        if (arr == null) {
+            packInt(0);
+
+            return this;
+        }
+
+        packInt(arr.length);
+
+        for (int i : arr)
+            packInt(i);
+
+        return this;
+    }
+
+    /**
      * Packs an object.
      *
      * @param val Object value.
@@ -386,6 +410,65 @@ public class ClientMessagePacker extends MessagePacker {
 
         // TODO: Support all basic types IGNITE-15163
         throw new UnsupportedOperationException("Unsupported type, can't serialize: " + val.getClass());
+    }
+
+    /**
+     * Packs an array of different objects.
+     *
+     * @param args Object array.
+     * @return This instance.
+     * @throws IOException when underlying output throws IOException.
+     */
+    public ClientMessagePacker packObjectArray(Object[] args) throws IOException {
+        assert !closed : "Packer is closed";
+
+        if (args == null) {
+            packNil();
+
+            return this;
+        }
+
+        packInt(args.length);
+
+        for (Object arg : args) {
+            if (arg == null) {
+                packNil();
+
+                continue;
+            }
+
+            Class<?> cls = arg.getClass();
+
+            if (cls == Boolean.class)
+                packBoolean((Boolean)arg);
+            else if (cls == Byte.class)
+                packByte((Byte)arg);
+            else if (cls == Short.class)
+                packShort((Short)arg);
+            else if (cls == Integer.class)
+                packInt((Integer)arg);
+            else if (cls == Long.class)
+                packLong((Long)arg);
+            else if (cls == Float.class)
+                packFloat((Float)arg);
+            else if (cls == Double.class)
+                packDouble((Double)arg);
+            else if (cls == String.class)
+                packString((String)arg);
+            else if (cls == UUID.class)
+                packUuid((UUID)arg);
+            else if (cls == byte[].class)
+                writeByteArray((byte[])arg);
+            else
+                throw new IOException("Custom objects are not supported");
+        }
+
+        return this;
+    }
+
+    private void writeByteArray(byte[] arg) throws IOException {
+        packBinaryHeader(arg.length);
+        writePayload(arg);
     }
 
     /** {@inheritDoc} */
