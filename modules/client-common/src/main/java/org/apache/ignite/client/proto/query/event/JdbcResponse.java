@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.proto.query.event;
 
-import java.io.IOException;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
@@ -59,7 +58,7 @@ public abstract class JdbcResponse implements JdbcClientMessage {
     }
 
     /** {@inheritDoc} */
-    @Override public void writeBinary(ClientMessagePacker packer) throws IOException {
+    @Override public void writeBinary(ClientMessagePacker packer) {
         packer.packInt(status);
 
         if (status != STATUS_SUCCESS)
@@ -67,7 +66,7 @@ public abstract class JdbcResponse implements JdbcClientMessage {
     }
 
     /** {@inheritDoc} */
-    @Override public void readBinary(ClientMessageUnpacker unpacker) throws IOException {
+    @Override public void readBinary(ClientMessageUnpacker unpacker) {
         status = unpacker.unpackInt();
 
         if (status != STATUS_SUCCESS)

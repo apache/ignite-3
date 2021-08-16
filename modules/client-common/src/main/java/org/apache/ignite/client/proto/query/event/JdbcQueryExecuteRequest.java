@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.proto.query.event;
 
-import java.io.IOException;
 import java.sql.Statement;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
@@ -145,7 +144,7 @@ public class JdbcQueryExecuteRequest implements JdbcClientMessage {
     }
 
     /** {@inheritDoc} */
-    @Override public void writeBinary(ClientMessagePacker packer) throws IOException {
+    @Override public void writeBinary(ClientMessagePacker packer) {
         packer.packString(schemaName);
         packer.packInt(pageSize);
         packer.packInt(maxRows);
@@ -155,7 +154,7 @@ public class JdbcQueryExecuteRequest implements JdbcClientMessage {
     }
 
     /** {@inheritDoc} */
-    @Override public void readBinary(ClientMessageUnpacker unpacker) throws IOException {
+    @Override public void readBinary(ClientMessageUnpacker unpacker) {
         schemaName = unpacker.unpackString();
         pageSize = unpacker.unpackInt();
         maxRows = unpacker.unpackInt();

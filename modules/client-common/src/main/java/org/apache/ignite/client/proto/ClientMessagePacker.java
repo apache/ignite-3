@@ -352,9 +352,8 @@ public class ClientMessagePacker extends MessagePacker {
      *
      * @param arr Integer array value.
      * @return This instance.
-     * @throws IOException when underlying output throws IOException.
      */
-    public ClientMessagePacker packIntArray(int[] arr) throws IOException {
+    public ClientMessagePacker packIntArray(int[] arr) {
         assert !closed : "Packer is closed";
 
         if (arr == null) {
@@ -417,9 +416,9 @@ public class ClientMessagePacker extends MessagePacker {
      *
      * @param args Object array.
      * @return This instance.
-     * @throws IOException when underlying output throws IOException.
+     * @throws UnsupportedOperationException in case of unknown type.
      */
-    public ClientMessagePacker packObjectArray(Object[] args) throws IOException {
+    public ClientMessagePacker packObjectArray(Object[] args) {
         assert !closed : "Packer is closed";
 
         if (args == null) {
@@ -460,13 +459,13 @@ public class ClientMessagePacker extends MessagePacker {
             else if (cls == byte[].class)
                 writeByteArray((byte[])arg);
             else
-                throw new IOException("Custom objects are not supported");
+                throw new UnsupportedOperationException("Custom objects are not supported");
         }
 
         return this;
     }
 
-    private void writeByteArray(byte[] arg) throws IOException {
+    private void writeByteArray(byte[] arg) {
         packBinaryHeader(arg.length);
         writePayload(arg);
     }

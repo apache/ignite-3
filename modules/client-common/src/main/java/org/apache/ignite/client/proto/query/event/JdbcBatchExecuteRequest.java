@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.proto.query.event;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.client.proto.ClientMessagePacker;
@@ -87,7 +86,7 @@ public class JdbcBatchExecuteRequest implements JdbcClientMessage {
     }
 
     /** {@inheritDoc} */
-    @Override public void writeBinary(ClientMessagePacker packer) throws IOException {
+    @Override public void writeBinary(ClientMessagePacker packer) {
         packer.packString(schemaName);
 
         if (queries == null || queries.isEmpty())
@@ -101,7 +100,7 @@ public class JdbcBatchExecuteRequest implements JdbcClientMessage {
     }
 
     /** {@inheritDoc} */
-    @Override public void readBinary(ClientMessageUnpacker unpacker) throws IOException {
+    @Override public void readBinary(ClientMessageUnpacker unpacker) {
         schemaName = unpacker.unpackString();
 
         int n = unpacker.unpackInt();

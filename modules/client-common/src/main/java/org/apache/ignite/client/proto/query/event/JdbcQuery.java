@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.proto.query.event;
 
-import java.io.IOException;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
@@ -69,13 +68,13 @@ public class JdbcQuery implements JdbcClientMessage {
     }
 
     /** {@inheritDoc} */
-    @Override public void writeBinary(ClientMessagePacker packer) throws IOException {
+    @Override public void writeBinary(ClientMessagePacker packer) {
         packer.packString(sql);
         packer.packObjectArray(args);
     }
 
     /** {@inheritDoc} */
-    @Override public void readBinary(ClientMessageUnpacker unpacker) throws IOException {
+    @Override public void readBinary(ClientMessageUnpacker unpacker) {
         sql = unpacker.unpackString();
         args = unpacker.unpackObjectArray();
     }

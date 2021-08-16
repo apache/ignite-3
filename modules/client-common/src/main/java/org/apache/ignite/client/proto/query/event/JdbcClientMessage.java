@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.proto.query.event;
 
-import java.io.IOException;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 
@@ -30,15 +29,13 @@ public interface JdbcClientMessage {
      * Writes fields to provided packer.
      *
      * @param packer Client message packer.
-     * @throws IOException In case of error.
      */
-    void writeBinary(ClientMessagePacker packer) throws IOException;
+    void writeBinary(ClientMessagePacker packer);
 
     /**
      * Reads fields from provided reader.
      *
      * @param unpacker Client message unpacker.
-     * @throws IOException In case of error.
      */
-    void readBinary(ClientMessageUnpacker unpacker) throws IOException;
+    void readBinary(ClientMessageUnpacker unpacker);
 }
