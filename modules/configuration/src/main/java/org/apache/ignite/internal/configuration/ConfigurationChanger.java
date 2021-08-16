@@ -27,7 +27,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
@@ -254,7 +253,7 @@ public abstract class ConfigurationChanger {
     public void stop() {
         pool.shutdownNow();
 
-        for (StorageRoots storageRoots : storagesRootsMap.values())
+        if (storageRoots != null)
             storageRoots.changeFuture.completeExceptionally(new NodeStoppingException());
     }
 
@@ -328,7 +327,7 @@ public abstract class ConfigurationChanger {
                         if (casResult)
                             return storageRoots.changeFuture;
                         else
-                            return storageRoots.changeFuture.thenCompose(v -> changeInternally(src, storage));
+                            return storageRoots.changeFuture.thenCompose(v -> changeInternally(src));
                     })
                     .exceptionally(throwable -> {
                         throw new ConfigurationChangeException("Failed to change configuration", throwable);
