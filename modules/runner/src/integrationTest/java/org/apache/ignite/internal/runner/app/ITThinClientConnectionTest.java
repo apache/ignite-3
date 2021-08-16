@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.runner.app;
 
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -28,7 +27,6 @@ import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.schema.ColumnType;
@@ -36,9 +34,7 @@ import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -54,12 +50,6 @@ public class ITThinClientConnectionTest extends IgniteAbstractTest {
 
     /** */
     private static final String TABLE_NAME = "tbl1";
-
-    /** */
-    private final String KEY = "key";
-
-    /** */
-    private final String VAL = "val";
 
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {{
@@ -88,27 +78,6 @@ public class ITThinClientConnectionTest extends IgniteAbstractTest {
     private final List<Ignite> startedNodes = new ArrayList<>();
 
     /** */
-    @BeforeEach
-    @Override public void setup(TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
-        super.setup(testInfo, workDir);
-
-        nodesBootstrapCfg.forEach((nodeName, configStr) ->
-                startedNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
-        );
-
-        SchemaTable schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
-                SchemaBuilders.column(KEY, ColumnType.INT32).asNonNull().build(),
-                SchemaBuilders.column(VAL, ColumnType.string()).asNullable().build()
-        ).withPrimaryKey(KEY).build();
-
-        startedNodes.get(0).tables().createTable(schTbl.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(schTbl, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
-        );
-    }
-
-    /** */
     @AfterEach
     void tearDown() throws Exception {
         IgniteUtils.closeAll(Lists.reverse(startedNodes));
@@ -119,6 +88,24 @@ public class ITThinClientConnectionTest extends IgniteAbstractTest {
      */
     @Test
     void testThinClientConnectsToServerNodesAndExecutesBasicTableOperations() throws Exception {
+        nodesBootstrapCfg.forEach((nodeName, configStr) ->
+                startedNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
+        );
+
+        var keyCol = "key";
+        var valCol = "val";
+
+        SchemaTable schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
+                SchemaBuilders.column(keyCol, ColumnType.INT32).asNonNull().build(),
+                SchemaBuilders.column(valCol, ColumnType.string()).asNullable().build()
+        ).withPrimaryKey(keyCol).build();
+
+        startedNodes.get(0).tables().createTable(schTbl.canonicalName(), tblCh ->
+                SchemaConfigurationConverter.convert(schTbl, tblCh)
+                        .changeReplicas(1)
+                        .changePartitions(10)
+        );
+
         for (var addr : new String[] {"127.0.0.1:10800", "127.0.0.1:10801"}) {
             try (var client = IgniteClient.builder().addresses(addr).build()) {
                 List<Table> tables = client.tables().tables();
@@ -127,11 +114,11 @@ public class ITThinClientConnectionTest extends IgniteAbstractTest {
                 Table table = tables.get(0);
                 assertEquals(String.format("%s.%s", SCHEMA_NAME, TABLE_NAME), table.tableName());
 
-                var tuple = table.tupleBuilder().set(KEY, 1).set(VAL, "Hello").build();
-                var keyTuple = table.tupleBuilder().set(KEY, 1).build();
+                var tuple = table.tupleBuilder().set(keyCol, 1).set(valCol, "Hello").build();
+                var keyTuple = table.tupleBuilder().set(keyCol, 1).build();
 
                 table.upsert(tuple);
-                assertEquals("Hello", table.get(keyTuple).stringValue(VAL));
+                assertEquals("Hello", table.get(keyTuple).stringValue(valCol));
 
                 assertTrue(table.delete(keyTuple));
             }
