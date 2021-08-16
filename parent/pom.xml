@@ -1004,6 +1004,12 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <argLine>-Djava.util.logging.config.file=../../config/java.util.logging.properties</argLine>
+                    <properties>
+                        <configurationParameters>
+                            junit.jupiter.execution.timeout.default = 10
+                            junit.jupiter.execution.timeout.lifecycle.method.default = 10
+                        </configurationParameters>
+                    </properties>
                     <excludes>
                         <exclude>**/IT*.java</exclude>
                     </excludes>
@@ -1018,6 +1024,12 @@
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <configuration>
                     <argLine>-Djava.util.logging.config.file=../../config/java.util.logging.properties</argLine>
+                    <properties>
+                        <configurationParameters>
+                            junit.jupiter.execution.timeout.default = 30
+                            junit.jupiter.execution.timeout.lifecycle.method.default = 10
+                        </configurationParameters>
+                    </properties>
                     <useModulePath>false</useModulePath>
                 </configuration>
                 <executions>
