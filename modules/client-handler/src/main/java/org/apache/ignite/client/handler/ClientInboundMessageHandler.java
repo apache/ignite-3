@@ -26,7 +26,10 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.ignite.app.Ignite;
-import org.apache.ignite.client.handler.requests.sql.ClientSqlRequestHandler;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlCloseRequest;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteBatchRequest;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlFetchRequest;
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableDropRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
@@ -82,7 +85,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     private ClientContext clientContext;
 
     /** Handler. */
-    private final ClientSqlRequestHandler handler;
+    private final QueryEventHandler handler;
 
     /**
      * Constructor.
@@ -98,10 +101,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         this.log = log;
 
         //TODO IGNITE-15314 Refactor after sql api appears in Ignite interface.
-        if (ignite instanceof IgniteImpl) {
-            QueryEventHandler processor = new QueryEventHandlerImpl(((IgniteImpl)ignite).queryEngine());
-            this.handler = new ClientSqlRequestHandler(processor);
-        } else
+        if (ignite instanceof IgniteImpl)
+            this.handler = new QueryEventHandlerImpl(((IgniteImpl)ignite).queryEngine());
+        else
             this.handler = null;
     }
 
@@ -335,16 +337,16 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 return ClientTupleGetAndDeleteRequest.process(in, out, ignite.tables());
 
             case ClientOp.SQL_EXEC:
-                return handler.execute(in, out);
+                return ClientSqlExecuteRequest.execute(in, out, handler);
 
             case ClientOp.SQL_EXEC_BATCH:
-                return handler.executeBatch(in, out);
+                return ClientSqlExecuteBatchRequest.process(in, out, handler);
 
             case ClientOp.SQL_NEXT:
-                return handler.next(in, out);
+                return ClientSqlFetchRequest.process(in, out, handler);
 
             case ClientOp.SQL_CURSOR_CLOSE:
-                return handler.close(in, out);
+                return ClientSqlCloseRequest.process(in, out, handler);
 
             default:
                 throw new IgniteException("Unexpected operation code: " + opCode);

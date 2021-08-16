@@ -39,7 +39,6 @@ public class JdbcQueryFetchResult extends JdbcResponse {
      * Default constructor is used for deserialization.
      */
     public JdbcQueryFetchResult() {
-
     }
 
     /**

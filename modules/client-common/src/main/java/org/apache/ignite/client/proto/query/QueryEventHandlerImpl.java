@@ -42,7 +42,7 @@ import static org.apache.ignite.client.proto.query.IgniteQueryErrorCode.UNSUPPOR
  */
 public class QueryEventHandlerImpl implements QueryEventHandler {
     /** Current JDBC cursors. */
-    private final ConcurrentHashMap<Long, SqlCursor<List<?>>> state = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, SqlCursor<List<?>>> openCursors = new ConcurrentHashMap<>();
 
     /** Cursor Id generator. */
     private final AtomicLong CURSOR_ID_GENERATOR = new AtomicLong();
@@ -88,7 +88,7 @@ public class QueryEventHandlerImpl implements QueryEventHandler {
 
     /** {@inheritDoc} */
     @Override public JdbcQueryFetchResult fetch(JdbcQueryFetchRequest req) {
-        Cursor<List<?>> cur = state.get(req.cursorId());
+        Cursor<List<?>> cur = openCursors.get(req.cursorId());
 
         if (cur == null)
             return new JdbcQueryFetchResult(JdbcResponse.STATUS_FAILED,
@@ -120,7 +120,7 @@ public class QueryEventHandlerImpl implements QueryEventHandler {
 
     /** {@inheritDoc} */
     @Override public JdbcQueryCloseResult close(JdbcQueryCloseRequest req) {
-        Cursor<List<?>> cur = state.remove(req.cursorId());
+        Cursor<List<?>> cur = openCursors.remove(req.cursorId());
 
         if (cur == null)
             return new JdbcQueryCloseResult(JdbcResponse.STATUS_FAILED,
@@ -130,8 +130,6 @@ public class QueryEventHandlerImpl implements QueryEventHandler {
             cur.close();
         }
         catch (Exception ex) {
-            state.remove(req.cursorId());
-
             return new JdbcQueryCloseResult(JdbcResponse.STATUS_FAILED,
                 "Failed to close SQL query [curId=" + req.cursorId() + "]. Error message: " + ex.getMessage());
         }
@@ -149,7 +147,7 @@ public class QueryEventHandlerImpl implements QueryEventHandler {
     private JdbcQuerySingleResult createJdbcResult(SqlCursor<List<?>> cur, JdbcQueryExecuteRequest req) {
         long cursorId = CURSOR_ID_GENERATOR.getAndIncrement();
 
-        state.put(cursorId, cur);
+        openCursors.put(cursorId, cur);
 
         List<List<Object>> fetch = fetchNext(req.pageSize(), cur);
         boolean hasNext = cur.hasNext();
