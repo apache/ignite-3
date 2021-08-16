@@ -190,7 +190,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @param oldSuperRoot Old roots values. All these roots always belong to a single storage.
      * @param newSuperRoot New values for the same roots as in {@code oldRoot}.
      * @param storageRevision Revision of the storage.
-     * @return Future that must signify when processing is completed. Exceptional completion is not expected.
+     * @return Future that must signify when processing is completed.
      */
     private CompletableFuture<Void> notificator(SuperRoot oldSuperRoot, SuperRoot newSuperRoot, long storageRevision) {
         List<CompletableFuture<?>> futures = new ArrayList<>();
@@ -211,7 +211,7 @@ public class ConfigurationRegistry implements IgniteComponent {
             }
         });
 
-        // Map futures into a "suppressed" future that won't throw any exceptions on completion.
+        // Map futures is only for logging errors.
         Function<CompletableFuture<?>, CompletableFuture<?>> mapping = fut -> fut.whenComplete((res, throwable) -> {
             if (throwable != null)
                 LOG.error("Failed to notify configuration listener.", throwable);
