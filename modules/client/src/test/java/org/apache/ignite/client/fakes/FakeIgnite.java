@@ -17,14 +17,22 @@
 
 package org.apache.ignite.client.fakes;
 
-import org.apache.ignite.app.Ignite;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 
 /**
  * Fake Ignite.
  */
-public class FakeIgnite implements Ignite {
+public class FakeIgnite extends IgniteImpl {
+    /**
+     * Default constructor.
+     */
+    public FakeIgnite() {
+        super();
+    }
+
     /** */
     private final IgniteTables tables = new FakeIgniteTables();
 
@@ -33,13 +41,17 @@ public class FakeIgnite implements Ignite {
         return tables;
     }
 
+    @Override public QueryProcessor queryEngine() {
+        return new FakeIgniteQueryProcessor();
+    }
+
     /** {@inheritDoc} */
     @Override public IgniteTransactions transactions() {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public void close() throws Exception {
+    @Override public void close() {
         // No-op.
     }
 

@@ -21,6 +21,7 @@ import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
 import org.apache.ignite.internal.processors.query.calcite.SqlQueryProcessor;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -35,7 +36,8 @@ public class IgniteImpl implements Ignite {
     /** Ignite node name. */
     private final String name;
 
-    private final SqlQueryProcessor qryEngine;
+    /** Query engine. */
+    private final QueryProcessor qryEngine;
 
     /** Configuration manager that handles node (local) configuration. */
     private final ConfigurationManager nodeConfigurationMgr;
@@ -64,12 +66,24 @@ public class IgniteImpl implements Ignite {
         this.clusterConfigurationMgr = clusterConfigurationMgr;
     }
 
+    /**
+     * For test purposes only.
+     * //TODO Should be removed after sqk api appears in Ignite interface.
+     * */
+    protected IgniteImpl() {
+        this.name = null;
+        this.distributedTblMgr = null;
+        this.qryEngine = null;
+        this.nodeConfigurationMgr = null;
+        this.clusterConfigurationMgr = null;
+    }
+
     /** {@inheritDoc} */
     @Override public IgniteTables tables() {
         return distributedTblMgr;
     }
 
-    public SqlQueryProcessor queryEngine() {
+    public QueryProcessor queryEngine() {
         return qryEngine;
     }
 
