@@ -23,7 +23,9 @@ import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientException;
+import org.apache.ignite.client.proto.query.QueryEventHandler;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
+import org.apache.ignite.internal.client.query.ClientQueryEventHandler;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -37,6 +39,9 @@ public class TcpIgniteClient implements Ignite {
 
     /** Tables. */
     private final ClientTables tables;
+
+    /** Tables. */
+    private final QueryEventHandler queryProcessor;
 
     /**
      * Constructor.
@@ -67,6 +72,7 @@ public class TcpIgniteClient implements Ignite {
         }
 
         tables = new ClientTables(ch);
+        queryProcessor = new ClientQueryEventHandler(ch);
     }
 
     /**
@@ -82,6 +88,10 @@ public class TcpIgniteClient implements Ignite {
     /** {@inheritDoc} */
     @Override public IgniteTables tables() {
         return tables;
+    }
+
+    public QueryEventHandler queryHandler() {
+        return queryProcessor;
     }
 
     /** {@inheritDoc} */
