@@ -38,7 +38,7 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     /** URL prefix. */
     public static final String URL_PREFIX = "jdbc:ignite:thin://";
 
-    /** */
+    /** Serial version UID. */
     private static final long serialVersionUID = 0L;
 
     /** Prefix for property names. */
@@ -473,6 +473,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     }
 
     /**
+     * Init connection properties.
+     *
      * @param url URL connection.
      * @param props Environment properties.
      * @throws SQLException On error.
@@ -700,22 +702,12 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     }
 
     /**
-     * @return Driver's properties info array.
-     */
-    public DriverPropertyInfo[] getDriverPropertyInfo() {
-        DriverPropertyInfo[] infos = new DriverPropertyInfo[propsArray.length];
-
-        for (int i = 0; i < propsArray.length; ++i)
-            infos[i] = propsArray[i].getDriverPropertyInfo();
-
-        return infos;
-    }
-
-    /**
-     *
+     * Property validator interface.
      */
     private interface PropertyValidator extends Serializable {
         /**
+         * Validate property.
+         *
          * @param val String representation of the property value to validate.
          * @throws SQLException On validation fails.
          */
@@ -723,10 +715,10 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     }
 
     /**
-     *
+     * Connection property.
      */
     private abstract static class ConnectionProperty implements Serializable {
-        /** */
+        /** Serial version UID. */
         private static final long serialVersionUID = 0L;
 
         /** Name. */
@@ -751,6 +743,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         protected PropertyValidator validator;
 
         /**
+         * Constructor.
+         *
          * @param name Name.
          * @param desc Description.
          * @param dfltVal Default value.
@@ -766,6 +760,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         }
 
         /**
+         * Constructor.
+         *
          * @param name Name.
          * @param desc Description.
          * @param dfltVal Default value.
@@ -784,6 +780,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         }
 
         /**
+         * Get the default value.
+         *
          * @return Default value.
          */
         Object getDfltVal() {
@@ -791,6 +789,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         }
 
         /**
+         * Get the property name.
+         *
          * @return Property name.
          */
         String getName() {
@@ -798,6 +798,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         }
 
         /**
+         * Get the array of possible values.
+         *
          * @return Array of possible values if the value may be selected
          * from a particular set of values; otherwise null
          */
@@ -806,6 +808,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         }
 
         /**
+         * Init properties.
+         *
          * @param props Properties.
          * @throws SQLException On error.
          */
@@ -828,6 +832,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         }
 
         /**
+         * Check the choices.
+         *
          * @param strVal Checked value.
          * @throws SQLException On check error.
          */
@@ -847,17 +853,23 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         }
 
         /**
-         * @param str String representation of the
+         * Init property.
+         *
+         * @param str String representation of the property value.
          * @throws SQLException on error.
          */
         abstract void init(String str) throws SQLException;
 
         /**
+         * Get the string representation of the property value.
+         *
          * @return String representation of the property value.
          */
         abstract String valueObject();
 
         /**
+         * Get the driver property info.
+         *
          * @return JDBC property info object.
          */
         DriverPropertyInfo getDriverPropertyInfo() {
@@ -872,10 +884,10 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     }
 
     /**
-     *
+     * Boolean property.
      */
     private static class BooleanProperty extends ConnectionProperty {
-        /** */
+        /** Serial version uid. */
         private static final long serialVersionUID = 0L;
 
         /** Bool choices. */
@@ -885,6 +897,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         private Boolean val;
 
         /**
+         * Constructor.
+         *
          * @param name Name.
          * @param desc Description.
          * @param dfltVal Default value.
@@ -897,6 +911,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         }
 
         /**
+         * Get the property value.
+         *
          * @return Property value.
          */
         @Nullable Boolean value() {
@@ -927,6 +943,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         }
 
         /**
+         * Set the property value.
+         *
          * @param val Property value to set.
          */
         void setValue(Boolean val) {
@@ -935,10 +953,10 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     }
 
     /**
-     *
+     * Number property.
      */
     private abstract static class NumberProperty extends ConnectionProperty {
-        /** */
+        /** Serial version uid. */
         private static final long serialVersionUID = 0L;
 
         /** Value. */
@@ -948,6 +966,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         private Number[] range;
 
         /**
+         * Constructor.
+         *
          * @param name Name.
          * @param desc Description.
          * @param dfltVal Default value.
@@ -979,6 +999,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         }
 
         /**
+         * Parse the property string representation.
+         *
          * @param str String value.
          * @return Number value.
          * @throws NumberFormatException On parse error.
@@ -991,6 +1013,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         }
 
         /**
+         * Set number property value.
+         *
          * @param val Property value.
          * @throws SQLException On error.
          */
@@ -1012,13 +1036,15 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     }
 
     /**
-     *
+     * Integer property.
      */
     private static class IntegerProperty extends NumberProperty {
-        /** */
+        /** Serial version uid. */
         private static final long serialVersionUID = 0L;
 
         /**
+         * Constructor.
+         *
          * @param name Name.
          * @param desc Description.
          * @param dfltVal Default value.
@@ -1036,6 +1062,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         }
 
         /**
+         * Get the property value.
+         *
          * @return Property value.
          */
         Integer value() {
@@ -1044,16 +1072,18 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     }
 
     /**
-     *
+     * String property.
      */
     private static class StringProperty extends ConnectionProperty {
-        /** */
+        /** Serial version uid. */
         private static final long serialVersionUID = 0L;
 
-        /** Value */
+        /** Value. */
         private String val;
 
         /**
+         * Constructor.
+         *
          * @param name Name.
          * @param desc Description.
          * @param dfltVal Default value.
@@ -1069,6 +1099,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         }
 
         /**
+         * Set the property value.
+         *
          * @param val Property value.
          */
         void setValue(String val) {
@@ -1076,6 +1108,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         }
 
         /**
+         * Get the property value.
+         *
          * @return Property value.
          */
         String value() {
@@ -1100,6 +1134,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     }
 
     /**
+     * Check if this string is null, empty or blank line.
+     *
      * @param str Examined string.
      * @return {@code True} if this string is null, empty or blank line.
      */

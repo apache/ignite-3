@@ -437,6 +437,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * Packs an object.
      *
      * @return Object array.
+     * @throws IllegalStateException in case of unexpected value type.
      */
     public Object[] unpackObjectArray() {
         assert refCnt > 0 : "Unpacker is closed";
@@ -495,6 +496,8 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     /**
+     * Extracts number value according to value range.
+     *
      * @param iv IntegerValue.
      * @return Numeric java object selected based on the value range.
      */

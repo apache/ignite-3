@@ -135,7 +135,9 @@ public final class IgniteQueryErrorCode {
     /** Field type mismatch. e.g.: cause is {@link ClassCastException}. */
     public static final int FIELD_TYPE_MISMATCH = 5006;
 
-    /** */
+    /**
+     * Constructor.
+     * */
     private IgniteQueryErrorCode() {
         // No-op.
     }
@@ -153,6 +155,7 @@ public final class IgniteQueryErrorCode {
 
     /**
      * Map Ignite specific error code to standard SQL state.
+     *
      * @param statusCode Ignite specific error code.
      * @return SQL state string.
      * @see <a href="http://en.wikibooks.org/wiki/Structured_Query_Language/SQLSTATE">Wikipedia: SQLSTATE spec.</a>

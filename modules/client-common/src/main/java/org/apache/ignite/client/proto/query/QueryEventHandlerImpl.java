@@ -51,6 +51,8 @@ public class QueryEventHandlerImpl implements QueryEventHandler {
     private final QueryProcessor processor;
 
     /**
+     * Constructor.
+     *
      * @param processor Processor.
      */
     public QueryEventHandlerImpl(QueryProcessor processor) {

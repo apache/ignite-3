@@ -53,18 +53,21 @@ public class JdbcQueryExecuteRequest implements JdbcClientMessage {
     private boolean explicitTimeout;
 
     /**
-     * Default constructor.For deserialization purposes.
+     * Default constructor. For deserialization purposes.
      */
     public JdbcQueryExecuteRequest() {
     }
 
     /**
+     * Constructor.
+     *
      * @param schemaName Cache name.
      * @param pageSize Fetch size.
      * @param maxRows Max rows.
      * @param autoCommit Connection auto commit flag state.
      * @param sqlQry SQL query.
      * @param args Arguments list.
+     * @param explicitTimeout Explicit timeout.
      */
     public JdbcQueryExecuteRequest(String schemaName, int pageSize, int maxRows,
         boolean autoCommit, boolean explicitTimeout, String sqlQry, Object[] args) {
@@ -79,13 +82,17 @@ public class JdbcQueryExecuteRequest implements JdbcClientMessage {
     }
 
     /**
-     * @return Fetch size.
+     * Get the page size.
+     *
+     * @return Page size.
      */
     public int pageSize() {
         return pageSize;
     }
 
     /**
+     * Get the max rows.
+     *
      * @return Max rows.
      */
     public int maxRows() {
@@ -93,6 +100,8 @@ public class JdbcQueryExecuteRequest implements JdbcClientMessage {
     }
 
     /**
+     * Get the sql query.
+     *
      * @return Sql query.
      */
     public String sqlQuery() {
@@ -100,6 +109,8 @@ public class JdbcQueryExecuteRequest implements JdbcClientMessage {
     }
 
     /**
+     * Get the arguments.
+     *
      * @return Sql query arguments.
      */
     public Object[] arguments() {
@@ -107,6 +118,8 @@ public class JdbcQueryExecuteRequest implements JdbcClientMessage {
     }
 
     /**
+     * Get the schema name.
+     *
      * @return Schema name.
      */
     public String schemaName() {
@@ -114,6 +127,8 @@ public class JdbcQueryExecuteRequest implements JdbcClientMessage {
     }
 
     /**
+     * Get the expected statement type.
+     *
      * @return Expected statement type.
      */
     public JdbcStatementType expectedStatementType() {
@@ -121,6 +136,8 @@ public class JdbcQueryExecuteRequest implements JdbcClientMessage {
     }
 
     /**
+     * Get the auto commit flag.
+     *
      * @return Auto commit flag.
      */
     boolean autoCommit() {
@@ -148,6 +165,8 @@ public class JdbcQueryExecuteRequest implements JdbcClientMessage {
     }
 
     /**
+     * Get the explicit timeout.
+     *
      * @return {@code true} if the query timeout is set explicitly by {@link Statement#setQueryTimeout(int)}.
      * Otherwise returns {@code false}.
      */

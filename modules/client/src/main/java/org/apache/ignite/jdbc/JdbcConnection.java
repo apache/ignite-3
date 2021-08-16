@@ -64,7 +64,7 @@ public class JdbcConnection implements Connection {
     /** Default schema. */
     public static final String DFLT_SCHEMA = "PUBLIC";
 
-    /** Network timeout permission */
+    /** Network timeout permission. */
     private static final String SET_NETWORK_TIMEOUT_PERM = "setNetworkTimeout";
 
     /** Statements modification mutex. */
@@ -106,6 +106,12 @@ public class JdbcConnection implements Connection {
     /** Ignite remote client. */
     private final TcpIgniteClient client;
 
+    /**
+     * Constructor.
+     *
+     * @param handler Handler.
+     * @param props Properties.
+     */
     public JdbcConnection(QueryEventHandler handler, ConnectionProperties props) {
         this.connProps = props;
         this.handler = handler;
@@ -297,6 +303,7 @@ public class JdbcConnection implements Connection {
         return closed;
     }
 
+    /** {@inheritDoc} */
     @Override public DatabaseMetaData getMetaData() throws SQLException {
         ensureNotClosed();
 
@@ -682,6 +689,8 @@ public class JdbcConnection implements Connection {
     }
 
     /**
+     * Remove statement from statements set.
+     *
      * @param stmt Statement to remove.
      */
     void removeStatement(JdbcStatement stmt) {
@@ -691,11 +700,13 @@ public class JdbcConnection implements Connection {
     }
 
     /**
+     * Check cursor options.
+     *
      * @param resSetType Cursor option.
      * @param resSetConcurrency Cursor option.
-     * @throws SQLException If options unsupported.
+     * @throws SQLFeatureNotSupportedException If options unsupported.
      */
-    private void checkCursorOptions(int resSetType, int resSetConcurrency) throws SQLException {
+    private void checkCursorOptions(int resSetType, int resSetConcurrency) throws SQLFeatureNotSupportedException {
         if (resSetType != TYPE_FORWARD_ONLY)
             throw new SQLFeatureNotSupportedException("Invalid result set type (only forward is supported).");
 

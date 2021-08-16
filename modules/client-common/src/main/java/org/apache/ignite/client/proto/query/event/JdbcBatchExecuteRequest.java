@@ -44,6 +44,8 @@ public class JdbcBatchExecuteRequest implements JdbcClientMessage {
     }
 
     /**
+     * Constructor.
+     *
      * @param schemaName Schema name.
      * @param queries Queries.
      * @param autoCommit Client auto commit flag state.
@@ -58,6 +60,8 @@ public class JdbcBatchExecuteRequest implements JdbcClientMessage {
     }
 
     /**
+     * Get the schema name.
+     *
      * @return Schema name.
      */
     public String schemaName() {
@@ -65,6 +69,8 @@ public class JdbcBatchExecuteRequest implements JdbcClientMessage {
     }
 
     /**
+     * Get the queries.
+     *
      * @return Queries.
      */
     public List<JdbcQuery> queries() {
@@ -72,6 +78,8 @@ public class JdbcBatchExecuteRequest implements JdbcClientMessage {
     }
 
     /**
+     * Get the auto commit flag.
+     *
      * @return Auto commit flag.
      */
     boolean autoCommit() {

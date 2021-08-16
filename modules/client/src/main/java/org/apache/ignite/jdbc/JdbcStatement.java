@@ -42,7 +42,7 @@ import static java.sql.ResultSet.FETCH_FORWARD;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
 
 /**
- *
+ * Jdbc statement implementation.
  */
 public class JdbcStatement implements Statement {
     /** Default queryPage size. */
@@ -112,6 +112,8 @@ public class JdbcStatement implements Statement {
     }
 
     /**
+     * Execute the query with given parameters.
+     *
      * @param sql Sql query.
      * @param args Query parameters.
      *
@@ -383,10 +385,10 @@ public class JdbcStatement implements Statement {
         try {
             JdbcBatchExecuteResult res = conn.handler.batch(req);
 
-            if (res.errorCode() != 0) {
-                throw new BatchUpdateException(res.errorMessage(),
-                    IgniteQueryErrorCode.codeToSqlState(res.errorCode()),
-                    res.errorCode(),
+            if (res.status() != JdbcResponse.STATUS_SUCCESS) {
+                throw new BatchUpdateException(res.err(),
+                    IgniteQueryErrorCode.codeToSqlState(res.status()),
+                    res.status(),
                     res.updateCounts());
             }
 
@@ -587,6 +589,7 @@ public class JdbcStatement implements Statement {
 
     /**
      * Close results.
+     *
      * @throws SQLException On error.
      */
     private void closeResults() throws SQLException {
@@ -601,6 +604,7 @@ public class JdbcStatement implements Statement {
 
     /**
      * Used by statement on closeOnCompletion mode.
+     *
      * @throws SQLException On error.
      */
     void closeIfAllResultsClosed() throws SQLException {

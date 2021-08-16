@@ -29,12 +29,6 @@ public class JdbcBatchExecuteResult extends JdbcResponse {
     /** Update counts. */
     private int[] updateCnts;
 
-    /** Batch update error code. */
-    private int errCode;
-
-    /** Batch update error message. */
-    private String errMsg;
-
     /**
      * Constructor.
      */
@@ -43,41 +37,30 @@ public class JdbcBatchExecuteResult extends JdbcResponse {
 
     /**
      * Constructor.
+     *
+     * @param status Status code.
+     * @param err Error message.
      */
     public JdbcBatchExecuteResult(int status, String err) {
         super(status, err);
     }
 
     /**
+     * Constructor.
+     *
      * @param updateCnts Update counts for batch.
-     * @param errCode Error code.
-     * @param errMsg Error message.
      */
-    public JdbcBatchExecuteResult(int[] updateCnts, int errCode, String errMsg) {
+    public JdbcBatchExecuteResult(int[] updateCnts) {
         this.updateCnts = updateCnts;
-        this.errCode = errCode;
-        this.errMsg = errMsg;
     }
 
     /**
+     * Get the update count for DML queries.
+     *
      * @return Update count for DML queries.
      */
     public int[] updateCounts() {
         return updateCnts;
-    }
-
-    /**
-     * @return Batch error code.
-     */
-    public int errorCode() {
-        return errCode;
-    }
-
-    /**
-     * @return Batch error message.
-     */
-    public String errorMessage() {
-        return errMsg;
     }
 
     /** {@inheritDoc} */
@@ -87,8 +70,6 @@ public class JdbcBatchExecuteResult extends JdbcResponse {
         if (status() != STATUS_SUCCESS)
             return;
 
-        packer.packInt(errCode);
-        packer.packString(errMsg);
         packer.packIntArray(updateCnts);
     }
 
@@ -99,8 +80,6 @@ public class JdbcBatchExecuteResult extends JdbcResponse {
         if (status() != STATUS_SUCCESS)
             return;
 
-        errCode = unpacker.unpackInt();
-        errMsg = unpacker.unpackString();
         updateCnts = unpacker.unpackIntArray();
     }
 

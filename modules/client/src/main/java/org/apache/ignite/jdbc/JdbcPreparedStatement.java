@@ -44,7 +44,7 @@ import org.apache.ignite.client.proto.query.SqlStateCode;
 import org.apache.ignite.client.proto.query.event.JdbcQuery;
 
 /**
- *
+ * Jdbc prepared statement implementation.
  */
 public class JdbcPreparedStatement extends JdbcStatement implements PreparedStatement {
     /** SQL query. */

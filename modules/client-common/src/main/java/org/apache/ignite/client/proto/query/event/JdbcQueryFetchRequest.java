@@ -39,6 +39,8 @@ public class JdbcQueryFetchRequest implements JdbcClientMessage {
     }
 
     /**
+     * Constructor.
+     *
      * @param cursorId Cursor ID.
      * @param pageSize Fetch size.
      */
@@ -48,6 +50,8 @@ public class JdbcQueryFetchRequest implements JdbcClientMessage {
     }
 
     /**
+     * Get the cursor id.
+     *
      * @return Cursor ID.
      */
     public long cursorId() {
@@ -55,6 +59,8 @@ public class JdbcQueryFetchRequest implements JdbcClientMessage {
     }
 
     /**
+     * Get the fetch page size.
+     *
      * @return Fetch page size.
      */
     public int pageSize() {

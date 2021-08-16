@@ -75,20 +75,26 @@ public abstract class JdbcResponse implements JdbcClientMessage {
     }
 
     /**
-     * @return Success status.
+     * Get the status.
+     *
+     * @return Status.
      */
     public int status() {
         return status;
     }
 
     /**
-     * @param status New success status.
+     * Set the status.
+     *
+     * @param status Status.
      */
     public void status(int status) {
         this.status = status;
     }
 
     /**
+     * Gets the error.
+     *
      * @return Error.
      */
     public String err() {
@@ -96,7 +102,9 @@ public abstract class JdbcResponse implements JdbcClientMessage {
     }
 
     /**
-     * @param err New error.
+     * Set the error message.
+     *
+     * @param err Error.
      */
     public void err(String err) {
         this.err = err;

@@ -44,12 +44,17 @@ public class JdbcQueryFetchResult extends JdbcResponse {
 
     /**
      * Constructor.
+     *
+     * @param status Status code.
+     * @param err Error message.
      */
     public JdbcQueryFetchResult(int status, String err) {
         super(status, err);
     }
 
     /**
+     * Constructor.
+     *
      * @param items Query result rows.
      * @param last Flag indicating the query has no unfetched results.
      */
@@ -59,6 +64,8 @@ public class JdbcQueryFetchResult extends JdbcResponse {
     }
 
     /**
+     * Get the result rows.
+     *
      * @return Query result rows.
      */
     public List<List<Object>> items() {
@@ -66,6 +73,8 @@ public class JdbcQueryFetchResult extends JdbcResponse {
     }
 
     /**
+     * Get the last flag.
+     *
      * @return Flag indicating the query has no unfetched results.
      */
     public boolean last() {

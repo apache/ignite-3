@@ -40,6 +40,8 @@ public class JdbcQuery implements JdbcClientMessage {
     }
 
     /**
+     * Constructor.
+     *
      * @param sql Query SQL.
      * @param args Arguments.
      */
@@ -49,6 +51,8 @@ public class JdbcQuery implements JdbcClientMessage {
     }
 
     /**
+     * Get the sql query.
+     *
      * @return Query SQL string.
      */
     public String sql() {
@@ -56,6 +60,8 @@ public class JdbcQuery implements JdbcClientMessage {
     }
 
     /**
+     * Get the sql arguments.
+     *
      * @return Query arguments.
      */
     public Object[] args() {

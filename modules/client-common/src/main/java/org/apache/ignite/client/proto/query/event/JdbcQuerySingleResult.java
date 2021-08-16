@@ -52,12 +52,17 @@ public class JdbcQuerySingleResult extends JdbcResponse {
 
     /**
      * Constructor.
+     *
+     * @param status Status code.
+     * @param err Error message.
      */
     public JdbcQuerySingleResult(int status, String err) {
         super(status, err);
     }
 
     /**
+     * Constructor.
+     *
      * @param cursorId Cursor ID.
      * @param items Query result rows.
      * @param last Flag indicates the query has no unfetched results.
@@ -72,6 +77,8 @@ public class JdbcQuerySingleResult extends JdbcResponse {
     }
 
     /**
+     * Constructor.
+     *
      * @param cursorId Cursor ID.
      * @param updateCnt Update count for DML queries.
      */
@@ -85,6 +92,8 @@ public class JdbcQuerySingleResult extends JdbcResponse {
     }
 
     /**
+     * Get the cursor id.
+     *
      * @return Cursor ID.
      */
     public long cursorId() {
@@ -92,6 +101,8 @@ public class JdbcQuerySingleResult extends JdbcResponse {
     }
 
     /**
+     * Get the items.
+     *
      * @return Query result rows.
      */
     public List<List<Object>> items() {
@@ -99,6 +110,8 @@ public class JdbcQuerySingleResult extends JdbcResponse {
     }
 
     /**
+     * Get the last flag.
+     *
      * @return Flag indicating the query has no unfetched results.
      */
     public boolean last() {
@@ -106,6 +119,8 @@ public class JdbcQuerySingleResult extends JdbcResponse {
     }
 
     /**
+     * Get the isQuery flag.
+     *
      * @return Flag indicating the query is SELECT query. {@code false} for DML/DDL queries.
      */
     public boolean isQuery() {
@@ -113,6 +128,8 @@ public class JdbcQuerySingleResult extends JdbcResponse {
     }
 
     /**
+     * Get the update count.
+     *
      * @return Update count for DML queries.
      */
     public long updateCount() {

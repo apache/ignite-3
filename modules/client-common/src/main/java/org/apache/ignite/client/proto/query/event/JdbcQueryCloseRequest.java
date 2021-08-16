@@ -30,11 +30,14 @@ public class JdbcQueryCloseRequest implements JdbcClientMessage {
     private long cursorId;
 
     /**
+     * Default constructor.
      */
     public JdbcQueryCloseRequest() {
     }
 
     /**
+     * Constructor.
+     *
      * @param cursorId Cursor ID.
      */
     public JdbcQueryCloseRequest(long cursorId) {
@@ -42,6 +45,8 @@ public class JdbcQueryCloseRequest implements JdbcClientMessage {
     }
 
     /**
+     * Get the cursor id.
+     *
      * @return Cursor ID.
      */
     public long cursorId() {

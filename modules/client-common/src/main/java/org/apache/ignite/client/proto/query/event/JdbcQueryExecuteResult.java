@@ -24,7 +24,6 @@ import java.util.List;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * JDBC query execute result.
@@ -41,12 +40,17 @@ public class JdbcQueryExecuteResult extends JdbcResponse {
 
     /**
      * Constructor.
+     *
+     * @param status Status code.
+     * @param err Error message.
      */
-    public JdbcQueryExecuteResult(int status, @Nullable String err) {
+    public JdbcQueryExecuteResult(int status, String err) {
         super(status, err);
     }
 
     /**
+     * Constructor.
+     *
      * @param results Results.
      */
     public JdbcQueryExecuteResult(List<JdbcQuerySingleResult> results) {
@@ -99,6 +103,8 @@ public class JdbcQueryExecuteResult extends JdbcResponse {
     }
 
     /**
+     * Get the query results.
+     *
      * @return Query result rows.
      */
     public List<JdbcQuerySingleResult> results() {

@@ -32,75 +32,103 @@ interface ConnectionProperties {
     String SSL_MODE_REQUIRE = "require";
 
     /**
+     * Get the schema name.
+     *
      * @return Schema name of the connection.
      */
     String getSchema();
 
     /**
+     * Set the schema name.
+     *
      * @param schema Schema name of the connection.
      */
     void setSchema(String schema);
 
     /**
+     * Get the URL.
+     *
      * @return The URL of the connection.
      */
     String getUrl();
 
     /**
+     * Set the URL.
+     *
      * @param url The URL of the connection.
      * @throws SQLException On invalid URL.
      */
     void setUrl(String url) throws SQLException;
 
     /**
+     * Get the addresses.
+     *
      * @return Ignite nodes addresses.
      */
     HostAndPortRange[] getAddresses();
 
     /**
+     * Set the ignite node addresses.
+     *
      * @param addrs Ignite nodes addresses.
      */
     void setAddresses(HostAndPortRange[] addrs);
 
 
     /**
+     * Get the auto close server cursors flag.
+     *
      * @return Auto close server cursors flag.
      */
     boolean isAutoCloseServerCursor();
 
     /**
+     * Set the auto close server cursors flag.
+     *
      * @param autoCloseServerCursor Auto close server cursors flag.
      */
     void setAutoCloseServerCursor(boolean autoCloseServerCursor);
 
     /**
+     * Get the socket send buffer size.
+     *
      * @return Socket send buffer size.
      */
     int getSocketSendBuffer();
 
     /**
+     * Set the socket send buffer size.
+     *
      * @param size Socket send buffer size.
      * @throws SQLException On error.
      */
     void setSocketSendBuffer(int size) throws SQLException;
 
     /**
+     * Get the socket receive buffer size.
+     *
      * @return Socket receive buffer size.
      */
     int getSocketReceiveBuffer();
 
     /**
+     * Set the socket receive buffer size.
+     *
      * @param size Socket receive buffer size.
      * @throws SQLException On error.
      */
     void setSocketReceiveBuffer(int size) throws SQLException;
 
     /**
+     * Get the TCP no delay flag.
+     *
      * @return TCP no delay flag.
      */
     boolean isTcpNoDelay();
 
     /**
+     * Set the TCP no delay flag.
+     *
      * @param tcpNoDelay TCP no delay flag.
      */
     void setTcpNoDelay(boolean tcpNoDelay);
@@ -109,7 +137,7 @@ interface ConnectionProperties {
      * Gets SSL connection mode.
      *
      * @return Use SSL flag.
-     * @see #setSslMode(String).
+     * @see #setSslMode(String)
      */
     String getSslMode();
 
@@ -168,7 +196,7 @@ interface ConnectionProperties {
 
     /**
      * Sets key manager algorithm that will be used to create a key manager. Notice that in most cased default value
-     * suites well, however, on Android platform this value need to be set to <tt>X509<tt/>.
+     * suites well, however, on Android platform this value need to be set to X509.
      * Algorithms implementations supplied by JSEE: PKIX (X509 or SunPKIX), SunX509
      *
      * <p>See more at JSSE Reference Guide.
@@ -322,21 +350,29 @@ interface ConnectionProperties {
     void setSslFactory(String sslFactory);
 
     /**
+     * Set the user name.
+     *
      * @param name User name to authentication.
      */
     void setUsername(String name);
 
     /**
+     * Get the user name.
+     *
      * @return User name to authentication.
      */
     String getUsername();
 
     /**
+     * Set the user password.
+     *
      * @param passwd User's password.
      */
     void setPassword(String passwd);
 
     /**
+     * Get the user password.
+     *
      * @return User's password.
      */
     String getPassword();
@@ -352,6 +388,7 @@ interface ConnectionProperties {
      * Note: zero value means there is no limits.
      *
      * @param qryTimeout Query timeout in seconds.
+     * @throws SQLException On error.
      */
     void setQueryTimeout(Integer qryTimeout) throws SQLException;
 
@@ -366,6 +403,7 @@ interface ConnectionProperties {
      * Note: zero value means there is no limits.
      *
      * @param connTimeout Connection timeout in milliseconds.
+     * @throws SQLException On error.
      */
     void setConnectionTimeout(Integer connTimeout) throws SQLException;
 
@@ -379,6 +417,8 @@ interface ConnectionProperties {
     String disabledFeatures();
 
     /**
+     * Disable features.
+     *
      * @param features Disabled features. See {@link ProtocolBitmaskFeature}.
      *      The string should contain enumeration of feature names, separated by the comma.
      */

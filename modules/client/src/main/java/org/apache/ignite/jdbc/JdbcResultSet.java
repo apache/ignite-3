@@ -56,7 +56,7 @@ import org.apache.ignite.client.proto.query.event.JdbcQueryFetchResult;
 import org.apache.ignite.client.proto.query.event.JdbcResponse;
 
 /**
- *
+ * Jdbc result set implementation.
  */
 public class JdbcResultSet implements ResultSet {
     /** Decimal format to convert string to decimal. */
@@ -135,18 +135,19 @@ public class JdbcResultSet implements ResultSet {
      * @param autoClose Is automatic close of server cursors enabled.
      * @param updCnt Update count.
      * @param closeStmt Close statement on the result set close.
+     * @param qryHandler QueryEventHandler (local or remote).
      */
     JdbcResultSet(JdbcStatement stmt, long cursorId, int fetchSize, boolean finished,
-        List<List<Object>> rows, boolean isQuery, boolean autoClose, long updCnt, boolean closeStmt, QueryEventHandler processor) {
+        List<List<Object>> rows, boolean isQry, boolean autoClose, long updCnt, boolean closeStmt, QueryEventHandler qryHandler) {
         assert stmt != null;
         assert fetchSize > 0;
 
-        this.qryHandler = processor;
+        this.qryHandler = qryHandler;
         this.stmt = stmt;
         this.cursorId = cursorId;
         this.fetchSize = fetchSize;
         this.finished = finished;
-        this.isQuery = isQuery;
+        this.isQuery = isQry;
         this.autoClose = autoClose;
         this.closeStmt = closeStmt;
 
@@ -203,6 +204,8 @@ public class JdbcResultSet implements ResultSet {
     }
 
     /**
+     * Close result set.
+     *
      * @throws SQLException On error.
      */
     void close0() throws SQLException {
@@ -1750,6 +1753,8 @@ public class JdbcResultSet implements ResultSet {
     }
 
     /**
+     * Get the isQuery flag.
+     *
      * @return Is query flag.
      */
     public boolean isQuery() {
@@ -1800,6 +1805,8 @@ public class JdbcResultSet implements ResultSet {
     }
 
     /**
+     * Get the update count.
+     *
      * @return Update count for no-SELECT queries.
      */
     public long updatedCount() {
@@ -1807,6 +1814,8 @@ public class JdbcResultSet implements ResultSet {
     }
 
     /**
+     * Set the close statement flag.
+     *
      * @param closeStmt Close statement on this result set close.
      */
     public void closeStatement(boolean closeStmt) {

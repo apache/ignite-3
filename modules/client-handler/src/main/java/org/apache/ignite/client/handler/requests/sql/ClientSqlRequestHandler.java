@@ -39,6 +39,8 @@ public class ClientSqlRequestHandler {
     private final QueryEventHandler processor;
 
     /**
+     * Constructor.
+     *
      * @param processor Processor.
      */
     public ClientSqlRequestHandler(QueryEventHandler processor) {
