@@ -117,9 +117,9 @@ public class IgnitionImpl implements Ignition {
      * Mapping of a node name to a started node components list.
      * Given map helps to stop node by stopping all it's components in an appropriate order both
      * when node is already started which means that all components are ready and
-     * if node is in a middle of a startup process which means that only part of it's components are prepared.
+     * if node is in a middle of a startup process which means that only part of its components are prepared.
      */
-    private static Map<String, List<IgniteComponent>> nodesStartedComponents = new ConcurrentHashMap<>();
+    private static final Map<String, List<IgniteComponent>> nodesStartedComponents = new ConcurrentHashMap<>();
 
     /** {@inheritDoc} */
     @Override public Ignite start(@NotNull String nodeName, @Nullable Path cfgPath, @NotNull Path workDir) {
