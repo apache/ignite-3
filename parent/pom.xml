@@ -1003,7 +1003,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <argLine>-Djava.util.logging.config.file=../../config/java.util.logging.properties</argLine>
+                    <argLine>-Djava.util.logging.config.file=../../config/java.util.logging.properties -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=dump.hprof</argLine>
                     <properties>
                         <configurationParameters>
                             junit.jupiter.execution.timeout.default = 10
@@ -1023,7 +1023,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <configuration>
-                    <argLine>-Djava.util.logging.config.file=../../config/java.util.logging.properties</argLine>
+                    <argLine>-Djava.util.logging.config.file=../../config/java.util.logging.properties -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=dump.hprof</argLine>
                     <properties>
                         <configurationParameters>
                             junit.jupiter.execution.timeout.default = 30
