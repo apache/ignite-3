@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -26,20 +24,20 @@ import org.apache.ignite.internal.storage.basic.ConcurrentHashMapStorage;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
-import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -48,8 +46,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
-import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.tx.TxState.ABORTED;
+import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 /** */
@@ -115,19 +115,69 @@ public class StoreTest {
     }
 
     @Test
-    public void testSimple() throws TransactionException {
-        Transaction tx = txManager.begin();
+    public void testSimpleCommit() throws TransactionException, LockException {
+        InternalTransaction tx = txManager.begin();
+
+        Tuple key = makeKey(1);
+
+        Table table = accounts.withTransaction(tx);
+
+        table.upsert(makeValue(1, 100.));
+
+        assertEquals(100., table.get(key).doubleValue("balance"));
+
+        tx.commit();
+
+        assertEquals(100., table.get(key).doubleValue("balance"));
+
+        assertEquals(COMMITED, txManager.state(tx.timestamp()));
+    }
+
+    @Test
+    public void testSimpleAbort() throws TransactionException, LockException {
+        InternalTransaction tx = txManager.begin();
+
+        Tuple key = makeKey(1);
+
+        Table table = accounts.withTransaction(tx);
+
+        table.upsert(makeValue(1, 100.));
+
+        assertEquals(100., table.get(key).doubleValue("balance"));
+
+        tx.rollback();
+
+        assertNull(table.get(key));
+
+        assertEquals(ABORTED, txManager.state(tx.timestamp()));
+    }
+
+    @Test
+    @Disabled
+    public void testConcurrent() throws TransactionException, LockException {
+        InternalTransaction tx = txManager.begin();
+        InternalTransaction tx2 = txManager.begin();
 
         Tuple key = makeKey(1);
         Tuple val = makeValue(1, 100.);
 
         Table table = accounts.withTransaction(tx);
 
+        lockManager.tryAcquire(1, tx.timestamp()).join();
+
         table.upsert(val);
 
         Tuple val2 = table.get(key);
 
         assertEquals(100., val2.doubleValue("balance"));
+
+        lockManager.tryAcquireShared(1, tx2.timestamp()).join();
+
+        Tuple val3 = accounts.withTransaction(tx2).get(key);
+
+        assertNull(val3);
+
+        // Tuple val4 = accounts.get(key); // TODO asch use implicit tx
 
         tx.commit();
     }
