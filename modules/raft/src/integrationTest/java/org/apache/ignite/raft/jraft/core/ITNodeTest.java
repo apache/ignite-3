@@ -94,6 +94,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import static java.util.stream.Collectors.collectingAndThen;
@@ -113,6 +114,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Integration tests for raft cluster. TODO asch get rid of sleeps wherether possible IGNITE-14832
  */
 @ExtendWith(WorkDirectoryExtension.class)
+@Timeout(31)
 public class ITNodeTest {
     private static final IgniteLogger LOG = IgniteLogger.forClass(ITNodeTest.class);
 
