@@ -74,7 +74,8 @@ public class ClientHandlerModule implements IgniteComponent {
 
         try {
             channel = startEndpoint().channel();
-        } catch (InterruptedException e) {
+        }
+        catch (InterruptedException e) {
             throw new IgniteException(e);
         }
     }
