@@ -65,7 +65,7 @@ import org.apache.ignite.client.proto.ClientOp;
 import org.apache.ignite.client.proto.ProtocolVersion;
 import org.apache.ignite.client.proto.ServerMessageType;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
-import org.apache.ignite.client.proto.query.QueryEventHandlerImpl;
+import org.apache.ignite.client.proto.query.JdbcQueryEventHandlerImpl;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.slf4j.Logger;
@@ -102,7 +102,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
         //TODO IGNITE-15314 Refactor after sql api appears in Ignite interface.
         if (ignite instanceof IgniteImpl)
-            this.handler = new QueryEventHandlerImpl(((IgniteImpl)ignite).queryEngine());
+            this.handler = new JdbcQueryEventHandlerImpl(((IgniteImpl)ignite).queryEngine());
         else
             this.handler = null;
     }

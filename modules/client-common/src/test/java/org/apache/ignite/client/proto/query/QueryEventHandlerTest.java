@@ -118,7 +118,7 @@ public class QueryEventHandlerTest {
 
         when(processor.query(anyString(), anyString(), any())).thenReturn(cursors);
 
-        return new QueryEventHandlerImpl(processor);
+        return new JdbcQueryEventHandlerImpl(processor);
     }
 
     /**
@@ -174,7 +174,7 @@ public class QueryEventHandlerTest {
      */
     @Test
     public void testBatchQuery() {
-        JdbcQueryEventHandler hnd = new QueryEventHandlerImpl(processor);
+        JdbcQueryEventHandler hnd = new JdbcQueryEventHandlerImpl(processor);
 
         var req = new JdbcBatchExecuteRequest(
             "PUBLIC",
@@ -192,7 +192,7 @@ public class QueryEventHandlerTest {
      */
     @Test
     public void testSelectQueryBadRequest() {
-        JdbcQueryEventHandler hnd = new QueryEventHandlerImpl(processor);
+        JdbcQueryEventHandler hnd = new JdbcQueryEventHandlerImpl(processor);
 
         JdbcQueryExecuteRequest qryReq = getJdbcQueryExecuteRequest(10);
 
@@ -295,6 +295,6 @@ public class QueryEventHandlerTest {
 
         when(processor.query(anyString(), anyString(), any())).thenReturn(Collections.singletonList(cursor));
 
-        return new QueryEventHandlerImpl(processor);
+        return new JdbcQueryEventHandlerImpl(processor);
     }
 }

@@ -40,7 +40,7 @@ import static org.apache.ignite.client.proto.query.IgniteQueryErrorCode.UNSUPPOR
 /**
  * Jdbc query event handler implementation.
  */
-public class QueryEventHandlerImpl implements JdbcQueryEventHandler {
+public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** Current JDBC cursors. */
     private final ConcurrentHashMap<Long, SqlCursor<List<?>>> openCursors = new ConcurrentHashMap<>();
 
@@ -55,7 +55,7 @@ public class QueryEventHandlerImpl implements JdbcQueryEventHandler {
      *
      * @param processor Processor.
      */
-    public QueryEventHandlerImpl(QueryProcessor processor) {
+    public JdbcQueryEventHandlerImpl(QueryProcessor processor) {
         this.processor = processor;
     }
 
