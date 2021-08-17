@@ -21,7 +21,7 @@ import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.client.proto.query.QueryEventHandler;
+import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteResult;
 
@@ -41,7 +41,7 @@ public class ClientSqlExecuteBatchRequest {
     public static CompletableFuture<Void> process(
         ClientMessageUnpacker in,
         ClientMessagePacker out,
-        QueryEventHandler handler
+        JdbcQueryEventHandler handler
     ) throws IOException {
         var req = new JdbcBatchExecuteRequest();
 

@@ -29,7 +29,7 @@ import org.apache.ignite.client.proto.query.event.JdbcQueryFetchResult;
 /**
  * Jdbc client request handler.
  */
-public interface QueryEventHandler {
+public interface JdbcQueryEventHandler {
     /**
      * {@link JdbcQueryExecuteRequest} command handler.
      *
