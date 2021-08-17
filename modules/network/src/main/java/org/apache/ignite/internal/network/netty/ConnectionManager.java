@@ -28,6 +28,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -36,10 +37,10 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -81,6 +82,12 @@ public class ConnectionManager {
     /** Client handshake manager factory. */
     private final Supplier<HandshakeManager> clientHandshakeManagerFactory;
 
+    /** Start flag. */
+    private final AtomicBoolean started = new AtomicBoolean(false);
+
+    /** Stop flag. */
+    private final AtomicBoolean stopped = new AtomicBoolean(false);
+
     /**
      * Constructor.
      *
@@ -102,7 +109,7 @@ public class ConnectionManager {
         this.clientHandshakeManagerFactory = clientHandshakeManagerFactory;
         this.server = new NettyServer(
             port,
-            serverHandshakeManagerFactory.get(),
+            serverHandshakeManagerFactory,
             this::onNewIncomingChannel,
             this::onMessage,
             serializationRegistry
@@ -117,6 +124,14 @@ public class ConnectionManager {
      */
     public void start() throws IgniteInternalException {
         try {
+            boolean wasStarted = started.getAndSet(true);
+
+            if (wasStarted)
+                throw new IgniteInternalException("Attempted to start an already started connection manager");
+
+            if (stopped.get())
+                throw new IgniteInternalException("Attempted to start an already stopped connection manager");
+
             //TODO: timeout value should be extracted into common configuration
             // https://issues.apache.org/jira/browse/IGNITE-14538
             server.start().get(3, TimeUnit.SECONDS);
@@ -232,21 +247,26 @@ public class ConnectionManager {
      * Stops the server and all clients.
      */
     public void stop() {
-         Stream<CompletableFuture<Void>> stream = Stream.concat(
+        boolean wasStopped = this.stopped.getAndSet(true);
+
+        if (wasStopped)
+            return;
+
+        Stream<CompletableFuture<Void>> stream = Stream.concat(
             clients.values().stream().map(NettyClient::stop),
             Stream.of(server.stop())
         );
 
-         CompletableFuture<Void> stopFut = CompletableFuture.allOf(stream.toArray(CompletableFuture<?>[]::new));
+        CompletableFuture<Void> stopFut = CompletableFuture.allOf(stream.toArray(CompletableFuture<?>[]::new));
 
-         try {
-             stopFut.join();
-             // TODO: IGNITE-14538 quietPeriod and timeout should be configurable.
-             clientWorkerGroup.shutdownGracefully(0L, 15, TimeUnit.SECONDS).sync();
-         }
-         catch (Exception e) {
-             LOG.warn("Failed to stop the ConnectionManager: {}", e.getMessage());
-         }
+        try {
+            stopFut.join();
+            // TODO: IGNITE-14538 quietPeriod and timeout should be configurable.
+            clientWorkerGroup.shutdownGracefully(0L, 15, TimeUnit.SECONDS).sync();
+        }
+        catch (Exception e) {
+            LOG.warn("Failed to stop the ConnectionManager: {}", e.getMessage());
+        }
     }
 
     /**

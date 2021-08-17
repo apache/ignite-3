@@ -24,7 +24,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.schema.SchemaMode;
 import org.jetbrains.annotations.NotNull;
 
@@ -164,7 +163,4 @@ public class DummyInternalTableImpl implements InternalTable {
         return completedFuture(store.deleteAllExact(rows, tx));
     }
 
-    @Override public void commit(Timestamp timestamp) {
-        store.commit(timestamp);
-    }
 }

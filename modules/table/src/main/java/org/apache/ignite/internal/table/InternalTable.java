@@ -181,10 +181,5 @@ public interface InternalTable {
      */
     CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows, @Nullable InternalTransaction tx);
 
-    /**
-     * @param timestamp The timestamp.
-     */
-    void commit(Timestamp timestamp);
-
     //TODO: IGNTIE-14488. Add invoke() methods.
 }

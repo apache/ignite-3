@@ -17,20 +17,19 @@
 
 package org.apache.ignite.client.fakes;
 
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.Timestamp;
-import org.apache.ignite.schema.SchemaMode;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.schema.SchemaMode;
+import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Fake internal table.
@@ -226,9 +225,5 @@ public class FakeInternalTable implements InternalTable {
         }
 
         return CompletableFuture.completedFuture(skipped);
-    }
-
-    @Override public void commit(Timestamp timestamp) {
-        // No-op.
     }
 }

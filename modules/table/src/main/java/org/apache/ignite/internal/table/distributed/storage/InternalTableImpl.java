@@ -44,7 +44,6 @@ import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
 import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -303,11 +302,6 @@ public class InternalTableImpl implements InternalTable {
                 .map(MultiRowsResponse::getValues)
                 .flatMap(Collection::stream)
                 .collect(Collectors.toList()));
-    }
-
-    /** {@inheritDoc} */
-    @Override public void commit(Timestamp timestamp) {
-        // No-op.
     }
 
     /**
