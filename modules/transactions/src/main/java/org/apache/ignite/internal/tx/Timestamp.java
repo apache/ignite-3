@@ -36,7 +36,7 @@ public class Timestamp implements Comparable<Timestamp> {
     /**
      * @param timestamp The timestamp.
      */
-    Timestamp(long timestamp) {
+    public Timestamp(long timestamp) {
         this.timestamp = timestamp;
     }
 
@@ -76,6 +76,10 @@ public class Timestamp implements Comparable<Timestamp> {
             cntr = 0;
 
         return new Timestamp(localTime | cntr);
+    }
+
+    public long get() {
+        return timestamp;
     }
 
     /** {@inheritDoc} */

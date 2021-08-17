@@ -1,5 +1,7 @@
 package org.apache.ignite.internal.table.distributed.storage;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -20,6 +22,7 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.util.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -51,14 +54,34 @@ public class VersionedRowStore {
     public BinaryRow get(@NotNull BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        DataRow readValue = storage.read(extractAndWrapKey(row));
+        SearchRow key = extractAndWrapKey(row);
 
-        ByteBufferRow responseRow = null;
+        DataRow readValue = storage.read(key);
 
-        if (readValue.hasValueBytes())
-            responseRow = new ByteBufferRow(readValue.valueBytes());
+        Value val = extractValue(readValue);
 
-        return responseRow;
+        return result(val, tx).getFirst();
+    }
+
+    private Pair<BinaryRow, BinaryRow> result(Value val, InternalTransaction tx) {
+        if (val.timestamp == null) { // New or after reset.
+            assert val.oldRow == null : val;
+
+            return new Pair<>(val.newRow, null);
+        }
+
+        TxState state = txManager.state(val.timestamp);
+
+        if (state == TxState.COMMITED)
+            return new Pair<>(val.newRow, null);
+        else if (state == TxState.ABORTED)
+            return new Pair<>(val.oldRow, null);
+        else {
+            if (tx.timestamp().equals(val.timestamp))
+                return new Pair<>(val.newRow, val.oldRow);
+            else
+                return new Pair<>(val.oldRow, null);
+        }
     }
 
     /** {@inheritDoc} */
@@ -82,7 +105,21 @@ public class VersionedRowStore {
     public void upsert(@NotNull BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        storage.write(extractAndWrapKeyValue(row));
+        TxState state = txManager.state(tx.timestamp());
+
+        assert state == TxState.PENDING;
+
+        SimpleDataRow key = new SimpleDataRow(extractAndWrapKey(row).keyBytes(), null);
+
+        Value value = extractValue(storage.read(key));
+
+        Pair<BinaryRow, BinaryRow> pair = result(value, tx);
+
+        DataRow row1 = packValue(key, new Value(row, pair.getSecond(), tx.timestamp()));
+
+        storage.write(row1);
+
+        System.out.println();
     }
 
     /** {@inheritDoc} */
@@ -245,33 +282,6 @@ public class VersionedRowStore {
     }
 
     /**
-     * Extracts a key and a value from the {@link BinaryRow} and wraps it in a {@link DataRow}.
-     *
-     * @param row Binary row.
-     * @return Data row.
-     */
-    @NotNull private static DataRow extractAndWrapKeyValue(@NotNull BinaryRow row) {
-        byte[] key = new byte[row.keySlice().capacity()];
-        row.keySlice().get(key);
-
-        return new SimpleDataRow(key, row.hasValue() ? row.bytes() : null);
-    }
-
-    /**
-     * Extracts a key from the {@link BinaryRow} and wraps it in a {@link SearchRow}.
-     *
-     * @param row Binary row.
-     * @return Search row.
-     */
-    @NotNull private static SearchRow extractAndWrapKey(@NotNull BinaryRow row) {
-        // TODO asch can reuse thread local byte buffer
-        byte[] key = new byte[row.keySlice().capacity()];
-        row.keySlice().get(key);
-
-        return new SimpleDataRow(key, null);
-    }
-
-    /**
      * @param row Row.
      * @return Extracted key.
      */
@@ -311,18 +321,129 @@ public class VersionedRowStore {
         }
     }
 
-    public void commit(Timestamp timestamp) {
-
-    }
-
-    public void rollback(Timestamp timestamp) {
-
-    }
-
+    /** {@inheritDoc} */
     public void close() throws Exception {
         storage.close();
     }
 
+    /**
+     * Extracts a key and a value from the {@link BinaryRow} and wraps it in a {@link DataRow}.
+     *
+     * @param row Binary row.
+     * @return Data row.
+     */
+    @NotNull private static DataRow extractAndWrapKeyValue(@NotNull BinaryRow row) {
+        byte[] key = new byte[row.keySlice().capacity()];
+        row.keySlice().get(key);
+
+        return new SimpleDataRow(key, row.hasValue() ? row.bytes() : null);
+    }
+
+    /**
+     * Extracts a key from the {@link BinaryRow} and wraps it in a {@link SearchRow}.
+     *
+     * @param row Binary row.
+     * @return Search row.
+     */
+    @NotNull private static SearchRow extractAndWrapKey(@NotNull BinaryRow row) {
+        // TODO asch can reuse thread local byte buffer
+        byte[] key = new byte[row.keySlice().capacity()];
+        row.keySlice().get(key);
+
+        return new SimpleDataRow(key, null);
+    }
+
+    /**
+     * TODO asch not very efficient.
+     * @param row The row.
+     * @return The value.
+     */
+    private static Value extractValue(@NotNull DataRow row) {
+        if (!row.hasValueBytes())
+            return new Value(null, null, null);
+
+        ByteBuffer buf = row.value();
+
+        BinaryRow newVal = null;
+        BinaryRow oldVal = null;
+
+        int l1 = buf.asIntBuffer().get();
+
+        int pos = 4;
+
+        buf.position(pos);
+
+        if (l1 != 0) {
+            ByteBuffer tmp = buf.duplicate().limit(pos + l1).slice().order(ByteOrder.LITTLE_ENDIAN);
+
+            newVal = new ByteBufferRow(tmp);
+
+            pos += l1;
+        }
+
+        buf.position(pos);
+
+        int l2 = buf.asIntBuffer().get();
+
+        pos += 4;
+
+        buf.position(pos);
+
+        if (l2 != 0) {
+            ByteBuffer tmp = buf.duplicate().limit(pos + l2).slice().order(ByteOrder.LITTLE_ENDIAN);
+
+            oldVal = new ByteBufferRow(tmp);
+
+            pos += l2;
+        }
+
+        buf.position(pos);
+
+        long ts = buf.asLongBuffer().get();
+
+        return new Value(newVal, oldVal, new Timestamp(ts));
+    }
+
+    private static DataRow packValue(SearchRow key, Value value) {
+        int l1 = value.newRow == null ? 0 : value.newRow.bytes().length;
+        int l2 = value.oldRow == null ? 0 : value.oldRow.bytes().length;
+
+        ByteBuffer buf = ByteBuffer.allocate(4 + l1 + 4 + l2 + 8);
+
+        buf.asIntBuffer().put(l1);
+
+        int pos = 4;
+
+        buf.position(pos);
+
+        if (l1 > 0)
+            buf.put(value.newRow.bytes());
+
+        pos += l1;
+
+        buf.position(pos);
+
+        buf.asIntBuffer().put(l2);
+
+        pos += 4;
+
+        buf.position(pos);
+
+        if (l2 > 0)
+            buf.put(value.oldRow.bytes());
+
+        pos += l2;
+
+        buf.position(pos);
+
+        buf.asLongBuffer().put(value.timestamp.get());
+
+        return new SimpleDataRow(key.keyBytes(), buf.array());
+    }
+
+    /**
+     * Versioned value.
+     */
     private static class Value {
         BinaryRow newRow;
 

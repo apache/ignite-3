@@ -55,7 +55,7 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 /** */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-public class TxTest {
+public class StoreTest {
     /** Table ID test value. */
     public final java.util.UUID tableId = java.util.UUID.randomUUID();
 
@@ -112,44 +112,6 @@ public class TxTest {
         );
 
         accounts = new TableImpl(table, new DummySchemaManagerImpl(schema), null, null);
-        Tuple r1 = accounts.tupleBuilder().set("accountNumber", 1L).set("balance", BALANCE_1).build();
-        Tuple r2 = accounts.tupleBuilder().set("accountNumber", 2L).set("balance", BALANCE_2).build();
-
-        accounts.insert(r1);
-        accounts.insert(r2);
-
-        Transaction tx = txManager.begin();
-
-        Mockito.doAnswer(invocation -> {
-            Consumer<Transaction> argument = invocation.getArgument(0);
-
-            argument.accept(tx);
-
-            tx.commit();
-
-            return null;
-        }).when(igniteTransactions).runInTransaction(Mockito.any());
-
-        Mockito.when(igniteTransactions.beginAsync()).thenReturn(CompletableFuture.completedFuture(tx));
-    }
-
-    /**
-     * Tests a synchronous transaction.
-     */
-    @Test
-    public void testTxSync() {
-        igniteTransactions.runInTransaction(tx -> {
-            Table txAcc = accounts.withTransaction(tx);
-
-            CompletableFuture<Tuple> read1 = txAcc.getAsync(makeKey(1));
-            CompletableFuture<Tuple> read2 = txAcc.getAsync(makeKey(2));
-
-            txAcc.upsertAsync(makeValue(1, read1.join().doubleValue("balance") - DELTA));
-            txAcc.upsertAsync(makeValue(2, read2.join().doubleValue("balance") + DELTA));
-        });
-
-        assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
-        assertEquals(BALANCE_2 + DELTA, accounts.get(makeKey(2)).doubleValue("balance"));
     }
 
     @Test
@@ -168,80 +130,6 @@ public class TxTest {
         assertEquals(100., val2.doubleValue("balance"));
 
         tx.commit();
-    }
-
-    /**
-     * Tests a synchronous transaction over key-value view.
-     */
-    @Test
-    public void testTxSyncKeyValue() {
-        igniteTransactions.runInTransaction(tx -> {
-            KeyValueBinaryView txAcc = accounts.kvView().withTransaction(tx);
-
-            CompletableFuture<Tuple> read1 = txAcc.getAsync(makeKey(1));
-            CompletableFuture<Tuple> read2 = txAcc.getAsync(makeKey(2));
-
-            txAcc.putAsync(makeKey(1), makeValue(1, read1.join().doubleValue("balance") - DELTA));
-            txAcc.putAsync(makeKey(2), makeValue(2, read2.join().doubleValue("balance") + DELTA));
-        });
-
-        assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
-        assertEquals(BALANCE_2 + DELTA, accounts.get(makeKey(2)).doubleValue("balance"));
-    }
-
-    /**
-     * Tests an asynchronous transaction.
-     */
-    @Test
-    public void testTxAsync() {
-        igniteTransactions.beginAsync().thenApply(tx -> accounts.withTransaction(tx)).
-            thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
-                .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
-                .thenCompose(pair -> allOf(
-                    txAcc.upsertAsync(makeValue(1, pair.getFirst().doubleValue("balance") - DELTA)),
-                    txAcc.upsertAsync(makeValue(2, pair.getSecond().doubleValue("balance") + DELTA))
-                    )
-                )
-                .thenApply(ignored -> txAcc.transaction())
-            ).thenCompose(Transaction::commitAsync).join();
-
-        assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
-        assertEquals(BALANCE_2 + DELTA, accounts.get(makeKey(2)).doubleValue("balance"));
-    }
-
-    /**
-     * Tests an asynchronous transaction over key-value view.
-     */
-    @Test
-    public void testTxAsyncKeyValue() {
-        igniteTransactions.beginAsync().thenApply(tx -> accounts.withTransaction(tx).kvView()).
-            thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
-                .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
-                .thenCompose(pair -> allOf(
-                    txAcc.putAsync(makeKey(1), makeValue(1, pair.getFirst().doubleValue("balance") - DELTA)),
-                    txAcc.putAsync(makeKey(2), makeValue(2, pair.getSecond().doubleValue("balance") + DELTA))
-                    )
-                )
-                .thenApply(ignored -> txAcc.transaction())
-            ).thenCompose(Transaction::commitAsync).join();
-
-        assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
-        assertEquals(BALANCE_2 + DELTA, accounts.get(makeKey(2)).doubleValue("balance"));
-    }
-
-    @Test
-    public void testSingleKeyCompositeTx() {
-        igniteTransactions.runInTransaction(tx -> {
-            Table txAcc = accounts.withTransaction(tx);
-
-            Tuple current = txAcc.get(makeKey(1));
-
-            txAcc.upsert(makeValue(1, current.doubleValue("balance") - DELTA));
-        });
-
-        // TODO tx is uncommited, read prev value.
-
-        assertEquals(BALANCE_1, accounts.get(makeKey(1)).doubleValue("balance"));
     }
 
     /**

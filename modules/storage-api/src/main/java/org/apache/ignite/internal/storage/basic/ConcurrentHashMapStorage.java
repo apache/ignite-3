@@ -61,6 +61,7 @@ public class ConcurrentHashMapStorage implements Storage {
 
     /** {@inheritDoc} */
     @Override public void write(DataRow row) throws StorageException {
+        // TODO asch broken
         if (row.hasValueBytes())
             map.put(new ByteArray(row.keyBytes()), row.valueBytes());
         else
