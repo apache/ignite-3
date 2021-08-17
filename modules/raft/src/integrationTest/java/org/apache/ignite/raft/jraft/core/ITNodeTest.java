@@ -16,7 +16,6 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
-import com.codahale.metrics.ConsoleReporter;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
@@ -39,6 +38,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Stream;
+import com.codahale.metrics.ConsoleReporter;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteLogger;
@@ -3449,6 +3449,8 @@ public class ITNodeTest {
                 nodeDisruptor.shutdown();
                 readOnlyServiceDisruptor.shutdown();
                 logManagerDisruptor.shutdown();
+
+                rpcServer.shutdown();
             }
         };
 
