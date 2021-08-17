@@ -68,7 +68,7 @@ public class PartitionListener implements RaftGroupListener {
             CommandClosure<ReadCommand> clo = iterator.next();
 
             if (clo.command() instanceof GetCommand) {
-                clo.result(new SingleRowResponse(storage.get(((GetCommand)clo.command()).getKeyRow(), null).join()));
+                clo.result(new SingleRowResponse(storage.get(((GetCommand)clo.command()).getKeyRow(), null)));
             }
             else if (clo.command() instanceof GetAllCommand) {
                 Set<BinaryRow> keyRows = ((GetAllCommand)clo.command()).getKeyRows();
@@ -76,7 +76,7 @@ public class PartitionListener implements RaftGroupListener {
                 assert keyRows != null && !keyRows.isEmpty();
 
                 // TODO asch all reads are sequeti
-                clo.result(new MultiRowsResponse(storage.getAll(keyRows, null).join()));
+                clo.result(new MultiRowsResponse(storage.getAll(keyRows, null)));
             }
             else
                 assert false : "Command was not found [cmd=" + clo.command() + ']';
@@ -93,14 +93,14 @@ public class PartitionListener implements RaftGroupListener {
 
                 assert row.hasValue() : "Insert command should have a value.";
 
-                clo.result(storage.insert(row, null).join());
+                clo.result(storage.insert(row, null));
             }
             else if (clo.command() instanceof DeleteCommand)
-                clo.result(storage.delete(((DeleteCommand)clo.command()).getKeyRow(), null).join());
+                clo.result(storage.delete(((DeleteCommand)clo.command()).getKeyRow(), null));
             else if (clo.command() instanceof ReplaceCommand) {
                 ReplaceCommand cmd = ((ReplaceCommand)clo.command());
 
-                clo.result(storage.replace(cmd.getOldRow(), cmd.getRow(), null).join());
+                clo.result(storage.replace(cmd.getOldRow(), cmd.getRow(), null));
             }
             else if (clo.command() instanceof UpsertCommand) {
                 BinaryRow row = ((UpsertCommand)clo.command()).getRow();
@@ -116,14 +116,14 @@ public class PartitionListener implements RaftGroupListener {
 
                 assert rows != null && !rows.isEmpty();
 
-                clo.result(new MultiRowsResponse(storage.insertAll(rows, null).join()));
+                clo.result(new MultiRowsResponse(storage.insertAll(rows, null)));
             }
             else if (clo.command() instanceof UpsertAllCommand) {
                 Set<BinaryRow> rows = ((UpsertAllCommand)clo.command()).getRows();
 
                 assert rows != null && !rows.isEmpty();
 
-                storage.upsertAll(rows, null).join();
+                storage.upsertAll(rows, null);
 
                 clo.result(null);
             }
@@ -132,7 +132,7 @@ public class PartitionListener implements RaftGroupListener {
 
                 assert rows != null && !rows.isEmpty();
 
-                clo.result(new MultiRowsResponse(storage.deleteAll(rows, null).join()));
+                clo.result(new MultiRowsResponse(storage.deleteAll(rows, null)));
             }
             else if (clo.command() instanceof DeleteExactCommand) {
                 BinaryRow row = ((DeleteExactCommand)clo.command()).getRow();
@@ -140,42 +140,42 @@ public class PartitionListener implements RaftGroupListener {
                 assert row != null;
                 assert row.hasValue();
 
-                clo.result(storage.deleteExact(row, null).join());
+                clo.result(storage.deleteExact(row, null));
             }
             else if (clo.command() instanceof DeleteExactAllCommand) {
                 Set<BinaryRow> rows = ((DeleteExactAllCommand)clo.command()).getRows();
 
                 assert rows != null && !rows.isEmpty();
 
-                clo.result(new MultiRowsResponse(storage.deleteAll(rows, null).join()));
+                clo.result(new MultiRowsResponse(storage.deleteAll(rows, null)));
             }
             else if (clo.command() instanceof ReplaceIfExistCommand) {
                 BinaryRow row = ((ReplaceIfExistCommand)clo.command()).getRow();
 
                 assert row != null;
 
-                clo.result(storage.replace(row, null).join());
+                clo.result(storage.replace(row, null));
             }
             else if (clo.command() instanceof GetAndDeleteCommand) {
                 BinaryRow row = ((GetAndDeleteCommand)clo.command()).getKeyRow();
 
                 assert row != null;
 
-                clo.result(new SingleRowResponse(storage.getAndDelete(row, null).join()));
+                clo.result(new SingleRowResponse(storage.getAndDelete(row, null)));
             }
             else if (clo.command() instanceof GetAndReplaceCommand) {
                 BinaryRow row = ((GetAndReplaceCommand)clo.command()).getRow();
 
                 assert row != null && row.hasValue();
 
-                clo.result(new SingleRowResponse(storage.getAndReplace(row, null).join()));
+                clo.result(new SingleRowResponse(storage.getAndReplace(row, null)));
             }
             else if (clo.command() instanceof GetAndUpsertCommand) {
                 BinaryRow row = ((GetAndUpsertCommand)clo.command()).getKeyRow();
 
                 assert row != null && row.hasValue();
 
-                clo.result(new SingleRowResponse(storage.getAndUpsert(row, null).join()));
+                clo.result(new SingleRowResponse(storage.getAndUpsert(row, null)));
             }
             else
                 assert false : "Command was not found [cmd=" + clo.command() + ']';

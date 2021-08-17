@@ -28,8 +28,11 @@ import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.schema.SchemaMode;
 import org.jetbrains.annotations.NotNull;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 /**
  * Dummy table storage implementation.
+ * TODO asch rename to local table
  */
 public class DummyInternalTableImpl implements InternalTable {
     /** In-memory dummy store. */
@@ -62,14 +65,16 @@ public class DummyInternalTableImpl implements InternalTable {
     @Override public CompletableFuture<BinaryRow> get(@NotNull BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        return store.get(row, tx);
+        return completedFuture(store.get(row, tx));
     }
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> upsert(@NotNull BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        return store.upsert(row, tx);
+        store.upsert(row, tx);
+
+        return completedFuture(null);
     }
 
     /** {@inheritDoc} */
@@ -77,14 +82,14 @@ public class DummyInternalTableImpl implements InternalTable {
         InternalTransaction tx) {
         assert row != null;
 
-        return store.getAndUpsert(row, tx);
+        return completedFuture(store.getAndUpsert(row, tx));
     }
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Boolean> delete(BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        return store.delete(row, tx);
+        return completedFuture(store.delete(row, tx));
     }
 
     /** {@inheritDoc} */
@@ -92,35 +97,37 @@ public class DummyInternalTableImpl implements InternalTable {
         InternalTransaction tx) {
         assert keyRows != null && !keyRows.isEmpty();
 
-        return store.getAll(keyRows, tx);
+        return completedFuture(store.getAll(keyRows, tx));
     }
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> upsertAll(Collection<BinaryRow> rows, InternalTransaction tx) {
         assert rows != null && !rows.isEmpty();
 
-        return store.upsertAll(rows, tx);
+        store.upsertAll(rows, tx);
+
+        return completedFuture(null);
     }
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Boolean> insert(BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        return store.insert(row, tx);
+        return completedFuture(store.insert(row, tx));
     }
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> rows, InternalTransaction tx) {
         assert rows != null && !rows.isEmpty();
 
-        return store.insertAll(rows, tx);
+        return completedFuture(store.insertAll(rows, tx));
     }
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Boolean> replace(BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        return store.replace(row, tx);
+        return completedFuture(store.replace(row, tx));
     }
 
     /** {@inheritDoc} */
@@ -128,7 +135,7 @@ public class DummyInternalTableImpl implements InternalTable {
         assert oldRow != null;
         assert newRow != null;
 
-        return store.replace(oldRow, newRow, tx);
+        return completedFuture(store.replace(oldRow, newRow, tx));
     }
 
     @Override public CompletableFuture<BinaryRow> getAndReplace(BinaryRow row, InternalTransaction tx) {
@@ -140,20 +147,21 @@ public class DummyInternalTableImpl implements InternalTable {
         assert row != null;
         assert row.hasValue();
 
-        return store.deleteExact(row, tx);
+        return completedFuture(store.deleteExact(row, tx));
     }
 
     @Override public CompletableFuture<BinaryRow> getAndDelete(BinaryRow row, InternalTransaction tx) {
-        return null;
+        return completedFuture(store.getAndDelete(row, tx));
     }
 
-    @Override public CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows, InternalTransaction tx) {
-        return null;
+    @Override public CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows,
+        InternalTransaction tx) {
+        return completedFuture(store.deleteAll(rows, tx));
     }
 
     @Override public CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows,
         InternalTransaction tx) {
-        return null;
+        return completedFuture(store.deleteAllExact(rows, tx));
     }
 
     @Override public void commit(Timestamp timestamp) {
