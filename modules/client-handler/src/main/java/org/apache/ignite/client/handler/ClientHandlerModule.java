@@ -94,7 +94,7 @@ public class ClientHandlerModule implements IgniteComponent {
      *
      * @return the local address of this module, or {@code null} if this module is not started.
      */
-    public @Nullable SocketAddress localAddress() {
+    @Nullable public SocketAddress localAddress() {
         return channel == null ? null : channel.localAddress();
     }
 
