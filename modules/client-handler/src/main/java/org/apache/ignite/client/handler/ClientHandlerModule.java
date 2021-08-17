@@ -59,10 +59,7 @@ public class ClientHandlerModule implements IgniteComponent {
      * @param igniteTables Ignite.
      * @param registry Configuration registry.
      */
-    public ClientHandlerModule(
-            IgniteTables igniteTables,
-            ConfigurationRegistry registry
-    ) {
+    public ClientHandlerModule(IgniteTables igniteTables, ConfigurationRegistry registry) {
         assert igniteTables != null;
         assert registry != null;
 
