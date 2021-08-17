@@ -31,6 +31,7 @@ import org.apache.ignite.internal.util.Constants;
 import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
@@ -279,6 +280,7 @@ public class RowTest {
      * Check row serialization for 64K+ fixlen columns.
      */
     @Test
+    @Timeout(40)
     public void largeLenWithFixSizedColumns() {
         Column[] keyCols = IntStream.range(0, (2 << 16) + rnd.nextInt(20))
             .mapToObj(i -> new Column("keyCol" + i, INT8, false))

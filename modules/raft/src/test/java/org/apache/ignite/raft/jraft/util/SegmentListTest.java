@@ -22,6 +22,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -202,6 +203,7 @@ public class SegmentListTest {
     }
 
     @Test
+    @Timeout(20)
     public void simpleBenchmark() {
         int warmupRepeats = 10_0000;
         int repeats = 100_0000;
