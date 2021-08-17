@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.Vector;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -86,6 +85,7 @@ import org.apache.ignite.raft.jraft.storage.snapshot.ThroughputSnapshotThrottle;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Bits;
 import org.apache.ignite.raft.jraft.util.Endpoint;
+import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -153,6 +153,8 @@ public class ITNodeTest {
 
     private final List<RaftGroupService> services = new ArrayList<>();
 
+    private final List<ExecutorService> executors = new ArrayList<>();
+
     @BeforeAll
     public static void setupNodeTest() {
         dumpThread = new DumpThread();
@@ -188,6 +190,8 @@ public class ITNodeTest {
                 LOG.error("Error while closing a service", e);
             }
         });
+
+        executors.forEach(ExecutorServiceHelper::shutdownAndAwaitTermination);
 
         if (cluster != null)
             cluster.stopAll();
@@ -1356,10 +1360,15 @@ public class ITNodeTest {
         assertEquals(3, leader.listPeers().size());
 
         CountDownLatch latch = new CountDownLatch(10);
+
+        ExecutorService executor = Executors.newFixedThreadPool(10);
+
+        executors.add(executor);
+
         for (int i = 0; i < 10; i++) {
-            new Thread() {
-                @Override
-                public void run() {
+            executor.submit(new Runnable() {
+                /** {@inheritDoc} */
+                @Override public void run() {
                     try {
                         for (int i = 0; i < 100; i++) {
                             try {
@@ -1376,6 +1385,7 @@ public class ITNodeTest {
                     }
                 }
 
+                /** */
                 private void readIndexRandom(TestCluster cluster) {
                     CountDownLatch readLatch = new CountDownLatch(1);
                     byte[] requestContext = TestUtils.getRandomBytes();
@@ -1399,7 +1409,7 @@ public class ITNodeTest {
                         Thread.currentThread().interrupt();
                     }
                 }
-            }.start();
+            });
         }
 
         latch.await();
@@ -3052,6 +3062,8 @@ public class ITNodeTest {
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
 
+        executors.add(executor);
+
         return Utils.runInThread(executor, () -> {
             try {
                 while (!arg.stop) {
@@ -3199,7 +3211,9 @@ public class ITNodeTest {
         List<Future<?>> futures = new ArrayList<>();
         CountDownLatch latch = new CountDownLatch(threads);
 
-        Executor executor = Executors.newFixedThreadPool(threads);
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
+
+        executors.add(executor);
 
         for (int t = 0; t < threads; t++) {
             ChangeArg arg = new ChangeArg(cluster, peers, false, true);
