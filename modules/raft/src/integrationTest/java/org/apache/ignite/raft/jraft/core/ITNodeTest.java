@@ -114,7 +114,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Integration tests for raft cluster. TODO asch get rid of sleeps wherether possible IGNITE-14832
  */
 @ExtendWith(WorkDirectoryExtension.class)
-@Timeout(31)
+@Timeout(20)
 public class ITNodeTest {
     private static final IgniteLogger LOG = IgniteLogger.forClass(ITNodeTest.class);
 
