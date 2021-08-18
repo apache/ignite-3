@@ -136,11 +136,11 @@ public class JdbcConnection implements Connection {
         this.connProps = props;
         autoCommit = true;
 
-        var objects = Arrays.stream(props.getAddresses()).map(HostAndPortRange::toString).toArray();
+        var objects = Arrays.stream(props.getAddresses()).map(HostAndPortRange::toString).toArray(String[]::new);
 
         client = ((TcpIgniteClient)IgniteClient
             .builder()
-            .addresses(Arrays.toString(Arrays.stream(objects).map(Object::toString).toArray()))
+            .addresses(objects)
             .build());
 
         this.handler = new JdbcClientQueryEventHandler(client);
@@ -740,5 +740,14 @@ public class JdbcConnection implements Connection {
             res = schemaName.toUpperCase();
 
         return res;
+    }
+
+    /**
+     * For test purposes.
+     *
+     * @return Connection properties.
+     */
+    public ConnectionProperties connectionProperties() {
+        return connProps;
     }
 }

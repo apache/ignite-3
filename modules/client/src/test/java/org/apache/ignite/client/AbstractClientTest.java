@@ -100,7 +100,7 @@ public abstract class AbstractClientTest {
 
         server = new FakeIgnite();
 
-        var module = new ClientHandlerModule(server.tables(), configurationRegistry);
+        var module = new ClientHandlerModule(((FakeIgnite)server).queryEngine(),server.tables(), configurationRegistry);
         module.start();
 
         return module;

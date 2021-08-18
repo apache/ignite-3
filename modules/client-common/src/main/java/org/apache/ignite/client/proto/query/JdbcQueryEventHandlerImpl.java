@@ -65,7 +65,13 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             return new JdbcQueryExecuteResult(JdbcResponse.STATUS_FAILED,
                 "Invalid fetch size : [fetchSize=" + req.pageSize() + ']');
 
-        var cursors = processor.query(req.schemaName(), req.sqlQuery(), req.arguments());
+        List<SqlCursor<List<?>>> cursors;
+        try {
+            cursors = processor.query(req.schemaName(), req.sqlQuery(), req.arguments() == null ? new Object[0] : req.arguments());
+        } catch (Exception e) {
+            return new JdbcQueryExecuteResult(JdbcResponse.STATUS_FAILED,
+                "Exception while executing query " + req.sqlQuery() + ". Error message: " + e.getMessage());
+        }
 
         if (cursors.isEmpty())
             return new JdbcQueryExecuteResult(JdbcResponse.STATUS_FAILED,

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client.fakes;
 
-import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.app.Ignite;
 import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -25,7 +25,7 @@ import org.apache.ignite.tx.IgniteTransactions;
 /**
  * Fake Ignite.
  */
-public class FakeIgnite extends IgniteImpl {
+public class FakeIgnite implements Ignite {
     /**
      * Default constructor.
      */
@@ -41,7 +41,7 @@ public class FakeIgnite extends IgniteImpl {
         return tables;
     }
 
-    @Override public QueryProcessor queryEngine() {
+    public QueryProcessor queryEngine() {
         return new FakeIgniteQueryProcessor();
     }
 

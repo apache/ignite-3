@@ -1134,6 +1134,20 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     }
 
     /**
+     * Get the driver properties.
+     *
+     * @return Driver's properties info array.
+     */
+    public DriverPropertyInfo[] getDriverPropertyInfo() {
+        DriverPropertyInfo[] infos = new DriverPropertyInfo[propsArray.length];
+
+        for (int i = 0; i < propsArray.length; ++i)
+            infos[i] = propsArray[i].getDriverPropertyInfo();
+
+        return infos;
+    }
+
+    /**
      * Check if this string is null, empty or blank line.
      *
      * @param str Examined string.

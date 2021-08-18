@@ -36,13 +36,12 @@ public class ClientSqlExecuteRequest {
      * @param out Client message packer.
      * @param handler Query event handler.
      * @return null value indicates synchronous operation.
-     * @throws IOException in case of network troubles.
      */
     public static CompletableFuture<Void> execute(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             JdbcQueryEventHandler handler
-    ) throws IOException {
+    ) {
         var req = new JdbcQueryExecuteRequest();
 
         req.readBinary(in);

@@ -702,7 +702,7 @@ public class JdbcResultSet implements ResultSet {
         if (cls == BigDecimal.class)
             return (BigDecimal)val;
         else if (val instanceof Number)
-            return BigDecimal.valueOf(((Number)val).doubleValue());
+            return new BigDecimal(((Number)val).doubleValue());
         else if (cls == Boolean.class)
             return new BigDecimal((Boolean)val ? 1 : 0);
         else if (cls == String.class || cls == Character.class) {
@@ -1419,8 +1419,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override public boolean isClosed() throws SQLException {
-        return closed;
-//        return closed || stmt == null || stmt.connection().isClosed();
+        return closed || stmt == null || stmt.isClosed();
     }
 
     /** {@inheritDoc} */
@@ -1717,7 +1716,7 @@ public class JdbcResultSet implements ResultSet {
     @Override public <T> T getObject(int colIdx, Class<T> targetCls) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Custom objects are not supported.");
+        return (T)getObject0(colIdx, targetCls);
     }
 
     /** {@inheritDoc} */
@@ -1820,5 +1819,58 @@ public class JdbcResultSet implements ResultSet {
      */
     public void closeStatement(boolean closeStmt) {
         this.closeStmt = closeStmt;
+    }
+
+    /**
+     * Get object of given class.
+     *
+     * @param colIdx Column index.
+     * @param targetCls Class representing the Java data type to convert the designated column to.
+     * @return Converted object.
+     * @throws SQLException On error.
+     */
+    private Object getObject0(int colIdx, Class<?> targetCls) throws SQLException {
+        if (targetCls == Boolean.class)
+            return getBoolean(colIdx);
+        else if (targetCls == Byte.class)
+            return getByte(colIdx);
+        else if (targetCls == Short.class)
+            return getShort(colIdx);
+        else if (targetCls == Integer.class)
+            return getInt(colIdx);
+        else if (targetCls == Long.class)
+            return getLong(colIdx);
+        else if (targetCls == Float.class)
+            return getFloat(colIdx);
+        else if (targetCls == Double.class)
+            return getDouble(colIdx);
+        else if (targetCls == String.class)
+            return getString(colIdx);
+        else if (targetCls == BigDecimal.class)
+            return getBigDecimal(colIdx);
+        else if (targetCls == Date.class)
+            return getDate(colIdx);
+        else if (targetCls == Time.class)
+            return getTime(colIdx);
+        else if (targetCls == Timestamp.class)
+            return getTimestamp(colIdx);
+        else if (targetCls == byte[].class)
+            return getBytes(colIdx);
+        else if (targetCls == URL.class)
+            return getURL(colIdx);
+        else {
+            Object val = getValue(colIdx);
+
+            if (val == null)
+                return null;
+
+            Class<?> cls = val.getClass();
+
+            if (targetCls.isAssignableFrom(cls))
+                return val;
+            else
+                throw new SQLException("Cannot convert to " + targetCls.getName() + ": " + val,
+                    SqlStateCode.CONVERSION_FAILED);
+        }
     }
 }

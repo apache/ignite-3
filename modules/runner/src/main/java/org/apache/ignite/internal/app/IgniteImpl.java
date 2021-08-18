@@ -22,7 +22,6 @@ import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
-import org.apache.ignite.internal.processors.query.calcite.SqlQueryProcessor;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 
@@ -55,7 +54,7 @@ public class IgniteImpl implements Ignite {
     IgniteImpl(
         String name,
         IgniteTables tblMgr,
-        SqlQueryProcessor qryEngine,
+        QueryProcessor qryEngine,
         ConfigurationManager nodeConfigurationMgr,
         ConfigurationManager clusterConfigurationMgr
     ) {
@@ -64,18 +63,6 @@ public class IgniteImpl implements Ignite {
         this.qryEngine = qryEngine;
         this.nodeConfigurationMgr = nodeConfigurationMgr;
         this.clusterConfigurationMgr = clusterConfigurationMgr;
-    }
-
-    /**
-     * For test purposes only.
-     * TODO IGNITE-15314 Should be removed after sql api appears in Ignite interface.
-     * */
-    protected IgniteImpl() {
-        this.name = null;
-        this.distributedTblMgr = null;
-        this.qryEngine = null;
-        this.nodeConfigurationMgr = null;
-        this.clusterConfigurationMgr = null;
     }
 
     /** {@inheritDoc} */

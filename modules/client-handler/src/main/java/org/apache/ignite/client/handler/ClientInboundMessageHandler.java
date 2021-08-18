@@ -24,7 +24,6 @@ import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCloseRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteBatchRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest;
@@ -65,7 +64,7 @@ import org.apache.ignite.client.proto.ProtocolVersion;
 import org.apache.ignite.client.proto.ServerMessageType;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandlerImpl;
-import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -91,18 +90,15 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
      * Constructor.
      *
      * @param igniteTables Ignite tables API entry point.
+     * @param processor Sql query processor.
      */
-    public ClientInboundMessageHandler(IgniteTables igniteTables) {
+    public ClientInboundMessageHandler(IgniteTables igniteTables,
+        QueryProcessor processor) {
         assert igniteTables != null;
 
         this.igniteTables = igniteTables;
 
-
-        //TODO IGNITE-15314 Refactor after sql api appears in Ignite interface.
-//        if (ignite instanceof IgniteImpl)
-//            this.handler = new JdbcQueryEventHandlerImpl(((IgniteImpl)ignite).queryEngine());
-//        else
-            this.handler = null;
+        this.handler = new JdbcQueryEventHandlerImpl(processor);
     }
 
     /** {@inheritDoc} */
