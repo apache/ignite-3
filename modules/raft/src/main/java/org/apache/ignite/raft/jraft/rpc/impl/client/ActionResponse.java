@@ -15,38 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.client.exception;
+package org.apache.ignite.raft.jraft.rpc.impl.client;
 
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.raft.client.RaftErrorCode;
+import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.raft.jraft.RaftMessageGroup;
+import org.apache.ignite.raft.jraft.rpc.Message;
 
 /**
- * A raft exception containing code and description.
+ * The result of an action.
  */
-public class RaftException extends IgniteInternalException {
-    private final RaftErrorCode code;
-
+@Transferable(value = RaftMessageGroup.RpcActionMessageGroup.ACTION_RESPONSE, autoSerializable = false)
+public interface ActionResponse extends Message {
     /**
-     * @param errCode Error code.
+     * @return A result for this request, can be of any type.
      */
-    public RaftException(RaftErrorCode errCode) {
-        this.code = errCode;
-    }
-
-    /**
-     * @param errCode Error code.
-     * @param message Error message.
-     */
-    public RaftException(RaftErrorCode errCode, String message) {
-        super(message);
-
-        this.code = errCode;
-    }
-
-    /**
-     * @return Error code.
-     */
-    public RaftErrorCode errorCode() {
-        return code;
-    }
+    Object result();
 }

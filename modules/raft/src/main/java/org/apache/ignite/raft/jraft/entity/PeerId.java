@@ -287,6 +287,9 @@ public class PeerId implements Copiable<PeerId>, Serializable, Checksum {
     }
 
     public static PeerId fromPeer(Peer p) {
-        return new PeerId(p.address().host(), p.address().port(), 0, p.getPriority());
+        if (p == null)
+            return null;
+        else
+            return new PeerId(p.address().host(), p.address().port(), 0, p.getPriority());
     }
 }

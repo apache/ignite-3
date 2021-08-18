@@ -238,7 +238,10 @@ public enum RaftError {
     /**
      * Permission denied
      */
-    EACCES(1016);
+    EACCES(1016),
+
+    /** */
+    ENODESTOP(1017);
 
     private static final Map<Integer, RaftError> RAFT_ERROR_MAP = new HashMap<>();
 

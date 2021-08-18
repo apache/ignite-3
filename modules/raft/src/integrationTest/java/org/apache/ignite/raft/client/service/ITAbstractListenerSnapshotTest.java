@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.raft.NewRaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -38,8 +39,7 @@ import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
-import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -71,7 +71,7 @@ public abstract class ITAbstractListenerSnapshotTest<T extends RaftGroupListener
         .collect(Collectors.toUnmodifiableList());
 
     /** Factory. */
-    private static final RaftClientMessagesFactory FACTORY = new RaftClientMessagesFactory();
+    private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
     /** Network factory. */
     private static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
@@ -382,7 +382,7 @@ public abstract class ITAbstractListenerSnapshotTest<T extends RaftGroupListener
     private RaftGroupService startClient(String groupId, NetworkAddress addr) throws Exception {
         ClusterService clientNode = clusterService("client_" + groupId + "_", CLIENT_PORT + clients.size(), addr);
 
-        RaftGroupService client = RaftGroupServiceImpl.start(groupId, clientNode, FACTORY, 10_000,
+        RaftGroupService client = NewRaftGroupServiceImpl.start(groupId, clientNode, FACTORY, 10_000,
             List.of(new Peer(addr)), false, 200).get(3, TimeUnit.SECONDS);
 
         clients.add(client);

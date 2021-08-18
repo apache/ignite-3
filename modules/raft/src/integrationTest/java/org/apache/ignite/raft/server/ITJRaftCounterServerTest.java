@@ -31,6 +31,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.raft.NewRaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -42,10 +43,10 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.WriteCommand;
-import org.apache.ignite.raft.client.exception.RaftException;
+import org.apache.ignite.raft.jraft.rpc.impl.client.RaftException;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.jetbrains.annotations.NotNull;
@@ -205,7 +206,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         ClusterService clientNode = clusterService(
             "client_" + groupId + "_", CLIENT_PORT + clients.size(), List.of(addr), true);
 
-        RaftGroupService client = RaftGroupServiceImpl.start(groupId, clientNode, FACTORY, 10_000,
+        RaftGroupService client = NewRaftGroupServiceImpl.start(groupId, clientNode, FACTORY, 10_000,
             List.of(new Peer(addr)), false, 200).get(3, TimeUnit.SECONDS);
 
         clients.add(client);

@@ -73,4 +73,35 @@ public interface RpcResponseFactory {
             eBuilder.errorMsg(String.format(fmt, args));
         return eBuilder.build();
     }
+
+    /**
+     * Creates an error response with parameters.
+     *
+     * @param msgFactory Raft message factory
+     * @param error error with raft info
+     * @param fmt message with format string
+     * @param args arguments referenced by the format specifiers in the format string
+     * @return a response instance
+     */
+    default Message newResponse(String leaderId, RaftMessagesFactory msgFactory, RaftError error, String fmt, Object... args) {
+        return newResponse(msgFactory, error.getNumber(), fmt, args, leaderId);
+    }
+
+    /**
+     * Creates an error response with parameters.
+     *
+     * @param msgFactory Raft message factory
+     * @param code error code with raft info
+     * @param fmt message with format string
+     * @param args arguments referenced by the format specifiers in the format string
+     * @return a response instance
+     */
+    default Message newResponse(String leaderId, RaftMessagesFactory msgFactory, int code, String fmt, Object... args) {
+        ErrorResponseBuilder eBuilder = msgFactory.errorResponse();
+        eBuilder.errorCode(code);
+        eBuilder.leaderId(leaderId);
+        if (fmt != null)
+            eBuilder.errorMsg(String.format(fmt, args));
+        return eBuilder.build();
+    }
 }

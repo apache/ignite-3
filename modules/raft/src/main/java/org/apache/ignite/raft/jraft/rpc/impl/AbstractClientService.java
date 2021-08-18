@@ -18,6 +18,7 @@ package org.apache.ignite.raft.jraft.rpc.impl;
 
 import java.net.ConnectException;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;

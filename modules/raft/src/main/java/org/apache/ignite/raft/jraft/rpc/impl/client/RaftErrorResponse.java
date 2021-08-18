@@ -15,22 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.client.message;
+package org.apache.ignite.raft.jraft.rpc.impl.client;
 
-import java.io.Serializable;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.raft.jraft.RaftMessageGroup;
+import org.apache.ignite.raft.jraft.rpc.Message;
+import org.jetbrains.annotations.Nullable;
 
-/** Get peers. */
-@Transferable(value = RaftClientMessageGroup.GET_PEERS_REQUEST, autoSerializable = false)
-public interface GetPeersRequest extends NetworkMessage, Serializable {
+/**
+ * Raft error response.
+ */
+@Transferable(value = RaftMessageGroup.RpcActionMessageGroup.RAFT_ERROR_RESPONSE, autoSerializable = false)
+public interface RaftErrorResponse extends Message {
     /**
-     * @return Group id.
+     * @return Error code.
      */
-    String groupId();
+    public RaftErrorCode errorCode();
 
     /**
-     * @return {@code True} to list only alive nodes.
+     * @return Error message.
      */
-    boolean onlyAlive();
+    public String errorMessage();
+
+    /**
+     * @return The new leader if a current leader is obsolete or null if not applicable.
+     */
+    public @Nullable Peer newLeader();
 }

@@ -48,6 +48,8 @@ public final class RpcRequests {
          * <code>optional string errorMsg = 2;</code>
          */
         String errorMsg();
+
+        String leaderId();
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.INSTALL_SNAPSHOT_REQUEST, autoSerializable = false)

@@ -21,12 +21,33 @@ import org.apache.ignite.network.annotations.MessageGroup;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
 import org.apache.ignite.raft.jraft.rpc.CliRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
+import org.apache.ignite.raft.jraft.rpc.impl.client.ActionRequest;
+import org.apache.ignite.raft.jraft.rpc.impl.client.ActionResponse;
+import org.apache.ignite.raft.jraft.rpc.impl.client.RaftErrorResponse;
 
 /**
  * Message group for the Raft module.
  */
 @MessageGroup(groupType = 3, groupName = "RaftMessages")
 public class RaftMessageGroup {
+    public static final class RpcActionMessageGroup {
+
+        /**
+         * Message type for {@link ActionRequest}.
+         */
+        public static final short ACTION_REQUEST = 300;
+
+        /**
+         * Message type for {@link ActionResponse}.
+         */
+        public static final short ACTION_RESPONSE = 310;
+
+        /**
+         * Message type for {@link RaftErrorResponse}.
+         */
+        public static final short RAFT_ERROR_RESPONSE = 390;
+    }
+
     /**
      * Logical message subgroup for messages declared in {@link CliRequests}.
      */

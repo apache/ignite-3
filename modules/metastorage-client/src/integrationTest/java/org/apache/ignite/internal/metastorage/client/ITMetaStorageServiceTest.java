@@ -35,6 +35,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
+import org.apache.ignite.internal.raft.NewRaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -50,9 +51,8 @@ import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -92,7 +92,7 @@ public class ITMetaStorageServiceTest {
     private static final String METASTORAGE_RAFT_GROUP_NAME = "METASTORAGE_RAFT_GROUP";
 
     /** Factory. */
-    private static final RaftClientMessagesFactory FACTORY = new RaftClientMessagesFactory();
+    private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
     /** Network factory. */
     private static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
@@ -1028,7 +1028,7 @@ public class ITMetaStorageServiceTest {
 
         List<Peer> peers = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
 
-        RaftGroupService metaStorageRaftGrpSvc = RaftGroupServiceImpl.start(
+        RaftGroupService metaStorageRaftGrpSvc = NewRaftGroupServiceImpl.start(
             METASTORAGE_RAFT_GROUP_NAME,
             cluster.get(1),
             FACTORY,
@@ -1097,7 +1097,7 @@ public class ITMetaStorageServiceTest {
         metaStorageRaftSrv.
             startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(keyValStorageMock), peers);
 
-        RaftGroupService metaStorageRaftGrpSvc = RaftGroupServiceImpl.start(
+        RaftGroupService metaStorageRaftGrpSvc = NewRaftGroupServiceImpl.start(
             METASTORAGE_RAFT_GROUP_NAME,
             cluster.get(1),
             FACTORY,

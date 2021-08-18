@@ -15,26 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.client.message;
+package org.apache.ignite.raft.jraft.rpc.impl.client;
 
-import java.io.Serializable;
-import java.util.List;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- *
+ * A raft exception containing code and description.
  */
-@Transferable(value = RaftClientMessageGroup.GET_PEERS_RESPONSE, autoSerializable = false)
-public interface GetPeersResponse extends NetworkMessage, Serializable {
-    /**
-     * @return Current peers.
-     */
-    List<Peer> peers();
+public class RaftException extends IgniteInternalException {
+    private final RaftErrorCode code;
 
     /**
-     * @return Current leaners.
+     * @param errCode Error code.
      */
-    List<Peer> learners();
+    public RaftException(RaftErrorCode errCode) {
+        this.code = errCode;
+    }
+
+    /**
+     * @param errCode Error code.
+     * @param message Error message.
+     */
+    public RaftException(RaftErrorCode errCode, String message) {
+        super(message);
+
+        this.code = errCode;
+    }
+
+    /**
+     * @return Error code.
+     */
+    public RaftErrorCode errorCode() {
+        return code;
+    }
 }

@@ -114,7 +114,7 @@ public interface RaftGroupService {
      * @param peers Peers.
      * @return A future.
      */
-    CompletableFuture<Void> addPeers(List<Peer> peers);
+    CompletableFuture<Void> addPeer(Peer peer);
 
     /**
      * Removes peers from the replication group.
@@ -127,7 +127,9 @@ public interface RaftGroupService {
      * @param peers Peers.
      * @return A future.
      */
-    CompletableFuture<Void> removePeers(List<Peer> peers);
+    CompletableFuture<Void> removePeer(Peer peer);
+
+    CompletableFuture<Void> changePeers(List<Peer> peers);
 
     /**
      * Adds learners (non-voting members).
@@ -154,6 +156,8 @@ public interface RaftGroupService {
      * @return A future.
      */
     CompletableFuture<Void> removeLearners(List<Peer> learners);
+
+    CompletableFuture<Void> resetLearners(List<Peer> learners);
 
     /**
      * Takes a state machine snapshot on a given group peer.

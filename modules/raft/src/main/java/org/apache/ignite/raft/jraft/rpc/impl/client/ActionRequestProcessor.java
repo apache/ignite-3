@@ -23,13 +23,12 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.RaftErrorCode;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
-import org.apache.ignite.raft.client.message.ActionRequest;
-import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
-import org.apache.ignite.raft.client.message.RaftErrorResponse;
-import org.apache.ignite.raft.client.message.RaftErrorResponseBuilder;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.rpc.ErrorResponseBuilder;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests;
+import org.apache.ignite.raft.jraft.rpc.impl.client.RaftErrorResponseBuilder;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
@@ -51,9 +50,9 @@ import static org.apache.ignite.raft.jraft.JRaftUtils.addressFromEndpoint;
 public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     private final Executor executor;
 
-    private final RaftClientMessagesFactory factory;
+    private final RaftMessagesFactory factory;
 
-    public ActionRequestProcessor(Executor executor, RaftClientMessagesFactory factory) {
+    public ActionRequestProcessor(Executor executor, RaftMessagesFactory factory) {
         this.executor = executor;
         this.factory = factory;
     }
@@ -165,25 +164,17 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     private void sendError(RpcContext ctx, Status status, Node node) {
         RaftError raftError = status.getRaftError();
 
-        RaftErrorCode raftErrorCode = RaftErrorCode.ILLEGAL_STATE;
-
         PeerId newLeader = null;
 
         if (raftError == RaftError.EPERM) {
             newLeader = node.getLeaderId();
-            PeerId myId = node.getNodeId().getPeerId();
-
-            raftErrorCode = newLeader == null || myId.equals(newLeader) ?
-                RaftErrorCode.NO_LEADER : RaftErrorCode.LEADER_CHANGED;
         }
-        else if (status.getRaftError() == RaftError.ESTATEMACHINE)
-            raftErrorCode = RaftErrorCode.STATE_MACHINE;
 
-        RaftErrorResponseBuilder resp =
-            factory.raftErrorResponse().errorCode(raftErrorCode).errorMessage(status.getErrorMsg());
+        ErrorResponseBuilder resp =
+            factory.errorResponse().errorCode(raftError.getNumber()).errorMsg(status.getErrorMsg());
 
         if (newLeader != null)
-            resp.newLeader(new Peer(addressFromEndpoint(newLeader.getEndpoint())));
+            resp.leaderId(newLeader.toString());
 
         ctx.sendResponse(resp.build());
     }
