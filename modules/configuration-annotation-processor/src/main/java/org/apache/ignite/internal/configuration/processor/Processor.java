@@ -33,6 +33,7 @@ import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.ArrayType;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
@@ -45,12 +46,14 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.WildcardTypeName;
+import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 
@@ -90,9 +93,10 @@ public class Processor extends AbstractProcessor {
     private boolean process0(RoundEnvironment roundEnvironment) {
         Elements elementUtils = processingEnv.getElementUtils();
 
-        // All classes annotated with @Config
+        // All classes annotated with @ConfigurationRoot, @Config, @InternalConfiguration.
         List<TypeElement> annotatedConfigs = roundEnvironment
-            .getElementsAnnotatedWithAny(Set.of(ConfigurationRoot.class, Config.class)).stream()
+            .getElementsAnnotatedWithAny(Set.of(ConfigurationRoot.class, Config.class, InternalConfiguration.class))
+            .stream()
             .filter(element -> element.getKind() == ElementKind.CLASS)
             .map(TypeElement.class::cast)
             .collect(Collectors.toList());
@@ -113,8 +117,35 @@ public class Processor extends AbstractProcessor {
 
             ConfigurationRoot rootAnnotation = clazz.getAnnotation(ConfigurationRoot.class);
 
-            // Is root of the configuration
-            boolean isRoot = rootAnnotation != null;
+            // Is root of the configuration.
+            boolean isRootConfig = rootAnnotation != null;
+
+            // Is the configuration.
+            boolean isConfig = clazz.getAnnotation(Config.class) != null;
+
+            // Is the internal configuration.
+            boolean isInternalConfig = clazz.getAnnotation(InternalConfiguration.class) != null;
+
+            if (isInternalConfig) {
+                if (isRootConfig || isConfig) {
+                    if (!isObjectClass(clazz.getSuperclass())) {
+                        throw new ProcessorException(String.format(
+                            "Class with @%s and @%s or @%s must not have a superclass: %s",
+                            InternalConfiguration.class.getSimpleName(),
+                            ConfigurationRoot.class.getSimpleName(),
+                            Config.class.getSimpleName(),
+                            clazz.getQualifiedName()
+                        ));
+                    }
+                }
+                else if (isObjectClass(clazz.getSuperclass())) {
+                    throw new ProcessorException(String.format(
+                        "Class with @%s must have a superclass: %s",
+                        InternalConfiguration.class.getSimpleName(),
+                        clazz.getQualifiedName()
+                    ));
+                }
+            }
 
             ClassName schemaClassName = ClassName.get(packageName, clazz.getSimpleName().toString());
 
@@ -173,10 +204,16 @@ public class Processor extends AbstractProcessor {
                 createGetters(configurationInterfaceBuilder, fieldName, interfaceGetMethodType);
             }
 
-            // Create VIEW and CHANGE classes
-            createPojoBindings(fields, schemaClassName, configurationInterfaceBuilder);
+            // Create VIEW and CHANGE classes.
+            createPojoBindings(
+                fields,
+                schemaClassName,
+                configurationInterfaceBuilder,
+                isInternalConfig && !isRootConfig && !isConfig,
+                clazz
+            );
 
-            if (isRoot)
+            if (isRootConfig)
                 createRootKeyField(configInterface, configurationInterfaceBuilder, schemaClassName, clazz);
 
             // Write configuration interface
@@ -273,21 +310,37 @@ public class Processor extends AbstractProcessor {
 
     /**
      * Create VIEW and CHANGE classes and methods.
+     *
      * @param fields List of configuration fields.
      * @param schemaClassName Class name of schema.
+     * @param configurationInterfaceBuilder Configuration interface builder.
+     * @param extendSuperClass {@code true} if extending superclass, otherwise extending {@link ConfigurationTree}.
+     * @param realSchemaClass Class descriptor.
      */
     private void createPojoBindings(
         List<VariableElement> fields,
         ClassName schemaClassName,
-        TypeSpec.Builder configurationInterfaceBuilder
+        TypeSpec.Builder configurationInterfaceBuilder,
+        boolean extendSuperClass,
+        TypeElement realSchemaClass
     ) {
-        ClassName viewClassTypeName = Utils.getViewName(schemaClassName);
-        ClassName changeClassName = Utils.getChangeName(schemaClassName);
+        TypeName superInterfaceType;
 
-        ClassName confTreeInterface = ClassName.get("org.apache.ignite.configuration", "ConfigurationTree");
-        TypeName confTreeParameterized = ParameterizedTypeName.get(confTreeInterface, viewClassTypeName, changeClassName);
+        if (extendSuperClass) {
+            DeclaredType superClassType = (DeclaredType)realSchemaClass.getSuperclass();
+            ClassName superClassSchemaClassName = ClassName.get((TypeElement)superClassType.asElement());
 
-        configurationInterfaceBuilder.addSuperinterface(confTreeParameterized);
+            superInterfaceType = Utils.getConfigurationInterfaceName(superClassSchemaClassName);
+        }
+        else {
+            ClassName viewClassTypeName = Utils.getViewName(schemaClassName);
+            ClassName changeClassName = Utils.getChangeName(schemaClassName);
+
+            ClassName confTreeInterface = ClassName.get("org.apache.ignite.configuration", "ConfigurationTree");
+            superInterfaceType = ParameterizedTypeName.get(confTreeInterface, viewClassTypeName, changeClassName);
+        }
+
+        configurationInterfaceBuilder.addSuperinterface(superInterfaceType);
 
         // This code will be refactored in the future. Right now I don't want to entangle it with existing code
         // generation. It has only a few considerable problems - hardcode and a lack of proper arrays handling.
@@ -408,9 +461,28 @@ public class Processor extends AbstractProcessor {
         return processingEnv.getTypeUtils().isSameType(type, stringType);
     }
 
+    /**
+     * Check if a type is {@link Object}.
+     *
+     * @param type Type.
+     * @return {@code true} if type is {@link Object}.
+     */
+    private boolean isObjectClass(TypeMirror type) {
+        TypeMirror objectType = processingEnv
+            .getElementUtils()
+            .getTypeElement(Object.class.getCanonicalName())
+            .asType();
+
+        return objectType.equals(type);
+    }
+
     /** {@inheritDoc} */
     @Override public Set<String> getSupportedAnnotationTypes() {
-        return Set.of(Config.class.getCanonicalName(), ConfigurationRoot.class.getCanonicalName());
+        return Set.of(
+            Config.class.getCanonicalName(),
+            ConfigurationRoot.class.getCanonicalName(),
+            InternalConfiguration.class.getCanonicalName()
+        );
     }
 
     /** {@inheritDoc} */
