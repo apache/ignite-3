@@ -51,7 +51,8 @@ public class HeapLockManager implements LockManager {
 
     /** {@inheritDoc} */
     @Override public void tryRelease(Object key, Timestamp timestamp) throws LockException {
-        lockState(key).tryRelease(timestamp);
+        if (lockState(key).tryRelease(timestamp)) // Probably we should clean up empty keys asynchronously.
+            locks.compute(key, (k, v) -> v.waiters.isEmpty() ? null : v);
     }
 
     /** {@inheritDoc} */
@@ -61,7 +62,8 @@ public class HeapLockManager implements LockManager {
 
     /** {@inheritDoc} */
     @Override public void tryReleaseShared(Object key, Timestamp timestamp) throws LockException {
-        lockState(key).tryReleaseShared(timestamp);
+        if (lockState(key).tryReleaseShared(timestamp))
+            locks.compute(key, (k, v) -> v.waiters.isEmpty() ? null : v);
     }
 
     /**
@@ -148,8 +150,9 @@ public class HeapLockManager implements LockManager {
 
         /**
          * @param timestamp The timestamp.
+         * @return {@code True} if the queue is empty.
          */
-        public void tryRelease(Timestamp timestamp) throws LockException {
+        public boolean tryRelease(Timestamp timestamp) throws LockException {
             Collection<WaiterImpl> locked = new ArrayList<>();
 
             synchronized (waiters) {
@@ -164,7 +167,7 @@ public class HeapLockManager implements LockManager {
                 waiters.pollFirstEntry();
 
                 if (waiters.isEmpty())
-                    return;
+                    return true;
 
                 // Lock next waiter(s).
                 WaiterImpl waiter = waiters.firstEntry().getValue();
@@ -192,6 +195,8 @@ public class HeapLockManager implements LockManager {
             for (WaiterImpl waiter : locked) {
                 waiter.notifyLocked();
             }
+
+            return false;
         }
 
         /**
@@ -236,7 +241,13 @@ public class HeapLockManager implements LockManager {
             return waiter.fut;
         }
 
-        public void tryReleaseShared(Timestamp timestamp) throws LockException {
+        /**
+         * @param timestamp
+         * @return {@code True} if the queue is empty.
+         *
+         * @throws LockException
+         */
+        public boolean tryReleaseShared(Timestamp timestamp) throws LockException {
             WaiterImpl locked = null;
 
             synchronized (waiters) {
@@ -251,7 +262,7 @@ public class HeapLockManager implements LockManager {
 
                 // Queue is empty.
                 if (nextEntry == null)
-                    return;
+                    return true;
 
                 // Lock next exclusive waiter.
                 WaiterImpl nextWaiter = nextEntry.getValue();
@@ -265,6 +276,8 @@ public class HeapLockManager implements LockManager {
 
             if (locked != null)
                 locked.notifyLocked();
+
+            return false;
         }
 
         /**
