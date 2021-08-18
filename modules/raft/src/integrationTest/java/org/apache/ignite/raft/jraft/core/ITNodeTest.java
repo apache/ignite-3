@@ -3055,7 +3055,7 @@ public class ITNodeTest {
 
     }
 
-    private Future<?> startChangePeersThread(ChangeArg arg, String testName) {
+    private Future<?> startChangePeersThread(ChangeArg arg) {
         Set<RaftError> expectedErrors = new HashSet<>();
         expectedErrors.add(RaftError.EBUSY);
         expectedErrors.add(RaftError.EPERM);
@@ -3113,7 +3113,7 @@ public class ITNodeTest {
 
         ChangeArg arg = new ChangeArg(cluster, peers, false, false);
 
-        Future<?> future = startChangePeersThread(arg, "testChangePeersChaosWithSnapshot");
+        Future<?> future = startChangePeersThread(arg);
         for (int i = 0; i < 5000; ) {
             cluster.waitLeader();
             Node leader = cluster.getLeader();
@@ -3160,7 +3160,7 @@ public class ITNodeTest {
 
         ChangeArg arg = new ChangeArg(cluster, peers, false, true);
 
-        Future<?> future = startChangePeersThread(arg, "testChangePeersChaosWithoutSnapshot");
+        Future<?> future = startChangePeersThread(arg);
         final int tasks = 5000;
         for (int i = 0; i < tasks; ) {
             cluster.waitLeader();
@@ -3220,7 +3220,7 @@ public class ITNodeTest {
         for (int t = 0; t < threads; t++) {
             ChangeArg arg = new ChangeArg(cluster, peers, false, true);
             args.add(arg);
-            futures.add(startChangePeersThread(arg, "testChangePeersChaosApplyTasks_thread_" + t));
+            futures.add(startChangePeersThread(arg));
 
             Utils.runInThread(executor, () -> {
                 try {
