@@ -31,7 +31,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -95,6 +94,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import static java.util.stream.Collectors.collectingAndThen;
@@ -1362,7 +1362,7 @@ public class ITNodeTest {
 
         CountDownLatch latch = new CountDownLatch(10);
 
-        ExecutorService executor = Executors.newFixedThreadPool(10, new DefaultThreadFactory("testReadIndexChaos"));
+        ExecutorService executor = Executors.newFixedThreadPool(10);
 
         executors.add(executor);
 
@@ -3061,7 +3061,7 @@ public class ITNodeTest {
         expectedErrors.add(RaftError.EPERM);
         expectedErrors.add(RaftError.ECATCHUP);
 
-        ExecutorService executor = Executors.newSingleThreadExecutor(new DefaultThreadFactory(testName));
+        ExecutorService executor = Executors.newSingleThreadExecutor();
 
         executors.add(executor);
 
@@ -3194,6 +3194,7 @@ public class ITNodeTest {
     }
 
     @Test
+    @Timeout(60)
     public void testChangePeersChaosApplyTasks() throws Exception {
         // start cluster
         List<PeerId> peers = new ArrayList<>();
@@ -3212,7 +3213,7 @@ public class ITNodeTest {
         List<Future<?>> futures = new ArrayList<>();
         CountDownLatch latch = new CountDownLatch(threads);
 
-        ExecutorService executor = Executors.newFixedThreadPool(threads, new DefaultThreadFactory("testChangePeersChaosApplyTasks"));
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
 
         executors.add(executor);
 
@@ -3579,31 +3580,5 @@ public class ITNodeTest {
         });
         latch.await();
         return success.get();
-    }
-
-    private static class DefaultThreadFactory implements ThreadFactory {
-        private final ThreadGroup group;
-        private final AtomicInteger threadNumber = new AtomicInteger(1);
-        private final String namePrefix;
-
-        DefaultThreadFactory(String name) {
-            SecurityManager s = System.getSecurityManager();
-            group = (s != null) ? s.getThreadGroup() :
-                Thread.currentThread().getThreadGroup();
-            namePrefix = "pool-" +
-                name +
-                "-thread-";
-        }
-
-        public Thread newThread(Runnable r) {
-            Thread t = new Thread(group, r,
-                namePrefix + threadNumber.getAndIncrement(),
-                0);
-            if (t.isDaemon())
-                t.setDaemon(false);
-            if (t.getPriority() != Thread.NORM_PRIORITY)
-                t.setPriority(Thread.NORM_PRIORITY);
-            return t;
-        }
     }
 }
