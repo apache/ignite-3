@@ -115,8 +115,8 @@ public class TxTest {
         Tuple r1 = accounts.tupleBuilder().set("accountNumber", 1L).set("balance", BALANCE_1).build();
         Tuple r2 = accounts.tupleBuilder().set("accountNumber", 2L).set("balance", BALANCE_2).build();
 
-        accounts.insert(r1);
-        accounts.insert(r2);
+        accounts.upsert(r1);
+        accounts.upsert(r2);
 
         Transaction tx = txManager.begin();
 
@@ -239,9 +239,7 @@ public class TxTest {
             txAcc.upsert(makeValue(1, current.doubleValue("balance") - DELTA));
         });
 
-        // TODO tx is uncommited, read prev value.
-
-        assertEquals(BALANCE_1, accounts.get(makeKey(1)).doubleValue("balance"));
+        assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
     }
 
     /**
