@@ -132,7 +132,7 @@ public class StoreTest {
 
         tx.commit();
 
-        assertEquals(200., table.get(key).doubleValue("balance"));
+        assertEquals(200., accounts.get(key).doubleValue("balance"));
 
         assertEquals(COMMITED, txManager.state(tx.timestamp()));
     }
@@ -155,13 +155,12 @@ public class StoreTest {
 
         tx.rollback();
 
-        assertNull(table.get(key));
+        assertNull(accounts.get(key));
 
         assertEquals(ABORTED, txManager.state(tx.timestamp()));
     }
 
     @Test
-    @Disabled
     public void testConcurrent() throws TransactionException, LockException {
         InternalTransaction tx = txManager.begin();
         InternalTransaction tx2 = txManager.begin();
@@ -169,25 +168,16 @@ public class StoreTest {
         Tuple key = makeKey(1);
         Tuple val = makeValue(1, 100.);
 
+        accounts.upsert(val);
+
         Table table = accounts.withTransaction(tx);
+        Table table2 = accounts.withTransaction(tx2);
 
-        lockManager.tryAcquire(1, tx.timestamp()).join();
-
-        table.upsert(val);
-
-        Tuple val2 = table.get(key);
-
-        assertEquals(100., val2.doubleValue("balance"));
-
-        lockManager.tryAcquireShared(1, tx2.timestamp()).join();
-
-        Tuple val3 = accounts.withTransaction(tx2).get(key);
-
-        assertNull(val3);
-
-        // Tuple val4 = accounts.get(key); // TODO asch use implicit tx
+        assertEquals(100., table.get(key).doubleValue("balance"));
+        assertEquals(100., table2.get(key).doubleValue("balance"));
 
         tx.commit();
+        tx2.commit();
     }
 
     /**

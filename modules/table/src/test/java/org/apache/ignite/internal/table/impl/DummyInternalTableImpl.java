@@ -21,10 +21,10 @@ import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.schema.SchemaMode;
@@ -71,16 +71,48 @@ public class DummyInternalTableImpl implements InternalTable {
     @Override public CompletableFuture<BinaryRow> get(@NotNull BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        return txManager.readLock(new ByteArray(row.keySlice().array()), tx.timestamp()).
-            thenApply(ignore -> store.get(row, tx));
+        if (tx != null) {
+            return txManager.readLock(new ByteArray(extractAndWrapKey(row)), tx.timestamp()).
+                thenApply(ignore -> store.get(row, tx));
+        }
+        else {
+            InternalTransaction tx0 = txManager.begin();
+
+            return txManager.readLock(new ByteArray(extractAndWrapKey(row)), tx0.timestamp()).
+                thenApply(ignore -> store.get(row, tx0)).
+                thenCompose(r -> tx0.commitAsync().thenApply(ignored -> r));
+        }
     }
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> upsert(@NotNull BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        return txManager.writeLock(new ByteArray(row.keySlice().array()), tx.timestamp()).
-            thenAccept(ignore -> store.upsert(row, tx));
+        if (tx != null) {
+            return txManager.writeLock(new ByteArray(extractAndWrapKey(row)), tx.timestamp()).
+                thenAccept(ignore -> store.upsert(row, tx));
+        }
+        else {
+            InternalTransaction tx0 = txManager.begin();
+
+            return txManager.writeLock(new ByteArray(extractAndWrapKey(row)), tx0.timestamp()).
+                thenAccept(ignore -> store.upsert(row, tx0)).
+                thenCompose(r -> tx0.commitAsync());
+        }
+    }
+
+    /**
+     * Extracts a key from the {@link BinaryRow} and wraps it in a {@link SearchRow}.
+     *
+     * @param row Binary row.
+     * @return Search row.
+     */
+    @NotNull private static byte[] extractAndWrapKey(@NotNull BinaryRow row) {
+        // TODO asch can reuse thread local byte buffer
+        byte[] key = new byte[row.keySlice().capacity()];
+        row.keySlice().get(key);
+
+        return key;
     }
 
     /** {@inheritDoc} */

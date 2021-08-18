@@ -17,8 +17,14 @@
 
 package org.apache.ignite.tx;
 
+import org.apache.ignite.lang.IgniteException;
+
 /** */
-public class TransactionException extends Exception {
+public class TransactionException extends IgniteException {
+    public TransactionException(String message) {
+        super(message);
+    }
+
     public TransactionException(Throwable cause) {
         super(cause);
     }

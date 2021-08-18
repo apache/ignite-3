@@ -37,6 +37,8 @@ import org.jetbrains.annotations.NotNull;
  * Lock waiters are placed in the queue, ordered from oldest to yongest (highest Timestamp).
  * When a new waiter is placed in the queue, it's validated against current lock owner: if where is an owner with a
  * higher timestamp lock request is denied.
+ * <p>
+ * Read lock can be upgraded to write lock (only available for the oldest read-locked entry of the queue)
  */
 public class HeapLockManager implements LockManager {
     /** */
