@@ -252,10 +252,10 @@ public class IgnitionImpl implements Ignition {
                 new ScaleCubeClusterServiceFactory().createClusterService(
                     new ClusterLocalConfiguration(
                         nodeName,
-                        netConfigurationView.port(),
-                        nodeFinder,
                         serializationRegistry
-                    )
+                    ),
+                    nodeCfgMgr,
+                    () -> nodeFinder
                 )
             );
 

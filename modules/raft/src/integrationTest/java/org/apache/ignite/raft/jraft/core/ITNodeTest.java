@@ -87,6 +87,7 @@ import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Bits;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.Utils;
+import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -3431,7 +3432,13 @@ public class ITNodeTest {
 
         var nodeManager = new NodeManager();
 
-        ClusterService clusterService = createClusterService(peerId.getEndpoint(), nodeFinder);
+        ClusterService clusterService = ClusterServiceTestUtils.clusterService(
+            peerId.getEndpoint().toString(),
+            peerId.getEndpoint().getPort(),
+            nodeFinder,
+            new TestMessageSerializationRegistryImpl(),
+            new TestScaleCubeClusterServiceFactory()
+        );
 
         IgniteRpcServer rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions);
 
@@ -3461,13 +3468,13 @@ public class ITNodeTest {
      * Creates a non-started {@link ClusterService}.
      */
     private static ClusterService createClusterService(Endpoint endpoint, NodeFinder nodeFinder) {
-        var registry = new TestMessageSerializationRegistryImpl();
-
-        var clusterConfig = new ClusterLocalConfiguration(endpoint.toString(), endpoint.getPort(), nodeFinder, registry);
-
-        var clusterServiceFactory = new TestScaleCubeClusterServiceFactory();
-
-        return clusterServiceFactory.createClusterService(clusterConfig);
+       return ClusterServiceTestUtils.clusterService(
+            endpoint.toString(),
+            endpoint.getPort(),
+            nodeFinder,
+            new TestMessageSerializationRegistryImpl(),
+            new TestScaleCubeClusterServiceFactory()
+        );
     }
 
     private void sendTestTaskAndWait(final Node node) throws InterruptedException {

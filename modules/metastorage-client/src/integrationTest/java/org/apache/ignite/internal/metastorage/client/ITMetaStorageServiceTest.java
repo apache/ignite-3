@@ -56,6 +56,7 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
+import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -181,7 +182,14 @@ public class ITMetaStorageServiceTest {
         var nodeFinder = new LocalPortRangeNodeFinder(NODE_PORT_BASE, NODE_PORT_BASE + NODES);
 
         nodeFinder.findNodes().stream()
-            .map(addr -> startClusterNode(addr, nodeFinder))
+            .map(addr -> ClusterServiceTestUtils.clusterService(
+                addr.toString(),
+                addr.port(),
+                nodeFinder,
+                SERIALIZATION_REGISTRY,
+                NETWORK_FACTORY
+                )
+            )
             .forEach(cluster::add);
 
         for (ClusterService node : cluster)
@@ -1044,21 +1052,6 @@ public class ITMetaStorageServiceTest {
         assertThrows(NoSuchElementException.class, () -> cursor2Node0.iterator().next());
 
         assertEquals(EXPECTED_RESULT_ENTRY, (cursorNode1.iterator().next()));
-    }
-
-    /**
-     * @param addr Node address.
-     * @param nodeFinder Node finder.
-     * @return The client cluster view.
-     */
-    private static ClusterService startClusterNode(NetworkAddress addr, NodeFinder nodeFinder) {
-        var ctx = new ClusterLocalConfiguration(addr.toString(), addr.port(), nodeFinder, SERIALIZATION_REGISTRY);
-
-        var net = NETWORK_FACTORY.createClusterService(ctx);
-
-        net.start();
-
-        return net;
     }
 
     /**

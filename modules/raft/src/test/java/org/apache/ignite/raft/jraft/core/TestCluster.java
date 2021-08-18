@@ -57,6 +57,7 @@ import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Endpoint;
+import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.Nullable;
 
 import static java.util.stream.Collectors.collectingAndThen;
@@ -266,7 +267,13 @@ public class TestCluster {
 
             NodeManager nodeManager = new NodeManager();
 
-            ClusterService clusterService = createClusterService(listenAddr, nodeFinder);
+            ClusterService clusterService = ClusterServiceTestUtils.clusterService(
+                listenAddr.toString(),
+                listenAddr.getPort(),
+                nodeFinder,
+                new TestMessageSerializationRegistryImpl(),
+                new TestScaleCubeClusterServiceFactory()
+            );
 
             var rpcClient = new IgniteRpcClient(clusterService);
 
@@ -301,19 +308,6 @@ public class TestCluster {
         finally {
             this.lock.unlock();
         }
-    }
-
-    /**
-     * Creates a non-started {@link ClusterService}.
-     */
-    private static ClusterService createClusterService(Endpoint endpoint, NodeFinder nodeFinder) {
-        var registry = new TestMessageSerializationRegistryImpl();
-
-        var clusterConfig = new ClusterLocalConfiguration(endpoint.toString(), endpoint.getPort(), nodeFinder, registry);
-
-        var clusterServiceFactory = new TestScaleCubeClusterServiceFactory();
-
-        return clusterServiceFactory.createClusterService(clusterConfig);
     }
 
     public Node getNode(Endpoint endpoint) {
