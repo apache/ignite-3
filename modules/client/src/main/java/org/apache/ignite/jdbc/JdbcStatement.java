@@ -67,9 +67,6 @@ public class JdbcStatement implements Statement {
     /** Explicit timeout ({@code true} is the timeout is set explicitly for the query. Otherwise {@code false}). */
     boolean explicitTimeout;
 
-    /** Request timeout. */
-    private int reqTimeout;
-
     /** Rows limit. */
     private int maxRows;
 
@@ -644,8 +641,6 @@ public class JdbcStatement implements Statement {
         assert timeout >= 0;
 
         this.timeout = timeout;
-
-        reqTimeout = this.timeout;
 
         explicitTimeout = true;
     }

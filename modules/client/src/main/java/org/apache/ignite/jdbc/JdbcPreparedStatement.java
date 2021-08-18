@@ -39,7 +39,6 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Calendar;
-import org.apache.ignite.client.proto.query.JdbcStatementType;
 import org.apache.ignite.client.proto.query.SqlStateCode;
 import org.apache.ignite.client.proto.query.event.JdbcQuery;
 

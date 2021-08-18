@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
-import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
