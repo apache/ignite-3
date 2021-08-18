@@ -40,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * TODO: IGNITE-14487 Check non-key fields in Tuple is ignored for keys.
  * TODO: IGNITE-14487 Check key fields in Tuple is ignored for value or exception is thrown?
  */
-public class KVViewOperationsTest {
+public class KVBinaryViewOperationsTest {
     /** Table ID test value. */
     public final java.util.UUID tableId = java.util.UUID.randomUUID();
 
@@ -70,13 +70,13 @@ public class KVViewOperationsTest {
         tbl.put(key, val);
 
         assertEqualsValues(schema, val, tbl.get(key));
-        assertEqualsValues(schema, val, tbl.get(Tuple.create().set("id", 1L).set("val", -1L)));
+        assertEqualsValues(schema, val, tbl.get(Tuple.create().set("id", 1L)));
 
         // Update KV pair.
         tbl.put(key, val2);
 
         assertEqualsValues(schema, val2, tbl.get(key));
-        assertEqualsValues(schema, val2, tbl.get(Tuple.create().set("id", 1L).set("val", -1L)));
+        assertEqualsValues(schema, val2, tbl.get(Tuple.create().set("id", 1L)));
 
         // Remove KV pair.
         tbl.put(key, null);
@@ -113,13 +113,13 @@ public class KVViewOperationsTest {
         assertTrue(tbl.putIfAbsent(key, val));
 
         assertEqualsValues(schema, val, tbl.get(key));
-        assertEqualsValues(schema, val, tbl.get(Tuple.create().set("id", 1L).set("val", -1L)));
+        assertEqualsValues(schema, val, tbl.get(Tuple.create().set("id", 1L)));
 
         // Update KV pair.
         assertFalse(tbl.putIfAbsent(key, val2));
 
         assertEqualsValues(schema, val, tbl.get(key));
-        assertEqualsValues(schema, val, tbl.get(Tuple.create().set("id", 1L).set("val", -1L)));
+        assertEqualsValues(schema, val, tbl.get(Tuple.create().set("id", 1L)));
     }
 
     /**
@@ -148,11 +148,10 @@ public class KVViewOperationsTest {
         assertNull(tbl.getAndPut(key, val));
 
         assertEqualsValues(schema, val, tbl.get(key));
-        assertEqualsValues(schema, val, tbl.get(Tuple.create().set("id", 1L).set("val", -1L)));
+        assertEqualsValues(schema, val, tbl.get(Tuple.create().set("id", 1L)));
 
-        // Check non-value fields is ignored.
         assertEqualsValues(schema, val, tbl.getAndPut(key, val2));
-        assertEqualsValues(schema, val2, tbl.getAndPut(key, Tuple.create().set("id", 2L).set("val", 33L)));
+        assertEqualsValues(schema, val2, tbl.getAndPut(key, Tuple.create().set("val", 33L)));
 
         assertEqualsValues(schema, val3, tbl.get(key));
         assertNull(tbl.get(Tuple.create().set("id", 2L)));
@@ -194,7 +193,7 @@ public class KVViewOperationsTest {
         assertEqualsValues(schema, val2, tbl.get(key));
 
         // Delete existed key.
-        assertTrue(tbl.remove(Tuple.create().set("id", 1L).set("val", -1L)));
+        assertTrue(tbl.remove(Tuple.create().set("id", 1L)));
         assertNull(tbl.get(key));
 
         // Delete not existed key.

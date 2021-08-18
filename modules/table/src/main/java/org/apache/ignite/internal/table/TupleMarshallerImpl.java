@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.table;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.InvalidTypeException;
@@ -37,7 +38,6 @@ import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaMode;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
@@ -73,30 +73,79 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
     /** {@inheritDoc} */
     @Override public Row marshal(@NotNull Tuple tuple) {
-        return marshal(tuple, tuple);
+        SchemaDescriptor schema = schemaReg.schema();
+
+        InternalTuple keyTuple0 = toInternalTuple(schema, schema.keyColumns(), tuple);
+        InternalTuple valTuple0 = toInternalTuple(schema, schema.valueColumns(), tuple);
+
+        while (true) {
+            if (valTuple0.knownColumns + keyTuple0.knownColumns == tuple.columnCount())
+                break; // Nothing to do.
+
+            if (tbl.schemaMode() == SchemaMode.STRICT_SCHEMA)
+                throw new SchemaMismatchException("Value doesn't match schema.");
+
+            createColumns(extractColumnsType(tuple, extraColumnNames(tuple, schema)));
+
+            assert schemaReg.lastSchemaVersion() > schema.version();
+
+            schema = schemaReg.schema();
+
+            keyTuple0 = toInternalTuple(schema, schema.keyColumns(), tuple);
+            valTuple0 = toInternalTuple(schema, schema.valueColumns(), tuple);
+        }
+
+        return buildRow(schema, keyTuple0, valTuple0);
     }
 
     /** {@inheritDoc} */
-    @Override public Row marshal(@NotNull Tuple keyTuple, @Nullable Tuple valTuple) {
-        final SchemaDescriptor schema = valTuple != null ? schemaForTuple(valTuple) : schemaReg.schema();
+    @Override public Row marshal(@NotNull Tuple keyTuple, Tuple valTuple) {
+        SchemaDescriptor schema = schemaReg.schema();
 
-        validate(keyTuple, schema.keyColumns());
+        InternalTuple keyTuple0 = toInternalTuple(schema, schema.keyColumns(), keyTuple);
+        InternalTuple valTuple0 = toInternalTuple(schema, schema.valueColumns(), valTuple);
 
-        final RowAssembler rowBuilder = createAssembler(schema, keyTuple, valTuple);
+        while (true) {
+            if (keyTuple0.hasExtraColumns())
+                throw new SchemaMismatchException("Key tuple doesn't match schema: extraColumns=" + extraColumnNames(keyTuple, true, schema));
 
-        for (int i = 0; i < schema.keyColumns().length(); i++) {
-            final Column col = schema.keyColumns().column(i);
+            if (!valTuple0.hasExtraColumns())
+                break; // Nothing to do.
 
-            writeColumn(rowBuilder, col, keyTuple);
+            if (tbl.schemaMode() == SchemaMode.STRICT_SCHEMA)
+                throw new SchemaMismatchException("Value doesn't match schema.");
+
+            createColumns(extractColumnsType(valTuple, extraColumnNames(valTuple, false, schema)));
+
+            assert schemaReg.lastSchemaVersion() > schema.version();
+
+            schema = schemaReg.schema();
+
+            keyTuple0 = toInternalTuple(schema, schema.keyColumns(), keyTuple);
+            valTuple0 = toInternalTuple(schema, schema.valueColumns(), valTuple);
         }
 
-        if (valTuple != null) {
-            validate(valTuple, schema.valueColumns());
+        return buildRow(schema, keyTuple0, valTuple0);
+    }
 
-            for (int i = 0; i < schema.valueColumns().length(); i++) {
-                final Column col = schema.valueColumns().column(i);
+    @NotNull private Row buildRow(SchemaDescriptor schema, InternalTuple keyTuple0, InternalTuple valTuple0) {
+        RowAssembler rowBuilder = createAssembler(schema, keyTuple0, valTuple0);
 
-                writeColumn(rowBuilder, col, valTuple);
+        Columns columns = schema.keyColumns();
+
+        for (int i = 0, len = columns.length(); i < len; i++) {
+            final Column col = columns.column(i);
+
+            writeColumn(rowBuilder, col, keyTuple0);
+        }
+
+        if (valTuple0.tuple != null) {
+            columns = schema.valueColumns();
+
+            for (int i = 0, len = columns.length(); i < len; i++) {
+                final Column col = columns.column(i);
+
+                writeColumn(rowBuilder, col, valTuple0);
             }
         }
 
@@ -104,95 +153,143 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     }
 
     /** {@inheritDoc} */
-    @Override public Row marshalKey(@NotNull Tuple tuple) {
+    @Override public Row marshalKey(@NotNull Tuple keyTuple) {
         final SchemaDescriptor schema = schemaReg.schema();
 
-        validate(tuple, schema.keyColumns());
+        InternalTuple keyTuple0 = toInternalTuple(schema, schema.keyColumns(), keyTuple);
 
-        final RowAssembler rowBuilder = createAssembler(schema, tuple, null);
+        if (keyTuple0.hasExtraColumns())
+            throw new SchemaMismatchException("Key tuple doesn't match schema: extraColumns=" + extraColumnNames(keyTuple, true, schema));
+
+        final RowAssembler rowBuilder = createAssembler(schema, keyTuple0, InternalTuple.NO_VALUE);
 
         Columns cols = schema.keyColumns();
 
-        for (int i = 0; i < cols.length(); i++) {
+        for (int i = 0, len = cols.length(); i < len; i++) {
             final Column col = cols.column(i);
 
-            writeColumn(rowBuilder, col, tuple);
+            writeColumn(rowBuilder, col, keyTuple0);
         }
 
         return new Row(schema, rowBuilder.build());
     }
 
     /**
-     * Returns the latest schema if it is compatible with the tuple,
-     * or upgrade the schema if Live schema is on, otherwise fails.
+     * Analyze tuple and wrap into internal tuple.
      *
-     * @param tuple Tuple to validate.
-     * @return Schema the given tuple matches to.
-     * @throws SchemaMismatchException If the tuple is incompatible and a schema can't be upgraded.
+     * @param schema Schema.
+     * @param columns Tuple columns.
+     * @param tuple Key or value tuple.
+     * @return Internal tuple
      */
-    private SchemaDescriptor schemaForTuple(Tuple tuple) {
-        SchemaDescriptor schema = schemaReg.schema();
+    private @NotNull InternalTuple toInternalTuple(SchemaDescriptor schema, Columns columns, Tuple tuple) {
+        if (tuple == null)
+            return InternalTuple.NO_VALUE;
 
-        while (!isMatch(tuple, schema)) {
-            Set<org.apache.ignite.schema.Column> extraCols = extraColumns(schema, tuple);
+        int nonNullVarlen = 0;
+        int nonNullVarlenSize = 0;
+        int knownKolumns = 0;
+        Map<String, Object> defaults = new HashMap<>();
 
-            if (tbl.schemaMode() == SchemaMode.STRICT_SCHEMA) {
-                throw new SchemaMismatchException("Strict schema doesn't allow extra columns: colNames=" +
-                    extraCols.stream().map(c -> c.name()).collect(Collectors.joining()));
+        if (tuple instanceof SchemaAware && Objects.equals(((SchemaAware)tuple).schema(), schema)) {
+            for (int i = 0, len = columns.length(); i < len; i++) {
+                final Column col = columns.column(i);
+
+                Object val = tuple.valueOrDefault(col.name(), POISON_OBJECT); //TODO: can we access by index here ???
+
+                // TODO: how to detect key/value tuple ???
+                // TODO: maybe unwrap to Row of known schema ???
+                assert val != POISON_OBJECT;
+
+                if (val == null || columns.firstVarlengthColumn() < i)
+                    continue;
+
+                nonNullVarlenSize += getValueSize(val, col.type());
+                nonNullVarlen++;
             }
+        }
+        else {
+            for (int i = 0, len = columns.length(); i < len; i++) {
+                final Column col = columns.column(i);
 
-            createColumns(extraCols);
+                Object val = tuple.valueOrDefault(col.name(), POISON_OBJECT);
 
-            assert schemaReg.lastSchemaVersion() > schema.version() : "Schema upgrade was async or delayed.";
+                if (val == POISON_OBJECT) {
+                    val = col.defaultValue();
 
-            schema = schemaReg.schema();
+                    defaults.put(col.name(), val);
+                }
+                else
+                    knownKolumns++;
+
+                col.validate(val);
+
+                if (val == null || columns.isFixedSize(i))
+                    continue;
+
+                //TODO: save default value to tuple?
+
+                nonNullVarlenSize += getValueSize(val, col.type());
+                nonNullVarlen++;
+            }
         }
 
-        return schema;
+        return new InternalTuple(tuple, nonNullVarlen, nonNullVarlenSize, defaults, knownKolumns);
     }
 
     /**
-     * Checks if the tuple match the schema.
-     *
-     * @return {@code True} if the tuple matches schema, {@code false} otherwise.
-     * @throws InvalidTypeException If column of incompatible type found.
+     * @param tuple Tuple representing a Row.
+     * @param schema Schema
+     * @return
      */
-    private boolean isMatch(Tuple tuple, SchemaDescriptor schema) {
-        int schemaColsFound = 0;
+    private Set<String> extraColumnNames(Tuple tuple, SchemaDescriptor schema) {
+        Set<String> cols = new HashSet<>();
 
-        for (int i = 0; i < schema.length(); i++) {
-            Column col = schema.column(i);
-
-            Object val = tuple.valueOrDefault(col.name(), POISON_OBJECT);
-
-            if (val == POISON_OBJECT) // Tuple has no value for column.
-                continue;
-
-            schemaColsFound++;
-
-            col.validate(val); //TODO: validate default value???
-        }
-
-        return tuple.columnCount() == schemaColsFound;
-    }
-
-    /**
-     * Extract columns from the tuple that are missed in schema.
-     *
-     * @param schema Schema to validate against.
-     * @param tuple Tuple to validate.
-     * @return Extra columns.
-     */
-    private Set<org.apache.ignite.schema.Column> extraColumns(SchemaDescriptor schema, Tuple tuple) {
-        Set<org.apache.ignite.schema.Column> extraColumns = new HashSet<>();
-
-        for (int i = 0; i < tuple.columnCount(); i++) {
+        for (int i = 0, len = tuple.columnCount(); i < len; i++) {
             String colName = tuple.columnName(i);
 
-            if (schema.column(colName) != null)
-                continue;
+            if (schema.column(colName) == null)
+                cols.add(colName);
+        }
 
-            Object colValue = tuple.value(i);
+        return cols;
+    }
+
+    /**
+     * Return column names that are missed in schema.
+     *
+     * @param tuple Key or value tuple.
+     * @param keyTuple Key tuple flag. {@code True} if tuple is a key. {@code false} if tuple is value.
+     * @param schema Schema to check against.
+     * @return Column names.
+     */
+    @NotNull private Set<String> extraColumnNames(Tuple tuple, boolean keyTuple, SchemaDescriptor schema) {
+        Set<String> cols = new HashSet<>();
+
+        for (int i = 0, len = tuple.columnCount(); i < len; i++) {
+            String colName = tuple.columnName(i);
+
+            Column col = schema.column(colName);
+
+            if (col == null || schema.isKeyColumn(col.schemaIndex()) ^ keyTuple)
+                cols.add(colName);
+        }
+
+        return cols;
+    }
+
+    /**
+     * Extract column types from the tuple that are missed in schema.
+     *
+     * @param tuple Tuple with column values.
+     * @param colNames Column names that type info to be extracted.
+     * @return Column types.
+     */
+    private Set<org.apache.ignite.schema.Column> extractColumnsType(Tuple tuple, Set<String> colNames) {
+        Set<org.apache.ignite.schema.Column> extraColumns = new HashSet<>();
+
+        for (String colName : colNames) {
+            Object colValue = tuple.value(colName);
 
             if (colValue == null) // Can't detect type of 'null'
                 throw new InvalidTypeException("Live schema upgrade for 'null' value is not supported yet.");
@@ -209,89 +306,29 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     }
 
     /**
-     * Validates columns values.
-     *
-     * @param tuple Tuple to validate.
-     * @param columns Columns to validate against.
-     * @throws SchemaMismatchException If validation failed.
-     */
-    private void validate(Tuple tuple, Columns columns) {
-        if (tuple instanceof SchemaAware) {
-            SchemaAware t0 = ((SchemaAware)tuple);
-            SchemaDescriptor expSchema = schemaReg.schema(t0.schema().version());
-
-            //TODO: Does it make sense to check 'tableId' and 'version' equality instead of reference?
-            if (Objects.equals(t0.schema(), expSchema))
-                return;
-        }
-
-        for (int i = 0; i < columns.length(); i++) {
-            Column col = columns.column(i);
-
-            Object value = tuple.valueOrDefault(col.name(), POISON_OBJECT);
-
-            if (value != POISON_OBJECT)
-                col.validate(value);
-        }
-    }
-
-    /**
      * Creates {@link RowAssembler} for key-value tuples.
      *
-     * @param keyTuple Key tuple.
-     * @param valTuple Value tuple.
+     * @param schema Schema.
+     * @param keyTuple Internal key tuple.
+     * @param valTuple Internal value tuple.
      * @return Row assembler.
      */
-    private RowAssembler createAssembler(SchemaDescriptor schema, Tuple keyTuple, Tuple valTuple) {
-        TupleStatistics keyStat = tupleStatistics(schema.keyColumns(), keyTuple);
-        TupleStatistics valStat = tupleStatistics(schema.valueColumns(), valTuple);
-
+    private RowAssembler createAssembler(SchemaDescriptor schema, InternalTuple keyTuple, InternalTuple valTuple) {
         return new RowAssembler(
             schema,
-            keyStat.nonNullVarLenSize,
-            keyStat.nonNullVarlen,
-            valStat.nonNullVarLenSize,
-            valStat.nonNullVarlen);
+            keyTuple.nonNullVarLenSize,
+            keyTuple.nonNullVarlen,
+            valTuple.nonNullVarLenSize,
+            valTuple.nonNullVarlen);
     }
 
     /**
      * @param rowAsm Row assembler.
      * @param col Column.
-     * @param tup Tuple.
+     * @param tup Internal tuple.
      */
-    private void writeColumn(RowAssembler rowAsm, Column col, Tuple tup) {
-        Object val = tup.valueOrDefault(col.name(), col.defaultValue());
-
-        RowAssembler.writeValue(rowAsm, col, val);
-    }
-
-    /**
-     * Analyze given tuple and gather statistics.
-     *
-     * @param cols Columns which statistics is calculated for.
-     * @param tup Tuple to analyze.
-     * @return Tuple statistics.
-     */
-    private TupleStatistics tupleStatistics(Columns cols, Tuple tup) {
-        if (tup == null || !cols.hasVarlengthColumns())
-            return TupleStatistics.ZERO_VARLEN_STATISTICS;
-
-        int cnt = 0;
-        int size = 0;
-
-        for (int i = cols.firstVarlengthColumn(); i < cols.length(); i++) {
-            Column col = cols.column(i);
-
-            final Object val = tup.valueOrDefault(col.name(), col.defaultValue());
-
-            if (val == null)
-                continue;
-
-            size += getValueSize(val, col.type());
-            cnt++;
-        }
-
-        return new TupleStatistics(cnt, size);
+    private void writeColumn(RowAssembler rowAsm, Column col, InternalTuple tup) {
+        RowAssembler.writeValue(rowAsm, col, tup.value(col.name()));
     }
 
     /**
@@ -313,21 +350,53 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     }
 
     /**
-     * Tuple statistics record.
+     * Internal tuple enriched original tuple with additional info.
      */
-    private static class TupleStatistics {
+    private static class InternalTuple {
         /** Cached zero statistics. */
-        static final TupleStatistics ZERO_VARLEN_STATISTICS = new TupleStatistics(0, 0);
+        static final InternalTuple NO_VALUE = new InternalTuple(null, 0, 0, null, 0);
+
+        /** Original tuple. */
+        private final Tuple tuple;
 
         /** Number of non-null varlen columns. */
-        int nonNullVarlen;
+        private final int nonNullVarlen;
 
         /** Length of all non-null fields of varlen types. */
-        int nonNullVarLenSize;
+        private final int nonNullVarLenSize;
 
-        TupleStatistics(int nonNullVarlen, int nonNullVarLenSize) {
+        /** Precalculated defaults. */
+        private final Map<String, Object> defaults;
+
+        /** Schema columns in tuple. */
+        private final int knownColumns;
+
+        InternalTuple(Tuple tuple, int nonNullVarlen, int nonNullVarlenSize, Map<String, Object> defaults, int knownColumns) {
             this.nonNullVarlen = nonNullVarlen;
-            this.nonNullVarLenSize = nonNullVarLenSize;
+            this.nonNullVarLenSize = nonNullVarlenSize;
+            this.tuple = tuple;
+            this.defaults = defaults;
+            this.knownColumns = knownColumns;
+        }
+
+        /**
+         * @return {@code True} extra columns was detected, {@code false} otherwise.
+         */
+        public boolean hasExtraColumns() {
+            return tuple != null && knownColumns != tuple.columnCount();
+        }
+
+        /**
+         * @param columnName Columns name.
+         * @return Column value.
+         */
+        Object value(String columnName) {
+            Object val = tuple.valueOrDefault(columnName, POISON_OBJECT);
+
+            if (val == POISON_OBJECT)
+                return defaults.get(columnName);
+
+            return val;
         }
     }
 }
