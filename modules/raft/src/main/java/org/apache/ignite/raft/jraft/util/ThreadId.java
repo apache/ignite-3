@@ -155,18 +155,20 @@ public class ThreadId {
         if (this.destroyed) {
             return;
         }
-        if (this.lock.tryLock()) {
-            if (this.destroyed) {
-                this.lock.unlock();
-                return;
+        synchronized (pendingErrors) {
+            if (this.lock.tryLock()) {
+                if (this.destroyed) {
+                    this.lock.unlock();
+                    return;
+                }
+                if (this.onError != null) {
+                    // The lock will be unlocked in onError.
+                    this.onError.onError(this, this.data, errorCode);
+                }
             }
-            if (this.onError != null) {
-                // The lock will be unlocked in onError.
-                this.onError.onError(this, this.data, errorCode);
+            else {
+                this.pendingErrors.add(errorCode);
             }
-        }
-        else {
-            this.pendingErrors.add(errorCode);
         }
     }
 }
