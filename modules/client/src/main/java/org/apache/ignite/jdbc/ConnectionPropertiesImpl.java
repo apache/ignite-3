@@ -632,7 +632,7 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
             }
         }
 
-        if (addrs == null || addrs.length == 0 || addrs[0].host() == null || addrs[0].host().equals(""))
+        if (addrs == null || addrs.length == 0 || addrs[0].host() == null || addrs[0].host().isEmpty())
             throw new SQLException("Host name is empty", SqlStateCode.CLIENT_CONNECTION_FAILED);
     }
 

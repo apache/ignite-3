@@ -364,7 +364,6 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
      * @param url URL.
      * @param errMsg Error message.
      */
-    @SuppressWarnings("ThrowableNotThrown")
     private void assertInvalid(final String url, String errMsg) {
         assertThrows(SQLException.class, () -> DriverManager.getConnection(url), errMsg);
     }
@@ -372,7 +371,6 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     /**
      * @throws Exception If failed.
      */
-    @SuppressWarnings("ThrowableNotThrown")
     @Test
     public void testClose() throws Exception {
         final Connection conn;
