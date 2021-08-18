@@ -1147,6 +1147,7 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
      * @throws Exception If failed.
      */
     @Test
+    @SuppressWarnings("EmptyTryBlock")
     public void testDisabledFeatures() throws Exception {
         assertInvalid(URL + "?disabledFeatures=unknownFeature",
             "Unknown feature: unknownFeature");
