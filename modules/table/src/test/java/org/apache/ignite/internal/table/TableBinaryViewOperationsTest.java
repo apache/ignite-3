@@ -54,9 +54,13 @@ public class TableBinaryViewOperationsTest {
     @Mock
     private ClusterService clusterService;
 
+    /**
+     * @return The table instance for test.
+     */
     private InternalTable createTable() {
-        return new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapStorage(),
-            new TxManagerImpl(clusterService), new HeapLockManager()));
+        TxManagerImpl txManager = new TxManagerImpl(clusterService, new HeapLockManager());
+
+        return new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapStorage(), txManager), txManager);
     }
 
     /**

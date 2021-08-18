@@ -98,11 +98,11 @@ public class StoreTest {
         clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(ADDR);
 
-        txManager = new TxManagerImpl(clusterService);
-
         lockManager = new HeapLockManager();
 
-        table = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapStorage(), txManager, lockManager));
+        txManager = new TxManagerImpl(clusterService, lockManager);
+
+        table = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapStorage(), txManager), txManager);
 
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
@@ -115,7 +115,7 @@ public class StoreTest {
     }
 
     @Test
-    public void testSimpleCommit() throws TransactionException, LockException {
+    public void testCommit() throws TransactionException, LockException {
         InternalTransaction tx = txManager.begin();
 
         Tuple key = makeKey(1);
@@ -126,15 +126,19 @@ public class StoreTest {
 
         assertEquals(100., table.get(key).doubleValue("balance"));
 
+        table.upsert(makeValue(1, 200.));
+
+        assertEquals(200., table.get(key).doubleValue("balance"));
+
         tx.commit();
 
-        assertEquals(100., table.get(key).doubleValue("balance"));
+        assertEquals(200., table.get(key).doubleValue("balance"));
 
         assertEquals(COMMITED, txManager.state(tx.timestamp()));
     }
 
     @Test
-    public void testSimpleAbort() throws TransactionException, LockException {
+    public void testAbort() throws TransactionException, LockException {
         InternalTransaction tx = txManager.begin();
 
         Tuple key = makeKey(1);
@@ -144,6 +148,10 @@ public class StoreTest {
         table.upsert(makeValue(1, 100.));
 
         assertEquals(100., table.get(key).doubleValue("balance"));
+
+        table.upsert(makeValue(1, 200.));
+
+        assertEquals(200., table.get(key).doubleValue("balance"));
 
         tx.rollback();
 

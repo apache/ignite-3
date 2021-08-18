@@ -98,11 +98,11 @@ public class TxTest {
         clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(ADDR);
 
-        txManager = new TxManagerImpl(clusterService);
-
         lockManager = new HeapLockManager();
 
-        table = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapStorage(), txManager, lockManager));
+        txManager = new TxManagerImpl(clusterService, lockManager);
+
+        table = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapStorage(), txManager), txManager);
 
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,

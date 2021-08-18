@@ -20,8 +20,10 @@ package org.apache.ignite.internal.table;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.locks.Lock;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.schema.SchemaMode;
 import org.jetbrains.annotations.NotNull;
@@ -64,6 +66,8 @@ public interface InternalTable {
      * @param keyRow Row with key columns set.
      * @param tx The transaction.
      * @return Future representing pending completion of the operation.
+     *
+     * @throws LockException If a lock can't be acquired by some reason.
      */
     CompletableFuture<BinaryRow> get(BinaryRow keyRow, @Nullable InternalTransaction tx);
 

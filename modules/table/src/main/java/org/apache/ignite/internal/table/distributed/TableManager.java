@@ -72,8 +72,6 @@ import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
@@ -83,7 +81,6 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.schema.PrimaryIndex;
 import org.apache.ignite.table.Table;
@@ -223,7 +220,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             partitionsGroupsFutures.add(raftMgr.prepareRaftGroup(
                 raftGroupName(tblId, p),
                 assignment.get(p),
-                new PartitionListener(new VersionedRowStore(storage, txManager, lockManager))
+                new PartitionListener(new VersionedRowStore(storage, txManager))
             ));
         }
 

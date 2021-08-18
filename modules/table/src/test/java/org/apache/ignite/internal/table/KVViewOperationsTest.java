@@ -60,8 +60,10 @@ public class KVViewOperationsTest {
      * @return The table.
      */
     private InternalTable createTable() {
+        TxManagerImpl txManager = new TxManagerImpl(clusterService, new HeapLockManager());
+
         return new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapStorage(),
-            new TxManagerImpl(clusterService), new HeapLockManager()));
+            txManager), txManager);
     }
 
     /**

@@ -107,7 +107,7 @@ public class PartitionCommandListenerTest {
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(addr);
 
         commandListener = new PartitionListener(new VersionedRowStore(new RocksDbStorage(dataPath.resolve("db"),
-            ByteBuffer::compareTo), new TxManagerImpl(clusterService), new HeapLockManager()));
+            ByteBuffer::compareTo), new TxManagerImpl(clusterService, new HeapLockManager())));
     }
 
     /**

@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import java.util.ArrayDeque;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterService;
 
 /**
@@ -30,16 +33,23 @@ import org.apache.ignite.network.ClusterService;
  */
 public class TxManagerImpl implements TxManager {
     /** */
-    private ClusterService clusterService;
+    private final ClusterService clusterService;
 
     /** */
+    private final LockManager lockManager;
+
+    /** The storage for tx states. TODO asch use Storage for states */
     private final ConcurrentHashMap<Timestamp, TxState> states = new ConcurrentHashMap<>();
+
+    /** The storage for tx locks. TODO asch use Storage for locks */
+    private final ConcurrentHashMap<Timestamp, ArrayDeque<Lock>> locks = new ConcurrentHashMap<>();
 
     /**
      * @param clusterService Cluster service.
      */
-    public TxManagerImpl(ClusterService clusterService) {
+    public TxManagerImpl(ClusterService clusterService, LockManager lockManager) {
         this.clusterService = clusterService;
+        this.lockManager = lockManager;
     }
 
     @Override public InternalTransaction begin() {
@@ -80,11 +90,32 @@ public class TxManagerImpl implements TxManager {
         return states.replace(ts, before, after);
     }
 
+    @Override public CompletableFuture<Void> writeLock(ByteArray key, Timestamp timestamp) {
+        return lockManager.tryAcquire(key, timestamp).thenAccept(ignore ->
+            locks.computeIfAbsent(timestamp, k -> new ArrayDeque<>()).add(new Lock(key, false)));
+    }
+
+    @Override public CompletableFuture<Void> readLock(ByteArray key, Timestamp timestamp) {
+        return lockManager.tryAcquire(key, timestamp).thenAccept(ignore ->
+            locks.computeIfAbsent(timestamp, k -> new ArrayDeque<>()).add(new Lock(key, true)));
+    }
+
     @Override public void start() {
         // No-op.
     }
 
     @Override public void stop() throws Exception {
         // No-op.
+    }
+
+    private static class Lock {
+        ByteArray key;
+
+        boolean read;
+
+        Lock(ByteArray key, boolean read) {
+            this.key = key;
+            this.read = read;
+        }
     }
 }

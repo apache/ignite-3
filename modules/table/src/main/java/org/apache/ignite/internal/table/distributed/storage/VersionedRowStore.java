@@ -36,18 +36,13 @@ public class VersionedRowStore {
     /** */
     private TxManager txManager;
 
-    /** */
-    private LockManager lockManager;
-
     /**
      * @param storage The storage.
      * @param txManager The TX manager.
-     * @param lockManager The lock manager.
      */
-    public VersionedRowStore(Storage storage, TxManager txManager, LockManager lockManager) {
+    public VersionedRowStore(Storage storage, TxManager txManager) {
         this.storage = storage;
         this.txManager = txManager;
-        this.lockManager = lockManager;
     }
 
     /** {@inheritDoc} */

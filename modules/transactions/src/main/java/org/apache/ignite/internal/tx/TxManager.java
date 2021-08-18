@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.tx.impl.TransactionImpl;
+import org.apache.ignite.lang.ByteArray;
 
 /**
  * TODO: local tx ?
@@ -41,4 +42,20 @@ public interface TxManager extends IgniteComponent {
     CompletableFuture<Void> commitAsync(TransactionImpl transaction);
 
     CompletableFuture<Void> rollbackAsync(TransactionImpl transaction);
+
+    /**
+     * @param key The key.
+     * @param timestamp The timestamp.
+     * @return The future.
+     * @throws LockException When a lock can't be taken due to possible deadlock.
+     */
+    public CompletableFuture<Void> writeLock(ByteArray key, Timestamp timestamp);
+
+    /**
+     * @param key The key.
+     * @param timestamp The timestamp.
+     * @return The future.
+     * @throws LockException When a lock can't be taken due to possible deadlock.
+     */
+    public CompletableFuture<Void> readLock(ByteArray key, Timestamp timestamp);
 }

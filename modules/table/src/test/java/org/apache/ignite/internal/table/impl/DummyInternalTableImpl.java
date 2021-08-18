@@ -24,6 +24,9 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.LockException;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.schema.SchemaMode;
 import org.jetbrains.annotations.NotNull;
 
@@ -37,8 +40,12 @@ public class DummyInternalTableImpl implements InternalTable {
     /** In-memory dummy store. */
     private final VersionedRowStore store;
 
-    public DummyInternalTableImpl(VersionedRowStore store) {
+    /** Lock manager. */
+    private final TxManager txManager;
+
+    public DummyInternalTableImpl(VersionedRowStore store, TxManager txManager) {
         this.store = store;
+        this.txManager = txManager;
     }
 
     /** {@inheritDoc} */
@@ -64,16 +71,16 @@ public class DummyInternalTableImpl implements InternalTable {
     @Override public CompletableFuture<BinaryRow> get(@NotNull BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        return completedFuture(store.get(row, tx));
+        return txManager.readLock(new ByteArray(row.keySlice().array()), tx.timestamp()).
+            thenApply(ignore -> store.get(row, tx));
     }
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> upsert(@NotNull BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        store.upsert(row, tx);
-
-        return completedFuture(null);
+        return txManager.writeLock(new ByteArray(row.keySlice().array()), tx.timestamp()).
+            thenAccept(ignore -> store.upsert(row, tx));
     }
 
     /** {@inheritDoc} */

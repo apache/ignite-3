@@ -45,8 +45,9 @@ public class StrictSchemaOperationsTest {
     private ClusterService clusterService;
 
     private InternalTable createTable() {
-        return new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapStorage(),
-            new TxManagerImpl(clusterService), new HeapLockManager()));
+        TxManagerImpl txManager = new TxManagerImpl(clusterService, new HeapLockManager());
+
+        return new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapStorage(), txManager), txManager);
     }
 
     /**

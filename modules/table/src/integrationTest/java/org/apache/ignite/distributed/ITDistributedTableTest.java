@@ -175,10 +175,12 @@ public class ITDistributedTableTest {
 
         List<Peer> conf = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
 
+        TxManagerImpl txManager = new TxManagerImpl(cluster.get(0), new HeapLockManager());
+
         partSrv.startRaftGroup(
             grpId,
             new PartitionListener(new VersionedRowStore(new RocksDbStorage(dataPath.resolve("db"), ByteBuffer::compareTo),
-                new TxManagerImpl(cluster.get(0)), new HeapLockManager())),
+                txManager)),
             conf
         );
 
@@ -268,10 +270,12 @@ public class ITDistributedTableTest {
 
             List<Peer> conf = List.of(new Peer(partNodes.get(0).address()));
 
+            TxManagerImpl txManager = new TxManagerImpl(rs.clusterService(), new HeapLockManager());
+
             rs.startRaftGroup(
                 grpId,
                 new PartitionListener(new VersionedRowStore(new RocksDbStorage(dataPath.resolve("part" + p),
-                    ByteBuffer::compareTo), new TxManagerImpl(rs.clusterService()), new HeapLockManager())),
+                    ByteBuffer::compareTo), txManager)),
                 conf
             );
 

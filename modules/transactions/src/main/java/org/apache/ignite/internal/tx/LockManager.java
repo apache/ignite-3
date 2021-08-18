@@ -32,7 +32,7 @@ public interface LockManager extends IgniteComponent {
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> tryAcquire(Object key, Timestamp timestamp) throws LockException;
+    public CompletableFuture<Void> tryAcquire(Object key, Timestamp timestamp);
 
     /**
      * @param key The key.
@@ -47,7 +47,7 @@ public interface LockManager extends IgniteComponent {
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> tryAcquireShared(Object key, Timestamp timestamp) throws LockException;
+    public CompletableFuture<Void> tryAcquireShared(Object key, Timestamp timestamp);
 
     /**
      * @param key The key.

@@ -47,8 +47,10 @@ public class Example {
      * @return Table implementation.
      */
     private static List<Table> tableFactory() {
+        TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager());
+
         return Collections.singletonList(new TableImpl(new DummyInternalTableImpl(new VersionedRowStore(
-            new ConcurrentHashMapStorage(), new TxManagerImpl(null), new HeapLockManager())), null, null, null));
+            new ConcurrentHashMapStorage(), txManager), txManager), null, null, null));
     }
 
     /**

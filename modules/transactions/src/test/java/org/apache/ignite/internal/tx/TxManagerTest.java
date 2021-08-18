@@ -1,6 +1,7 @@
 package org.apache.ignite.internal.tx;
 
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -36,7 +37,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(ADDR);
 
-        txMgr = new TxManagerImpl(clusterService);
+        txMgr = new TxManagerImpl(clusterService, new HeapLockManager());
     }
 
     @Test
