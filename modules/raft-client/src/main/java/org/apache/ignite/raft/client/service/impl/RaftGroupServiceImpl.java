@@ -362,7 +362,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     /** {@inheritDoc} */
     @Override public void shutdown() {
-        // No-op.
+        executor.shutdown();
     }
 
     /**

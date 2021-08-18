@@ -56,6 +56,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
+import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
 import org.jetbrains.annotations.Nullable;
 
@@ -185,6 +186,18 @@ public class JRaftServerImpl implements RaftServer {
 
         if (opts.getLogManagerDisruptor() != null)
             opts.getLogManagerDisruptor().shutdown();
+
+        if (opts.getCommonExecutor() != null)
+            ExecutorServiceHelper.shutdownAndAwaitTermination(opts.getCommonExecutor());
+
+        if (opts.getStripedExecutor() != null)
+            opts.getStripedExecutor().shutdownGracefully();
+
+        if (opts.getScheduler() != null)
+            opts.getScheduler().shutdown();
+
+        if (opts.getClientExecutor() != null)
+            ExecutorServiceHelper.shutdownAndAwaitTermination(opts.getClientExecutor());
     }
 
     /** {@inheritDoc} */

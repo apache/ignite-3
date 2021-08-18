@@ -207,7 +207,7 @@ public class TestCluster {
 
             final NodeOptions nodeOptions = new NodeOptions();
 
-            nodeOptions.setServerName(listenAddr.toString());
+            nodeOptions.setServerName(name + "_" + listenAddr.toString());
 
             nodeOptions.setCommonExecutor(JRaftUtils.createCommonExecutor(nodeOptions));
             nodeOptions.setStripedExecutor(JRaftUtils.createAppendEntriesExecutor(nodeOptions));
@@ -230,25 +230,25 @@ public class TestCluster {
             nodeOptions.setElectionPriority(priority);
 
             nodeOptions.setfSMCallerExecutorDisruptor(fsmCallerDusruptors.computeIfAbsent(listenAddr, endpoint -> new StripedDisruptor<>(
-                "JRaft-FSMCaller-Disruptor_TestCluster",
+                "JRaft-FSMCaller-Disruptor_" + name,
                 nodeOptions.getRaftOptions().getDisruptorBufferSize(),
                 () -> new FSMCallerImpl.ApplyTask(),
                 nodeOptions.getStripes())));
 
             nodeOptions.setNodeApplyDisruptor(nodeDisruptors.computeIfAbsent(listenAddr, endpoint -> new StripedDisruptor<>(
-                "JRaft-NodeImpl-Disruptor_TestCluster",
+                "JRaft-NodeImpl-Disruptor_" + name,
                 nodeOptions.getRaftOptions().getDisruptorBufferSize(),
                 () -> new NodeImpl.LogEntryAndClosure(),
                 nodeOptions.getStripes())));
 
             nodeOptions.setReadOnlyServiceDisruptor(readOnlyServiceDisruptors.computeIfAbsent(listenAddr, endpoint -> new StripedDisruptor<>(
-                "JRaft-ReadOnlyService-Disruptor_TestCluster",
+                "JRaft-ReadOnlyService-Disruptor_" + name,
                 nodeOptions.getRaftOptions().getDisruptorBufferSize(),
                 () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
                 nodeOptions.getStripes())));
 
             nodeOptions.setLogManagerDisruptor(logManagerDisruptors.computeIfAbsent(listenAddr, endpoint -> new StripedDisruptor<>(
-                "JRaft-LogManager-Disruptor_TestCluster",
+                "JRaft-LogManager-Disruptor_" + name,
                 nodeOptions.getRaftOptions().getDisruptorBufferSize(),
                 () -> new LogManagerImpl.StableClosureEvent(),
                 nodeOptions.getStripes())));
