@@ -127,13 +127,20 @@ public class Processor extends AbstractProcessor {
             boolean isInternalConfig = clazz.getAnnotation(InternalConfiguration.class) != null;
 
             if (isInternalConfig) {
-                if (isRootConfig || isConfig) {
+                if (isConfig) {
+                    throw new ProcessorException(String.format(
+                        "Class with @%s is not allowed with @%s: %s",
+                        Config.class.getSimpleName(),
+                        InternalConfiguration.class.getSimpleName(),
+                        clazz.getQualifiedName()
+                    ));
+                }
+                else if (isRootConfig) {
                     if (!isObjectClass(clazz.getSuperclass())) {
                         throw new ProcessorException(String.format(
-                            "Class with @%s and @%s or @%s must not have a superclass: %s",
-                            InternalConfiguration.class.getSimpleName(),
+                            "Class with @%s and @%s should not have a superclass: %s",
                             ConfigurationRoot.class.getSimpleName(),
-                            Config.class.getSimpleName(),
+                            InternalConfiguration.class.getSimpleName(),
                             clazz.getQualifiedName()
                         ));
                     }
@@ -209,7 +216,7 @@ public class Processor extends AbstractProcessor {
                 fields,
                 schemaClassName,
                 configurationInterfaceBuilder,
-                isInternalConfig && !isRootConfig && !isConfig,
+                isInternalConfig && !isRootConfig,
                 clazz
             );
 

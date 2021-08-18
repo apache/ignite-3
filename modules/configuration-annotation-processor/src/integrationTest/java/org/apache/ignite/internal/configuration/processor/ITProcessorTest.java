@@ -33,7 +33,7 @@ public class ITProcessorTest extends AbstractProcessorTest {
      * The simplest test for code generation.
      */
     @Test
-    public void testPublicCodeGeneration() {
+    public void testPublicConfigCodeGeneration() {
         final String packageName = "org.apache.ignite.internal.configuration.processor";
 
         final ClassName testConfigurationSchema = ClassName.get(packageName, "TestConfigurationSchema");
@@ -52,16 +52,33 @@ public class ITProcessorTest extends AbstractProcessorTest {
     }
 
     /**
-     * Check the successful code generation of the internal configurations.
+     * Check the successful generation of the internal root configuration code.
      */
     @Test
-    void testInternalCodeGenerationSuccess() {
+    void testInternalRootConfigCodeGeneration() {
+        String packageName = "org.apache.ignite.internal.configuration.processor.internal";
+
+        ClassName internalConfigSchemas = ClassName.get(packageName, "InternalTestRootConfigurationSchema");
+
+        BatchCompilation batch = batchCompile(internalConfigSchemas);
+
+        Compilation status = batch.getCompilationStatus();
+
+        assertNotEquals(Compilation.Status.FAILURE, status.status());
+
+        assertEquals(3, batch.generated().size());
+
+        assertTrue(batch.getBySchema(internalConfigSchemas).allGenerated());
+    }
+
+    /**
+     * Check the successful generation of the internal extended configuration code.
+     */
+    @Test
+    void testInternalExtendedConfigCodeGeneration() {
         String packageName = "org.apache.ignite.internal.configuration.processor.internal";
 
         ClassName[] internalConfigSchemas = {
-            ClassName.get(packageName, "InternalTestRootConfigurationSchema"),
-            ClassName.get(packageName, "InternalTestConfigurationSchema"),
-            // To test the extension.
             ClassName.get("org.apache.ignite.internal.configuration.processor", "TestConfigurationSchema"),
             ClassName.get(packageName, "ExtendedInternalTestConfigurationSchema"),
         };
@@ -72,12 +89,10 @@ public class ITProcessorTest extends AbstractProcessorTest {
 
         assertNotEquals(Compilation.Status.FAILURE, status.status());
 
-        assertEquals(4 * 3, batch.generated().size());
+        assertEquals(2 * 3, batch.generated().size());
 
         assertTrue(batch.getBySchema(internalConfigSchemas[0]).allGenerated());
         assertTrue(batch.getBySchema(internalConfigSchemas[1]).allGenerated());
-        assertTrue(batch.getBySchema(internalConfigSchemas[2]).allGenerated());
-        assertTrue(batch.getBySchema(internalConfigSchemas[3]).allGenerated());
     }
 
     /**

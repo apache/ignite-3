@@ -20,11 +20,10 @@ package org.apache.ignite.internal.configuration.processor.internal;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.internal.configuration.processor.TestConfigurationSchema;
 
 @InternalConfiguration
 @Config
-public class ErrorInternalTestConfigurationSchema extends TestConfigurationSchema {
+public class ErrorInternalTestConfigurationSchema {
     @Value
     public String value1;
 
