@@ -74,8 +74,8 @@ public class SchemaDescriptor implements Serializable {
      * @param valCols Value columns.
      */
     public SchemaDescriptor(UUID tableId, int ver, Column[] keyCols, @Nullable String[] affCols, Column[] valCols) {
-        assert keyCols.length > 0 : "No key columns are conigured.";
-        assert valCols.length > 0 : "No value columns are conigured.";
+        assert keyCols.length > 0 : "No key columns are configured.";
+        assert valCols.length > 0 : "No value columns are configured.";
 
         this.tableId = tableId;
         this.ver = ver;

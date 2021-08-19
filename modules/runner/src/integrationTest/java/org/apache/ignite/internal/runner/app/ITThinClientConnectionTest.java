@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import com.google.common.collect.Lists;
 import java.lang.reflect.Field;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import com.google.common.collect.Lists;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.client.IgniteClient;
@@ -38,6 +38,7 @@ import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -122,8 +123,8 @@ public class ITThinClientConnectionTest extends IgniteAbstractTest {
                 Table table = tables.get(0);
                 assertEquals(String.format("%s.%s", SCHEMA_NAME, TABLE_NAME), table.tableName());
 
-                var tuple = table.tupleBuilder().set(keyCol, 1).set(valCol, "Hello").build();
-                var keyTuple = table.tupleBuilder().set(keyCol, 1).build();
+                var tuple = Tuple.create().set(keyCol, 1).set(valCol, "Hello");
+                var keyTuple = Tuple.create().set(keyCol, 1);
 
                 table.upsert(tuple);
                 assertEquals("Hello", table.get(keyTuple).stringValue(valCol));

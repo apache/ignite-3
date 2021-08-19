@@ -38,7 +38,7 @@ public class TupleImplTest {
 
     @Test
     public void testValueThrowsOnInvalidColumnName() {
-        var ex = assertThrows(IgniteException.class, () -> getTuple().value("x"));
+        var ex = assertThrows(IllegalArgumentException.class, () -> getTuple().value("x"));
         assertEquals("Column not found: columnName=x", ex.getMessage());
     }
 

@@ -188,7 +188,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
         int nonNullVarlen = 0;
         int nonNullVarlenSize = 0;
-        int knownKolumns = 0;
+        int knownColumns = 0;
         Map<String, Object> defaults = new HashMap<>();
 
         if (tuple instanceof SchemaAware && Objects.equals(((SchemaAware)tuple).schema(), schema)) {
@@ -220,7 +220,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                     defaults.put(col.name(), val);
                 }
                 else
-                    knownKolumns++;
+                    knownColumns++;
 
                 col.validate(val);
 
@@ -234,7 +234,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             }
         }
 
-        return new InternalTuple(tuple, nonNullVarlen, nonNullVarlenSize, defaults, knownKolumns);
+        return new InternalTuple(tuple, nonNullVarlen, nonNullVarlenSize, defaults, knownColumns);
     }
 
     /**
@@ -365,7 +365,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         /** Length of all non-null fields of varlen types. */
         private final int nonNullVarLenSize;
 
-        /** Precalculated defaults. */
+        /** Pre-calculated defaults. */
         private final Map<String, Object> defaults;
 
         /** Schema columns in tuple. */

@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
-import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -97,7 +96,7 @@ public class TupleImpl implements Tuple {
         int idx = columnIndex(columnName);
 
         if (idx == -1)
-            throw new IgniteException("Column not found: columnName=" + columnName);
+            throw new IllegalArgumentException("Column not found: columnName=" + columnName);
 
         return (T)vals.get(idx);
     }

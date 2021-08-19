@@ -20,7 +20,6 @@ package org.apache.ignite.table;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
-import org.apache.ignite.lang.IgniteException;
 
 /**
  * Tuple represents arbitrary set of columns whose values is accessible by column name.
@@ -29,7 +28,7 @@ import org.apache.ignite.lang.IgniteException;
  */
 public interface Tuple extends Iterable<Object> {
     /**
-     * Factory method for tuple.
+     * Creates tuple.
      *
      * @return Tuple.
      */
@@ -49,7 +48,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column name.
-     * @throws IndexOutOfBoundsException If a value for a column with given index was never set.
+     * @throws IndexOutOfBoundsException If a value for a column with given index doesn't exists.
      */
     String columnName(int columnIndex);
 
@@ -65,11 +64,11 @@ public interface Tuple extends Iterable<Object> {
      * Gets column value when a column with specified name is present in this tuple; returns default value otherwise.
      *
      * @param columnName Column name.
-     * @param def Default value.
+     * @param defaultValue Default value.
      * @param <T> Column default value type.
-     * @return Column value if this tuple contains a column with the specified name. Otherwise returns {@code default}.
+     * @return Column value if this tuple contains a column with the specified name. Otherwise returns {@code defaultValue}.
      */
-    <T> T valueOrDefault(String columnName, T def);
+    <T> T valueOrDefault(String columnName, T defaultValue);
 
     /**
      * Sets column value.
@@ -86,9 +85,9 @@ public interface Tuple extends Iterable<Object> {
      * @param columnName Column name.
      * @param <T> Value type.
      * @return Column value.
-     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
-    <T> T value(String columnName) throws IgniteException;
+    <T> T value(String columnName);
 
     /**
      * Gets column value for given column index.
@@ -96,7 +95,7 @@ public interface Tuple extends Iterable<Object> {
      * @param columnIndex Column index.
      * @param <T> Value type.
      * @return Column value.
-     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     <T> T value(int columnIndex);
 
@@ -105,7 +104,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
-     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
     BinaryObject binaryObjectValue(String columnName);
 
@@ -114,7 +113,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     BinaryObject binaryObjectValue(int columnIndex);
 
@@ -123,7 +122,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
-     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
     byte byteValue(String columnName);
 
@@ -132,7 +131,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     byte byteValue(int columnIndex);
 
@@ -141,7 +140,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
-     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
     short shortValue(String columnName);
 
@@ -150,7 +149,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     short shortValue(int columnIndex);
 
@@ -159,7 +158,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
-     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
     int intValue(String columnName);
 
@@ -168,7 +167,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     int intValue(int columnIndex);
 
@@ -177,7 +176,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
-     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
     long longValue(String columnName);
 
@@ -186,7 +185,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     long longValue(int columnIndex);
 
@@ -195,7 +194,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
-     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
     float floatValue(String columnName);
 
@@ -204,7 +203,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     float floatValue(int columnIndex);
 
@@ -213,7 +212,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
-     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
     double doubleValue(String columnName);
 
@@ -222,7 +221,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     double doubleValue(int columnIndex);
 
@@ -231,7 +230,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
-     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
     String stringValue(String columnName);
 
@@ -240,7 +239,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     String stringValue(int columnIndex);
 
@@ -249,7 +248,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
-     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
     UUID uuidValue(String columnName);
 
@@ -258,7 +257,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     UUID uuidValue(int columnIndex);
 
@@ -267,7 +266,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
-     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
     BitSet bitmaskValue(String columnName);
 
@@ -276,7 +275,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws org.apache.ignite.lang.IgniteException If column value was not set.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     BitSet bitmaskValue(int columnIndex);
 }
