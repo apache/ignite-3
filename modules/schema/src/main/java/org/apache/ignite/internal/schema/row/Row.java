@@ -44,7 +44,6 @@ import org.apache.ignite.internal.schema.TemporalNativeType;
  * Any type conversions and coercions should be implemented outside the row by the key-value or query runtime.
  * <p>
  * When a non-boxed primitive is read from a null column value, it is converted to the primitive type default value.
- * When a unknown column value requested, the a column default will be returned.
  * <p>
  * Natively supported temporal types are decoded automatically after read.
  *
@@ -249,7 +248,7 @@ public class Row implements BinaryRow {
         long offLen = findColumn(col, NativeTypeSpec.DECIMAL);
 
         if (offLen < 0)
-            return offLen == -1 ? null : (BigDecimal)rowSchema().column(col).defaultValue();
+            return null;
 
         int off = offset(offLen);
         int len = length(offLen);
@@ -272,7 +271,7 @@ public class Row implements BinaryRow {
         long offLen = findColumn(col, NativeTypeSpec.NUMBER);
 
         if (offLen < 0)
-            return offLen == -1 ? null : (BigInteger)rowSchema().column(col).defaultValue();
+            return null;
 
         int off = offset(offLen);
         int len = length(offLen);
@@ -369,7 +368,7 @@ public class Row implements BinaryRow {
         long offLen = findColumn(col, NativeTypeSpec.DATE);
 
         if (offLen < 0)
-            return offLen == -1 ? null : (LocalDate)schema.column(col).defaultValue();
+            return null;
 
         int off = offset(offLen);
 
@@ -387,7 +386,7 @@ public class Row implements BinaryRow {
         long offLen = findColumn(col, NativeTypeSpec.TIME);
 
         if (offLen < 0)
-            return offLen == -1 ? null : (LocalTime)schema.column(col).defaultValue();
+            return null;
 
         int off = offset(offLen);
 
@@ -407,7 +406,7 @@ public class Row implements BinaryRow {
         long offLen = findColumn(col, NativeTypeSpec.DATETIME);
 
         if (offLen < 0)
-            return offLen == -1 ? null : (LocalDateTime)schema.column(col).defaultValue();
+            return null;
 
         int off = offset(offLen);
 
@@ -427,7 +426,7 @@ public class Row implements BinaryRow {
         long offLen = findColumn(col, NativeTypeSpec.TIMESTAMP);
 
         if (offLen < 0)
-            return offLen == -1 ? null : (Instant)schema.column(col).defaultValue();
+            return null;
 
         int off = offset(offLen);
 
@@ -455,10 +454,10 @@ public class Row implements BinaryRow {
         if (type.precision() > 3) {
             time <<= 16;
             time |= Short.toUnsignedLong(readShort(off + 4));
-            time = (time >>> TemporalTypesHelper.NANOS_PART_LEN) << 32 | (time & TemporalTypesHelper.NANOS_PART_MASK);
+            time = (time >>> TemporalTypesHelper.NANOSECOND_PART_LEN) << 32 | (time & TemporalTypesHelper.NANOSECOND_PART_MASK);
         }
         else // Decompress
-            time = (time >>> TemporalTypesHelper.MILLIS_PART_LEN) << 32 | (time & TemporalTypesHelper.MILLIS_PART_MASK);
+            time = (time >>> TemporalTypesHelper.MILLISECOND_PART_LEN) << 32 | (time & TemporalTypesHelper.MILLISECOND_PART_MASK);
 
         return TemporalTypesHelper.decodeTime(type, time);
     }

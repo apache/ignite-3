@@ -24,7 +24,7 @@ import org.apache.ignite.internal.schema.TemporalNativeType;
 /**
  * Helper class for temporal type conversions.
  * <p>
- * Provides methods to encode/decode temporal types in a compact way  for futher writing to row.
+ * Provides methods to encode/decode temporal types in a compact way for further writing to row.
  * Conversion preserves natural type order.
  * <p>
  * DATE is a fixed-length type which compacted representation keeps ordering, value is signed and fit into a 3-bytes.
@@ -40,29 +40,29 @@ import org.apache.ignite.internal.schema.TemporalNativeType;
  * <p>
  * TIME is a fixed-length type supporting accuracy from 1 second up to 1 nanosecond.
  * Compacted time representation keeps ordering, values fits to 4-6 bytes value.
- * The first 18 bits is used for hour, munutes and seconds, and the last bits for fractional seconds:
+ * The first 18 bits is used for hours, minutes and seconds, and the last bits for fractional seconds:
  * 14 for millisecond precision and 30 for nanosecond.
  * Values of a type of any intermediate precisions is normalized to the type,
  * then stored as shortest possible structure without a precision lost.
  * <p>
  * Time compact structure:
- * ┌─────────┬─────────┬──────────┬────────────┐
- * │ Hours   │ Minutes │ Seconds  │ Subseconds │
- * ├─────────┼─────────┼──────────┼────────────┤
- * │ 6 bit   │ 6 bits  │ 6 bit    │ 14 bits    │ - 32-bits in total.
- * │ 6 bit   │ 6 bits  │ 6 bit    │ 30 bits    │ - 48-bits in total.
- * └─────────┴─────────┴──────────┴────────────┘
+ * ┌─────────┬─────────┬──────────┬─────────────┐
+ * │ Hours   │ Minutes │ Seconds  │ Sub-seconds │
+ * ├─────────┼─────────┼──────────┼─────────────┤
+ * │ 6 bit   │ 6 bits  │ 6 bit    │ 14 bits     │ - 32-bits in total.
+ * │ 6 bit   │ 6 bits  │ 6 bit    │ 30 bits     │ - 48-bits in total.
+ * └─────────┴─────────┴──────────┴─────────────┘
  * <p>
  * DATETIME is just a concatenation of DATE and TIME values.
  * <p>
- * TIMESTAMP has similart structure to {@link java.time.Instant} and supports precision from 1 second up to 1 nanosecond.
- * Subsecond part stores in a separate bit sequence which is omited for {@code 0} accuracy.
+ * TIMESTAMP has similar structure to {@link java.time.Instant} and supports precision from 1 second up to 1 nanosecond.
+ * Fractional seconds part is stored in a separate bit sequence which is omitted for {@code 0} accuracy.
  * <p>
  * Total value size is 8/12 bytes depending on the type precision.
  * <p>
  * Timestamp compact structure:
  * ┌──────────────────────────┬─────────────┐
- * │ Seconds since the epoch  │ Subseconds  │
+ * │ Seconds since the epoch  │ Sub-seconds │
  * ├──────────────────────────┼─────────────┤
  * │    64 bits               │ 0/32 bits   │
  * └──────────────────────────┴─────────────┘
@@ -78,7 +78,7 @@ public class TemporalTypesHelper {
     public static final int DAY_FIELD_LENGTH = 5;
 
     /** Hours field length. */
-    public static final int HOUR_FIELD_LENGTH = 6;
+    public static final int HOUR_FIELD_LENGTH = 5;
 
     /** Minutes field length. */
     public static final int MINUTES_FIELD_LENGTH = 6;
@@ -93,16 +93,16 @@ public class TemporalTypesHelper {
     public static final int MIN_YEAR = -(1 << 14);
 
     /** Fractional part length for millis precision. */
-    public static final int MILLIS_PART_LEN = 14;
+    public static final int MILLISECOND_PART_LEN = 14;
 
     /** Fractional part mask for millis precision. */
-    public static final long MILLIS_PART_MASK = (1L << MILLIS_PART_LEN) - 1;
+    public static final long MILLISECOND_PART_MASK = (1L << MILLISECOND_PART_LEN) - 1;
 
     /** Fractional part length for nanos precision. */
-    public static final int NANOS_PART_LEN = 30;
+    public static final int NANOSECOND_PART_LEN = 30;
 
     /** Fractional part mask for nanos precision. */
-    public static final long NANOS_PART_MASK = (1L << NANOS_PART_LEN) - 1;
+    public static final long NANOSECOND_PART_MASK = (1L << NANOSECOND_PART_LEN) - 1;
 
     /**
      * @param len Mask length in bits.
@@ -136,30 +136,30 @@ public class TemporalTypesHelper {
         date = (date << 8) >> 8; // Restore sign.
 
         int day = (date) & mask(DAY_FIELD_LENGTH);
-        int mon = (date >>= DAY_FIELD_LENGTH) & mask(MONTH_FIELD_LENGTH); // Sign matters.
+        int mon = (date >>= DAY_FIELD_LENGTH) & mask(MONTH_FIELD_LENGTH);
         int year = (date >> MONTH_FIELD_LENGTH); // Sign matters.
 
         return LocalDate.of(year, mon, day);
     }
 
     /**
-     * Encode LocalTime to long as concatenation of 2 ints:
+     * Encode LocalTime to long as concatenation of 2 int values:
      * encoded time with precision of seconds and fractional seconds.
      *
      * @param type Native temporal type.
      * @param localTime Time.
      * @return Encoded local time.
-     * @see #NANOS_PART_LEN
-     * @see #MILLIS_PART_LEN
+     * @see #NANOSECOND_PART_LEN
+     * @see #MILLISECOND_PART_LEN
      */
     public static long encodeTime(TemporalNativeType type, LocalTime localTime) {
         int time = localTime.getHour() << (MINUTES_FIELD_LENGTH + SECONDS_FIELD_LENGTH);
         time |= localTime.getMinute() << SECONDS_FIELD_LENGTH;
         time |= localTime.getSecond();
 
-        int fractinal = truncateTo(type.precision(), localTime.getNano());
+        int fractional = truncateTo(type.precision(), localTime.getNano());
 
-        return ((long)time << 32) | fractinal;
+        return ((long)time << 32) | fractional;
     }
 
     /**
@@ -177,7 +177,7 @@ public class TemporalTypesHelper {
         int min = (time0 >>>= SECONDS_FIELD_LENGTH) & mask(MINUTES_FIELD_LENGTH);
         int hour = (time0 >>> MINUTES_FIELD_LENGTH) & mask(HOUR_FIELD_LENGTH);
 
-        // Convert to nanos.
+        // Convert to nanoseconds.
         switch (type.precision()) {
             case 0:
                 break;
@@ -201,7 +201,7 @@ public class TemporalTypesHelper {
     }
 
     /**
-     * Normalize nanos regarding the precision.
+     * Normalize nanoseconds regarding the precision.
      *
      * @param nanos Nanoseconds.
      * @param precision Meaningful digits.

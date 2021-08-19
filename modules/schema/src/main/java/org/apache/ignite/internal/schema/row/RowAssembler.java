@@ -53,7 +53,7 @@ import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.VAL_FLAGS_OFF
  * with the schema and provide the columns in strict internal column sort order during the row construction.
  * <p>
  * Additionally, the user of this class should pre-calculate the resulting row size when possible to avoid
- * unnecessary data copies  and allow some size-optimizations can be applied.
+ * unnecessary data copies and allow some size optimizations to be applied.
  * <p>
  * Natively supported temporal types are encoded automatically with preserving sort order before writing.
  *
@@ -781,13 +781,13 @@ public class RowAssembler {
         long time = TemporalTypesHelper.encodeTime(type, val);
 
         if (type.precision() > 3) {
-            time = ((time >>> 32) << TemporalTypesHelper.NANOS_PART_LEN) | (time & TemporalTypesHelper.NANOS_PART_MASK);
+            time = ((time >>> 32) << TemporalTypesHelper.NANOSECOND_PART_LEN) | (time & TemporalTypesHelper.NANOSECOND_PART_MASK);
 
             buf.putInt(off, (int)(time >>> 16));
             buf.putShort(off + 4, (short)(time & 0xFFFF_FFFFL));
         }
         else {
-            time = ((time >>> 32) << TemporalTypesHelper.MILLIS_PART_LEN) | (time & TemporalTypesHelper.MILLIS_PART_MASK);
+            time = ((time >>> 32) << TemporalTypesHelper.MILLISECOND_PART_LEN) | (time & TemporalTypesHelper.MILLISECOND_PART_MASK);
 
             buf.putInt(off, (int)time);
         }

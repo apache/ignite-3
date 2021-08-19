@@ -115,6 +115,8 @@ public class SchemaDescriptorConverter {
 
                 return NativeTypes.blobOf(blobLen);
             }
+            case DATE:
+                return NativeTypes.DATE;
             case TIME: {
                 ColumnType.TemporalColumnType temporalType = (ColumnType.TemporalColumnType)colType;
 

@@ -98,7 +98,7 @@ public class SchemaConfigurationConverter {
     }
 
     /**
-     *
+     * @param type Column type.
      */
     private static void putType(ColumnType type) {
         types.put(type.typeSpec().name(), type);

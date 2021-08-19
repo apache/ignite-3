@@ -112,9 +112,9 @@ public class NativeTypes {
     }
 
     /**
-     * Creates a TIME type with subsecond precision.
+     * Creates a TIME type with given precision.
      *
-     * @param precision Time subsecond part length in digits. Allowed values 0-9.
+     * @param precision Fractional seconds meaningful digits. Allowed values are 0-9 for second to nanosecond precision.
      * @return Native type.
      */
     public static NativeType time(int precision) {
@@ -124,7 +124,7 @@ public class NativeTypes {
     /**
      * Creates DATETIME type as pair (date, time).
      *
-     * @param precision Time subsecond part length in digits. Allowed values 0-9.
+     * @param precision Fractional seconds meaningful digits. Allowed values are 0-9 for second to nanosecond precision.
      * @return Native type.
      */
     public static NativeType datetime(int precision) {
@@ -134,7 +134,7 @@ public class NativeTypes {
     /**
      * Creates TIMESTAMP type.
      *
-     * @param precision Time subsecond part length. Allowed values are 3/6/9 for millis/micros/nanos.
+     * @param precision Fractional seconds meaningful digits. Allowed values are 0-9 for second to nanosecond precision.
      * @return Native type.
      */
     public static NativeType timestamp(int precision) {
@@ -165,6 +165,7 @@ public class NativeTypes {
      * Creates TIMESTAMP type with default precision.
      *
      * @return Native type.
+     * @see #timestamp(int)
      */
     public static NativeType timestamp() {
         return TemporalNativeType.timestamp(ColumnType.TemporalColumnType.DEFAULT_PRECISION);

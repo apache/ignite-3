@@ -60,10 +60,19 @@ public class ColumnType {
     /** Timezone-free three-part value representing a year, month, and day. */
     public static final ColumnType DATE = new ColumnType(ColumnTypeSpec.DATE);
 
+    /** String varlen type of unlimited length. */
+    private static final VarLenColumnType UNLIMITED_STRING = stringOf(0);
+
+    /** Blob varlen type of unlimited length. */
+    private static final VarLenColumnType UNLIMITED_BLOB = blobOf(0);
+
+    /** Number type with unlimited precision. */
+    public static final NumberColumnType UNLIMITED_NUMBER = new NumberColumnType(ColumnTypeSpec.NUMBER, NumberColumnType.UNLIMITED_PRECISION);
+
     /**
-     * Bitmask type factory method.
+     * Returns bit mask type.
      *
-     * @param bits Bitmask size in bits.
+     * @param bits Bit mask size in bits.
      * @return Bitmap type.
      */
     public static VarLenColumnType bitmaskOf(int bits) {
@@ -71,16 +80,16 @@ public class ColumnType {
     }
 
     /**
-     * String factory method.
+     * Returns string type of unlimited length.
      *
      * @return String type.
      */
     public static VarLenColumnType string() {
-        return stringOf(0);
+        return UNLIMITED_STRING;
     }
 
     /**
-     * String factory method for fix-sized string type.
+     * Return string type of limited size.
      *
      * @param length String length in chars.
      * @return String type.
@@ -90,16 +99,17 @@ public class ColumnType {
     }
 
     /**
-     * Blob type factory method.
+     * Returns blob type of unlimited length.
      *
      * @return Blob type.
+     * @see #blobOf(int)
      */
     public static VarLenColumnType blobOf() {
-        return blobOf(0);
+        return UNLIMITED_BLOB;
     }
 
     /**
-     * Blob type factory method for fix-sized blob.
+     * Return blob type of limited length.
      *
      * @param length Blob length in bytes.
      * @return Blob type.
@@ -109,7 +119,7 @@ public class ColumnType {
     }
 
     /**
-     * Number type factory method.
+     * Returns number type with given precision.
      *
      * @param precision Precision of value.
      * @return Number type.
@@ -123,16 +133,17 @@ public class ColumnType {
     }
 
     /**
-     * Number type factory method.
+     * Returns number type with the default precision.
      *
      * @return Number type.
+     * @see  #numberOf(int)
      */
     public static NumberColumnType numberOf() {
-        return new NumberColumnType(ColumnTypeSpec.NUMBER, NumberColumnType.UNLIMITED_PRECISION);
+        return UNLIMITED_NUMBER;
     }
 
     /**
-     * Decimal type factory method.
+     * Returns decimal type with given precision and scale.
      *
      * @param precision Precision.
      * @param scale Scale.
@@ -154,9 +165,10 @@ public class ColumnType {
     }
 
     /**
-     * Decimal type factory method with default precision and scale values.
+     * Returns decimal type with default precision and scale values.
      *
      * @return Decimal type.
+     * @see #decimalOf(int, int)
      */
     public static DecimalColumnType decimalOf() {
         return new DecimalColumnType(
@@ -167,10 +179,10 @@ public class ColumnType {
     }
 
     /**
-     * Timezone-free value representing a time of day in hours, minutes, seconds,
+     * Returns timezone-free type representing a time of day in hours, minutes, seconds,
      * and fractional seconds depending on type precision.
      *
-     * @param precision Fractional seconds part length. Allowed values are 3/6/9 for millis/micros/nanos.
+     * @param precision Fractional seconds meaningful digits. Allowed values are 0-9 for second to nanosecond precision.
      * @return Native type.
      */
     public static TemporalColumnType time(int precision) {
@@ -178,9 +190,9 @@ public class ColumnType {
     }
 
     /**
-     * Timezone-free datetime encoded as (date, time).
+     * Returns timezone-free datetime encoded as (date, time).
      *
-     * @param precision Fractional seconds part length. Allowed values are 3/6/9 for millis/micros/nanos.
+     * @param precision Fractional seconds part length. Allowed values are 0-9 for second to nanosecond precision.
      * @return Native type.
      */
     public static TemporalColumnType datetime(int precision) {
@@ -188,9 +200,10 @@ public class ColumnType {
     }
 
     /**
-     * Number of milliseconds/microseconds/nanoseconds since Jan 1, 1970 00:00:00.000 (with no timezone).
+     * Returns number of ticks since Jan 1, 1970 00:00:00.000 (with no timezone).
+     * Tick unit is second, millisecond, microsecond or nanosecond depending on precision.
      *
-     * @param precision Fractional seconds part length. Allowed values are 3/6/9 for millis/micros/nanos.
+     * @param precision Fractional seconds part length. Allowed values are 0-9 for second to nanosecond precision.
      * @return Native type.
      */
     public static TemporalColumnType timestamp(int precision) {
@@ -323,7 +336,7 @@ public class ColumnType {
      */
     public static class NumberColumnType extends ColumnType {
         /** Undefined precision. */
-        public static final int UNLIMITED_PRECISION = 0;
+        private static final int UNLIMITED_PRECISION = 0;
 
         /** Max precision of value. If -1, column has no precision restrictions. */
         private final int precision;
@@ -343,7 +356,7 @@ public class ColumnType {
         /**
          * Returns column precision.
          *
-         * @return Max value precision.
+         * @return Max number of digits.
          */
         public int precision() {
             return precision;
@@ -381,7 +394,7 @@ public class ColumnType {
          * Creates temporal type.
          *
          * @param typeSpec Type spec.
-         * @param precision Fractional seconds precision. Valid values are 0-9 digits,
+         * @param precision Fractional seconds meaningful digits. Allowed values are 0-9,
          * where {@code 0} means second precision, {@code 9} means 1-ns precision.
          */
         private TemporalColumnType(ColumnTypeSpec typeSpec, int precision) {
@@ -393,9 +406,9 @@ public class ColumnType {
         }
 
         /**
-         * Fractional seconds precision.
+         * Return column precision.
          *
-         * @return Subsecond part length.
+         * @return Number of fractional seconds meaningful digits.
          */
         public int precision() {
             return precision;
