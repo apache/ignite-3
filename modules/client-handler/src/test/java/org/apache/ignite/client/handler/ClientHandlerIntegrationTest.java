@@ -21,19 +21,19 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.util.Collections;
-import io.netty.channel.ChannelFuture;
-import org.apache.ignite.app.Ignite;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
-import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.table.manager.IgniteTables;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.msgpack.core.MessagePack;
-import org.slf4j.helpers.NOPLogger;
 
+import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -46,24 +46,22 @@ public class ClientHandlerIntegrationTest {
     /** Magic bytes. */
     private static final byte[] MAGIC = new byte[]{0x49, 0x47, 0x4E, 0x49};
 
-    private ChannelFuture serverFuture;
+    private ClientHandlerModule serverModule;
 
-    private ConfigurationRegistry configurationRegistry;
+    private ConfigurationManager configurationManager;
 
     private int serverPort;
 
     @BeforeEach
-    public void setUp() throws Exception {
-        serverFuture = startServer();
-        serverPort = ((InetSocketAddress)serverFuture.channel().localAddress()).getPort();
+    public void setUp() {
+        serverModule = startServer();
+        serverPort = ((InetSocketAddress) Objects.requireNonNull(serverModule.localAddress())).getPort();
     }
 
     @AfterEach
     public void tearDown() throws Exception {
-        serverFuture.cancel(true);
-        serverFuture.await();
-        serverFuture.channel().closeFuture().await();
-        configurationRegistry.stop();
+        serverModule.stop();
+        configurationManager.stop();
     }
 
     @Test
@@ -177,20 +175,25 @@ public class ClientHandlerIntegrationTest {
         }
     }
 
-    private ChannelFuture startServer() throws InterruptedException {
-        configurationRegistry = new ConfigurationRegistry(
-                Collections.singletonList(ClientConnectorConfiguration.KEY),
-                Collections.emptyMap(),
-                Collections.singletonList(new TestConfigurationStorage(ConfigurationType.LOCAL))
-        );
+    private ClientHandlerModule startServer() {
+        configurationManager = new ConfigurationManager(
+                List.of(ClientConnectorConfiguration.KEY),
+                Map.of(),
+                new TestConfigurationStorage(LOCAL));
 
-        configurationRegistry.start();
+        configurationManager.start();
 
-        var module = new ClientHandlerModule(mock(Ignite.class), NOPLogger.NOP_LOGGER);
+        var registry = configurationManager.configurationRegistry();
 
-        module.prepareStart(configurationRegistry);
+        registry.getConfiguration(ClientConnectorConfiguration.KEY).change(
+                local -> local.changePort(10800).changePortRange(10)
+        ).join();
 
-        return module.start();
+        var module = new ClientHandlerModule(mock(IgniteTables.class), registry);
+
+        module.start();
+
+        return module;
     }
 
     private void writeAndFlushLoop(Socket socket) throws Exception {

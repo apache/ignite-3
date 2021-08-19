@@ -132,7 +132,6 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
         return Mono.defer(() -> {
             LOG.info("Stopping {}", address);
 
-            // Complete incoming messages observable
             sink.complete();
 
             LOG.info("Stopped {}", address);
@@ -154,7 +153,10 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
 
     /** {@inheritDoc} */
     @Override public Mono<Void> stop() {
-        return doStop();
+        return Mono.defer(() -> {
+            stop.onComplete();
+            return onStop;
+        });
     }
 
     /** {@inheritDoc} */

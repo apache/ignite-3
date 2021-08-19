@@ -67,7 +67,7 @@
         <mockito.framework.version>3.4.6</mockito.framework.version>
         <mockito.junit.jupiter.version>3.3.3</mockito.junit.jupiter.version>
         <picocli.version>4.5.2</picocli.version>
-        <slf4j.version>1.7.30</slf4j.version>
+        <slf4j.version>1.7.32</slf4j.version>
         <spoon.framework.version>8.4.0-beta-18</spoon.framework.version>
         <typesafe.version>1.4.1</typesafe.version>
         <hamcrest.version>2.2</hamcrest.version>
@@ -292,6 +292,12 @@
                 <version>${project.version}</version>
             </dependency>
 
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-client</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
             <!-- 3rd party dependencies -->
             <dependency>
                 <groupId>org.jetbrains</groupId>
@@ -429,12 +435,6 @@
                 <groupId>com.google.code.gson</groupId>
                 <artifactId>gson</artifactId>
                 <version>${gson.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.slf4j</groupId>
-                <artifactId>slf4j-simple</artifactId>
-                <version>${slf4j.version}</version>
             </dependency>
 
             <dependency>
@@ -628,6 +628,12 @@
                 <artifactId>jctools-core</artifactId>
                 <version>${jctools.version}</version>
             </dependency>
+
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-jdk14</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -772,6 +778,53 @@
                             <configLocation>${project.basedir}/check-rules/checkstyle-public-api-javadoc.xml</configLocation>
                             <suppressionsLocation>${project.basedir}/check-rules/checkstyle-disabled-modules.xml</suppressionsLocation>
                         </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!--
+            Profile to add generated sources to the list of paths for the PMD plugin.
+        -->
+        <profile>
+            <activation>
+                <property>
+                    <name>pmd.check-generated-sources</name>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>add-generated-source-for-pmd</id>
+                                <phase>validate</phase>
+                                <goals>
+                                    <goal>add-source</goal>
+                                </goals>
+                                <configuration>
+                                    <sources>
+                                        <source>target/generated-sources/annotations</source>
+                                        <source>target/generated-sources/javacc</source>
+                                        <source>target/generated-sources/fmpp</source>
+                                    </sources>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>add-generated-test-source-for-pmd</id>
+                                <phase>validate</phase>
+                                <goals>
+                                    <goal>add-test-source</goal>
+                                </goals>
+                                <configuration>
+                                    <sources>
+                                        <source>target/generated-test-sources/test-annotations</source>
+                                    </sources>
+                                </configuration>
+                            </execution>
+                        </executions>
                     </plugin>
                 </plugins>
             </build>
@@ -949,6 +1002,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
+                    <argLine>-Djava.util.logging.config.file=../../config/java.util.logging.properties</argLine>
                     <excludes>
                         <exclude>**/IT*.java</exclude>
                     </excludes>
@@ -962,6 +1016,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <configuration>
+                    <argLine>-Djava.util.logging.config.file=../../config/java.util.logging.properties</argLine>
                     <useModulePath>false</useModulePath>
                 </configuration>
                 <executions>
@@ -1104,6 +1159,11 @@
                     <rulesets>
                         <ruleset>${project.basedir}/check-rules/pmd-rules.xml</ruleset>
                     </rulesets>
+                    <printFailingErrors>true</printFailingErrors>
+                    <excludes>
+                        <exclude>**/org/apache/ignite/internal/generated/query/calcite/sql/IgniteSqlParserImplTokenManager.java</exclude>
+                        <exclude>**/org/apache/ignite/internal/generated/query/calcite/sql/IgniteSqlParserImpl.java</exclude>
+                    </excludes>
                 </configuration>
             </plugin>
 

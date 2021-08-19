@@ -24,31 +24,33 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.Ignition;
+import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkView;
+import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.affinity.AffinityManager;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.processors.query.calcite.SqlQueryProcessor;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.configuration.SchemaTableValidatorImpl;
 import org.apache.ignite.internal.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -65,6 +67,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
+import org.apache.ignite.rest.RestModule;
 import org.apache.ignite.utils.IgniteProperties;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -113,9 +116,9 @@ public class IgnitionImpl implements Ignition {
      * Mapping of a node name to a started node components list.
      * Given map helps to stop node by stopping all it's components in an appropriate order both
      * when node is already started which means that all components are ready and
-     * if node is in a middle of a startup process which means that only part of it's components are prepared.
+     * if node is in a middle of a startup process which means that only part of its components are prepared.
      */
-    private static Map<String, List<IgniteComponent>> nodesStartedComponents = new ConcurrentHashMap<>();
+    private static final Map<String, List<IgniteComponent>> nodesStartedComponents = new ConcurrentHashMap<>();
 
     /** {@inheritDoc} */
     @Override public Ignite start(@NotNull String nodeName, @Nullable Path cfgPath, @NotNull Path workDir) {
@@ -206,39 +209,37 @@ public class IgnitionImpl implements Ignition {
 
             vaultMgr.putName(nodeName).join();
 
-            boolean cfgBootstrappedFromPds = vaultMgr.bootstrapped();
-
-            List<RootKey<?, ?>> rootKeys = Arrays.asList(
+            List<RootKey<?, ?>> nodeRootKeys = List.of(
                 NetworkConfiguration.KEY,
                 NodeConfiguration.KEY,
-                ClusterConfiguration.KEY,
-                TablesConfiguration.KEY
+                RestConfiguration.KEY,
+                ClientConnectorConfiguration.KEY
             );
 
-            List<ConfigurationStorage> cfgStorages =
-                new ArrayList<>(Collections.singletonList(new LocalConfigurationStorage(vaultMgr)));
-
-            // Bootstrap local configuration manager.
-            ConfigurationManager locConfigurationMgr = doStartComponent(
+            // Bootstrap node configuration manager.
+            ConfigurationManager nodeCfgMgr = doStartComponent(
                 nodeName,
                 startedComponents,
-                new ConfigurationManager(rootKeys, cfgStorages)
+                new ConfigurationManager(
+                    nodeRootKeys,
+                    Map.of(),
+                    new LocalConfigurationStorage(vaultMgr)
+                )
             );
 
-            if (!cfgBootstrappedFromPds && cfgContent != null)
+            if (cfgContent != null) {
                 try {
-                    locConfigurationMgr.bootstrap(cfgContent, ConfigurationType.LOCAL);
+                    nodeCfgMgr.bootstrap(cfgContent);
                 }
                 catch (Exception e) {
                     LOG.warn("Unable to parse user-specific configuration, default configuration will be used: {}", e.getMessage());
                 }
-            else if (cfgContent != null)
-                LOG.warn("User specific configuration will be ignored, cause vault was bootstrapped with pds configuration");
+            }
             else
-                locConfigurationMgr.configurationRegistry().startStorageConfigurations(ConfigurationType.LOCAL);
+                nodeCfgMgr.configurationRegistry().initializeDefaults();
 
             NetworkView netConfigurationView =
-                locConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).value();
+                nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).value();
 
             var serializationRegistry = new MessageSerializationRegistryImpl();
 
@@ -271,20 +272,28 @@ public class IgnitionImpl implements Ignition {
                 startedComponents,
                 new MetaStorageManager(
                     vaultMgr,
-                    locConfigurationMgr,
+                    nodeCfgMgr,
                     clusterNetSvc,
                     raftMgr
                 )
             );
 
             // TODO IGNITE-14578 Bootstrap configuration manager with distributed configuration.
-            cfgStorages.add(new DistributedConfigurationStorage(metaStorageMgr, vaultMgr));
 
-            // Start configuration manager.
-            ConfigurationManager configurationMgr = doStartComponent(
+            List<RootKey<?, ?>> clusterRootKeys = List.of(
+                ClusterConfiguration.KEY,
+                TablesConfiguration.KEY
+            );
+
+            // Start cluster configuration manager.
+            ConfigurationManager clusterCfgMgr = doStartComponent(
                 nodeName,
                 startedComponents,
-                new ConfigurationManager(rootKeys, cfgStorages)
+                new ConfigurationManager(
+                    clusterRootKeys,
+                    Map.of(TableValidator.class, Set.of(SchemaTableValidatorImpl.INSTANCE)),
+                    new DistributedConfigurationStorage(metaStorageMgr, vaultMgr)
+                )
             );
 
             // Baseline manager startup.
@@ -292,7 +301,7 @@ public class IgnitionImpl implements Ignition {
                 nodeName,
                 startedComponents,
                 new BaselineManager(
-                    configurationMgr,
+                    clusterCfgMgr,
                     metaStorageMgr,
                     clusterNetSvc
                 )
@@ -303,7 +312,7 @@ public class IgnitionImpl implements Ignition {
                 nodeName,
                 startedComponents,
                 new AffinityManager(
-                    configurationMgr,
+                    clusterCfgMgr,
                     metaStorageMgr,
                     baselineMgr
                 )
@@ -314,7 +323,7 @@ public class IgnitionImpl implements Ignition {
                 nodeName,
                 startedComponents,
                 new SchemaManager(
-                    configurationMgr,
+                    clusterCfgMgr,
                     metaStorageMgr,
                     vaultMgr
                 )
@@ -325,7 +334,8 @@ public class IgnitionImpl implements Ignition {
                 nodeName,
                 startedComponents,
                 new TableManager(
-                    configurationMgr,
+                    nodeCfgMgr,
+                    clusterCfgMgr,
                     metaStorageMgr,
                     schemaMgr,
                     affinityMgr,
@@ -343,7 +353,16 @@ public class IgnitionImpl implements Ignition {
                 )
             );
 
-            // TODO IGNITE-14579 Start rest manager.
+            doStartComponent(
+                nodeName,
+                startedComponents,
+                new RestModule(nodeCfgMgr, clusterCfgMgr)
+            );
+
+            doStartComponent(
+                nodeName,
+                startedComponents,
+                new ClientHandlerModule(distributedTblMgr, nodeCfgMgr.configurationRegistry()));
 
             // Deploy all resisted watches cause all components are ready and have registered their listeners.
             metaStorageMgr.deployWatches();
@@ -368,7 +387,13 @@ public class IgnitionImpl implements Ignition {
 
             ackSuccessStart();
 
-            return new IgniteImpl(nodeName, distributedTblMgr, qryProc);
+            return new IgniteImpl(
+                nodeName,
+                distributedTblMgr,
+                qryProc,
+                nodeCfgMgr,
+                clusterCfgMgr
+            );
         }
         catch (Exception e) {
             String errMsg = "Unable to start node=[" + nodeName + "].";
