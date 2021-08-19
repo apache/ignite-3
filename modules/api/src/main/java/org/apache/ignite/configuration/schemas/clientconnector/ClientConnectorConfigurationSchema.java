@@ -25,6 +25,7 @@ import org.apache.ignite.configuration.validation.Min;
 
 /**
  * Configuration schema for thin client connector.
+ * TODO: IGNITE-15164
  */
 @SuppressWarnings("PMD.UnusedPrivateField")
 @ConfigurationRoot(rootName = "clientConnector", type = ConfigurationType.LOCAL)
