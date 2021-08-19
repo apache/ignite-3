@@ -105,7 +105,7 @@ public class ClientTableTest extends AbstractClientTest {
     }
 
     @Test
-    @Disabled("IGNITE-15253")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15194")
     public void testGetReturningTupleWithUnknownSchemaRequestsNewSchema() throws Exception {
         FakeSchemaRegistry.setLastVer(2);
 
