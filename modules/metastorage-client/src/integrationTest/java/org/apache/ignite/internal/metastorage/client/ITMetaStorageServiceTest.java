@@ -190,7 +190,10 @@ public class ITMetaStorageServiceTest {
                 NETWORK_FACTORY
                 )
             )
-            .forEach(cluster::add);
+            .forEach(clusterService -> {
+                clusterService.start();
+                cluster.add(clusterService);
+            });
 
         for (ClusterService node : cluster)
             assertTrue(waitForTopology(node, NODES, 1000));

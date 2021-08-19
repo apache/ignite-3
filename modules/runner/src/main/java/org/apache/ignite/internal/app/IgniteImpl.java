@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerModule;
+import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
@@ -125,7 +126,7 @@ public class IgniteImpl implements Ignite {
     private final ClientHandlerModule clientHandlerModule;
 
     /** Node status. Adds ability to stop currently starting node. */
-    private AtomicReference<Status> status = new AtomicReference<>(Status.STARTING);
+    private final AtomicReference<Status> status = new AtomicReference<>(Status.STARTING);
 
     /**
      * The Constructor.
@@ -145,7 +146,8 @@ public class IgniteImpl implements Ignite {
             Arrays.asList(
                 NetworkConfiguration.KEY,
                 NodeConfiguration.KEY,
-                RestConfiguration.KEY
+                RestConfiguration.KEY,
+                ClientConnectorConfiguration.KEY
             ),
             Map.of(),
             new LocalConfigurationStorage(vaultMgr)
@@ -220,22 +222,20 @@ public class IgniteImpl implements Ignite {
     /**
      * Starts ignite node.
      *
-     * @param cfg  Optional node configuration based on
-     *             {@link org.apache.ignite.configuration.schemas.runner.NodeConfigurationSchema} and
-     *             {@link org.apache.ignite.configuration.schemas.network.NetworkConfigurationSchema}.
-     *             Following rules are used for applying the configuration properties:
-     *             <ol>
-     *               <li>Specified property overrides existing one or just applies itself if it wasn't
-     *                   previously specified.</li>
-     *               <li>All non-specified properties either use previous value or use default one from
-     *                   corresponding configuration schema.</li>
-     *             </ol>
-     *             So that, in case of initial node start (first start ever) specified configuration, supplemented
-     *             with defaults, is used. If no configuration was provided defaults are used for all
-     *             configuration properties. In case of node restart, specified properties override existing
-     *             ones, non specified properties that also weren't specified previously use default values.
-     *             Please pay attention that previously specified properties are searched in the
-     *             {@code workDir} specified by the user.
+     * @param cfg Optional node configuration based on {@link org.apache.ignite.configuration.schemas.runner.NodeConfigurationSchema}
+     * and {@link org.apache.ignite.configuration.schemas.network.NetworkConfigurationSchema}. Following rules are used
+     * for applying the configuration properties:
+     * <ol>
+     * <li>Specified property overrides existing one or just applies itself if it wasn't
+     * previously specified.</li>
+     * <li>All non-specified properties either use previous value or use default one from
+     * corresponding configuration schema.</li>
+     * </ol>
+     * So that, in case of initial node start (first start ever) specified configuration, supplemented with defaults, is
+     * used. If no configuration was provided defaults are used for all configuration properties. In case of node
+     * restart, specified properties override existing ones, non specified properties that also weren't specified
+     * previously use default values. Please pay attention that previously specified properties are searched in the
+     * {@code workDir} specified by the user.
      */
     public void start(@Nullable String cfg) {
         List<IgniteComponent> startedComponents = new ArrayList<>();
@@ -284,7 +284,7 @@ public class IgniteImpl implements Ignite {
                 clientHandlerModule
             );
 
-            for (IgniteComponent component: otherComponents)
+            for (IgniteComponent component : otherComponents)
                 doStartComponent(name, startedComponents, component);
 
             // Deploy all resisted watches cause all components are ready and have registered their listeners.
@@ -361,10 +361,18 @@ public class IgniteImpl implements Ignite {
         return clusterCfgMgr.configurationRegistry();
     }
 
+
     /**
-     * Checks node status. If it's STOPPING then prevents further starting and throws NodeStoppingException
-     * that will lead to stopping already started components later on,
-     * otherwise starts component and add it to started components list.
+     * @return Client handler module.
+     */
+    public ClientHandlerModule clientHandlerModule() {
+        return clientHandlerModule;
+    }
+
+    /**
+     * Checks node status. If it's STOPPING then prevents further starting and throws NodeStoppingException that will
+     * lead to stopping already started components later on, otherwise starts component and add it to started components
+     * list.
      *
      * @param nodeName Node name.
      * @param startedComponents List of already started components for given node.
@@ -387,8 +395,8 @@ public class IgniteImpl implements Ignite {
     }
 
     /**
-     * Calls {@link IgniteComponent#beforeNodeStop()} and then {@link IgniteComponent#stop()} for all components
-     * in start-reverse-order. Cleanups node started components map and node status map.
+     * Calls {@link IgniteComponent#beforeNodeStop()} and then {@link IgniteComponent#stop()} for all components in
+     * start-reverse-order. Cleanups node started components map and node status map.
      *
      * @param startedComponents List of already started components for given node.
      */
@@ -440,8 +448,7 @@ public class IgniteImpl implements Ignite {
     }
 
     /**
-     * Returns a path to the partitions store directory.
-     * Creates a directory if it doesn't exist.
+     * Returns a path to the partitions store directory. Creates a directory if it doesn't exist.
      *
      * @param workDir Ignite work directory.
      * @return Partitions store path.
@@ -452,7 +459,8 @@ public class IgniteImpl implements Ignite {
 
         try {
             Files.createDirectories(partitionsStore);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new IgniteInternalException("Failed to create directory for partitions storage: " + e.getMessage(), e);
         }
 
