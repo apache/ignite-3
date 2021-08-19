@@ -31,6 +31,7 @@ import org.apache.ignite.internal.processors.query.calcite.schema.SchemaHolderIm
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -62,10 +63,12 @@ public class SqlQueryProcessor implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override public void start() {
+        String nodeName = clusterSrvc.localConfiguration().getName();
+
         taskExecutor = new QueryTaskExecutorImpl(
             new StripedThreadPoolExecutor(
                 4,
-                "calciteQry",
+                NamedThreadFactory.threadPrefix(nodeName, "calciteQry"),
                 null,
                 true,
                 DFLT_THREAD_KEEP_ALIVE_TIME
