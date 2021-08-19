@@ -31,11 +31,29 @@ import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
+/**
+ * Test utils that provide sort of cluster service mock that manages required node configuration internally.
+ */
 public class ClusterServiceTestUtils {
     /**
-     * Creates a cluster service.
+     * Creates a cluster service and required node configuration manager beneath it.
+     * Populates node configuration with specified port.
+     * Manages configuration manager lifecycle: on cluster service start starts node configuration manager,
+     * on cluster service stop - stops node configuration manager.
+     *
+     * @param nodeName Local name.
+     * @param port Local port.
+     * @param nodeFinder Node finder for discovering the initial cluster members.
+     * @param msgSerializationRegistry Message serialization registry.
+     * @param clusterSvcFactory Cluster service factory.
      */
-    public static ClusterService clusterService(String nodeName, int port, NodeFinder nodeFinder, MessageSerializationRegistry msgSerializationRegistry, ClusterServiceFactory clusterServiceFactory) {
+    public static ClusterService clusterService(
+        String nodeName,
+        int port,
+        NodeFinder nodeFinder,
+        MessageSerializationRegistry msgSerializationRegistry,
+        ClusterServiceFactory clusterSvcFactory
+    ) {
         var ctx = new ClusterLocalConfiguration(nodeName, msgSerializationRegistry);
 
         ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
@@ -44,13 +62,13 @@ public class ClusterServiceTestUtils {
             new TestConfigurationStorage(ConfigurationType.LOCAL)
         );
 
-        var clusterSvc = clusterServiceFactory.createClusterService(
+        var clusterSvc = clusterSvcFactory.createClusterService(
             ctx,
             nodeConfigurationMgr,
             () -> nodeFinder
         );
 
-        var clusterSvcWrapper = new ClusterService() {
+        return new ClusterService() {
             @Override public TopologyService topologyService() {
                 return clusterSvc.topologyService();
             }
@@ -81,7 +99,5 @@ public class ClusterServiceTestUtils {
                 nodeConfigurationMgr.stop();
             }
         };
-
-        return clusterSvcWrapper;
     }
 }

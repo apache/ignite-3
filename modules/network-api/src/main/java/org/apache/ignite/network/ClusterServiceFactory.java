@@ -16,8 +16,8 @@
  */
 package org.apache.ignite.network;
 
-import org.apache.ignite.internal.configuration.ConfigurationManager;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
 
 /**
  * Cluster service factory.

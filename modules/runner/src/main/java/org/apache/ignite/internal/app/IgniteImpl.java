@@ -361,7 +361,6 @@ public class IgniteImpl implements Ignite {
         return clusterCfgMgr.configurationRegistry();
     }
 
-
     /**
      * @return Client handler module.
      */
