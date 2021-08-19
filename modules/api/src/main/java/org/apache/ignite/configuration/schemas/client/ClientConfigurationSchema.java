@@ -15,30 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.clientconnector;
+package org.apache.ignite.configuration.schemas.client;
 
+import java.util.function.Supplier;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Max;
 import org.apache.ignite.configuration.validation.Min;
 
 /**
- * Configuration schema for thin client connector.
+ * Configuration schema for thin client.
  */
-@SuppressWarnings("PMD.UnusedPrivateField")
-@ConfigurationRoot(rootName = "clientConnector", type = ConfigurationType.LOCAL)
-public class ClientConnectorConfigurationSchema {
-    /** TCP port. */
-    @Min(1024)
-    @Max(0xFFFF)
+@ConfigurationRoot(rootName = "client", type = ConfigurationType.LOCAL)
+public class ClientConfigurationSchema {
+    /** Server addresses. */
     @Value(hasDefault = true)
-    public final int port = 10800;
+    public final String[] addresses = new String[0];
 
-    /** TCP port range. */
+    /** Server addresses finder. */
+    @Value(hasDefault = true)
+    public final Supplier<String[]> addressesFinder = null;
+
+    /** Operation retry limit. */
     @Min(0)
     @Value(hasDefault = true)
-    public final int portRange = 100;
+    public final int retryLimit = 0;
 
     /** Connect timeout. */
     @Min(0)
