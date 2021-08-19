@@ -40,4 +40,9 @@ public class ClientConnectorConfigurationSchema {
     @Min(0)
     @Value(hasDefault = true)
     public final int portRange = 100;
+
+    // * TODO: IGNITE-15164
+    // Timeout
+    // Buffer sizes?
+    // NoDelay, KeepAlive? Not sure
 }
