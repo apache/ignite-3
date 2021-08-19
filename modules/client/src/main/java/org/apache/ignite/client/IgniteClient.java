@@ -23,13 +23,9 @@ import java.util.concurrent.CompletableFuture;
 
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.configuration.schemas.client.ClientConfiguration;
-import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.client.ClientConfigurationStorage;
 import org.apache.ignite.internal.client.TcpIgniteClient;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-
-import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 
 /**
  * Ignite client entry point.
@@ -41,12 +37,23 @@ public class IgniteClient {
      * @return New client builder.
      */
     public static Builder builder() {
+        return new Builder();
+    }
+
+    public static ClientConfiguration configurationBuilder() {
+        // TODO: How to make a nice API out of generated configuration?
+        // cfg.getConfiguration(ClientConfiguration.KEY).addresses().
         var cfg = new ConfigurationRegistry(
                 List.of(ClientConfiguration.KEY),
                 Map.of(),
                 new ClientConfigurationStorage());
 
-        return new Builder(cfg);
+        return cfg.getConfiguration(ClientConfiguration.KEY);
+    }
+
+    public static Ignite start(ClientConfiguration configuration) {
+        // TODO
+        return null;
     }
 
     /** Client builder. */
@@ -54,9 +61,7 @@ public class IgniteClient {
         /** Addresses. */
         private String[] addresses;
 
-        public Builder(ConfigurationRegistry cfg) {
-            // TODO: How to make a nice API out of generated configuration?
-            // cfg.getConfiguration(ClientConfiguration.KEY).addresses().
+        public Builder() {
         }
 
         /**
