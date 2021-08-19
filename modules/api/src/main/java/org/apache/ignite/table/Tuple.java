@@ -245,7 +245,7 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets {@code LocalDate} column value.
      *
-     * @param columnIndex Column index.
+     * @param columnName Column name.
      * @return Column value.
      */
     LocalDate dateValue(String columnName);
@@ -261,7 +261,7 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets {@code LocalTime} column value.
      *
-     * @param columnIndex Column index.
+     * @param columnName Column name.
      * @return Column value.
      */
     LocalTime timeValue(String columnName);
@@ -277,7 +277,7 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets {@code LocalDateTime} column value.
      *
-     * @param columnIndex Column index.
+     * @param columnName Column name.
      * @return Column value.
      */
     LocalDateTime datetimeValue(String columnName);
@@ -293,7 +293,7 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets {@code Instant} column value.
      *
-     * @param columnIndex Column index.
+     * @param columnName Column name.
      * @return Column value.
      */
     Instant timestampValue(String columnName);
