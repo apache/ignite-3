@@ -72,7 +72,7 @@ public class NamedThreadFactory implements ThreadFactory {
         super();
         this.prefix = prefix;
         this.daemon = daemon;
-        this.eHnd = eHnd;
+        this.eHnd = eHnd != null ? eHnd : DFLT_LOG_UNCAUGHT_EX_HANDLER;
     }
 
     /** {@inheritDoc} */
