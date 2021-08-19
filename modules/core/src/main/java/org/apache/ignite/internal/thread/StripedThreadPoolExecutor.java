@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.query.calcite.util;
+package org.apache.ignite.internal.thread;
 
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.ArrayList;
@@ -61,16 +61,7 @@ public class StripedThreadPoolExecutor implements ExecutorService {
         long keepAliveTime) {
         execs = new ExecutorService[concurrentLvl];
 
-        ThreadFactory factory = new ThreadFactory() {
-            private final AtomicInteger counter = new AtomicInteger(0);
-
-            @Override public Thread newThread(@NotNull Runnable r) {
-                Thread t = new Thread(r);
-                t.setUncaughtExceptionHandler(eHnd);
-                t.setName(threadNamePrefix + counter.getAndIncrement());
-                return t;
-            }
-        };
+        ThreadFactory factory = new NamedThreadFactory(threadNamePrefix, true, eHnd);
 
         for (int i = 0; i < concurrentLvl; i++) {
             ThreadPoolExecutor executor = new ThreadPoolExecutor(

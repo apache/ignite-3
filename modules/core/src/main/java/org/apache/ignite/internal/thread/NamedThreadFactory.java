@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.raft.jraft.util;
+package org.apache.ignite.internal.thread;
 
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -33,21 +33,29 @@ public class NamedThreadFactory implements ThreadFactory {
     private final AtomicInteger counter = new AtomicInteger(0);
     private final boolean daemon;
 
+    /** Exception handler. */
+    private final Thread.UncaughtExceptionHandler eHnd;
+
     public NamedThreadFactory(String prefix) {
         this(prefix, false);
     }
 
     public NamedThreadFactory(String prefix, boolean daemon) {
+        this(prefix, daemon, UNCAUGHT_EX_HANDLER);
+    }
+
+    public NamedThreadFactory(String prefix, boolean daemon, Thread.UncaughtExceptionHandler eHnd) {
         super();
         this.prefix = prefix;
         this.daemon = daemon;
+        this.eHnd = eHnd;
     }
 
     @Override
     public Thread newThread(Runnable r) {
         Thread t = new Thread(r);
         t.setDaemon(this.daemon);
-        t.setUncaughtExceptionHandler(UNCAUGHT_EX_HANDLER);
+        t.setUncaughtExceptionHandler(eHnd);
         t.setName(this.prefix + counter.getAndIncrement());
         return t;
     }
