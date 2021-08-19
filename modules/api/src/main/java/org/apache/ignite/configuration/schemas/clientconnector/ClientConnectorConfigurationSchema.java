@@ -44,4 +44,7 @@ public class ClientConnectorConfigurationSchema {
     @Min(0)
     @Value(hasDefault = true)
     public final int connectTimeout = 5000;
+
+    // TODO: 15164 asyncContinuationExecutor
+    // See how other async APIs handle this - should we accept executor in every method?
 }
