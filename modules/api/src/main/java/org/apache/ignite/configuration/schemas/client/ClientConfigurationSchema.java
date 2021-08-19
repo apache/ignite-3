@@ -17,7 +17,6 @@
 
 package org.apache.ignite.configuration.schemas.client;
 
-import java.util.function.Supplier;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
@@ -31,10 +30,6 @@ public class ClientConfigurationSchema {
     /** Server addresses. */
     @Value(hasDefault = true)
     public final String[] addresses = new String[0];
-
-    /** Server addresses finder. */
-    @Value(hasDefault = true)
-    public final Supplier<String[]> addressesFinder = null;
 
     /** Operation retry limit. */
     @Min(0)
