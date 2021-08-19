@@ -25,7 +25,6 @@ import org.apache.ignite.configuration.validation.Min;
 
 /**
  * Configuration schema for thin client connector.
- * TODO: IGNITE-15164
  */
 @SuppressWarnings("PMD.UnusedPrivateField")
 @ConfigurationRoot(rootName = "clientConnector", type = ConfigurationType.LOCAL)
@@ -41,8 +40,8 @@ public class ClientConnectorConfigurationSchema {
     @Value(hasDefault = true)
     public final int portRange = 100;
 
-    // * TODO: IGNITE-15164
-    // Timeout
-    // Buffer sizes?
-    // NoDelay, KeepAlive? Not sure
+    /** Connect timeout. */
+    @Min(0)
+    @Value(hasDefault = true)
+    public final int connectTimeout = 5000;
 }
