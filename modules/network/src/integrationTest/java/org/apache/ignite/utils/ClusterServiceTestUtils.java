@@ -82,8 +82,6 @@ public class ClusterServiceTestUtils {
             }
         };
 
-        clusterSvcWrapper.start();
-
         return clusterSvcWrapper;
     }
 }
