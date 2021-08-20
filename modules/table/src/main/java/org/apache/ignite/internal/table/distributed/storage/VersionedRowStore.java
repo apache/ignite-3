@@ -18,7 +18,6 @@ import org.apache.ignite.internal.storage.basic.InsertInvokeClosure;
 import org.apache.ignite.internal.storage.basic.ReplaceExactInvokeClosure;
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -71,12 +70,8 @@ public class VersionedRowStore {
             return new Pair<>(val.newRow, null);
         else if (state == TxState.ABORTED)
             return new Pair<>(val.oldRow, null);
-        else {
-            if (tx.timestamp().equals(val.timestamp))
-                return new Pair<>(val.newRow, val.oldRow);
-            else
-                return new Pair<>(val.oldRow, null);
-        }
+        else
+            return tx.timestamp().equals(val.timestamp) ? new Pair<>(val.newRow, val.oldRow) : new Pair<>(val.oldRow, null);
     }
 
     /** {@inheritDoc} */
