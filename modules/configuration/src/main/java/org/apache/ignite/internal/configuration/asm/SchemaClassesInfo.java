@@ -24,6 +24,9 @@ import org.apache.ignite.internal.configuration.tree.InnerNode;
  * Class to cache compiled classes and hold precalculated names to reference other existing classes.
  */
 class SchemaClassesInfo {
+    /** Configuration class name postfix. */
+    public static final String CONFIGURATION_CLASS_POSTFIX = "Configuration";
+
     /** Configuration Schema class. */
     public final Class<?> schemaClass;
 
@@ -49,19 +52,34 @@ class SchemaClassesInfo {
     public Class<? extends DynamicConfiguration<?, ?>> cfgImplClass;
 
     /**
+     * Constructor.
+     *
      * @param schemaClass Configuration Schema class instance.
      */
     SchemaClassesInfo(Class<?> schemaClass) {
         this.schemaClass = schemaClass;
-        String schemaClassName = schemaClass.getPackageName() + "." + schemaClass.getSimpleName(); // Support inner classes.
 
-        String prefix = schemaClassName.replaceAll("ConfigurationSchema$", "");
+        String prefix = prefix(schemaClass);
 
         viewClassName = prefix + "View";
         changeClassName = prefix + "Change";
-        cfgClassName = prefix + "Configuration";
+        cfgClassName = prefix + CONFIGURATION_CLASS_POSTFIX;
 
         nodeClassName = prefix + "Node";
         cfgImplClassName = prefix + "ConfigurationImpl";
+    }
+
+    /**
+     * Get the prefix for inner classes.
+     * <p/>
+     * Example: org.apache.ignite.NodeConfigurationSchema -> org.apache.ignite.Node
+     *
+     * @param schemaCls Configuration schema class.
+     * @return Prefix for inner classes.
+     */
+    static String prefix(Class<?> schemaCls) {
+        String schemaClassName = schemaCls.getPackageName() + "." + schemaCls.getSimpleName();
+
+        return schemaClassName.replaceAll("ConfigurationSchema$", "");
     }
 }

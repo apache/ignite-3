@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.tree;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.NamedListView;
@@ -52,7 +53,7 @@ public class TraversableTreeNodeTest {
     public static void beforeAll() {
         cgen = new ConfigurationAsmGenerator();
 
-        cgen.compileRootSchema(ParentConfigurationSchema.class);
+        cgen.compileRootSchema(ParentConfigurationSchema.class, Map.of());
     }
 
     @AfterAll

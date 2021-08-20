@@ -30,6 +30,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Max;
 import org.apache.ignite.configuration.validation.Min;
@@ -52,13 +55,14 @@ import org.apache.ignite.lang.IgniteLogger;
 import static org.apache.ignite.internal.configuration.util.ConfigurationNotificationsUtil.notifyListeners;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
 
 /** */
 public class ConfigurationRegistry implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(ConfigurationRegistry.class);
 
-    /** */
+    /** Generated configuration implementations. Mapping: {@link RootKey#key} -> configuration implementation. */
     private final Map<String, DynamicConfiguration<?, ?>> configs = new HashMap<>();
 
     /** Root keys. */
@@ -76,12 +80,16 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @param rootKeys Configuration root keys.
      * @param validators Validators.
      * @param storage Configuration storage.
-     * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type.
+     * @param internalSchemaExtensions Internal extensions ({@link InternalConfiguration})
+     *      of configuration schemas ({@link ConfigurationRoot} and {@link Config}).
+     * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type,
+     *      or if the schema or its extensions are not valid.
      */
     public ConfigurationRegistry(
         Collection<RootKey<?, ?>> rootKeys,
         Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators,
-        ConfigurationStorage storage
+        ConfigurationStorage storage,
+        Collection<Class<?>> internalSchemaExtensions
     ) {
         checkConfigurationType(rootKeys, storage);
 
@@ -99,25 +107,26 @@ public class ConfigurationRegistry implements IgniteComponent {
                 return cgen.instantiateNode(rootKey.schemaClass());
             }
         };
-    }
 
-    /** {@inheritDoc} */
-    @Override public void start() {
+        Map<Class<?>, Set<Class<?>>> extensions = internalSchemaExtensions(internalSchemaExtensions);
+
         rootKeys.forEach(rootKey -> {
-            cgen.compileRootSchema(rootKey.schemaClass());
+            cgen.compileRootSchema(rootKey.schemaClass(), extensions);
 
             DynamicConfiguration<?, ?> cfg = cgen.instantiateCfg(rootKey, changer);
 
             configs.put(rootKey.key(), cfg);
         });
+    }
 
+    /** {@inheritDoc} */
+    @Override public void start() {
         changer.start();
     }
 
     /** {@inheritDoc} */
     @Override public void stop() {
-        if (changer != null)
-            changer.stop();
+        changer.stop();
     }
 
     /**

@@ -89,7 +89,8 @@ public abstract class AbstractClientTest {
         configurationRegistry = new ConfigurationRegistry(
             List.of(ClientConnectorConfiguration.KEY),
             Map.of(),
-            new TestConfigurationStorage(LOCAL)
+            new TestConfigurationStorage(LOCAL),
+            List.of()
         );
 
         configurationRegistry.start();

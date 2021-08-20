@@ -55,8 +55,8 @@ import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.ConfigurationChanger;
@@ -93,6 +93,13 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newIns
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.singleton;
 import static java.util.EnumSet.of;
+import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.CONFIGURATION_CLASS_POSTFIX;
+import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.prefix;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isConfigValue;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isNamedConfigValue;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isValue;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.mergedSchemaFields;
+import static org.apache.ignite.internal.util.CollectionUtils.union;
 import static org.objectweb.asm.Opcodes.H_NEWINVOKESPECIAL;
 import static org.objectweb.asm.Type.getMethodDescriptor;
 import static org.objectweb.asm.Type.getMethodType;
@@ -241,10 +248,17 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Generates, defines, loads and initializes all dynamic classes required for the given Configuration Schema.
-     * @param rootSchemaClass Class of the root Configuration Schema.
+     * Generates, defines, loads and initializes all dynamic classes required for the given configuration schema.
+     *
+     * @param rootSchemaClass Class of the root configuration schema.
+     * @param internalSchemaExtensions Internal extensions ({@link InternalConfiguration})
+     *      of configuration schemas ({@link ConfigurationRoot} and {@link Config}).
+     *      Mapping: original schema -> extensions.
      */
-    public synchronized void compileRootSchema(Class<?> rootSchemaClass) {
+    public synchronized void compileRootSchema(
+        Class<?> rootSchemaClass,
+        Map<Class<?>, Set<Class<?>>> internalSchemaExtensions
+    ) {
         if (schemasInfo.containsKey(rootSchemaClass))
             return; // Already compiled.
 
@@ -263,9 +277,12 @@ public class ConfigurationAsmGenerator {
                 || schemaClass.isAnnotationPresent(Config.class)
                 : schemaClass + " is not properly annotated";
 
-            assert schemasInfo.containsKey(schemaClass);
+            assert schemasInfo.containsKey(schemaClass) : schemaClass;
 
-            for (Field field : schemaClass.getDeclaredFields()) {
+            Set<Class<?>> schemaExtensions = internalSchemaExtensions.getOrDefault(schemaClass, Set.of());
+            Set<Field> schemaFields = mergedSchemaFields(schemaClass, schemaExtensions);
+
+            for (Field field : schemaFields) {
                 if (isConfigValue(field) || isNamedConfigValue(field)) {
                     Class<?> subSchemaClass = field.getType();
 
@@ -277,8 +294,8 @@ public class ConfigurationAsmGenerator {
             }
 
             schemas.add(schemaClass);
-            definitions.add(createNodeClass(schemaClass));
-            definitions.add(createCfgImplClass(schemaClass));
+            definitions.add(createNodeClass(schemaClass, schemaFields, schemaExtensions));
+            definitions.add(createCfgImplClass(schemaClass, schemaFields, schemaExtensions));
         }
 
         Map<String, Class<?>> definedClasses = generator.defineClasses(definitions);
@@ -291,7 +308,19 @@ public class ConfigurationAsmGenerator {
         }
     }
 
-    private ClassDefinition createNodeClass(Class<?> schemaClass) {
+    /**
+     * Construct a {@link InnerNode} definition for a configuration schema.
+     *
+     * @param schemaClass Configuration schema class.
+     * @param schemaFields Fields of the schema and its extensions.
+     * @param schemaExtensions Internal extensions of the configuration schema.
+     * @return Constructed {@link InnerNode} definition for the configuration schema.
+     */
+    private ClassDefinition createNodeClass(
+        Class<?> schemaClass,
+        Set<Field> schemaFields,
+        Set<Class<?>> schemaExtensions
+    ) {
         SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaClass);
 
         // Node class definition.
@@ -303,14 +332,16 @@ public class ConfigurationAsmGenerator {
             typeFromJavaClassName(schemaClassInfo.changeClassName)
         );
 
-        // Spec field.
-        FieldDefinition specField = classDef.declareField(of(PRIVATE, FINAL), "_spec", schemaClass);
+        // Spec fields.
+        Map<Class<?>, FieldDefinition> specFields = new HashMap<>();
+
+        int i = 0;
+
+        for (Class<?> schemaCls : union(schemaExtensions, schemaClass))
+            specFields.put(schemaCls, classDef.declareField(of(PRIVATE, FINAL), "_spec" + i++, schemaCls));
 
         // org.apache.ignite.internal.configuration.tree.InnerNode#schemaType
-        addNodeSchemaTypeMethod(classDef, specField);
-
-        // Cached array of reflected fields. Helps to avoid unnecessary clonings.
-        Field[] schemaFields = schemaClass.getDeclaredFields();
+        addNodeSchemaTypeMethod(classDef, specFields.get(schemaClass));
 
         // Define the rest of the fields.
         Map<String, FieldDefinition> fieldDefs = new HashMap<>();
@@ -322,7 +353,7 @@ public class ConfigurationAsmGenerator {
         }
 
         // Constructor.
-        addNodeConstructor(classDef, schemaClass, specField, schemaFields, fieldDefs);
+        addNodeConstructor(classDef, specFields, schemaFields, fieldDefs);
 
         // VIEW and CHANGE methods.
         for (Field schemaField : schemaFields) {
@@ -343,36 +374,9 @@ public class ConfigurationAsmGenerator {
         addNodeConstructMethod(classDef, schemaFields, fieldDefs);
 
         // constructDefault
-        addNodeConstructDefaultMethod(classDef, specField, schemaFields, fieldDefs);
+        addNodeConstructDefaultMethod(classDef, specFields, schemaFields, fieldDefs);
 
         return classDef;
-    }
-
-    /**
-     * Checks whether configuration schema field represents primitive configuration value.
-     * @param schemaField Configuration Schema class field.
-     * @return {@code true} if field represents primitive configuration.
-     */
-    private static boolean isValue(Field schemaField) {
-        return schemaField.isAnnotationPresent(Value.class);
-    }
-
-    /**
-     * Checks whether configuration schema field represents regular configuration value.
-     * @param schemaField Configuration Schema class field.
-     * @return {@code true} if field represents regular configuration.
-     */
-    private static boolean isConfigValue(Field schemaField) {
-        return schemaField.isAnnotationPresent(ConfigValue.class);
-    }
-
-    /**
-     * Checks whether configuration schema field represents named list configuration value.
-     * @param schemaField Configuration Schema class field.
-     * @return {@code true} if field represents named list configuration.
-     */
-    private static boolean isNamedConfigValue(Field schemaField) {
-        return schemaField.isAnnotationPresent(NamedConfigValue.class);
     }
 
     /**
@@ -431,17 +435,17 @@ public class ConfigurationAsmGenerator {
     /**
      * Implements default constructor for the node class. It initializes {@code _spec} field and every other field
      * that represents named list configuration.
+     *
      * @param classDef Node class definition.
-     * @param schemaClass Configuration Schema class.
-     * @param specField Field definition for the {@code _spec} field of the node class.
-     * @param schemaFields Configuration Schema class fields.
+     * @param specFields Definition of fields for the {@code _spec#} fields of the node class.
+     *      Mapping: configuration schema class -> {@code _spec#} field.
+     * @param schemaFields Fields of the schema and its extensions.
      * @param fieldDefs Field definitions for all fields of node class excluding {@code _spec}.
      */
     private void addNodeConstructor(
         ClassDefinition classDef,
-        Class<?> schemaClass,
-        FieldDefinition specField,
-        Field[] schemaFields,
+        Map<Class<?>, FieldDefinition> specFields,
+        Set<Field> schemaFields,
         Map<String, FieldDefinition> fieldDefs
     ) {
         MethodDefinition ctor = classDef.declareConstructor(of(PUBLIC));
@@ -449,8 +453,9 @@ public class ConfigurationAsmGenerator {
         // super();
         ctor.getBody().append(ctor.getThis()).invokeConstructor(InnerNode.class);
 
-        // this._spec = new MyConfigurationSchema();
-        ctor.getBody().append(ctor.getThis().setField(specField, newInstance(schemaClass)));
+        // this._spec# = new MyConfigurationSchema();
+        for (Map.Entry<Class<?>, FieldDefinition> e : specFields.entrySet())
+            ctor.getBody().append(ctor.getThis().setField(e.getValue(), newInstance(e.getKey())));
 
         for (Field schemaField : schemaFields) {
             if (!isNamedConfigValue(schemaField))
@@ -480,7 +485,7 @@ public class ConfigurationAsmGenerator {
      * depending on type.
      * @param classDef Node class definition.
      * @param schemaField Configuration Schema class field.
-     * @param fieldDefs Field definition.
+     * @param fieldDef Field definition.
      */
     private void addNodeViewMethod(
         ClassDefinition classDef,
@@ -589,13 +594,14 @@ public class ConfigurationAsmGenerator {
 
     /**
      * Implements {@link InnerNode#traverseChildren(ConfigurationVisitor)} method.
+     *
      * @param classDef Class definition.
-     * @param schemaFields Array of all schema fields that represent configurations.
+     * @param schemaFields Fields of the schema and its extensions.
      * @param fieldDefs Definitions for all fields in {@code schemaFields}.
      */
     private void addNodeTraverseChildrenMethod(
         ClassDefinition classDef,
-        Field[] schemaFields,
+        Set<Field> schemaFields,
         Map<String, FieldDefinition> fieldDefs
     ) {
         MethodDefinition traverseChildrenMtd = classDef.declareMethod(
@@ -619,13 +625,14 @@ public class ConfigurationAsmGenerator {
 
     /**
      * Implements {@link InnerNode#traverseChild(String, ConfigurationVisitor)} method.
+     *
      * @param classDef Class definition.
-     * @param schemaFields Array of all schema fields that represent configurations.
+     * @param schemaFields Fields of the schema and its extensions.
      * @param fieldDefs Definitions for all fields in {@code schemaFields}.
      */
     private void addNodeTraverseChildMethod(
         ClassDefinition classDef,
-        Field[] schemaFields,
+        Set<Field> schemaFields,
         Map<String, FieldDefinition> fieldDefs
     ) {
         MethodDefinition traverseChildMtd = classDef.declareMethod(
@@ -688,13 +695,14 @@ public class ConfigurationAsmGenerator {
 
     /**
      * Implements {@link ConstructableTreeNode#construct(String, ConfigurationSource)} method.
+     *
      * @param classDef Class definition.
-     * @param schemaFields Array of all schema fields that represent configurations.
+     * @param schemaFields Fields of the schema and its extensions.
      * @param fieldDefs Definitions for all fields in {@code schemaFields}.
      */
     private void addNodeConstructMethod(
         ClassDefinition classDef,
-        Field[] schemaFields,
+        Set<Field> schemaFields,
         Map<String, FieldDefinition> fieldDefs
     ) {
         MethodDefinition constructMtd = classDef.declareMethod(
@@ -775,15 +783,17 @@ public class ConfigurationAsmGenerator {
 
     /**
      * Implements {@link InnerNode#constructDefault(String)} method.
+     *
      * @param classDef Node class definition.
-     * @param specField Field definition for the {@code _spec} field of the node class.
+     * @param specFields Definition of fields for the {@code _spec#} fields of the node class.
+     *      Mapping: configuration schema class -> {@code _spec#} field.
      * @param schemaFields Configuration Schema class fields.
      * @param fieldDefs Field definitions for all fields of node class excluding {@code _spec}.
      */
     private void addNodeConstructDefaultMethod(
         ClassDefinition classDef,
-        FieldDefinition specField,
-        Field[] schemaFields,
+        Map<Class<?>, FieldDefinition> specFields,
+        Set<Field> schemaFields,
         Map<String, FieldDefinition> fieldDefs
     ) {
         MethodDefinition constructDfltMtd = classDef.declareMethod(
@@ -812,7 +822,8 @@ public class ConfigurationAsmGenerator {
 
             Class<?> schemaFieldType = schemaField.getType();
 
-            // defaultValue = _spec.field;
+            // defaultValue = _spec#.field;
+            FieldDefinition specField = specFields.get(schemaField.getDeclaringClass());
             BytecodeExpression defaultValue = constructDfltMtd.getThis().getField(specField).getField(schemaField);
 
             // defaultValue = Box.valueOf(defaultValue); // Boxing.
@@ -883,19 +894,33 @@ public class ConfigurationAsmGenerator {
         );
     }
 
-    private ClassDefinition createCfgImplClass(Class<?> schemaClass) {
+    /**
+     * Construct a {@link DynamicConfiguration} definition for a configuration schema.
+     *
+     * @param schemaClass Configuration schema class.
+     * @param schemaFields Fields of the schema and its extensions.
+     * @param schemaExtensions Internal extensions of the configuration schema.
+     * @return Constructed {@link DynamicConfiguration} definition for the configuration schema.
+     */
+    private ClassDefinition createCfgImplClass(
+        Class<?> schemaClass,
+        Set<Field> schemaFields,
+        Set<Class<?>> schemaExtensions
+    ) {
         SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaClass);
+
+        ParameterizedType[] interfaces = union(schemaExtensions, schemaClass).stream()
+            .map(cls -> prefix(cls) + CONFIGURATION_CLASS_POSTFIX)
+            .map(ParameterizedType::typeFromJavaClassName)
+            .toArray(ParameterizedType[]::new);
 
         // Configuration impl class definition.
         ClassDefinition classDef = new ClassDefinition(
             of(PUBLIC, FINAL),
             internalName(schemaClassInfo.cfgImplClassName),
             type(DynamicConfiguration.class),
-            typeFromJavaClassName(schemaClassInfo.cfgClassName)
+            interfaces
         );
-
-        // Cached array of reflected fields. Helps to avoid unnecessary clonings.
-        Field[] schemaFields = schemaClass.getDeclaredFields();
 
         // Fields.
         Map<String, FieldDefinition> fieldDefs = new HashMap<>();
@@ -957,7 +982,7 @@ public class ConfigurationAsmGenerator {
     private void addConfigurationImplConstructor(
         ClassDefinition classDef,
         SchemaClassesInfo schemaClassInfo,
-        Field[] schemaFields,
+        Set<Field> schemaFields,
         Map<String, FieldDefinition> fieldDefs
     ) {
         MethodDefinition ctor = classDef.declareConstructor(

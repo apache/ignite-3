@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.tree;
 
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -84,7 +85,7 @@ public class ConfigurationArrayTest {
     /** */
     @BeforeAll
     public static void beforeAll() {
-        cgen.compileRootSchema(TestArrayConfigurationSchema.class);
+        cgen.compileRootSchema(TestArrayConfigurationSchema.class, Map.of());
     }
 
     /** */

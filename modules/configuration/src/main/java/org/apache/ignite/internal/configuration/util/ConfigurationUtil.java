@@ -18,17 +18,28 @@
 package org.apache.ignite.internal.configuration.util;
 
 import java.io.Serializable;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.RandomAccess;
+import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
@@ -36,6 +47,10 @@ import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
+
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 
 /** */
 public class ConfigurationUtil {
@@ -518,5 +533,216 @@ public class ConfigurationUtil {
                     ", storage=" + storage.getClass().getName() + ", storageType=" + storage.type() + "]");
             }
         }
+    }
+
+    /**
+     * Get and check schemas and their extensions.
+     *
+     * @param extensions Schema extensions with {@link InternalConfiguration}.
+     * @return Internal schema extensions. Mapping: original of the scheme -> internal extensions.
+     * @throws IllegalArgumentException If the schema or its extensions are not valid.
+     */
+    public static Map<Class<?>, Set<Class<?>>> internalSchemaExtensions(Collection<Class<?>> extensions) {
+        if (extensions.isEmpty())
+            return Map.of();
+        else {
+            Map<Class<?>, Set<Class<?>>> res = new HashMap<>();
+
+            for (Class<?> extension : extensions) {
+                if (!extension.isAnnotationPresent(InternalConfiguration.class)) {
+                    throw new IllegalArgumentException(String.format(
+                        "Extension should contain @%s: %s",
+                        InternalConfiguration.class.getSimpleName(),
+                        extension.getName()
+                    ));
+                }
+                else {
+                    Class<?> superclass = extension.getSuperclass();
+
+                    if (superclass.isAnnotationPresent(InternalConfiguration.class)) {
+                        throw new IllegalArgumentException(String.format(
+                            "Superclass of an extension shouldn't contain @%s: %s",
+                            InternalConfiguration.class.getSimpleName(),
+                            extension.getName()
+                        ));
+                    }
+                    else if (!superclass.isAnnotationPresent(ConfigurationRoot.class) &&
+                        !superclass.isAnnotationPresent(Config.class)) {
+                        throw new IllegalArgumentException(String.format(
+                            "Superclass of an extension should contain @%s or @%s: %s",
+                            ConfigurationRoot.class.getSimpleName(),
+                            Config.class.getSimpleName(),
+                            extension.getName()
+                        ));
+                    }
+                    else
+                        res.computeIfAbsent(superclass, cls -> new HashSet<>()).add(extension);
+                }
+            }
+
+            return res;
+        }
+    }
+
+    /**
+     * Checks whether configuration schema field represents primitive configuration value.
+     *
+     * @param schemaField Configuration Schema class field.
+     * @return {@code true} if field represents primitive configuration.
+     */
+    public static boolean isValue(Field schemaField) {
+        return schemaField.isAnnotationPresent(Value.class);
+    }
+
+    /**
+     * Checks whether configuration schema field represents regular configuration value.
+     *
+     * @param schemaField Configuration Schema class field.
+     * @return {@code true} if field represents regular configuration.
+     */
+    public static boolean isConfigValue(Field schemaField) {
+        return schemaField.isAnnotationPresent(ConfigValue.class);
+    }
+
+    /**
+     * Checks whether configuration schema field represents named list configuration value.
+     *
+     * @param schemaField Configuration Schema class field.
+     * @return {@code true} if field represents named list configuration.
+     */
+    public static boolean isNamedConfigValue(Field schemaField) {
+        return schemaField.isAnnotationPresent(NamedConfigValue.class);
+    }
+
+    /**
+     * Get the value of a {@link NamedConfigValue#syntheticKeyName}.
+     *
+     * @param field Configuration Schema class field.
+     * @return Name for the synthetic key.
+     */
+    public static String syntheticKeyName(Field field) {
+        assert isNamedConfigValue(field) : field;
+
+        return field.getAnnotation(NamedConfigValue.class).syntheticKeyName();
+    }
+
+    /**
+     * Get the value of a {@link Value#hasDefault}.
+     *
+     * @param field Configuration Schema class field.
+     * @return Indicates that the current configuration value has a default value.
+     */
+    public static boolean hasDefault(Field field) {
+        assert isValue(field) : field;
+
+        return field.getAnnotation(Value.class).hasDefault();
+    }
+
+    /**
+     * Get the default value of a {@link Value}.
+     *
+     * @param field Configuration Schema class field.
+     * @return Default value.
+     */
+    public static Object defaultValue(Field field) {
+        assert hasDefault(field) : field;
+
+        try {
+            Object o = field.getDeclaringClass().getDeclaredConstructor().newInstance();
+
+            field.setAccessible(true);
+
+            return field.get(o);
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Get a merged unique list of configuration schema fields.
+     * Uniqueness is achieved by {@link Field#getName}, if the names of the fields are the same,
+     * then we check for equality by {@link Field#getType}, {@link Value}, {@link ConfigValue}
+     * and {@link NamedConfigValue}.
+     *
+     * @param schema Configuration schema.
+     * @param extensions Configuration schema extensions ({@link InternalConfiguration}).
+     * @return Unique merged fields of the configuration schema and its extensions.
+     * @throws IllegalArgumentException If the same fields by {@link Field#getName} are not equal.
+     */
+    public static Set<Field> mergedSchemaFields(Class<?> schema, Collection<Class<?>> extensions) {
+        if (extensions.isEmpty())
+            return Set.of(schema.getDeclaredFields());
+        else {
+            Map<String, Field> res = Arrays.stream(schema.getDeclaredFields())
+                .collect(toMap(Field::getName, identity()));
+
+            for (Class<?> extension : extensions) {
+                assert schema.isAssignableFrom(extension) : extension;
+
+                for (Field field : extension.getDeclaredFields()) {
+                    if (!res.containsKey(field.getName()))
+                        res.put(field.getName(), field);
+                    else {
+                        Field existField = res.get(field.getName());
+
+                        if (existField.getType() != field.getType()) {
+                            throw new IllegalArgumentException(String.format(
+                                "Field type mismatch [name=%s, classes=%s]",
+                                field.getName(),
+                                classNames(existField, field)
+                            ));
+                        }
+                        else if ((isValue(existField) && !isValue(field)) ||
+                            (isConfigValue(existField) && !isConfigValue(field)) ||
+                            (isNamedConfigValue(existField) && !isNamedConfigValue(field))) {
+                            throw new IllegalArgumentException(String.format(
+                                "Field configuration value mismatch [name=%s, classes=%s]",
+                                field.getName(),
+                                classNames(existField, field)
+                            ));
+                        }
+                        else if (isNamedConfigValue(existField)) {
+                            if (!Objects.equals(syntheticKeyName(existField), syntheticKeyName(field))) {
+                                throw new IllegalArgumentException(String.format(
+                                    "Field @NamedConfigValue.syntheticKeyName() value mismatch [name=%s, classes=%s]",
+                                    field.getName(),
+                                    classNames(existField, field)
+                                ));
+                            }
+                        }
+                        else if (isValue(existField)) {
+                            if (hasDefault(existField) != hasDefault(field)) {
+                                throw new IllegalArgumentException(String.format(
+                                    "Field @Value.hasDefault() value mismatch [name=%s, classes=%s]",
+                                    field.getName(),
+                                    classNames(existField, field)
+                                ));
+                            }
+                            else if (hasDefault(existField) &&
+                                !Objects.equals(defaultValue(existField), defaultValue(field))) {
+                                throw new IllegalArgumentException(String.format(
+                                    "Field default value mismatch [name=%s, classes=%s]",
+                                    field.getName(),
+                                    classNames(existField, field)
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+
+            return Set.copyOf(res.values());
+        }
+    }
+
+    /**
+     * Get the class names of the fields.
+     *
+     * @param fields Fields.
+     * @return Fields class names.
+     */
+    private static List<String> classNames(Field... fields) {
+        return Stream.of(fields).map(Field::getDeclaringClass).map(Class::getName).collect(toList());
     }
 }

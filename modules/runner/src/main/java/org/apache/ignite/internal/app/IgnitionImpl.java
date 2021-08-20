@@ -223,7 +223,8 @@ public class IgnitionImpl implements Ignition {
                 new ConfigurationManager(
                     nodeRootKeys,
                     Map.of(),
-                    new LocalConfigurationStorage(vaultMgr)
+                    new LocalConfigurationStorage(vaultMgr),
+                    List.of()
                 )
             );
 
@@ -292,7 +293,8 @@ public class IgnitionImpl implements Ignition {
                 new ConfigurationManager(
                     clusterRootKeys,
                     Map.of(TableValidator.class, Set.of(SchemaTableValidatorImpl.INSTANCE)),
-                    new DistributedConfigurationStorage(metaStorageMgr, vaultMgr)
+                    new DistributedConfigurationStorage(metaStorageMgr, vaultMgr),
+                    List.of()
                 )
             );
 

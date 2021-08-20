@@ -18,9 +18,14 @@
 package org.apache.ignite.internal.util;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.jetbrains.annotations.Nullable;
+
+import static java.util.Collections.addAll;
+import static java.util.Collections.unmodifiableSet;
 
 /**
  * Utility class provides various method to work with collections.
@@ -68,6 +73,29 @@ public final class CollectionUtils {
             return null;
 
         return list.get(0);
+    }
+
+    /**
+     * Union set and items.
+     *
+     * @param set Set.
+     * @param ts Items.
+     * @param <T> Type of the elements of the list.
+     * @return Immutable union of set and items.
+     */
+    @SafeVarargs
+    public static <T> Set<T> union(@Nullable Set<T> set, @Nullable T... ts) {
+        if (nullOrEmpty(set))
+            return ts == null || ts.length == 0 ? Set.of() : Set.of(ts);
+        else if (ts == null || ts.length == 0)
+            return unmodifiableSet(set);
+        else {
+            Set<T> res = new HashSet<>(set);
+
+            addAll(res, ts);
+
+            return unmodifiableSet(res);
+        }
     }
 
     /** Stub. */

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.tree;
 
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.junit.jupiter.api.AfterAll;
@@ -38,7 +39,7 @@ public class ConstructableTreeNodeTest {
     public static void beforeAll() {
         cgen = new ConfigurationAsmGenerator();
 
-        cgen.compileRootSchema(TraversableTreeNodeTest.ParentConfigurationSchema.class);
+        cgen.compileRootSchema(TraversableTreeNodeTest.ParentConfigurationSchema.class, Map.of());
     }
 
     @AfterAll
