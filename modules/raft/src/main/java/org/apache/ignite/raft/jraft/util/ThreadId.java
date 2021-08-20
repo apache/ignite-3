@@ -17,7 +17,6 @@
 package org.apache.ignite.raft.jraft.util;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.lang.IgniteLogger;
