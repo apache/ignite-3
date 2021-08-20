@@ -48,6 +48,7 @@ import static org.apache.ignite.internal.schema.NativeTypes.INT64;
 import static org.apache.ignite.internal.schema.NativeTypes.INT8;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.apache.ignite.internal.schema.NativeTypes.UUID;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBytes;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -320,7 +321,7 @@ public class FieldAccessorTest {
             obj.uuidCol = new UUID(rnd.nextLong(), rnd.nextLong());
             obj.bitmaskCol = TestUtils.randomBitSet(rnd, rnd.nextInt(42));
             obj.stringCol = TestUtils.randomString(rnd, rnd.nextInt(255));
-            obj.bytesCol = IgniteTestUtils.randomBytes(rnd, rnd.nextInt(255));
+            obj.bytesCol = randomBytes(rnd, rnd.nextInt(255));
             obj.numberCol = (BigInteger)TestUtils.generateRandomValue(rnd, NativeTypes.numberOf(12));
             obj.decimalCol = (BigDecimal) TestUtils.generateRandomValue(rnd, NativeTypes.decimalOf(19, 3));
 
