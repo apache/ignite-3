@@ -47,8 +47,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.LocalPortRangeNodeFinder;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
-import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.client.Peer;
