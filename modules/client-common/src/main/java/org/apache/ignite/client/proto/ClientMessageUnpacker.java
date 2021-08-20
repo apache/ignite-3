@@ -342,7 +342,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * Reads a decimal.
      *
      * @return Decimal value.
-     * @throws UnsupportedOperationException Not supported yet.
+     * @throws MessageTypeException when type is not Decimal.
      */
     public BigDecimal unpackDecimal() {
         assert refCnt > 0 : "Unpacker is closed";
@@ -367,6 +367,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * Reads a bit set.
      *
      * @return Bit set.
+     * @throws MessageTypeException when type is not BitSet.
      */
     public BitSet unpackBitSet() {
         assert refCnt > 0 : "Unpacker is closed";
@@ -376,7 +377,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
         var len = hdr.getLength();
 
         if (type != ClientMsgPackType.BITMASK)
-            throw new MessageTypeException("Expected DECIMAL extension (7), but got " + type);
+            throw new MessageTypeException("Expected BITSET extension (7), but got " + type);
 
         var bytes = readPayload(len);
 
@@ -384,9 +385,10 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     /**
-     * Reads a big number.
+     * Reads a number.
      *
-     * @return Bit set.
+     * @return BigInteger value.
+     * @throws MessageTypeException when type is not BigInteger.
      */
     public BigInteger unpackNumber() {
         assert refCnt > 0 : "Unpacker is closed";
