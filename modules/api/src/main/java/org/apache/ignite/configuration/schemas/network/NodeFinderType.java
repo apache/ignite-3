@@ -14,23 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.network;
 
-import org.apache.ignite.internal.configuration.ConfigurationManager;
+package org.apache.ignite.configuration.schemas.network;
 
-/**
- * Cluster service factory.
- */
-public interface ClusterServiceFactory {
-    /**
-     * Creates a new {@link ClusterService} using the provided context. The created network will not be in the "started" state.
-     *
-     * @param context Cluster context.
-     * @param nodeConfiguration Node configuration.
-     * @return New cluster service.
-     */
-    ClusterService createClusterService(
-        ClusterLocalConfiguration context,
-        ConfigurationManager nodeConfiguration
-    );
+/** NodeFinder type. */
+public enum NodeFinderType {
+    /** Node finder with a preconfigured list of ip addresses. */
+    STATIC;
 }

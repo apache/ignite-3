@@ -20,7 +20,6 @@ package org.apache.ignite.network.scalecube;
 import java.lang.management.ManagementFactory;
 import java.util.List;
 import java.util.UUID;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.management.InstanceNotFoundException;
 import javax.management.MBeanRegistrationException;
@@ -34,6 +33,8 @@ import io.scalecube.cluster.membership.MembershipEvent;
 import io.scalecube.cluster.transport.api.Message;
 import io.scalecube.net.Address;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
+import org.apache.ignite.configuration.schemas.network.NetworkView;
+import org.apache.ignite.configuration.schemas.network.ScaleCubeView;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
@@ -45,6 +46,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
+import org.apache.ignite.network.NodeFinderFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**
@@ -55,8 +57,7 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
     /** {@inheritDoc} */
     @Override public ClusterService createClusterService(
         ClusterLocalConfiguration context,
-        ConfigurationManager nodeConfiguration,
-        Supplier<NodeFinder> nodeFinderSupplier
+        ConfigurationManager nodeConfiguration
     ) {
         String consistentId = context.getName();
 
@@ -77,8 +78,13 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
 
             /** {@inheritDoc} */
             @Override public void start() {
+                NetworkConfiguration networkConfiguration = nodeConfiguration.configurationRegistry()
+                    .getConfiguration(NetworkConfiguration.KEY);
+
+                NetworkView networkConfigurationView = networkConfiguration.value();
+
                 this.connectionMgr = new ConnectionManager(
-                    nodeConfiguration.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).value().port(),
+                    networkConfigurationView,
                     registry,
                     consistentId,
                     () -> new RecoveryServerHandshakeManager(launchId, consistentId, messageFactory),
@@ -87,7 +93,9 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
 
                 var transport = new ScaleCubeDirectMarshallerTransport(connectionMgr, topologyService, messageFactory);
 
-                this.cluster = new ClusterImpl(clusterConfig())
+                NodeFinder finder = NodeFinderFactory.createNodeFinder(networkConfigurationView.nodeFinder());
+
+                this.cluster = new ClusterImpl(clusterConfig(networkConfigurationView.scaleCube()))
                     .handler(cl -> new ClusterMessageHandler() {
                         /** {@inheritDoc} */
                         @Override public void onMessage(Message message) {
@@ -101,7 +109,7 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
                     })
                     .config(opts -> opts.memberAlias(consistentId))
                     .transport(opts -> opts.transportFactory(new DelegatingTransportFactory(messagingService, config -> transport)))
-                    .membership(opts -> opts.seedMembers(parseAddresses(nodeFinderSupplier.get().findNodes())));
+                    .membership(opts -> opts.seedMembers(parseAddresses(finder.findNodes())));
 
                 // resolve cyclic dependencies
                 messagingService.setCluster(cluster);
@@ -161,8 +169,17 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
      *
      * @return Cluster configuration.
      */
-    protected ClusterConfig clusterConfig() {
-        return ClusterConfig.defaultConfig();
+    protected ClusterConfig clusterConfig(ScaleCubeView cfg) {
+        return ClusterConfig.defaultLocalConfig()
+            .membership(opts ->
+                opts.syncInterval(cfg.membershipSyncInterval())
+                    .suspicionMult(cfg.membershipSuspicionMultiplier())
+            )
+            .failureDetector(opts ->
+                opts.pingInterval(cfg.failurePingInterval())
+                    .pingReqMembers(cfg.failurePingRequestMembers())
+            )
+            .gossip(opts -> opts.gossipInterval(cfg.gossipInterval()));
     }
 
     /**
