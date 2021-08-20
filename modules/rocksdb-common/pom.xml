@@ -29,18 +29,19 @@
         <relativePath>../../parent/pom.xml</relativePath>
     </parent>
 
-    <artifactId>ignite-storage-rocksdb</artifactId>
+    <artifactId>ignite-rocksdb-common</artifactId>
     <version>3.0.0-SNAPSHOT</version>
 
     <dependencies>
         <dependency>
             <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-storage-api</artifactId>
+            <artifactId>ignite-core</artifactId>
         </dependency>
 
+        <!-- 3rd party dependencies -->
         <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-rocksdb-common</artifactId>
+            <groupId>org.rocksdb</groupId>
+            <artifactId>rocksdbjni</artifactId>
         </dependency>
 
         <!-- Test dependencies -->
@@ -59,13 +60,6 @@
         <dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-core</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-storage-api</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>

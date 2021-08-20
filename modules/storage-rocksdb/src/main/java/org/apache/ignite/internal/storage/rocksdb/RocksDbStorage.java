@@ -36,6 +36,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.InvokeClosure;
 import org.apache.ignite.internal.storage.SearchRow;
@@ -49,18 +50,21 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 import org.rocksdb.AbstractComparator;
+import org.rocksdb.ColumnFamilyDescriptor;
+import org.rocksdb.ColumnFamilyHandle;
+import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.ComparatorOptions;
-import org.rocksdb.EnvOptions;
+import org.rocksdb.DBOptions;
 import org.rocksdb.IngestExternalFileOptions;
 import org.rocksdb.Options;
-import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.Snapshot;
-import org.rocksdb.SstFileWriter;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
+
+import static org.apache.ignite.internal.rocksdb.RocksUtils.createSstFile;
 
 /**
  * Storage implementation based on a single RocksDB instance.
@@ -70,7 +74,7 @@ public class RocksDbStorage implements Storage {
     private static final String TMP_SUFFIX = ".tmp";
 
     /** Snapshot file name. */
-    private static final String SNAPSHOT_FILE_NAME = "snapshot";
+    private static final String COLUMN_FAMILY_NAME = "data";
 
     static {
         RocksDB.loadLibrary();
@@ -83,10 +87,13 @@ public class RocksDbStorage implements Storage {
     private final AbstractComparator comparator;
 
     /** RockDB options. */
-    private final Options options;
+    private final DBOptions options;
 
     /** RocksDb instance. */
     private final RocksDB db;
+
+    /** Data column family. */
+    private final ColumnFamily data;
 
     /** DB path. */
     private final Path dbPath;
@@ -117,13 +124,23 @@ public class RocksDbStorage implements Storage {
                 }
             };
 
-            options = new Options();
+            options = new DBOptions()
+                .setCreateMissingColumnFamilies(true)
+                .setCreateIfMissing(true);
 
-            options.setCreateIfMissing(true);
+            Options dataOptions = new Options().setCreateIfMissing(true).setComparator(this.comparator);
 
-            options.setComparator(this.comparator);
+            ColumnFamilyOptions dataFamilyOptions = new ColumnFamilyOptions(dataOptions);
 
-            this.db = RocksDB.open(options, dbPath.toAbsolutePath().toString());
+            List<ColumnFamilyDescriptor> descriptors = Collections.singletonList(
+                new ColumnFamilyDescriptor(RocksDB.DEFAULT_COLUMN_FAMILY, dataFamilyOptions)
+            );
+
+            var handles = new ArrayList<ColumnFamilyHandle>();
+
+            this.db = RocksDB.open(options, dbPath.toAbsolutePath().toString(), descriptors, handles);
+
+            this.data = new ColumnFamily(db, handles.get(0), COLUMN_FAMILY_NAME, dataFamilyOptions, dataOptions);
         }
         catch (RocksDBException e) {
             try {
@@ -142,7 +159,7 @@ public class RocksDbStorage implements Storage {
         try {
             byte[] keyBytes = key.keyBytes();
 
-            return new SimpleDataRow(keyBytes, db.get(keyBytes));
+            return new SimpleDataRow(keyBytes, data.get(keyBytes));
         }
         catch (RocksDBException e) {
             throw new StorageException("Failed to read data from the storage", e);
@@ -176,7 +193,11 @@ public class RocksDbStorage implements Storage {
     /** {@inheritDoc} */
     @Override public void write(DataRow row) throws StorageException {
         try {
-            db.put(row.keyBytes(), row.valueBytes());
+            byte[] value = row.valueBytes();
+
+            assert value != null;
+
+            data.put(row.keyBytes(), value);
         }
         catch (RocksDBException e) {
             throw new StorageException("Filed to write data to the storage", e);
@@ -187,8 +208,13 @@ public class RocksDbStorage implements Storage {
     @Override public void writeAll(Collection<? extends DataRow> rows) throws StorageException {
         try (WriteBatch batch = new WriteBatch();
              WriteOptions opts = new WriteOptions()) {
-            for (DataRow row : rows)
-                batch.put(row.keyBytes(), row.valueBytes());
+            for (DataRow row : rows) {
+                byte[] value = row.valueBytes();
+
+                assert value != null;
+
+                data.put(batch, row.keyBytes(), value);
+            }
 
             db.write(opts, batch);
         }
@@ -205,9 +231,13 @@ public class RocksDbStorage implements Storage {
              WriteOptions opts = new WriteOptions()) {
 
             for (DataRow row : rows) {
-                if (db.get(row.keyBytes()) == null)
-                    batch.put(row.keyBytes(), row.valueBytes());
-                else
+                if (data.get(row.keyBytes()) == null) {
+                    byte[] value = row.valueBytes();
+
+                    assert value != null;
+
+                    data.put(batch, row.keyBytes(), value);
+                } else
                     cantInsert.add(row);
             }
 
@@ -223,7 +253,7 @@ public class RocksDbStorage implements Storage {
     /** {@inheritDoc} */
     @Override public void remove(SearchRow key) throws StorageException {
         try {
-            db.delete(key.keyBytes());
+            data.delete(key.keyBytes());
         }
         catch (RocksDBException e) {
             throw new StorageException("Failed to remove data from the storage", e);
@@ -240,12 +270,12 @@ public class RocksDbStorage implements Storage {
             for (SearchRow key : keys) {
                 byte[] keyBytes = key.keyBytes();
 
-                byte[] value = db.get(keyBytes);
+                byte[] value = data.get(keyBytes);
 
                 if (value != null) {
                     res.add(new SimpleDataRow(keyBytes, value));
 
-                    batch.delete(keyBytes);
+                    data.delete(batch, keyBytes);
                 }
             }
 
@@ -288,7 +318,7 @@ public class RocksDbStorage implements Storage {
                 if (Arrays.equals(value, expectedValue)) {
                     res.add(new SimpleDataRow(key, value));
 
-                    batch.delete(key);
+                    data.delete(batch, key);
                 }
             }
 
@@ -306,18 +336,26 @@ public class RocksDbStorage implements Storage {
     @Override public <T> T invoke(SearchRow key, InvokeClosure<T> clo) throws StorageException {
         try {
             byte[] keyBytes = key.keyBytes();
-            byte[] existingDataBytes = db.get(keyBytes);
+            byte[] existingDataBytes = data.get(keyBytes);
 
             clo.call(new SimpleDataRow(keyBytes, existingDataBytes));
 
             switch (clo.operationType()) {
                 case WRITE:
-                    db.put(keyBytes, clo.newRow().valueBytes());
+                    DataRow newRow = clo.newRow();
+
+                    assert newRow != null;
+
+                    byte[] value = newRow.valueBytes();
+
+                    assert value != null;
+
+                    data.put(keyBytes, value);
 
                     break;
 
                 case REMOVE:
-                    db.delete(keyBytes);
+                    data.delete(keyBytes);
 
                     break;
 
@@ -334,7 +372,7 @@ public class RocksDbStorage implements Storage {
 
     /** {@inheritDoc} */
     @Override public Cursor<DataRow> scan(Predicate<SearchRow> filter) throws StorageException {
-        return new ScanCursor(db.newIterator(), filter);
+        return new ScanCursor(data.newIterator(), filter);
     }
 
     /** {@inheritDoc} */
@@ -355,7 +393,7 @@ public class RocksDbStorage implements Storage {
                 throw new IgniteInternalException("Failed to create directory: " + tempPath, e);
             }
         }, snapshotExecutor)
-            .thenCompose(aVoid -> createSstFile(db, snapshot, tempPath))
+            .thenCompose(aVoid -> createSstFile(data, snapshot, tempPath, snapshotExecutor))
             .whenComplete((aVoid, throwable) -> {
                 // Release a snapshot
                 db.releaseSnapshot(snapshot);
@@ -380,51 +418,15 @@ public class RocksDbStorage implements Storage {
             });
     }
 
-    /**
-     * Creates an SST file for the database.
-     *
-     * @param db RocksDB instance.
-     * @param snapshot Point-in-time snapshot.
-     * @param path Directory to put the SST file in.
-     * @return Future representing pending completion of the operation.
-     */
-    private CompletableFuture<Void> createSstFile(RocksDB db, Snapshot snapshot, Path path) {
-        return CompletableFuture.runAsync(() -> {
-            try (
-                EnvOptions envOptions = new EnvOptions();
-                Options options = new Options();
-                ReadOptions readOptions = new ReadOptions().setSnapshot(snapshot);
-                RocksIterator it = db.newIterator(readOptions);
-                SstFileWriter sstFileWriter = new SstFileWriter(envOptions, options)
-            ) {
-                Path sstFile = path.resolve(SNAPSHOT_FILE_NAME);
-
-                sstFileWriter.open(sstFile.toString());
-
-                it.seekToFirst();
-
-                for (; it.isValid(); it.next())
-                    sstFileWriter.put(it.key(), it.value());
-
-                it.status();
-
-                sstFileWriter.finish();
-            }
-            catch (Throwable t) {
-                throw new IgniteInternalException("Failed to write snapshot: " + t.getMessage(), t);
-            }
-        }, snapshotExecutor);
-    }
-
     /** {@inheritDoc} */
     @Override public void restoreSnapshot(Path path) {
         try (IngestExternalFileOptions ingestOptions = new IngestExternalFileOptions()) {
-            Path data = path.resolve(SNAPSHOT_FILE_NAME);
+            Path snapshotPath = path.resolve(COLUMN_FAMILY_NAME);
 
-            if (!Files.exists(data))
-                throw new IgniteInternalException("Snapshot not found: " + data);
+            if (!Files.exists(snapshotPath))
+                throw new IgniteInternalException("Snapshot not found: " + snapshotPath);
 
-            db.ingestExternalFile(Collections.singletonList(data.toString()), ingestOptions);
+            this.data.ingestExternalFile(Collections.singletonList(snapshotPath.toString()), ingestOptions);
         }
         catch (RocksDBException e) {
             throw new IgniteInternalException("Fail to ingest sst file at path: " + path, e);
@@ -435,7 +437,7 @@ public class RocksDbStorage implements Storage {
     @Override public void close() throws Exception {
         IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
 
-        IgniteUtils.closeAll(comparatorOptions, comparator, options, db);
+        IgniteUtils.closeAll(data, db, options, comparator, comparatorOptions);
     }
 
     /** Cursor wrapper over the RocksIterator object with custom filter. */
