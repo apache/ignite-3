@@ -64,6 +64,14 @@ public class ConnectionTest extends AbstractClientTest {
         testConnection("[::1]:" + serverPort);
     }
 
+    @Test
+    public void customConfigTest() throws Exception {
+        // TODO: Move this test
+        var config = IgniteClient.configurationBuilder();
+
+        IgniteClient.start(config);
+    }
+
     private void testConnection(String... addrs) throws Exception {
         AbstractClientTest.startClient(addrs).close();
     }

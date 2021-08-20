@@ -52,7 +52,11 @@ public class IgniteClient {
     }
 
     public static Ignite start(ClientConfiguration configuration) {
-        // TODO
+        // TODO: How to deal with immutability?
+        var val1 = configuration.value();
+        configuration.change(c -> c.changeRetryLimit(100)).join();
+        var val2 = configuration.value();
+
         return null;
     }
 
