@@ -211,7 +211,7 @@ public abstract class ITAbstractListenerSnapshotTest<T extends RaftGroupListener
     }
 
     /**
-     * Interacts with raft group before the follower is stopped.
+     * Interacts with the raft group before a follower is stopped.
      *
      * @param service Raft group service.
      * @throws Exception If failed.
@@ -219,7 +219,7 @@ public abstract class ITAbstractListenerSnapshotTest<T extends RaftGroupListener
     public abstract void doBeforeStop(RaftGroupService service) throws Exception;
 
     /**
-     * Interacts with raft group after the follower is stopped.
+     * Interacts with the raft group after a follower is stopped.
      *
      * @param service Raft group service.
      * @throws Exception If failed.
@@ -227,7 +227,7 @@ public abstract class ITAbstractListenerSnapshotTest<T extends RaftGroupListener
     public abstract void doAfterStop(RaftGroupService service) throws Exception;
 
     /**
-     * Interacts with raft group after the leader has captured a snapshot.
+     * Interacts with a raft group after the leader has captured a snapshot.
      *
      * @param service Raft group service.
      * @throws Exception If failed.

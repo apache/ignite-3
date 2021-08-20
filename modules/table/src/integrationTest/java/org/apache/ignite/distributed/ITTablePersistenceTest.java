@@ -44,7 +44,7 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
  */
 public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<PartitionListener> {
     /** */
-    public static SchemaDescriptor SCHEMA = new SchemaDescriptor(UUID.randomUUID(),
+    private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(UUID.randomUUID(),
         1,
         new Column[] {new Column("key", NativeTypes.INT64, false)},
         new Column[] {new Column("value", NativeTypes.INT64, false)}
