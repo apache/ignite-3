@@ -355,29 +355,29 @@ public class RocksDbStorage implements Storage {
                 throw new IgniteInternalException("Failed to create directory: " + tempPath, e);
             }
         }, snapshotExecutor)
-        .thenCompose(aVoid -> createSstFile(db, snapshot, tempPath))
-        .whenComplete((aVoid, throwable) -> {
-            // Release a snapshot
-            db.releaseSnapshot(snapshot);
+            .thenCompose(aVoid -> createSstFile(db, snapshot, tempPath))
+            .whenComplete((aVoid, throwable) -> {
+                // Release a snapshot
+                db.releaseSnapshot(snapshot);
 
-            // Snapshot is not actually closed here, because a Snapshot instance doesn't own a pointer, the
-            // database does. Calling close to maintain the AutoCloseable semantics
-            snapshot.close();
+                // Snapshot is not actually closed here, because a Snapshot instance doesn't own a pointer, the
+                // database does. Calling close to maintain the AutoCloseable semantics
+                snapshot.close();
 
-            if (throwable != null)
-                return;
+                if (throwable != null)
+                    return;
 
-            // Delete snapshot directory if it already exists
-            IgniteUtils.deleteIfExists(snapshotPath);
+                // Delete snapshot directory if it already exists
+                IgniteUtils.deleteIfExists(snapshotPath);
 
-            try {
-                // Rename the temporary directory
-                Files.move(tempPath, snapshotPath);
-            }
-            catch (IOException e) {
-                throw new IgniteInternalException("Failed to rename: " + tempPath + " to " + snapshotPath, e);
-            }
-        });
+                try {
+                    // Rename the temporary directory
+                    Files.move(tempPath, snapshotPath);
+                }
+                catch (IOException e) {
+                    throw new IgniteInternalException("Failed to rename: " + tempPath + " to " + snapshotPath, e);
+                }
+            });
     }
 
     /**

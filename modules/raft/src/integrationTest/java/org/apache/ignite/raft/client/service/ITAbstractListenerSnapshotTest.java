@@ -113,10 +113,16 @@ public abstract class ITAbstractListenerSnapshotTest<T extends RaftGroupListener
      * Test parameters for {@link #testSnapshot}.
      */
     private static class TestData {
-        /** Delete raft group folder. */
+        /**
+         * {@code true} if the raft group's persistence must be cleared before the follower's restart,
+         * {@code false} otherwise.
+         */
         private final boolean deleteFolder;
 
-        /** Interact with the raft group after a snapshot. */
+        /**
+         * {@code true} if test should interact with the raft group after a snapshot has been captured.
+         * In this case, the follower node should catch up with the leader using raft log.
+         */
         private final boolean interactAfterSnapshot;
 
         /** */
@@ -155,7 +161,7 @@ public abstract class ITAbstractListenerSnapshotTest<T extends RaftGroupListener
         // Set up a raft group service
         RaftGroupService service = prepareRaftGroup();
 
-        doBeforeStop(service);
+        beforeFollowerStop(service);
 
         // Select any node that is not the leader of the group
         JRaftServerImpl toStop = servers.stream()
@@ -180,7 +186,7 @@ public abstract class ITAbstractListenerSnapshotTest<T extends RaftGroupListener
         // Create a snapshot of the raft group
         service.snapshot(service.leader()).get();
 
-        doAfterStop(service);
+        afterFollowerStop(service);
 
         // Create another raft snapshot
         service.snapshot(service.leader()).get();
@@ -195,7 +201,7 @@ public abstract class ITAbstractListenerSnapshotTest<T extends RaftGroupListener
         if (testData.interactAfterSnapshot) {
             // Interact with the raft group after the second snapshot to check if the restarted node would see these
             // interactions after restoring a snapshot and raft logs
-            doAfterSnapshot(service);
+            afterSnapshot(service);
         }
 
         // Restart the node
@@ -216,7 +222,7 @@ public abstract class ITAbstractListenerSnapshotTest<T extends RaftGroupListener
      * @param service Raft group service.
      * @throws Exception If failed.
      */
-    public abstract void doBeforeStop(RaftGroupService service) throws Exception;
+    public abstract void beforeFollowerStop(RaftGroupService service) throws Exception;
 
     /**
      * Interacts with the raft group after a follower is stopped.
@@ -224,7 +230,7 @@ public abstract class ITAbstractListenerSnapshotTest<T extends RaftGroupListener
      * @param service Raft group service.
      * @throws Exception If failed.
      */
-    public abstract void doAfterStop(RaftGroupService service) throws Exception;
+    public abstract void afterFollowerStop(RaftGroupService service) throws Exception;
 
     /**
      * Interacts with a raft group after the leader has captured a snapshot.
@@ -232,7 +238,7 @@ public abstract class ITAbstractListenerSnapshotTest<T extends RaftGroupListener
      * @param service Raft group service.
      * @throws Exception If failed.
      */
-    public abstract void doAfterSnapshot(RaftGroupService service) throws Exception;
+    public abstract void afterSnapshot(RaftGroupService service) throws Exception;
 
     /**
      * Creates a closure that will be executed periodically to check if the snapshot and (conditionally on the

@@ -42,57 +42,57 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @ExtendWith(WorkDirectoryExtension.class)
 public class ITMetaStorageServicePersistenceTest extends ITAbstractListenerSnapshotTest<MetaStorageListener> {
     /** */
-    private final ByteArray firstKey = ByteArray.fromString("first");
+    private static final ByteArray FIRST_KEY = ByteArray.fromString("first");
 
     /** */
-    private final byte[] firstValue = "firstValue".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] FIRST_VALUE = "firstValue".getBytes(StandardCharsets.UTF_8);
 
     /** */
-    private final ByteArray secondKey = ByteArray.fromString("second");
+    private static final ByteArray SECOND_KEY = ByteArray.fromString("second");
 
     /** */
-    private final byte[] secondValue = "secondValue".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] SECOND_VALUE = "secondValue".getBytes(StandardCharsets.UTF_8);
 
     /** */
     private MetaStorageServiceImpl metaStorage;
 
     /** {@inheritDoc} */
-    @Override public void doBeforeStop(RaftGroupService service) throws Exception {
+    @Override public void beforeFollowerStop(RaftGroupService service) throws Exception {
         metaStorage = new MetaStorageServiceImpl(service, null);
 
         // Put some data in the metastorage
-        metaStorage.put(firstKey, firstValue).get();
+        metaStorage.put(FIRST_KEY, FIRST_VALUE).get();
 
         // Check that data has been written successfully
-        check(metaStorage, new EntryImpl(firstKey, firstValue, 1, 1));;
+        check(metaStorage, new EntryImpl(FIRST_KEY, FIRST_VALUE, 1, 1));;
     }
 
     /** {@inheritDoc} */
-    @Override public void doAfterStop(RaftGroupService service) throws Exception {
+    @Override public void afterFollowerStop(RaftGroupService service) throws Exception {
         // Remove the first key from the metastorage
-        metaStorage.remove(firstKey).get();
+        metaStorage.remove(FIRST_KEY).get();
 
         // Check that data has been removed
-        check(metaStorage, new EntryImpl(firstKey, null, 2, 2));
+        check(metaStorage, new EntryImpl(FIRST_KEY, null, 2, 2));
 
         // Put same data again
-        metaStorage.put(firstKey, firstValue).get();
+        metaStorage.put(FIRST_KEY, FIRST_VALUE).get();
 
         // Check that it has been written
-        check(metaStorage, new EntryImpl(firstKey, firstValue, 3, 3));
+        check(metaStorage, new EntryImpl(FIRST_KEY, FIRST_VALUE, 3, 3));
     }
 
     /** {@inheritDoc} */
-    @Override public void doAfterSnapshot(RaftGroupService service) throws Exception {
-        metaStorage.put(secondKey, secondValue).get();
+    @Override public void afterSnapshot(RaftGroupService service) throws Exception {
+        metaStorage.put(SECOND_KEY, SECOND_VALUE).get();
     }
 
     /** {@inheritDoc} */
     @Override public BooleanSupplier snapshotCheckClosure(JRaftServerImpl restarted, boolean interactedAfterSnapshot) {
         KeyValueStorage storage = getListener(restarted, raftGroupId()).getStorage();
 
-        byte[] lastKey = interactedAfterSnapshot ? secondKey.bytes() : firstKey.bytes();
-        byte[] lastValue = interactedAfterSnapshot ? secondValue : firstValue;
+        byte[] lastKey = interactedAfterSnapshot ? SECOND_KEY.bytes() : FIRST_KEY.bytes();
+        byte[] lastValue = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
 
         int expectedRevision = interactedAfterSnapshot ? 4 : 3;
         int expectedUpdateCounter = interactedAfterSnapshot ? 4 : 3;

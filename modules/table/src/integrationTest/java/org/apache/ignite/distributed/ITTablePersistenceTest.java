@@ -51,48 +51,48 @@ public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
     );
 
     /** */
-    private static final Row firstKey = createKeyRow(0);
+    private static final Row FIRST_KEY = createKeyRow(0);
 
     /** */
-    private static final Row firstValue = createKeyValueRow(0, 0);
+    private static final Row FIRST_VALUE = createKeyValueRow(0, 0);
 
     /** */
-    private static final Row secondKey = createKeyRow(1);
+    private static final Row SECOND_KEY = createKeyRow(1);
 
     /** */
-    private static final Row secondValue = createKeyValueRow(1, 1);
+    private static final Row SECOND_VALUE = createKeyValueRow(1, 1);
 
     /** {@inheritDoc} */
-    @Override public void doBeforeStop(RaftGroupService service) throws Exception {
+    @Override public void beforeFollowerStop(RaftGroupService service) throws Exception {
         var table = new InternalTableImpl("table", UUID.randomUUID(), Map.of(0, service), 1);
 
-        table.upsert(firstValue, null).get();
+        table.upsert(FIRST_VALUE, null).get();
     }
 
     /** {@inheritDoc} */
-    @Override public void doAfterStop(RaftGroupService service) throws Exception {
+    @Override public void afterFollowerStop(RaftGroupService service) throws Exception {
         var table = new InternalTableImpl("table", UUID.randomUUID(), Map.of(0, service), 1);
 
         // Remove the first key
-        table.delete(firstKey, null).get();
+        table.delete(FIRST_KEY, null).get();
 
         // Put deleted data again
-        table.upsert(firstValue, null).get();
+        table.upsert(FIRST_VALUE, null).get();
     }
 
     /** {@inheritDoc} */
-    @Override public void doAfterSnapshot(RaftGroupService service) throws Exception {
+    @Override public void afterSnapshot(RaftGroupService service) throws Exception {
         var table = new InternalTableImpl("table", UUID.randomUUID(), Map.of(0, service), 1);
 
-        table.upsert(secondValue, null).get();
+        table.upsert(SECOND_VALUE, null).get();
     }
 
     /** {@inheritDoc} */
     @Override public BooleanSupplier snapshotCheckClosure(JRaftServerImpl restarted, boolean interactedAfterSnapshot) {
         RocksDbStorage storage = (RocksDbStorage) getListener(restarted, raftGroupId()).getStorage();
 
-        Row key = interactedAfterSnapshot ? secondKey : firstKey;
-        Row value = interactedAfterSnapshot ? secondValue : firstValue;
+        Row key = interactedAfterSnapshot ? SECOND_KEY : FIRST_KEY;
+        Row value = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
 
         ByteBuffer buffer = key.keySlice();
         byte[] keyBytes = new byte[buffer.capacity()];
