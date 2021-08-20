@@ -26,7 +26,7 @@ import org.apache.ignite.lang.IgniteLogger;
  */
 public class ThreadId {
 
-    private static final IgniteLogger LOG =IgniteLogger.forClass(ThreadId.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ThreadId.class);
 
     private static final int TRY_LOCK_TIMEOUT_MS = 10;
 
