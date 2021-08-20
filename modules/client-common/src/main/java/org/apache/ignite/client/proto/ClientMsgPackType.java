@@ -38,4 +38,7 @@ public class ClientMsgPackType {
 
     /** DateTime. */
     public static final byte DATETIME = 6;
+
+    /** Bit mask. */
+    public static final byte BITMASK = 7;
 }

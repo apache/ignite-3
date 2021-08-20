@@ -53,4 +53,7 @@ public class ClientDataType {
 
     /** BitMask. */
     public static final int BITMASK = 11;
+
+    /** Number. */
+    public static final int NUMBER = 12;
 }

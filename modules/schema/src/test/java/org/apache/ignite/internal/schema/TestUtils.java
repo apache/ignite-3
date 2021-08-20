@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.BitSet;
 import java.util.Random;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 
 /**
  * Test utility class.
@@ -60,7 +61,7 @@ public final class TestUtils {
                 return randomString(rnd, rnd.nextInt(255));
 
             case BYTES:
-                return randomBytes(rnd, rnd.nextInt(255));
+                return IgniteTestUtils.randomBytes(rnd, rnd.nextInt(255));
 
             case NUMBER:
                 return BigInteger.probablePrime(12, rnd);
@@ -93,18 +94,6 @@ public final class TestUtils {
         }
 
         return set;
-    }
-
-    /**
-     * @param rnd Random generator.
-     * @param len Byte array length.
-     * @return Random byte array.
-     */
-    public static byte[] randomBytes(Random rnd, int len) {
-        byte[] data = new byte[len];
-        rnd.nextBytes(data);
-
-        return data;
     }
 
     /**

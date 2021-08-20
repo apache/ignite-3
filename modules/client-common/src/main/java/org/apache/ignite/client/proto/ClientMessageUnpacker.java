@@ -45,6 +45,7 @@ import static org.apache.ignite.client.proto.ClientDataType.INT16;
 import static org.apache.ignite.client.proto.ClientDataType.INT32;
 import static org.apache.ignite.client.proto.ClientDataType.INT64;
 import static org.apache.ignite.client.proto.ClientDataType.INT8;
+import static org.apache.ignite.client.proto.ClientDataType.NUMBER;
 import static org.apache.ignite.client.proto.ClientDataType.STRING;
 
 /**
@@ -325,7 +326,7 @@ public class ClientMessageUnpacker extends MessageUnpacker {
         var len = hdr.getLength();
 
         if (type != ClientMsgPackType.UUID)
-            throw new MessageTypeException("Expected UUID extension (1), but got " + type);
+            throw new MessageTypeException("Expected UUID extension (3), but got " + type);
 
         if (len != 16)
             throw new MessageSizeException("Expected 16 bytes for UUID extension, but got " + len, len);
@@ -346,19 +347,60 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     public BigDecimal unpackDecimal() {
         assert refCnt > 0 : "Unpacker is closed";
 
-        throw new UnsupportedOperationException("TODO: IGNITE-15163");
+        var hdr = unpackExtensionTypeHeader();
+        var type = hdr.getType();
+        var len = hdr.getLength();
+
+        if (type != ClientMsgPackType.DECIMAL)
+            throw new MessageTypeException("Expected DECIMAL extension (2), but got " + type);
+
+        var bytes = readPayload(len);
+
+        ByteBuffer bb = ByteBuffer.wrap(bytes);
+
+        int scale = bb.getInt();
+
+        return new BigDecimal(new BigInteger(bytes, bb.position(), bb.remaining()), scale);
     }
 
     /**
      * Reads a bit set.
      *
      * @return Bit set.
-     * @throws UnsupportedOperationException Not supported yet.
      */
     public BitSet unpackBitSet() {
         assert refCnt > 0 : "Unpacker is closed";
 
-        throw new UnsupportedOperationException("TODO: IGNITE-15163");
+        var hdr = unpackExtensionTypeHeader();
+        var type = hdr.getType();
+        var len = hdr.getLength();
+
+        if (type != ClientMsgPackType.BITMASK)
+            throw new MessageTypeException("Expected DECIMAL extension (7), but got " + type);
+
+        var bytes = readPayload(len);
+
+        return BitSet.valueOf(bytes);
+    }
+
+    /**
+     * Reads a big number.
+     *
+     * @return Bit set.
+     */
+    public BigInteger unpackNumber() {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        var hdr = unpackExtensionTypeHeader();
+        var type = hdr.getType();
+        var len = hdr.getLength();
+
+        if (type != ClientMsgPackType.NUMBER)
+            throw new MessageTypeException("Expected NUMBER extension (1), but got " + type);
+
+        var bytes = readPayload(len);
+
+        return new BigInteger(bytes);
     }
 
     /**
@@ -398,16 +440,20 @@ public class ClientMessageUnpacker extends MessageUnpacker {
             case STRING:
                 return unpackString();
 
-            case BYTES:
+            case BYTES: {
                 var cnt = unpackBinaryHeader();
 
                 return readPayload(cnt);
+            }
 
             case DECIMAL:
                 return unpackDecimal();
 
             case BITMASK:
                 return unpackBitSet();
+
+            case NUMBER:
+                return unpackNumber();
         }
 
         throw new IgniteException("Unknown client data type: " + dataType);

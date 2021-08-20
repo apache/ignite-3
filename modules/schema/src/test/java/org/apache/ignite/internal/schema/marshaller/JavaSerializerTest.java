@@ -476,7 +476,7 @@ public class JavaSerializerTest {
             obj.uuidCol = new UUID(rnd.nextLong(), rnd.nextLong());
             obj.bitmaskCol = TestUtils.randomBitSet(rnd, 42);
             obj.stringCol = TestUtils.randomString(rnd, rnd.nextInt(255));
-            obj.bytesCol = TestUtils.randomBytes(rnd, rnd.nextInt(255));
+            obj.bytesCol = IgniteTestUtils.randomBytes(rnd, rnd.nextInt(255));
             obj.numberCol = (BigInteger)TestUtils.generateRandomValue(rnd, NativeTypes.numberOf(12));
             obj.decimalCol = (BigDecimal)TestUtils.generateRandomValue(rnd, NativeTypes.decimalOf(19, 3));
 

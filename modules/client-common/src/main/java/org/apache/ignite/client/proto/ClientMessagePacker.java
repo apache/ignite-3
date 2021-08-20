@@ -316,7 +316,7 @@ public class ClientMessagePacker extends MessagePacker {
         bb.putLong(val.getMostSignificantBits());
         bb.putLong(val.getLeastSignificantBits());
 
-        writePayload(bytes);
+        addPayload(bytes);
 
         return this;
     }
@@ -326,12 +326,38 @@ public class ClientMessagePacker extends MessagePacker {
      *
      * @param val Decimal value.
      * @return This instance.
-     * @throws UnsupportedOperationException Not supported.
      */
     public ClientMessagePacker packDecimal(BigDecimal val) {
         assert !closed : "Packer is closed";
 
-        throw new UnsupportedOperationException("TODO: IGNITE-15163");
+        // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
+        byte[] unscaledValue = val.unscaledValue().toByteArray();
+
+        packExtensionTypeHeader(ClientMsgPackType.DECIMAL, 4 + unscaledValue.length); // Scale length + data length
+
+        addPayload(ByteBuffer.wrap(new byte[4]).putInt(val.scale()).array());
+        addPayload(unscaledValue);
+
+        return this;
+    }
+
+    /**
+     * Writes a decimal.
+     *
+     * @param val Decimal value.
+     * @return This instance.
+     */
+    public ClientMessagePacker packNumber(BigInteger val) {
+        assert !closed : "Packer is closed";
+
+        // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
+        byte[] data = val.toByteArray();
+
+        packExtensionTypeHeader(ClientMsgPackType.NUMBER, data.length);
+
+        addPayload(data);
+
+        return this;
     }
 
     /**
@@ -339,12 +365,18 @@ public class ClientMessagePacker extends MessagePacker {
      *
      * @param val Bit set value.
      * @return This instance.
-     * @throws UnsupportedOperationException Not supported.
      */
     public ClientMessagePacker packBitSet(BitSet val) {
         assert !closed : "Packer is closed";
 
-        throw new UnsupportedOperationException("TODO: IGNITE-15163");
+        // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
+        byte[] data = val.toByteArray();
+
+        packExtensionTypeHeader(ClientMsgPackType.BITMASK, data.length);
+
+        addPayload(data);
+
+        return this;
     }
 
     /**
@@ -380,6 +412,9 @@ public class ClientMessagePacker extends MessagePacker {
 
         if (val instanceof BigDecimal)
             return packDecimal((BigDecimal) val);
+
+        if (val instanceof BigInteger)
+            return packNumber((BigInteger)val);
 
         if (val instanceof BitSet)
             return packBitSet((BitSet) val);
