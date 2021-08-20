@@ -27,6 +27,12 @@ class SchemaClassesInfo {
     /** Configuration class name postfix. */
     public static final String CONFIGURATION_CLASS_POSTFIX = "Configuration";
 
+    /** View class name postfix. */
+    public static final String VIEW_CLASS_POSTFIX = "View";
+
+    /** Change class name postfix. */
+    public static final String CHANGE_CLASS_POSTFIX = "Change";
+
     /** Configuration Schema class. */
     public final Class<?> schemaClass;
 
@@ -61,8 +67,8 @@ class SchemaClassesInfo {
 
         String prefix = prefix(schemaClass);
 
-        viewClassName = prefix + "View";
-        changeClassName = prefix + "Change";
+        viewClassName = prefix + VIEW_CLASS_POSTFIX;
+        changeClassName = prefix + CHANGE_CLASS_POSTFIX;
         cfgClassName = prefix + CONFIGURATION_CLASS_POSTFIX;
 
         nodeClassName = prefix + "Node";

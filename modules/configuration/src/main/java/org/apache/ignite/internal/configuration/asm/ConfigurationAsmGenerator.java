@@ -40,6 +40,7 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.ClassGenerator;
@@ -93,7 +94,9 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newIns
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.singleton;
 import static java.util.EnumSet.of;
+import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.CHANGE_CLASS_POSTFIX;
 import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.CONFIGURATION_CLASS_POSTFIX;
+import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.VIEW_CLASS_POSTFIX;
 import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.prefix;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isConfigValue;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isNamedConfigValue;
@@ -323,13 +326,17 @@ public class ConfigurationAsmGenerator {
     ) {
         SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaClass);
 
+        ParameterizedType[] interfaces = union(schemaExtensions, schemaClass).stream()
+            .flatMap(cls -> Stream.of(prefix(cls) + VIEW_CLASS_POSTFIX, prefix(cls) + CHANGE_CLASS_POSTFIX))
+            .map(ParameterizedType::typeFromJavaClassName)
+            .toArray(ParameterizedType[]::new);
+
         // Node class definition.
         ClassDefinition classDef = new ClassDefinition(
             of(PUBLIC, FINAL),
             internalName(schemaClassInfo.nodeClassName),
             type(InnerNode.class),
-            typeFromJavaClassName(schemaClassInfo.viewClassName),
-            typeFromJavaClassName(schemaClassInfo.changeClassName)
+            interfaces
         );
 
         // Spec fields.

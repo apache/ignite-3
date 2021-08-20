@@ -110,6 +110,19 @@ public class ConfigurationAsmGeneratorTest {
         assertSame(extendedRootConfig.str1(), extendedSecondRootConfig.str1());
 
         assertNotNull(extendedSecondRootConfig.i1());
+
+        // Check view and change interfaces.
+
+        assertTrue(baseRootConfig.value() instanceof ExtendedTestRootView);
+        assertTrue(baseRootConfig.value() instanceof ExtendedSecondTestRootView);
+
+        assertSame(baseRootConfig.value(), extendedRootConfig.value());
+        assertSame(baseRootConfig.value(), extendedSecondRootConfig.value());
+
+        baseRootConfig.change(c -> {
+            assertTrue(c instanceof ExtendedTestRootChange);
+            assertTrue(c instanceof ExtendedSecondTestRootChange);
+        });
     }
 
     /** */
@@ -135,6 +148,19 @@ public class ConfigurationAsmGeneratorTest {
         assertSame(extendedSubConfig.str3(), extendedSecondSubConfig.str3());
 
         assertNotNull(extendedSecondSubConfig.i1());
+
+        // Check view and change interfaces.
+
+        assertTrue(baseSubConfig.value() instanceof ExtendedTestView);
+        assertTrue(baseSubConfig.value() instanceof ExtendedSecondTestView);
+
+        assertSame(baseSubConfig.value(), extendedSubConfig.value());
+        assertSame(baseSubConfig.value(), extendedSecondSubConfig.value());
+
+        baseSubConfig.change(c -> {
+            assertTrue(c instanceof ExtendedTestChange);
+            assertTrue(c instanceof ExtendedSecondTestChange);
+        });
     }
 
     /** */
@@ -152,6 +178,16 @@ public class ConfigurationAsmGeneratorTest {
 
         assertTrue(namedConfig instanceof ExtendedTestConfiguration);
         assertTrue(namedConfig instanceof ExtendedSecondTestConfiguration);
+
+        // Check view and change interfaces.
+
+        assertTrue(namedConfig.value() instanceof ExtendedTestView);
+        assertTrue(namedConfig.value() instanceof ExtendedSecondTestView);
+
+        namedConfig.change(c -> {
+            assertTrue(c instanceof ExtendedTestChange);
+            assertTrue(c instanceof ExtendedSecondTestChange);
+        });
     }
 
     /**

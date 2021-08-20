@@ -46,7 +46,6 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.WildcardTypeName;
-import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.NamedListView;
@@ -56,6 +55,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.jetbrains.annotations.Nullable;
 
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
@@ -87,6 +87,7 @@ public class Processor extends AbstractProcessor {
 
     /**
      * Processes a set of annotation types on type elements.
+     *
      * @param roundEnvironment Processing environment.
      * @return Whether or not the set of annotation types are claimed by this processor.
      */
@@ -321,47 +322,57 @@ public class Processor extends AbstractProcessor {
      * @param fields List of configuration fields.
      * @param schemaClassName Class name of schema.
      * @param configurationInterfaceBuilder Configuration interface builder.
-     * @param extendSuperClass {@code true} if extending superclass, otherwise extending {@link ConfigurationTree}.
+     * @param extendBaseSchema {@code true} if extending base schema interfaces.
      * @param realSchemaClass Class descriptor.
      */
     private void createPojoBindings(
         List<VariableElement> fields,
         ClassName schemaClassName,
         TypeSpec.Builder configurationInterfaceBuilder,
-        boolean extendSuperClass,
+        boolean extendBaseSchema,
         TypeElement realSchemaClass
     ) {
-        TypeName superInterfaceType;
+        ClassName viewClsName = Utils.getViewName(schemaClassName);
+        ClassName changeClsName = Utils.getChangeName(schemaClassName);
 
-        if (extendSuperClass) {
+        TypeName configInterfaceType;
+        @Nullable TypeName viewBaseSchemaInterfaceType;
+        @Nullable TypeName changeBaseSchemaInterfaceType;
+
+        if (extendBaseSchema) {
             DeclaredType superClassType = (DeclaredType)realSchemaClass.getSuperclass();
             ClassName superClassSchemaClassName = ClassName.get((TypeElement)superClassType.asElement());
 
-            superInterfaceType = Utils.getConfigurationInterfaceName(superClassSchemaClassName);
+            configInterfaceType = Utils.getConfigurationInterfaceName(superClassSchemaClassName);
+            viewBaseSchemaInterfaceType = Utils.getViewName(superClassSchemaClassName);
+            changeBaseSchemaInterfaceType = Utils.getChangeName(superClassSchemaClassName);
         }
         else {
-            ClassName viewClassTypeName = Utils.getViewName(schemaClassName);
-            ClassName changeClassName = Utils.getChangeName(schemaClassName);
-
             ClassName confTreeInterface = ClassName.get("org.apache.ignite.configuration", "ConfigurationTree");
-            superInterfaceType = ParameterizedTypeName.get(confTreeInterface, viewClassTypeName, changeClassName);
+            configInterfaceType = ParameterizedTypeName.get(confTreeInterface, viewClsName, changeClsName);
+
+            viewBaseSchemaInterfaceType = null;
+            changeBaseSchemaInterfaceType = null;
         }
 
-        configurationInterfaceBuilder.addSuperinterface(superInterfaceType);
+        configurationInterfaceBuilder.addSuperinterface(configInterfaceType);
 
         // This code will be refactored in the future. Right now I don't want to entangle it with existing code
         // generation. It has only a few considerable problems - hardcode and a lack of proper arrays handling.
         // Clone method should be used to guarantee data integrity.
-        ClassName viewClsName = Utils.getViewName(schemaClassName);
-
-        ClassName changeClsName = Utils.getChangeName(schemaClassName);
 
         TypeSpec.Builder viewClsBuilder = TypeSpec.interfaceBuilder(viewClsName)
             .addModifiers(PUBLIC);
 
+        if (viewBaseSchemaInterfaceType != null)
+            viewClsBuilder.addSuperinterface(viewBaseSchemaInterfaceType);
+
         TypeSpec.Builder changeClsBuilder = TypeSpec.interfaceBuilder(changeClsName)
             .addSuperinterface(viewClsName)
             .addModifiers(PUBLIC);
+
+        if (changeBaseSchemaInterfaceType != null)
+            changeClsBuilder.addSuperinterface(changeBaseSchemaInterfaceType);
 
         ClassName consumerClsName = ClassName.get(Consumer.class);
 
