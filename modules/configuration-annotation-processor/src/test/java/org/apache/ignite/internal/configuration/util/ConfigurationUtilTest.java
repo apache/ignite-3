@@ -488,7 +488,7 @@ public class ConfigurationUtilTest {
         Class<?> schema = SimpleRootConfigurationSchema.class;
 
         assertEquals(
-            List.of(schema.getDeclaredFields()),
+            Set.of(schema.getDeclaredFields()),
             mergedSchemaFields(schema, List.of())
         );
 

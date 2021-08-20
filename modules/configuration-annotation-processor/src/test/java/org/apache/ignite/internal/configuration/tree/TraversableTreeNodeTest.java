@@ -18,10 +18,11 @@
 package org.apache.ignite.internal.configuration.tree;
 
 import java.io.Serializable;
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.TreeSet;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.annotation.Config;
@@ -278,7 +279,7 @@ public class TraversableTreeNodeTest {
     public void traverseChildren() {
         var parentNode = newParentInstance();
 
-        List<String> keys = new ArrayList<>(2);
+        Collection<String> keys = new TreeSet<>();
 
         parentNode.traverseChildren(new ConfigurationVisitor<Object>() {
             @Override public Object visitInnerNode(String key, InnerNode node) {
@@ -297,7 +298,7 @@ public class TraversableTreeNodeTest {
         });
 
         // Assert that updates happened in the same order as fields declaration in schema.
-        assertEquals(List.of("child", "elements"), keys);
+        assertEquals(new TreeSet<>(List.of("child", "elements")), keys);
 
         keys.clear();
 
@@ -310,7 +311,7 @@ public class TraversableTreeNodeTest {
         });
 
         // Assert that updates happened in the same order as fields declaration in schema.
-        assertEquals(List.of("intCfg", "strCfg"), keys);
+        assertEquals(new TreeSet<>(List.of("intCfg", "strCfg")), keys);
     }
 
     /**
