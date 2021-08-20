@@ -50,14 +50,15 @@ public class TupleImpl implements Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override public Tuple set(String columnName, Object val) {
+    @Override public Tuple set(@NotNull String columnName, Object val) {
+        Objects.nonNull(columnName);
+
         int idx = colIdxMap.computeIfAbsent(columnName, name -> colIdxMap.size());
 
         if (idx == colNames.size()) {
             colNames.add(idx, columnName);
             vals.add(idx, val);
-        }
-        else {
+        } else {
             colNames.set(idx, columnName);
             vals.set(idx, val);
         }
@@ -73,7 +74,7 @@ public class TupleImpl implements Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override public int columnIndex(String columnName) {
+    @Override public int columnIndex(@NotNull String columnName) {
         Integer idx = colIdxMap.get(columnName);
 
         return idx == null ? -1 : idx;
@@ -85,31 +86,31 @@ public class TupleImpl implements Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T valueOrDefault(String columnName, T def) {
+    @Override public <T> T valueOrDefault(@NotNull String columnName, T def) {
         int idx = columnIndex(columnName);
 
-        return (idx == -1) ? def : (T)vals.get(idx);
+        return (idx == -1) ? def : (T) vals.get(idx);
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T value(String columnName) {
+    @Override public <T> T value(@NotNull String columnName) {
         int idx = columnIndex(columnName);
 
         if (idx == -1)
             throw new IllegalArgumentException("Column not found: columnName=" + columnName);
 
-        return (T)vals.get(idx);
+        return (T) vals.get(idx);
     }
 
     /** {@inheritDoc} */
     @Override public <T> T value(int columnIndex) {
         Objects.checkIndex(columnIndex, vals.size());
 
-        return (T)vals.get(columnIndex);
+        return (T) vals.get(columnIndex);
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryObject binaryObjectValue(String columnName) {
+    @Override public BinaryObject binaryObjectValue(@NotNull String columnName) {
         return value(columnName);
     }
 
@@ -119,7 +120,7 @@ public class TupleImpl implements Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override public byte byteValue(String columnName) {
+    @Override public byte byteValue(@NotNull String columnName) {
         return value(columnName);
     }
 
@@ -129,7 +130,7 @@ public class TupleImpl implements Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override public short shortValue(String columnName) {
+    @Override public short shortValue(@NotNull String columnName) {
         return value(columnName);
     }
 
@@ -139,7 +140,7 @@ public class TupleImpl implements Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override public int intValue(String columnName) {
+    @Override public int intValue(@NotNull String columnName) {
         return value(columnName);
     }
 
@@ -149,7 +150,7 @@ public class TupleImpl implements Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override public long longValue(String columnName) {
+    @Override public long longValue(@NotNull String columnName) {
         return value(columnName);
     }
 
@@ -159,7 +160,7 @@ public class TupleImpl implements Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override public float floatValue(String columnName) {
+    @Override public float floatValue(@NotNull String columnName) {
         return value(columnName);
     }
 
@@ -169,7 +170,7 @@ public class TupleImpl implements Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override public double doubleValue(String columnName) {
+    @Override public double doubleValue(@NotNull String columnName) {
         return value(columnName);
     }
 
@@ -179,7 +180,7 @@ public class TupleImpl implements Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override public String stringValue(String columnName) {
+    @Override public String stringValue(@NotNull String columnName) {
         return value(columnName);
     }
 
@@ -189,7 +190,7 @@ public class TupleImpl implements Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override public UUID uuidValue(String columnName) {
+    @Override public UUID uuidValue(@NotNull String columnName) {
         return value(columnName);
     }
 
@@ -199,7 +200,7 @@ public class TupleImpl implements Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override public BitSet bitmaskValue(String columnName) {
+    @Override public BitSet bitmaskValue(@NotNull String columnName) {
         return value(columnName);
     }
 

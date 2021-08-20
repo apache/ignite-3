@@ -20,6 +20,7 @@ package org.apache.ignite.table;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Tuple represents arbitrary set of columns whose values is accessible by column name.
@@ -58,7 +59,7 @@ public interface Tuple extends Iterable<Object> {
      * @param columnName Column name.
      * @return Column index, or {@code -1} when a column with given name is not present.
      */
-    int columnIndex(String columnName);
+    int columnIndex(@NotNull String columnName);
 
     /**
      * Gets column value when a column with specified name is present in this tuple; returns default value otherwise.
@@ -68,7 +69,7 @@ public interface Tuple extends Iterable<Object> {
      * @param <T> Column default value type.
      * @return Column value if this tuple contains a column with the specified name. Otherwise returns {@code defaultValue}.
      */
-    <T> T valueOrDefault(String columnName, T defaultValue);
+    <T> T valueOrDefault(@NotNull String columnName, T defaultValue);
 
     /**
      * Sets column value.
@@ -77,7 +78,7 @@ public interface Tuple extends Iterable<Object> {
      * @param value Value to set.
      * @return {@code this} for chaining.
      */
-    Tuple set(String columnName, Object value);
+    Tuple set(@NotNull String columnName, Object value);
 
     /**
      * Gets column value for given column name.
@@ -87,7 +88,7 @@ public interface Tuple extends Iterable<Object> {
      * @return Column value.
      * @throws IllegalArgumentException If column with given name doesn't exists.
      */
-    <T> T value(String columnName);
+    <T> T value(@NotNull String columnName);
 
     /**
      * Gets column value for given column index.
@@ -106,7 +107,7 @@ public interface Tuple extends Iterable<Object> {
      * @return Column value.
      * @throws IllegalArgumentException If column with given name doesn't exists.
      */
-    BinaryObject binaryObjectValue(String columnName);
+    BinaryObject binaryObjectValue(@NotNull String columnName);
 
     /**
      * Gets binary object column.
@@ -124,7 +125,7 @@ public interface Tuple extends Iterable<Object> {
      * @return Column value.
      * @throws IllegalArgumentException If column with given name doesn't exists.
      */
-    byte byteValue(String columnName);
+    byte byteValue(@NotNull String columnName);
 
     /**
      * Gets {@code byte} column value.
@@ -142,7 +143,7 @@ public interface Tuple extends Iterable<Object> {
      * @return Column value.
      * @throws IllegalArgumentException If column with given name doesn't exists.
      */
-    short shortValue(String columnName);
+    short shortValue(@NotNull String columnName);
 
     /**
      * Gets {@code short} column value.
@@ -160,7 +161,7 @@ public interface Tuple extends Iterable<Object> {
      * @return Column value.
      * @throws IllegalArgumentException If column with given name doesn't exists.
      */
-    int intValue(String columnName);
+    int intValue(@NotNull String columnName);
 
     /**
      * Gets {@code int} column value.
@@ -178,7 +179,7 @@ public interface Tuple extends Iterable<Object> {
      * @return Column value.
      * @throws IllegalArgumentException If column with given name doesn't exists.
      */
-    long longValue(String columnName);
+    long longValue(@NotNull String columnName);
 
     /**
      * Gets {@code long} column value.
@@ -196,7 +197,7 @@ public interface Tuple extends Iterable<Object> {
      * @return Column value.
      * @throws IllegalArgumentException If column with given name doesn't exists.
      */
-    float floatValue(String columnName);
+    float floatValue(@NotNull String columnName);
 
     /**
      * Gets {@code float} column value.
@@ -214,7 +215,7 @@ public interface Tuple extends Iterable<Object> {
      * @return Column value.
      * @throws IllegalArgumentException If column with given name doesn't exists.
      */
-    double doubleValue(String columnName);
+    double doubleValue(@NotNull String columnName);
 
     /**
      * Gets {@code double} column value.
@@ -232,7 +233,7 @@ public interface Tuple extends Iterable<Object> {
      * @return Column value.
      * @throws IllegalArgumentException If column with given name doesn't exists.
      */
-    String stringValue(String columnName);
+    String stringValue(@NotNull String columnName);
 
     /**
      * Gets {@code String} column value.
@@ -250,7 +251,7 @@ public interface Tuple extends Iterable<Object> {
      * @return Column value.
      * @throws IllegalArgumentException If column with given name doesn't exists.
      */
-    UUID uuidValue(String columnName);
+    UUID uuidValue(@NotNull String columnName);
 
     /**
      * Gets {@code UUID} column value.
@@ -268,7 +269,7 @@ public interface Tuple extends Iterable<Object> {
      * @return Column value.
      * @throws IllegalArgumentException If column with given name doesn't exists.
      */
-    BitSet bitmaskValue(String columnName);
+    BitSet bitmaskValue(@NotNull String columnName);
 
     /**
      * Gets {@code BitSet} column value.
