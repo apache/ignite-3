@@ -22,6 +22,7 @@ import org.apache.ignite.configuration.schemas.client.ClientConfiguration;
 import org.apache.ignite.configuration.schemas.client.ClientView;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -57,9 +58,12 @@ public class ConfigurationTest extends AbstractClientTest {
 
     private static void checkClient(IgniteClient client) throws Exception {
         try (client) {
+            // Check that client works.
             assertEquals(0, client.tables().tables().size());
 
+            // Check config values.
             assertEquals(1234, client.configuration().getConnectTimeout());
+            assertArrayEquals(new String[]{"127.0.0.1:" + serverPort}, client.configuration().getAddresses());
         }
     }
 }

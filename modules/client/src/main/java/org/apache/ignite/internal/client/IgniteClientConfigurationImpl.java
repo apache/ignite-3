@@ -23,7 +23,7 @@ import org.apache.ignite.client.IgniteClientConfiguration;
 /**
  * Immutable configuration.
  */
-public class IgniteClientConfigurationImpl implements IgniteClientConfiguration {
+public final class IgniteClientConfigurationImpl implements IgniteClientConfiguration {
     /** Address finder. */
     private final IgniteClientAddressFinder addressFinder;
 
@@ -72,8 +72,7 @@ public class IgniteClientConfigurationImpl implements IgniteClientConfiguration 
 
     /** {@inheritDoc} */
     @Override public String[] getAddresses() {
-        // TODO: Defensive copy IGNITE-15164.
-        return addresses;
+        return addresses.clone();
     }
 
     /** {@inheritDoc} */
