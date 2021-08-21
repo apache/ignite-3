@@ -38,7 +38,6 @@ final class ClientChannelConfiguration {
      */
     @SuppressWarnings("UnnecessaryThis")
     ClientChannelConfiguration(IgniteClientConfiguration cfg, InetSocketAddress addr) {
-        // TODO: Get from public API cfg IGNITE-15164.
         this.addr = addr;
         this.cfg = cfg;
     }
