@@ -48,6 +48,9 @@ public class IgniteClient {
                 Map.of(),
                 new ClientConfigurationStorage());
 
+        cfg.start();
+        cfg.initializeDefaults();
+
         return cfg.getConfiguration(ClientConfiguration.KEY);
     }
 
