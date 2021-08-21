@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client;
 
-import org.apache.ignite.app.Ignite;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,11 +32,7 @@ public class ConfigurationTest extends AbstractClientTest {
                 .connectTimeout(1234)
                 .build();
 
-        try (client) {
-            assertEquals(0, client.tables().tables().size());
-
-            assertEquals(1234, client.configuration().getConnectTimeout());
-        }
+        checkClient(client);
     }
 
     @Test
@@ -51,6 +46,10 @@ public class ConfigurationTest extends AbstractClientTest {
 
         IgniteClient client = IgniteClient.start(config);
 
+        checkClient(client);
+    }
+
+    private static void checkClient(IgniteClient client) throws Exception {
         try (client) {
             assertEquals(0, client.tables().tables().size());
 
