@@ -43,7 +43,6 @@ public class IgniteClient {
 
     public static ClientConfiguration configurationBuilder() {
         // TODO: How to make a nice API out of generated configuration?
-        // cfg.getConfiguration(ClientConfiguration.KEY).addresses().
         var cfg = new ConfigurationRegistry(
                 List.of(ClientConfiguration.KEY),
                 Map.of(),
@@ -57,24 +56,22 @@ public class IgniteClient {
 
     public static Ignite start(ClientConfiguration configuration) {
         // TODO: ClientView is immutable, which is good for us, but the name of the interface is confusing.
-        // TODO: There is no easy way to access defaults from code. The whole config system is very confusing.
+        // TODO: There is no easy way to access defaults from code.
         ClientView cfgVal = configuration.value();
+
         IgniteClientConfiguration cfg = new IgniteClientConfigurationImpl(
                 null,
                 cfgVal.addresses(),
                 cfgVal.retryLimit(),
                 cfgVal.connectTimeout());
 
-        return null;
+        return new TcpIgniteClient(cfg);
     }
 
     /** Client builder. */
     public static class Builder {
         /** Addresses. */
         private String[] addresses;
-
-        public Builder() {
-        }
 
         /**
          * Builds the client.
