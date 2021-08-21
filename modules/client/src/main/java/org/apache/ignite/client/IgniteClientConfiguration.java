@@ -19,7 +19,6 @@ package org.apache.ignite.client;
 
 /**
  * Ignite client configuration.
- * TODO: improve and finalize IGNITE-15164.
  */
 public interface IgniteClientConfiguration {
     /** Default port. */
@@ -33,40 +32,42 @@ public interface IgniteClientConfiguration {
      *
      * @return Address finder.
      */
-    IgniteClientAddressFinder getAddressesFinder();
+    IgniteClientAddressFinder addressesFinder();
 
     /**
-     * Gets the addresses.
+     * Gets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname,
+     * with or without port. If port is not set then Ignite will generate multiple addresses for default port range.
+     * See {@link IgniteClientConfiguration#DFLT_PORT}, {@link IgniteClientConfiguration#DFLT_PORT_RANGE}.
      *
      * @return Addresses.
      */
-    String[] getAddresses();
+    String[] addresses();
 
     /**
      * Gets the retry limit.
      *
      * @return Retry limit.
      */
-    int getRetryLimit();
+    int retryLimit();
 
     /**
      * Gets the socket connect timeout.
      *
      * @return Socket connect timeout.
      */
-    int getConnectTimeout();
+    int connectTimeout();
 
     /**
      * Gets the reconnect throttling period.
      *
      * @return Reconnect period (for throttling).
      */
-    long getReconnectThrottlingPeriod();
+    long reconnectThrottlingPeriod();
 
     /**
      * Gets the reconnect throttling retries.
      *
      * @return Reconnect retries within period (for throttling).
      */
-    int getReconnectThrottlingRetries();
+    int reconnectThrottlingRetries();
 }

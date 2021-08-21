@@ -88,10 +88,11 @@ public interface IgniteClient extends Ignite {
         private int connectTimeout;
 
         /**
-         * Sets the addresses.
+         * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname,
+         * with or without port. If port is not set then Ignite will generate multiple addresses for default port range.
+         * See {@link IgniteClientConfiguration#DFLT_PORT}, {@link IgniteClientConfiguration#DFLT_PORT_RANGE}.
          *
          * @param addrs Addresses.
-         * @return This instance.
          */
         public Builder addresses(String... addrs) {
             addresses = addrs;
@@ -112,7 +113,7 @@ public interface IgniteClient extends Ignite {
         }
 
         /**
-         * Sets the connection timeout.
+         * Sets the socket connection timeout, in milliseconds.
          *
          * @param connectTimeout Socket connection timeout.
          * @return This instance.

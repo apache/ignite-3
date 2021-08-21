@@ -350,8 +350,8 @@ public final class ReliableChannel implements AutoCloseable {
 
         Map<InetSocketAddress, Integer> newAddrs = null;
 
-        if (clientCfg.getAddressesFinder() != null) {
-            String[] hostAddrs = clientCfg.getAddressesFinder().getAddresses();
+        if (clientCfg.addressesFinder() != null) {
+            String[] hostAddrs = clientCfg.addressesFinder().getAddresses();
 
             if (hostAddrs.length == 0)
                 throw new IgniteClientException("Empty addresses");
@@ -362,7 +362,7 @@ public final class ReliableChannel implements AutoCloseable {
             }
         }
         else if (holders == null)
-            newAddrs = parsedAddresses(clientCfg.getAddresses());
+            newAddrs = parsedAddresses(clientCfg.addresses());
 
         if (newAddrs == null)
             return true;
@@ -441,7 +441,7 @@ public final class ReliableChannel implements AutoCloseable {
 
     /**
      * Establishing connections to servers. If partition awareness feature is enabled connections are created
-     * for every configured server. Otherwise only default channel is connected.
+     * for every configured server. Otherwise, only default channel is connected.
      */
     CompletableFuture<Void> channelsInitAsync() {
         // Do not establish connections if interrupted.
@@ -515,7 +515,7 @@ public final class ReliableChannel implements AutoCloseable {
 
         int size = holders.size();
 
-        return clientCfg.getRetryLimit() > 0 ? Math.min(clientCfg.getRetryLimit(), size) : size;
+        return clientCfg.retryLimit() > 0 ? Math.min(clientCfg.retryLimit(), size) : size;
     }
 
     /**
@@ -544,9 +544,9 @@ public final class ReliableChannel implements AutoCloseable {
         private ClientChannelHolder(ClientChannelConfiguration chCfg) {
             this.chCfg = chCfg;
 
-            reconnectRetries = chCfg.clientConfiguration().getReconnectThrottlingRetries() > 0 &&
-                    chCfg.clientConfiguration().getReconnectThrottlingPeriod() > 0L
-                    ? new long[chCfg.clientConfiguration().getReconnectThrottlingRetries()]
+            reconnectRetries = chCfg.clientConfiguration().reconnectThrottlingRetries() > 0 &&
+                    chCfg.clientConfiguration().reconnectThrottlingPeriod() > 0L
+                    ? new long[chCfg.clientConfiguration().reconnectThrottlingRetries()]
                     : null;
         }
 
@@ -560,7 +560,7 @@ public final class ReliableChannel implements AutoCloseable {
             long ts = System.currentTimeMillis();
 
             for (int i = 0; i < reconnectRetries.length; i++) {
-                if (ts - reconnectRetries[i] >= chCfg.clientConfiguration().getReconnectThrottlingPeriod()) {
+                if (ts - reconnectRetries[i] >= chCfg.clientConfiguration().reconnectThrottlingPeriod()) {
                     reconnectRetries[i] = ts;
 
                     return false;

@@ -66,32 +66,32 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     }
 
     /** {@inheritDoc} */
-    @Override public IgniteClientAddressFinder getAddressesFinder() {
+    @Override public IgniteClientAddressFinder addressesFinder() {
         return addressFinder;
     }
 
     /** {@inheritDoc} */
-    @Override public String[] getAddresses() {
+    @Override public String[] addresses() {
         return addresses.clone();
     }
 
     /** {@inheritDoc} */
-    @Override public int getRetryLimit() {
+    @Override public int retryLimit() {
         return retryLimit;
     }
 
     /** {@inheritDoc} */
-    @Override public int getConnectTimeout() {
+    @Override public int connectTimeout() {
         return connectTimeout;
     }
 
     /** {@inheritDoc} */
-    @Override public long getReconnectThrottlingPeriod() {
+    @Override public long reconnectThrottlingPeriod() {
         return reconnectThrottlingPeriod;
     }
 
     /** {@inheritDoc} */
-    @Override public int getReconnectThrottlingRetries() {
+    @Override public int reconnectThrottlingRetries() {
         return reconnectThrottlingRetries;
     }
 }

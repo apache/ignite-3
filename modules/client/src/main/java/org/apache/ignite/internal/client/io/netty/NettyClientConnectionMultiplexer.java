@@ -57,7 +57,7 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
             bootstrap.group(workerGroup);
             bootstrap.channel(NioSocketChannel.class);
             bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
-            bootstrap.option(ChannelOption.SO_TIMEOUT, clientCfg.getConnectTimeout());
+            bootstrap.option(ChannelOption.SO_TIMEOUT, clientCfg.connectTimeout());
             bootstrap.handler(new ChannelInitializer<SocketChannel>() {
                 @Override
                 public void initChannel(SocketChannel ch)
