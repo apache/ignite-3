@@ -20,7 +20,6 @@ package org.apache.ignite.internal.client;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 
-import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientException;
@@ -76,7 +75,7 @@ public class TcpIgniteClient implements IgniteClient {
      * @return Future representing pending completion of the operation.
      */
     public CompletableFuture<Void> initAsync() {
-        return ch.channelsInit();
+        return ch.channelsInitAsync();
     }
 
     /**
