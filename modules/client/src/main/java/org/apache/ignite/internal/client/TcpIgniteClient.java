@@ -31,7 +31,10 @@ import org.apache.ignite.tx.IgniteTransactions;
 /**
  * Implementation of {@link IgniteClient} over TCP protocol.
  */
-public class TcpIgniteClient implements Ignite {
+public class TcpIgniteClient implements IgniteClient {
+    /** Configuration. */
+    private final IgniteClientConfiguration cfg;
+
     /** Channel. */
     private final ReliableChannel ch;
 
@@ -53,8 +56,14 @@ public class TcpIgniteClient implements Ignite {
      * @param chFactory Channel factory.
      * @param cfg Config.
      */
-    public TcpIgniteClient(BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, ClientChannel> chFactory,
-            IgniteClientConfiguration cfg) {
+    public TcpIgniteClient(
+            BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, ClientChannel> chFactory,
+            IgniteClientConfiguration cfg
+    ) {
+        assert chFactory != null;
+        assert cfg != null;
+
+        this.cfg = cfg;
         ch = new ReliableChannel(chFactory, cfg);
 
         try {
@@ -98,5 +107,10 @@ public class TcpIgniteClient implements Ignite {
     @Override public String name() {
         // TODO: improve and finalize IGNITE-15164.
         return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public IgniteClientConfiguration configuration() {
+        return cfg;
     }
 }

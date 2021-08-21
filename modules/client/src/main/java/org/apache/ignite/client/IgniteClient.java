@@ -25,23 +25,31 @@ import org.apache.ignite.app.Ignite;
 import org.apache.ignite.configuration.schemas.client.ClientConfiguration;
 import org.apache.ignite.configuration.schemas.client.ClientView;
 import org.apache.ignite.internal.client.ClientConfigurationStorage;
+import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 
 /**
  * Ignite client entry point.
  */
-public class IgniteClient {
+public interface IgniteClient extends Ignite {
+    /**
+     * Gets the configuration.
+     *
+     * @return Configuration.
+     */
+    IgniteClientConfiguration configuration();
+
     /**
      * Gets a new client builder.
      *
      * @return New client builder.
      */
-    public static Builder builder() {
+    static Builder builder() {
         return new Builder();
     }
 
-    public static ClientConfiguration configurationBuilder() {
+    static ClientConfiguration configurationBuilder() {
         // TODO: How to make a nice API out of generated configuration?
         var cfg = new ConfigurationRegistry(
                 List.of(ClientConfiguration.KEY),
@@ -54,7 +62,7 @@ public class IgniteClient {
         return cfg.getConfiguration(ClientConfiguration.KEY);
     }
 
-    public static Ignite start(ClientConfiguration configuration) {
+    static IgniteClient start(ClientConfiguration configuration) {
         // TODO: ClientView is immutable, which is good for us, but the name of the interface is confusing.
         // TODO: There is no easy way to access defaults from code.
         ClientView cfgVal = configuration.value();
@@ -69,7 +77,7 @@ public class IgniteClient {
     }
 
     /** Client builder. */
-    public static class Builder {
+    class Builder {
         /** Addresses. */
         private String[] addresses;
 
@@ -114,13 +122,13 @@ public class IgniteClient {
         }
 
         /**
-         * Sets the connect timeout.
+         * Sets the connection timeout.
          *
-         * @param connectTimeout Retry limit.
+         * @param connectTimeout Socket connection timeout.
          * @return This instance.
          */
         public Builder connectTimeout(int connectTimeout) {
-            this.retryLimit = connectTimeout;
+            this.connectTimeout = connectTimeout;
 
             return this;
         }
@@ -130,68 +138,11 @@ public class IgniteClient {
          *
          * @return Ignite client.
          */
-        public CompletableFuture<Ignite> buildAsync() {
+        public CompletableFuture<IgniteClient> buildAsync() {
             // TODO: Async connect IGNITE-15164.
             var cfg = new IgniteClientConfigurationImpl(null, addresses, retryLimit, connectTimeout);
 
             return CompletableFuture.completedFuture(new TcpIgniteClient(cfg));
-        }
-    }
-
-    /**
-     * Immutable configuration.
-     */
-    private static class IgniteClientConfigurationImpl implements IgniteClientConfiguration {
-        /** Address finder. */
-        private final IgniteClientAddressFinder addressFinder;
-
-        /** Addresses. */
-        private final String[] addresses;
-
-        /** Retry limit. */
-        private final int retryLimit;
-
-        /** Connect timeout. */
-        private final int connectTimeout;
-
-        /**
-         * Constructor.
-         *  @param addressFinder Address finder.
-         * @param addresses Addresses.
-         * @param retryLimit Retry limit.
-         * @param connectTimeout Socket connect timeout.
-         */
-        IgniteClientConfigurationImpl(
-                IgniteClientAddressFinder addressFinder,
-                String[] addresses,
-                int retryLimit,
-                int connectTimeout
-        ) {
-            this.addressFinder = addressFinder;
-            this.addresses = addresses;
-            this.retryLimit = retryLimit;
-            this.connectTimeout = connectTimeout;
-        }
-
-        /** {@inheritDoc} */
-        @Override public IgniteClientAddressFinder getAddressesFinder() {
-            return addressFinder;
-        }
-
-        /** {@inheritDoc} */
-        @Override public String[] getAddresses() {
-            // TODO: Defensive copy IGNITE-15164.
-            return addresses;
-        }
-
-        /** {@inheritDoc} */
-        @Override public int getRetryLimit() {
-            return retryLimit;
-        }
-
-        /** {@inheritDoc} */
-        @Override public int getConnectTimeout() {
-            return connectTimeout;
         }
     }
 }
