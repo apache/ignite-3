@@ -92,7 +92,7 @@ public interface IgniteClient extends Ignite {
          *
          * @return Ignite client.
          */
-        public Ignite build() {
+        public IgniteClient build() {
             // TODO: Validate values IGNITE-15164.
             return buildAsync().join();
         }

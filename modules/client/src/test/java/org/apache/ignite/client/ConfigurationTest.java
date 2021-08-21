@@ -28,12 +28,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class ConfigurationTest extends AbstractClientTest {
     @Test
     public void testClientBuilder() throws Exception {
-        Ignite client = IgniteClient.builder()
+        IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:" + serverPort)
+                .connectTimeout(1234)
                 .build();
 
         try (client) {
             assertEquals(0, client.tables().tables().size());
+
+            assertEquals(1234, client.configuration().getConnectTimeout());
         }
     }
 
@@ -43,14 +46,15 @@ public class ConfigurationTest extends AbstractClientTest {
 
         config.change(c -> c
                 .changeAddresses("127.0.0.1:" + serverPort)
-                .changeRetryLimit(3)
-                .changeConnectTimeout(3000))
+                .changeConnectTimeout(1234))
                 .join();
 
-        Ignite client = IgniteClient.start(config);
+        IgniteClient client = IgniteClient.start(config);
 
         try (client) {
             assertEquals(0, client.tables().tables().size());
+
+            assertEquals(1234, client.configuration().getConnectTimeout());
         }
     }
 }
