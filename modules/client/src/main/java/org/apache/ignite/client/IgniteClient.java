@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.configuration.schemas.client.ClientConfiguration;
+import org.apache.ignite.configuration.schemas.client.ClientView;
 import org.apache.ignite.internal.client.ClientConfigurationStorage;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -55,10 +56,11 @@ public class IgniteClient {
     }
 
     public static Ignite start(ClientConfiguration configuration) {
-        // TODO: How to deal with immutability?
-        var val1 = configuration.value();
+        // TODO: ClientView is immutable, which is good for us, but the name of the interface is confusing.
+        // TODO: There is no easy way to access defaults from code. The whole config system is very confusing.
+        ClientView val1 = configuration.value();
         configuration.change(c -> c.changeRetryLimit(100)).join();
-        var val2 = configuration.value();
+        ClientView val2 = configuration.value();
 
         return null;
     }
