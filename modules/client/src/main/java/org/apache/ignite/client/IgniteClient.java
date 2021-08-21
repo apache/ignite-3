@@ -62,16 +62,14 @@ public interface IgniteClient extends Ignite {
         return cfg.getConfiguration(ClientConfiguration.KEY);
     }
 
-    static IgniteClient start(ClientConfiguration configuration) {
+    static IgniteClient start(ClientView configuration) {
         // TODO: ClientView is immutable, which is good for us, but the name of the interface is confusing.
         // TODO: There is no easy way to access defaults from code.
-        ClientView cfgVal = configuration.value();
-
         IgniteClientConfiguration cfg = new IgniteClientConfigurationImpl(
                 null,
-                cfgVal.addresses(),
-                cfgVal.retryLimit(),
-                cfgVal.connectTimeout());
+                configuration.addresses(),
+                configuration.retryLimit(),
+                configuration.connectTimeout());
 
         return new TcpIgniteClient(cfg);
     }

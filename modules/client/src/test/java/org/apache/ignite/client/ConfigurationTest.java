@@ -17,6 +17,9 @@
 
 package org.apache.ignite.client;
 
+import org.apache.ignite.configuration.schemas.client.ClientChange;
+import org.apache.ignite.configuration.schemas.client.ClientConfiguration;
+import org.apache.ignite.configuration.schemas.client.ClientView;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -37,14 +40,17 @@ public class ConfigurationTest extends AbstractClientTest {
 
     @Test
     public void testConfigurationBuilder() throws Exception {
-        var config = IgniteClient.configurationBuilder();
+        ClientConfiguration config = IgniteClient.configurationBuilder();
 
-        config.change(c -> c
+        config.change((ClientChange c) -> c
                 .changeAddresses("127.0.0.1:" + serverPort)
                 .changeConnectTimeout(1234))
                 .join();
 
-        IgniteClient client = IgniteClient.start(config);
+        // ClientView is an immutable representation of ClientConfiguration.
+        ClientView value = config.value();
+
+        IgniteClient client = IgniteClient.start(value);
 
         checkClient(client);
     }
