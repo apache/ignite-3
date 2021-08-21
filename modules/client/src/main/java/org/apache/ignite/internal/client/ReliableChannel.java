@@ -443,13 +443,16 @@ public final class ReliableChannel implements AutoCloseable {
      * Establishing connections to servers. If partition awareness feature is enabled connections are created
      * for every configured server. Otherwise only default channel is connected.
      */
-    void channelsInit() {
+    CompletableFuture<Void> channelsInit() {
         // Do not establish connections if interrupted.
         if (!initChannelHolders())
-            return;
+            return CompletableFuture.completedFuture(null);
 
         // Apply no-op function. Establish default channel connection.
+        // TODO: async init.
         applyOnDefaultChannel(channel -> null);
+
+        return CompletableFuture.completedFuture(null);
     }
 
     /** */

@@ -62,7 +62,7 @@ public interface IgniteClient extends Ignite {
         return cfg.getConfiguration(ClientConfiguration.KEY);
     }
 
-    static IgniteClient start(ClientView configuration) {
+    static CompletableFuture<IgniteClient> startAsync(ClientView configuration) {
         // TODO: ClientView is immutable, which is good for us, but the name of the interface is confusing.
         // TODO: There is no easy way to access defaults from code.
         IgniteClientConfiguration cfg = new IgniteClientConfigurationImpl(
@@ -73,7 +73,7 @@ public interface IgniteClient extends Ignite {
                 0,
                 0);
 
-        return new TcpIgniteClient(cfg);
+        return TcpIgniteClient.startAsync(cfg);
     }
 
     /** Client builder. */
@@ -86,16 +86,6 @@ public interface IgniteClient extends Ignite {
 
         /** Connect timeout. */
         private int connectTimeout;
-
-        /**
-         * Builds the client.
-         *
-         * @return Ignite client.
-         */
-        public IgniteClient build() {
-            // TODO: Validate values IGNITE-15164.
-            return buildAsync().join();
-        }
 
         /**
          * Sets the addresses.
@@ -138,11 +128,20 @@ public interface IgniteClient extends Ignite {
          *
          * @return Ignite client.
          */
+        public IgniteClient build() {
+            // TODO: Validate values IGNITE-15164.
+            return buildAsync().join();
+        }
+
+        /**
+         * Builds the client.
+         *
+         * @return Ignite client.
+         */
         public CompletableFuture<IgniteClient> buildAsync() {
-            // TODO: Async connect IGNITE-15164.
             var cfg = new IgniteClientConfigurationImpl(null, addresses, retryLimit, connectTimeout, 0, 0);
 
-            return CompletableFuture.completedFuture(new TcpIgniteClient(cfg));
+            return TcpIgniteClient.startAsync(cfg);
         }
     }
 }

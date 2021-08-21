@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 
 import org.apache.ignite.app.Ignite;
@@ -64,28 +65,30 @@ public class TcpIgniteClient implements IgniteClient {
         assert cfg != null;
 
         this.cfg = cfg;
+
         ch = new ReliableChannel(chFactory, cfg);
-
-        try {
-            // TODO: Async init.
-            ch.channelsInit();
-        }
-        catch (Exception e) {
-            ch.close();
-            throw e;
-        }
-
         tables = new ClientTables(ch);
     }
 
     /**
-     * Initializes new instance of {@link IgniteClient}.
+     * Initializes the connection.
+     *
+     * @return Future representing pending completion of the operation.
+     */
+    public CompletableFuture<Void> initAsync() {
+        return ch.channelsInit();
+    }
+
+    /**
+     * Initializes new instance of {@link IgniteClient} and establishes the connection.
      *
      * @param cfg Thin client configuration.
-     * @return Client with successfully opened thin client connection.
+     * @return Future representing pending completion of the operation.
      */
-    public static Ignite start(IgniteClientConfiguration cfg) throws IgniteClientException {
-        return new TcpIgniteClient(cfg);
+    public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg) throws IgniteClientException {
+        var client = new TcpIgniteClient(cfg);
+
+        return client.initAsync().thenApply(x -> client);
     }
 
     /** {@inheritDoc} */

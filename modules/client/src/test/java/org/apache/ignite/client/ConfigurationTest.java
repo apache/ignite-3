@@ -51,7 +51,7 @@ public class ConfigurationTest extends AbstractClientTest {
         // ClientView is an immutable representation of ClientConfiguration.
         ClientView value = config.value();
 
-        IgniteClient client = IgniteClient.start(value);
+        IgniteClient client = IgniteClient.startAsync(value).join();
 
         checkClient(client);
     }
