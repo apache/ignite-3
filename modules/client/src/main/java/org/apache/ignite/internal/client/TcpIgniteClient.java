@@ -47,7 +47,7 @@ public class TcpIgniteClient implements IgniteClient {
      *
      * @param cfg Config.
      */
-    public TcpIgniteClient(IgniteClientConfiguration cfg) {
+    private TcpIgniteClient(IgniteClientConfiguration cfg) {
         this(TcpClientChannel::new, cfg);
     }
 
@@ -57,7 +57,7 @@ public class TcpIgniteClient implements IgniteClient {
      * @param chFactory Channel factory.
      * @param cfg Config.
      */
-    public TcpIgniteClient(
+    private TcpIgniteClient(
             BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, ClientChannel> chFactory,
             IgniteClientConfiguration cfg
     ) {
