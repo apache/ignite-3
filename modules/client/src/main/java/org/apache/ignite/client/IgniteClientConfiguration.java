@@ -28,12 +28,6 @@ public interface IgniteClientConfiguration {
     /** Default port range. */
     int DFLT_PORT_RANGE = 100;
 
-    /** Default socket send and receive buffer size. */
-    int DFLT_SOCK_BUF_SIZE = 0;
-
-    /** Default value for {@code TCP_NODELAY} socket option. */
-    boolean DFLT_TCP_NO_DELAY = true;
-
     /**
      * Gets the address finder.
      *
