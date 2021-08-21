@@ -526,7 +526,7 @@ public final class ReliableChannel implements AutoCloseable {
         /** Channel. */
         private volatile ClientChannel ch;
 
-        /** ID of the last server node that {@link ch} is or was connected to. */
+        /** ID of the last server node that channel is or was connected to. */
         private volatile UUID serverNodeId;
 
         /** Address that holder is bind to (chCfg.addr) is not in use now. So close the holder. */
@@ -541,8 +541,10 @@ public final class ReliableChannel implements AutoCloseable {
         private ClientChannelHolder(ClientChannelConfiguration chCfg) {
             this.chCfg = chCfg;
 
-            reconnectRetries = chCfg.getReconnectThrottlingRetries() > 0 && chCfg.getReconnectThrottlingPeriod() > 0L ?
-                    new long[chCfg.getReconnectThrottlingRetries()] : null;
+            reconnectRetries = chCfg.clientConfiguration().getReconnectThrottlingRetries() > 0 &&
+                    chCfg.clientConfiguration().getReconnectThrottlingPeriod() > 0L
+                    ? new long[chCfg.clientConfiguration().getReconnectThrottlingRetries()]
+                    : null;
         }
 
         /**
@@ -555,7 +557,7 @@ public final class ReliableChannel implements AutoCloseable {
             long ts = System.currentTimeMillis();
 
             for (int i = 0; i < reconnectRetries.length; i++) {
-                if (ts - reconnectRetries[i] >= chCfg.getReconnectThrottlingPeriod()) {
+                if (ts - reconnectRetries[i] >= chCfg.clientConfiguration().getReconnectThrottlingPeriod()) {
                     reconnectRetries[i] = ts;
 
                     return false;

@@ -36,6 +36,12 @@ public class IgniteClientConfigurationImpl implements IgniteClientConfiguration 
     /** Connect timeout. */
     private final int connectTimeout;
 
+    /** Reconnect throttling period.  */
+    private final long reconnectThrottlingPeriod;
+
+    /** Reconnect throttling retries. */
+    private final int reconnectThrottlingRetries;
+
     /**
      * Constructor.
      *  @param addressFinder Address finder.
@@ -47,12 +53,16 @@ public class IgniteClientConfigurationImpl implements IgniteClientConfiguration 
             IgniteClientAddressFinder addressFinder,
             String[] addresses,
             int retryLimit,
-            int connectTimeout
+            int connectTimeout,
+            int reconnectThrottlingPeriod,
+            int reconnectThrottlingRetries
     ) {
         this.addressFinder = addressFinder;
         this.addresses = addresses;
         this.retryLimit = retryLimit;
         this.connectTimeout = connectTimeout;
+        this.reconnectThrottlingPeriod = reconnectThrottlingPeriod;
+        this.reconnectThrottlingRetries = reconnectThrottlingRetries;
     }
 
     /** {@inheritDoc} */
@@ -74,5 +84,15 @@ public class IgniteClientConfigurationImpl implements IgniteClientConfiguration 
     /** {@inheritDoc} */
     @Override public int getConnectTimeout() {
         return connectTimeout;
+    }
+
+    /** {@inheritDoc} */
+    @Override public long getReconnectThrottlingPeriod() {
+        return reconnectThrottlingPeriod;
+    }
+
+    /** {@inheritDoc} */
+    @Override public int getReconnectThrottlingRetries() {
+        return reconnectThrottlingRetries;
     }
 }

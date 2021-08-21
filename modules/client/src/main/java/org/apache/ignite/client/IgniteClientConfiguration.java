@@ -55,4 +55,18 @@ public interface IgniteClientConfiguration {
      * @return Socket connect timeout.
      */
     int getConnectTimeout();
+
+    /**
+     * Gets the reconnect throttling period.
+     *
+     * @return Reconnect period (for throttling).
+     */
+    long getReconnectThrottlingPeriod();
+
+    /**
+     * Gets the reconnect throttling retries.
+     *
+     * @return Reconnect retries within period (for throttling).
+     */
+    int getReconnectThrottlingRetries();
 }

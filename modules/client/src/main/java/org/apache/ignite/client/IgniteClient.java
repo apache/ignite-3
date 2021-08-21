@@ -69,7 +69,9 @@ public interface IgniteClient extends Ignite {
                 null,
                 configuration.addresses(),
                 configuration.retryLimit(),
-                configuration.connectTimeout());
+                configuration.connectTimeout(),
+                0,
+                0);
 
         return new TcpIgniteClient(cfg);
     }
@@ -138,7 +140,7 @@ public interface IgniteClient extends Ignite {
          */
         public CompletableFuture<IgniteClient> buildAsync() {
             // TODO: Async connect IGNITE-15164.
-            var cfg = new IgniteClientConfigurationImpl(null, addresses, retryLimit, connectTimeout);
+            var cfg = new IgniteClientConfigurationImpl(null, addresses, retryLimit, connectTimeout, 0, 0);
 
             return CompletableFuture.completedFuture(new TcpIgniteClient(cfg));
         }

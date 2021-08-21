@@ -92,7 +92,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         asyncContinuationExecutor = ForkJoinPool.commonPool();
 
-        timeout = cfg.getTimeout();
+        timeout = cfg.clientConfiguration().getConnectTimeout();
 
         sock = connMgr.open(cfg.getAddress(), this, this);
 
