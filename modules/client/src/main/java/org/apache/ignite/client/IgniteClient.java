@@ -73,6 +73,12 @@ public class IgniteClient {
         /** Addresses. */
         private String[] addresses;
 
+        /** Retry limit. */
+        private int retryLimit;
+
+        /** Connect timeout. */
+        private int connectTimeout;
+
         /**
          * Builds the client.
          *
@@ -87,10 +93,34 @@ public class IgniteClient {
          * Sets the addresses.
          *
          * @param addrs Addresses.
-         * @return This instance
+         * @return This instance.
          */
         public Builder addresses(String... addrs) {
             addresses = addrs;
+
+            return this;
+        }
+
+        /**
+         * Sets the retry limit.
+         *
+         * @param retryLimit Retry limit.
+         * @return This instance.
+         */
+        public Builder retryLimit(int retryLimit) {
+            this.retryLimit = retryLimit;
+
+            return this;
+        }
+
+        /**
+         * Sets the connect timeout.
+         *
+         * @param connectTimeout Retry limit.
+         * @return This instance.
+         */
+        public Builder connectTimeout(int connectTimeout) {
+            this.retryLimit = connectTimeout;
 
             return this;
         }
@@ -102,7 +132,7 @@ public class IgniteClient {
          */
         public CompletableFuture<Ignite> buildAsync() {
             // TODO: Async connect IGNITE-15164.
-            var cfg = new IgniteClientConfigurationImpl(null, addresses, 0, 0);
+            var cfg = new IgniteClientConfigurationImpl(null, addresses, retryLimit, connectTimeout);
 
             return CompletableFuture.completedFuture(new TcpIgniteClient(cfg));
         }
