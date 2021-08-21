@@ -107,8 +107,7 @@ public class TcpIgniteClient implements IgniteClient {
 
     /** {@inheritDoc} */
     @Override public String name() {
-        // TODO: improve and finalize IGNITE-15164.
-        return null;
+        return "thin-client";
     }
 
     /** {@inheritDoc} */

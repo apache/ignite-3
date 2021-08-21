@@ -64,6 +64,7 @@ public class ConfigurationTest extends AbstractClientTest {
             // Check config values.
             assertEquals(1234, client.configuration().connectTimeout());
             assertArrayEquals(new String[]{"127.0.0.1:" + serverPort}, client.configuration().addresses());
+            assertEquals("thin-client", client.name());
         }
     }
 }
