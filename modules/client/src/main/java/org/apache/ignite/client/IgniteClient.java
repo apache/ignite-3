@@ -58,9 +58,12 @@ public class IgniteClient {
     public static Ignite start(ClientConfiguration configuration) {
         // TODO: ClientView is immutable, which is good for us, but the name of the interface is confusing.
         // TODO: There is no easy way to access defaults from code. The whole config system is very confusing.
-        ClientView val1 = configuration.value();
-        configuration.change(c -> c.changeRetryLimit(100)).join();
-        ClientView val2 = configuration.value();
+        ClientView cfgVal = configuration.value();
+        IgniteClientConfiguration cfg = new IgniteClientConfigurationImpl(
+                null,
+                cfgVal.addresses(),
+                cfgVal.retryLimit(),
+                cfgVal.connectTimeout());
 
         return null;
     }
@@ -102,7 +105,7 @@ public class IgniteClient {
          */
         public CompletableFuture<Ignite> buildAsync() {
             // TODO: Async connect IGNITE-15164.
-            var cfg = new IgniteClientConfigurationImpl(null, addresses, 0);
+            var cfg = new IgniteClientConfigurationImpl(null, addresses, 0, 0);
 
             return CompletableFuture.completedFuture(new TcpIgniteClient(cfg));
         }
@@ -121,17 +124,26 @@ public class IgniteClient {
         /** Retry limit. */
         private final int retryLimit;
 
+        /** Connect timeout. */
+        private final int connectTimeout;
+
         /**
          * Constructor.
-         *
-         * @param addressFinder Address finder.
+         *  @param addressFinder Address finder.
          * @param addresses Addresses.
          * @param retryLimit Retry limit.
+         * @param connectTimeout Socket connect timeout.
          */
-        IgniteClientConfigurationImpl(IgniteClientAddressFinder addressFinder, String[] addresses, int retryLimit) {
+        IgniteClientConfigurationImpl(
+                IgniteClientAddressFinder addressFinder,
+                String[] addresses,
+                int retryLimit,
+                int connectTimeout
+        ) {
             this.addressFinder = addressFinder;
             this.addresses = addresses;
             this.retryLimit = retryLimit;
+            this.connectTimeout = connectTimeout;
         }
 
         /** {@inheritDoc} */
@@ -148,6 +160,11 @@ public class IgniteClient {
         /** {@inheritDoc} */
         @Override public int getRetryLimit() {
             return retryLimit;
+        }
+
+        /** {@inheritDoc} */
+        @Override public int getConnectTimeout() {
+            return connectTimeout;
         }
     }
 }

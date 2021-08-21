@@ -25,6 +25,7 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.client.io.ClientConnection;
@@ -51,12 +52,12 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
     }
 
     /** {@inheritDoc} */
-    @Override public void start() {
-        // TODO: Is this method needed?
+    @Override public void start(IgniteClientConfiguration clientCfg) {
         try {
             bootstrap.group(workerGroup);
             bootstrap.channel(NioSocketChannel.class);
             bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+            bootstrap.option(ChannelOption.SO_TIMEOUT, clientCfg.getConnectTimeout());
             bootstrap.handler(new ChannelInitializer<SocketChannel>() {
                 @Override
                 public void initChannel(SocketChannel ch)

@@ -48,4 +48,11 @@ public interface IgniteClientConfiguration {
      * @return Retry limit.
      */
     int getRetryLimit();
+
+    /**
+     * Gets the socket connect timeout.
+     *
+     * @return Socket connect timeout.
+     */
+    int getConnectTimeout();
 }

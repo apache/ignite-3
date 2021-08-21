@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.io;
 
 import java.net.InetSocketAddress;
 
+import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
 
 /**
@@ -27,8 +28,10 @@ import org.apache.ignite.client.IgniteClientConnectionException;
  public interface ClientConnectionMultiplexer { // TODO: Async methods where possible.
     /**
      * Initializes this instance.
+     *
+     * @param clientCfg Client config.
      */
-    void start();
+    void start(IgniteClientConfiguration clientCfg);
 
     /**
      * Stops this instance.
