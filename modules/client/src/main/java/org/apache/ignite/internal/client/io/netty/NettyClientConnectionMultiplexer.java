@@ -59,9 +59,7 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
             bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
             bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) clientCfg.connectTimeout());
             bootstrap.handler(new ChannelInitializer<SocketChannel>() {
-                @Override
-                public void initChannel(SocketChannel ch)
-                        throws Exception {
+                @Override public void initChannel(SocketChannel ch) {
                     ch.pipeline().addLast(
                             new ClientMessageDecoder(),
                             new NettyClientMessageHandler());
@@ -86,7 +84,7 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
                                            ClientConnectionStateHandler stateHnd)
             throws IgniteClientConnectionException {
 
-        // TODO: Make this method async.
+        // TODO: Async startup IGNITE-15357.
         ChannelFuture f = bootstrap.connect(addr).syncUninterruptibly();
 
         return new NettyClientConnection(f.channel(), msgHnd, stateHnd);
