@@ -24,6 +24,11 @@ import org.apache.ignite.app.Ignite;
 import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 
+import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_CONNECT_TIMEOUT;
+import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_PERIOD;
+import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_RETRIES;
+import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RETRY_LIMIT;
+
 /**
  * Ignite client entry point.
  */
@@ -53,16 +58,16 @@ public interface IgniteClient extends Ignite {
         private IgniteClientAddressFinder addressFinder;
 
         /** Retry limit. */
-        private int retryLimit;
+        private int retryLimit = DFLT_RETRY_LIMIT;
 
         /** Connect timeout. */
-        private long connectTimeout;
+        private long connectTimeout = DFLT_CONNECT_TIMEOUT;
 
         /** Reconnect throttling period. */
-        private long reconnectThrottlingPeriod = 30_000L;
+        private long reconnectThrottlingPeriod = DFLT_RECONNECT_THROTTLING_PERIOD;
 
         /** Reconnect throttling retries. */
-        private int reconnectThrottlingRetries = 3;
+        private int reconnectThrottlingRetries = DFLT_RECONNECT_THROTTLING_RETRIES;
 
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname,
@@ -80,16 +85,16 @@ public interface IgniteClient extends Ignite {
         }
 
         /**
-         * Sets the retry limit. 0 to disable retries.
+         * Sets the retry limit. When a request fails due to a connection error, and multiple server connections
+         * are available, Ignite will retry the request on every connection. When this property is greater than zero,
+         * Ignite will limit the number of retries.
+         *
+         * Default is {@link IgniteClientConfiguration#DFLT_RETRY_LIMIT}.
          *
          * @param retryLimit Retry limit.
          * @return This instance.
          */
         public Builder retryLimit(int retryLimit) {
-            if (retryLimit < 0)
-                throw new IllegalArgumentException("Retry limit [" + retryLimit + "] " +
-                        "must be a non-negative integer value.");
-
             this.retryLimit = retryLimit;
 
             return this;
@@ -97,6 +102,8 @@ public interface IgniteClient extends Ignite {
 
         /**
          * Sets the socket connection timeout, in milliseconds.
+         *
+         * Default is {@link IgniteClientConfiguration#DFLT_CONNECT_TIMEOUT}.
          *
          * @param connectTimeout Socket connection timeout, in milliseconds.
          * @return This instance.
@@ -126,6 +133,8 @@ public interface IgniteClient extends Ignite {
         /**
          * Sets the reconnect throttling period, in milliseconds.
          *
+         * Default is {@link IgniteClientConfiguration#DFLT_RECONNECT_THROTTLING_PERIOD}.
+         *
          * @param reconnectThrottlingPeriod Reconnect throttling period, in milliseconds.
          * @return This instance.
          */
@@ -137,6 +146,8 @@ public interface IgniteClient extends Ignite {
 
         /**
          * Sets the reconnect throttling retries.
+         *
+         * Default is {@link IgniteClientConfiguration#DFLT_RECONNECT_THROTTLING_RETRIES}.
          *
          * @param reconnectThrottlingRetries Reconnect throttling retries.
          * @return This instance.

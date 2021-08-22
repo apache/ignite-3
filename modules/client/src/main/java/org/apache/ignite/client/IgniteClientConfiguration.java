@@ -27,6 +27,18 @@ public interface IgniteClientConfiguration {
     /** Default port range. */
     int DFLT_PORT_RANGE = 100;
 
+    /** Default socket connect timeout. */
+    int DFLT_CONNECT_TIMEOUT = 5000;
+
+    /** Default operation retry limit. */
+    int DFLT_RETRY_LIMIT = 5;
+
+    /** Default reconnect throttling period. */
+    long DFLT_RECONNECT_THROTTLING_PERIOD = 30_000L;
+
+    /** Default reconnect throttling retries. */
+    int DFLT_RECONNECT_THROTTLING_RETRIES = 3;
+
     /**
      * Gets the address finder.
      *
