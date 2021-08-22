@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 import org.apache.ignite.app.Ignite;
@@ -55,13 +56,13 @@ public interface IgniteClient extends Ignite {
         private int retryLimit;
 
         /** Connect timeout. */
-        private int connectTimeout;
+        private long connectTimeout;
 
         /** Reconnect throttling period. */
-        private int reconnectThrottlingPeriod;
+        private long reconnectThrottlingPeriod = 30_000L;
 
         /** Reconnect throttling retries. */
-        private int reconnectThrottlingRetries;
+        private int reconnectThrottlingRetries = 3;
 
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname,
@@ -71,18 +72,24 @@ public interface IgniteClient extends Ignite {
          * @param addrs Addresses.
          */
         public Builder addresses(String... addrs) {
+            Objects.requireNonNull(addrs, "addrs is null");
+
             addresses = addrs;
 
             return this;
         }
 
         /**
-         * Sets the retry limit.
+         * Sets the retry limit. 0 to disable retries.
          *
          * @param retryLimit Retry limit.
          * @return This instance.
          */
         public Builder retryLimit(int retryLimit) {
+            if (retryLimit < 0)
+                throw new IllegalArgumentException("Retry limit [" + retryLimit + "] " +
+                        "must be a non-negative integer value.");
+
             this.retryLimit = retryLimit;
 
             return this;
@@ -91,10 +98,14 @@ public interface IgniteClient extends Ignite {
         /**
          * Sets the socket connection timeout, in milliseconds.
          *
-         * @param connectTimeout Socket connection timeout.
+         * @param connectTimeout Socket connection timeout, in milliseconds.
          * @return This instance.
          */
-        public Builder connectTimeout(int connectTimeout) {
+        public Builder connectTimeout(long connectTimeout) {
+            if (connectTimeout < 0)
+                throw new IllegalArgumentException("Connect timeout [" + connectTimeout + "] " +
+                        "must be a non-negative integer value.");
+
             this.connectTimeout = connectTimeout;
 
             return this;
@@ -113,12 +124,12 @@ public interface IgniteClient extends Ignite {
         }
 
         /**
-         * Sets the reconnect throttling period.
+         * Sets the reconnect throttling period, in milliseconds.
          *
-         * @param reconnectThrottlingPeriod Reconnect throttling period.
+         * @param reconnectThrottlingPeriod Reconnect throttling period, in milliseconds.
          * @return This instance.
          */
-        public Builder reconnectThrottlingPeriod(int reconnectThrottlingPeriod) {
+        public Builder reconnectThrottlingPeriod(long reconnectThrottlingPeriod) {
             this.reconnectThrottlingPeriod = reconnectThrottlingPeriod;
 
             return this;
@@ -131,6 +142,10 @@ public interface IgniteClient extends Ignite {
          * @return This instance.
          */
         public Builder reconnectThrottlingRetries(int reconnectThrottlingRetries) {
+            if (reconnectThrottlingRetries < 0)
+                throw new IllegalArgumentException("Reconnect throttling retries ["
+                        + reconnectThrottlingRetries + "] must be a non-negative integer value.");
+
             this.reconnectThrottlingRetries = reconnectThrottlingRetries;
 
             return this;
@@ -142,7 +157,9 @@ public interface IgniteClient extends Ignite {
          * @return Ignite client.
          */
         public IgniteClient build() {
-            // TODO: Validate values IGNITE-15164.
+            if (addresses == null)
+                throw new IllegalArgumentException("Can't create Ignite client: addresses are not set.");
+
             return buildAsync().join();
         }
 

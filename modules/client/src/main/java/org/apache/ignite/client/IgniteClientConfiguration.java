@@ -51,23 +51,23 @@ public interface IgniteClientConfiguration {
     int retryLimit();
 
     /**
-     * Gets the socket connect timeout.
+     * Gets the socket connect timeout, in milliseconds.
      *
-     * @return Socket connect timeout.
+     * @return Socket connect timeout, in milliseconds.
      */
-    int connectTimeout();
+    long connectTimeout();
 
     /**
-     * Gets the reconnect throttling period.
+     * Gets the reconnect throttling period, in milliseconds.
      *
-     * @return Reconnect period (for throttling).
+     * @return Reconnect period for throttling, in milliseconds.
      */
     long reconnectThrottlingPeriod();
 
     /**
      * Gets the reconnect throttling retries.
      *
-     * @return Reconnect retries within period (for throttling).
+     * @return Reconnect throttling retries.
      */
     int reconnectThrottlingRetries();
 }

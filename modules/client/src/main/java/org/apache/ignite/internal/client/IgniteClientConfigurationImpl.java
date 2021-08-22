@@ -33,10 +33,10 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     /** Retry limit. */
     private final int retryLimit;
 
-    /** Connect timeout. */
-    private final int connectTimeout;
+    /** Connect timeout, in millconds. */
+    private final long connectTimeout;
 
-    /** Reconnect throttling period.  */
+    /** Reconnect throttling period, in milliseconds.  */
     private final long reconnectThrottlingPeriod;
 
     /** Reconnect throttling retries. */
@@ -53,8 +53,8 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
             IgniteClientAddressFinder addressFinder,
             String[] addresses,
             int retryLimit,
-            int connectTimeout,
-            int reconnectThrottlingPeriod,
+            long connectTimeout,
+            long reconnectThrottlingPeriod,
             int reconnectThrottlingRetries
     ) {
         this.addressFinder = addressFinder;
@@ -81,7 +81,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     }
 
     /** {@inheritDoc} */
-    @Override public int connectTimeout() {
+    @Override public long connectTimeout() {
         return connectTimeout;
     }
 
