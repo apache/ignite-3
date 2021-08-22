@@ -44,7 +44,7 @@ namespace Apache.Ignite.Tests
 
                 await stream.FlushAsync();
 
-                var response = new byte[6];
+                var response = new byte[4];
                 await stream.ReadAsync(response);
             }
             catch
@@ -81,8 +81,9 @@ namespace Apache.Ignite.Tests
 
             writer.Flush();
 
-            // Write little-endian message size (TODO: check endianness).
-            var msgSize = (uint)bufferWriter.WrittenCount;
+            // Write big-endian message size.
+            var msgSize = IPAddress.HostToNetworkOrder(bufferWriter.WrittenCount);
+
             stream.Write(new ReadOnlySpan<byte>(&msgSize, 4)); // TODO: Async
 
             // Write message.
