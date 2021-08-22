@@ -75,6 +75,7 @@ public interface IgniteClient extends Ignite {
          * See {@link IgniteClientConfiguration#DFLT_PORT}, {@link IgniteClientConfiguration#DFLT_PORT_RANGE}.
          *
          * @param addrs Addresses.
+         * @return This instance.
          */
         public Builder addresses(String... addrs) {
             Objects.requireNonNull(addrs, "addrs is null");
@@ -106,6 +107,7 @@ public interface IgniteClient extends Ignite {
          * Default is {@link IgniteClientConfiguration#DFLT_CONNECT_TIMEOUT}.
          *
          * @param connectTimeout Socket connection timeout, in milliseconds.
+         * @throws IllegalArgumentException When value is less than zero.
          * @return This instance.
          */
         public Builder connectTimeout(long connectTimeout) {
@@ -150,6 +152,7 @@ public interface IgniteClient extends Ignite {
          * Default is {@link IgniteClientConfiguration#DFLT_RECONNECT_THROTTLING_RETRIES}.
          *
          * @param reconnectThrottlingRetries Reconnect throttling retries.
+         * @throws IllegalArgumentException When value is less than zero.
          * @return This instance.
          */
         public Builder reconnectThrottlingRetries(int reconnectThrottlingRetries) {
