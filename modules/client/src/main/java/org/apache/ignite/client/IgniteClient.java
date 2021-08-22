@@ -168,9 +168,6 @@ public interface IgniteClient extends Ignite {
          * @return Ignite client.
          */
         public IgniteClient build() {
-            if (addresses == null)
-                throw new IllegalArgumentException("Can't create Ignite client: addresses are not set.");
-
             return buildAsync().join();
         }
 
