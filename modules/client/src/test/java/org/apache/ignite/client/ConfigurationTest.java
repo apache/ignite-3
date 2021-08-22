@@ -17,15 +17,51 @@
 
 package org.apache.ignite.client;
 
+import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Tests thin client configuration.
  */
 public class ConfigurationTest extends AbstractClientTest {
+    @Test
+    public void testClientValidatesAddresses() {
+        IgniteClient.Builder builder = IgniteClient.builder();
+
+        var ex = assertThrows(IgniteClientException.class, builder::build);
+
+        assertEquals("Empty addresses", ex.getMessage());
+    }
+
+    @Test
+    public void testClientValidatesPorts() {
+        IgniteClient.Builder builder = IgniteClient.builder()
+                .addresses("127.0.0.1:70000");
+
+        var ex = assertThrows(IgniteException.class, builder::build);
+
+        assertEquals("Empty addresses", ex.getMessage());
+    }
+
+    @Test
+    public void testAddressFinderWorksWithoutAddresses() throws Exception {
+        String addr = "127.0.0.1:" + serverPort;
+
+        IgniteClient.Builder builder = IgniteClient.builder();
+
+        IgniteClient client = builder
+                .addressFinder(() -> new String[] {addr})
+                .build();
+
+        try (client) {
+            assertArrayEquals(new String[]{addr}, client.configuration().addressesFinder().getAddresses());
+        }
+    }
+
     @Test
     public void testClientBuilderPropagatesAllConfigurationValues() throws Exception {
         String addr = "127.0.0.1:" + serverPort;

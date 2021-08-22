@@ -72,7 +72,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
 
     /** {@inheritDoc} */
     @Override public String[] addresses() {
-        return addresses.clone();
+        return addresses == null ? null : addresses.clone();
     }
 
     /** {@inheritDoc} */
