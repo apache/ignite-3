@@ -21,7 +21,7 @@ import org.apache.ignite.client.IgniteClientAddressFinder;
 import org.apache.ignite.client.IgniteClientConfiguration;
 
 /**
- * Immutable configuration.
+ * Immutable client configuration.
  */
 public final class IgniteClientConfigurationImpl implements IgniteClientConfiguration {
     /** Address finder. */
@@ -33,7 +33,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     /** Retry limit. */
     private final int retryLimit;
 
-    /** Connect timeout, in millconds. */
+    /** Connect timeout, in milliseconds. */
     private final long connectTimeout;
 
     /** Reconnect throttling period, in milliseconds.  */
