@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -24,6 +25,7 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Tests thin client reconnect.
@@ -64,6 +66,35 @@ public class ReconnectTest {
         } finally {
             stop(srv);
             stop(srv2);
+        }
+    }
+
+    @Test
+    public void testOperationFailsWhenAllServersFail() throws Exception {
+        IgniteBiTuple<ClientHandlerModule, ConfigurationRegistry> srv = null;
+
+        try {
+            FakeIgnite ignite1 = new FakeIgnite();
+            ignite1.tables().createTable("t", c -> c.changeName("t"));
+
+            srv = AbstractClientTest.startServer(
+                    10900,
+                    10,
+                    ignite1);
+
+            var client = IgniteClient.builder()
+                    .addresses("127.0.0.1:10900..10910", "127.0.0.1:10950..10960")
+                    .retryLimit(100)
+                    .build();
+
+            assertEquals("t", client.tables().tables().get(0).tableName());
+
+            stop(srv);
+
+            var ex = assertThrows(CompletionException.class, () -> client.tables().tables());
+            assertEquals(ex.getCause().getMessage(), "Channel is closed");
+        } finally {
+            stop(srv);
         }
     }
 
