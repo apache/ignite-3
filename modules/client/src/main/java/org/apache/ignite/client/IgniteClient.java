@@ -107,8 +107,8 @@ public interface IgniteClient extends Ignite {
          * Default is {@link IgniteClientConfiguration#DFLT_CONNECT_TIMEOUT}.
          *
          * @param connectTimeout Socket connection timeout, in milliseconds.
-         * @throws IllegalArgumentException When value is less than zero.
          * @return This instance.
+         * @throws IllegalArgumentException When value is less than zero.
          */
         public Builder connectTimeout(long connectTimeout) {
             if (connectTimeout < 0)
@@ -152,8 +152,8 @@ public interface IgniteClient extends Ignite {
          * Default is {@link IgniteClientConfiguration#DFLT_RECONNECT_THROTTLING_RETRIES}.
          *
          * @param reconnectThrottlingRetries Reconnect throttling retries.
-         * @throws IllegalArgumentException When value is less than zero.
          * @return This instance.
+         * @throws IllegalArgumentException When value is less than zero.
          */
         public Builder reconnectThrottlingRetries(int reconnectThrottlingRetries) {
             if (reconnectThrottlingRetries < 0)
