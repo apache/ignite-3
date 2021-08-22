@@ -20,7 +20,6 @@ package org.apache.ignite.client;
 import java.util.concurrent.CompletableFuture;
 
 import org.apache.ignite.app.Ignite;
-import org.apache.ignite.configuration.schemas.client.ClientView;
 import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 
@@ -44,30 +43,25 @@ public interface IgniteClient extends Ignite {
         return new Builder();
     }
 
-    static CompletableFuture<IgniteClient> startAsync(ClientView configuration) {
-        // TODO: ClientView is immutable, which is good for us, but the name of the interface is confusing.
-        // TODO: There is no easy way to access defaults from code.
-        IgniteClientConfiguration cfg = new IgniteClientConfigurationImpl(
-                null,
-                configuration.addresses(),
-                configuration.retryLimit(),
-                configuration.connectTimeout(),
-                0,
-                0);
-
-        return TcpIgniteClient.startAsync(cfg);
-    }
-
     /** Client builder. */
     class Builder {
         /** Addresses. */
         private String[] addresses;
+
+        /** Address finder. */
+        private IgniteClientAddressFinder addressFinder;
 
         /** Retry limit. */
         private int retryLimit;
 
         /** Connect timeout. */
         private int connectTimeout;
+
+        /** Reconnect throttling period. */
+        private int reconnectThrottlingPeriod;
+
+        /** Reconnect throttling retries. */
+        private int reconnectThrottlingRetries;
 
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname,
@@ -107,6 +101,42 @@ public interface IgniteClient extends Ignite {
         }
 
         /**
+         * Sets the address finder.
+         *
+         * @param addressFinder Address finder.
+         * @return This instance.
+         */
+        public Builder addressFinder(IgniteClientAddressFinder addressFinder) {
+            this.addressFinder = addressFinder;
+
+            return this;
+        }
+
+        /**
+         * Sets the reconnect throttling period.
+         *
+         * @param reconnectThrottlingPeriod Reconnect throttling period.
+         * @return This instance.
+         */
+        public Builder reconnectThrottlingPeriod(int reconnectThrottlingPeriod) {
+            this.reconnectThrottlingPeriod = reconnectThrottlingPeriod;
+
+            return this;
+        }
+
+        /**
+         * Sets the reconnect throttling retries.
+         *
+         * @param reconnectThrottlingRetries Reconnect throttling retries.
+         * @return This instance.
+         */
+        public Builder reconnectThrottlingRetries(int reconnectThrottlingRetries) {
+            this.reconnectThrottlingRetries = reconnectThrottlingRetries;
+
+            return this;
+        }
+
+        /**
          * Builds the client.
          *
          * @return Ignite client.
@@ -122,7 +152,13 @@ public interface IgniteClient extends Ignite {
          * @return Ignite client.
          */
         public CompletableFuture<IgniteClient> buildAsync() {
-            var cfg = new IgniteClientConfigurationImpl(null, addresses, retryLimit, connectTimeout, 0, 0);
+            var cfg = new IgniteClientConfigurationImpl(
+                    addressFinder,
+                    addresses,
+                    retryLimit,
+                    connectTimeout,
+                    reconnectThrottlingPeriod,
+                    reconnectThrottlingRetries);
 
             return TcpIgniteClient.startAsync(cfg);
         }

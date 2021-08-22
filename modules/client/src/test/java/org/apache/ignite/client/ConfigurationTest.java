@@ -27,24 +27,30 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 public class ConfigurationTest extends AbstractClientTest {
     @Test
-    public void testClientBuilder() throws Exception {
+    public void testClientBuilderPropagatesAllConfigurationValues() throws Exception {
+        String addr = "127.0.0.1:" + serverPort;
+
         IgniteClient client = IgniteClient.builder()
-                .addresses("127.0.0.1:" + serverPort)
+                .addresses(addr)
                 .connectTimeout(1234)
+                .retryLimit(7)
+                .reconnectThrottlingPeriod(123)
+                .reconnectThrottlingRetries(8)
+                .addressFinder(() -> new String[] {addr})
                 .build();
 
-        checkClient(client);
-    }
-
-    private static void checkClient(IgniteClient client) throws Exception {
         try (client) {
             // Check that client works.
             assertEquals(0, client.tables().tables().size());
 
             // Check config values.
-            assertEquals(1234, client.configuration().connectTimeout());
-            assertArrayEquals(new String[]{"127.0.0.1:" + serverPort}, client.configuration().addresses());
             assertEquals("thin-client", client.name());
+            assertEquals(1234, client.configuration().connectTimeout());
+            assertEquals(7, client.configuration().retryLimit());
+            assertEquals(123, client.configuration().reconnectThrottlingPeriod());
+            assertEquals(8, client.configuration().reconnectThrottlingRetries());
+            assertArrayEquals(new String[]{addr}, client.configuration().addresses());
+            assertArrayEquals(new String[]{addr}, client.configuration().addressesFinder().getAddresses());
         }
     }
 }
