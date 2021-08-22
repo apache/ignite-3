@@ -30,13 +30,23 @@ public class ConfigurationTest extends AbstractClientTest {
     public void testClientBuilderPropagatesAllConfigurationValues() throws Exception {
         String addr = "127.0.0.1:" + serverPort;
 
-        IgniteClient client = IgniteClient.builder()
+        IgniteClient.Builder builder = IgniteClient.builder();
+
+        IgniteClient client = builder
                 .addresses(addr)
                 .connectTimeout(1234)
                 .retryLimit(7)
                 .reconnectThrottlingPeriod(123)
                 .reconnectThrottlingRetries(8)
                 .addressFinder(() -> new String[] {addr})
+                .build();
+
+        // Builder can be reused and it won't affect already created clients.
+        IgniteClient client2 = builder
+                .connectTimeout(2345)
+                .retryLimit(8)
+                .reconnectThrottlingPeriod(1234)
+                .reconnectThrottlingRetries(88)
                 .build();
 
         try (client) {
@@ -49,6 +59,19 @@ public class ConfigurationTest extends AbstractClientTest {
             assertEquals(7, client.configuration().retryLimit());
             assertEquals(123, client.configuration().reconnectThrottlingPeriod());
             assertEquals(8, client.configuration().reconnectThrottlingRetries());
+            assertArrayEquals(new String[]{addr}, client.configuration().addresses());
+            assertArrayEquals(new String[]{addr}, client.configuration().addressesFinder().getAddresses());
+        }
+
+        try (client2) {
+            // Check that client works.
+            assertEquals(0, client2.tables().tables().size());
+
+            // Check config values.
+            assertEquals(2345, client2.configuration().connectTimeout());
+            assertEquals(8, client2.configuration().retryLimit());
+            assertEquals(1234, client2.configuration().reconnectThrottlingPeriod());
+            assertEquals(88, client2.configuration().reconnectThrottlingRetries());
             assertArrayEquals(new String[]{addr}, client.configuration().addresses());
             assertArrayEquals(new String[]{addr}, client.configuration().addressesFinder().getAddresses());
         }
