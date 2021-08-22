@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,18 +15,18 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite
+namespace Apache.Ignite.Table
 {
-    using Table;
-
     /// <summary>
-    /// Ignite API entry point.
+    /// Table management.
     /// </summary>
-    public interface IIgnite
+    public interface ITables
     {
         /// <summary>
-        /// Gets the tables API.
+        /// Gets a table by name.
         /// </summary>
-        ITables Tables { get; }
+        /// <param name="name">Table name.</param>
+        /// <returns>Table, or null if it does not exist.</returns>
+        ITable? GetTable(string name);
     }
 }
