@@ -25,38 +25,53 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+/**
+ * Tests thin client reconnect.
+ */
 public class ReconnectTest {
-    // TODO: Test connection loss and reconnect to new nodes
-    // TODO: Test retry
     @Test
     public void clientReconnectsToAnotherAddressOnNodeFail() throws Exception {
-        // TODO: Close all resources
+        IgniteBiTuple<ClientHandlerModule, ConfigurationRegistry> srv = null;
+        IgniteBiTuple<ClientHandlerModule, ConfigurationRegistry> srv2 = null;
 
-        FakeIgnite ignite1 = new FakeIgnite();
-        ignite1.tables().createTable("t", c -> c.changeName("t"));
+        try {
+            FakeIgnite ignite1 = new FakeIgnite();
+            ignite1.tables().createTable("t", c -> c.changeName("t"));
 
-        IgniteBiTuple<ClientHandlerModule, ConfigurationRegistry> srv = AbstractClientTest.startServer(
-                10900,
-                10,
-                ignite1);
+            srv = AbstractClientTest.startServer(
+                    10900,
+                    10,
+                    ignite1);
 
-        var client = IgniteClient.builder()
-                .addresses("127.0.0.1:10900..10910", "127.0.0.1:10950..10960")
-                .retryLimit(100)
-                .build();
+            var client = IgniteClient.builder()
+                    .addresses("127.0.0.1:10900..10910", "127.0.0.1:10950..10960")
+                    .retryLimit(100)
+                    .build();
 
-        assertEquals("t", client.tables().tables().get(0).tableName());
+            assertEquals("t", client.tables().tables().get(0).tableName());
 
-        FakeIgnite ignite2 = new FakeIgnite();
-        ignite2.tables().createTable("t2", c -> c.changeName("t2"));
+            stop(srv);
 
-        IgniteBiTuple<ClientHandlerModule, ConfigurationRegistry> srv2 = AbstractClientTest.startServer(
-                10950,
-                10,
-                ignite2);
+            FakeIgnite ignite2 = new FakeIgnite();
+            ignite2.tables().createTable("t2", c -> c.changeName("t2"));
+
+            srv2 = AbstractClientTest.startServer(
+                    10950,
+                    10,
+                    ignite2);
+
+            assertEquals("t2", client.tables().tables().get(0).tableName());
+        } finally {
+            stop(srv);
+            stop(srv2);
+        }
+    }
+
+    private void stop(IgniteBiTuple<ClientHandlerModule, ConfigurationRegistry> srv) throws Exception {
+        if (srv == null)
+            return;
 
         srv.get1().stop();
-
-        assertEquals("t2", client.tables().tables().get(0).tableName());
+        srv.get2().stop();
     }
 }
