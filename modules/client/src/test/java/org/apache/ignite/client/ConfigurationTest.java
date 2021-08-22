@@ -114,4 +114,14 @@ public class ConfigurationTest extends AbstractClientTest {
             assertArrayEquals(new String[]{addr}, client.configuration().addressesFinder().getAddresses());
         }
     }
+
+    @Test
+    public void testClientBuilderFailsOnExceptionInAddressFinder() {
+        String addr = "127.0.0.1:" + serverPort;
+
+        IgniteClient.Builder builder = IgniteClient.builder()
+                .addressFinder(() -> { throw new IllegalArgumentException("bad finder"); });
+
+        assertThrows(IllegalArgumentException.class, builder::build);
+    }
 }
