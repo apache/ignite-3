@@ -46,7 +46,7 @@ public abstract class AbstractClientTest {
 
     protected static ConfigurationRegistry configurationRegistry;
 
-    protected static ClientHandlerModule serverModule;
+    protected static ClientHandlerModule clientHandlerModule;
 
     protected static Ignite server;
 
@@ -62,10 +62,10 @@ public abstract class AbstractClientTest {
 
         IgniteBiTuple<ClientHandlerModule, ConfigurationRegistry> srv = startServer(10800, 10, server);
 
-        serverModule = srv.get1();
+        clientHandlerModule = srv.get1();
         configurationRegistry = srv.get2();
 
-        serverPort = ((InetSocketAddress) Objects.requireNonNull(serverModule.localAddress())).getPort();
+        serverPort = getPort(clientHandlerModule);
 
         client = startClient();
     }
@@ -73,7 +73,7 @@ public abstract class AbstractClientTest {
     @AfterAll
     public static void afterAll() throws Exception {
         client.close();
-        serverModule.stop();
+        clientHandlerModule.stop();
         configurationRegistry.stop();
     }
 
@@ -133,5 +133,9 @@ public abstract class AbstractClientTest {
             assertEquals(x.columnName(i), y.columnName(i));
             assertEquals((Object) x.value(i), y.value(i));
         }
+    }
+
+    public static int getPort(ClientHandlerModule hnd) {
+        return ((InetSocketAddress) Objects.requireNonNull(hnd.localAddress())).getPort();
     }
 }
