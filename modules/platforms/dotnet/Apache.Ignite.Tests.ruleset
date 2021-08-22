@@ -25,5 +25,8 @@
 
     <!-- Call Dispose -->
     <Rule Id="CA2000" Action="None" />
+
+    <!-- Call ConfigureAwait (not needed in tests) -->
+    <Rule Id="CA2007" Action="None" />
   </Rules>
 </RuleSet>

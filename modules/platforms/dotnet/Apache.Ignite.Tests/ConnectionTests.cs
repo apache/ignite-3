@@ -33,13 +33,15 @@ namespace Apache.Ignite.Tests
 
             try
             {
-                await socket.ConnectAsync(IPAddress.Loopback, 10800).ConfigureAwait(false);
+                await socket.ConnectAsync(IPAddress.Loopback, 10800);
                 var stream = new NetworkStream(socket, ownsSocket: true);
 
                 stream.WriteByte((byte)'I');
                 stream.WriteByte((byte)'G');
                 stream.WriteByte((byte)'N');
                 stream.WriteByte((byte)'I');
+
+                await stream.FlushAsync();
             }
             catch
             {
