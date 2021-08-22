@@ -17,17 +17,12 @@
 
 package org.apache.ignite.client;
 
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import org.apache.ignite.app.Ignite;
-import org.apache.ignite.configuration.schemas.client.ClientConfiguration;
 import org.apache.ignite.configuration.schemas.client.ClientView;
-import org.apache.ignite.internal.client.ClientConfigurationStorage;
 import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.TcpIgniteClient;
-import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 
 /**
  * Ignite client entry point.
@@ -47,19 +42,6 @@ public interface IgniteClient extends Ignite {
      */
     static Builder builder() {
         return new Builder();
-    }
-
-    static ClientConfiguration configurationBuilder() {
-        // TODO: How to make a nice API out of generated configuration?
-        var cfg = new ConfigurationRegistry(
-                List.of(ClientConfiguration.KEY),
-                Map.of(),
-                new ClientConfigurationStorage());
-
-        cfg.start();
-        cfg.initializeDefaults();
-
-        return cfg.getConfiguration(ClientConfiguration.KEY);
     }
 
     static CompletableFuture<IgniteClient> startAsync(ClientView configuration) {
