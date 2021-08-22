@@ -43,6 +43,7 @@ public class ConnectionTest extends AbstractClientTest {
     @Test
     public void testValidNodeAddresses() throws Exception {
         testConnection("127.0.0.1:" + serverPort);
+        Thread.sleep(Long.MAX_VALUE);
     }
 
     @Test
