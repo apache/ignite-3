@@ -65,6 +65,7 @@ namespace Apache.Ignite.Tests
 
         private static unsafe void WriteHandshake(NetworkStream stream)
         {
+            // TODO: Buffer pooling.
             var bufferWriter = new ArrayBufferWriter<byte>();
             var writer = new MessagePackWriter(bufferWriter);
 
@@ -83,6 +84,9 @@ namespace Apache.Ignite.Tests
             // Write little-endian message size (TODO: check endianness).
             var msgSize = (uint)bufferWriter.WrittenCount;
             stream.Write(new ReadOnlySpan<byte>(&msgSize, 4)); // TODO: Async
+
+            // Write message.
+            stream.Write(bufferWriter.GetSpan()); // TODO: Async
         }
     }
 }
