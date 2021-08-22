@@ -4,6 +4,15 @@
   <Rules AnalyzerId="Microsoft.Analyzers.ManagedCodeAnalysis" RuleNamespace="Microsoft.Rules.Managed">
     <!-- Enable xmldoc file generation -->
     <Rule Id="SA0001" Action="None" />
+    
+    <!-- Elements should be documented -->
+    <Rule Id="SA1600" Action="None" />
+
+    <!-- Partial classes should be documented -->
+    <Rule Id="SA1601" Action="None" />
+
+    <!-- Enums should be documented -->
+    <Rule Id="SA1602" Action="None" />
 
     <!-- Types that own disposable fields should be disposable -->
     <Rule Id="CA1001" Action="None" />
