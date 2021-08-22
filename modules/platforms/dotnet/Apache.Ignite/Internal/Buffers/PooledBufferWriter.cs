@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Buffers
 {
     using System;
     using System.Buffers;
+    using MessagePack;
 
     /// <summary>
     /// Pooled buffer writer.
@@ -28,7 +29,7 @@ namespace Apache.Ignite.Internal.Buffers
     /// * Start with passed stackalloc buffer for small payloads.
     /// * Use unmanaged memory and a built-in pool?
     /// * Use a string of segments?
-    /// See Nerdbank.Streams.Sequence (in msgpack lib).
+    /// USE <see cref="SequencePool"/>! (MessagePack lib).
     /// </summary>
     public class PooledBufferWriter : IBufferWriter<byte>
     {

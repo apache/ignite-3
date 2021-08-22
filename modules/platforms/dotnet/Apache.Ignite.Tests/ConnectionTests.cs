@@ -66,7 +66,6 @@ namespace Apache.Ignite.Tests
         private static unsafe void WriteHandshake(NetworkStream stream)
         {
             // TODO: Buffer pooling.
-            ArrayPool<byte>.Shared.Rent(100);
             var bufferWriter = new ArrayBufferWriter<byte>();
             var writer = new MessagePackWriter(bufferWriter);
 
