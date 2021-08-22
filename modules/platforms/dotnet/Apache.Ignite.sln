@@ -7,6 +7,15 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Ignite", "Apache.Ign
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Ignite.Tests", "Apache.Ignite.Tests\Apache.Ignite.Tests.csproj", "{21478528-C1D9-41D1-84FB-B9F332356380}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{681DAFE7-175B-464F-81A4-3357B5789AE7}"
+ProjectSection(SolutionItems) = preProject
+	README.md = README.md
+	stylecop.json = stylecop.json
+	Directory.Build.props = Directory.Build.props
+	Apache.Ignite.Tests.ruleset = Apache.Ignite.Tests.ruleset
+	Apache.Ignite.ruleset = Apache.Ignite.ruleset
+EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
