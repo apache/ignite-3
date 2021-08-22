@@ -28,6 +28,7 @@ import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -57,7 +58,13 @@ public abstract class AbstractClientTest {
     public static void beforeAll() {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
-        serverModule = startServer();
+        server = new FakeIgnite();
+
+        IgniteBiTuple<ClientHandlerModule, ConfigurationRegistry> srv = startServer(10800, 10, server);
+
+        serverModule = srv.get1();
+        configurationRegistry = srv.get2();
+
         serverPort = ((InetSocketAddress) Objects.requireNonNull(serverModule.localAddress())).getPort();
 
         client = startClient();
@@ -85,25 +92,27 @@ public abstract class AbstractClientTest {
         return builder.build();
     }
 
-    public static ClientHandlerModule startServer() {
-        configurationRegistry = new ConfigurationRegistry(
+    public static IgniteBiTuple<ClientHandlerModule, ConfigurationRegistry> startServer(
+            int port,
+            int portRange,
+            Ignite ignite
+    ) {
+        var cfg = new ConfigurationRegistry(
             List.of(ClientConnectorConfiguration.KEY),
             Map.of(),
             new TestConfigurationStorage(LOCAL)
         );
 
-        configurationRegistry.start();
+        cfg.start();
 
-        configurationRegistry.getConfiguration(ClientConnectorConfiguration.KEY).change(
-                local -> local.changePort(10800).changePortRange(10)
+        cfg.getConfiguration(ClientConnectorConfiguration.KEY).change(
+                local -> local.changePort(port).changePortRange(portRange)
         ).join();
 
-        server = new FakeIgnite();
-
-        var module = new ClientHandlerModule(server.tables(), configurationRegistry);
+        var module = new ClientHandlerModule(ignite.tables(), cfg);
         module.start();
 
-        return module;
+        return new IgniteBiTuple<>(module, cfg);
     }
 
     public static void assertTupleEquals(Tuple x, Tuple y) {
