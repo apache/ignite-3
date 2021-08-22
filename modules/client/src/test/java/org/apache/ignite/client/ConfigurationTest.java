@@ -44,7 +44,9 @@ public class ConfigurationTest extends AbstractClientTest {
 
         var ex = assertThrows(IgniteException.class, builder::build);
 
-        assertEquals("Empty addresses", ex.getMessage());
+        assertEquals(
+                "Failed to parse Ignite server address (port range contains invalid port 70000): 127.0.0.1:70000",
+                ex.getMessage());
     }
 
     @Test
