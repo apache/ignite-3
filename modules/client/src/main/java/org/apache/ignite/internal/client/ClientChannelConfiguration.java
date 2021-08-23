@@ -36,10 +36,9 @@ final class ClientChannelConfiguration {
      * @param cfg Config.
      * @param addr Address.
      */
-    @SuppressWarnings("UnnecessaryThis")
     ClientChannelConfiguration(IgniteClientConfiguration cfg, InetSocketAddress addr) {
-        this.addr = addr;
         this.cfg = cfg;
+        this.addr = addr;
     }
 
     /**
