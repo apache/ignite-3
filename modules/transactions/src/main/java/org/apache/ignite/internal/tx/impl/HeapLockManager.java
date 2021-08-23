@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.LockException;
@@ -57,13 +58,28 @@ public class HeapLockManager implements LockManager {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> tryAcquireShared(Object key, Timestamp timestamp) {
-        return lockState(key).tryAcquireShared(timestamp);
+        while (true) {
+            LockState state = lockState(key);
+
+            if (state.guard.get() == -1) // Wait for remove
+                continue;
+
+            if (state.guard.compareAndSet(0, 1)) {
+                CompletableFuture<Void> future = state.tryAcquireShared(timestamp);
+
+                return future;
+            }
+        }
     }
 
     /** {@inheritDoc} */
     @Override public void tryReleaseShared(Object key, Timestamp timestamp) throws LockException {
-        if (lockState(key).tryReleaseShared(timestamp))
-            locks.compute(key, (k, v) -> v.waiters.isEmpty() ? null : v);
+        LockState state = lockState(key);
+
+        if (state.tryReleaseShared(timestamp)) {
+            if (state.guard.compareAndSet(0, -1))
+                locks.remove(key, state);
+        }
     }
 
     /**
@@ -95,9 +111,11 @@ public class HeapLockManager implements LockManager {
     }
 
     /** A lock state. */
-    private static class LockState {
+    private class LockState {
         /** Waiters. */
         private TreeMap<Timestamp, WaiterImpl> waiters = new TreeMap<>();
+
+        private AtomicInteger guard = new AtomicInteger(0);
 
         /**
          * @param timestamp The timestamp.
@@ -107,24 +125,7 @@ public class HeapLockManager implements LockManager {
             WaiterImpl waiter = new WaiterImpl(timestamp, false);
 
             synchronized (waiters) {
-                WaiterImpl prev = waiters.putIfAbsent(timestamp, waiter);
-
-                if (prev != null && prev.locked) {
-                    if (!prev.forRead) // Allow reenter.
-                        return CompletableFuture.completedFuture(null);
-                    else {
-                        waiters.put(timestamp, waiter); // Upgrade lock.
-
-                        // Lock if first.
-                        if (waiters.firstKey() == timestamp) {
-                            waiter.lock();
-
-                            waiter.notifyLocked();
-
-                            return waiter.fut;
-                        }
-                    }
-                }
+                waiters.put(timestamp, waiter);
 
                 // Check lock compatibility.
                 Map.Entry<Timestamp, WaiterImpl> nextEntry = waiters.higherEntry(timestamp);
@@ -208,11 +209,7 @@ public class HeapLockManager implements LockManager {
 
             // Grant a lock to the oldest waiter.
             synchronized (waiters) {
-                WaiterImpl prev = waiters.putIfAbsent(timestamp, waiter);
-
-                // Allow reenter. A write lock implies a read lock.
-                if (prev != null && prev.locked)
-                    return CompletableFuture.completedFuture(null);
+                waiters.put(timestamp, waiter);
 
                 // Check lock compatibility.
                 Map.Entry<Timestamp, WaiterImpl> nextEntry = waiters.higherEntry(timestamp);
@@ -229,10 +226,11 @@ public class HeapLockManager implements LockManager {
 
                 Map.Entry<Timestamp, WaiterImpl> prevEntry = waiters.lowerEntry(timestamp);
 
-                if (prevEntry == null || (prevEntry.getValue().isForRead() &&
-                    !waiters.firstEntry().getValue().lockedForWrite()))
+                if (prevEntry == null || prevEntry.getValue().isForRead())
                     waiter.lock();
             }
+
+            guard.set(0);
 
             // Notify outside the monitor.
             if (waiter.locked())
@@ -260,9 +258,8 @@ public class HeapLockManager implements LockManager {
 
                 waiters.remove(timestamp);
 
-                // Queue is empty.
                 if (nextEntry == null)
-                    return true;
+                    return waiters.isEmpty();
 
                 // Lock next exclusive waiter.
                 WaiterImpl nextWaiter = nextEntry.getValue();

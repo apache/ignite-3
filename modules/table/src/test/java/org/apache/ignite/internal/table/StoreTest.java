@@ -25,7 +25,6 @@ import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -114,7 +113,7 @@ public class StoreTest {
     }
 
     @Test
-    public void testCommit() throws TransactionException, LockException {
+    public void testCommit() throws TransactionException {
         InternalTransaction tx = txManager.begin();
 
         Tuple key = makeKey(1);
@@ -137,7 +136,7 @@ public class StoreTest {
     }
 
     @Test
-    public void testAbort() throws TransactionException, LockException {
+    public void testAbort() throws TransactionException {
         InternalTransaction tx = txManager.begin();
 
         Tuple key = makeKey(1);
@@ -160,7 +159,7 @@ public class StoreTest {
     }
 
     @Test
-    public void testConcurrent() throws TransactionException, LockException {
+    public void testConcurrent() throws TransactionException {
         InternalTransaction tx = txManager.begin();
         InternalTransaction tx2 = txManager.begin();
 
@@ -177,6 +176,43 @@ public class StoreTest {
 
         tx.commit();
         tx2.commit();
+    }
+
+    /**
+     * Tests if a lost update is not happening on concurrent increment.
+     *
+     * @throws TransactionException
+     */
+    @Test
+    public void testIncrement() throws TransactionException {
+        InternalTransaction tx = txManager.begin();
+        InternalTransaction tx2 = txManager.begin();
+
+        Tuple key = makeKey(1);
+        Tuple val = makeValue(1, 100.);
+
+        accounts.upsert(val);
+
+        Table table = accounts.withTransaction(tx);
+        Table table2 = accounts.withTransaction(tx2);
+
+        // Read in tx
+        double val_tx = table.get(key).doubleValue("balance");
+
+        // Read in tx2
+        double val_tx2 = table2.get(key).doubleValue("balance");
+
+        // Write in tx
+        table.upsert(makeValue(1, val_tx + 1));
+
+        tx.commit();
+
+        // Write in tx2
+        table2.upsert(makeValue(1, val_tx2 + 1));
+
+        tx2.commit();
+
+        assertEquals(102., accounts.get(key).doubleValue("balance"));
     }
 
     /**

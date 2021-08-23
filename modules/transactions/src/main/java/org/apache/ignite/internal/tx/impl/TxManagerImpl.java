@@ -120,6 +120,7 @@ public class TxManagerImpl implements TxManager {
         return states.replace(ts, before, after);
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Void> writeLock(ByteArray key, Timestamp timestamp) {
         if (state(timestamp) != TxState.PENDING)
             throw new TransactionException("The operation is attempted for completed transaction");
@@ -142,6 +143,7 @@ public class TxManagerImpl implements TxManager {
             }));
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Void> readLock(ByteArray key, Timestamp timestamp) {
         if (state(timestamp) != TxState.PENDING)
             throw new TransactionException("The operation is attempted for completed transaction");
