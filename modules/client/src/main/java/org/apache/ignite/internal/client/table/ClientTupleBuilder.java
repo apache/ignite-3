@@ -262,8 +262,12 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     @Override public String toString() {
         var sb = new StringBuilder("ClientTupleBuilder [");
 
-        for (int i = 0; i < columnCount(); i++)
+        for (int i = 0; i < columnCount(); i++) {
+            if (i > 0)
+                sb.append(", ");
+
             sb.append(columnName(i)).append('=').append((Object) value(i));
+        }
 
         sb.append(']');
 
