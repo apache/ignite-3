@@ -30,6 +30,7 @@ import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
+import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 
 /**
@@ -39,7 +40,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
  * Any type conversions and coercions should be implemented outside the row by the key-value or query runtime.
  * When a non-boxed primitive is read from a null column value, it is converted to the primitive type default value.
  */
-public class Row implements BinaryRow {
+public class Row implements BinaryRow, SchemaAware {
     /** Schema descriptor. */
     protected final SchemaDescriptor schema;
 
@@ -60,7 +61,7 @@ public class Row implements BinaryRow {
     /**
      * @return Row schema.
      */
-    public SchemaDescriptor rowSchema() {
+    @Override public SchemaDescriptor schema() {
         return schema;
     }
 
@@ -238,7 +239,7 @@ public class Row implements BinaryRow {
         long offLen = findColumn(col, NativeTypeSpec.DECIMAL);
 
         if (offLen < 0)
-            return offLen == -1 ? null : (BigDecimal)rowSchema().column(col).defaultValue();
+            return offLen == -1 ? null : (BigDecimal) schema().column(col).defaultValue();
 
         int off = offset(offLen);
         int len = length(offLen);
@@ -261,7 +262,7 @@ public class Row implements BinaryRow {
         long offLen = findColumn(col, NativeTypeSpec.NUMBER);
 
         if (offLen < 0)
-            return offLen == -1 ? null : (BigInteger)rowSchema().column(col).defaultValue();
+            return offLen == -1 ? null : (BigInteger) schema().column(col).defaultValue();
 
         int off = offset(offLen);
         int len = length(offLen);

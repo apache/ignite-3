@@ -53,7 +53,7 @@ class UpgradingRowAdapter extends Row {
     }
 
     /** {@inheritDoc} */
-    @Override public SchemaDescriptor rowSchema() {
+    @Override public SchemaDescriptor schema() {
         return schema;
     }
 
@@ -82,7 +82,7 @@ class UpgradingRowAdapter extends Row {
     @Override public byte byteValue(int colIdx) throws InvalidTypeException {
         int mappedId = mapColumn(colIdx);
 
-        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.rowSchema().column(mappedId);
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
         if (NativeTypeSpec.INT8 != column.type().spec())
             throw new SchemaException("Type conversion is not supported yet.");
@@ -100,7 +100,7 @@ class UpgradingRowAdapter extends Row {
     @Override public Byte byteValueBoxed(int colIdx) throws InvalidTypeException {
         int mappedId = mapColumn(colIdx);
 
-        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.rowSchema().column(mappedId);
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
         if (NativeTypeSpec.INT8 != column.type().spec())
             throw new SchemaException("Type conversion is not supported yet.");
@@ -118,7 +118,7 @@ class UpgradingRowAdapter extends Row {
     @Override public short shortValue(int colIdx) throws InvalidTypeException {
         int mappedId = mapColumn(colIdx);
 
-        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.rowSchema().column(mappedId);
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
         if (NativeTypeSpec.INT16 != column.type().spec())
             throw new SchemaException("Type conversion is not supported yet.");
@@ -136,7 +136,7 @@ class UpgradingRowAdapter extends Row {
     @Override public Short shortValueBoxed(int colIdx) throws InvalidTypeException {
         int mappedId = mapColumn(colIdx);
 
-        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.rowSchema().column(mappedId);
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
         if (NativeTypeSpec.INT16 != column.type().spec())
             throw new SchemaException("Type conversion is not supported yet.");
@@ -154,7 +154,7 @@ class UpgradingRowAdapter extends Row {
     @Override public int intValue(int colIdx) throws InvalidTypeException {
         int mappedId = mapColumn(colIdx);
 
-        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.rowSchema().column(mappedId);
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
         if (NativeTypeSpec.INT32 != column.type().spec())
             throw new SchemaException("Type conversion is not supported yet.");
@@ -172,7 +172,7 @@ class UpgradingRowAdapter extends Row {
     @Override public Integer intValueBoxed(int colIdx) throws InvalidTypeException {
         int mappedId = mapColumn(colIdx);
 
-        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.rowSchema().column(mappedId);
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
         if (NativeTypeSpec.INT32 != column.type().spec())
             throw new SchemaException("Type conversion is not supported yet.");
@@ -190,7 +190,7 @@ class UpgradingRowAdapter extends Row {
     @Override public long longValue(int colIdx) throws InvalidTypeException {
         int mappedId = mapColumn(colIdx);
 
-        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.rowSchema().column(mappedId);
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
         if (NativeTypeSpec.INT64 != column.type().spec())
             throw new SchemaException("Type conversion is not supported yet.");
@@ -208,7 +208,7 @@ class UpgradingRowAdapter extends Row {
     @Override public Long longValueBoxed(int colIdx) throws InvalidTypeException {
         int mappedId = mapColumn(colIdx);
 
-        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.rowSchema().column(mappedId);
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
         if (NativeTypeSpec.INT64 != column.type().spec())
             throw new SchemaException("Type conversion is not supported yet.");
@@ -226,7 +226,7 @@ class UpgradingRowAdapter extends Row {
     @Override public float floatValue(int colIdx) throws InvalidTypeException {
         int mappedId = mapColumn(colIdx);
 
-        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.rowSchema().column(mappedId);
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
         if (NativeTypeSpec.FLOAT != column.type().spec())
             throw new SchemaException("Type conversion is not supported yet.");
@@ -244,7 +244,7 @@ class UpgradingRowAdapter extends Row {
     @Override public Float floatValueBoxed(int colIdx) throws InvalidTypeException {
         int mappedId = mapColumn(colIdx);
 
-        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.rowSchema().column(mappedId);
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
         if (NativeTypeSpec.FLOAT != column.type().spec())
             throw new SchemaException("Type conversion is not supported yet.");
@@ -262,7 +262,7 @@ class UpgradingRowAdapter extends Row {
     @Override public double doubleValue(int colIdx) throws InvalidTypeException {
         int mappedId = mapColumn(colIdx);
 
-        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.rowSchema().column(mappedId);
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
         if (NativeTypeSpec.DOUBLE != column.type().spec())
             throw new SchemaException("Type conversion is not supported yet.");
@@ -280,7 +280,7 @@ class UpgradingRowAdapter extends Row {
     @Override public Double doubleValueBoxed(int colIdx) throws InvalidTypeException {
         int mappedId = mapColumn(colIdx);
 
-        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.rowSchema().column(mappedId);
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
         if (NativeTypeSpec.DOUBLE != column.type().spec())
             throw new SchemaException("Type conversion is not supported yet.");
@@ -310,7 +310,7 @@ class UpgradingRowAdapter extends Row {
     @Override public String stringValue(int colIdx) throws InvalidTypeException {
         int mappedId = mapColumn(colIdx);
 
-        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.rowSchema().column(mappedId);
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
         if (NativeTypeSpec.STRING != column.type().spec())
             throw new SchemaException("Type conversion is not supported yet.");
@@ -328,7 +328,7 @@ class UpgradingRowAdapter extends Row {
     @Override public byte[] bytesValue(int colIdx) throws InvalidTypeException {
         int mappedId = mapColumn(colIdx);
 
-        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.rowSchema().column(mappedId);
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
         if (NativeTypeSpec.STRING != column.type().spec())
             throw new SchemaException("Type conversion is not supported yet.");
@@ -346,7 +346,7 @@ class UpgradingRowAdapter extends Row {
     @Override public UUID uuidValue(int colIdx) throws InvalidTypeException {
         int mappedId = mapColumn(colIdx);
 
-        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.rowSchema().column(mappedId);
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
         if (NativeTypeSpec.UUID != column.type().spec())
             throw new SchemaException("Type conversion is not supported yet.");
@@ -364,7 +364,7 @@ class UpgradingRowAdapter extends Row {
     @Override public BitSet bitmaskValue(int colIdx) throws InvalidTypeException {
         int mappedId = mapColumn(colIdx);
 
-        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.rowSchema().column(mappedId);
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
         if (NativeTypeSpec.BITMASK != column.type().spec())
             throw new SchemaException("Type conversion is not supported yet.");

@@ -398,15 +398,15 @@ public class TableImpl extends AbstractTableView implements Table {
 
     /**
      * @param row Binary row.
-     * @return Table row.
+     * @return Table row tuple.
      */
-    private TableRow wrap(BinaryRow row) {
+    private Tuple wrap(BinaryRow row) {
         if (row == null)
             return null;
 
         final Row wrapped = schemaReg.resolve(row);
 
-        return new TableRow(wrapped.rowSchema(), wrapped);
+        return TableRow.tuple(wrapped);
     }
 
     /**
@@ -417,7 +417,7 @@ public class TableImpl extends AbstractTableView implements Table {
         if (rows == null)
             return null;
 
-        return rows.stream().map(this::wrap).collect(Collectors.toSet());
+        return rows.stream().filter(Objects::nonNull).map(this::wrap).collect(Collectors.toSet());
     }
 
     /**

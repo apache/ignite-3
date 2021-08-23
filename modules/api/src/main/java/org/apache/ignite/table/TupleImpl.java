@@ -32,7 +32,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class TupleImpl implements Tuple {
     /** Column name -&gt; index. */
-    protected Map<String, Integer> colIdxMap;
+    private final Map<String, Integer> colIdxMap;
 
     /** Columns names. */
     private final ArrayList<String> colNames;
@@ -47,6 +47,31 @@ public class TupleImpl implements Tuple {
         colIdxMap = new HashMap<>();
         vals = new ArrayList();
         colNames = new ArrayList();
+    }
+
+    /**
+     * Copying constructor.
+     *
+     * @param tuple Tuple.
+     */
+    public TupleImpl(@NotNull TupleImpl tuple) {
+        this.colIdxMap = new HashMap<>(tuple.colIdxMap);
+        this.colNames = new ArrayList<>(tuple.colNames);
+        this.vals = new ArrayList<>(tuple.vals);
+    }
+
+    /**
+     * Copying constructor.
+     *
+     * @param tuple Tuple.
+     */
+    public TupleImpl(@NotNull Tuple tuple) {
+        colIdxMap = new HashMap<>(tuple.columnCount());
+        vals = new ArrayList(tuple.columnCount());
+        colNames = new ArrayList(tuple.columnCount());
+
+        for (int i = 0, len = tuple.columnCount(); i < len; i++)
+            set(tuple.columnName(i), tuple.value(i));
     }
 
     /** {@inheritDoc} */
@@ -75,6 +100,8 @@ public class TupleImpl implements Tuple {
 
     /** {@inheritDoc} */
     @Override public int columnIndex(@NotNull String columnName) {
+        Objects.requireNonNull(columnName);
+
         Integer idx = colIdxMap.get(columnName);
 
         return idx == null ? -1 : idx;

@@ -15,9 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table;
+package org.apache.ignite.internal.table;
 
+import java.util.UUID;
+import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
+import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.schema.SchemaMode;
+import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.TupleImpl;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -25,10 +37,21 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Tests server tuple builder implementation.
- *
+ * <p>
  * Should be in sync with org.apache.ignite.client.ClientTupleBuilderTest.
  */
-public class TupleImplTest {
+public class RowTupleAdapterTest {
+    /** Mocked table. */
+    private InternalTable tbl = Mockito.when(Mockito.mock(InternalTable.class).schemaMode()).thenReturn(SchemaMode.STRICT_SCHEMA).getMock();
+
+    /** Schema descriptor. */
+    private SchemaDescriptor schema = new SchemaDescriptor(
+            UUID.randomUUID(),
+            42,
+            new Column[]{new Column("id", NativeTypes.INT64, false)},
+            new Column[]{new Column("name", NativeTypes.STRING, true)}
+    );
+
     @Test
     public void testValueReturnsValueByName() {
         assertEquals(3L, (Long) getTuple().value("id"));
@@ -37,8 +60,8 @@ public class TupleImplTest {
 
     @Test
     public void testValueThrowsOnInvalidColumnName() {
-        var ex = assertThrows(IllegalArgumentException.class, () -> getTuple().value("x"));
-        assertEquals("Column not found: columnName=x", ex.getMessage());
+        var ex = assertThrows(ColumnNotFoundException.class, () -> getTuple().value("x"));
+        assertEquals("Invalid column name: columnName=x", ex.getMessage());
     }
 
     @Test
@@ -64,26 +87,23 @@ public class TupleImplTest {
 
     @Test
     public void testValueOrDefaultReturnsDefaultWhenColumnIsNotSet() {
-        assertEquals("foo", createTuple().valueOrDefault("x", "foo"));
+        assertEquals("foo", getTuple().valueOrDefault("x", "foo"));
     }
 
     @Test
     public void testValueReturnsOverwrittenValue() {
-        assertEquals("foo", createTuple().set("name", "foo").value("name"));
-        assertEquals("foo", createTuple().set("name", "foo").valueOrDefault("name", "bar"));
+        assertEquals("foo", getTuple().set("name", "foo").value("name"));
+        assertEquals("foo", getTuple().set("name", "foo").valueOrDefault("name", "bar"));
     }
 
     @Test
     public void testValueOrDefaultReturnsNullWhenColumnIsSetToNull() {
-        assertNull(createTuple().set("name", null).valueOrDefault("name", "foo"));
-
-        // Overwritten column.
         assertNull(getTuple().set("name", null).valueOrDefault("name", "foo"));
     }
 
     @Test
     public void testColumnCountReturnsSchemaSize() {
-        assertEquals(0, createTuple().columnCount());
+        assertEquals(2, getTuple().columnCount());
 
         Tuple tuple = getTuple();
 
@@ -126,13 +146,52 @@ public class TupleImplTest {
         assertEquals(-1, getTuple().columnIndex("foo"));
     }
 
-    private static TupleImpl createTuple() {
-        return new TupleImpl();
+    @Test
+    public void testKeyValueChunks() {
+        SchemaDescriptor schema = new SchemaDescriptor(
+                UUID.randomUUID(),
+                42,
+                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("name", NativeTypes.STRING, true),
+                        new Column("price", NativeTypes.DOUBLE, true)}
+        );
+
+        Tuple original = new TupleImpl()
+                .set("id", 3L)
+                .set("name", "Shirt")
+                .set("price", 5.99d);
+
+        TupleMarshaller marshaller = new TupleMarshallerImpl(null, tbl, new DummySchemaManagerImpl(schema));
+
+        Row row = new Row(schema, new ByteBufferRow(marshaller.marshal(original).bytes()));
+
+        Tuple key = TableRow.keyTuple(row);
+        Tuple val = TableRow.valueTuple(row);
+
+        assertEquals(3L, (Long) key.value("id"));
+        assertEquals(3L, (Long) key.value(0));
+
+        assertEquals("Shirt", val.value("name"));
+        assertEquals("Shirt", val.value(1));
+
+        assertEquals(5.99d, val.value("price"));
+        assertEquals(5.99d, val.value(0));
+
+        // Wrong columns.
+        assertThrows(IndexOutOfBoundsException.class, () -> key.value(1));
+        assertThrows(ColumnNotFoundException.class, () -> key.value("price"));
+
+        assertThrows(IndexOutOfBoundsException.class, () -> val.value(2));
+        assertThrows(ColumnNotFoundException.class, () -> val.value("id"));
     }
 
-    private static Tuple getTuple() {
-        return new TupleImpl()
+    private Tuple getTuple() {
+        Tuple original = new TupleImpl()
                 .set("id", 3L)
                 .set("name", "Shirt");
+
+        TupleMarshaller marshaller = new TupleMarshallerImpl(null, tbl, new DummySchemaManagerImpl(schema));
+
+        return TableRow.tuple(new Row(schema, new ByteBufferRow(marshaller.marshal(original).bytes())));
     }
 }
