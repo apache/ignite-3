@@ -55,6 +55,7 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public Tuple get(@NotNull Tuple key) {
+        // TODO: Return value part only.
         return tbl.get(key);
     }
 
@@ -81,15 +82,12 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public void put(@NotNull Tuple key, Tuple val) {
-        // TODO: Combine key and val into a single tuple?
-        Tuple row = getRow(key, val);
-
-        tbl.upsert(row);
+        tbl.upsert(getRow(key, val));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> putAsync(@NotNull Tuple key, Tuple val) {
-        return null;
+        return tbl.upsertAsync(getRow(key, val));
     }
 
     /** {@inheritDoc} */
@@ -241,6 +239,6 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
     }
 
     private Tuple getRow(Tuple key, Tuple val) {
-        return null;
+        return new CompositeTuple(key, val);
     }
 }
