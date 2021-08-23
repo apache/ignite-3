@@ -55,12 +55,12 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public Tuple get(@NotNull Tuple key) {
-        // TODO: Return value part only.
-        return tbl.get(key);
+        return getAsync(key).join();
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Tuple> getAsync(@NotNull Tuple key) {
+        // TODO: Return value part only.
         return tbl.getAsync(key);
     }
 
