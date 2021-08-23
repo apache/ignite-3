@@ -18,9 +18,11 @@
 package org.apache.ignite.client;
 
 import org.apache.ignite.table.KeyValueBinaryView;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
@@ -28,10 +30,25 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  */
 public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
     @Test
-    public void testPutGet() {
-        KeyValueBinaryView kvView = defaultTable().kvView();
+    public void testGetMissingRowReturnsNull() {
+        Table table = defaultTable();
+        KeyValueBinaryView kvView = table.kvView();
 
-        Tuple key = kvView.tupleBuilder().set("id", 1L).build();
-        assertNull(kvView.get(key));
+        assertNull(kvView.get(defaultTupleKey(table)));
+    }
+
+    @Test
+    public void testTableUpsertKvGet() {
+        Table table = defaultTable();
+        table.upsert(tuple());
+
+        KeyValueBinaryView kvView = table.kvView();
+
+        Tuple key = defaultTupleKey(table);
+        Tuple val = kvView.get(key);
+
+        assertEquals(DEFAULT_NAME, val.value("name"));
+        assertEquals(DEFAULT_NAME, val.value(0));
+        assertEquals(1, val.columnCount());
     }
 }

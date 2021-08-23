@@ -102,7 +102,7 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     @Override public <T> T value(String columnName) {
         var col = schema.column(columnName);
 
-        return getValue(col.schemaIndex());
+        return getValue(getColumnIndex(col.schemaIndex()));
     }
 
     /** {@inheritDoc} */
@@ -258,6 +258,18 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
         };
     }
 
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        var sb = new StringBuilder("ClientTupleBuilder [");
+
+        for (int i = 0; i < columnCount(); i++)
+            sb.append(columnName(i)).append('=').append((Object) value(i));
+
+        sb.append(']');
+
+        return sb.toString();
+    }
+
     /**
      * Sets column value by index.
      *
@@ -294,12 +306,10 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     }
 
     private <T> T getValue(int columnIndex) {
-        columnIndex = getColumnIndex(columnIndex);
-
         if (columnIndex >= vals.length)
             return null;
 
-        return convertValue((T)vals[columnIndex]);
+        return convertValue((T) vals[columnIndex]);
     }
 
     private static <T> T convertValue(T val) {
