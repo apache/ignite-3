@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client.table;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
@@ -77,12 +78,17 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public boolean contains(@NotNull Tuple key) {
-        return get(key) != null;
+        return containsAsync(key).join();
+    }
+
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<Boolean> containsAsync(@NotNull Tuple key) {
+        return getAsync(key).thenApply(Objects::nonNull);
     }
 
     /** {@inheritDoc} */
     @Override public void put(@NotNull Tuple key, Tuple val) {
-        tbl.upsert(getRow(key, val));
+        putAsync(key, val).join();
     }
 
     /** {@inheritDoc} */
