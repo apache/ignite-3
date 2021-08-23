@@ -546,13 +546,13 @@ public class ClientTable implements Table {
 
         if (val != null) {
             for (var i = 0; i < val.columnCount(); i++) {
-                var colName = key.columnName(i);
+                var colName = val.columnName(i);
                 var col = schema.column(colName);
 
                 if (col.key())
                     continue;
 
-                vals[col.schemaIndex()] = key.value(i);
+                vals[col.schemaIndex()] = val.value(i);
             }
         }
 
