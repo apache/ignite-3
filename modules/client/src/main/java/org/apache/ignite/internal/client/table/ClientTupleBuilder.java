@@ -49,6 +49,17 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
      *
      * @param schema Schema.
      */
+    public ClientTupleBuilder(ClientSchema schema) {
+        this(schema, false, false);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param schema Schema.
+     * @param keyOnly Key only mode.
+     * @param valOnly Val only mode.
+     */
     public ClientTupleBuilder(ClientSchema schema, boolean keyOnly, boolean valOnly) {
         assert schema != null : "Schema can't be null.";
         assert schema.columns().length > 0 : "Schema can't be empty.";
@@ -283,7 +294,12 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     }
 
     private <T> T getValue(int columnIndex) {
-        return convertValue((T)vals[getColumnIndex(columnIndex)]);
+        columnIndex = getColumnIndex(columnIndex);
+
+        if (columnIndex >= vals.length)
+            return null;
+
+        return convertValue((T)vals[columnIndex]);
     }
 
     private static <T> T convertValue(T val) {
