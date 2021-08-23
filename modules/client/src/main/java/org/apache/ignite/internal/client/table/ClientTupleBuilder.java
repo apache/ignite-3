@@ -38,17 +38,26 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     /** Schema. */
     private final ClientSchema schema;
 
+    /** Key-only tuple. */
+    private final boolean keyOnly;
+
+    /** Value-only tuple. */
+    private final boolean valOnly;
+
     /**
      * Constructor.
      *
      * @param schema Schema.
      */
-    public ClientTupleBuilder(ClientSchema schema) {
+    public ClientTupleBuilder(ClientSchema schema, boolean keyOnly, boolean valOnly) {
         assert schema != null : "Schema can't be null.";
         assert schema.columns().length > 0 : "Schema can't be empty.";
+        assert !(keyOnly && valOnly) : "keyOnly and valOnly can't be true at the same time.";
 
         this.schema = schema;
-        this.vals = new Object[schema.columns().length];
+        this.keyOnly = keyOnly;
+        this.valOnly = valOnly;
+        this.vals = new Object[columnCount()];
     }
 
     /** {@inheritDoc} */
@@ -56,7 +65,7 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
         // TODO: Live schema and schema evolution support IGNITE-15194
         var col = schema.column(columnName);
 
-        vals[col.schemaIndex()] = value == null ? NULL_OBJ : value;
+        vals[getColumnIndex(col.schemaIndex())] = value == null ? NULL_OBJ : value;
 
         return this;
     }
@@ -73,7 +82,7 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
         if (col == null)
             return def;
 
-        var val = (T)vals[col.schemaIndex()];
+        var val = (T)vals[getColumnIndex(col.schemaIndex())];
 
         return val == null ? def : convertValue(val);
     }
@@ -94,12 +103,21 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
 
     /** {@inheritDoc} */
     @Override public int columnCount() {
-        return vals.length;
+        if (keyOnly)
+            return schema.keyColumnCount();
+
+        if (valOnly)
+            return schema.columns().length - schema.keyColumnCount();
+
+        return schema.columns().length;
     }
 
     /** {@inheritDoc} */
     @Override public String columnName(int columnIndex) {
         validateColumnIndex(columnIndex);
+
+        if (valOnly)
+            columnIndex += schema.keyColumnCount();
 
         return schema.columns()[columnIndex].name();
     }
@@ -108,7 +126,7 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
     @Override public Integer columnIndex(String columnName) {
         var col = schema.columnSafe(columnName);
 
-        return col == null ? null : col.schemaIndex();
+        return col == null ? null : getColumnIndex(col.schemaIndex());
     }
 
     /** {@inheritDoc} */
@@ -237,7 +255,7 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
      */
     public void setInternal(int columnIndex, Object value) {
         // Do not validate column index for internal needs.
-        vals[columnIndex] = value;
+        vals[getColumnIndex(columnIndex)] = value;
     }
 
     /**
@@ -253,12 +271,19 @@ public final class ClientTupleBuilder implements TupleBuilder, Tuple {
         if (columnIndex < 0)
             throw new IllegalArgumentException("Column index can't be negative");
 
-        if (columnIndex >= vals.length)
-            throw new IllegalArgumentException("Column index can't be greater than " + (vals.length - 1));
+        if (columnIndex >= columnCount())
+            throw new IllegalArgumentException("Column index can't be greater than " + (columnCount() - 1));
+    }
+
+    private int getColumnIndex(int columnIndex) {
+        if (valOnly)
+            columnIndex -= schema.keyColumnCount();
+
+        return columnIndex;
     }
 
     private <T> T getValue(int columnIndex) {
-        return convertValue((T)vals[columnIndex]);
+        return convertValue((T)vals[getColumnIndex(columnIndex)]);
     }
 
     private static <T> T convertValue(T val) {

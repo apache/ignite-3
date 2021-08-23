@@ -132,7 +132,7 @@ public class ClientTable implements Table {
 
     /** {@inheritDoc} */
     @Override public TupleBuilder tupleBuilder() {
-        return new ClientTupleBuilder(getLatestSchema().join());
+        return new ClientTupleBuilder(getLatestSchema().join(), false, false);
     }
 
     /** {@inheritDoc} */
@@ -544,7 +544,7 @@ public class ClientTable implements Table {
     }
 
     private Tuple readTuple(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
-        var builder = new ClientTupleBuilder(schema);
+        var builder = new ClientTupleBuilder(schema, keyOnly, false);
 
         var colCnt = keyOnly ? schema.keyColumnCount() : schema.columns().length;
 
