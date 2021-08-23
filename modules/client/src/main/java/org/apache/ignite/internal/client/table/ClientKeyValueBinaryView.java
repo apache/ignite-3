@@ -35,14 +35,14 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ClientKeyValueBinaryView implements KeyValueBinaryView {
     /** Underlying table. */
-    private final Table tbl;
+    private final ClientTable tbl;
 
     /**
      * Constructor.
      *
      * @param tbl Table.
      */
-    public ClientKeyValueBinaryView(Table tbl) {
+    public ClientKeyValueBinaryView(ClientTable tbl) {
         assert tbl != null;
 
         this.tbl = tbl;
@@ -65,12 +65,13 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public Map<Tuple, Tuple> getAll(@NotNull Collection<Tuple> keys) {
-        return tbl.getAll(keys);
+        return getAllAsync(keys).join();
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Map<Tuple, Tuple>> getAllAsync(@NotNull Collection<Tuple> keys) {
-        return tbl.getAllAsync(keys);
+        // TODO: Split records into key and value.
+        return tbl.getAllAsync(keys).thenApply(x -> null);
     }
 
     /** {@inheritDoc} */
@@ -80,7 +81,10 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public void put(@NotNull Tuple key, Tuple val) {
-        // TODO
+        // TODO: Combine key and val into a single tuple?
+        Tuple row = getRow(key, val);
+
+        tbl.upsert(row);
     }
 
     /** {@inheritDoc} */
@@ -234,5 +238,9 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
     @Override public KeyValueBinaryView withTransaction(Transaction tx) {
         // TODO: Transactions IGNITE-15240
         throw new UnsupportedOperationException();
+    }
+
+    private Tuple getRow(Tuple key, Tuple val) {
+        return null;
     }
 }
