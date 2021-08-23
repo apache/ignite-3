@@ -287,7 +287,7 @@ public class IgniteImpl implements Ignite {
             for (IgniteComponent component : otherComponents)
                 doStartComponent(name, startedComponents, component);
 
-            // Deploy all resisted watches cause all components are ready and have registered their listeners.
+            // Deploy all registered watches because all components are ready and have registered their listeners.
             metaStorageMgr.deployWatches();
 
             if (!status.compareAndSet(Status.STARTING, Status.STARTED))
@@ -313,6 +313,8 @@ public class IgniteImpl implements Ignite {
         status.getAndUpdate(status -> {
             if (status == Status.STARTED)
                 explicitStop.set(true);
+            else
+                explicitStop.set(false);
 
             return Status.STOPPING;
         });

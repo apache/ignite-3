@@ -179,12 +179,13 @@ public class ITMetaStorageServiceTest {
         var nodeFinder = new LocalPortRangeNodeFinder(NODE_PORT_BASE, NODE_PORT_BASE + NODES);
 
         nodeFinder.findNodes().stream()
-            .map(addr -> ClusterServiceTestUtils.clusterService(
-                addr.toString(),
-                addr.port(),
-                nodeFinder,
-                SERIALIZATION_REGISTRY,
-                NETWORK_FACTORY
+            .map(
+                addr -> ClusterServiceTestUtils.clusterService(
+                    addr.toString(),
+                    addr.port(),
+                    nodeFinder,
+                    SERIALIZATION_REGISTRY,
+                    NETWORK_FACTORY
                 )
             )
             .forEach(clusterService -> {
