@@ -525,6 +525,46 @@ public class ClientTable implements Table {
             out.packObject(val);
     }
 
+    public void writeKvTuple(
+            @NotNull Tuple key,
+            @Nullable Tuple val,
+            ClientSchema schema,
+            ClientMessagePacker out,
+            boolean skipHeader
+    ) {
+        var vals = new Object[schema.columns().length];
+
+        for (var i = 0; i < key.columnCount(); i++) {
+            var colName = key.columnName(i);
+            var col = schema.column(colName);
+
+            if (!col.key())
+                continue;
+
+            vals[col.schemaIndex()] = key.value(i);
+        }
+
+        if (val != null) {
+            for (var i = 0; i < val.columnCount(); i++) {
+                var colName = key.columnName(i);
+                var col = schema.column(colName);
+
+                if (col.key())
+                    continue;
+
+                vals[col.schemaIndex()] = key.value(i);
+            }
+        }
+
+        if (!skipHeader) {
+            out.packUuid(id);
+            out.packInt(schema.version());
+        }
+
+        for (var v : vals)
+            out.packObject(v);
+    }
+
     private void writeTuples(
             @NotNull Collection<Tuple> tuples,
             ClientSchema schema,
@@ -609,7 +649,7 @@ public class ClientTable implements Table {
                 .thenCompose(t -> loadSchemaAndReadData(t, reader));
     }
 
-    private <T> CompletableFuture<T> doSchemaOutOpAsync(
+    protected  <T> CompletableFuture<T> doSchemaOutOpAsync(
             int opCode,
             BiConsumer<ClientSchema, ClientMessagePacker> writer,
             Function<ClientMessageUnpacker, T> reader) {

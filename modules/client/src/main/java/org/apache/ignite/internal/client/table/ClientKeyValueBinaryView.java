@@ -99,7 +99,14 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> putAsync(@NotNull Tuple key, Tuple val) {
-        return tbl.upsertAsync(getRow(key, val));
+        Objects.requireNonNull(key);
+
+        // TODO IGNITE-15194: Convert Tuple to a schema-order Array as a first step.
+        // If it does not match the latest schema, then request latest and convert again.
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_UPSERT,
+                (s, w) -> tbl.writeKvTuple(key, val, s, w, false),
+                r -> null);
     }
 
     /** {@inheritDoc} */
@@ -248,9 +255,5 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
     @Override public KeyValueBinaryView withTransaction(Transaction tx) {
         // TODO: Transactions IGNITE-15240
         throw new UnsupportedOperationException();
-    }
-
-    private Tuple getRow(Tuple key, Tuple val) {
-        return new CompositeTuple(key, val);
     }
 }
