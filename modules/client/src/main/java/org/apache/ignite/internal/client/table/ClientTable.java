@@ -74,6 +74,9 @@ public class ClientTable implements Table {
     /** */
     private final Object latestSchemaLock = new Object();
 
+    /** */
+    private final KeyValueBinaryView kvView;
+
     /**
      * Constructor.
      *
@@ -89,6 +92,7 @@ public class ClientTable implements Table {
         this.ch = ch;
         this.id = id;
         this.name = name;
+        this.kvView = new ClientKeyValueBinaryView(this);
     }
 
     /**
@@ -117,7 +121,7 @@ public class ClientTable implements Table {
 
     /** {@inheritDoc} */
     @Override public KeyValueBinaryView kvView() {
-        throw new UnsupportedOperationException();
+        return kvView;
     }
 
     /** {@inheritDoc} */
