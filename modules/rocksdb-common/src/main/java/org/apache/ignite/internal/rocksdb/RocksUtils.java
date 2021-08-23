@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.rocksdb;
 
 import java.nio.file.Path;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.rocksdb.EnvOptions;
 import org.rocksdb.Options;
@@ -39,37 +37,32 @@ public class RocksUtils {
      * @param columnFamily Column family.
      * @param snapshot Point-in-time snapshot.
      * @param path Directory to put the SST file in.
-     * @param snapshotExecutor Snapshot executor.
-     * @return Future representing pending completion of the operation.
      */
-    public static CompletableFuture<Void> createSstFile(
+    public static void createSstFile(
         ColumnFamily columnFamily,
         Snapshot snapshot,
-        Path path,
-        Executor snapshotExecutor
+        Path path
     ) {
-        return CompletableFuture.runAsync(() -> {
-            try (
-                EnvOptions envOptions = new EnvOptions();
-                Options options = new Options();
-                ReadOptions readOptions = new ReadOptions().setSnapshot(snapshot);
-                RocksIterator it = columnFamily.newIterator(readOptions);
-                SstFileWriter sstFileWriter = new SstFileWriter(envOptions, options)
-            ) {
-                Path sstFile = path.resolve(columnFamily.name());
+        try (
+            EnvOptions envOptions = new EnvOptions();
+            Options options = new Options();
+            ReadOptions readOptions = new ReadOptions().setSnapshot(snapshot);
+            RocksIterator it = columnFamily.newIterator(readOptions);
+            SstFileWriter sstFileWriter = new SstFileWriter(envOptions, options)
+        ) {
+            Path sstFile = path.resolve(columnFamily.name());
 
-                sstFileWriter.open(sstFile.toString());
+            sstFileWriter.open(sstFile.toString());
 
-                it.seekToFirst();
+            it.seekToFirst();
 
-                forEach(it, sstFileWriter::put);
+            forEach(it, sstFileWriter::put);
 
-                sstFileWriter.finish();
-            }
-            catch (Throwable t) {
-                throw new IgniteInternalException("Failed to write snapshot: " + t.getMessage(), t);
-            }
-        }, snapshotExecutor);
+            sstFileWriter.finish();
+        }
+        catch (Throwable t) {
+            throw new IgniteInternalException("Failed to write snapshot: " + t.getMessage(), t);
+        }
     }
 
     /**
@@ -122,36 +115,5 @@ public class RocksUtils {
         catch (RocksDBException e) {
             throw new IgniteInternalException(e);
         }
-    }
-
-    /**
-     * BiConsumer that can throw {@link RocksDBException}.
-     */
-    @FunctionalInterface
-    public interface RocksBiConsumer {
-        /**
-         * Accepts the key and the value of the entry.
-         *
-         * @param key Key.
-         * @param value Value.
-         * @throws RocksDBException If failed to process the key-value pair.
-         */
-        void accept(byte[] key, byte[] value) throws RocksDBException;
-    }
-
-    /**
-     * BiPredicate that can throw {@link RocksDBException}.
-     */
-    @FunctionalInterface
-    public interface RocksBiPredicate {
-        /**
-         * Evaluates the predicate on the given key and the given value.
-         *
-         * @param key Key.
-         * @param value Value.
-         * @return {@code true} if the input argument matches the predicate, otherwise {@code false}.
-         * @throws RocksDBException If failed to test the key-value pair.
-         */
-        boolean test(byte[] key, byte[] value) throws RocksDBException;
     }
 }

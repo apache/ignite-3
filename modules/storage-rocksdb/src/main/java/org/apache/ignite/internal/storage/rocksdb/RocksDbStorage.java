@@ -393,7 +393,7 @@ public class RocksDbStorage implements Storage {
                 throw new IgniteInternalException("Failed to create directory: " + tempPath, e);
             }
         }, snapshotExecutor)
-            .thenCompose(aVoid -> createSstFile(data, snapshot, tempPath, snapshotExecutor))
+            .thenRunAsync(() -> createSstFile(data, snapshot, tempPath), snapshotExecutor)
             .whenComplete((aVoid, throwable) -> {
                 // Release a snapshot
                 db.releaseSnapshot(snapshot);

@@ -43,7 +43,7 @@ import org.apache.ignite.internal.metastorage.server.Operation;
 import org.apache.ignite.internal.metastorage.server.Value;
 import org.apache.ignite.internal.metastorage.server.WatchEvent;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
-import org.apache.ignite.internal.rocksdb.RocksUtils;
+import org.apache.ignite.internal.rocksdb.RocksBiPredicate;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -248,10 +248,10 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         }, snapshotExecutor).thenCompose(aVoid ->
             // Create futures for capturing SST snapshots of the column families
             CompletableFuture.allOf(
-                createSstFile(data, snapshot, tempPath, snapshotExecutor),
-                createSstFile(index, snapshot, tempPath, snapshotExecutor))
+                CompletableFuture.runAsync(() -> createSstFile(data, snapshot, tempPath), snapshotExecutor),
+                CompletableFuture.runAsync(() -> createSstFile(index, snapshot, tempPath), snapshotExecutor)
             )
-        .whenComplete((aVoid, throwable) -> {
+        ).whenComplete((aVoid, throwable) -> {
             // Release a snapshot
             db.releaseSnapshot(snapshot);
 
@@ -1005,7 +1005,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         try (RocksIterator iterator = index.newIterator()) {
             iterator.seek(key);
 
-            RocksUtils.RocksBiPredicate predicate = strictlyHigher ?
+            RocksBiPredicate predicate = strictlyHigher ?
                 (k, v) -> CMP.compare(k, key) > 0 :
                 (k, v) -> CMP.compare(k, key) >= 0;
 
