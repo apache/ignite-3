@@ -55,32 +55,32 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public Tuple get(@NotNull Tuple key) {
-        return null;
+        return tbl.get(key);
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Tuple> getAsync(@NotNull Tuple key) {
-        return null;
+        return tbl.getAsync(key);
     }
 
     /** {@inheritDoc} */
     @Override public Map<Tuple, Tuple> getAll(@NotNull Collection<Tuple> keys) {
-        return null;
+        return tbl.getAll(keys);
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Map<Tuple, Tuple>> getAllAsync(@NotNull Collection<Tuple> keys) {
-        return null;
+        return tbl.getAllAsync(keys);
     }
 
     /** {@inheritDoc} */
     @Override public boolean contains(@NotNull Tuple key) {
-        return false;
+        return get(key) != null;
     }
 
     /** {@inheritDoc} */
     @Override public void put(@NotNull Tuple key, Tuple val) {
-
+        // TODO
     }
 
     /** {@inheritDoc} */
@@ -194,7 +194,7 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
             InvokeProcessor<Tuple, Tuple, R> proc,
             Serializable... args
     ) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -203,7 +203,7 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
             InvokeProcessor<Tuple, Tuple, R> proc,
             Serializable... args
     ) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -212,7 +212,7 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
             InvokeProcessor<Tuple, Tuple, R> proc,
             Serializable... args
     ) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -221,16 +221,18 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
             InvokeProcessor<Tuple, Tuple, R> proc,
             Serializable... args
     ) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override public @Nullable Transaction transaction() {
-        return null;
+        // TODO: Transactions IGNITE-15240
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override public KeyValueBinaryView withTransaction(Transaction tx) {
-        return null;
+        // TODO: Transactions IGNITE-15240
+        throw new UnsupportedOperationException();
     }
 }
