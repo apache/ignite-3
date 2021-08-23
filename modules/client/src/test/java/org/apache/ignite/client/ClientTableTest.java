@@ -37,11 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Table tests.
  */
-public class ClientTableTest extends AbstractClientTest {
-    private static final String DEFAULT_NAME = "John";
-
-    private static final Long DEFAULT_ID = 123L;
-
+public class ClientTableTest extends AbstractClientTableTest {
     @Test
     public void testGetWithNullInNotNullableKeyColumnThrowsException() {
         var table = defaultTable();
@@ -332,52 +328,5 @@ public class ClientTableTest extends AbstractClientTest {
 
         assertEquals(3L, skippedTuples[1].longValue("id"));
         assertEquals("z", skippedTuples[1].stringValue("name"));
-    }
-
-    private static Tuple[] sortedTuples(Collection<Tuple> tuples) {
-        Tuple[] res = tuples.toArray(new Tuple[0]);
-
-        Arrays.sort(res, (x, y) -> (int) (x.longValue(0) - y.longValue(0)));
-
-        return res;
-    }
-
-    private Tuple tuple() {
-        return defaultTable().tupleBuilder()
-                .set("id", DEFAULT_ID)
-                .set("name", DEFAULT_NAME)
-                .build();
-    }
-
-    private Tuple tuple(Table table) {
-        return table.tupleBuilder()
-                .set("id", DEFAULT_ID)
-                .set("name", DEFAULT_NAME)
-                .build();
-    }
-
-    private Tuple tuple(Long id) {
-        return defaultTable().tupleBuilder()
-                .set("id", id)
-                .build();
-    }
-
-    private Tuple tuple(Long id, String name) {
-        return defaultTable().tupleBuilder()
-                .set("id", id)
-                .set("name", name)
-                .build();
-    }
-
-    private Tuple defaultTupleKey(Table table) {
-        return table.tupleBuilder()
-                .set("id", DEFAULT_ID)
-                .build();
-    }
-
-    private Table defaultTable() {
-        server.tables().getOrCreateTable(DEFAULT_TABLE, tbl -> tbl.changeReplicas(1));
-
-        return client.tables().table(DEFAULT_TABLE);
     }
 }
