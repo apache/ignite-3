@@ -478,7 +478,7 @@ public class ClientTable implements Table {
         return IgniteToStringBuilder.toString(ClientTable.class, this);
     }
 
-    private void writeTuple(
+    public void writeTuple(
             @NotNull Tuple tuple,
             ClientSchema schema,
             ClientMessagePacker out
@@ -486,7 +486,7 @@ public class ClientTable implements Table {
         writeTuple(tuple, schema, out, false, false);
     }
 
-    private void writeTuple(
+    public void writeTuple(
             @NotNull Tuple tuple,
             ClientSchema schema,
             ClientMessagePacker out,
@@ -495,7 +495,7 @@ public class ClientTable implements Table {
         writeTuple(tuple, schema, out, keyOnly, false);
     }
 
-    private void writeTuple(
+    public void writeTuple(
             @NotNull Tuple tuple,
             ClientSchema schema,
             ClientMessagePacker out,
@@ -539,7 +539,7 @@ public class ClientTable implements Table {
             writeTuple(tuple, schema, out, keyOnly, true);
     }
 
-    private Tuple readTuple(ClientSchema schema, ClientMessageUnpacker in) {
+    public Tuple readTuple(ClientSchema schema, ClientMessageUnpacker in) {
         return readTuple(schema, in, false);
     }
 
@@ -552,6 +552,25 @@ public class ClientTable implements Table {
             builder.setInternal(i, in.unpackObject(schema.columns()[i].type()));
 
         return builder;
+    }
+
+    public IgniteBiTuple<Tuple, Tuple> readKvTuples(ClientSchema schema, ClientMessageUnpacker in) {
+        var keyBuilder = new ClientTupleBuilder(schema, true, false);
+        var valBuilder = new ClientTupleBuilder(schema, false, true);
+
+        var colCnt = schema.columns().length;
+        var keyColCnt = schema.keyColumnCount();
+
+        for (var i = 0; i < colCnt; i++) {
+            Object val = in.unpackObject(schema.columns()[i].type());
+
+            if (i < keyColCnt)
+                keyBuilder.setInternal(i, val);
+            else
+                valBuilder.setInternal(i, val);
+        }
+
+        return new IgniteBiTuple<>(keyBuilder, valBuilder);
     }
 
     private Collection<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in) {
@@ -568,7 +587,7 @@ public class ClientTable implements Table {
         return res;
     }
 
-    private <T> CompletableFuture<T> doSchemaOutInOpAsync(
+    public  <T> CompletableFuture<T> doSchemaOutInOpAsync(
             int opCode,
             BiConsumer<ClientSchema, ClientMessagePacker> writer,
             BiFunction<ClientSchema, ClientMessageUnpacker, T> reader

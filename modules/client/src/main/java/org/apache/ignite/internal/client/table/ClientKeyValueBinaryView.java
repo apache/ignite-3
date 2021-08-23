@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.proto.ClientOp;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
@@ -61,8 +62,13 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Tuple> getAsync(@NotNull Tuple key) {
-        // TODO: Return value part only.
-        return tbl.getAsync(key);
+        Objects.requireNonNull(key);
+
+        // TODO: Change TUPLE_GET and other ops to exclude key columns?
+        return tbl.doSchemaOutInOpAsync(
+                ClientOp.TUPLE_GET,
+                (schema, out) -> tbl.writeTuple(key, schema, out, true),
+                (schema, in) -> tbl.readKvTuples(schema, in).get2());
     }
 
     /** {@inheritDoc} */
