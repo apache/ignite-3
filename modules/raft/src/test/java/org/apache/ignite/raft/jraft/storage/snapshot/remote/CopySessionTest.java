@@ -32,6 +32,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.Endpoint;
+import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -76,6 +77,7 @@ public class CopySessionTest {
     public void teardown() {
         Utils.closeQuietly(this.session);
         this.timerManager.shutdown();
+        ExecutorServiceHelper.shutdownAndAwaitTermination(this.nodeOptions.getCommonExecutor());
     }
 
     @Test
