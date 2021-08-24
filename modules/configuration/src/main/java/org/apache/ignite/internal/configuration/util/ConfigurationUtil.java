@@ -111,23 +111,30 @@ public class ConfigurationUtil {
      *
      * @param keys Random access list with keys.
      * @param node Node where method will search for subnode.
+     * @param includeInternal Include internal configuration nodes (private configuration extensions).
      * @return Either {@link TraversableTreeNode} or {@link Serializable} depending on the keys and schema.
      * @throws KeyNotFoundException If node is not found.
      */
-    public static Object find(List<String> keys, TraversableTreeNode node) throws KeyNotFoundException {
+    public static Object find(
+        List<String> keys,
+        TraversableTreeNode node,
+        boolean includeInternal
+    ) throws KeyNotFoundException {
         assert keys instanceof RandomAccess : keys.getClass();
 
         var visitor = new ConfigurationVisitor<>() {
-            /** */
+            /** Current index of the key in the {@code keys}. */
             private int i;
 
+            /** {@inheritDoc} */
             @Override public Object visitLeafNode(String key, Serializable val) {
                 if (i != keys.size())
                     throw new KeyNotFoundException("Configuration value '" + join(keys.subList(0, i)) + "' is a leaf");
-
-                return val;
+                else
+                    return val;
             }
 
+            /** {@inheritDoc} */
             @Override public Object visitInnerNode(String key, InnerNode node) {
                 if (i == keys.size())
                     return node;
@@ -135,14 +142,17 @@ public class ConfigurationUtil {
                     throw new KeyNotFoundException("Configuration node '" + join(keys.subList(0, i)) + "' is null");
                 else {
                     try {
-                        return node.traverseChild(keys.get(i++), this);
+                        return node.traverseChild(keys.get(i++), this, includeInternal);
                     }
                     catch (NoSuchElementException e) {
-                        throw new KeyNotFoundException("Configuration '" + join(keys.subList(0, i)) + "' is not found");
+                        throw new KeyNotFoundException(
+                            "Configuration '" + join(keys.subList(0, i)) + "' is not found"
+                        );
                     }
                 }
             }
 
+            /** {@inheritDoc} */
             @Override public <N extends InnerNode> Object visitNamedListNode(String key, NamedListNode<N> node) {
                 if (i == keys.size())
                     return node;
@@ -434,7 +444,7 @@ public class ConfigurationUtil {
                 // Instantiate field in destination node before doing something else or copy it if it wasn't null.
                 node.construct(key, EMPTY_CFG_SRC);
 
-                addDefaults(node.traverseChild(key, innerNodeVisitor()));
+                addDefaults(node.traverseChild(key, innerNodeVisitor(), true));
 
                 return null;
             }
@@ -443,7 +453,7 @@ public class ConfigurationUtil {
                 // Copy internal map.
                 node.construct(key, EMPTY_CFG_SRC);
 
-                namedList = (NamedListNode<N>)node.traverseChild(key, namedListNodeVisitor());
+                namedList = (NamedListNode<N>)node.traverseChild(key, namedListNodeVisitor(), true);
 
                 for (String namedListKey : namedList.namedListKeys()) {
                     if (namedList.get(namedListKey) != null) {
@@ -456,7 +466,7 @@ public class ConfigurationUtil {
 
                 return null;
             }
-        });
+        }, true);
     }
 
     /**
@@ -484,7 +494,7 @@ public class ConfigurationUtil {
 
                 return null;
             }
-        });
+        }, true);
     }
 
     /**

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.asm;
 
+import java.io.File;
 import java.io.Serializable;
 import java.lang.invoke.LambdaMetafactory;
 import java.lang.invoke.MethodHandle;
@@ -27,6 +28,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -42,6 +44,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.ClassGenerator;
 import com.facebook.presto.bytecode.FieldDefinition;
@@ -94,6 +97,8 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newIns
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.singleton;
 import static java.util.EnumSet.of;
+import static java.util.stream.Collectors.partitioningBy;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.CHANGE_CLASS_POSTFIX;
 import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.CONFIGURATION_CLASS_POSTFIX;
 import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.VIEW_CLASS_POSTFIX;
@@ -195,7 +200,8 @@ public class ConfigurationAsmGenerator {
     private final Map<Class<?>, SchemaClassesInfo> schemasInfo = new HashMap<>();
 
     /** Class generator instance. */
-    private final ClassGenerator generator = ClassGenerator.classGenerator(this.getClass().getClassLoader());
+    private final ClassGenerator generator = ClassGenerator.classGenerator(this.getClass().getClassLoader())
+        .dumpClassFilesTo(new File("C:\\test").toPath());
 
     /**
      * Creates new instance of {@code *Node} class corresponding to the given Configuration Schema.
@@ -372,10 +378,10 @@ public class ConfigurationAsmGenerator {
         }
 
         // traverseChildren
-        addNodeTraverseChildrenMethod(classDef, schemaFields, fieldDefs);
+        addNodeTraverseChildrenMethod(classDef, schemaFields, fieldDefs, schemaExtensions);
 
         // traverseChild
-        addNodeTraverseChildMethod(classDef, schemaFields, fieldDefs);
+        addNodeTraverseChildMethod(classDef, schemaFields, fieldDefs, schemaExtensions);
 
         // construct
         addNodeConstructMethod(classDef, schemaFields, fieldDefs);
@@ -600,85 +606,97 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Implements {@link InnerNode#traverseChildren(ConfigurationVisitor)} method.
+     * Implements {@link InnerNode#traverseChildren(ConfigurationVisitor, boolean)} method.
      *
      * @param classDef Class definition.
      * @param schemaFields Fields of the schema and its extensions.
      * @param fieldDefs Definitions for all fields in {@code schemaFields}.
+     * @param schemaExtensions Internal extensions of the configuration schema.
      */
     private void addNodeTraverseChildrenMethod(
         ClassDefinition classDef,
         Set<Field> schemaFields,
-        Map<String, FieldDefinition> fieldDefs
+        Map<String, FieldDefinition> fieldDefs,
+        Set<Class<?>> schemaExtensions
     ) {
         MethodDefinition traverseChildrenMtd = classDef.declareMethod(
             of(PUBLIC),
             "traverseChildren",
             type(void.class),
-            arg("visitor", type(ConfigurationVisitor.class))
+            arg("visitor", type(ConfigurationVisitor.class)),
+            arg("includeInternal", type(boolean.class))
         ).addException(NoSuchElementException.class);
+
+        Variable includeInternalVar = traverseChildrenMtd.getScope().getVariable("includeInternal");
 
         BytecodeBlock mtdBody = traverseChildrenMtd.getBody();
 
-        for (Field schemaField : schemaFields) {
-            FieldDefinition fieldDef = fieldDefs.get(schemaField.getName());
+        if (schemaExtensions.isEmpty())
+            invokeVisitForTraverseChildren(schemaFields, fieldDefs, traverseChildrenMtd).forEach(mtdBody::append);
+        else {
+            // {@code true} - internal, {@code false} - public.
+            Map<Boolean, List<Field>> fields = schemaFields.stream()
+                .collect(partitioningBy(f -> schemaExtensions.contains(f.getDeclaringClass())));
 
-            // Visit every field. Returned value isn't used so we pop it off the stack.
-            mtdBody.append(invokeVisit(traverseChildrenMtd, schemaField, fieldDef).pop());
+            invokeVisitForTraverseChildren(fields.get(false), fieldDefs, traverseChildrenMtd).forEach(mtdBody::append);
+
+            BytecodeBlock includeInternalBlock = new BytecodeBlock();
+
+            invokeVisitForTraverseChildren(fields.get(true), fieldDefs, traverseChildrenMtd)
+                .forEach(includeInternalBlock::append);
+
+            mtdBody.append(new IfStatement().condition(includeInternalVar).ifTrue(includeInternalBlock));
         }
 
         mtdBody.ret();
     }
 
     /**
-     * Implements {@link InnerNode#traverseChild(String, ConfigurationVisitor)} method.
+     * Implements {@link InnerNode#traverseChild(String, ConfigurationVisitor, boolean)} method.
      *
      * @param classDef Class definition.
      * @param schemaFields Fields of the schema and its extensions.
      * @param fieldDefs Definitions for all fields in {@code schemaFields}.
+     * @param schemaExtensions Internal extensions of the configuration schema.
      */
     private void addNodeTraverseChildMethod(
         ClassDefinition classDef,
         Set<Field> schemaFields,
-        Map<String, FieldDefinition> fieldDefs
+        Map<String, FieldDefinition> fieldDefs,
+        Set<Class<?>> schemaExtensions
     ) {
         MethodDefinition traverseChildMtd = classDef.declareMethod(
             of(PUBLIC),
             "traverseChild",
             type(Object.class),
             arg("key", type(String.class)),
-            arg("visitor", type(ConfigurationVisitor.class))
+            arg("visitor", type(ConfigurationVisitor.class)),
+            arg("includeInternal", type(boolean.class))
         ).addException(NoSuchElementException.class);
 
-        Variable keyVar = traverseChildMtd.getScope().getVariable("key");
+        Variable includeInternalVar = traverseChildMtd.getScope().getVariable("includeInternal");
 
-        // Here we have a switch by passed kay parameter.
-        StringSwitchBuilder switchBuilder = new StringSwitchBuilder(traverseChildMtd.getScope())
-            .expression(keyVar);
+        if (schemaExtensions.isEmpty())
+            traverseChildMtd.getBody().append(invokeVisitForTraverseChild(schemaFields, fieldDefs, traverseChildMtd));
+        else {
+            List<Field> publicFields = schemaFields.stream()
+                .filter(f -> !schemaExtensions.contains(f.getDeclaringClass()))
+                .collect(toList());
 
-        for (Field schemaField : schemaFields) {
-            String fieldName = schemaField.getName();
-
-            FieldDefinition fieldDef = fieldDefs.get(fieldName);
-
-            // Visit result should be immediately returned.
-            switchBuilder.addCase(fieldName, invokeVisit(traverseChildMtd, schemaField, fieldDef).retObject());
+            traverseChildMtd.getBody().append(
+                new IfStatement()
+                    .condition(includeInternalVar)
+                    .ifTrue(invokeVisitForTraverseChild(schemaFields, fieldDefs, traverseChildMtd))
+                    .ifFalse(invokeVisitForTraverseChild(publicFields, fieldDefs, traverseChildMtd))
+            );
         }
-
-        // Default option is to throw "NoSuchElementException(key)".
-        switchBuilder.defaultCase(new BytecodeBlock()
-            .append(newInstance(NoSuchElementException.class, keyVar))
-            .throwObject()
-        );
-
-        // No default "return" statement required.
-        traverseChildMtd.getBody().append(switchBuilder.build());
     }
 
     /**
      * Creates bytecode block that invokes one of {@link ConfigurationVisitor}'s methods.
-     * @param mtd Method definition, either {@link InnerNode#traverseChildren(ConfigurationVisitor)} or
-     *      {@link InnerNode#traverseChild(String, ConfigurationVisitor)} defined in {@code *Node} class.
+     *
+     * @param mtd Method definition, either {@link InnerNode#traverseChildren(ConfigurationVisitor, boolean)} or
+     *      {@link InnerNode#traverseChild(String, ConfigurationVisitor, boolean)} defined in {@code *Node} class.
      * @param schemaField Configuration Schema field to visit.
      * @param fieldDef Field definition from current class.
      * @return Bytecode block that invokes "visit*" method.
@@ -1180,5 +1198,73 @@ public class ConfigurationAsmGenerator {
         Class<?> boxed = TypeUtils.boxed(clazz);
 
         return boxed == null ? clazz : boxed;
+    }
+
+    /**
+     * Create bytecode blocks that invokes of {@link ConfigurationVisitor}'s methods for
+     * {@link InnerNode#traverseChildren(ConfigurationVisitor, boolean)}.
+     *
+     * @param schemaFields Fields of the schema.
+     * @param fieldDefs Definitions for all fields in {@code schemaFields}.
+     * @param traverseChildrenMtd Method definition {@link InnerNode#traverseChildren(ConfigurationVisitor, boolean)}
+     *      defined in {@code *Node} class.
+     * @return Created bytecode blocks that invokes of {@link ConfigurationVisitor}'s methods for fields.
+     */
+    private Collection<BytecodeNode> invokeVisitForTraverseChildren(
+        Collection<Field> schemaFields,
+        Map<String, FieldDefinition> fieldDefs,
+        MethodDefinition traverseChildrenMtd
+    ) {
+        if (schemaFields.isEmpty())
+            return List.of();
+        else {
+            List<BytecodeNode> res = new ArrayList<>(schemaFields.size());
+
+            for (Field schemaField : schemaFields) {
+                FieldDefinition fieldDef = fieldDefs.get(schemaField.getName());
+
+                // Visit every field. Returned value isn't used so we pop it off the stack.
+                res.add(invokeVisit(traverseChildrenMtd, schemaField, fieldDef).pop());
+            }
+
+            return res;
+        }
+    }
+
+    /**
+     *  Created switch bytecode block that invokes of {@link ConfigurationVisitor}'s methods for for
+     *      {@link InnerNode#traverseChild(String, ConfigurationVisitor, boolean)}.
+     *
+     * @param schemaFields Fields of the schema.
+     * @param fieldDefs Definitions for all fields in {@code schemaFields}.
+     * @param traverseChildMtd Method definition {@link InnerNode#traverseChild(String, ConfigurationVisitor, boolean)}}
+     *      defined in {@code *Node} class.
+     * @return Created switch bytecode block that invokes of {@link ConfigurationVisitor}'s methods for fields.
+     */
+    private BytecodeNode invokeVisitForTraverseChild(
+        Collection<Field> schemaFields,
+        Map<String, FieldDefinition> fieldDefs,
+        MethodDefinition traverseChildMtd
+    ) {
+        Variable keyVar = traverseChildMtd.getScope().getVariable("key");
+
+        StringSwitchBuilder switchBuilder = new StringSwitchBuilder(traverseChildMtd.getScope()).expression(keyVar);
+
+        for (Field schemaField : schemaFields) {
+            String fieldName = schemaField.getName();
+
+            FieldDefinition fieldDef = fieldDefs.get(fieldName);
+
+            // Visit result should be immediately returned.
+            switchBuilder.addCase(fieldName, invokeVisit(traverseChildMtd, schemaField, fieldDef).retObject());
+        }
+
+        // Default option is to throw "NoSuchElementException(key)".
+        switchBuilder.defaultCase(new BytecodeBlock()
+            .append(newInstance(NoSuchElementException.class, keyVar))
+            .throwObject()
+        );
+
+        return switchBuilder.build();
     }
 }

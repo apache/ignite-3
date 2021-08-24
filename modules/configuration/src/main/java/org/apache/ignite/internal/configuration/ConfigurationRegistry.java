@@ -169,7 +169,7 @@ public class ConfigurationRegistry implements IgniteComponent {
 
         Object node;
         try {
-            node = ConfigurationUtil.find(path, superRoot);
+            node = ConfigurationUtil.find(path, superRoot, false);
         }
         catch (KeyNotFoundException e) {
             throw new IllegalArgumentException(e.getMessage());
@@ -177,10 +177,11 @@ public class ConfigurationRegistry implements IgniteComponent {
 
         if (node instanceof TraversableTreeNode)
             return ((TraversableTreeNode)node).accept(null, visitor);
+        else {
+            assert node == null || node instanceof Serializable;
 
-        assert node == null || node instanceof Serializable;
-
-        return visitor.visitLeafNode(null, (Serializable)node);
+            return visitor.visitLeafNode(null, (Serializable)node);
+        }
     }
 
     /**
@@ -207,7 +208,7 @@ public class ConfigurationRegistry implements IgniteComponent {
         newSuperRoot.traverseChildren(new ConfigurationVisitor<Void>() {
             /** {@inheritDoc} */
             @Override public Void visitInnerNode(String key, InnerNode newRoot) {
-                InnerNode oldRoot = oldSuperRoot.traverseChild(key, innerNodeVisitor());
+                InnerNode oldRoot = oldSuperRoot.traverseChild(key, innerNodeVisitor(), true);
 
                 var cfg = (DynamicConfiguration<InnerNode, ?>)configs.get(key);
 
@@ -218,7 +219,7 @@ public class ConfigurationRegistry implements IgniteComponent {
 
                 return null;
             }
-        });
+        }, true);
 
         // Map futures is only for logging errors.
         Function<CompletableFuture<?>, CompletableFuture<?>> mapping = fut -> fut.whenComplete((res, throwable) -> {

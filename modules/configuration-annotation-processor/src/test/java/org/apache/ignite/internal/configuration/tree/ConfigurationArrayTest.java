@@ -146,7 +146,7 @@ public class ConfigurationArrayTest {
      * Gets an array field from the given {@code InnerNode}.
      */
     private static <T> T getArray(InnerNode arrayNode, Class<T> cls) {
-        return cls.cast(arrayNode.traverseChild(getFieldName(cls), leafNodeVisitor()));
+        return cls.cast(arrayNode.traverseChild(getFieldName(cls), leafNodeVisitor(), true));
     }
 
     /**

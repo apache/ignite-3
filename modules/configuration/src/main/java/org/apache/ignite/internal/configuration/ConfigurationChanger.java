@@ -40,6 +40,7 @@ import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.validation.MemberKey;
 import org.apache.ignite.internal.configuration.validation.ValidationUtil;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.NotNull;
 
@@ -158,11 +159,11 @@ public abstract class ConfigurationChanger {
      *
      * @return Function that creates root node by root name or returns {@code null} if root name is not found.
      */
-    private Function<String, InnerNode> rootCreator() {
+    private Function<String, IgniteBiTuple<RootKey<?, ?>, InnerNode>> rootCreator() {
         return key -> {
             RootKey<?, ?> rootKey = rootKeys.get(key);
 
-            return rootKey == null ? null : createRootNode(rootKey);
+            return rootKey == null ? null : new IgniteBiTuple<>(rootKey, createRootNode(rootKey));
         };
     }
 

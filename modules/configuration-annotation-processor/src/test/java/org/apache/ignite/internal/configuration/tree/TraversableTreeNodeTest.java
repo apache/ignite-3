@@ -295,7 +295,7 @@ public class TraversableTreeNodeTest {
 
                 return keys.add(key);
             }
-        });
+        }, true);
 
         // Assert that updates happened in the same order as fields declaration in schema.
         assertEquals(new TreeSet<>(List.of("child", "elements")), keys);
@@ -308,7 +308,7 @@ public class TraversableTreeNodeTest {
             @Override public Object visitLeafNode(String key, Serializable val) {
                 return keys.add(key);
             }
-        });
+        }, true);
 
         // Assert that updates happened in the same order as fields declaration in schema.
         assertEquals(new TreeSet<>(List.of("intCfg", "strCfg")), keys);
@@ -329,7 +329,7 @@ public class TraversableTreeNodeTest {
 
                     throw new VisitException();
                 }
-            })
+            }, true)
         );
 
         // Assert that proper method has been invoked.
@@ -341,7 +341,7 @@ public class TraversableTreeNodeTest {
 
                     throw new VisitException();
                 }
-            })
+            }, true)
         );
 
         var childNode = newChildInstance();
@@ -354,12 +354,12 @@ public class TraversableTreeNodeTest {
 
                     throw new VisitException();
                 }
-            })
+            }, true)
         );
 
         // Assert that traversing inexistent field leads to exception.
         assertThrows(NoSuchElementException.class, () ->
-            childNode.traverseChild("foo", new ConfigurationVisitor<>() {})
+            childNode.traverseChild("foo", new ConfigurationVisitor<>() {}, true)
         );
     }
 }
