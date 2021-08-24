@@ -59,7 +59,7 @@ Project code style is specified Apache Ignite [Coding Guidelines](https://cwiki.
 Please install following components for development using IntelliJ IDEA
 * Install [Abbreviation Plugin](https://cwiki.apache.org/confluence/display/IGNITE/Abbreviation+Rules#AbbreviationRules-IntelliJIdeaPlugin).
 * Code Inspection  [Code Inspection Profile](https://cwiki.apache.org/confluence/display/IGNITE/Coding+Guidelines#CodingGuidelines-C.CodeInspection).
-Inspection profile is placed to IDEA [Project_Default](.idea/inspectionProfiles/Project_Default.xml), and it should be applied automatically.
+Inspection profile is placed to IDEA [Project_Default](idea/ignite_inspections_teamcity.xml), and it should be applied automatically.
 * Configure [IDEA Codestyle](https://cwiki.apache.org/confluence/display/IGNITE/Coding+Guidelines#CodingGuidelines-A.ConfigureIntelliJIDEAcodestyle).
 
 ### Building project
