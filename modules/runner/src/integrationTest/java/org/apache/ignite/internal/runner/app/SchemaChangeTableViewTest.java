@@ -21,7 +21,6 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.function.Supplier;
 import org.apache.ignite.app.Ignite;
-import org.apache.ignite.internal.table.ColumnNotFoundException;
 import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -62,10 +61,10 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
             assertEquals(1, (Long)tbl.get(keyTuple).value("key"));
             assertEquals(111, (Integer)tbl.get(keyTuple).value("valInt"));
-            assertThrows(ColumnNotFoundException.class, () -> tbl.get(keyTuple).value("valStr"));
+            assertThrows(IllegalArgumentException.class, () -> tbl.get(keyTuple).value("valStr"));
 
             // Check tuple of outdated schema.
-            assertThrows(ColumnNotFoundException.class,
+            assertThrows(IllegalArgumentException.class,
                 () -> tbl.insert(Tuple.create().set("key", 2L).set("valInt", -222).set("valStr", "str"))
             );
 
@@ -76,7 +75,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
             assertEquals(2, (Long)tbl.get(keyTuple2).value("key"));
             assertEquals(222, (Integer)tbl.get(keyTuple2).value("valInt"));
-            assertThrows(ColumnNotFoundException.class, () -> tbl.get(keyTuple2).value("valStr"));
+            assertThrows(IllegalArgumentException.class, () -> tbl.get(keyTuple2).value("valStr"));
         }
     }
 
@@ -94,7 +93,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
         {
             tbl.insert(Tuple.create().set("key", 1L).set("valInt", 111));
 
-            assertThrows(ColumnNotFoundException.class,
+            assertThrows(IllegalArgumentException.class,
                 () -> tbl.insert(Tuple.create().set("key", 1L).set("valInt", -111).set("valStrNew", "str"))
             );
         }
@@ -132,7 +131,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
         {
             tbl.insert(Tuple.create().set("key", 1L).set("valInt", 111));
 
-            assertThrows(ColumnNotFoundException.class,
+            assertThrows(IllegalArgumentException.class,
                     () -> tbl.insert(Tuple.create().set("key", 2L).set("valRenamed", -222))
             );
         }
@@ -145,10 +144,10 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
             assertEquals(1, (Long) tbl.get(keyTuple1).value("key"));
             assertEquals(111, (Integer) tbl.get(keyTuple1).value("valRenamed"));
-            assertThrows(ColumnNotFoundException.class, () -> tbl.get(keyTuple1).value("valInt"));
+            assertThrows(IllegalArgumentException.class, () -> tbl.get(keyTuple1).value("valInt"));
 
             // Check tuple of outdated schema.
-            assertThrows(ColumnNotFoundException.class,
+            assertThrows(IllegalArgumentException.class,
                     () -> tbl.insert(Tuple.create().set("key", 2L).set("valInt", -222))
             );
 
@@ -159,7 +158,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
             assertEquals(2, (Long) tbl.get(keyTuple2).value("key"));
             assertEquals(222, (Integer) tbl.get(keyTuple2).value("valRenamed"));
-            assertThrows(ColumnNotFoundException.class, () -> tbl.get(keyTuple2).value("valInt"));
+            assertThrows(IllegalArgumentException.class, () -> tbl.get(keyTuple2).value("valInt"));
         }
     }
 
@@ -177,7 +176,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
         {
             tbl.insert(Tuple.create().set("key", 1L).set("valInt", 111));
 
-            assertThrows(ColumnNotFoundException.class,
+            assertThrows(IllegalArgumentException.class,
                 () -> tbl.insert(Tuple.create().set("key", 2L).set("val2", -222))
             );
         }
@@ -223,7 +222,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
         {
             tbl.insert(Tuple.create().set("key", 1L).set("valInt", 111));
 
-            assertThrows(ColumnNotFoundException.class, () -> tbl.insert(
+            assertThrows(IllegalArgumentException.class, () -> tbl.insert(
                 Tuple.create().set("key", 2L).set("val", "I'not exists"))
             );
         }
@@ -243,7 +242,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
         {
             tbl.insert(Tuple.create().set("key", 4L).set("valInt", 444));
 
-            assertThrows(ColumnNotFoundException.class, () -> tbl.insert(
+            assertThrows(IllegalArgumentException.class, () -> tbl.insert(
                 Tuple.create().set("key", 4L).set("val", "I'm not exist"))
             );
         }

@@ -24,19 +24,19 @@ import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjects;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.TupleImpl;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Abstract row tuple adapter.
  */
-public abstract class AbstractRowTupleAdapter implements Tuple {
+public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     /** Underlying row. */
-    private Row row;
+    protected Row row;
 
     /**
      * Creates Tuple adapter for row.
@@ -47,18 +47,9 @@ public abstract class AbstractRowTupleAdapter implements Tuple {
         this.row = row;
     }
 
-    /**
-     * @return Row schema.
-     */
-    @Nullable protected SchemaDescriptor schema() {
-        return row.schema();
-    }
-
-    /**
-     * @return Row.
-     */
-    @Nullable protected Row row() {
-        return row;
+    /** {@inheritDoc} */
+    @Override @Nullable public SchemaDescriptor schema() {
+        return row == null ? null : row.schema();
     }
 
     /** {@inheritDoc} */
@@ -92,7 +83,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple {
         final Column col = row.schema().column(columnName);
 
         if (col == null)
-            throw new ColumnNotFoundException("Invalid column name: columnName=" + columnName);
+            throw new IllegalArgumentException("Invalid column name: columnName=" + columnName);
 
         return col;
     }
@@ -110,11 +101,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple {
 
     /** {@inheritDoc} */
     @Override public <T> T valueOrDefault(@NotNull String columnName, T defaultValue) {
-        try {
-            return value(columnName);
-        } catch (ColumnNotFoundException ex) {
-            return defaultValue;
-        }
+        Objects.requireNonNull(columnName);
+
+        final Column col = row.schema().column(columnName);
+
+        return col == null ? defaultValue : (T) col.type().spec().objectValue(row, col.schemaIndex());
     }
 
     /** {@inheritDoc} */
@@ -287,22 +278,5 @@ public abstract class AbstractRowTupleAdapter implements Tuple {
                 return hasNext() ? value(cur++) : null;
             }
         };
-    }
-
-    /**
-     * Creates copy of the tuple.
-     *
-     * @return Tuple copy.
-     */
-    protected TupleImpl copy() {
-        TupleImpl tuple = new TupleImpl();
-
-        for (int i = 0, len = row.schema().length(); i < len; i++) {
-            final Column col = row.schema().column(i);
-
-            tuple.set(col.name(), col.type().spec().objectValue(row, col.schemaIndex()));
-        }
-
-        return tuple;
     }
 }

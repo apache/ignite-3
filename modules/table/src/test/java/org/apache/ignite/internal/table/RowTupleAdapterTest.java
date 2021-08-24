@@ -21,6 +21,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.row.Row;
@@ -32,8 +33,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests server tuple builder implementation.
@@ -60,7 +63,7 @@ public class RowTupleAdapterTest {
 
     @Test
     public void testValueThrowsOnInvalidColumnName() {
-        var ex = assertThrows(ColumnNotFoundException.class, () -> getTuple().value("x"));
+        var ex = assertThrows(IllegalArgumentException.class, () -> getTuple().value("x"));
         assertEquals("Invalid column name: columnName=x", ex.getMessage());
     }
 
@@ -93,6 +96,8 @@ public class RowTupleAdapterTest {
     @Test
     public void testValueReturnsOverwrittenValue() {
         assertEquals("foo", getTuple().set("name", "foo").value("name"));
+        assertEquals("foo", getTuple().set("name", "foo").value(1));
+
         assertEquals("foo", getTuple().set("name", "foo").valueOrDefault("name", "bar"));
     }
 
@@ -179,10 +184,114 @@ public class RowTupleAdapterTest {
 
         // Wrong columns.
         assertThrows(IndexOutOfBoundsException.class, () -> key.value(1));
-        assertThrows(ColumnNotFoundException.class, () -> key.value("price"));
+        assertThrows(IllegalArgumentException.class, () -> key.value("price"));
 
         assertThrows(IndexOutOfBoundsException.class, () -> val.value(2));
-        assertThrows(ColumnNotFoundException.class, () -> val.value("id"));
+        assertThrows(IllegalArgumentException.class, () -> val.value("id"));
+    }
+
+    @Test
+    public void testRowTupleMutability() {
+        TupleMarshaller marshaller = new TupleMarshallerImpl(null, tbl, new DummySchemaManagerImpl(schema));
+
+        Row row = new Row(schema, new ByteBufferRow(marshaller.marshal(new TupleImpl().set("id", 1L).set("name", "Shirt")).bytes()));
+
+        Tuple tuple = TableRow.tuple(row);
+        Tuple key = TableRow.keyTuple(row);
+        Tuple val = TableRow.valueTuple(row);
+
+        tuple.set("id", 2L);
+
+        assertEquals(2L, (Long)tuple.value("id"));
+        assertEquals(1L, (Long)key.value("id"));
+
+        tuple.set("name", "noname");
+
+        assertEquals("noname", tuple.value("name"));
+        assertEquals("Shirt", val.value("name"));
+
+        tuple.set("foo", "bar");
+
+        assertEquals("bar", tuple.value("foo"));
+        assertThrows(IllegalArgumentException.class, () -> key.value("foo"));
+        assertThrows(IllegalArgumentException.class, () -> val.value("foo"));
+    }
+
+    @Test
+    public void testKeyValueTupleMutability() {
+        TupleMarshaller marshaller = new TupleMarshallerImpl(null, tbl, new DummySchemaManagerImpl(schema));
+
+        Row row = new Row(schema, new ByteBufferRow(marshaller.marshal(new TupleImpl().set("id", 1L).set("name", "Shirt")).bytes()));
+
+        Tuple tuple = TableRow.tuple(row);
+        Tuple key = TableRow.keyTuple(row);
+        Tuple val = TableRow.valueTuple(row);
+
+        assertTrue(tuple instanceof SchemaAware);
+
+        key.set("id", 3L);
+
+        assertEquals(3L, (Long)key.value("id"));
+        assertEquals(1L, (Long)tuple.value("id"));
+
+        val.set("name", "noname");
+
+        assertEquals("noname", val.value("name"));
+        assertEquals("Shirt", tuple.value("name"));
+
+        val.set("foo", "bar");
+
+        assertEquals("bar", val.value("foo"));
+        assertThrows(IllegalArgumentException.class, () -> key.value("foo"));
+        assertThrows(IllegalArgumentException.class, () -> tuple.value("foo"));
+    }
+
+    @Test
+    public void testRowTupleSchemaAwareness() {
+        TupleMarshaller marshaller = new TupleMarshallerImpl(null, tbl, new DummySchemaManagerImpl(schema));
+
+        Row row = new Row(schema, new ByteBufferRow(marshaller.marshal(new TupleImpl().set("id", 1L).set("name", "Shirt")).bytes()));
+
+        Tuple tuple = TableRow.tuple(row);
+        Tuple key = TableRow.keyTuple(row);
+        Tuple val = TableRow.valueTuple(row);
+
+        assertTrue(tuple instanceof SchemaAware);
+
+        assertNotNull(((SchemaAware) tuple).schema());
+        assertNotNull(((SchemaAware) key).schema());
+        assertNotNull(((SchemaAware) val).schema());
+
+        tuple.set("name", "noname");
+
+        assertNull(((SchemaAware) tuple).schema());
+        assertNotNull(((SchemaAware) key).schema());
+        assertNotNull(((SchemaAware) val).schema());
+    }
+
+    @Test
+    public void testKeyValueTupleSchemaAwareness() {
+        TupleMarshaller marshaller = new TupleMarshallerImpl(null, tbl, new DummySchemaManagerImpl(schema));
+
+        Row row = new Row(schema, new ByteBufferRow(marshaller.marshal(new TupleImpl().set("id", 1L).set("name", "Shirt")).bytes()));
+
+        Tuple tuple = TableRow.tuple(row);
+        Tuple key = TableRow.keyTuple(row);
+        Tuple val = TableRow.valueTuple(row);
+
+        assertTrue(tuple instanceof SchemaAware);
+
+        key.set("foo", "bar");
+
+        assertNotNull(((SchemaAware) tuple).schema());
+        assertNull(((SchemaAware) key).schema());
+        assertNotNull(((SchemaAware) val).schema());
+
+        val.set("id", 1L);
+
+        assertNotNull(((SchemaAware) tuple).schema());
+        assertNull(((SchemaAware) key).schema());
+        assertNull(((SchemaAware) val).schema());
     }
 
     private Tuple getTuple() {

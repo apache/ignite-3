@@ -29,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>
  * Provides methods to access columns values by column names.
  */
-public class TableRow extends MutableTupleAdapter {
+public class TableRow extends MutableRowTupleAdapter {
     /**
      * Returns tuple for row key chunk.
      *
@@ -72,7 +72,7 @@ public class TableRow extends MutableTupleAdapter {
     /**
      * Key column chunk.
      */
-    private static class KeyRowChunk extends MutableTupleAdapter {
+    private static class KeyRowChunk extends MutableRowTupleAdapter {
         /**
          * Creates tuple for key chunk.
          *
@@ -104,7 +104,7 @@ public class TableRow extends MutableTupleAdapter {
             final Column col = super.rowColumnByName(columnName);
 
             if (!schema().isKeyColumn(col.schemaIndex()))
-                throw new ColumnNotFoundException("Invalid column name: columnName=" + columnName);
+                throw new IllegalArgumentException("Invalid column name: columnName=" + columnName);
 
             return col;
         }
@@ -120,7 +120,7 @@ public class TableRow extends MutableTupleAdapter {
     /**
      * Value column chunk.
      */
-    private static class ValueRowChunk extends MutableTupleAdapter {
+    private static class ValueRowChunk extends MutableRowTupleAdapter {
         /**
          * Creates tuple for value chunk.
          *
@@ -153,7 +153,7 @@ public class TableRow extends MutableTupleAdapter {
             final Column col = super.rowColumnByName(columnName);
 
             if (schema().isKeyColumn(col.schemaIndex()))
-                throw new ColumnNotFoundException("Invalid column name: columnName=" + columnName);
+                throw new IllegalArgumentException("Invalid column name: columnName=" + columnName);
 
             return col;
         }

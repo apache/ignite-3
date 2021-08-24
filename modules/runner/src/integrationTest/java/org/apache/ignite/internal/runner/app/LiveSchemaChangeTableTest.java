@@ -22,7 +22,6 @@ import java.util.UUID;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.table.ColumnNotFoundException;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.schema.SchemaMode;
 import org.apache.ignite.table.Table;
@@ -52,7 +51,7 @@ class LiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(1).tables().table(TABLE);
 
-        assertThrows(ColumnNotFoundException.class, () -> Tuple.create().set("key", 1L).set("unknownColumn", 10));
+        assertThrows(IllegalArgumentException.class, () -> Tuple.create().set("key", 1L).set("unknownColumn", 10));
     }
 
     /**
@@ -171,7 +170,7 @@ class LiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
         assertEquals("111", newRes.value("valStrNew"));
         assertEquals(Integer.valueOf(333), newRes.value("valIntNew"));
 
-        assertThrows(ColumnNotFoundException.class, () -> Tuple.create().set("key", 1L).set("unknownColumn", 10));
+        assertThrows(IllegalArgumentException.class, () -> Tuple.create().set("key", 1L).set("unknownColumn", 10));
     }
 
     /**
@@ -316,7 +315,7 @@ class LiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         Tuple res = tbl.get(Tuple.create().set("key", 1L));
 
-        assertThrows(ColumnNotFoundException.class, () -> res.value("valStrNew"));
+        assertThrows(IllegalArgumentException.class, () -> res.value("valStrNew"));
         assertEquals(Integer.valueOf(333), res.value("valIntNew"));
     }
 }

@@ -21,7 +21,6 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.function.Supplier;
 import org.apache.ignite.app.Ignite;
-import org.apache.ignite.internal.table.ColumnNotFoundException;
 import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -64,10 +63,10 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             final Tuple keyTuple = Tuple.create().set("key", 1L);
 
             assertEquals(111, (Integer)kvView.get(keyTuple).value("valInt"));
-            assertThrows(ColumnNotFoundException.class, () -> kvView.get(keyTuple).value("valStr"));
+            assertThrows(IllegalArgumentException.class, () -> kvView.get(keyTuple).value("valStr"));
 
             // Check tuple of outdated schema.
-            assertThrows(ColumnNotFoundException.class, () -> kvView.put(
+            assertThrows(IllegalArgumentException.class, () -> kvView.put(
                 Tuple.create().set("key", 2L),
                 Tuple.create().set("valInt", -222).set("valStr", "str"))
             );
@@ -78,7 +77,7 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             final Tuple keyTuple2 = Tuple.create().set("key", 2L);
 
             assertEquals(222, (Integer)kvView.get(keyTuple2).value("valInt"));
-            assertThrows(ColumnNotFoundException.class, () -> kvView.get(keyTuple2).value("valStr"));
+            assertThrows(IllegalArgumentException.class, () -> kvView.get(keyTuple2).value("valStr"));
         }
     }
 
@@ -97,7 +96,7 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
         {
             kvView.put(Tuple.create().set("key", 1L), Tuple.create().set("valInt", 111));
 
-            assertThrows(ColumnNotFoundException.class, () -> kvView.put(
+            assertThrows(IllegalArgumentException.class, () -> kvView.put(
                 Tuple.create().set("key", 1L),
                 Tuple.create().set("valInt", -111).set("valStrNew", "str"))
             );
@@ -139,7 +138,7 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
         {
             kvView.put(Tuple.create().set("key", 1L), Tuple.create().set("valInt", 111));
 
-            assertThrows(ColumnNotFoundException.class, () -> kvView.put(
+            assertThrows(IllegalArgumentException.class, () -> kvView.put(
                 Tuple.create().set("key", 2L),
                 Tuple.create().set("valRenamed", 222))
             );
@@ -154,10 +153,10 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             Tuple keyTuple1 = Tuple.create().set("key", 1L);
 
             assertEquals(111, (Integer)kvView.get(keyTuple1).value("valRenamed"));
-            assertThrows(ColumnNotFoundException.class, () -> kvView.get(keyTuple1).value("valInt"));
+            assertThrows(IllegalArgumentException.class, () -> kvView.get(keyTuple1).value("valInt"));
 
             // Check tuple of correct schema.
-            assertThrows(ColumnNotFoundException.class, () -> kvView.put(
+            assertThrows(IllegalArgumentException.class, () -> kvView.put(
                 Tuple.create().set("key", 2L),
                 Tuple.create().set("valInt", -222))
             );
@@ -170,7 +169,7 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             Tuple keyTuple2 = Tuple.create().set("key", 2L);
 
             assertEquals(222, (Integer)kvView.get(keyTuple2).value("valRenamed"));
-            assertThrows(ColumnNotFoundException.class, () -> kvView.get(keyTuple2).value("valInt"));
+            assertThrows(IllegalArgumentException.class, () -> kvView.get(keyTuple2).value("valInt"));
         }
     }
 
@@ -190,7 +189,7 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
         {
             kvView.put(Tuple.create().set("key", 1L), Tuple.create().set("valInt", 111));
 
-            assertThrows(ColumnNotFoundException.class, () -> kvView.put(
+            assertThrows(IllegalArgumentException.class, () -> kvView.put(
                 Tuple.create().set("key", 2L),
                 Tuple.create().set("val", "I'not exists"))
             );
@@ -215,7 +214,7 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             kvView.put(Tuple.create().set("key", 4L),
                 Tuple.create().set("valInt", 444));
 
-            assertThrows(ColumnNotFoundException.class, () -> kvView.put(
+            assertThrows(IllegalArgumentException.class, () -> kvView.put(
                 Tuple.create().set("key", 4L),
                 Tuple.create().set("val", "I'm not exist"))
             );

@@ -29,7 +29,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Mutable tuple adapter for a row.
  */
-public class MutableTupleAdapter extends AbstractRowTupleAdapter {
+public class MutableRowTupleAdapter extends AbstractRowTupleAdapter {
     /** Tuple with overwritten data. */
     protected TupleImpl tuple;
 
@@ -38,7 +38,7 @@ public class MutableTupleAdapter extends AbstractRowTupleAdapter {
      *
      * @param row Row.
      */
-    public MutableTupleAdapter(@NotNull Row row) {
+    public MutableRowTupleAdapter(@NotNull Row row) {
         super(row);
     }
 
@@ -179,16 +179,15 @@ public class MutableTupleAdapter extends AbstractRowTupleAdapter {
 
     /** {@inheritDoc} */
     @Override public Tuple set(@NotNull String columnName, Object value) {
-        if (tuple == null)
-            tuple = super.copy();
+        if (tuple == null) {
+            TupleImpl tuple0 = new TupleImpl(this);
+
+            tuple = tuple0;
+            row = null;
+        }
 
         tuple.set(columnName, value);
 
         return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override protected TupleImpl copy() {
-        return new TupleImpl(tuple);
     }
 }
