@@ -61,8 +61,10 @@ public class HeapLockManager implements LockManager {
 
     /** {@inheritDoc} */
     @Override public void tryRelease(Object key, Timestamp timestamp) throws LockException {
-        if (lockState(key).tryRelease(timestamp)) // Probably we should clean up empty keys asynchronously.
-            locks.compute(key, (k, v) -> v.waiters.isEmpty() ? null : v);
+        LockState state = lockState(key);
+
+        if (state.tryRelease(timestamp)) // Probably we should clean up empty keys asynchronously.
+            locks.remove(key, state);
     }
 
     /** {@inheritDoc} */
@@ -119,7 +121,7 @@ public class HeapLockManager implements LockManager {
     }
 
     /** A lock state. */
-    private class LockState {
+    private static class LockState {
         /** Waiters. */
         private TreeMap<Timestamp, WaiterImpl> waiters = new TreeMap<>();
 
@@ -137,7 +139,18 @@ public class HeapLockManager implements LockManager {
                 if (markedForRemove)
                     return null;
 
-                WaiterImpl prev = waiters.put(timestamp, waiter);
+                WaiterImpl prev = waiters.putIfAbsent(timestamp, waiter);
+
+                // Reenter
+                if (prev != null && prev.locked) {
+                    if (!prev.forRead) // Allow reenter.
+                        return CompletableFuture.completedFuture(null);
+                    else {
+                        waiter.upgraded = true;
+
+                        waiters.put(timestamp, waiter); // Upgrade.
+                    }
+                }
 
                 // Check lock compatibility.
                 Map.Entry<Timestamp, WaiterImpl> nextEntry = waiters.higherEntry(timestamp);
@@ -151,9 +164,6 @@ public class HeapLockManager implements LockManager {
 
                     return CompletableFuture.failedFuture(new LockException(nextEntry.getValue()));
                 }
-
-                if (prev != null && prev.isForRead())
-                    waiter.upgraded = true;
 
                 // Lock if oldest.
                 if (waiters.firstKey() == timestamp)
@@ -243,7 +253,11 @@ public class HeapLockManager implements LockManager {
                 if (markedForRemove)
                     return null;
 
-                waiters.put(timestamp, waiter);
+                WaiterImpl prev = waiters.putIfAbsent(timestamp, waiter);
+
+                // Allow reenter. A write lock implies a read lock.
+                if (prev != null && prev.locked)
+                    return CompletableFuture.completedFuture(null);
 
                 // Check lock compatibility.
                 Map.Entry<Timestamp, WaiterImpl> nextEntry = waiters.higherEntry(timestamp);
