@@ -382,7 +382,7 @@ public class ConfigurationAsmGenerator {
         addNodeTraverseChildMethod(classDef, schemaFields, fieldDefs, schemaExtensions);
 
         // construct
-        addNodeConstructMethod(classDef, schemaFields, fieldDefs);
+        addNodeConstructMethod(classDef, schemaFields, fieldDefs, schemaExtensions);
 
         // constructDefault
         addNodeConstructDefaultMethod(classDef, specFields, schemaFields, fieldDefs);
@@ -717,91 +717,44 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Implements {@link ConstructableTreeNode#construct(String, ConfigurationSource)} method.
+     * Implements {@link ConstructableTreeNode#construct(String, ConfigurationSource, boolean)} method.
      *
      * @param classDef Class definition.
      * @param schemaFields Fields of the schema and its extensions.
      * @param fieldDefs Definitions for all fields in {@code schemaFields}.
+     * @param schemaExtensions Internal extensions of the configuration schema.
      */
     private void addNodeConstructMethod(
         ClassDefinition classDef,
         Set<Field> schemaFields,
-        Map<String, FieldDefinition> fieldDefs
+        Map<String, FieldDefinition> fieldDefs,
+        Set<Class<?>> schemaExtensions
     ) {
         MethodDefinition constructMtd = classDef.declareMethod(
             of(PUBLIC),
             "construct",
             type(void.class),
-            arg("key", String.class),
-            arg("src", ConfigurationSource.class)
+            arg("key", type(String.class)),
+            arg("src", type(ConfigurationSource.class)),
+            arg("includeInternal", type(boolean.class))
         ).addException(NoSuchElementException.class);
 
-        Variable keyVar = constructMtd.getScope().getVariable("key");
-        Variable srcVar = constructMtd.getScope().getVariable("src");
+        Variable includeInternalVar = constructMtd.getScope().getVariable("includeInternal");
 
-        StringSwitchBuilder switchBuilder = new StringSwitchBuilder(constructMtd.getScope())
-            .expression(keyVar);
+        if (schemaExtensions.isEmpty())
+            constructMtd.getBody().append(treatSourceForConstruct(schemaFields, fieldDefs, constructMtd)).ret();
+        else {
+            List<Field> publicFields = schemaFields.stream()
+                .filter(f -> !schemaExtensions.contains(f.getDeclaringClass()))
+                .collect(toList());
 
-        for (Field schemaField : schemaFields) {
-            FieldDefinition fieldDef = fieldDefs.get(schemaField.getName());
-
-            BytecodeBlock caseClause = new BytecodeBlock();
-
-            switchBuilder.addCase(schemaField.getName(), caseClause);
-
-            // this.field = src == null ? null : src.unwrap(FieldType.class);
-            if (isValue(schemaField)) {
-                caseClause.append(constructMtd.getThis().setField(fieldDef, inlineIf(
-                    isNull(srcVar),
-                    constantNull(fieldDef.getType()),
-                    srcVar.invoke(UNWRAP, constantClass(fieldDef.getType())).cast(fieldDef.getType())
-                )));
-            }
-            // this.field = src == null ? null : src.descend(field = (field == null ? new FieldType() : field.copy()));
-            else if (isConfigValue(schemaField)) {
-                caseClause.append(new IfStatement()
-                    .condition(isNull(srcVar))
-                    .ifTrue(constructMtd.getThis().setField(fieldDef, constantNull(fieldDef.getType())))
-                    .ifFalse(new BytecodeBlock()
-                        .append(copyNodeField(constructMtd, fieldDef))
-                        .append(srcVar.invoke(DESCEND, constructMtd.getThis().getField(fieldDef)))
-                    )
-                );
-            }
-            // this.field = src == null ? new NamedListNode<>(key, ValueNode::new) : src.descend(field = field.copy()));
-            else {
-                NamedConfigValue namedCfgAnnotation = schemaField.getAnnotation(NamedConfigValue.class);
-
-                String fieldNodeClassName = schemasInfo.get(schemaField.getType()).nodeClassName;
-
-                caseClause.append(new IfStatement()
-                    .condition(isNull(srcVar))
-                    .ifTrue(constructMtd.getThis().setField(
-                        fieldDef,
-                        newInstance(
-                            NamedListNode.class,
-                            constantString(namedCfgAnnotation.syntheticKeyName()),
-                            newNamedListElementLambda(fieldNodeClassName)
-                        )
-                    ))
-                    .ifFalse(new BytecodeBlock()
-                        .append(constructMtd.getThis().setField(
-                            fieldDef,
-                            constructMtd.getThis().getField(fieldDef).invoke(COPY).cast(fieldDef.getType())
-                        ))
-                        .append(srcVar.invoke(DESCEND, constructMtd.getThis().getField(fieldDef)))
-                    )
-                );
-            }
+            constructMtd.getBody().append(
+                new IfStatement()
+                    .condition(includeInternalVar)
+                    .ifTrue(treatSourceForConstruct(schemaFields, fieldDefs, constructMtd))
+                    .ifFalse(treatSourceForConstruct(publicFields, fieldDefs, constructMtd))
+            ).ret();
         }
-
-        // Default option is to throw "NoSuchElementException(key)".
-        switchBuilder.defaultCase(new BytecodeBlock()
-            .append(newInstance(NoSuchElementException.class, keyVar))
-            .throwObject()
-        );
-
-        constructMtd.getBody().append(switchBuilder.build()).ret();
     }
 
     /**
@@ -1230,8 +1183,8 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     *  Created switch bytecode block that invokes of {@link ConfigurationVisitor}'s methods for for
-     *      {@link InnerNode#traverseChild(String, ConfigurationVisitor, boolean)}.
+     * Created switch bytecode block that invokes of {@link ConfigurationVisitor}'s methods for
+     *     {@link InnerNode#traverseChild(String, ConfigurationVisitor, boolean)}.
      *
      * @param schemaFields Fields of the schema.
      * @param fieldDefs Definitions for all fields in {@code schemaFields}.
@@ -1255,6 +1208,88 @@ public class ConfigurationAsmGenerator {
 
             // Visit result should be immediately returned.
             switchBuilder.addCase(fieldName, invokeVisit(traverseChildMtd, schemaField, fieldDef).retObject());
+        }
+
+        // Default option is to throw "NoSuchElementException(key)".
+        switchBuilder.defaultCase(new BytecodeBlock()
+            .append(newInstance(NoSuchElementException.class, keyVar))
+            .throwObject()
+        );
+
+        return switchBuilder.build();
+    }
+
+    /**
+     * Created switch bytecode block that invokes of construct methods for
+     *     {@link InnerNode#construct(String, ConfigurationSource, boolean)}.
+     *
+     * @param schemaFields Fields of the schema.
+     * @param fieldDefs Definitions for all fields in {@code schemaFields}.
+     * @param constructMtd Method definition {@link InnerNode#construct(String, ConfigurationSource, boolean)}
+     *      defined in {@code *Node} class.
+     * @return Created switch bytecode block that invokes of construct methods for fields.
+     */
+    private BytecodeNode treatSourceForConstruct(
+        Collection<Field> schemaFields,
+        Map<String, FieldDefinition> fieldDefs,
+        MethodDefinition constructMtd
+    ) {
+        Variable keyVar = constructMtd.getScope().getVariable("key");
+        Variable srcVar = constructMtd.getScope().getVariable("src");
+
+        StringSwitchBuilder switchBuilder = new StringSwitchBuilder(constructMtd.getScope()).expression(keyVar);
+
+        for (Field schemaField : schemaFields) {
+            FieldDefinition fieldDef = fieldDefs.get(schemaField.getName());
+
+            BytecodeBlock caseClause = new BytecodeBlock();
+
+            switchBuilder.addCase(schemaField.getName(), caseClause);
+
+            // this.field = src == null ? null : src.unwrap(FieldType.class);
+            if (isValue(schemaField)) {
+                caseClause.append(constructMtd.getThis().setField(fieldDef, inlineIf(
+                    isNull(srcVar),
+                    constantNull(fieldDef.getType()),
+                    srcVar.invoke(UNWRAP, constantClass(fieldDef.getType())).cast(fieldDef.getType())
+                )));
+            }
+            // this.field = src == null ? null : src.descend(field = (field == null ? new FieldType() : field.copy()));
+            else if (isConfigValue(schemaField)) {
+                caseClause.append(new IfStatement()
+                    .condition(isNull(srcVar))
+                    .ifTrue(constructMtd.getThis().setField(fieldDef, constantNull(fieldDef.getType())))
+                    .ifFalse(new BytecodeBlock()
+                        .append(copyNodeField(constructMtd, fieldDef))
+                        .append(srcVar.invoke(DESCEND, constructMtd.getThis().getField(fieldDef)))
+                    )
+                );
+            }
+            // this.field = src == null ? new NamedListNode<>(key, ValueNode::new) : src.descend(field = field.copy()));
+            else {
+                NamedConfigValue namedCfgAnnotation = schemaField.getAnnotation(NamedConfigValue.class);
+
+                String fieldNodeClassName = schemasInfo.get(schemaField.getType()).nodeClassName;
+
+                caseClause.append(new IfStatement()
+                    .condition(isNull(srcVar))
+                    .ifTrue(constructMtd.getThis().setField(
+                        fieldDef,
+                        newInstance(
+                            NamedListNode.class,
+                            constantString(namedCfgAnnotation.syntheticKeyName()),
+                            newNamedListElementLambda(fieldNodeClassName)
+                        )
+                    ))
+                    .ifFalse(new BytecodeBlock()
+                        .append(constructMtd.getThis().setField(
+                            fieldDef,
+                            constructMtd.getThis().getField(fieldDef).invoke(COPY).cast(fieldDef.getType())
+                        ))
+                        .append(srcVar.invoke(DESCEND, constructMtd.getThis().getField(fieldDef)))
+                    )
+                );
+            }
         }
 
         // Default option is to throw "NoSuchElementException(key)".

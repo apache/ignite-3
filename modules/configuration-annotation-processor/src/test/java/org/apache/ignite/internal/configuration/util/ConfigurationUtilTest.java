@@ -22,6 +22,7 @@ import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitorImpl;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -610,6 +612,41 @@ public class ConfigurationUtilTest {
         assertEquals("foo", subConfig.get("str02"));
     }
 
+    /** */
+    @Test
+    void testSuperRootWithInternalConfig() {
+        ConfigurationAsmGenerator generator = new ConfigurationAsmGenerator();
+
+        Class<?> schemaClass = InternalWithoutSuperclassConfigurationSchema.class;
+        RootKey<?, ?> schemaKey = InternalWithoutSuperclassConfiguration.KEY;
+
+        generator.compileRootSchema(schemaClass, Map.of());
+
+        SuperRoot superRoot = new SuperRoot(
+            s -> new IgniteBiTuple<>(schemaKey, generator.instantiateNode(schemaClass))
+        );
+
+        assertThrows(NoSuchElementException.class, () -> superRoot.construct(schemaKey.key(), null, false));
+
+        superRoot.construct(schemaKey.key(), null, true);
+
+        superRoot.addRoot(schemaKey, generator.instantiateNode(schemaClass));
+
+        assertThrows(KeyNotFoundException.class, () -> find(List.of(schemaKey.key()), superRoot, false));
+
+        assertNotNull(find(List.of(schemaKey.key()), superRoot, true));
+
+        Map<String, Object> config =
+            (Map<String, Object>)superRoot.accept(schemaKey.key(), new ConfigurationVisitorImpl(false));
+
+        assertTrue(config.isEmpty());
+
+        config = (Map<String, Object>)superRoot.accept(schemaKey.key(), new ConfigurationVisitorImpl(true));
+
+        assertEquals(1, config.size());
+        assertNotNull(config.get(schemaKey.key()));
+    }
+
     /**
      * Patches super root and returns flat representation of the changes. Passed {@code superRoot} object will contain
      * patched tree when method execution is completed.
@@ -623,7 +660,7 @@ public class ConfigurationUtilTest {
         SuperRoot originalSuperRoot = superRoot.copy();
 
         // Make a copy of the root insode of the superRoot. This copy will be used for further patching.
-        superRoot.construct(ParentConfiguration.KEY.key(), new ConfigurationSource() {});
+        superRoot.construct(ParentConfiguration.KEY.key(), new ConfigurationSource() {}, true);
 
         // Patch root node.
         patch.accept((ParentChange)superRoot.getRoot(ParentConfiguration.KEY));

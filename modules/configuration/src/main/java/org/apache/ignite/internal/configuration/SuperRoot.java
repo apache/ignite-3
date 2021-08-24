@@ -120,22 +120,23 @@ public final class SuperRoot extends InnerNode {
     }
 
     /** {@inheritDoc} */
-    @Override public void construct(String key, ConfigurationSource src) throws NoSuchElementException {
+    @Override public void construct(
+        String key,
+        ConfigurationSource src,
+        boolean includeInternal
+    ) throws NoSuchElementException {
+        IgniteBiTuple<RootKey<?, ?>, InnerNode> root = roots.get(key);
+
+        if (root == null)
+            root = nodeCreator.apply(key);
+
+        if (root == null || !includeInternal && root.getKey().internal())
+            throw new NoSuchElementException(key);
+
         if (src == null)
             roots.remove(key);
         else {
-            IgniteBiTuple<RootKey<?, ?>, InnerNode> root = roots.get(key);
-
-            if (root == null) {
-                root = nodeCreator.apply(key);
-
-                if (root == null)
-                    throw new NoSuchElementException(key);
-            }
-            else
-                root = new IgniteBiTuple<>(root.getKey(), root.getValue().copy());
-
-            roots.put(key, root);
+            roots.put(key, root = new IgniteBiTuple<>(root.getKey(), root.getValue().copy()));
 
             src.descend(root.getValue());
         }

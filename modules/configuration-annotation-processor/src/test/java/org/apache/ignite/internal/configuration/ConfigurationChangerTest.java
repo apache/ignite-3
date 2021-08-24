@@ -318,7 +318,7 @@ public class ConfigurationChangerTest {
                     }
                 };
 
-                node.construct(rootKey.key(), changerSrc);
+                node.construct(rootKey.key(), changerSrc, true);
             }
         };
     }

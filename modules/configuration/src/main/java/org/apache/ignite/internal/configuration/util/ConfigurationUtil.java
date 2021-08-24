@@ -297,13 +297,13 @@ public class ConfigurationUtil {
                         continue;
 
                     if (val == null)
-                        node.construct(key, null);
+                        node.construct(key, null, true);
                     else if (val instanceof Map)
-                        node.construct(key, new InnerConfigurationSource((Map<String, ?>)val));
+                        node.construct(key, new InnerConfigurationSource((Map<String, ?>)val), true);
                     else {
                         assert val instanceof Serializable;
 
-                        node.construct(key, new LeafConfigurationSource((Serializable)val));
+                        node.construct(key, new LeafConfigurationSource((Serializable)val), true);
                     }
                 }
             }
@@ -351,7 +351,7 @@ public class ConfigurationUtil {
                         boolean construct = map.size() != sizeDiff;
 
                         if (oldKey == null) {
-                            node.construct(newKey, new InnerConfigurationSource(map));
+                            node.construct(newKey, new InnerConfigurationSource(map), true);
 
                             node.setInternalId(newKey, internalId);
                         }
@@ -359,10 +359,10 @@ public class ConfigurationUtil {
                             node.rename(oldKey, newKey);
 
                             if (construct)
-                                node.construct(newKey, new InnerConfigurationSource(map));
+                                node.construct(newKey, new InnerConfigurationSource(map), true);
                         }
                         else if (construct)
-                            node.construct(oldKey, new InnerConfigurationSource(map));
+                            node.construct(oldKey, new InnerConfigurationSource(map), true);
                         // Else it's just index adjustment after new elements insertion.
 
                         if (newKey == null)
@@ -391,7 +391,7 @@ public class ConfigurationUtil {
                     else {
                         assert val instanceof Serializable;
 
-                        node.construct(oldKey, new LeafConfigurationSource((Serializable)val));
+                        node.construct(oldKey, new LeafConfigurationSource((Serializable)val), true);
                     }
                 }
 
@@ -432,6 +432,7 @@ public class ConfigurationUtil {
      */
     public static void addDefaults(InnerNode node) {
         node.traverseChildren(new ConfigurationVisitor<>() {
+            /** {@inheritDoc} */
             @Override public Object visitLeafNode(String key, Serializable val) {
                 // If source value is null then inititalise the same value on the destination node.
                 if (val == null)
@@ -440,25 +441,27 @@ public class ConfigurationUtil {
                 return null;
             }
 
+            /** {@inheritDoc} */
             @Override public Object visitInnerNode(String key, InnerNode innerNode) {
                 // Instantiate field in destination node before doing something else or copy it if it wasn't null.
-                node.construct(key, EMPTY_CFG_SRC);
+                node.construct(key, EMPTY_CFG_SRC, true);
 
                 addDefaults(node.traverseChild(key, innerNodeVisitor(), true));
 
                 return null;
             }
 
+            /** {@inheritDoc} */
             @Override public <N extends InnerNode> Object visitNamedListNode(String key, NamedListNode<N> namedList) {
                 // Copy internal map.
-                node.construct(key, EMPTY_CFG_SRC);
+                node.construct(key, EMPTY_CFG_SRC, true);
 
                 namedList = (NamedListNode<N>)node.traverseChild(key, namedListNodeVisitor(), true);
 
                 for (String namedListKey : namedList.namedListKeys()) {
                     if (namedList.get(namedListKey) != null) {
                         // Copy the element.
-                        namedList.construct(namedListKey, EMPTY_CFG_SRC);
+                        namedList.construct(namedListKey, EMPTY_CFG_SRC, true);
 
                         addDefaults(namedList.get(namedListKey));
                     }
@@ -524,8 +527,8 @@ public class ConfigurationUtil {
      */
     public static ConfigurationVisitor<NamedListNode<?>> namedListNodeVisitor() {
         return new ConfigurationVisitor<>() {
-            @Override
-            public <N extends InnerNode> NamedListNode<?> visitNamedListNode(String key, NamedListNode<N> node) {
+            /** {@inheritDoc} */
+            @Override public <N extends InnerNode> NamedListNode<?> visitNamedListNode(String key, NamedListNode<N> node) {
                 return node;
             }
         };

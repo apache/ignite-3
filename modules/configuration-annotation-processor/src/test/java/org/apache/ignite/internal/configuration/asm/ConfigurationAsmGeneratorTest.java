@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.asm;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -31,14 +32,17 @@ import org.apache.ignite.internal.configuration.ConfigurationChanger;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.TestConfigurationChanger;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -188,6 +192,32 @@ public class ConfigurationAsmGeneratorTest {
             assertTrue(c instanceof ExtendedTestChange);
             assertTrue(c instanceof ExtendedSecondTestChange);
         });
+    }
+
+    /** */
+    @Test
+    void testConstructInternalConfig() {
+        InnerNode innerNode = generator.instantiateNode(TestRootConfiguration.KEY.schemaClass());
+
+        addDefaults(innerNode);
+
+        InnerNode subInnerNode = (InnerNode)((TestRootView)innerNode).subCfg();
+
+        // Check that no fields for internal configuration will be changed.
+
+        assertThrows(NoSuchElementException.class, () -> innerNode.construct("str1", null, false));
+        assertThrows(NoSuchElementException.class, () -> innerNode.construct("i1", null, false));
+
+        assertThrows(NoSuchElementException.class, () -> subInnerNode.construct("str3", null, false));
+        assertThrows(NoSuchElementException.class, () -> subInnerNode.construct("i1", null, false));
+
+        // Check that fields for internal configuration will be changed.
+
+        innerNode.construct("str1", null, true);
+        innerNode.construct("i1", null, true);
+
+        subInnerNode.construct("str3", null, true);
+        subInnerNode.construct("i1", null, true);
     }
 
     /**
