@@ -71,14 +71,12 @@ public class DummyInternalTableImpl implements InternalTable {
     @Override public CompletableFuture<BinaryRow> get(@NotNull BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        if (tx != null) {
-            return txManager.readLock(new ByteArray(extractAndWrapKey(row)), tx.timestamp()).
-                thenApply(ignore -> store.get(row, tx));
-        }
+        if (tx != null)
+            return txManager.readLock(new ByteArray(extractAndWrapKey(row)), tx).thenApply(ignore -> store.get(row, tx));
         else {
             InternalTransaction tx0 = txManager.begin();
 
-            return txManager.readLock(new ByteArray(extractAndWrapKey(row)), tx0.timestamp()).
+            return txManager.readLock(new ByteArray(extractAndWrapKey(row)), tx0).
                 thenApply(ignore -> store.get(row, tx0)).
                 thenCompose(r -> tx0.commitAsync().thenApply(ignored -> r));
         }
@@ -89,13 +87,13 @@ public class DummyInternalTableImpl implements InternalTable {
         assert row != null;
 
         if (tx != null) {
-            return txManager.writeLock(new ByteArray(extractAndWrapKey(row)), tx.timestamp()).
+            return txManager.writeLock(new ByteArray(extractAndWrapKey(row)), tx).
                 thenAccept(ignore -> store.upsert(row, tx));
         }
         else {
             InternalTransaction tx0 = txManager.begin();
 
-            return txManager.writeLock(new ByteArray(extractAndWrapKey(row)), tx0.timestamp()).
+            return txManager.writeLock(new ByteArray(extractAndWrapKey(row)), tx0).
                 thenAccept(ignore -> store.upsert(row, tx0)).
                 thenCompose(r -> tx0.commitAsync());
         }

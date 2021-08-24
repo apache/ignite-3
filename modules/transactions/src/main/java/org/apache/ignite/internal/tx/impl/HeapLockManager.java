@@ -136,14 +136,17 @@ public class HeapLockManager implements LockManager {
                 if (markedForRemove)
                     return null;
 
-                waiters.put(timestamp, waiter);
+                WaiterImpl prev = waiters.put(timestamp, waiter);
 
                 // Check lock compatibility.
                 Map.Entry<Timestamp, WaiterImpl> nextEntry = waiters.higherEntry(timestamp);
 
                 // If we have a younger waiter in a locked state, when refuse to wait for lock.
                 if (nextEntry != null && nextEntry.getValue().locked()) {
-                    waiters.remove(timestamp);
+                    if (prev == null)
+                        waiters.remove(timestamp);
+                    else
+                        waiters.put(timestamp, prev); // Restore old lock.
 
                     return CompletableFuture.failedFuture(new LockException(nextEntry.getValue()));
                 }

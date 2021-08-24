@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -24,7 +25,9 @@ import org.apache.ignite.internal.storage.basic.ConcurrentHashMapStorage;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -47,7 +50,10 @@ import org.mockito.quality.Strictness;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 /** */
@@ -191,7 +197,7 @@ public class StoreTest {
         Tuple key = makeKey(1);
         Tuple val = makeValue(1, 100.);
 
-        accounts.upsert(val);
+        accounts.upsert(val); // Creates implicit transaction.
 
         Table table = accounts.withTransaction(tx);
         Table table2 = accounts.withTransaction(tx2);
@@ -202,8 +208,15 @@ public class StoreTest {
         // Read in tx2
         double val_tx2 = table2.get(key).doubleValue("balance");
 
-        // Write in tx
-        table.upsert(makeValue(1, val_tx + 1));
+        // Write in tx (out of order)
+        try {
+            table.upsert(makeValue(1, val_tx + 1));
+
+            fail();
+        }
+        catch (Exception e) { // TODO asch fix exception model.
+            assertTrue(IgniteTestUtils.hasCause(e, LockException.class, null));
+        }
 
         tx.commit();
 
@@ -212,7 +225,54 @@ public class StoreTest {
 
         tx2.commit();
 
-        assertEquals(102., accounts.get(key).doubleValue("balance"));
+        assertEquals(101., accounts.get(key).doubleValue("balance"));
+    }
+
+    /**
+     * Tests if a lost update is not happening on concurrent increment.
+     *
+     * @throws TransactionException
+     */
+    @Test
+    public void testIncrement2() throws TransactionException {
+        InternalTransaction tx = txManager.begin();
+        InternalTransaction tx2 = txManager.begin();
+
+        Tuple key = makeKey(1);
+        Tuple val = makeValue(1, 100.);
+
+        accounts.upsert(val); // Creates implicit transaction.
+
+        Table table = accounts.withTransaction(tx);
+        Table table2 = accounts.withTransaction(tx2);
+
+        // Read in tx
+        double val_tx = table.get(key).doubleValue("balance");
+
+        // Read in tx2
+        double val_tx2 = table2.get(key).doubleValue("balance");
+
+        // Write in tx2 (should wait for read unlock in tx1)
+        CompletableFuture<Void> fut = table2.upsertAsync(makeValue(1, val_tx2 + 1));
+        assertFalse(fut.isDone());
+
+        CompletableFuture<Void> fut2 = fut.thenCompose(ret -> tx2.commitAsync());
+
+        // Write in tx (out of order, should abort)
+        try {
+            table.upsert(makeValue(1, val_tx + 1));
+
+            fail();
+        }
+        catch (Exception e) {
+            assertTrue(IgniteTestUtils.hasCause(e, LockException.class, null));
+        }
+
+        tx.commit();
+
+        fut2.join();
+
+        assertEquals(101., accounts.get(key).doubleValue("balance"));
     }
 
     /**

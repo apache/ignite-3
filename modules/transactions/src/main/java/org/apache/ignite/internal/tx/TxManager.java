@@ -39,17 +39,10 @@ public interface TxManager extends IgniteComponent {
 
     void forget(Timestamp ts);
 
-    CompletableFuture<Void> commitAsync(TransactionImpl transaction);
+    // TODO asch do we need async here ?
+    CompletableFuture<Void> commitAsync(InternalTransaction transaction);
 
-    CompletableFuture<Void> rollbackAsync(TransactionImpl transaction);
-
-    /**
-     * @param key The key.
-     * @param timestamp The timestamp.
-     * @return The future.
-     * @throws LockException When a lock can't be taken due to possible deadlock.
-     */
-    public CompletableFuture<Void> writeLock(ByteArray key, Timestamp timestamp);
+    CompletableFuture<Void> rollbackAsync(InternalTransaction transaction);
 
     /**
      * @param key The key.
@@ -57,5 +50,13 @@ public interface TxManager extends IgniteComponent {
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> readLock(ByteArray key, Timestamp timestamp);
+    public CompletableFuture<Void> writeLock(ByteArray key, InternalTransaction tx);
+
+    /**
+     * @param key The key.
+     * @param timestamp The timestamp.
+     * @return The future.
+     * @throws LockException When a lock can't be taken due to possible deadlock.
+     */
+    public CompletableFuture<Void> readLock(ByteArray key, InternalTransaction tx);
 }

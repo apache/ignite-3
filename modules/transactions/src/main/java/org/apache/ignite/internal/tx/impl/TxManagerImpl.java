@@ -36,10 +36,19 @@ import org.apache.ignite.tx.TransactionException;
  * TODO asch do we need the interface ?
  */
 public class TxManagerImpl implements TxManager {
-    /** */
+    /**
+     *
+     */
+    private static final CompletableFuture<Void> DONE_FUT = CompletableFuture.completedFuture(null);
+
+    /**
+     *
+     */
     private final ClusterService clusterService;
 
-    /** */
+    /**
+     *
+     */
     private final LockManager lockManager;
 
     /** The storage for tx states. TODO asch use Storage for states */
@@ -73,14 +82,14 @@ public class TxManagerImpl implements TxManager {
         states.remove(ts);
     }
 
-    @Override public CompletableFuture<Void> commitAsync(TransactionImpl tx) {
+    @Override public CompletableFuture<Void> commitAsync(InternalTransaction tx) {
         if (changeState(tx.timestamp(), TxState.PENDING, TxState.COMMITED))
             unlockAll(tx);
 
         return CompletableFuture.completedFuture(null);
     }
 
-    @Override public CompletableFuture<Void> rollbackAsync(TransactionImpl tx) {
+    @Override public CompletableFuture<Void> rollbackAsync(InternalTransaction tx) {
         if (changeState(tx.timestamp(), TxState.PENDING, TxState.ABORTED))
             unlockAll(tx);
 
@@ -90,7 +99,7 @@ public class TxManagerImpl implements TxManager {
     /**
      * @param tx The transaction.
      */
-    private void unlockAll(TransactionImpl tx) {
+    private void unlockAll(InternalTransaction tx) {
         Map<ByteArray, Boolean> locks = this.locks.remove(tx.timestamp());
 
         for (Map.Entry<ByteArray, Boolean> lock : locks.entrySet()) {
@@ -119,47 +128,59 @@ public class TxManagerImpl implements TxManager {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> writeLock(ByteArray key, Timestamp timestamp) {
+    @Override public CompletableFuture<Void> writeLock(ByteArray key, InternalTransaction tx) {
+        Timestamp timestamp = tx.timestamp();
+
         if (state(timestamp) != TxState.PENDING)
             throw new TransactionException("The operation is attempted for completed transaction");
 
-        return lockManager.tryAcquire(key, timestamp).thenAccept(ignore ->
-            locks.compute(timestamp, new BiFunction<Timestamp, Map<ByteArray, Boolean>, Map<ByteArray, Boolean>>() {
-                @Override public Map<ByteArray, Boolean> apply(Timestamp timestamp, Map<ByteArray, Boolean> map) {
-                    if (map == null)
-                        map = new HashMap<>();
-
-                    Boolean mode = map.get(key);
-
-                    if (mode == null)
-                        map.put(key, Boolean.FALSE);
-                    else if (mode == Boolean.TRUE) // Override read lock.
-                        map.put(key, Boolean.FALSE);
-
-                    return map;
-                }
-            }));
+        // Should rollback tx on lock error.
+        return lockManager.tryAcquire(key, timestamp)
+            .handle((r, e) -> e != null ?
+                rollbackAsync(tx).thenCompose(ignored -> CompletableFuture.failedFuture(e)) // Preserve failed state.
+                : DONE_FUT)
+            .thenCompose(res -> res)
+            .thenAccept(ignored -> recordLock(key, timestamp, Boolean.FALSE));
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> readLock(ByteArray key, Timestamp timestamp) {
+    @Override public CompletableFuture<Void> readLock(ByteArray key, InternalTransaction tx) {
+        Timestamp timestamp = tx.timestamp();
+
         if (state(timestamp) != TxState.PENDING)
             throw new TransactionException("The operation is attempted for completed transaction");
 
-        return lockManager.tryAcquireShared(key, timestamp).thenAccept(ignore ->
-            locks.compute(timestamp, new BiFunction<Timestamp, Map<ByteArray, Boolean>, Map<ByteArray, Boolean>>() {
-                @Override public Map<ByteArray, Boolean> apply(Timestamp timestamp, Map<ByteArray, Boolean> map) {
-                    if (map == null)
-                        map = new HashMap<>();
+        return lockManager.tryAcquireShared(key, timestamp)
+            .handle((r, e) -> e != null ?
+                rollbackAsync(tx).thenCompose(ignored -> CompletableFuture.failedFuture(e)) // Preserve failed state.
+                : DONE_FUT)
+            .thenCompose(res -> res)
+            .thenAccept(ignore -> recordLock(key, timestamp, Boolean.TRUE));
+    }
 
-                    Boolean mode = map.get(key);
+    /**
+     * Records the acquired lock for further unlocking.
+     *
+     * @param key The key.
+     * @param timestamp The tx timestamp.
+     * @param read Read lock.
+     */
+    private void recordLock(ByteArray key, Timestamp timestamp, Boolean read) {
+        locks.compute(timestamp, new BiFunction<Timestamp, Map<ByteArray, Boolean>, Map<ByteArray, Boolean>>() {
+            @Override public Map<ByteArray, Boolean> apply(Timestamp timestamp, Map<ByteArray, Boolean> map) {
+                if (map == null)
+                    map = new HashMap<>();
 
-                    if (mode == null)
-                        map.put(key, Boolean.TRUE);
+                Boolean mode = map.get(key);
 
-                    return map;
-                }
-            }));
+                if (mode == null)
+                    map.put(key, read);
+                else if (read == Boolean.FALSE && mode == Boolean.TRUE) // Override read lock.
+                    map.put(key, Boolean.FALSE);
+
+                return map;
+            }
+        });
     }
 
     @Override public void start() {
