@@ -27,7 +27,6 @@ import com.google.common.collect.Lists;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.internal.table.SchemaMismatchException;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -133,8 +132,8 @@ class DynamicTableCreationTest {
         final Tuple keyTuple1 = Tuple.create().set("key", 1L);
         final Tuple keyTuple2 = Tuple.create().set("key", 2L);
 
-        assertThrows(SchemaMismatchException.class, () -> kvView2.get(keyTuple1).value("key"));
-        assertThrows(SchemaMismatchException.class, () -> kvView2.get(keyTuple2).value("key"));
+        assertThrows(IllegalArgumentException.class, () -> kvView2.get(keyTuple1).value("key"));
+        assertThrows(IllegalArgumentException.class, () -> kvView2.get(keyTuple2).value("key"));
         assertEquals(1, (Long)tbl2.get(keyTuple1).value("key"));
         assertEquals(2, (Long)tbl2.get(keyTuple2).value("key"));
 
@@ -143,8 +142,8 @@ class DynamicTableCreationTest {
         assertEquals(222, (Integer)tbl2.get(keyTuple2).value("val"));
         assertEquals(222, (Integer)kvView2.get(keyTuple2).value("val"));
 
-        assertThrows(SchemaMismatchException.class, () -> kvView1.get(keyTuple1).value("key"));
-        assertThrows(SchemaMismatchException.class, () -> kvView1.get(keyTuple2).value("key"));
+        assertThrows(IllegalArgumentException.class, () -> kvView1.get(keyTuple1).value("key"));
+        assertThrows(IllegalArgumentException.class, () -> kvView1.get(keyTuple2).value("key"));
     }
 
     /**
@@ -199,10 +198,10 @@ class DynamicTableCreationTest {
         final Tuple keyTuple2 = Tuple.create().set("key", uuid2).set("affKey", 4242L);
 
         // KV view must NOT return key columns in value.
-        assertThrows(SchemaMismatchException.class, () -> kvView2.get(keyTuple1).value("key"));
-        assertThrows(SchemaMismatchException.class, () -> kvView2.get(keyTuple1).value("affKey"));
-        assertThrows(SchemaMismatchException.class, () -> kvView2.get(keyTuple2).value("key"));
-        assertThrows(SchemaMismatchException.class, () -> kvView2.get(keyTuple2).value("affKey"));
+        assertThrows(IllegalArgumentException.class, () -> kvView2.get(keyTuple1).value("key"));
+        assertThrows(IllegalArgumentException.class, () -> kvView2.get(keyTuple1).value("affKey"));
+        assertThrows(IllegalArgumentException.class, () -> kvView2.get(keyTuple2).value("key"));
+        assertThrows(IllegalArgumentException.class, () -> kvView2.get(keyTuple2).value("affKey"));
 
         // Record binary view MUST return key columns in value.
         assertEquals(uuid, tbl2.get(keyTuple1).value("key"));
