@@ -23,7 +23,6 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.LockException;
@@ -31,6 +30,7 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.Waiter;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A {@link LockManager} implementation which stores lock queues in the heap.
@@ -47,7 +47,16 @@ public class HeapLockManager implements LockManager {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> tryAcquire(Object key, Timestamp timestamp) {
-        return lockState(key).tryAcquire(timestamp);
+        while (true) {
+            LockState state = lockState(key);
+
+            CompletableFuture<Void> future = state.tryAcquire(timestamp);
+
+            if (future == null)
+                continue; // Obsolete state.
+
+            return future;
+        }
     }
 
     /** {@inheritDoc} */
@@ -61,14 +70,12 @@ public class HeapLockManager implements LockManager {
         while (true) {
             LockState state = lockState(key);
 
-            if (state.guard.get() == -1) // Wait for remove
-                continue;
+            CompletableFuture<Void> future = state.tryAcquireShared(timestamp);
 
-            if (state.guard.compareAndSet(0, 1)) {
-                CompletableFuture<Void> future = state.tryAcquireShared(timestamp);
+            if (future == null)
+                continue; // Obsolete state.
 
-                return future;
-            }
+            return future;
         }
     }
 
@@ -77,8 +84,9 @@ public class HeapLockManager implements LockManager {
         LockState state = lockState(key);
 
         if (state.tryReleaseShared(timestamp)) {
-            if (state.guard.compareAndSet(0, -1))
-                locks.remove(key, state);
+            assert state.markedForRemove;
+
+            locks.remove(key, state);
         }
     }
 
@@ -115,16 +123,19 @@ public class HeapLockManager implements LockManager {
         /** Waiters. */
         private TreeMap<Timestamp, WaiterImpl> waiters = new TreeMap<>();
 
-        private AtomicInteger guard = new AtomicInteger(0);
+        private boolean markedForRemove = false;
 
         /**
          * @param timestamp The timestamp.
-         * @return The future.
+         * @return The future or null if state is marked for removal.
          */
-        public CompletableFuture<Void> tryAcquire(Timestamp timestamp)  {
+        public @Nullable CompletableFuture<Void> tryAcquire(Timestamp timestamp)  {
             WaiterImpl waiter = new WaiterImpl(timestamp, false);
 
             synchronized (waiters) {
+                if (markedForRemove)
+                    return null;
+
                 waiters.put(timestamp, waiter);
 
                 // Check lock compatibility.
@@ -167,7 +178,9 @@ public class HeapLockManager implements LockManager {
 
                 waiters.pollFirstEntry();
 
-                if (waiters.isEmpty())
+                markedForRemove = waiters.isEmpty();
+
+                if (markedForRemove)
                     return true;
 
                 // Lock next waiter(s).
@@ -202,13 +215,16 @@ public class HeapLockManager implements LockManager {
 
         /**
          * @param timestamp The timestamp.
-         * @return The future.
+         * @return The future or null if a state is marked for removal from map.
          */
-        public CompletableFuture<Void> tryAcquireShared(Timestamp timestamp) {
+        public @Nullable CompletableFuture<Void> tryAcquireShared(Timestamp timestamp) {
             WaiterImpl waiter = new WaiterImpl(timestamp, true);
 
             // Grant a lock to the oldest waiter.
             synchronized (waiters) {
+                if (markedForRemove)
+                    return null;
+
                 waiters.put(timestamp, waiter);
 
                 // Check lock compatibility.
@@ -230,11 +246,10 @@ public class HeapLockManager implements LockManager {
                     waiter.lock();
             }
 
-            guard.set(0);
-
             // Notify outside the monitor.
-            if (waiter.locked())
+            if (waiter.locked()) {
                 waiter.notifyLocked();
+            }
 
             return waiter.fut;
         }
@@ -259,7 +274,7 @@ public class HeapLockManager implements LockManager {
                 waiters.remove(timestamp);
 
                 if (nextEntry == null)
-                    return waiters.isEmpty();
+                    return (markedForRemove = waiters.isEmpty());
 
                 // Lock next exclusive waiter.
                 WaiterImpl nextWaiter = nextEntry.getValue();

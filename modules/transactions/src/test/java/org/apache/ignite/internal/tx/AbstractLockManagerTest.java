@@ -38,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests a LockManager implementation.
+ * TODO asch document deadlock prevention algorythm (wait-die)
  */
 public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     private LockManager lockManager;
@@ -401,47 +402,6 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testLockUpgrade4() throws LockException {
-        Timestamp ts0 = Timestamp.nextVersion();
-        Timestamp ts1 = Timestamp.nextVersion();
-        Timestamp ts2 = Timestamp.nextVersion();
-        Timestamp ts3 = Timestamp.nextVersion();
-        Timestamp ts4 = Timestamp.nextVersion();
-        Object key = new String("test");
-
-        lockManager.tryAcquireShared(key, ts0).join();
-
-        lockManager.tryAcquireShared(key, ts1).join();
-
-        lockManager.tryAcquire(key, ts0).join();
-
-        CompletableFuture<Void> fut0 = lockManager.tryAcquireShared(key, ts2);
-        assertFalse(fut0.isDone());
-
-        CompletableFuture<Void> fut1 = lockManager.tryAcquireShared(key, ts3);
-        assertFalse(fut1.isDone());
-
-        CompletableFuture<Void> fut2 = lockManager.tryAcquire(key, ts1);
-        assertFalse(fut2.isDone());
-
-        CompletableFuture<Void> fut3 = lockManager.tryAcquire(key, ts4);
-        assertFalse(fut3.isDone());
-
-        lockManager.tryRelease(key, ts0);
-
-        assertTrue(fut2.isDone());
-        assertFalse(fut0.isDone());
-        assertFalse(fut1.isDone());
-        assertFalse(fut3.isDone());
-
-        lockManager.tryRelease(key, ts1);
-
-        assertTrue(fut0.isDone());
-        assertTrue(fut1.isDone());
-        assertFalse(fut3.isDone());
-    }
-
-    @Test
-    public void testLockUpgrade6() throws LockException {
         Timestamp ts0 = Timestamp.nextVersion();
         Timestamp ts1 = Timestamp.nextVersion();
         Object key = new String("test");
