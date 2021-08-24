@@ -96,19 +96,17 @@ public class CopySessionTest {
     @Test
     public void testOnRpcReturnedEOF() throws Exception {
         final CountDownLatch latch = new CountDownLatch(1);
-        new Thread() {
-            @Override
-            public void run() {
-                try {
-                    //test join, should return
-                    session.join();
-                    latch.countDown();
-                }
-                catch (final InterruptedException e) {
-                    // No-op.
-                }
+        Thread t = new Thread(() -> {
+            try {
+                //test join, should return
+                session.join();
+                latch.countDown();
             }
-        }.start();
+            catch (final InterruptedException e) {
+                // No-op.
+            }
+        });
+        t.start();
         assertNull(this.session.getRpcCall());
         final ByteBufferCollector bufRef = ByteBufferCollector.allocate(0);
         this.session.setDestBuf(bufRef);
@@ -122,6 +120,7 @@ public class CopySessionTest {
 
         assertNull(this.session.getRpcCall());
         latch.await();
+        t.join();
     }
 
     @Test

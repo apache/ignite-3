@@ -64,11 +64,13 @@ public class FutureTest {
     @Test
     public void testGet() throws Exception {
         FutureImpl<Boolean> future = new FutureImpl<Boolean>();
-        new Thread(new NotifyFutureRunner(future, 2000, null)).start();
+        Thread t = new Thread(new NotifyFutureRunner(future, 2000, null));
+        t.start();
         boolean result = future.get();
         assertTrue(result);
         assertTrue(future.isDone());
         assertFalse(future.isCancelled());
+        t.join();
     }
 
     @Test
@@ -84,7 +86,8 @@ public class FutureTest {
     @Test
     public void testGetException() throws Exception {
         FutureImpl<Boolean> future = new FutureImpl<Boolean>();
-        new Thread(new NotifyFutureRunner(future, 2000, new IOException("hello"))).start();
+        Thread t = new Thread(new NotifyFutureRunner(future, 2000, new IOException("hello")));
+        t.start();
         try {
             future.get();
             fail();
@@ -95,24 +98,22 @@ public class FutureTest {
         }
         assertTrue(future.isDone());
         assertFalse(future.isCancelled());
-
+        t.join();
     }
 
     @Test
     public void testCancel() throws Exception {
         final FutureImpl<Boolean> future = new FutureImpl<Boolean>();
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    Thread.sleep(3000);
-                    future.cancel(true);
-                }
-                catch (Exception e) {
-                    log.error(e.getMessage(), e);
-                }
+        Thread t = new Thread(() -> {
+            try {
+                Thread.sleep(3000);
+                future.cancel(true);
             }
-        }).start();
+            catch (Exception e) {
+                log.error(e.getMessage(), e);
+            }
+        });
+        t.start();
         try {
             future.get();
             fail();
@@ -123,6 +124,7 @@ public class FutureTest {
         }
         assertTrue(future.isDone());
         assertTrue(future.isCancelled());
+        t.join();
     }
 
     @Test

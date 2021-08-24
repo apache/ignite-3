@@ -41,20 +41,18 @@ public class SynchronizedClosureTest {
     public void testAwaitRun() throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicLong cost = new AtomicLong(0);
-        new Thread() {
-            @Override
-            public void run() {
-                try {
-                    long start = System.currentTimeMillis();
-                    done.await();
-                    cost.set(System.currentTimeMillis() - start);
-                }
-                catch (InterruptedException e) {
-                    LOG.error("Thread was interrupted", e);
-                }
-                latch.countDown();
+        Thread t = new Thread(() -> {
+            try {
+                long start = System.currentTimeMillis();
+                done.await();
+                cost.set(System.currentTimeMillis() - start);
             }
-        }.start();
+            catch (InterruptedException e) {
+                LOG.error("Thread was interrupted", e);
+            }
+            latch.countDown();
+        });
+        t.start();
 
         int n = 1000;
         Thread.sleep(n);
@@ -62,6 +60,7 @@ public class SynchronizedClosureTest {
         latch.await();
         assertEquals(n, cost.get(), 50);
         assertTrue(this.done.getStatus().isOk());
+        t.join();
     }
 
     @Test

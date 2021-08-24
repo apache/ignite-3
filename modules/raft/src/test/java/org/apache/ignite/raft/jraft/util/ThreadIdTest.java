@@ -17,6 +17,8 @@
 package org.apache.ignite.raft.jraft.util;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.junit.jupiter.api.BeforeEach;
@@ -74,19 +76,21 @@ public class ThreadIdTest implements ThreadId.OnError {
         assertEquals(100, this.errorCode);
         this.id.lock();
         CountDownLatch latch = new CountDownLatch(1);
-        new Thread() {
+        Thread t = new Thread() {
             @Override
             public void run() {
                 ThreadIdTest.this.id.setError(99);
                 latch.countDown();
             }
-        }.start();
+        };
+        t.start();
         latch.await();
         //just go into pending errors.
         assertEquals(100, this.errorCode);
         //invoke onError when unlock
         this.id.unlock();
         assertEquals(99, this.errorCode);
+        t.join();
     }
 
     @Test
@@ -94,20 +98,19 @@ public class ThreadIdTest implements ThreadId.OnError {
         AtomicInteger lockSuccess = new AtomicInteger(0);
         CountDownLatch latch = new CountDownLatch(10);
         this.id.lock();
+        ExecutorService executor = Executors.newFixedThreadPool(10);
         for (int i = 0; i < 10; i++) {
-            new Thread() {
-                @Override
-                public void run() {
-                    if (ThreadIdTest.this.id.lock() != null) {
-                        lockSuccess.incrementAndGet();
-                    }
-                    latch.countDown();
+            executor.execute(() -> {
+                if (ThreadIdTest.this.id.lock() != null) {
+                    lockSuccess.incrementAndGet();
                 }
-            }.start();
+                latch.countDown();
+            });
         }
         this.id.unlockAndDestroy();
         latch.await();
         assertEquals(0, lockSuccess.get());
         assertNull(this.id.lock());
+        ExecutorServiceHelper.shutdownAndAwaitTermination(executor);
     }
 }
