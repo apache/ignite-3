@@ -258,19 +258,17 @@ public class StoreTest {
 
         CompletableFuture<Void> fut2 = fut.thenCompose(ret -> tx2.commitAsync());
 
-        // Write in tx (out of order, should abort)
-        try {
-            table.upsert(makeValue(1, val_tx + 1));
+        // Write in tx
+        table.upsert(makeValue(1, val_tx + 1));
 
-            fail();
+        tx.commit();
+
+        try {
+            fut2.join();
         }
         catch (Exception e) {
             assertTrue(IgniteTestUtils.hasCause(e, LockException.class, null));
         }
-
-        tx.commit();
-
-        fut2.join();
 
         assertEquals(101., accounts.get(key).doubleValue("balance"));
     }

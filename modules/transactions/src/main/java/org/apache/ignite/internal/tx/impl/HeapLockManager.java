@@ -123,6 +123,7 @@ public class HeapLockManager implements LockManager {
         /** Waiters. */
         private TreeMap<Timestamp, WaiterImpl> waiters = new TreeMap<>();
 
+        /** Marked for removal flag. */
         private boolean markedForRemove = false;
 
         /**
@@ -150,6 +151,9 @@ public class HeapLockManager implements LockManager {
 
                     return CompletableFuture.failedFuture(new LockException(nextEntry.getValue()));
                 }
+
+                if (prev != null && prev.isForRead())
+                    waiter.upgraded = true;
 
                 // Lock if oldest.
                 if (waiters.firstKey() == timestamp)
@@ -179,7 +183,7 @@ public class HeapLockManager implements LockManager {
                     first.getValue().isForRead())
                     throw new LockException("Not exclusively locked by " + timestamp);
 
-                waiters.pollFirstEntry();
+                Map.Entry<Timestamp, WaiterImpl> unlocked = waiters.pollFirstEntry();
 
                 markedForRemove = waiters.isEmpty();
 
@@ -189,7 +193,7 @@ public class HeapLockManager implements LockManager {
                 // Lock next waiter(s).
                 WaiterImpl waiter = waiters.firstEntry().getValue();
 
-                if (!waiter.isForRead()) {
+                if (!waiter.isForRead() && !waiter.upgraded) {
                     waiter.lock();
 
                     locked.add(waiter);
@@ -197,7 +201,18 @@ public class HeapLockManager implements LockManager {
                 else {
                     // Grant lock to all adjasent readers.
                     for (Map.Entry<Timestamp, WaiterImpl> entry : waiters.entrySet()) {
-                        if (!entry.getValue().isForRead())
+                        if (waiter.upgraded) {
+                            // Fail upgraded waiters.
+                            assert !waiter.locked;
+
+                            // Downgrade to read lock.
+                            waiter.upgraded = false;
+                            waiter.forRead = true;
+                            waiter.locked = true;
+
+                            waiter.fut.completeExceptionally(new LockException(unlocked.getValue()));
+                        }
+                        else if (!entry.getValue().isForRead())
                             break;
                         else {
                             entry.getValue().lock();
@@ -325,6 +340,9 @@ public class HeapLockManager implements LockManager {
 
         /** Waiter timestamp. */
         private final Timestamp timestamp;
+
+        /** Upgradede lock. */
+        public boolean upgraded;
 
         /** {@code True} if a read request. */
         private boolean forRead;

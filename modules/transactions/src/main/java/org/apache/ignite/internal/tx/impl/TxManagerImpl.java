@@ -36,19 +36,13 @@ import org.apache.ignite.tx.TransactionException;
  * TODO asch do we need the interface ?
  */
 public class TxManagerImpl implements TxManager {
-    /**
-     *
-     */
+    /** */
     private static final CompletableFuture<Void> DONE_FUT = CompletableFuture.completedFuture(null);
 
-    /**
-     *
-     */
+    /** */
     private final ClusterService clusterService;
 
-    /**
-     *
-     */
+    /** */
     private final LockManager lockManager;
 
     /** The storage for tx states. TODO asch use Storage for states */
