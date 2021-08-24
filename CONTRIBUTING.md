@@ -67,4 +67,4 @@ Usually all Maven builds are to be run with skipped tests:
 ```
 mvn -DskipTests <goal>
 ```
-See also [DEVNOTES.txt](DEVNOTES.txt)
+See also [DEVNOTES.md](DEVNOTES.md)
