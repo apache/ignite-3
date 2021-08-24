@@ -371,7 +371,7 @@ public class IgniteImpl implements Ignite {
     }
 
     /**
-     * Checks node status. If it's STOPPING then prevents further starting and throws NodeStoppingException that will
+     * Checks node status. If it's {@link Status#STOPPING} then prevents further starting and throws NodeStoppingException that will
      * lead to stopping already started components later on, otherwise starts component and add it to started components
      * list.
      *

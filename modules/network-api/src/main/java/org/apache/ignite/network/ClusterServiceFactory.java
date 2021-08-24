@@ -28,7 +28,7 @@ public interface ClusterServiceFactory {
      *
      * @param context Cluster context.
      * @param nodeConfiguration Node configuration.
-     * @param nodeFinderSupplier  Supplier that provides node finder for discovering the initial cluster members.
+     * @param nodeFinderSupplier Supplier that provides node finder for discovering the initial cluster members.
      * @return New cluster service.
      */
     ClusterService createClusterService(
