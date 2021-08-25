@@ -56,4 +56,16 @@ public class ClientDataType {
 
     /** Number. */
     public static final int NUMBER = 12;
+
+    /** Date. */
+    public static final int DATE = 13;
+
+    /** Time. */
+    public static final int TIME = 14;
+
+    /** DateTime. */
+    public static final int DATETIME = 15;
+
+    /** Timestamp. */
+    public static final int TIMESTAMP = 15;
 }
