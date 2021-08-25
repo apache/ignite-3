@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -361,6 +362,9 @@ class ClientTableCommon {
             case DECIMAL:
                 return ClientDataType.DECIMAL;
 
+            case NUMBER:
+                return ClientDataType.NUMBER;
+
             case UUID:
                 return ClientDataType.UUID;
 
@@ -424,6 +428,10 @@ class ClientTableCommon {
 
             case DECIMAL:
                 packer.packDecimal((BigDecimal)val);
+                break;
+
+            case NUMBER:
+                packer.packNumber((BigInteger)val);
                 break;
 
             case UUID:
