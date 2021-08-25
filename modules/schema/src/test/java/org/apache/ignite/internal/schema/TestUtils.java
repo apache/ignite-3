@@ -25,7 +25,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Year;
 import java.time.temporal.ChronoUnit;
-import java.util.BitSet;
 import java.util.Random;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 
@@ -68,7 +67,7 @@ public final class TestUtils {
                 return new java.util.UUID(rnd.nextLong(), rnd.nextLong());
 
             case STRING:
-                return randomString(rnd, rnd.nextInt(255));
+                return IgniteTestUtils.randomString(rnd, rnd.nextInt(255));
 
             case BYTES:
                 return IgniteTestUtils.randomBytes(rnd, rnd.nextInt(255));
@@ -82,7 +81,7 @@ public final class TestUtils {
             case BITMASK: {
                 BitmaskNativeType maskType = (BitmaskNativeType)type;
 
-                return randomBitSet(rnd, maskType.bits());
+                return IgniteTestUtils.randomBitSet(rnd, maskType.bits());
             }
 
             case DATE: {
@@ -112,42 +111,6 @@ public final class TestUtils {
             default:
                 throw new IllegalArgumentException("Unsupported type: " + type);
         }
-    }
-
-    /**
-     * @param rnd Random generator.
-     * @param bits Amount of bits in bitset.
-     * @return Random BitSet.
-     */
-    public static BitSet randomBitSet(Random rnd, int bits) {
-        BitSet set = new BitSet();
-
-        for (int i = 0; i < bits; i++) {
-            if (rnd.nextBoolean())
-                set.set(i);
-        }
-
-        return set;
-    }
-
-    /**
-     * @param rnd Random generator.
-     * @param len String length.
-     * @return Random string.
-     */
-    public static String randomString(Random rnd, int len) {
-        StringBuilder sb = new StringBuilder();
-
-        while (sb.length() < len) {
-            char pt = (char)rnd.nextInt(Character.MAX_VALUE + 1);
-
-            if (Character.isDefined(pt) &&
-                Character.getType(pt) != Character.PRIVATE_USE &&
-                !Character.isSurrogate(pt))
-                sb.append(pt);
-        }
-
-        return sb.toString();
     }
 
     /**

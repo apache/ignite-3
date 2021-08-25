@@ -395,10 +395,10 @@ public class ClientMessagePacker extends MessagePacker {
         byte[] data = new byte[6];
 
         // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
-        ByteBuffer bb = ByteBuffer.wrap(data)
-                            .putInt(val.getYear())
-                            .put((byte)val.getMonthValue())
-                            .put((byte)val.getDayOfMonth());
+        ByteBuffer.wrap(data)
+            .putInt(val.getYear())
+            .put((byte)val.getMonthValue())
+            .put((byte)val.getDayOfMonth());
 
         packExtensionTypeHeader(ClientMsgPackType.DATE, data.length);
 
@@ -419,11 +419,11 @@ public class ClientMessagePacker extends MessagePacker {
         byte[] data = new byte[7];
 
         // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
-        ByteBuffer bb = ByteBuffer.wrap(data)
-                            .put((byte)val.getHour())
-                            .put((byte)val.getMinute())
-                            .put((byte)val.getSecond())
-                            .putInt(val.getNano());
+        ByteBuffer.wrap(data)
+            .put((byte)val.getHour())
+            .put((byte)val.getMinute())
+            .put((byte)val.getSecond())
+            .putInt(val.getNano());
 
         packExtensionTypeHeader(ClientMsgPackType.TIME, data.length);
 
@@ -444,14 +444,14 @@ public class ClientMessagePacker extends MessagePacker {
         byte[] data = new byte[13];
 
         // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
-        ByteBuffer bb = ByteBuffer.wrap(data)
-                            .putInt(val.getYear())
-                            .put((byte)val.getMonthValue())
-                            .put((byte)val.getDayOfMonth())
-                            .put((byte)val.getHour())
-                            .put((byte)val.getMinute())
-                            .put((byte)val.getSecond())
-                            .putInt(val.getNano());
+        ByteBuffer.wrap(data)
+            .putInt(val.getYear())
+            .put((byte)val.getMonthValue())
+            .put((byte)val.getDayOfMonth())
+            .put((byte)val.getHour())
+            .put((byte)val.getMinute())
+            .put((byte)val.getSecond())
+            .putInt(val.getNano());
 
         packExtensionTypeHeader(ClientMsgPackType.DATETIME, data.length);
 
@@ -473,9 +473,9 @@ public class ClientMessagePacker extends MessagePacker {
         byte[] data = new byte[12];
 
         // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
-        ByteBuffer bb = ByteBuffer.wrap(data)
-                            .putLong(val.getEpochSecond())
-                            .putInt(val.getNano());
+        ByteBuffer.wrap(data)
+            .putLong(val.getEpochSecond())
+            .putInt(val.getNano());
 
         packExtensionTypeHeader(ClientMsgPackType.TIMESTAMP, data.length);
 
@@ -493,22 +493,34 @@ public class ClientMessagePacker extends MessagePacker {
      */
     public ClientMessagePacker packObject(Object val) {
         if (val == null)
-            return (ClientMessagePacker) packNil();
+            return (ClientMessagePacker)packNil();
+
+        if (val instanceof Byte)
+            return (ClientMessagePacker)packByte((byte)val);
+
+        if (val instanceof Short)
+            return (ClientMessagePacker)packShort((short)val);
 
         if (val instanceof Integer)
-            return (ClientMessagePacker) packInt((int) val);
+            return (ClientMessagePacker)packInt((int)val);
 
         if (val instanceof Long)
-            return (ClientMessagePacker) packLong((long) val);
+            return (ClientMessagePacker)packLong((long)val);
+
+        if (val instanceof Float)
+            return (ClientMessagePacker)packFloat((float)val);
+
+        if (val instanceof Double)
+            return (ClientMessagePacker)packDouble((double)val);
 
         if (val instanceof UUID)
-            return packUuid((UUID) val);
+            return packUuid((UUID)val);
 
         if (val instanceof String)
-            return (ClientMessagePacker) packString((String) val);
+            return (ClientMessagePacker)packString((String)val);
 
         if (val instanceof byte[]) {
-            byte[] bytes = (byte[]) val;
+            byte[] bytes = (byte[])val;
             packBinaryHeader(bytes.length);
             writePayload(bytes);
 
@@ -516,13 +528,13 @@ public class ClientMessagePacker extends MessagePacker {
         }
 
         if (val instanceof BigDecimal)
-            return packDecimal((BigDecimal) val);
+            return packDecimal((BigDecimal)val);
 
         if (val instanceof BigInteger)
             return packNumber((BigInteger)val);
 
         if (val instanceof BitSet)
-            return packBitSet((BitSet) val);
+            return packBitSet((BitSet)val);
 
         if (val instanceof LocalDate)
             return packDate((LocalDate)val);

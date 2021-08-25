@@ -19,6 +19,7 @@ package org.apache.ignite.internal.testframework;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.BitSet;
 import java.util.Random;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -219,5 +220,41 @@ public final class IgniteTestUtils {
         rnd.nextBytes(data);
 
         return data;
+    }
+
+    /**
+     * @param rnd Random generator.
+     * @param bits Amount of bits in bitset.
+     * @return Random BitSet.
+     */
+    public static BitSet randomBitSet(Random rnd, int bits) {
+        BitSet set = new BitSet();
+
+        for (int i = 0; i < bits; i++) {
+            if (rnd.nextBoolean())
+                set.set(i);
+        }
+
+        return set;
+    }
+
+    /**
+     * @param rnd Random generator.
+     * @param len String length.
+     * @return Random string.
+     */
+    public static String randomString(Random rnd, int len) {
+        StringBuilder sb = new StringBuilder();
+
+        while (sb.length() < len) {
+            char pt = (char)rnd.nextInt(Character.MAX_VALUE + 1);
+
+            if (Character.isDefined(pt) &&
+                Character.getType(pt) != Character.PRIVATE_USE &&
+                !Character.isSurrogate(pt))
+                sb.append(pt);
+        }
+
+        return sb.toString();
     }
 }

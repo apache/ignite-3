@@ -29,9 +29,11 @@ import java.util.Random;
 import java.util.UUID;
 import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.buffer.Unpooled;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Test;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBytes;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -139,6 +141,43 @@ public class ClientMessagePackerUnpackerTest {
                 assertEquals(time, unpacker.unpackTime());
                 assertEquals(timestamp, unpacker.unpackTimestamp());
                 assertEquals(LocalDateTime.of(date, time), unpacker.unpackDateTime());
+            }
+        }
+    }
+
+    @Test
+    public void testVariousTypesSupport() throws IOException {
+        Object[] values = new Object[]{
+            (byte)1, (short)2, 3, 4L, 5.5f, 6.6d,
+            BigDecimal.valueOf(rnd.nextLong()),
+            UUID.randomUUID(),
+            IgniteTestUtils.randomString(rnd, 11),
+            IgniteTestUtils.randomBytes(rnd, 22),
+            IgniteTestUtils.randomBitSet(rnd, 33),
+            LocalDate.now(),
+            LocalTime.now(),
+            LocalDateTime.now(),
+            Instant.now()
+        };
+
+        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
+            for (Object val : values)
+                packer.packObject(val);
+
+            var buf = packer.getBuffer();
+            //noinspection unused
+            var len = buf.readInt();
+
+            byte[] data = new byte[buf.readableBytes()];
+            buf.readBytes(data);
+
+            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
+                for (int i = 0; i < values.length; i++) {
+                    if (values[i] instanceof byte[])
+                        assertArrayEquals((byte[])values[i], (byte[])unpacker.unpackObject(i + 1));
+                    else
+                        assertEquals(values[i], unpacker.unpackObject(i + 1));
+                }
             }
         }
     }
