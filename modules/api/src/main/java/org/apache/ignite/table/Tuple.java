@@ -29,7 +29,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public interface Tuple extends Iterable<Object> {
     /**
-     * Creates tuple.
+     * Creates a tuple.
      *
      * @return Tuple.
      */
@@ -37,7 +37,17 @@ public interface Tuple extends Iterable<Object> {
         return new TupleImpl();
     }
 
-   /**
+    /**
+     * Creates a tuple with specified initial capacity.
+     *
+     * @param capacity Initial capacity.
+     * @return Tuple.
+     */
+    static Tuple create(int capacity) {
+        return new TupleImpl();
+    }
+
+    /**
      * Gets the number of columns in this tuple.
      *
      * @return Number of columns.

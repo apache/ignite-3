@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -31,33 +32,51 @@ import org.jetbrains.annotations.NotNull;
  * Simple tuple implementation.
  */
 public class TupleImpl implements Tuple {
-    /** Column name -&gt; index. */
+    /** Column name -&gt; index mapping. */
     private final Map<String, Integer> colIdxMap;
 
     /** Columns names. */
-    private final ArrayList<String> colNames;
+    private final List<String> colNames;
 
     /** Columns values. */
-    private final ArrayList<Object> vals;
+    private final List<Object> vals;
 
     /**
      * Creates tuple.
      */
     public TupleImpl() {
-        colIdxMap = new HashMap<>();
-        vals = new ArrayList();
-        colNames = new ArrayList();
+        this(new HashMap<>(), new ArrayList(), new ArrayList());
+    }
+
+    /**
+     * Creates a tuple with specified initial capacity.
+     *
+     * @param capacity Initial capacity.
+     */
+    public TupleImpl(int capacity) {
+        this(new HashMap<>(capacity), new ArrayList(capacity), new ArrayList(capacity));
     }
 
     /**
      * Copying constructor.
      *
-     * @param tuple Tuple.
+     * @param tuple Tuple to copy.
      */
     public TupleImpl(@NotNull TupleImpl tuple) {
-        this.colIdxMap = new HashMap<>(tuple.colIdxMap);
-        this.colNames = new ArrayList<>(tuple.colNames);
-        this.vals = new ArrayList<>(tuple.vals);
+        this(new HashMap<>(tuple.colIdxMap), new ArrayList<>(tuple.colNames), new ArrayList<>(tuple.vals));
+    }
+
+    /**
+     * Private constructor.
+     *
+     * @param columnNameMapping Column name mapping.
+     * @param columnNames Column names.
+     * @param values Column values.
+     */
+    private TupleImpl(Map<String, Integer> columnNameMapping, List<String> columnNames, List<Object> values) {
+        this.colIdxMap = columnNameMapping;
+        this.colNames = columnNames;
+        this.vals = values;
     }
 
     /**
@@ -66,9 +85,7 @@ public class TupleImpl implements Tuple {
      * @param tuple Tuple.
      */
     public TupleImpl(@NotNull Tuple tuple) {
-        colIdxMap = new HashMap<>(tuple.columnCount());
-        vals = new ArrayList(tuple.columnCount());
-        colNames = new ArrayList(tuple.columnCount());
+        this(tuple.columnCount());
 
         for (int i = 0, len = tuple.columnCount(); i < len; i++)
             set(tuple.columnName(i), tuple.value(i));
