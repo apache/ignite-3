@@ -96,6 +96,9 @@ public class TxManagerImpl implements TxManager {
     private void unlockAll(InternalTransaction tx) {
         Map<ByteArray, Boolean> locks = this.locks.remove(tx.timestamp());
 
+        if (locks == null)
+            return;
+
         for (Map.Entry<ByteArray, Boolean> lock : locks.entrySet()) {
             try {
                 if (lock.getValue()) {

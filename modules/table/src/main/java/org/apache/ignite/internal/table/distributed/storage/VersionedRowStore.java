@@ -54,24 +54,12 @@ public class VersionedRowStore {
 
         Value val = extractValue(readValue);
 
-        return result(val, tx).getFirst();
-    }
+        Pair<BinaryRow, BinaryRow> result = result(val, tx);
 
-    private Pair<BinaryRow, BinaryRow> result(Value val, InternalTransaction tx) {
-        if (val.timestamp == null) { // New or after reset.
-            assert val.oldRow == null : val;
+        if (result.getFirst() == null)
+            System.out.println();
 
-            return new Pair<>(val.newRow, null);
-        }
-
-        TxState state = txManager.state(val.timestamp);
-
-        if (state == TxState.COMMITED)
-            return new Pair<>(val.newRow, null);
-        else if (state == TxState.ABORTED)
-            return new Pair<>(val.oldRow, null);
-        else
-            return tx.timestamp().equals(val.timestamp) ? new Pair<>(val.newRow, val.oldRow) : new Pair<>(val.oldRow, null);
+        return result.getFirst();
     }
 
     /** {@inheritDoc} */
@@ -105,11 +93,11 @@ public class VersionedRowStore {
 
         Pair<BinaryRow, BinaryRow> pair = result(value, tx);
 
-        DataRow row1 = packValue(key, new Value(row, pair.getSecond(), tx.timestamp()));
+        // Read in tx TODO asch get rid
+        BinaryRow oldRow = value.timestamp != null && value.timestamp.equals(tx.timestamp()) ? pair.getSecond() :
+            pair.getFirst();
 
-        storage.write(row1);
-
-        System.out.println();
+        storage.write(packValue(key, new Value(row, oldRow, tx.timestamp())));
     }
 
     /** {@inheritDoc} */
@@ -395,40 +383,53 @@ public class VersionedRowStore {
     }
 
     private static DataRow packValue(SearchRow key, Value value) {
-        int l1 = value.newRow == null ? 0 : value.newRow.bytes().length;
-        int l2 = value.oldRow == null ? 0 : value.oldRow.bytes().length;
+        byte[] b1 = null;
+        byte[] b2 = null;
+
+        int l1 = value.newRow == null ? 0 : (b1 = value.newRow.bytes()).length;
+        int l2 = value.oldRow == null ? 0 : (b2 = value.oldRow.bytes()).length;
 
         ByteBuffer buf = ByteBuffer.allocate(4 + l1 + 4 + l2 + 8);
 
         buf.asIntBuffer().put(l1);
 
-        int pos = 4;
-
-        buf.position(pos);
+        buf.position(4);
 
         if (l1 > 0)
-            buf.put(value.newRow.bytes());
-
-        pos += l1;
-
-        buf.position(pos);
+            buf.put(b1);
 
         buf.asIntBuffer().put(l2);
 
-        pos += 4;
-
-        buf.position(pos);
+        buf.position(buf.position() + 4);
 
         if (l2 > 0)
-            buf.put(value.oldRow.bytes());
-
-        pos += l2;
-
-        buf.position(pos);
+            buf.put(b2);
 
         buf.asLongBuffer().put(value.timestamp.get());
 
         return new SimpleDataRow(key.keyBytes(), buf.array());
+    }
+
+    /**
+     * @param val The value.
+     * @param tx The transaction
+     * @return New and old rows pair.
+     */
+    private Pair<BinaryRow, BinaryRow> result(Value val, InternalTransaction tx) {
+        if (val.timestamp == null) { // New or after reset.
+            assert val.oldRow == null : val;
+
+            return new Pair<>(val.newRow, null);
+        }
+
+        TxState state = txManager.state(val.timestamp);
+
+        if (state == TxState.COMMITED)
+            return new Pair<>(val.newRow, null);
+        else if (state == TxState.ABORTED)
+            return new Pair<>(val.oldRow, null);
+        else
+            return tx.timestamp().equals(val.timestamp) ? new Pair<>(val.newRow, val.oldRow) : new Pair<>(val.oldRow, null);
     }
 
     /**
