@@ -20,6 +20,10 @@ package org.apache.ignite.client.proto;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
@@ -109,6 +113,34 @@ public class ClientMessagePackerUnpackerTest {
         testBitSet(BitSet.valueOf(randomBytes(rnd, 1)));
         testBitSet(BitSet.valueOf(randomBytes(rnd, 100)));
         testBitSet(BitSet.valueOf(randomBytes(rnd, 1000)));
+    }
+
+    @Test
+    public void testTemporalTypes() throws IOException {
+        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
+            LocalDate date = LocalDate.now();
+            LocalTime time = LocalTime.now();
+            Instant timestamp = Instant.now();
+
+            packer.packDate(date);
+            packer.packTime(time);
+            packer.packTimestamp(timestamp);
+            packer.packDateTime(LocalDateTime.of(date, time));
+
+            var buf = packer.getBuffer();
+            //noinspection unused
+            var len = buf.readInt();
+
+            byte[] data = new byte[buf.readableBytes()];
+            buf.readBytes(data);
+
+            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
+                assertEquals(date, unpacker.unpackDate());
+                assertEquals(time, unpacker.unpackTime());
+                assertEquals(timestamp, unpacker.unpackTimestamp());
+                assertEquals(LocalDateTime.of(date, time), unpacker.unpackDateTime());
+            }
+        }
     }
 
     private void testBitSet(BitSet val) {

@@ -388,12 +388,23 @@ public class ClientMessagePacker extends MessagePacker {
      *
      * @param val Date value.
      * @return This instance.
-     * @throws UnsupportedOperationException Not supported.
      */
     public ClientMessagePacker packDate(LocalDate val) {
         assert !closed : "Packer is closed";
 
-        throw new UnsupportedOperationException("TODO: IGNITE-15163");
+        byte[] data = new byte[6];
+
+        // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
+        ByteBuffer bb = ByteBuffer.wrap(data)
+                            .putInt(val.getYear())
+                            .put((byte)val.getMonthValue())
+                            .put((byte)val.getDayOfMonth());
+
+        packExtensionTypeHeader(ClientMsgPackType.DATE, data.length);
+
+        addPayload(data);
+
+        return this;
     }
 
     /**
@@ -401,12 +412,24 @@ public class ClientMessagePacker extends MessagePacker {
      *
      * @param val Time value.
      * @return This instance.
-     * @throws UnsupportedOperationException Not supported.
      */
     public ClientMessagePacker packTime(LocalTime val) {
         assert !closed : "Packer is closed";
 
-        throw new UnsupportedOperationException("TODO: IGNITE-15163");
+        byte[] data = new byte[7];
+
+        // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
+        ByteBuffer bb = ByteBuffer.wrap(data)
+                            .put((byte)val.getHour())
+                            .put((byte)val.getMinute())
+                            .put((byte)val.getSecond())
+                            .putInt(val.getNano());
+
+        packExtensionTypeHeader(ClientMsgPackType.TIME, data.length);
+
+        addPayload(data);
+
+        return this;
     }
 
     /**
@@ -414,11 +437,25 @@ public class ClientMessagePacker extends MessagePacker {
      *
      * @param val Datetime value.
      * @return This instance.
-     * @throws UnsupportedOperationException Not supported.
      */
     public ClientMessagePacker packDateTime(LocalDateTime val) {
-        packDate(val.toLocalDate());
-        packTime(val.toLocalTime());
+        assert !closed : "Packer is closed";
+
+        byte[] data = new byte[13];
+
+        // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
+        ByteBuffer bb = ByteBuffer.wrap(data)
+                            .putInt(val.getYear())
+                            .put((byte)val.getMonthValue())
+                            .put((byte)val.getDayOfMonth())
+                            .put((byte)val.getHour())
+                            .put((byte)val.getMinute())
+                            .put((byte)val.getSecond())
+                            .putInt(val.getNano());
+
+        packExtensionTypeHeader(ClientMsgPackType.DATETIME, data.length);
+
+        addPayload(data);
 
         return this;
     }
@@ -433,7 +470,18 @@ public class ClientMessagePacker extends MessagePacker {
     public ClientMessagePacker packTimestamp(Instant val) {
         assert !closed : "Packer is closed";
 
-        throw new UnsupportedOperationException("TODO: IGNITE-15163");
+        byte[] data = new byte[12];
+
+        // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
+        ByteBuffer bb = ByteBuffer.wrap(data)
+                            .putLong(val.getEpochSecond())
+                            .putInt(val.getNano());
+
+        packExtensionTypeHeader(ClientMsgPackType.TIMESTAMP, data.length);
+
+        addPayload(data);
+
+        return this;
     }
 
     /**
@@ -488,7 +536,6 @@ public class ClientMessagePacker extends MessagePacker {
         if (val instanceof Instant)
             return packTimestamp((Instant)val);
 
-        // TODO: Support all basic types IGNITE-15163
         throw new UnsupportedOperationException("Unsupported type, can't serialize: " + val.getClass());
     }
 

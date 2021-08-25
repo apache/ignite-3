@@ -417,48 +417,103 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * Reads a date.
      *
      * @return Date value.
-     * @throws UnsupportedOperationException Not supported yet.
+     * @throws MessageTypeException when type is not DATE.
+     * @throws MessageSizeException when size is not correct.
      */
     public LocalDate unpackDate() {
         assert refCnt > 0 : "Unpacker is closed";
 
-        throw new UnsupportedOperationException("TODO: IGNITE-15163");
+        var hdr = unpackExtensionTypeHeader();
+        var type = hdr.getType();
+        var len = hdr.getLength();
+
+        if (type != ClientMsgPackType.DATE)
+            throw new MessageTypeException("Expected DATE extension (4), but got " + type);
+
+        if (len != 6)
+            throw new MessageSizeException("Expected 6 bytes for DATE extension, but got " + len, len);
+
+        var data = ByteBuffer.wrap(readPayload(len));
+
+        return LocalDate.of(data.getInt(), data.get(), data.get());
     }
 
     /**
      * Reads a time.
      *
      * @return Time value.
-     * @throws UnsupportedOperationException Not supported yet.
+     * @throws MessageTypeException when type is not TIME.
+     * @throws MessageSizeException when size is not correct.
      */
     public LocalTime unpackTime() {
         assert refCnt > 0 : "Unpacker is closed";
 
-        throw new UnsupportedOperationException("TODO: IGNITE-15163");
+        var hdr = unpackExtensionTypeHeader();
+        var type = hdr.getType();
+        var len = hdr.getLength();
+
+        if (type != ClientMsgPackType.TIME)
+            throw new MessageTypeException("Expected TIME extension (5), but got " + type);
+
+        if (len != 7)
+            throw new MessageSizeException("Expected 7 bytes for TIME extension, but got " + len, len);
+
+        var data = ByteBuffer.wrap(readPayload(len));
+
+        return LocalTime.of(data.get(), data.get(), data.get(), data.getInt());
     }
 
     /**
      * Reads a datetime.
      *
      * @return Datetime value.
-     * @throws UnsupportedOperationException Not supported yet.
+     * @throws MessageTypeException when type is not DATETIME.
+     * @throws MessageSizeException when size is not correct.
      */
     public LocalDateTime unpackDateTime() {
         assert refCnt > 0 : "Unpacker is closed";
 
-        throw new UnsupportedOperationException("TODO: IGNITE-15163");
+        var hdr = unpackExtensionTypeHeader();
+        var type = hdr.getType();
+        var len = hdr.getLength();
+
+        if (type != ClientMsgPackType.DATETIME)
+            throw new MessageTypeException("Expected DATETIME extension (6), but got " + type);
+
+        if (len != 13)
+            throw new MessageSizeException("Expected 13 bytes for DATETIME extension, but got " + len, len);
+
+        var data = ByteBuffer.wrap(readPayload(len));
+
+        return LocalDateTime.of(
+            LocalDate.of(data.getInt(), data.get(), data.get()),
+            LocalTime.of(data.get(), data.get(), data.get(), data.getInt())
+        );
     }
 
     /**
      * Reads a timestamp.
      *
      * @return Timestamp value.
-     * @throws UnsupportedOperationException Not supported yet.
+     * @throws MessageTypeException when type is not TIMESTAMP.
+     * @throws MessageSizeException when size is not correct.
      */
     public Instant unpackTimestamp() {
         assert refCnt > 0 : "Unpacker is closed";
 
-        throw new UnsupportedOperationException("TODO: IGNITE-15163");
+        var hdr = unpackExtensionTypeHeader();
+        var type = hdr.getType();
+        var len = hdr.getLength();
+
+        if (type != ClientMsgPackType.TIMESTAMP)
+            throw new MessageTypeException("Expected TIMESTAMP extension (6), but got " + type);
+
+        if (len != 12)
+            throw new MessageSizeException("Expected 12 bytes for TIMESTAMP extension, but got " + len, len);
+
+        var data = ByteBuffer.wrap(readPayload(len));
+
+        return Instant.ofEpochSecond(data.getLong(), data.getInt());
     }
 
     /**
