@@ -22,6 +22,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+
 import com.google.common.collect.Lists;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
@@ -107,6 +109,11 @@ public class ITThinClientConnectionTest extends IgniteAbstractTest {
                         .changeReplicas(1)
                         .changePartitions(10)
         );
+
+        if (Objects.equals(System.getProperty("IGNITE_TEST_KEEP_NODES_RUNNING"), "true")) {
+            // Used for non-Java platform tests (.NET, C++, etc).
+            Thread.sleep(Long.MAX_VALUE);
+        }
 
         var addrs = new String[]{"127.0.0.1:" +
             ((InetSocketAddress) ((IgniteImpl)startedNodes.stream().filter(node -> "node0".equals(node.name())).
