@@ -35,7 +35,7 @@ namespace Apache.Ignite.Tests
             _serverNode = JavaServer.Start();
         }
 
-        [OneTimeSetUp]
+        [OneTimeTearDown]
         public void OneTimeTearDown()
         {
             _serverNode?.Dispose();
@@ -44,8 +44,10 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestHandshake()
         {
-            Socket socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
-            socket.NoDelay = true;
+            Socket socket = new(SocketType.Stream, ProtocolType.Tcp)
+            {
+                NoDelay = true
+            };
 
             try
             {

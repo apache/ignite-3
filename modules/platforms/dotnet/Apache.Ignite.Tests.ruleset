@@ -4,7 +4,7 @@
   <Rules AnalyzerId="Microsoft.Analyzers.ManagedCodeAnalysis" RuleNamespace="Microsoft.Rules.Managed">
     <!-- Enable xmldoc file generation -->
     <Rule Id="SA0001" Action="None" />
-    
+
     <!-- Elements should be documented -->
     <Rule Id="SA1600" Action="None" />
 
@@ -28,5 +28,8 @@
 
     <!-- Call ConfigureAwait (not needed in tests) -->
     <Rule Id="CA2007" Action="None" />
+
+    <!-- DoNotCatchGeneralExceptionTypes -->
+    <Rule Id="CA1031" Action="None" />
   </Rules>
 </RuleSet>

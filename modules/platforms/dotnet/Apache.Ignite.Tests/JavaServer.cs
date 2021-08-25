@@ -21,8 +21,11 @@ namespace Apache.Ignite.Tests
     using System.Diagnostics;
     using System.IO;
     using System.Linq;
+    using System.Net;
+    using System.Net.Sockets;
     using System.Runtime.InteropServices;
     using System.Threading;
+    using System.Threading.Tasks;
     using NUnit.Framework;
 
     /// <summary>
@@ -64,8 +67,6 @@ namespace Apache.Ignite.Tests
                 }
             };
 
-            var evt = new ManualResetEventSlim(false);
-
             DataReceivedEventHandler handler = (_, eventArgs) =>
             {
                 if (eventArgs.Data == null)
@@ -78,11 +79,6 @@ namespace Apache.Ignite.Tests
 
                 // For `dotnet test`
                 TestContext.Progress.WriteLine(eventArgs.Data);
-
-                if (eventArgs.Data.Contains("ITThinClientConnectionTest", StringComparison.Ordinal))
-                {
-                    evt.Set();
-                }
             };
 
             process.OutputDataReceived += handler;
@@ -93,14 +89,44 @@ namespace Apache.Ignite.Tests
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
 
-            if (!evt.Wait(TimeSpan.FromSeconds(15)))
+            var cts = new CancellationTokenSource();
+
+            if (!CheckThinClientPort(cts.Token).Wait(TimeSpan.FromSeconds(15)))
             {
+                cts.Cancel();
                 process.Kill(true);
 
-                throw new InvalidOperationException("Failed to wait for the process to start.");
+                throw new InvalidOperationException("Failed to wait for the server to start.");
             }
 
             return new DisposeAction(() => process.Kill(true));
+        }
+
+        private static async Task CheckThinClientPort(CancellationToken ct)
+        {
+            Socket socket = new(SocketType.Stream, ProtocolType.Tcp)
+            {
+                NoDelay = true
+            };
+
+            using (socket)
+            {
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    try
+                    {
+                        await socket.ConnectAsync(IPAddress.Loopback, 10800, ct);
+
+                        return;
+                    }
+                    catch
+                    {
+                        // No-op.
+                    }
+                }
+            }
         }
 
         /// <summary>
