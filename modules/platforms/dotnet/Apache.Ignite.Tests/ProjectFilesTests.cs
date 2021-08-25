@@ -20,7 +20,6 @@ namespace Apache.Ignite.Tests
     using System;
     using System.Collections.Generic;
     using System.IO;
-    using System.Reflection;
     using NUnit.Framework;
 
     /// <summary>
@@ -36,7 +35,7 @@ namespace Apache.Ignite.Tests
         [Test]
         public void TestInternalNamespaceHasNoPublicTypes()
         {
-            var files = Directory.GetFiles(GetSolutionFolder(), "*.cs", SearchOption.AllDirectories);
+            var files = Directory.GetFiles(TestUtils.SolutionDir, "*.cs", SearchOption.AllDirectories);
 
             var internalDir = Path.DirectorySeparatorChar + "Internal" + Path.DirectorySeparatorChar;
 
@@ -54,23 +53,6 @@ namespace Apache.Ignite.Tests
                     StringAssert.DoesNotContain("public " + type, text, file);
                 }
             }
-        }
-
-        private static string GetSolutionFolder()
-        {
-            var dir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-
-            while (dir != null && !File.Exists(Path.Combine(dir, "Apache.Ignite.sln")))
-            {
-                dir = Path.GetDirectoryName(dir);
-            }
-
-            if (dir == null)
-            {
-                throw new Exception("Failed to locate solution directory.");
-            }
-
-            return dir;
         }
     }
 }
