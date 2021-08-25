@@ -29,6 +29,7 @@ public interface Transaction {
      * @throws TransactionException if a transaction can't be commited.
      */
     void commit() throws TransactionException;
+
     /**
      * Asynchronously commits a transaction.
      *

@@ -27,7 +27,14 @@ public interface IgniteTransactions {
     /**
      * Begins a transaction.
      *
-     * @return The future.
+     * @return The new transaction.
+     */
+    Transaction begin();
+
+    /**
+     * Begins a transaction.
+     *
+     * @return The future with a new transaction as a result.
      */
     CompletableFuture<Transaction> beginAsync();
 

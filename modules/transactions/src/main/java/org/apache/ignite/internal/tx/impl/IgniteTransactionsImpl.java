@@ -37,6 +37,11 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
     }
 
     /** {@inheritDoc} */
+    @Override public Transaction begin() {
+        return txManager.begin();
+    }
+
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Transaction> beginAsync() {
         return CompletableFuture.completedFuture(txManager.begin());
     }
