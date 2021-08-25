@@ -136,7 +136,7 @@ public class TxTest extends IgniteAbstractTest {
      * Tests a synchronous transaction.
      */
     @Test
-    public void testTxSync() {
+    public void testTxSync() throws TransactionException {
         accounts.upsert(makeValue(1, BALANCE_1));
         accounts.upsert(makeValue(2, BALANCE_2));
 
@@ -158,7 +158,7 @@ public class TxTest extends IgniteAbstractTest {
      * Tests a synchronous transaction over key-value view.
      */
     @Test
-    public void testTxSyncKeyValueView() {
+    public void testTxSyncKeyValueView() throws TransactionException {
         accounts.upsert(makeValue(1, BALANCE_1));
         accounts.upsert(makeValue(2, BALANCE_2));
 
@@ -224,7 +224,7 @@ public class TxTest extends IgniteAbstractTest {
 
     /** */
     @Test
-    public void testSimpleConflict() {
+    public void testSimpleConflict() throws TransactionException {
         accounts.upsert(makeValue(1, 100.));
 
         Transaction tx = igniteTransactions.begin();

@@ -32,12 +32,15 @@ import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.tx.TransactionException;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+
 /**
  * TODO asch do we need the interface ?
  */
 public class TxManagerImpl implements TxManager {
     /** */
-    private static final CompletableFuture<Void> DONE_FUT = CompletableFuture.completedFuture(null);
+    private static final CompletableFuture<Void> DONE_FUT = completedFuture(null);
 
     /** */
     private final ClusterService clusterService;
@@ -80,20 +83,20 @@ public class TxManagerImpl implements TxManager {
         if (changeState(tx.timestamp(), TxState.PENDING, TxState.COMMITED)) {
             unlockAll(tx);
 
-            return CompletableFuture.completedFuture(null);
+            return completedFuture(null);
         }
 
-        return CompletableFuture.failedFuture(new TransactionException("Failed to commit a transaction"));
+        return failedFuture(new TransactionException("Failed to commit a transaction"));
     }
 
     @Override public CompletableFuture<Void> rollbackAsync(InternalTransaction tx) {
         if (changeState(tx.timestamp(), TxState.PENDING, TxState.ABORTED)) {
             unlockAll(tx);
 
-            return CompletableFuture.completedFuture(null);
+            return completedFuture(null);
         }
 
-        return CompletableFuture.failedFuture(new TransactionException("Failed to rollback a transaction"));
+        return failedFuture(new TransactionException("Failed to rollback a transaction"));
     }
 
     /**
@@ -135,12 +138,12 @@ public class TxManagerImpl implements TxManager {
         Timestamp timestamp = tx.timestamp();
 
         if (state(timestamp) != TxState.PENDING)
-            throw new TransactionException("The operation is attempted for completed transaction");
+            return failedFuture(new TransactionException("The operation is attempted for completed transaction"));
 
         // Should rollback tx on lock error.
         return lockManager.tryAcquire(key, timestamp)
             .handle((r, e) -> e != null ?
-                rollbackAsync(tx).thenCompose(ignored -> CompletableFuture.failedFuture(e)) // Preserve failed state.
+                rollbackAsync(tx).thenCompose(ignored -> failedFuture(e)) // Preserve failed state.
                 : DONE_FUT)
             .thenCompose(res -> res)
             .thenAccept(ignored -> recordLock(key, timestamp, Boolean.FALSE));
@@ -151,11 +154,11 @@ public class TxManagerImpl implements TxManager {
         Timestamp timestamp = tx.timestamp();
 
         if (state(timestamp) != TxState.PENDING)
-            throw new TransactionException("The operation is attempted for completed transaction");
+            return failedFuture(new TransactionException("The operation is attempted for completed transaction"));
 
         return lockManager.tryAcquireShared(key, timestamp)
             .handle((r, e) -> e != null ?
-                rollbackAsync(tx).thenCompose(ignored -> CompletableFuture.failedFuture(e)) // Preserve failed state.
+                rollbackAsync(tx).thenCompose(ignored -> failedFuture(e)) // Preserve failed state.
                 : DONE_FUT)
             .thenCompose(res -> res)
             .thenAccept(ignore -> recordLock(key, timestamp, Boolean.TRUE));

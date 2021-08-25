@@ -17,10 +17,10 @@
 
 package org.apache.ignite.tx;
 
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteCheckedException;
 
 /** */
-public class TransactionException extends IgniteException {
+public class TransactionException extends IgniteCheckedException {
     /**
      * @param message The message.
      */
