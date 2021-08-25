@@ -137,7 +137,6 @@ public class TupleImplTest {
         assertEquals(-1, getTuple().columnIndex("foo"));
     }
 
-
     @Test
     public void testVariousColumnTypes() {
         Random rnd = new Random();

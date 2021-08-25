@@ -183,7 +183,7 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter {
 
     /** {@inheritDoc} */
     @Override public LocalDate dateValue(int columnIndex) {
-        return tuple != null ? tuple.dateValue(columnIndex) :  super.dateValue(columnIndex);
+        return tuple != null ? tuple.dateValue(columnIndex) : super.dateValue(columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -193,7 +193,7 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter {
 
     /** {@inheritDoc} */
     @Override public LocalTime timeValue(int columnIndex) {
-        return tuple != null ? tuple.timeValue(columnIndex) :  super.timeValue(columnIndex);
+        return tuple != null ? tuple.timeValue(columnIndex) : super.timeValue(columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -203,7 +203,7 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter {
 
     /** {@inheritDoc} */
     @Override public LocalDateTime datetimeValue(int columnIndex) {
-        return tuple != null ? tuple.datetimeValue(columnIndex) :  super.datetimeValue(columnIndex);
+        return tuple != null ? tuple.datetimeValue(columnIndex) : super.datetimeValue(columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -213,7 +213,7 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter {
 
     /** {@inheritDoc} */
     @Override public Instant timestampValue(int columnIndex) {
-        return tuple != null ? tuple.timestampValue(columnIndex) :  super.timestampValue(columnIndex);
+        return tuple != null ? tuple.timestampValue(columnIndex) : super.timestampValue(columnIndex);
     }
 
     /** {@inheritDoc} */

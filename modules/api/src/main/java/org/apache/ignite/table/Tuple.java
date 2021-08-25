@@ -299,6 +299,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
     LocalDate dateValue(String columnName);
 
@@ -307,6 +308,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     LocalDate dateValue(int columnIndex);
 
@@ -315,6 +317,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
     LocalTime timeValue(String columnName);
 
@@ -323,6 +326,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     LocalTime timeValue(int columnIndex);
 
@@ -331,6 +335,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
     LocalDateTime datetimeValue(String columnName);
 
@@ -339,6 +344,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     LocalDateTime datetimeValue(int columnIndex);
 
@@ -347,6 +353,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
     Instant timestampValue(String columnName);
 
@@ -355,6 +362,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     Instant timestampValue(int columnIndex);
 }
