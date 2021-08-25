@@ -179,10 +179,24 @@ public class ColumnType {
     }
 
     /**
-     * Returns timezone-free type representing a time of day in hours, minutes, seconds,
-     * and fractional seconds depending on type precision.
+     * Returns timezone-free type representing a time of day in hours, minutes, seconds, and fractional seconds
+     * with the default precision of 6 (microseconds).
      *
-     * @param precision Fractional seconds meaningful digits. Allowed values are 0-9 for second to nanosecond precision.
+     * @return Native type.
+     * @see TemporalColumnType#DEFAULT_PRECISION
+     * @see #time(int)
+     */
+    public static TemporalColumnType time() {
+        return new TemporalColumnType(ColumnTypeSpec.TIME, TemporalColumnType.DEFAULT_PRECISION);
+    }
+
+    /**
+     * Returns timezone-free type representing a time of day in hours, minutes, seconds, and fractional seconds.
+     *
+     * Precision is a number of digits in fractional seconds part,
+     * from 0 - whole seconds precision up to 9 - nanoseconds precision.
+     *
+     * @param precision The number of digits in fractional seconds part. Accepted values are in range [0-9].
      * @return Native type.
      */
     public static TemporalColumnType time(int precision) {
@@ -190,9 +204,23 @@ public class ColumnType {
     }
 
     /**
+     * Returns timezone-free datetime encoded as (date, time) with the default time precision of 6 (microseconds).
+     *
+     * @return Native type.
+     * @see TemporalColumnType#DEFAULT_PRECISION
+     * @see #datetime(int)
+     */
+    public static TemporalColumnType datetime() {
+        return new TemporalColumnType(ColumnTypeSpec.DATETIME,  TemporalColumnType.DEFAULT_PRECISION);
+    }
+
+    /**
      * Returns timezone-free datetime encoded as (date, time).
      *
-     * @param precision Fractional seconds part length. Allowed values are 0-9 for second to nanosecond precision.
+     * Precision is a number of digits in fractional seconds part of time,
+     * from 0 - whole seconds precision up to 9 - nanoseconds precision.
+     *
+     * @param precision The number of digits in fractional seconds part. Accepted values are in range [0-9].
      * @return Native type.
      */
     public static TemporalColumnType datetime(int precision) {
@@ -200,10 +228,25 @@ public class ColumnType {
     }
 
     /**
-     * Returns number of ticks since Jan 1, 1970 00:00:00.000 (with no timezone).
-     * Tick unit is second, millisecond, microsecond or nanosecond depending on precision.
+     * Returns point in time as number of ticks since Jan 1, 1970 00:00:00.000 (with no timezone)
+     * with the default precision of 6 (microseconds).
      *
-     * @param precision Fractional seconds part length. Allowed values are 0-9 for second to nanosecond precision.
+     * @return Native type.
+     * @see TemporalColumnType#DEFAULT_PRECISION
+     * @see #timestamp(int)
+     */
+    public static TemporalColumnType timestamp() {
+        return new TemporalColumnType(ColumnTypeSpec.TIMESTAMP, TemporalColumnType.DEFAULT_PRECISION);
+    }
+
+    /**
+     * Returns point in time as number of ticks since Jan 1, 1970 00:00:00.000 (with no timezone).
+     * Ticks that are stored can be precised to second, millisecond, microsecond or nanosecond.
+     *
+     * Precision is a number of digits in fractional seconds part of time,
+     * from 0 - whole seconds precision up to 9 - nanoseconds precision.
+     *
+     * @param precision The number of digits in fractional seconds part. Accepted values are in range [0-9].
      * @return Native type.
      */
     public static TemporalColumnType timestamp(int precision) {
@@ -400,7 +443,8 @@ public class ColumnType {
         private TemporalColumnType(ColumnTypeSpec typeSpec, int precision) {
             super(typeSpec);
 
-            assert precision >= 0 && precision <= 9 : "Unsupported fractional seconds precision.";
+            if (precision < 0 || precision > 9)
+                throw new IllegalArgumentException("Unsupported fractional seconds precision.");
 
             this.precision = precision;
         }
