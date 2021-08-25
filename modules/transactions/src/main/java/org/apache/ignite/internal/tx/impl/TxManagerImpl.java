@@ -77,17 +77,23 @@ public class TxManagerImpl implements TxManager {
     }
 
     @Override public CompletableFuture<Void> commitAsync(InternalTransaction tx) {
-        if (changeState(tx.timestamp(), TxState.PENDING, TxState.COMMITED))
+        if (changeState(tx.timestamp(), TxState.PENDING, TxState.COMMITED)) {
             unlockAll(tx);
 
-        return CompletableFuture.completedFuture(null);
+            return CompletableFuture.completedFuture(null);
+        }
+
+        return CompletableFuture.failedFuture(new TransactionException("Failed to commit a transaction"));
     }
 
     @Override public CompletableFuture<Void> rollbackAsync(InternalTransaction tx) {
-        if (changeState(tx.timestamp(), TxState.PENDING, TxState.ABORTED))
+        if (changeState(tx.timestamp(), TxState.PENDING, TxState.ABORTED)) {
             unlockAll(tx);
 
-        return CompletableFuture.completedFuture(null);
+            return CompletableFuture.completedFuture(null);
+        }
+
+        return CompletableFuture.failedFuture(new TransactionException("Failed to rollback a transaction"));
     }
 
     /**

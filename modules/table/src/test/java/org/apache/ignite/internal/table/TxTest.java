@@ -224,6 +224,46 @@ public class TxTest extends IgniteAbstractTest {
 
     /** */
     @Test
+    public void testSimpleConflict() throws Exception {
+        accounts.upsert(makeValue(1, 100.));
+
+        Transaction tx = igniteTransactions.beginAsync().get();
+        Transaction tx2 = igniteTransactions.beginAsync().get();
+
+        Table table = accounts.withTransaction(tx);
+        Table table2 = accounts.withTransaction(tx2);
+
+        double val = table.get(makeKey(1)).doubleValue("balance");
+
+        double val2 = table2.get(makeKey(1)).doubleValue("balance");
+
+        try {
+            table.upsert(makeValue(1, val + 1));
+
+            fail();
+        }
+        catch (Exception e) {
+            // Expected.
+        }
+
+        table2.upsert(makeValue(1, val + 1));
+
+        tx2.commit();
+
+        try {
+            tx.commit();
+
+            fail();
+        }
+        catch (TransactionException e) {
+            // Expected.
+        }
+
+        assertEquals(101., accounts.get(makeKey(1)).doubleValue("balance"));
+    }
+
+    /** */
+    @Test
     public void testCommit() throws TransactionException {
         InternalTransaction tx = txManager.begin();
 
@@ -325,8 +365,6 @@ public class TxTest extends IgniteAbstractTest {
             assertTrue(IgniteTestUtils.hasCause(e, LockException.class, null));
         }
 
-        tx.commit();
-
         // Write in tx2
         table2.upsert(makeValue(1, val_tx2 + 1));
 
@@ -425,7 +463,7 @@ public class TxTest extends IgniteAbstractTest {
      * @throws InterruptedException If interrupted while waiting.
      */
     private void doTestSingleKeyMultithreaded(long duration) throws InterruptedException {
-        int threadsCnt = Runtime.getRuntime().availableProcessors() * 2;
+        int threadsCnt = 3; // Runtime.getRuntime().availableProcessors() * 2;
 
         Thread[] threads = new Thread[threadsCnt];
 
@@ -445,7 +483,7 @@ public class TxTest extends IgniteAbstractTest {
             total0 += balance;
         }
 
-        assertEquals(total, total0, "Total invariant is not preserved");
+        assertEquals(total, total0, "Total amount invariant is not preserved");
 
         LongAdder ops = new LongAdder();
 
@@ -474,6 +512,8 @@ public class TxTest extends IgniteAbstractTest {
                         try {
                             long acc1 = finalI;
 
+                            log.info("get {}", acc1);
+
                             Tuple tuple1 = table.get(makeKey(acc1));
 
                             double amount = 100 + r.nextInt(500);
@@ -485,13 +525,21 @@ public class TxTest extends IgniteAbstractTest {
                             while(acc1 == acc2)
                                 acc2 = r.nextInt(threads.length);
 
+                            log.info("get {}", acc2);
+
                             Tuple tuple2 = table.get(makeKey(acc2));
 
                             double val1 = tuple2.doubleValue("balance") + amount;
 
+                            log.info("put {}", acc1);
+
                             table.upsert(makeValue(acc1, val0));
 
+                            log.info("put {}", acc2);
+
                             table.upsert(makeValue(acc2, val1));
+
+                            log.info("commit", acc1);
 
                             tx.commit();
 
@@ -536,7 +584,7 @@ public class TxTest extends IgniteAbstractTest {
             total0 += balance;
         }
 
-        assertEquals(total, total0, "Total invariant is not preserved");
+        assertEquals(total, total0, "Total amount invariant is not preserved");
     }
 
     /**

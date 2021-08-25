@@ -37,6 +37,7 @@ public interface IgniteTransactions {
      * If the closure is executed normally (no exceptions), the transaction is automatically committed.
      *
      * @param clo The closure.
+     * @throws TransactionException If a transaction has failed to finish normally.
      */
-    void runInTransaction(Consumer<Transaction> clo);
+    void runInTransaction(Consumer<Transaction> clo) throws TransactionException;
 }
