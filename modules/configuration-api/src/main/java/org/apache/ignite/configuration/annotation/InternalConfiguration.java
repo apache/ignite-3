@@ -26,7 +26,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 /**
  * This annotation can only be applied to a class that is either marked with {@link ConfigurationRoot}
  * or the superclass is marked with {@link ConfigurationRoot}, {@link Config}.
- * <br/>
  * It indicates that this is an internal configuration that should be hidden from the end user.
  * Any extensions are allowed for any configuration.
  *
