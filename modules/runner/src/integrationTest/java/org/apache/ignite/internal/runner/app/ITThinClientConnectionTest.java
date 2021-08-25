@@ -121,9 +121,10 @@ public class ITThinClientConnectionTest extends IgniteAbstractTest {
                         .changePartitions(10)
         );
 
-        var addrs = new String[]{"127.0.0.1:" +
-            ((InetSocketAddress) ((IgniteImpl)startedNodes.stream().filter(node -> "node0".equals(node.name())).
-                findAny().get()).clientHandlerModule().localAddress()).getPort()};
+        var addrs = new String[]{
+                "127.0.0.1:" + getPort((IgniteImpl) startedNodes.get(0)),
+                "127.0.0.1:" + getPort((IgniteImpl) startedNodes.get(1))
+        };
 
         for (var addr : addrs) {
             try (var client = IgniteClient.builder().addresses(addr).build()) {
