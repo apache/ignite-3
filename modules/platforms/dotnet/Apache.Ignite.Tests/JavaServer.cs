@@ -33,6 +33,8 @@ namespace Apache.Ignite.Tests
     /// </summary>
     public static class JavaServer
     {
+        public const int ClientPort = 10942;
+
         /** Maven command to execute the main class. */
         private const string MavenCommandExec =
             "-Dtest=ITThinClientConnectionTest -DfailIfNoTests=false -DIGNITE_TEST_KEEP_NODES_RUNNING=true " +
@@ -45,8 +47,13 @@ namespace Apache.Ignite.Tests
         /// Starts a server node.
         /// </summary>
         /// <returns>Disposable object to stop the server.</returns>
-        public static IDisposable Start()
+        public static IDisposable? Start()
         {
+            if (ServerExists())
+            {
+                return null;
+            }
+
             var file = TestUtils.IsWindows ? "cmd.exe" : "/bin/bash";
 
             var process = new Process
@@ -89,17 +96,28 @@ namespace Apache.Ignite.Tests
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
 
-            var cts = new CancellationTokenSource();
-
-            if (!CheckThinClientPort(cts.Token).Wait(TimeSpan.FromSeconds(15)))
+            if (!ServerExists())
             {
-                cts.Cancel();
                 process.Kill(true);
 
                 throw new InvalidOperationException("Failed to wait for the server to start.");
             }
 
             return new DisposeAction(() => process.Kill(true));
+        }
+
+        private static bool ServerExists()
+        {
+            var cts = new CancellationTokenSource();
+
+            try
+            {
+                return CheckThinClientPort(cts.Token).Wait(TimeSpan.FromSeconds(15));
+            }
+            finally
+            {
+                cts.Cancel();
+            }
         }
 
         private static async Task CheckThinClientPort(CancellationToken ct)
@@ -117,7 +135,7 @@ namespace Apache.Ignite.Tests
 
                     try
                     {
-                        await socket.ConnectAsync(IPAddress.Loopback, 10800, ct);
+                        await socket.ConnectAsync(IPAddress.Loopback, ClientPort, ct);
 
                         return;
                     }

@@ -61,6 +61,7 @@ public class ITThinClientConnectionTest extends IgniteAbstractTest {
                 "  \"node\": {\n" +
                 "    \"metastorageNodes\":[ \"node0\" ]\n" +
                 "  },\n" +
+                "  \"clientConnector\":{\"port\": 10942,\"portRange\":0}," +
                 "  \"network\": {\n" +
                 "    \"port\":3344,\n" +
                 "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\" ]\n" +
@@ -71,6 +72,7 @@ public class ITThinClientConnectionTest extends IgniteAbstractTest {
                 "  \"node\": {\n" +
                 "    \"metastorageNodes\":[ \"node0\" ]\n" +
                 "  },\n" +
+                "  \"clientConnector\":{\"port\": 10943,\"portRange\":0}," +
                 "  \"network\": {\n" +
                 "    \"port\":3345,\n" +
                 "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\" ]\n" +

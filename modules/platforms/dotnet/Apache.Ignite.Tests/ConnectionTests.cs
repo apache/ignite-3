@@ -51,7 +51,7 @@ namespace Apache.Ignite.Tests
 
             try
             {
-                await socket.ConnectAsync(IPAddress.Loopback, 10800);
+                await socket.ConnectAsync(IPAddress.Loopback, JavaServer.ClientPort);
                 var stream = new NetworkStream(socket, ownsSocket: true);
 
                 WriteMagic(stream);
