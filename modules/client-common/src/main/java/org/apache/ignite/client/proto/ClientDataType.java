@@ -67,5 +67,5 @@ public class ClientDataType {
     public static final int DATETIME = 15;
 
     /** Timestamp. */
-    public static final int TIMESTAMP = 15;
+    public static final int TIMESTAMP = 16;
 }
