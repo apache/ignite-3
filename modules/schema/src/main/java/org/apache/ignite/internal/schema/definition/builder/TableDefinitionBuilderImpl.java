@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.definition.builder;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -66,7 +67,7 @@ public class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public TableDefinitionBuilderImpl columns(ColumnDefinition... columns) {
+    public TableDefinitionBuilderImpl columns(Iterable<ColumnDefinition> columns) {
         for (ColumnDefinition column : columns) {
             if (this.columns.put(column.name(), column) != null) {
                 throw new IllegalArgumentException("Column with same name already exists: columnName=" + column.name());
@@ -75,7 +76,13 @@ public class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
 
         return this;
     }
-
+    
+    /** {@inheritDoc} */
+    @Override
+    public TableDefinitionBuilderImpl columns(ColumnDefinition... columns) {
+        return columns(Arrays.asList(columns));
+    }
+    
     /** {@inheritDoc} */
     @Override
     public TableDefinitionBuilder withIndex(IndexDefinition indexDefinition) {

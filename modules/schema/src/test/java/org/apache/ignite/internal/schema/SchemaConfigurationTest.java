@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.schema;
 
+import static org.apache.ignite.internal.util.ArrayUtils.asSet;
+
+import java.util.Arrays;
 import java.util.Map;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
@@ -40,12 +43,14 @@ public class SchemaConfigurationTest {
 
         builder
                 .columns(
-                        // Declaring columns in user order.
+                    // Declaring columns in user order.
+                    Arrays.asList(
                         SchemaBuilders.column("id", ColumnType.INT64).build(),
                         SchemaBuilders.column("label", ColumnType.stringOf(2)).withDefaultValueExpression("AI").build(),
-                        SchemaBuilders.column("name", ColumnType.string()).asNonNull().build(),
-                        SchemaBuilders.column("data", ColumnType.blobOf(255)).asNullable().build(),
+                        SchemaBuilders.column("name", ColumnType.string()).build(),
+                        SchemaBuilders.column("data", ColumnType.blobOf(255)).asNullable(true).build(),
                         SchemaBuilders.column("affId", ColumnType.INT32).build()
+                    )
                 )
 
                 .withPrimaryKey(
@@ -77,7 +82,7 @@ public class SchemaConfigurationTest {
 
                 .withIndex(
                         SchemaBuilders.hashIndex("idx_3_hash")
-                                .withColumns("id", "affId")
+                                .withColumns(asSet("id", "affId"))
                                 .build()
                 )
 
@@ -92,9 +97,11 @@ public class SchemaConfigurationTest {
     public void testSchemaModification() {
         final TableDefinition table = SchemaBuilders.tableBuilder("PUBLIC", "table1")
                 .columns(
-                        // Declaring columns in user order.
+                    // Declaring columns in user order.
+                    Arrays.asList(
                         SchemaBuilders.column("id", ColumnType.INT64).build(),
                         SchemaBuilders.column("name", ColumnType.string()).build()
+                    )
                 )
                 .withPrimaryKey("id")
                 .build();
@@ -102,13 +109,11 @@ public class SchemaConfigurationTest {
         table.toBuilder()
                 .addColumn(
                         SchemaBuilders.column("firstName", ColumnType.string())
-                                .asNonNull()
                                 .build()
                 )
                 .addKeyColumn(
                         // It looks safe to add non-affinity column to key.
                         SchemaBuilders.column("subId", ColumnType.string())
-                                .asNonNull()
                                 .build()
                 )
 

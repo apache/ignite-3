@@ -17,6 +17,7 @@
 
 package org.apache.ignite.schema.definition.builder;
 
+import java.util.Set;
 import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
 
 /**
@@ -32,12 +33,28 @@ public interface PrimaryKeyDefinitionBuilder extends SchemaObjectBuilder {
     PrimaryKeyDefinitionBuilder withAffinityColumns(String... cols);
 
     /**
+     * Sets affinity columns.
+     *
+     * @param cols Affinity columns. Must be a valid subset of ley columns.
+     * @return Primary index builder.
+     */
+    PrimaryKeyDefinitionBuilder withAffinityColumns(Set<String> cols);
+
+    /**
      * Sets primary key columns.
      *
      * @param columns Indexed columns.
      * @return {@code this} for chaining.
      */
     PrimaryKeyDefinitionBuilder withColumns(String... columns);
+
+    /**
+     * Sets primary key columns.
+     *
+     * @param columns Indexed columns.
+     * @return {@code this} for chaining.
+     */
+    PrimaryKeyDefinitionBuilder withColumns(Set<String> columns);
 
     /**
      * Builds primary key.

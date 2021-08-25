@@ -18,57 +18,41 @@
 package org.apache.ignite.internal.processors.query.calcite.prepare.ddl;
 
 /**
- * DROP TABLE statement.
+ * ALTER TABLE ... ADD/DROP COLUMN statement.
  */
-public class DropTableCommand extends AbstractAlterTableCommand {
-    /** Schema name. */
-    private String schemaName;
-
+public abstract class AbstractAlterTableCommand implements DdlCommand {
+    /** Quietly ignore this command if table is not exists. */
+    protected boolean ifTableExists;
+    
     /** Table name. */
     private String tblName;
-
-    /** Quietly ignore this command if table does not exist. */
-    private boolean ifExists;
-
+    
     /**
-     * Get schema name.
+     * Schema name upon which this statement has been issued - <b>not</b> the name of the schema where this new table will be created.
      */
-    public String schemaName() {
-        return schemaName;
-    }
-
-    /**
-     * Set schema name.
-     */
-    public void schemaName(String schemaName) {
-        this.schemaName = schemaName;
-    }
-
-    /**
-     * Get table name.
-     */
+    private String schemaName;
+    
     public String tableName() {
         return tblName;
     }
-
-    /**
-     * Set table name.
-     */
+    
     public void tableName(String tblName) {
         this.tblName = tblName;
     }
-
-    /**
-     * Get quietly ignore this command if table does not exist.
-     */
-    public boolean ifExists() {
-        return ifExists;
+    
+    public String schemaName() {
+        return schemaName;
     }
-
-    /**
-     * Set quietly ignore this command if table does not exist.
-     */
-    public void ifExists(boolean ifExists) {
-        this.ifExists = ifExists;
+    
+    public void schemaName(String schemaName) {
+        this.schemaName = schemaName;
+    }
+    
+    public boolean ifTableExists() {
+        return ifTableExists;
+    }
+    
+    public void ifTableExists(boolean ifTableExists) {
+        this.ifTableExists = ifTableExists;
     }
 }

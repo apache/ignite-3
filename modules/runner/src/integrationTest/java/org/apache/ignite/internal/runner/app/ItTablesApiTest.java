@@ -19,6 +19,7 @@ package org.apache.ignite.internal.runner.app;
 
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.test.WatchListenerInhibitor.metastorageEventsInhibitor;
+import static org.apache.ignite.internal.util.ArrayUtils.asSet;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -26,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -418,15 +420,15 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * @param shortTableName Table name.
      */
     protected Table createTable(Ignite node, String schemaName, String shortTableName) {
+        List<ColumnDefinition> cols = new ArrayList<>();
+        cols.add(SchemaBuilders.column("key", ColumnType.INT64).build());
+        cols.add(SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build());
+        cols.add(SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValueExpression("default").build());
+
         return node.tables().createTable(
                 schemaName + "." + shortTableName,
                 tblCh -> convert(SchemaBuilders.tableBuilder(schemaName, shortTableName).columns(
-                        SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
-                        SchemaBuilders.column("valInt", ColumnType.INT32).asNullable().build(),
-                        SchemaBuilders.column("valStr", ColumnType.string())
-                                .withDefaultValueExpression("default").build()
-                        ).withPrimaryKey("key").build(),
-                        tblCh).changeReplicas(2).changePartitions(10)
+                    cols).withPrimaryKey("key").build(), tblCh).changeReplicas(2).changePartitions(10)
         );
     }
 
@@ -440,12 +442,12 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     protected Table createTableIfNotExists(Ignite node, String schemaName, String shortTableName) {
         return node.tables().createTableIfNotExists(
                 schemaName + "." + shortTableName,
-                tblCh -> convert(SchemaBuilders.tableBuilder(schemaName, shortTableName).columns(
-                        SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
-                        SchemaBuilders.column("valInt", ColumnType.INT32).asNullable().build(),
+                tblCh -> convert(SchemaBuilders.tableBuilder(schemaName, shortTableName).columns(Arrays.asList(
+                        SchemaBuilders.column("key", ColumnType.INT64).build(),
+                        SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build(),
                         SchemaBuilders.column("valStr", ColumnType.string())
                                 .withDefaultValueExpression("default").build()
-                        ).withPrimaryKey("key").build(),
+                        )).withPrimaryKey("key").build(),
                         tblCh).changeReplicas(2).changePartitions(10)
         );
     }
@@ -458,7 +460,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * @param shortTableName Table name.
      */
     protected void addColumn(Ignite node, String schemaName, String shortTableName) {
-        ColumnDefinition col = SchemaBuilders.column("valStrNew", ColumnType.string()).asNullable()
+        ColumnDefinition col = SchemaBuilders.column("valStrNew", ColumnType.string()).asNullable(true)
                 .withDefaultValueExpression("default").build();
 
         addColumnInternal(node, schemaName, shortTableName, col);
@@ -492,7 +494,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * @param shortTableName Table name.
      */
     protected void addColumnIfNotExists(Ignite node, String schemaName, String shortTableName) {
-        ColumnDefinition col = SchemaBuilders.column("valStrNew", ColumnType.string()).asNullable()
+        ColumnDefinition col = SchemaBuilders.column("valStrNew", ColumnType.string()).asNullable(true)
                 .withDefaultValueExpression("default").build();
 
         try {
@@ -511,7 +513,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      */
     protected void addIndex(Ignite node, String schemaName, String shortTableName) {
         IndexDefinition idx = SchemaBuilders.hashIndex("testHI")
-                .withColumns("valInt", "valStr")
+                .withColumns(asSet("valInt", "valStr"))
                 .build();
 
         node.tables().alterTable(schemaName + "." + shortTableName, chng -> chng.changeIndices(idxes -> {
@@ -534,7 +536,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      */
     protected void addIndexIfNotExists(Ignite node, String schemaName, String shortTableName) {
         IndexDefinition idx = SchemaBuilders.hashIndex("testHI")
-                .withColumns("valInt", "valStr")
+                .withColumns(asSet("valInt", "valStr"))
                 .build();
 
         node.tables().alterTable(schemaName + "." + shortTableName, chng -> chng.changeIndices(idxes -> {

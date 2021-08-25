@@ -15,33 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.builder;
-
-import java.util.Map;
-import java.util.Set;
-import org.apache.ignite.schema.definition.index.HashIndexDefinition;
+package org.apache.ignite.internal.processors.query.calcite.prepare.ddl;
 
 /**
- * Hash index descriptor builder.
+ * DROP INDEX statement.
  */
-public interface HashIndexDefinitionBuilder extends SchemaObjectBuilder {
-    /**
-     * Sets indexed columns.
-     *
-     * @param columns Indexed columns.
-     * @return {@code this} for chaining.
-     */
-    HashIndexDefinitionBuilder withColumns(Set<String> columns);
+public class DropIndexCommand extends AbstractAlterTableCommand {
+    /** Idx name. */
+    private String indexName;
 
-    /** {@inheritDoc} */
-    @Override
-    HashIndexDefinitionBuilder withHints(Map<String, String> hints);
+    /** If exist flag. */
+    private boolean ifExist;
 
-    /**
-     * Builds hash index.
-     *
-     * @return Hash index.
-     */
-    @Override
-    HashIndexDefinition build();
+    /** Return idx name. */
+    public String indexName() {
+        return indexName;
+    }
+
+    /** Set idx name. */
+    public void indexName(String indexName) {
+        this.indexName = indexName;
+    }
+    
+    public boolean ifExist() {
+        return ifExist;
+    }
+    
+    public void ifExist(boolean ifExist) {
+        this.ifExist = ifExist;
+    }
 }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema.builder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.Arrays;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
@@ -36,8 +37,9 @@ public class TableDefinitionBuilderTest {
     public void testBuild() {
         TableDefinitionBuilder builder = SchemaBuilders.tableBuilder("SNAME", "TNAME")
                 .columns(
+                    Arrays.asList(
                         SchemaBuilders.column("COL1", ColumnType.DOUBLE).build(),
-                        SchemaBuilders.column("COL2", ColumnType.DOUBLE).build())
+                        SchemaBuilders.column("COL2", ColumnType.DOUBLE).build()))
                 .withPrimaryKey("COL1");
 
         TableDefinition tbl = builder.build();

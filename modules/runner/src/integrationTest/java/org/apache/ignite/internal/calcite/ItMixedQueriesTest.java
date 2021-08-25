@@ -320,8 +320,8 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
         createTable(
                 SchemaBuilders.tableBuilder("PUBLIC", "TEST_TBL").columns(
-                        SchemaBuilders.column("ID", ColumnType.INT32).asNonNull().build(),
-                        SchemaBuilders.column("C1", ColumnType.INT32).asNonNull().build()
+                        SchemaBuilders.column("ID", ColumnType.INT32).build(),
+                        SchemaBuilders.column("C1", ColumnType.INT32).build()
                 ).withPrimaryKey("ID")
         );
 
@@ -396,9 +396,9 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     private static Table createTable(String tableName) {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", tableName)
                 .columns(
-                        SchemaBuilders.column("ID", ColumnType.INT32).asNonNull().build(),
-                        SchemaBuilders.column("NAME", ColumnType.string()).asNullable().build(),
-                        SchemaBuilders.column("SALARY", ColumnType.DOUBLE).asNullable().build()
+                        SchemaBuilders.column("ID", ColumnType.INT32).build(),
+                        SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build(),
+                        SchemaBuilders.column("SALARY", ColumnType.DOUBLE).asNullable(true).build()
                 )
                 .withPrimaryKey("ID")
                 .build();

@@ -33,6 +33,14 @@ public interface TableDefinitionBuilder extends SchemaObjectBuilder {
      * @param columns Table columns definitions.
      * @return {@code This} for chaining.
      */
+    TableDefinitionBuilder columns(Iterable<ColumnDefinition> columns);
+
+    /**
+     * Adds columns to the table.
+     *
+     * @param columns Table columns definitions.
+     * @return {@code This} for chaining.
+     */
     TableDefinitionBuilder columns(ColumnDefinition... columns);
 
     /**

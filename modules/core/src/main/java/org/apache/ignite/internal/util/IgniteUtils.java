@@ -337,7 +337,7 @@ public class IgniteUtils {
         if (cls != null) {
             return cls;
         }
-
+        
         if (ldr == null) {
             ldr = igniteClassLoader;
         }
@@ -597,5 +597,15 @@ public class IgniteUtils {
         }
 
         return success;
+    }
+    
+    /**
+     * Tests if given string is {@code null} or empty.
+     *
+     * @param s String to test.
+     * @return Whether or not the given string is {@code null} or empty.
+     */
+    public static boolean isNullOrEmpty(@Nullable String s) {
+        return s == null || s.isEmpty();
     }
 }

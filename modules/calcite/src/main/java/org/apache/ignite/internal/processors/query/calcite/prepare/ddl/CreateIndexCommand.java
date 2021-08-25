@@ -15,33 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.builder;
+package org.apache.ignite.internal.processors.query.calcite.prepare.ddl;
 
-import java.util.Map;
 import java.util.Set;
-import org.apache.ignite.schema.definition.index.HashIndexDefinition;
+import org.apache.ignite.internal.util.Pair;
 
 /**
- * Hash index descriptor builder.
+ * CREATE INDEX statement.
  */
-public interface HashIndexDefinitionBuilder extends SchemaObjectBuilder {
-    /**
-     * Sets indexed columns.
-     *
-     * @param columns Indexed columns.
-     * @return {@code this} for chaining.
-     */
-    HashIndexDefinitionBuilder withColumns(Set<String> columns);
+public class CreateIndexCommand extends AbstractAlterTableCommand {
+    /** Idx name. */
+    private String indexName;
 
-    /** {@inheritDoc} */
-    @Override
-    HashIndexDefinitionBuilder withHints(Map<String, String> hints);
+    /** Colunms covered with ordering. */
+    Set<Pair<String, Boolean>> cols;
 
-    /**
-     * Builds hash index.
-     *
-     * @return Hash index.
-     */
-    @Override
-    HashIndexDefinition build();
+    /** Return idx name. */
+    public String indexName() {
+        return indexName;
+    }
+
+    /** Set idx name. */
+    public void indexName(String indexName) {
+        this.indexName = indexName;
+    }
+    
+    public Set<Pair<String, Boolean>> columns() {
+        return cols;
+    }
+    
+    public void columns(Set<Pair<String, Boolean>> cols) {
+        this.cols = cols;
+    }
 }
