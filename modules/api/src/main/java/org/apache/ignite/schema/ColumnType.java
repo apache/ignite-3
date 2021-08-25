@@ -123,7 +123,7 @@ public class ColumnType {
      *
      * @param precision Precision of value.
      * @return Number type.
-     * @throws IllegalArgumentException If precision is not positive.
+     * @throws IllegalArgumentException If precision value was invalid.
      */
     public static NumberColumnType numberOf(int precision) {
         if (precision <= 0)
@@ -148,7 +148,7 @@ public class ColumnType {
      * @param precision Precision.
      * @param scale Scale.
      * @return Decimal type.
-     * @throws IllegalArgumentException If precision or scale are invalid.
+     * @throws IllegalArgumentException If precision and/or scale values were invalid.
      */
     public static DecimalColumnType decimalOf(int precision, int scale) {
         if (precision <= 0)
@@ -198,8 +198,12 @@ public class ColumnType {
      *
      * @param precision The number of digits in fractional seconds part. Accepted values are in range [0-9].
      * @return Native type.
+     * @throws IllegalArgumentException If precision value was invalid.
      */
     public static TemporalColumnType time(int precision) {
+        if (precision < 0 || precision > 9)
+            throw new IllegalArgumentException("Unsupported fractional seconds precision: " + precision);
+
         return new TemporalColumnType(ColumnTypeSpec.TIME, precision);
     }
 
@@ -222,8 +226,12 @@ public class ColumnType {
      *
      * @param precision The number of digits in fractional seconds part. Accepted values are in range [0-9].
      * @return Native type.
+     * @throws IllegalArgumentException If precision value was invalid.
      */
     public static TemporalColumnType datetime(int precision) {
+        if (precision < 0 || precision > 9)
+            throw new IllegalArgumentException("Unsupported fractional seconds precision: " + precision);
+
         return new TemporalColumnType(ColumnTypeSpec.DATETIME, precision);
     }
 
@@ -248,8 +256,12 @@ public class ColumnType {
      *
      * @param precision The number of digits in fractional seconds part. Accepted values are in range [0-9].
      * @return Native type.
+     * @throws IllegalArgumentException If precision value was invalid.
      */
     public static TemporalColumnType timestamp(int precision) {
+        if (precision < 0 || precision > 9)
+            throw new IllegalArgumentException("Unsupported fractional seconds precision: " + precision);
+
         return new TemporalColumnType(ColumnTypeSpec.TIMESTAMP, precision);
     }
 
@@ -446,8 +458,7 @@ public class ColumnType {
         private TemporalColumnType(ColumnTypeSpec typeSpec, int precision) {
             super(typeSpec);
 
-            if (precision < 0 || precision > 9)
-                throw new IllegalArgumentException("Unsupported fractional seconds precision.");
+            assert precision >= 0 && precision < 10;
 
             this.precision = precision;
         }
