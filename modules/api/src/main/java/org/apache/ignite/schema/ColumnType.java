@@ -136,7 +136,7 @@ public class ColumnType {
      * Returns number type with the default precision.
      *
      * @return Number type.
-     * @see  #numberOf(int)
+     * @see #numberOf(int)
      */
     public static NumberColumnType numberOf() {
         return UNLIMITED_NUMBER;
@@ -159,7 +159,7 @@ public class ColumnType {
 
         if (precision < scale)
             throw new IllegalArgumentException("Precision [" + precision + "] must be" +
-                " not lower than scale [ " + scale + " ].");
+                                                   " not lower than scale [ " + scale + " ].");
 
         return new DecimalColumnType(ColumnTypeSpec.DECIMAL, precision, scale);
     }
@@ -192,7 +192,7 @@ public class ColumnType {
 
     /**
      * Returns timezone-free type representing a time of day in hours, minutes, seconds, and fractional seconds.
-     *
+     * <p>
      * Precision is a number of digits in fractional seconds part,
      * from 0 - whole seconds precision up to 9 - nanoseconds precision.
      *
@@ -211,12 +211,12 @@ public class ColumnType {
      * @see #datetime(int)
      */
     public static TemporalColumnType datetime() {
-        return new TemporalColumnType(ColumnTypeSpec.DATETIME,  TemporalColumnType.DEFAULT_PRECISION);
+        return new TemporalColumnType(ColumnTypeSpec.DATETIME, TemporalColumnType.DEFAULT_PRECISION);
     }
 
     /**
      * Returns timezone-free datetime encoded as (date, time).
-     *
+     * <p>
      * Precision is a number of digits in fractional seconds part of time,
      * from 0 - whole seconds precision up to 9 - nanoseconds precision.
      *
@@ -242,7 +242,7 @@ public class ColumnType {
     /**
      * Returns point in time as number of ticks since Jan 1, 1970 00:00:00.000 (with no timezone).
      * Ticks that are stored can be precised to second, millisecond, microsecond or nanosecond.
-     *
+     * <p>
      * Precision is a number of digits in fractional seconds part of time,
      * from 0 - whole seconds precision up to 9 - nanoseconds precision.
      *
@@ -364,8 +364,7 @@ public class ColumnType {
 
             DecimalColumnType type = (DecimalColumnType)o;
 
-            return precision == type.precision &&
-                scale == type.scale;
+            return precision == type.precision && scale == type.scale;
         }
 
         /** {@inheritDoc} */
@@ -409,11 +408,15 @@ public class ColumnType {
         @Override public boolean equals(Object o) {
             if (this == o)
                 return true;
+
             if (o == null || getClass() != o.getClass())
                 return false;
+
             if (!super.equals(o))
                 return false;
+
             NumberColumnType type = (NumberColumnType)o;
+
             return precision == type.precision;
         }
 
