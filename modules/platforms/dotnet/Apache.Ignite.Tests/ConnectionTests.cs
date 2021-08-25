@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests
 {
     using System;
     using System.Buffers;
+    using System.Linq;
     using System.Net;
     using System.Net.Sockets;
     using System.Threading.Tasks;
@@ -27,6 +28,8 @@ namespace Apache.Ignite.Tests
 
     public class ConnectionTests
     {
+        private static readonly byte[] Magic = "IGNI".Select(c => (byte)c).ToArray();
+
         private IDisposable? _serverNode;
 
         [OneTimeSetUp]
@@ -54,28 +57,21 @@ namespace Apache.Ignite.Tests
                 await socket.ConnectAsync(IPAddress.Loopback, JavaServer.ClientPort);
                 var stream = new NetworkStream(socket, ownsSocket: true);
 
-                WriteMagic(stream);
+                await stream.WriteAsync(Magic);
                 WriteHandshake(stream);
 
                 await stream.FlushAsync();
 
-                var response = new byte[4];
-                await stream.ReadAsync(response);
+                var responseMagic = new byte[4];
+                await stream.ReadAsync(responseMagic);
+
+                CollectionAssert.AreEqual(Magic, responseMagic);
             }
             catch
             {
                 socket.Dispose();
                 throw;
             }
-        }
-
-        private static void WriteMagic(NetworkStream stream)
-        {
-            // TODO: Async, in one call.
-            stream.WriteByte((byte)'I');
-            stream.WriteByte((byte)'G');
-            stream.WriteByte((byte)'N');
-            stream.WriteByte((byte)'I');
         }
 
         private static unsafe void WriteHandshake(NetworkStream stream)
