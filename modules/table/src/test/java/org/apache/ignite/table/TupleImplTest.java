@@ -17,8 +17,19 @@
 
 package org.apache.ignite.table;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.Random;
+import java.util.UUID;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Test;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBitSet;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -124,6 +135,39 @@ public class TupleImplTest {
     @Test
     public void testColumnIndexForMissingColumns() {
         assertEquals(-1, getTuple().columnIndex("foo"));
+    }
+
+
+    @Test
+    public void testVariousColumnTypes() {
+        Random rnd = new Random();
+
+        Tuple tuple = new TupleImpl()
+                          .set("valByteCol", (byte)1)
+                          .set("valShortCol", (short)2)
+                          .set("valIntCol", 3)
+                          .set("valLongCol", 4L)
+                          .set("valFloatCol", 0.055f)
+                          .set("valDoubleCol", 0.066d)
+                          .set("keyUuidCol", UUID.randomUUID())
+                          .set("valDateCol", LocalDate.now())
+                          .set("valDateTimeCol", LocalDateTime.now())
+                          .set("valTimeCol", LocalTime.now())
+                          .set("valTimeStampCol", Instant.now())
+                          .set("valBitmask1Col", randomBitSet(rnd, 12))
+                          .set("valBytesCol", IgniteTestUtils.randomBytes(rnd, 13))
+                          .set("valStringCol", IgniteTestUtils.randomString(rnd, 14))
+                          .set("valNumberCol", BigInteger.valueOf(rnd.nextLong()))
+                          .set("valDecimalCol", BigDecimal.valueOf(rnd.nextLong(), 5));
+
+        for (int i = 0; i < tuple.columnCount(); i++) {
+            String name = tuple.columnName(i);
+
+            if (tuple.value(i) instanceof byte[])
+                assertArrayEquals((byte[])tuple.value(i), tuple.value(tuple.columnIndex(name)), "columnIdx=" + i);
+            else
+                assertEquals((Object)tuple.value(i), tuple.value(tuple.columnIndex(name)), "columnIdx=" + i);
+        }
     }
 
     private static TupleImpl createTuple() {

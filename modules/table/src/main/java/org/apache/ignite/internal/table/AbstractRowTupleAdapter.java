@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.table;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Iterator;
 import java.util.Objects;
@@ -69,34 +73,6 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
         var col = row.schema().column(columnName);
 
         return col == null ? -1 : col.schemaIndex();
-    }
-
-    /**
-     * Returns row column for name.
-     *
-     * @param columnName Column name.
-     * @return Column.
-     */
-    protected Column rowColumnByName(@NotNull String columnName) {
-        Objects.requireNonNull(columnName);
-
-        final Column col = row.schema().column(columnName);
-
-        if (col == null)
-            throw new IllegalArgumentException("Invalid column name: columnName=" + columnName);
-
-        return col;
-    }
-
-    /**
-     * Returns row column for index.
-     * @param columnIndex Column index.
-     * @return Column.
-     */
-    protected Column rowColumnByIndex(int columnIndex) {
-        Objects.checkIndex(columnIndex, row.schema().length());
-
-        return row.schema().column(columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -263,6 +239,62 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     }
 
     /** {@inheritDoc} */
+    @Override public LocalDate dateValue(String columnName) {
+        Column col = rowColumnByName(columnName);
+
+        return row.dateValue(col.schemaIndex());
+    }
+
+    /** {@inheritDoc} */
+    @Override public LocalDate dateValue(int columnIndex) {
+        Column col = rowColumnByIndex(columnIndex);
+
+        return row.dateValue(col.schemaIndex());
+    }
+
+    /** {@inheritDoc} */
+    @Override public LocalTime timeValue(String columnName) {
+        Column col = rowColumnByName(columnName);
+
+        return row.timeValue(col.schemaIndex());
+    }
+
+    /** {@inheritDoc} */
+    @Override public LocalTime timeValue(int columnIndex) {
+        Column col = rowColumnByIndex(columnIndex);
+
+        return row.timeValue(col.schemaIndex());
+    }
+
+    /** {@inheritDoc} */
+    @Override public LocalDateTime datetimeValue(String columnName) {
+        Column col = rowColumnByName(columnName);
+
+        return row.dateTimeValue(col.schemaIndex());
+    }
+
+    /** {@inheritDoc} */
+    @Override public LocalDateTime datetimeValue(int columnIndex) {
+        Column col = rowColumnByIndex(columnIndex);
+
+        return row.dateTimeValue(col.schemaIndex());
+    }
+
+    /** {@inheritDoc} */
+    @Override public Instant timestampValue(String columnName) {
+        Column col = rowColumnByName(columnName);
+
+        return row.timestampValue(col.schemaIndex());
+    }
+
+    /** {@inheritDoc} */
+    @Override public Instant timestampValue(int columnIndex) {
+        Column col = rowColumnByIndex(columnIndex);
+
+        return row.timestampValue(col.schemaIndex());
+    }
+
+    /** {@inheritDoc} */
     @NotNull @Override public Iterator<Object> iterator() {
         return new Iterator<>() {
             /** Current column index. */
@@ -279,4 +311,33 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
             }
         };
     }
+
+    /**
+     * Returns row column for name.
+     *
+     * @param columnName Column name.
+     * @return Column.
+     */
+    protected Column rowColumnByName(@NotNull String columnName) {
+        Objects.requireNonNull(columnName);
+
+        final Column col = row.schema().column(columnName);
+
+        if (col == null)
+            throw new IllegalArgumentException("Invalid column name: columnName=" + columnName);
+
+        return col;
+    }
+
+    /**
+     * Returns row column for index.
+     * @param columnIndex Column index.
+     * @return Column.
+     */
+    protected Column rowColumnByIndex(int columnIndex) {
+        Objects.checkIndex(columnIndex, row.schema().length());
+
+        return row.schema().column(columnIndex);
+    }
+
 }

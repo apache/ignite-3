@@ -222,7 +222,7 @@ class UpgradingRowAdapter extends Row {
     @Override public BigDecimal decimalValue(int colIdx) throws InvalidTypeException {
         int mappedId = mapColumn(colIdx);
 
-        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.rowSchema().column(mappedId);
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
         if (NativeTypeSpec.DECIMAL != column.type().spec())
             throw new SchemaException("Type conversion is not supported yet.");
@@ -234,7 +234,7 @@ class UpgradingRowAdapter extends Row {
     @Override public BigInteger numberValue(int colIdx) throws InvalidTypeException {
         int mappedId = mapColumn(colIdx);
 
-        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.rowSchema().column(mappedId);
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
         if (NativeTypeSpec.NUMBER != column.type().spec())
             throw new SchemaException("Type conversion is not supported yet.");

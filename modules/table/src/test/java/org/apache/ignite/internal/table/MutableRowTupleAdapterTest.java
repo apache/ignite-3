@@ -17,21 +17,44 @@
 
 package org.apache.ignite.internal.table;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.BitSet;
+import java.util.Random;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.schema.SchemaMode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.TupleImpl;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
+import static org.apache.ignite.internal.schema.NativeTypes.DATE;
+import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
+import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
+import static org.apache.ignite.internal.schema.NativeTypes.INT16;
+import static org.apache.ignite.internal.schema.NativeTypes.INT32;
+import static org.apache.ignite.internal.schema.NativeTypes.INT64;
+import static org.apache.ignite.internal.schema.NativeTypes.INT8;
+import static org.apache.ignite.internal.schema.NativeTypes.STRING;
+import static org.apache.ignite.internal.schema.NativeTypes.datetime;
+import static org.apache.ignite.internal.schema.NativeTypes.time;
+import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -43,21 +66,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>
  * Should be in sync with org.apache.ignite.client.ClientTupleBuilderTest.
  */
-public class RowTupleAdapterTest {
+public class MutableRowTupleAdapterTest {
     /** Mocked table. */
     private InternalTable tbl = Mockito.when(Mockito.mock(InternalTable.class).schemaMode()).thenReturn(SchemaMode.STRICT_SCHEMA).getMock();
 
     /** Schema descriptor. */
     private SchemaDescriptor schema = new SchemaDescriptor(
-            UUID.randomUUID(),
-            42,
-            new Column[]{new Column("id", NativeTypes.INT64, false)},
-            new Column[]{new Column("name", NativeTypes.STRING, true)}
+        UUID.randomUUID(),
+        42,
+        new Column[]{new Column("id", NativeTypes.INT64, false)},
+        new Column[]{new Column("name", NativeTypes.STRING, true)}
     );
 
     @Test
     public void testValueReturnsValueByName() {
-        assertEquals(3L, (Long) getTuple().value("id"));
+        assertEquals(3L, (Long)getTuple().value("id"));
         assertEquals("Shirt", getTuple().value("name"));
     }
 
@@ -69,7 +92,7 @@ public class RowTupleAdapterTest {
 
     @Test
     public void testValueReturnsValueByIndex() {
-        assertEquals(3L, (Long) getTuple().value(0));
+        assertEquals(3L, (Long)getTuple().value(0));
         assertEquals("Shirt", getTuple().value(1));
     }
 
@@ -154,17 +177,19 @@ public class RowTupleAdapterTest {
     @Test
     public void testKeyValueChunks() {
         SchemaDescriptor schema = new SchemaDescriptor(
-                UUID.randomUUID(),
-                42,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("name", NativeTypes.STRING, true),
-                        new Column("price", NativeTypes.DOUBLE, true)}
+            UUID.randomUUID(),
+            42,
+            new Column[]{new Column("id", NativeTypes.INT64, false)},
+            new Column[]{
+                new Column("name", NativeTypes.STRING, true),
+                new Column("price", NativeTypes.DOUBLE, true)
+            }
         );
 
         Tuple original = new TupleImpl()
-                .set("id", 3L)
-                .set("name", "Shirt")
-                .set("price", 5.99d);
+                             .set("id", 3L)
+                             .set("name", "Shirt")
+                             .set("price", 5.99d);
 
         TupleMarshaller marshaller = new TupleMarshallerImpl(null, tbl, new DummySchemaManagerImpl(schema));
 
@@ -173,8 +198,8 @@ public class RowTupleAdapterTest {
         Tuple key = TableRow.keyTuple(row);
         Tuple val = TableRow.valueTuple(row);
 
-        assertEquals(3L, (Long) key.value("id"));
-        assertEquals(3L, (Long) key.value(0));
+        assertEquals(3L, (Long)key.value("id"));
+        assertEquals(3L, (Long)key.value(0));
 
         assertEquals("Shirt", val.value("name"));
         assertEquals("Shirt", val.value(1));
@@ -258,15 +283,15 @@ public class RowTupleAdapterTest {
 
         assertTrue(tuple instanceof SchemaAware);
 
-        assertNotNull(((SchemaAware) tuple).schema());
-        assertNotNull(((SchemaAware) key).schema());
-        assertNotNull(((SchemaAware) val).schema());
+        assertNotNull(((SchemaAware)tuple).schema());
+        assertNotNull(((SchemaAware)key).schema());
+        assertNotNull(((SchemaAware)val).schema());
 
         tuple.set("name", "noname");
 
-        assertNull(((SchemaAware) tuple).schema());
-        assertNotNull(((SchemaAware) key).schema());
-        assertNotNull(((SchemaAware) val).schema());
+        assertNull(((SchemaAware)tuple).schema());
+        assertNotNull(((SchemaAware)key).schema());
+        assertNotNull(((SchemaAware)val).schema());
     }
 
     @Test
@@ -283,24 +308,109 @@ public class RowTupleAdapterTest {
 
         key.set("foo", "bar");
 
-        assertNotNull(((SchemaAware) tuple).schema());
-        assertNull(((SchemaAware) key).schema());
-        assertNotNull(((SchemaAware) val).schema());
+        assertNotNull(((SchemaAware)tuple).schema());
+        assertNull(((SchemaAware)key).schema());
+        assertNotNull(((SchemaAware)val).schema());
 
         val.set("id", 1L);
 
-        assertNotNull(((SchemaAware) tuple).schema());
-        assertNull(((SchemaAware) key).schema());
-        assertNull(((SchemaAware) val).schema());
+        assertNotNull(((SchemaAware)tuple).schema());
+        assertNull(((SchemaAware)key).schema());
+        assertNull(((SchemaAware)val).schema());
+    }
+
+    @Test
+    public void testVariousColumnTypes() {
+        Random rnd = new Random();
+
+        SchemaDescriptor schema = new SchemaDescriptor(tbl.tableId(), 42,
+            new Column[]{new Column("keyUuidCol", NativeTypes.UUID, true)},
+            new Column[]{
+                new Column("valByteCol", INT8, true),
+                new Column("valShortCol", INT16, true),
+                new Column("valIntCol", INT32, true),
+                new Column("valLongCol", INT64, true),
+                new Column("valFloatCol", FLOAT, true),
+                new Column("valDoubleCol", DOUBLE, true),
+                new Column("valDateCol", DATE, true),
+                new Column("valTimeCol", time(), true),
+                new Column("valDateTimeCol", datetime(), true),
+                new Column("valTimeStampCol", timestamp(), true),
+                new Column("valBitmask1Col", NativeTypes.bitmaskOf(22), true),
+                new Column("valBytesCol", BYTES, false),
+                new Column("valStringCol", STRING, false),
+                new Column("valNumberCol", NativeTypes.numberOf(20), false),
+                new Column("valDecimalCol", NativeTypes.decimalOf(25, 5), false),
+            }
+        );
+
+        TupleMarshaller marshaller = new TupleMarshallerImpl(null, tbl, new DummySchemaManagerImpl(schema));
+
+        Tuple tuple = new TupleImpl()
+                          .set("valByteCol", (byte)1)
+                          .set("valShortCol", (short)2)
+                          .set("valIntCol", 3)
+                          .set("valLongCol", 4L)
+                          .set("valFloatCol", 0.055f)
+                          .set("valDoubleCol", 0.066d)
+                          .set("keyUuidCol", UUID.randomUUID())
+                          .set("valDateCol", LocalDate.now())
+                          .set("valDateTimeCol", LocalDateTime.now())
+                          .set("valTimeCol", LocalTime.now())
+                          .set("valTimeStampCol", Instant.now())
+                          .set("valBitmask1Col", randomBitSet(rnd, 12))
+                          .set("valBytesCol", IgniteTestUtils.randomBytes(rnd, 13))
+                          .set("valStringCol", IgniteTestUtils.randomString(rnd, 14))
+                          .set("valNumberCol", BigInteger.valueOf(rnd.nextLong()))
+                          .set("valDecimalCol", BigDecimal.valueOf(rnd.nextLong(), 5));
+
+        Tuple rowTuple = TableRow.tuple(new Row(schema, new ByteBufferRow(marshaller.marshal(tuple).bytes())));
+
+        checkTuples(schema, tuple, rowTuple);
+
+        rowTuple.set("foo", "bar"); // Force row to tuple conversion.
+
+        checkTuples(schema, tuple, rowTuple);
+    }
+
+    private void checkTuples(SchemaDescriptor schema, Tuple tuple, Tuple rowTuple) {
+        for (int i = 0; i < schema.length(); i++) {
+            Column col = schema.column(i);
+            String name = col.name();
+
+            if (col.type().spec() == NativeTypeSpec.BYTES) {
+                assertArrayEquals((byte[])tuple.value(tuple.columnIndex(name)), rowTuple.value(rowTuple.columnIndex(name)), "columnIdx=" + i);
+                assertArrayEquals((byte[])tuple.value(name), rowTuple.value(name), "columnName=" + name);
+            } else {
+                assertEquals((Object)tuple.value(tuple.columnIndex(name)), rowTuple.value(rowTuple.columnIndex(name)), "columnIdx=" + i);
+                assertEquals((Object)tuple.value(name), rowTuple.value(name), "columnName=" + name);
+            }
+        }
     }
 
     private Tuple getTuple() {
         Tuple original = new TupleImpl()
-                .set("id", 3L)
-                .set("name", "Shirt");
+                             .set("id", 3L)
+                             .set("name", "Shirt");
 
         TupleMarshaller marshaller = new TupleMarshallerImpl(null, tbl, new DummySchemaManagerImpl(schema));
 
         return TableRow.tuple(new Row(schema, new ByteBufferRow(marshaller.marshal(original).bytes())));
+    }
+
+    /**
+     * @param rnd Random generator.
+     * @param bits Amount of bits in bitset.
+     * @return Random BitSet.
+     */
+    private static BitSet randomBitSet(Random rnd, int bits) {
+        BitSet set = new BitSet();
+
+        for (int i = 0; i < bits; i++) {
+            if (rnd.nextBoolean())
+                set.set(i);
+        }
+
+        return set;
     }
 }

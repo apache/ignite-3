@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.table;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Iterator;
 import java.util.UUID;
@@ -170,6 +174,46 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter {
     /** {@inheritDoc} */
     @Override public BitSet bitmaskValue(int columnIndex) {
         return tuple != null ? tuple.bitmaskValue(columnIndex) : super.bitmaskValue(columnIndex);
+    }
+
+    /** {@inheritDoc} */
+    @Override public LocalDate dateValue(String columnName) {
+        return tuple != null ? tuple.dateValue(columnName) : super.dateValue(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public LocalDate dateValue(int columnIndex) {
+        return tuple != null ? tuple.dateValue(columnIndex) :  super.dateValue(columnIndex);
+    }
+
+    /** {@inheritDoc} */
+    @Override public LocalTime timeValue(String columnName) {
+        return tuple != null ? tuple.timeValue(columnName) : super.timeValue(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public LocalTime timeValue(int columnIndex) {
+        return tuple != null ? tuple.timeValue(columnIndex) :  super.timeValue(columnIndex);
+    }
+
+    /** {@inheritDoc} */
+    @Override public LocalDateTime datetimeValue(String columnName) {
+        return tuple != null ? tuple.datetimeValue(columnName) : super.datetimeValue(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public LocalDateTime datetimeValue(int columnIndex) {
+        return tuple != null ? tuple.datetimeValue(columnIndex) :  super.datetimeValue(columnIndex);
+    }
+
+    /** {@inheritDoc} */
+    @Override public Instant timestampValue(String columnName) {
+        return tuple != null ? tuple.timestampValue(columnName) : super.timestampValue(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public Instant timestampValue(int columnIndex) {
+        return tuple != null ? tuple.timestampValue(columnIndex) :  super.timestampValue(columnIndex);
     }
 
     /** {@inheritDoc} */
