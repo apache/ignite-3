@@ -21,12 +21,16 @@ import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Interface which can produce its events.
  */
 public abstract class Producer<T extends Event, P extends EventParameters> {
+    /** The logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(Producer.class);
+
     /** All listeners. */
     private ConcurrentHashMap<T, ConcurrentLinkedQueue<EventListener<P>>> listeners = new ConcurrentHashMap<>();
 
@@ -85,7 +89,16 @@ public abstract class Producer<T extends Event, P extends EventParameters> {
         while (iter.hasNext()) {
             closure = iter.next();
 
-            if (closure.notify(params, err))
+            boolean ret = false;
+
+            try {
+                ret = closure.notify(params, err);
+            }
+            catch (Throwable e) {
+                LOG.error("Event notify unexpected exception: ", e);
+            }
+
+            if (ret)
                 iter.remove();
         }
     }

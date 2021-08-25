@@ -15,26 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.query.calcite.prepare.ddl;
-
 /**
- * DROP TABLE statement.
+ * Contains API classes for sql processing.
  */
-public class DropTableCommand extends AbstractAlterTableCommand {
-    /** Quietly ignore this command if table does not exist. */
-    private boolean ifExists;
-
-    /**
-     * @return Quietly ignore this command if table does not exist.
-     */
-    public boolean ifExists() {
-        return ifExists;
-    }
-
-    /**
-     * @param ifExists Quietly ignore this command if table does not exist.
-     */
-    public void ifExists(boolean ifExists) {
-        this.ifExists = ifExists;
-    }
-}
+package org.apache.ignite.sql;

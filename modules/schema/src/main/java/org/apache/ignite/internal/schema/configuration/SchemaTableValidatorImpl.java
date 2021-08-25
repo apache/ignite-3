@@ -52,11 +52,10 @@ public class SchemaTableValidatorImpl implements Validator<TableValidator, Named
                 SchemaTableBuilderImpl.validateIndices(tbl.indices(), allColumns);
             }
             catch (IllegalArgumentException e) {
-                ctx.addIssue(new ValidationIssue("Validator works success by key " + ctx.currentKey() + ". Found "
-                    + view.columns().size() + " columns"));
+                ctx.addIssue(new ValidationIssue("Issue found for context: " + ctx.currentKey() + ". Found "
+                    + view.columns().size() + " columns. " + e.toString()));
             }
         }
-
     }
 
     /** Private constructor. */

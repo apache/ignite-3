@@ -18,39 +18,18 @@
 package org.apache.ignite.internal.processors.query.calcite.prepare.ddl;
 
 import java.util.List;
-
 import org.apache.ignite.schema.Column;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * CREATE TABLE statement.
+ * ALTER TABLE ... ADD COLUMN statement.
  */
-public class CreateTableCommand extends AbstractAlterTableCommand {
-    /** Backups number for new cache. */
-    private Integer backups;
-
-    /** Quietly ignore this command if table already exists. */
-    private boolean ifNotExists;
-
-    /** Primary key columns. */
-    private List<String> pkCols;
+@SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
+public class AlterTableAddCommand extends AbstractAlterTableCommand {
+    /** Quietly ignore this command if column already exists. */
+    private boolean ifColumnNotExists;
 
     /** Columns. */
     private List<Column> cols;
-
-    /**
-     * @return Backups number for new cache.
-     */
-    @Nullable public Integer backups() {
-        return backups;
-    }
-
-    /**
-     * @param backups Backups number for new cache.
-     */
-    public void backups(Integer backups) {
-        this.backups = backups;
-    }
 
     /**
      * @return Columns.
@@ -67,30 +46,16 @@ public class CreateTableCommand extends AbstractAlterTableCommand {
     }
 
     /**
-     * @return Quietly ignore this command if table already exists.
+     * @return Quietly ignore this command if column already exists.
      */
-    public boolean ifNotExists() {
-        return ifNotExists;
+    public boolean ifColumnNotExists() {
+        return ifColumnNotExists;
     }
 
     /**
-     * @param ifNotExists Quietly ignore this command if table already exists.
+     * @param ifColumnNotExists Quietly ignore this command if column already exists.
      */
-    public void ifNotExists(boolean ifNotExists) {
-        this.ifNotExists = ifNotExists;
-    }
-
-    /**
-     * @return Primary key columns.
-     */
-    public List<String> primaryKeyColumns() {
-        return pkCols;
-    }
-
-    /**
-     * @param pkCols Primary key columns.
-     */
-    public void primaryKeyColumns(List<String> pkCols) {
-        this.pkCols = pkCols;
+    public void ifColumnNotExists(boolean ifColumnNotExists) {
+        this.ifColumnNotExists = ifColumnNotExists;
     }
 }

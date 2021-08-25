@@ -40,8 +40,8 @@ public class SchemaConfigurationTest {
                 // Declaring columns in user order.
                 SchemaBuilders.column("id", ColumnType.INT64).build(),
                 SchemaBuilders.column("label", ColumnType.stringOf(2)).withDefaultValue("AI").build(),
-                SchemaBuilders.column("name", ColumnType.string()).asNonNull().build(),
-                SchemaBuilders.column("data", ColumnType.blobOf(255)).asNullable().build(),
+                SchemaBuilders.column("name", ColumnType.string()).build(),
+                SchemaBuilders.column("data", ColumnType.blobOf(255)).asNullable(true).build(),
                 SchemaBuilders.column("affId", ColumnType.INT32).build()
             )
 
@@ -99,12 +99,10 @@ public class SchemaConfigurationTest {
         table.toBuilder()
             .addColumn(
                 SchemaBuilders.column("firstName", ColumnType.string())
-                    .asNonNull()
                     .build()
             )
             .addKeyColumn( // It looks safe to add non-affinity column to key.
                 SchemaBuilders.column("subId", ColumnType.string())
-                    .asNonNull()
                     .build()
             )
 

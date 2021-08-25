@@ -299,7 +299,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             if (colType == null) // No native support for type.
                 throw new InvalidTypeException("Live schema upgrade for type [" + colValue.getClass() + "] is not supported.");
 
-            extraColumns.add(SchemaBuilders.column(colName, colType).asNullable().build());
+            extraColumns.add(SchemaBuilders.column(colName, colType).asNullable(true).build());
         }
 
         return extraColumns;
@@ -334,7 +334,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     /**
      * Updates the schema with new columns.
      *
-     * @param extraCols Columns to add.
+     * @param newCols Columns to add.
      */
     private void createColumns(Set<org.apache.ignite.schema.Column> newCols) {
         //TODO: Introduce internal TableManager and use UUID instead of names ???

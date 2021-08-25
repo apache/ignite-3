@@ -36,6 +36,14 @@ public interface SchemaTableBuilder extends SchemaObjectBuilder {
     SchemaTableBuilder columns(Column... columns);
 
     /**
+     * Adds columns to the table.
+     *
+     * @param columns Table columns.
+     * @return {@code This} for chaining.
+     */
+    SchemaTableBuilder columns(Iterable<Column> columns);
+
+    /**
      * Adds an index.
      *
      * @param index Table index.

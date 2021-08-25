@@ -589,7 +589,7 @@ public class SchemaConfigurationConverter {
         else if (cls == Double.class)
             return ColumnType.DOUBLE;
 
-        // Temporal types.
+        // Date time types.
         else if (cls == LocalDate.class)
             return ColumnType.DATE;
         else if (cls == LocalTime.class)
@@ -609,7 +609,7 @@ public class SchemaConfigurationConverter {
         else if (cls == BigDecimal.class)
             return ColumnType.decimalOf();
 
-        return null;
+        throw new IllegalArgumentException("Type " + cls.getName() + " is not supported.");
     }
 
 }

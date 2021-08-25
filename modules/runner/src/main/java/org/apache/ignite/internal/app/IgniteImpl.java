@@ -63,6 +63,7 @@ import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.rest.RestModule;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.NotNull;
@@ -96,6 +97,9 @@ public class IgniteImpl implements Ignite {
     /** Vault manager. */
     private final VaultManager vaultMgr;
 
+    /** Sql query engine. */
+    private final SqlQueryProcessor qryEngine;
+
     /** Configuration manager that handles node (local) configuration. */
     private final ConfigurationManager nodeCfgMgr;
 
@@ -122,9 +126,6 @@ public class IgniteImpl implements Ignite {
 
     /** Distributed table manager. */
     private final TableManager distributedTblMgr;
-
-    /** Query engine. */
-    private final SqlQueryProcessor qryEngine;
 
     /** Rest module. */
     private final RestModule restModule;
@@ -340,7 +341,8 @@ public class IgniteImpl implements Ignite {
         return distributedTblMgr;
     }
 
-    public SqlQueryProcessor queryEngine() {
+    /** {@inheritDoc} */
+    @Override public IgniteSql sql() {
         return qryEngine;
     }
 

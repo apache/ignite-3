@@ -38,11 +38,13 @@ public class SchemaHolderImpl implements SchemaHolder {
     /** */
     private final Map<String, IgniteSchema> igniteSchemas = new HashMap<>();
 
+    /** */
     private final TopologyService topSrvc;
 
     /** */
     private volatile SchemaPlus calciteSchema;
 
+    /** */
     public SchemaHolderImpl(
         TopologyService topSrvc
     ) {

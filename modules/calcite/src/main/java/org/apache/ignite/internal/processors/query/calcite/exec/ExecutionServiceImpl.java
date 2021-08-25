@@ -19,6 +19,7 @@ package org.apache.ignite.internal.processors.query.calcite.exec;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -38,12 +39,14 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlExplainLevel;
+import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.tools.ValidationException;
+import org.apache.ignite.internal.processors.query.calcite.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.Inbox;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.Node;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.Outbox;
@@ -88,6 +91,7 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.internal.processors.query.calcite.util.NodeLeaveHandler;
 import org.apache.ignite.internal.processors.query.calcite.util.TransformingIterator;
 import org.apache.ignite.internal.processors.query.calcite.util.TypeUtils;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.Cancellable;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -112,8 +116,10 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
  *
  */
 public class ExecutionServiceImpl<Row> implements ExecutionService {
+    /** */
     private static final IgniteLogger LOG = IgniteLogger.forClass(ExecutionServiceImpl.class);
 
+    /** */
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
 
     /** */
@@ -153,13 +159,21 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
     private final RowHandler<Row> handler;
 
     /** */
+    private final DdlCommandHandler ddlCmdHnd;
+
+    /** */
     private final DdlSqlToCommandConverter ddlConverter;
 
+    /** */
+    private final TableManager tableManager;
+
+    /** */
     public ExecutionServiceImpl(
         TopologyService topSrvc,
         MessageService msgSrvc,
         QueryPlanCache planCache,
         SchemaHolder schemaHolder,
+        TableManager tblManager,
         QueryTaskExecutor taskExecutor,
         RowHandler<Row> handler
     ) {
@@ -167,12 +181,16 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
         this.msgSrvc = msgSrvc;
         this.schemaHolder = schemaHolder;
         this.taskExecutor = taskExecutor;
+        tableManager = tblManager;
 
         locNodeId = topSrvc.localMember().id();
         qryPlanCache = planCache;
         running = new ConcurrentHashMap<>();
         ddlConverter = new DdlSqlToCommandConverter();
-        iteratorsHolder = new ClosableIteratorsHolder(LOG);
+
+        ddlCmdHnd = new DdlCommandHandler(tableManager);
+
+        iteratorsHolder = new ClosableIteratorsHolder();
         mailboxRegistry = new MailboxRegistryImpl(topSrvc);
         exchangeSrvc = new ExchangeServiceImpl(taskExecutor, mailboxRegistry, msgSrvc);
         mappingSrvc = new MappingServiceImpl(topSrvc);
@@ -184,6 +202,7 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
         init();
     }
 
+    /** */
     private void init() {
         msgSrvc.register((n, m) -> onMessage(n, (QueryStartRequest) m), SqlQueryMessageGroup.QUERY_START_REQUEST);
         msgSrvc.register((n, m) -> onMessage(n, (QueryStartResponse) m), SqlQueryMessageGroup.QUERY_START_RESPONSE);
@@ -311,6 +330,9 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
 
         ctx.planner().reset();
 
+        if (SqlKind.DDL.contains(sqlNode.getKind()))
+            return prepareDdl(sqlNode, ctx);
+
         switch (sqlNode.getKind()) {
             case SELECT:
             case ORDER_BY:
@@ -328,10 +350,6 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
 
             case EXPLAIN:
                 return prepareExplain(sqlNode, ctx);
-
-            case CREATE_TABLE:
-            case DROP_TABLE:
-                return prepareDdl(sqlNode, ctx);
 
             default:
                 throw new IgniteInternalException("Unsupported operation [" +
@@ -433,7 +451,15 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
 
     /** */
     private Cursor<List<?>> executeDdl(DdlPlan plan, PlanningContext pctx) {
-        throw new UnsupportedOperationException("plan=" + plan + ", ctx=" + pctx);
+        try {
+            ddlCmdHnd.handle(plan.command(), pctx);
+        }
+        catch (IgniteInternalCheckedException e) {
+            throw new IgniteInternalException("Failed to execute DDL statement [stmt=" + pctx.query() +
+                ", err=" + e.getMessage() + ']', e);
+        }
+
+        return Commons.createCursor(Collections.emptyIterator());
     }
 
     /** */

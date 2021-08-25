@@ -133,13 +133,8 @@ public class SchemaDescriptorConverterTest {
      * @return SchemaTableBuilder.
      */
     private SchemaTableBuilder getBuilder(boolean nullable, boolean withPk) {
-        Function<TableColumnBuilder, org.apache.ignite.schema.Column> postProcess = builder -> {
-            if (nullable)
-                builder.asNullable();
-            else
-                builder.asNonNull();
-            return builder.build();
-        };
+        Function<TableColumnBuilder, org.apache.ignite.schema.Column> postProcess =
+            builder -> builder.asNullable(nullable).build();
 
         SchemaTableBuilder res = SchemaBuilders.tableBuilder("SCHEMA", "TABLE")
             .columns(

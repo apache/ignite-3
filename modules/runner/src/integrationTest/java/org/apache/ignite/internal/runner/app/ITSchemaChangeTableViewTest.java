@@ -98,7 +98,8 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             );
         }
 
-        addColumn(grid, SchemaBuilders.column("valStrNew", ColumnType.string()).asNullable().withDefaultValue("default").build());
+        addColumn(grid, SchemaBuilders.column("valStrNew", ColumnType.string())
+            .asNullable(true).withDefaultValue("default").build());
 
         // Check old row conversion.
         Tuple keyTuple1 = Tuple.create().set("key", 1L);
@@ -182,7 +183,8 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
         }
 
         renameColumn(grid, "valInt", "val2");
-        addColumn(grid, SchemaBuilders.column("valInt", ColumnType.INT32).asNullable().withDefaultValue(-1).build());
+        addColumn(grid, SchemaBuilders.column("valInt", ColumnType.INT32)
+            .asNullable(true).withDefaultValue(-1).build());
 
         {
             // Check old row conversion.
@@ -215,7 +217,8 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        final Column column = SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValue("default").build();
+        final Column column = SchemaBuilders.column("val", ColumnType.string())
+            .asNullable(true).withDefaultValue("default").build();
 
         Table tbl = grid.get(0).tables().table(TABLE);
 

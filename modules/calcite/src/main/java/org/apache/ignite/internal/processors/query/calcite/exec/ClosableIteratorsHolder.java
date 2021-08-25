@@ -33,13 +33,13 @@ import org.apache.ignite.lang.IgniteLogger;
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class ClosableIteratorsHolder {
     /** */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ClosableIteratorsHolder.class);
+
+    /** */
     private final ReferenceQueue refQueue;
 
     /** */
     private final Map<Reference, Object> refMap;
-
-    /** */
-    private final IgniteLogger log;
 
     /** */
     private volatile boolean stopped;
@@ -48,9 +48,7 @@ public class ClosableIteratorsHolder {
     private Thread cleanWorker;
 
     /** */
-    public ClosableIteratorsHolder(IgniteLogger log) {
-        this.log = log;
-
+    public ClosableIteratorsHolder() {
         refQueue = new ReferenceQueue<>();
         refMap = new ConcurrentHashMap<>();
     }
@@ -86,7 +84,7 @@ public class ClosableIteratorsHolder {
     /** */
     private void cleanUp(boolean blocking) {
         for (Reference<?> ref = nextRef(blocking); !stopped && ref != null; ref = nextRef(blocking))
-            Commons.close(refMap.remove(ref), log);
+            Commons.close(refMap.remove(ref), LOG);
     }
 
     /** */

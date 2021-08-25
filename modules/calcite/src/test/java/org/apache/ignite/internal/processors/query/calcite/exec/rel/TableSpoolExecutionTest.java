@@ -74,7 +74,7 @@ public class TableSpoolExecutionTest extends AbstractExecutionTest {
 
             AtomicReference<Iterator<Object[]>> itRef = new AtomicReference<>();
 
-            ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, new Iterable<Object[]>() {
+            ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, new Iterable<>() {
                 @NotNull @Override public Iterator<Object[]> iterator() {
                     if (itRef.get() != null)
                         throw new AssertionError();

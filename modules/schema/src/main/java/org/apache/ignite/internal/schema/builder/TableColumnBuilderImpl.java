@@ -50,15 +50,8 @@ public class TableColumnBuilderImpl implements TableColumnBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public TableColumnBuilderImpl asNullable() {
-        nullable = true;
-
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override public TableColumnBuilderImpl asNonNull() {
-        nullable = false;
+    @Override public TableColumnBuilderImpl asNullable(boolean nullable) {
+        this.nullable = nullable;
 
         return this;
     }

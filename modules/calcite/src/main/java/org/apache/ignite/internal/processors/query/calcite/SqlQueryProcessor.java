@@ -34,12 +34,14 @@ import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import static org.apache.ignite.schema.SchemaTable.DEFAULT_SCHEMA_NAME;
 
-public class SqlQueryProcessor implements IgniteComponent {
+/** Query processor. */
+public class SqlQueryProcessor implements IgniteComponent, IgniteSql {
     /** Default Ignite thread keep alive time. */
     public static final long DFLT_THREAD_KEEP_ALIVE_TIME = 60_000L;
 
@@ -88,6 +90,7 @@ public class SqlQueryProcessor implements IgniteComponent {
             msgSrvc,
             new DummyPlanCache(),
             schemaHolder,
+            tableManager,
             taskExecutor,
             ArrayRowHandler.INSTANCE
         );
@@ -99,11 +102,12 @@ public class SqlQueryProcessor implements IgniteComponent {
 
 
     /** {@inheritDoc} */
-    @Override public void stop() throws NodeStoppingException {
+    @Override public void stop() {
         // TODO: IGNITE-15161 Implement component's stop.
     }
 
-    public List<Cursor<List<?>>> query(String schemaName, String qry, Object... params) {
+    /** {@inheritDoc} */
+    @Override public List<Cursor<List<?>>> query(String schemaName, String qry, Object... params) {
         return executionSrvc.executeQuery(schemaName, qry, params);
     }
 
@@ -132,7 +136,7 @@ public class SqlQueryProcessor implements IgniteComponent {
         /** {@inheritDoc} */
         @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             schemaHolder.onSqlTypeCreated(
-                "PUBLIC",
+                DEFAULT_SCHEMA_NAME,
                 parameters.tableName(),
                 parameters.table().schemaView().schema()
             );
@@ -151,7 +155,7 @@ public class SqlQueryProcessor implements IgniteComponent {
         /** {@inheritDoc} */
         @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             schemaHolder.onSqlTypeUpdated(
-                "PUBLIC",
+                DEFAULT_SCHEMA_NAME,
                 parameters.tableName(),
                 parameters.table().schemaView().schema()
             );
@@ -170,7 +174,7 @@ public class SqlQueryProcessor implements IgniteComponent {
         /** {@inheritDoc} */
         @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             schemaHolder.onSqlTypeDropped(
-                "PUBLIC",
+                DEFAULT_SCHEMA_NAME,
                 parameters.tableName()
             );
 

@@ -28,7 +28,6 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlIdentifier;
@@ -41,33 +40,30 @@ import org.apache.calcite.sql.ddl.SqlDropTable;
 import org.apache.calcite.sql.ddl.SqlKeyConstraint;
 import org.apache.ignite.internal.processors.query.calcite.prepare.IgnitePlanner;
 import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningContext;
+import org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlAlterTableAddColumn;
+import org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlAlterTableDropColumn;
 import org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlCreateTable;
 import org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlCreateTableOption;
 import org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlCreateTableOptionEnum;
+import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.schema.Column;
+import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.schema.builder.TableColumnBuilder;
 
-import static org.apache.calcite.sql.type.SqlTypeName.BOOLEAN;
-import static org.apache.ignite.internal.processors.query.calcite.Stubs.stringFoo;
-import static org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlCreateTableOptionEnum.AFFINITY_KEY;
 import static org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlCreateTableOptionEnum.BACKUPS;
-import static org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlCreateTableOptionEnum.CACHE_GROUP;
-import static org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlCreateTableOptionEnum.CACHE_NAME;
-import static org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlCreateTableOptionEnum.DATA_REGION;
-import static org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlCreateTableOptionEnum.ENCRYPTED;
-import static org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlCreateTableOptionEnum.KEY_TYPE;
-import static org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlCreateTableOptionEnum.TEMPLATE;
-import static org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlCreateTableOptionEnum.VALUE_TYPE;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 /** */
 public class DdlSqlToCommandConverter {
     /** Processor that validates a value is a Sql Identifier. */
-    private static final BiFunction<IgniteSqlCreateTableOption, PlanningContext, String> VALUE_IS_IDENTIFIER_VALIDATOR = (opt, ctx) -> {
-        if (!(opt.value() instanceof SqlIdentifier) || !((SqlIdentifier)opt.value()).isSimple())
-            throwOptionParsingException(opt, "a simple identifier", ctx.query());
+    private static final BiFunction<IgniteSqlCreateTableOption, PlanningContext, String> VALUE_IS_IDENTIFIER_VALIDATOR =
+        (opt, ctx) -> {
+            if (!(opt.value() instanceof SqlIdentifier) || !((SqlIdentifier)opt.value()).isSimple())
+                throwOptionParsingException(opt, "a simple identifier", ctx.query());
 
-        return ((SqlIdentifier)opt.value()).getSimple();
-    };
+            return ((SqlIdentifier)opt.value()).getSimple();
+        };
 
     /** Processor that unconditionally throws an AssertionException. */
     private static final TableOptionProcessor<Void> UNSUPPORTED_OPTION_PROCESSOR = new TableOptionProcessor<>(
@@ -79,32 +75,16 @@ public class DdlSqlToCommandConverter {
 
     /** Map of the supported table option processors. */
     private final Map<IgniteSqlCreateTableOptionEnum, TableOptionProcessor<?>> tblOptionProcessors = Stream.of(
-        new TableOptionProcessor<>(TEMPLATE, VALUE_IS_IDENTIFIER_VALIDATOR, CreateTableCommand::templateName),
-        new TableOptionProcessor<>(AFFINITY_KEY, VALUE_IS_IDENTIFIER_VALIDATOR, CreateTableCommand::affinityKey),
-        new TableOptionProcessor<>(CACHE_GROUP, VALUE_IS_IDENTIFIER_VALIDATOR, CreateTableCommand::cacheGroup),
-        new TableOptionProcessor<>(CACHE_NAME, VALUE_IS_IDENTIFIER_VALIDATOR, CreateTableCommand::cacheName),
-        new TableOptionProcessor<>(DATA_REGION, VALUE_IS_IDENTIFIER_VALIDATOR, CreateTableCommand::dataRegionName),
-        new TableOptionProcessor<>(KEY_TYPE, VALUE_IS_IDENTIFIER_VALIDATOR, CreateTableCommand::keyTypeName),
-        new TableOptionProcessor<>(VALUE_TYPE, VALUE_IS_IDENTIFIER_VALIDATOR, CreateTableCommand::valueTypeName),
-//        new TableOptionProcessor<>(ATOMICITY, validatorForEnumValue(CacheAtomicityMode.class), CreateTableCommand::atomicityMode),
-//        new TableOptionProcessor<>(WRITE_SYNCHRONIZATION_MODE, validatorForEnumValue(CacheWriteSynchronizationMode.class),
-//            CreateTableCommand::writeSynchronizationMode),
         new TableOptionProcessor<>(BACKUPS, (opt, ctx) -> {
-                if (!(opt.value() instanceof SqlNumericLiteral)
-                    || !((SqlNumericLiteral)opt.value()).isInteger()
-                    || ((SqlLiteral)opt.value()).intValue(true) < 0
-                )
-                    throwOptionParsingException(opt, "a non-negative integer", ctx.query());
+            if (!(opt.value() instanceof SqlNumericLiteral)
+                || !((SqlNumericLiteral)opt.value()).isInteger()
+                || ((SqlLiteral)opt.value()).intValue(true) < 0
+            )
+                throwOptionParsingException(opt, "a non-negative integer", ctx.query());
 
-                return ((SqlLiteral)opt.value()).intValue(true);
-            }, CreateTableCommand::backups),
-        new TableOptionProcessor<>(ENCRYPTED, (opt, ctx) -> {
-            if (!(opt.value() instanceof SqlLiteral) && ((SqlLiteral)opt.value()).getTypeName() != BOOLEAN)
-                throwOptionParsingException(opt, "a boolean", ctx.query());
-
-            return ((SqlLiteral)opt.value()).booleanValue();
-        }, CreateTableCommand::encrypted)
-        ).collect(Collectors.toMap(TableOptionProcessor::key, Function.identity()));
+            return ((SqlLiteral)opt.value()).intValue(true);
+        }, CreateTableCommand::backups)
+    ).collect(Collectors.toMap(TableOptionProcessor::key, Function.identity()));
 
     /**
      * Converts a given ddl AST to a ddl command.
@@ -119,9 +99,15 @@ public class DdlSqlToCommandConverter {
         if (ddlNode instanceof SqlDropTable)
             return convertDropTable((SqlDropTable)ddlNode, ctx);
 
+        if (ddlNode instanceof IgniteSqlAlterTableAddColumn)
+            return convertAlterTableAdd((IgniteSqlAlterTableAddColumn)ddlNode, ctx);
+
+        if (ddlNode instanceof IgniteSqlAlterTableDropColumn)
+            return convertAlterTableDrop((IgniteSqlAlterTableDropColumn)ddlNode, ctx);
+
         throw new IgniteException("Unsupported operation [" +
             "sqlNodeKind=" + ddlNode.getKind() + "; " +
-            "querySql=\"" + ctx.query() + "\"]"/*, IgniteQueryErrorCode.UNSUPPORTED_OPERATION*/);
+            "querySql=\"" + ctx.query() + "\"]");
     }
 
     /**
@@ -136,7 +122,6 @@ public class DdlSqlToCommandConverter {
         createTblCmd.schemaName(deriveSchemaName(createTblNode.name(), ctx));
         createTblCmd.tableName(deriveObjectName(createTblNode.name(), ctx, "tableName"));
         createTblCmd.ifNotExists(createTblNode.ifNotExists());
-        createTblCmd.templateName(stringFoo()/*QueryUtils.TEMPLATE_PARTITIONED*/);
 
         if (createTblNode.createOptionList() != null) {
             for (SqlNode optNode : createTblNode.createOptionList().getList()) {
@@ -153,22 +138,32 @@ public class DdlSqlToCommandConverter {
 
         IgnitePlanner planner = ctx.planner();
 
-        List<ColumnDefinition> cols = new ArrayList<>();
+        List<Column> cols = new ArrayList<>(colDeclarations.size());
+
+        IgniteTypeFactory typeFactory = ctx.typeFactory();
 
         for (SqlColumnDeclaration col : colDeclarations) {
             if (!col.name.isSimple())
                 throw new IgniteException("Unexpected value of columnName [" +
                     "expected a simple identifier, but was " + col.name + "; " +
-                    "querySql=\"" + ctx.query() + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
+                    "querySql=\"" + ctx.query() + "\"]");
 
             String name = col.name.getSimple();
-            RelDataType type = planner.convert(col.dataType);
+
+            RelDataType relType = planner.convert(col.dataType);
 
             Object dflt = null;
+
             if (col.expression != null)
                 dflt = ((SqlLiteral)col.expression).getValue();
 
-            cols.add(new ColumnDefinition(name, type, dflt));
+            TableColumnBuilder col0 = SchemaBuilders.column(name, typeFactory.columnType(relType));
+
+            col0.asNullable(relType.isNullable());
+
+            col0.withDefaultValue(dflt);
+
+            cols.add(col0.build());
         }
 
         createTblCmd.columns(cols);
@@ -181,7 +176,7 @@ public class DdlSqlToCommandConverter {
         if (pkConstraints.size() > 1)
             throw new IgniteException("Unexpected amount of primary key constraints [" +
                 "expected at most one, but was " + pkConstraints.size() + "; " +
-                "querySql=\"" + ctx.query() + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
+                "querySql=\"" + ctx.query() + "\"]");
 
         if (!nullOrEmpty(pkConstraints)) {
             Set<String> dedupSet = new HashSet<>();
@@ -217,49 +212,67 @@ public class DdlSqlToCommandConverter {
         return dropTblCmd;
     }
 
-    /** Derives a schema name from the compound identifier. */
-    private String deriveSchemaName(SqlIdentifier id, PlanningContext ctx) {
-        String schemaName;
-        if (id.isSimple())
-            schemaName = ctx.schemaName();
-        else {
-            SqlIdentifier schemaId = id.skipLast(1);
+    /**
+     * Converts a given IgniteSqlAlterTableAddColumn AST to a AlterTableAddCommand.
+     *
+     * @param alterTblNode Root node of the given AST.
+     * @param ctx Planning context.
+     */
+    private AlterTableAddCommand convertAlterTableAdd(IgniteSqlAlterTableAddColumn alterTblNode, PlanningContext ctx) {
+        AlterTableAddCommand alterTblCmd = new AlterTableAddCommand();
 
-            if (!schemaId.isSimple()) {
-                throw new IgniteException("Unexpected value of schemaName [" +
-                    "expected a simple identifier, but was " + schemaId + "; " +
-                    "querySql=\"" + ctx.query() + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
-            }
+        alterTblCmd.schemaName(deriveSchemaName(alterTblNode.name(), ctx));
+        alterTblCmd.tableName(deriveObjectName(alterTblNode.name(), ctx, "table name"));
+        alterTblCmd.ifTableExists(alterTblNode.ifExists());
+        alterTblCmd.ifColumnNotExists(alterTblNode.ifNotExistsColumn());
 
-            schemaName = schemaId.getSimple();
+        IgniteTypeFactory typeFactory = ctx.typeFactory();
+
+        List<Column> cols = new ArrayList<>(alterTblNode.columns().size());
+
+        for (SqlNode colNode : alterTblNode.columns()) {
+            assert colNode instanceof SqlColumnDeclaration : colNode.getClass();
+
+            SqlColumnDeclaration col = (SqlColumnDeclaration)colNode;
+
+            assert col.name.isSimple();
+            assert col.expression == null : "Unexpected column default value" + col.expression;
+
+            String name = col.name.getSimple();
+            RelDataType type = ctx.planner().convert(col.dataType);
+
+            TableColumnBuilder col0 = SchemaBuilders.column(name, typeFactory.columnType(type));
+
+            col0.asNullable(type.isNullable());
+
+            cols.add(col0.build());
         }
 
-        ensureSchemaExists(ctx, schemaName);
+        alterTblCmd.columns(cols);
 
-        return schemaName;
+        return alterTblCmd;
     }
 
-    /** Derives an object(a table, an index, etc) name from the compound identifier. */
-    private String deriveObjectName(SqlIdentifier id, PlanningContext ctx, String objDesc) {
-        if (id.isSimple())
-            return id.getSimple();
+    /**
+     * Converts a given IgniteSqlAlterTableDropColumn AST to a AlterTableDropCommand.
+     *
+     * @param alterTblNode Root node of the given AST.
+     * @param ctx Planning context.
+     */
+    private AlterTableDropCommand convertAlterTableDrop(IgniteSqlAlterTableDropColumn alterTblNode, PlanningContext ctx) {
+        AlterTableDropCommand alterTblCmd = new AlterTableDropCommand();
 
-        SqlIdentifier objId = id.getComponent(id.skipLast(1).names.size());
+        alterTblCmd.schemaName(deriveSchemaName(alterTblNode.name(), ctx));
+        alterTblCmd.tableName(deriveObjectName(alterTblNode.name(), ctx, "table name"));
+        alterTblCmd.ifTableExists(alterTblNode.ifExists());
+        alterTblCmd.ifColumnExists(alterTblNode.ifExistsColumn());
 
-        if (!objId.isSimple()) {
-            throw new IgniteException("Unexpected value of " + objDesc + " [" +
-                "expected a simple identifier, but was " + objId + "; " +
-                "querySql=\"" + ctx.query() + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
-        }
+        List<String> cols = new ArrayList<>(alterTblNode.columns().size());
+        alterTblNode.columns().forEach(c -> cols.add(((SqlIdentifier)c).getSimple()));
 
-        return objId.getSimple();
-    }
+        alterTblCmd.columns(cols);
 
-    /** */
-    private void ensureSchemaExists(PlanningContext ctx, String schemaName) {
-        if (ctx.catalogReader().getRootSchema().getSubSchema(schemaName, true) == null)
-            throw new IgniteException("Schema with name " + schemaName + " not found"/*,
-                IgniteQueryErrorCode.SCHEMA_NOT_FOUND*/);
+        return alterTblCmd;
     }
 
     /**
@@ -274,7 +287,7 @@ public class DdlSqlToCommandConverter {
 
         return ((SqlIdentifier)opt.value()).getSimple();
     }
-    
+
     /**
      * Creates a validator for an option which value should be value of given enumeration.
      *
@@ -311,10 +324,12 @@ public class DdlSqlToCommandConverter {
     private static void throwOptionParsingException(IgniteSqlCreateTableOption opt, String exp, String qry) {
         throw new IgniteException("Unexpected value for param " + opt.key() + " [" +
             "expected " + exp + ", but was " + opt.value() + "; " +
-            "querySql=\"" + qry + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
+            "querySql=\"" + qry + "\"]");
     }
 
-    /** */
+    /**
+     *
+     */
     private static class TableOptionProcessor<T> {
         /** */
         private final IgniteSqlCreateTableOptionEnum key;
@@ -328,10 +343,10 @@ public class DdlSqlToCommandConverter {
         /**
          * @param key Option key this processor is supopsed to handle.
          * @param validator Validator that derives a value from a {@link SqlNode},
-         *                 validates it and then returns if validation passed,
-         *                 throws an exeption otherwise.
+         *                  validates it and then returns if validation passed,
+         *                  throws an exeption otherwise.
          * @param valSetter Setter sets the value recived from the validator
-         *                 to the given {@link CreateTableCommand}.
+         *                  to the given {@link CreateTableCommand}.
          */
         private TableOptionProcessor(
             IgniteSqlCreateTableOptionEnum key,
@@ -363,5 +378,53 @@ public class DdlSqlToCommandConverter {
         private IgniteSqlCreateTableOptionEnum key() {
             return key;
         }
+    }
+
+    /**
+     * Derives a schema name from the compound identifier.
+     */
+    private static String deriveSchemaName(SqlIdentifier id, PlanningContext ctx) {
+        String schemaName;
+        if (id.isSimple())
+            schemaName = ctx.schemaName();
+        else {
+            SqlIdentifier schemaId = id.skipLast(1);
+
+            if (!schemaId.isSimple()) {
+                throw new IgniteException("Unexpected value of schemaName [" +
+                    "expected a simple identifier, but was " + schemaId + "; " +
+                    "querySql=\"" + ctx.query() + "\"]");
+            }
+
+            schemaName = schemaId.getSimple();
+        }
+
+        ensureSchemaExists(ctx, schemaName);
+
+        return schemaName;
+    }
+
+    /**
+     * Derives an object(a table, an index, etc) name from the compound identifier.
+     */
+    private static String deriveObjectName(SqlIdentifier id, PlanningContext ctx, String objDesc) {
+        if (id.isSimple())
+            return id.getSimple();
+
+        SqlIdentifier objId = id.getComponent(id.skipLast(1).names.size());
+
+        if (!objId.isSimple()) {
+            throw new IgniteException("Unexpected value of " + objDesc + " [" +
+                "expected a simple identifier, but was " + objId + "; " +
+                "querySql=\"" + ctx.query() + "\"]");
+        }
+
+        return objId.getSimple();
+    }
+
+    /** */
+    private static void ensureSchemaExists(PlanningContext ctx, String schemaName) {
+        if (ctx.catalogReader().getRootSchema().getSubSchema(schemaName, true) == null)
+            throw new IgniteException("Schema with name " + schemaName + " not found");
     }
 }

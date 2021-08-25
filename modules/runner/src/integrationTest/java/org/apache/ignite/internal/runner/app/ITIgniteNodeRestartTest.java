@@ -160,8 +160,8 @@ public class ITIgniteNodeRestartTest extends IgniteAbstractTest {
             "}", workDir.resolve(NODE_NAME));
 
         SchemaTable scmTbl1 = SchemaBuilders.tableBuilder("PUBLIC", TABLE_NAME).columns(
-            SchemaBuilders.column("id", ColumnType.INT32).asNonNull().build(),
-            SchemaBuilders.column("name", ColumnType.string()).asNullable().build()
+            SchemaBuilders.column("id", ColumnType.INT32).build(),
+            SchemaBuilders.column("name", ColumnType.string()).asNullable(true).build()
         ).withIndex(
             SchemaBuilders.pkIndex()
                 .addIndexColumn("id").done()

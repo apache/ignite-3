@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.builder;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -67,9 +68,14 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
 
     /** {@inheritDoc} */
     @Override public SchemaTableBuilderImpl columns(Column... columns) {
-        for (int i = 0; i < columns.length; i++) {
-            if (this.columns.put(columns[i].name(), columns[i]) != null)
-                throw new IllegalArgumentException("Column with same name already exists: columnName=" + columns[i].name());
+        return columns(Arrays.asList(columns));
+    }
+
+    /** {@inheritDoc} */
+    @Override public SchemaTableBuilderImpl columns(Iterable<Column> columns) {
+        for (Column col : columns) {
+            if (this.columns.put(col.name(), col) != null)
+                throw new IllegalArgumentException("Column with same name already exists: columnName=" + col.name());
         }
 
         return this;

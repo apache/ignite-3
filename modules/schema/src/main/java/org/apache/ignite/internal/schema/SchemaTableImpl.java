@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.modification.TableModificationBuilderImpl;
@@ -32,6 +33,7 @@ import org.apache.ignite.schema.PrimaryIndex;
 import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.schema.TableIndex;
 import org.apache.ignite.schema.modification.TableModificationBuilder;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Table.
@@ -73,7 +75,7 @@ public class SchemaTableImpl extends AbstractSchemaObject implements SchemaTable
         super(tableName);
 
         this.schemaName = schemaName;
-        this.cols = cols;
+        this.cols = Objects.requireNonNull(cols);
         this.indices = indices;
 
         final PrimaryIndex pkIndex = (PrimaryIndex)indices.get(PrimaryIndex.PRIMARY_KEY_INDEX_NAME);
@@ -104,7 +106,7 @@ public class SchemaTableImpl extends AbstractSchemaObject implements SchemaTable
 
     /** {@inheritDoc} */
     @Override public String canonicalName() {
-        return schemaName + '.' + name();
+        return canonicalName(schemaName, name());
     }
 
     /** {@inheritDoc} */
@@ -136,5 +138,10 @@ public class SchemaTableImpl extends AbstractSchemaObject implements SchemaTable
     /** {@inheritDoc} */
     @Override public String toString() {
         return S.toString(SchemaTableImpl.class, this);
+    }
+
+    /** @return Table with schema canonical name. */
+    public static String canonicalName(@NotNull String schema, @NotNull String name) {
+        return schema + '.' + name;
     }
 }

@@ -19,6 +19,7 @@ package org.apache.ignite.schema;
 
 import java.util.Collection;
 import org.apache.ignite.schema.modification.TableModificationBuilder;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Schema table descriptor.
@@ -75,4 +76,9 @@ public interface SchemaTable extends SchemaNamedObject {
      * @return Table modification builder.
      */
     TableModificationBuilder toBuilder();
+
+    /** @return Table with schema canonical name. */
+    static String canonicalName(@NotNull String schema, @NotNull String name) {
+        return schema + '.' + name;
+    }
 }

@@ -256,8 +256,8 @@ public class TableManagerTest {
         CompletableFuture<TableManager> tblManagerFut = new CompletableFuture<>();
 
         SchemaTable scmTbl = SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_NAME).columns(
-            SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
-            SchemaBuilders.column("val", ColumnType.INT64).asNullable().build()
+            SchemaBuilders.column("key", ColumnType.INT64).build(),
+            SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
         ).withPrimaryKey("key").build();
 
         Table table = mockManagersAndCreateTable(scmTbl, tblManagerFut);
@@ -275,8 +275,8 @@ public class TableManagerTest {
         CompletableFuture<TableManager> tblManagerFut = new CompletableFuture<>();
 
         SchemaTable scmTbl = SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_FOR_DROP_NAME).columns(
-            SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
-            SchemaBuilders.column("val", ColumnType.INT64).asNullable().build()
+            SchemaBuilders.column("key", ColumnType.INT64).build(),
+            SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
         ).withPrimaryKey("key").build();
 
         TableImpl table = mockManagersAndCreateTable(scmTbl, tblManagerFut);
@@ -327,8 +327,8 @@ public class TableManagerTest {
         CompletableFuture<TableManager> tblManagerFut = new CompletableFuture<>();
 
         SchemaTable scmTbl = SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_FOR_DROP_NAME).columns(
-            SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
-            SchemaBuilders.column("val", ColumnType.INT64).asNullable().build()
+            SchemaBuilders.column("key", ColumnType.INT64).build(),
+            SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
         ).withPrimaryKey("key").build();
 
         Phaser phaser = new Phaser(2);
@@ -369,8 +369,8 @@ public class TableManagerTest {
 
         SchemaTable scmTbl = SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_NAME)
             .columns(
-                SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
-                SchemaBuilders.column("val", ColumnType.INT64).asNullable().build())
+                SchemaBuilders.column("key", ColumnType.INT64).build(),
+                SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build())
             .withPrimaryKey("key")
             .build();
 

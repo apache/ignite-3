@@ -503,16 +503,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             final CompletableFuture<SchemaEventParameters> schemaReadyFut = new CompletableFuture<>();
 
-            CompletableFuture.allOf(schemaReadyFut)
+            schemaReadyFut
                 .exceptionally(e -> {
                     LOG.error("Failed to upgrade schema for a table [name=" + tblName + ", id=" + tblId + ']', e);
 
-                    onEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblName, tbl), e);
+                    onEvent(TableEvent.ALTER, new TableEventParameters(tbl), e);
 
                     return null;
                 })
                 .thenRun(() ->
-                    onEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblName, tbl), null)
+                    onEvent(TableEvent.ALTER, new TableEventParameters(tbl), null)
                 );
 
             schemaMgr.listen(SchemaEvent.CHANGED, new EventListener<>() {
@@ -608,7 +608,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         .get();
                 }
                 catch (InterruptedException | ExecutionException e) {
-                    LOG.error("Table wasn't created [name=" + name + ']', e);
+                    LOG.error(LoggerMessageHelper.format("Table wasn't created [name={}]", name), e);
 
                     removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(e));
                 }
@@ -653,7 +653,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 change.createOrUpdate(name, tableChange)).get();
         }
         catch (InterruptedException | ExecutionException e) {
-            LOG.error("Table wasn't created [name=" + name + ']', e);
+            LOG.error(LoggerMessageHelper.format("Table wasn't altered [name={}]", name), e);
 
             tblFut.completeExceptionally(e);
         }

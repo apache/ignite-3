@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,26 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.query.calcite.prepare.ddl;
+package org.apache.ignite.sql;
+
+import java.util.List;
+import org.apache.ignite.internal.util.Cursor;
 
 /**
- * DROP TABLE statement.
+ * Interface that provides methods for sql queries.
  */
-public class DropTableCommand extends AbstractAlterTableCommand {
-    /** Quietly ignore this command if table does not exist. */
-    private boolean ifExists;
-
-    /**
-     * @return Quietly ignore this command if table does not exist.
+public interface IgniteSql {
+    /** Starting point of sql operations.
+     *
+     * @param schemaName Schema.
+     * @param qry Query representation.
+     * @param params Additional params.
+     *
+     * @return Cursors with appropriate result sets.
      */
-    public boolean ifExists() {
-        return ifExists;
-    }
-
-    /**
-     * @param ifExists Quietly ignore this command if table does not exist.
-     */
-    public void ifExists(boolean ifExists) {
-        this.ifExists = ifExists;
-    }
+    List<Cursor<List<?>>> query(String schemaName, String qry, Object... params);
 }

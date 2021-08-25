@@ -154,7 +154,7 @@ public class RuntimeTreeIndex<Row> implements RuntimeIndex<Row>, TreeIndex<Row> 
         }
 
         /** {@inheritDoc} */
-        @Override public void close() throws Exception {
+        @Override public void close() {
         }
 
         /** {@inheritDoc} */

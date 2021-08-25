@@ -411,9 +411,9 @@ public class MetaStorageManager implements IgniteComponent {
      * @see MetaStorageService#invoke(Condition, Collection, Collection)
      */
     public @NotNull CompletableFuture<Boolean> invoke(
-            @NotNull Condition cond,
-            @NotNull Collection<Operation> success,
-            @NotNull Collection<Operation> failure
+        @NotNull Condition cond,
+        @NotNull Collection<Operation> success,
+        @NotNull Collection<Operation> failure
     ) {
         return metaStorageSvcFut.thenCompose(svc -> svc.invoke(cond, success, failure));
     }

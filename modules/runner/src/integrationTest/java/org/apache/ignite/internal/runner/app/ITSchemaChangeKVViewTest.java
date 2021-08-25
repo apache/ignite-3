@@ -102,7 +102,8 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             );
         }
 
-        addColumn(grid, SchemaBuilders.column("valStrNew", ColumnType.string()).asNullable().withDefaultValue("default").build());
+        addColumn(grid, SchemaBuilders.column("valStrNew", ColumnType.string()).asNullable(true).withDefaultValue("default").build());
+        addColumn(grid, SchemaBuilders.column("valStrNew", ColumnType.string()).asNullable(true).withDefaultValue("default").build());
 
         {
             // Check old row conversion.
@@ -182,7 +183,8 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        final Column column = SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValue("default").build();
+        final Column column = SchemaBuilders.column("val", ColumnType.string())
+            .asNullable(true).withDefaultValue("default").build();
 
         KeyValueBinaryView kvView = grid.get(1).tables().table(TABLE).kvView();
 
@@ -220,7 +222,8 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             );
         }
 
-        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValue("default").build());
+        addColumn(grid, SchemaBuilders.column("val", ColumnType.string())
+            .asNullable(true).withDefaultValue("default").build());
 
         {
             kvView.put(Tuple.create().set("key", 5L), Tuple.create().set("valInt", 555));
