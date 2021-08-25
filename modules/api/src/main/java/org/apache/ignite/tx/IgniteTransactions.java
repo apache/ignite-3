@@ -25,11 +25,10 @@ import java.util.function.Consumer;
  */
 public interface IgniteTransactions {
     /**
-     * Begins a transaction.
-     *
-     * @return The new transaction.
+     * @param timeout The timeout.
+     * @return A facade with changed timeout.
      */
-    Transaction begin();
+    IgniteTransactions withTimeout(long timeout);
 
     /**
      * Begins a transaction.

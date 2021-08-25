@@ -23,6 +23,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionException;
 
 /** */
 public class IgniteTransactionsImpl implements IgniteTransactions {
@@ -37,8 +38,8 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
     }
 
     /** {@inheritDoc} */
-    @Override public Transaction begin() {
-        return txManager.begin();
+    @Override public IgniteTransactions withTimeout(long timeout) {
+        return null;
     }
 
     /** {@inheritDoc} */
@@ -47,7 +48,7 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
     }
 
     /** {@inheritDoc} */
-    @Override public void runInTransaction(Consumer<Transaction> clo) {
+    @Override public void runInTransaction(Consumer<Transaction> clo) throws TransactionException {
         InternalTransaction tx = txManager.begin();
 
         clo.accept(tx);

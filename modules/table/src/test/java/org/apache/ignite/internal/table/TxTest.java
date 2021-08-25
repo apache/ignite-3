@@ -224,17 +224,16 @@ public class TxTest extends IgniteAbstractTest {
 
     /** */
     @Test
-    public void testSimpleConflict() throws TransactionException {
+    public void testSimpleConflict() throws Exception {
         accounts.upsert(makeValue(1, 100.));
 
-        Transaction tx = igniteTransactions.begin();
-        Transaction tx2 = igniteTransactions.begin();
+        Transaction tx = igniteTransactions.beginAsync().get();
+        Transaction tx2 = igniteTransactions.beginAsync().get();
 
         Table table = accounts.withTransaction(tx);
         Table table2 = accounts.withTransaction(tx2);
 
         double val = table.get(makeKey(1)).doubleValue("balance");
-
         double val2 = table2.get(makeKey(1)).doubleValue("balance");
 
         try {
