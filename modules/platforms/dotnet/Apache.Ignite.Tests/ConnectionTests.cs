@@ -27,10 +27,23 @@ namespace Apache.Ignite.Tests
 
     public class ConnectionTests
     {
+        private IDisposable? _serverNode;
+
+        [OneTimeSetUp]
+        public void OneTimeSetUp()
+        {
+            _serverNode = JavaServer.Start();
+        }
+
+        [OneTimeSetUp]
+        public void OneTimeTearDown()
+        {
+            _serverNode?.Dispose();
+        }
+
         [Test]
         public async Task TestHandshake()
         {
-            // TODO: Requires started node - automate this.
             Socket socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
             socket.NoDelay = true;
 

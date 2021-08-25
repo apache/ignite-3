@@ -22,6 +22,8 @@ namespace Apache.Ignite.Tests
     using System.IO;
     using System.Linq;
     using System.Runtime.InteropServices;
+    using System.Threading;
+    using NUnit.Framework;
 
     /// <summary>
     /// Starts Java server nodes.
@@ -30,7 +32,7 @@ namespace Apache.Ignite.Tests
     {
         /** Maven command to execute the main class. */
         private const string MavenCommandExec =
-            "mvn -Dtest=ITThinClientConnectionTest -DfailIfNoTests=false -DIGNITE_TEST_KEEP_NODES_RUNNING=true " +
+            "-Dtest=ITThinClientConnectionTest -DfailIfNoTests=false -DIGNITE_TEST_KEEP_NODES_RUNNING=true " +
             "surefire:test";
 
         /** Full path to Maven binary. */
@@ -44,20 +46,61 @@ namespace Apache.Ignite.Tests
         {
             var file = TestUtils.IsWindows ? "cmd.exe" : "/bin/bash";
 
-            var serverProc = Process.Start(new ProcessStartInfo
+            var process = new Process
             {
-                FileName = file,
-                ArgumentList =
+                StartInfo = new ProcessStartInfo
                 {
-                    TestUtils.IsWindows ? "/c" : "-c",
-                    $"{MavenPath} {MavenCommandExec}"
-                },
-                CreateNoWindow = true,
-                UseShellExecute = false,
-                WorkingDirectory = TestUtils.RepoRootDir
-            });
+                    FileName = file,
+                    ArgumentList =
+                    {
+                        TestUtils.IsWindows ? "/c" : "-c",
+                        $"{MavenPath} {MavenCommandExec}"
+                    },
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    WorkingDirectory = TestUtils.RepoRootDir,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                }
+            };
 
-            return new DisposeAction(() => serverProc?.Kill(true));
+            var evt = new ManualResetEventSlim(false);
+
+            DataReceivedEventHandler handler = (_, eventArgs) =>
+            {
+                if (eventArgs.Data == null)
+                {
+                    return;
+                }
+
+                // For IDE
+                Console.WriteLine(eventArgs.Data);
+
+                // For `dotnet test`
+                TestContext.Progress.WriteLine(eventArgs.Data);
+
+                if (eventArgs.Data.Contains("ITThinClientConnectionTest", StringComparison.Ordinal))
+                {
+                    evt.Set();
+                }
+            };
+
+            process.OutputDataReceived += handler;
+            process.ErrorDataReceived += handler;
+
+            process.Start();
+
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+
+            if (!evt.Wait(TimeSpan.FromSeconds(15)))
+            {
+                process.Kill(true);
+
+                throw new InvalidOperationException("Failed to wait for the process to start.");
+            }
+
+            return new DisposeAction(() => process.Kill(true));
         }
 
         /// <summary>
