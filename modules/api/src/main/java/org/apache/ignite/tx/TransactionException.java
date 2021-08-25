@@ -21,10 +21,16 @@ import org.apache.ignite.lang.IgniteException;
 
 /** */
 public class TransactionException extends IgniteException {
+    /**
+     * @param message The message.
+     */
     public TransactionException(String message) {
         super(message);
     }
 
+    /**
+     * @param cause The cause.
+     */
     public TransactionException(Throwable cause) {
         super(cause);
     }

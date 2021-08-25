@@ -413,10 +413,11 @@ public class TxTest extends IgniteAbstractTest {
         log.info("3 balance={}", table.get(makeKey(1)).doubleValue("balance"));
     }
 
+    /** */
     @Test
     @Disabled
     public void testBalance() throws InterruptedException {
-        doTestSingleKeyMultithreaded(10_000);
+        doTestSingleKeyMultithreaded(3_000);
     }
 
     /**
@@ -536,7 +537,6 @@ public class TxTest extends IgniteAbstractTest {
         }
 
         assertEquals(total, total0, "Total invariant is not preserved");
-        //assertTrue(lockManager.queue(key).isEmpty());
     }
 
     /**
