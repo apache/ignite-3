@@ -48,7 +48,7 @@ public interface Tuple extends Iterable<Object> {
      * @return Tuple.
      */
     static Tuple create(int capacity) {
-        return new TupleImpl();
+        return new TupleImpl(capacity);
     }
 
     /**
