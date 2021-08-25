@@ -30,9 +30,9 @@ namespace Apache.Ignite.Tests
         private IDisposable? _serverNode;
 
         [OneTimeSetUp]
-        public void OneTimeSetUp()
+        public async Task OneTimeSetUp()
         {
-            _serverNode = JavaServer.Start();
+            _serverNode = await JavaServer.Start();
         }
 
         [OneTimeTearDown]

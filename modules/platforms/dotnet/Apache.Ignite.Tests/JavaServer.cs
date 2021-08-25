@@ -47,10 +47,11 @@ namespace Apache.Ignite.Tests
         /// Starts a server node.
         /// </summary>
         /// <returns>Disposable object to stop the server.</returns>
-        public static IDisposable? Start()
+        public static async Task<IDisposable?> Start()
         {
-            if (ServerExists())
+            if (await TryConnect(CancellationToken.None))
             {
+                // Server started from outside.
                 return null;
             }
 
@@ -96,7 +97,7 @@ namespace Apache.Ignite.Tests
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
 
-            if (!ServerExists())
+            if (!WaitForServer())
             {
                 process.Kill(true);
 
@@ -106,13 +107,13 @@ namespace Apache.Ignite.Tests
             return new DisposeAction(() => process.Kill(true));
         }
 
-        private static bool ServerExists()
+        private static bool WaitForServer()
         {
             var cts = new CancellationTokenSource();
 
             try
             {
-                return CheckThinClientPort(cts.Token).Wait(TimeSpan.FromSeconds(15));
+                return TryConnectForever(cts.Token).Wait(TimeSpan.FromSeconds(15));
             }
             finally
             {
@@ -120,30 +121,30 @@ namespace Apache.Ignite.Tests
             }
         }
 
-        private static async Task CheckThinClientPort(CancellationToken ct)
+        private static async Task TryConnectForever(CancellationToken ct)
         {
-            Socket socket = new(SocketType.Stream, ProtocolType.Tcp)
+            while (!await TryConnect(ct))
             {
-                NoDelay = true
-            };
+                ct.ThrowIfCancellationRequested();
+            }
+        }
 
-            using (socket)
+        private static async Task<bool> TryConnect(CancellationToken ct)
+        {
+            try
             {
-                while (true)
+                using Socket socket = new(SocketType.Stream, ProtocolType.Tcp)
                 {
-                    ct.ThrowIfCancellationRequested();
+                    NoDelay = true
+                };
 
-                    try
-                    {
-                        await socket.ConnectAsync(IPAddress.Loopback, ClientPort, ct);
+                await socket.ConnectAsync(IPAddress.Loopback, ClientPort, ct);
 
-                        return;
-                    }
-                    catch
-                    {
-                        // No-op.
-                    }
-                }
+                return true;
+            }
+            catch
+            {
+                return false;
             }
         }
 
