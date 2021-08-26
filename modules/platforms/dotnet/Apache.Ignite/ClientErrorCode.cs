@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Proto
+namespace Apache.Ignite
 {
     /// <summary>
     /// Client error codes.
     /// </summary>
-    internal enum ClientErrorCode
+    public enum ClientErrorCode
     {
         /// <summary>
         /// Operation succeeded (no error).
