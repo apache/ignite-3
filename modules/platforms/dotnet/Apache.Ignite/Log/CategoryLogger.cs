@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Log
 {
     using System;
+    using Internal.Common;
 
     /// <summary>
     /// Wrapping logger with a predefined category.
@@ -40,11 +41,10 @@ namespace Apache.Ignite.Log
         /// <param name="category">The category.</param>
         public CategoryLogger(IIgniteLogger logger, string category)
         {
-            IgniteArgumentCheck.NotNull(logger, "log");
+            IgniteArgumentCheck.NotNull(logger);
 
             // If logger is already a CategoryLogger, get underlying logger instead to avoid unnecessary nesting.
-            var catLogger = logger as CategoryLogger;
-            _logger = catLogger != null ? catLogger._logger : logger;
+            _logger = logger is CategoryLogger catLogger ? catLogger._logger : logger;
 
             _category = category;
         }
@@ -60,8 +60,14 @@ namespace Apache.Ignite.Log
         /// <param name="category">The logging category name.</param>
         /// <param name="nativeErrorInfo">The native error information.</param>
         /// <param name="ex">The exception. Can be null.</param>
-        public void Log(LogLevel level, string message, object[] args, IFormatProvider formatProvider, string category,
-            string nativeErrorInfo, Exception ex)
+        public void Log(
+            LogLevel level,
+            string message,
+            object[] args,
+            IFormatProvider? formatProvider,
+            string? category,
+            string? nativeErrorInfo,
+            Exception? ex)
         {
             _logger.Log(level, message, args, formatProvider, category ?? _category, nativeErrorInfo, ex);
         }
@@ -71,7 +77,7 @@ namespace Apache.Ignite.Log
         /// </summary>
         /// <param name="level">The level.</param>
         /// <returns>
-        /// Value indicating whether the specified log level is enabled
+        /// Value indicating whether the specified log level is enabled.
         /// </returns>
         public bool IsEnabled(LogLevel level)
         {

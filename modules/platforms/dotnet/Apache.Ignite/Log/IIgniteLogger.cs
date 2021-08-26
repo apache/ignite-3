@@ -42,10 +42,10 @@ namespace Apache.Ignite.Log
             LogLevel level,
             string message,
             object[] args,
-            IFormatProvider formatProvider,
-            string category,
-            string nativeErrorInfo,
-            Exception ex);
+            IFormatProvider? formatProvider,
+            string? category,
+            string? nativeErrorInfo,
+            Exception? ex);
 
         /// <summary>
         /// Determines whether the specified log level is enabled.
