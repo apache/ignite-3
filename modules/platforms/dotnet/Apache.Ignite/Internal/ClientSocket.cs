@@ -143,7 +143,7 @@ namespace Apache.Ignite.Internal
             {
                 var writer = new MessagePackWriter(bufferWriter);
                 messageWriter(writer);
-                writer.Flush(); // TODO: This includes more buffering - why?
+                writer.Flush();
 
                 return bufferWriter;
             }
