@@ -109,7 +109,7 @@ public abstract class AbstractClientTest {
                 local -> local.changePort(port).changePortRange(portRange)
         ).join();
 
-        var module = new ClientHandlerModule(ignite.tables(), cfg);
+        var module = new ClientHandlerModule(((FakeIgnite)ignite).queryEngine(), ignite.tables(), cfg);
         module.start();
 
         return new IgniteBiTuple<>(module, cfg);
