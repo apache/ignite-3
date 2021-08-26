@@ -51,8 +51,13 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
     @Override public void runInTransaction(Consumer<Transaction> clo) throws TransactionException {
         InternalTransaction tx = txManager.begin();
 
-        clo.accept(tx);
+        try {
+            clo.accept(tx);
 
-        tx.commit();
+            tx.commit();
+        }
+        catch (Throwable t) {
+            tx.rollback();
+        }
     }
 }

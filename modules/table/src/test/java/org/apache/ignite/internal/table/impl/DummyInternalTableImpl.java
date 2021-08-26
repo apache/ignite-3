@@ -76,6 +76,7 @@ public class DummyInternalTableImpl implements InternalTable {
         else {
             InternalTransaction tx0 = txManager.begin();
 
+            // TODO asch lock doesn't look necessary for single key read.
             return txManager.readLock(new ByteArray(extractAndWrapKey(row)), tx0).
                 thenApply(ignore -> store.get(row, tx0)).
                 thenCompose(r -> tx0.commitAsync().thenApply(ignored -> r));

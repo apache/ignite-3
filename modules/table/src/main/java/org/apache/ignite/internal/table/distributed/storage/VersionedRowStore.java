@@ -56,9 +56,6 @@ public class VersionedRowStore {
 
         Pair<BinaryRow, BinaryRow> result = result(val, tx);
 
-        if (result.getFirst() == null)
-            System.out.println();
-
         return result.getFirst();
     }
 

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
@@ -60,11 +61,13 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
@@ -133,15 +136,15 @@ public class TxTest extends IgniteAbstractTest {
     }
 
     /**
-     * Tests a synchronous transaction.
+     * Tests a transaction closure.
      */
     @Test
-    public void testTxSync() throws TransactionException {
+    public void testTxClosure() throws TransactionException {
         accounts.upsert(makeValue(1, BALANCE_1));
         accounts.upsert(makeValue(2, BALANCE_2));
 
         igniteTransactions.runInTransaction(tx -> {
-            Table txAcc = accounts.withTransaction(tx);
+            Table txAcc = accounts.withTransaction(tx); // TODO asch Disallow implicit tx.
 
             CompletableFuture<Tuple> read1 = txAcc.getAsync(makeKey(1));
             CompletableFuture<Tuple> read2 = txAcc.getAsync(makeKey(2));
@@ -155,10 +158,10 @@ public class TxTest extends IgniteAbstractTest {
     }
 
     /**
-     * Tests a synchronous transaction over key-value view.
+     * Tests a transaction closure over key-value view.
      */
     @Test
-    public void testTxSyncKeyValueView() throws TransactionException {
+    public void testTxClosureKeyValueView() throws TransactionException {
         accounts.upsert(makeValue(1, BALANCE_1));
         accounts.upsert(makeValue(2, BALANCE_2));
 
@@ -361,7 +364,7 @@ public class TxTest extends IgniteAbstractTest {
             fail();
         }
         catch (Exception e) { // TODO asch fix exception model.
-            assertTrue(IgniteTestUtils.hasCause(e, LockException.class, null));
+            assertTrue(hasCause(e, LockException.class, null));
         }
 
         // Write in tx2
@@ -411,7 +414,7 @@ public class TxTest extends IgniteAbstractTest {
             fut2.join();
         }
         catch (Exception e) {
-            assertTrue(IgniteTestUtils.hasCause(e, LockException.class, null));
+            assertTrue(hasCause(e, LockException.class, null));
         }
 
         assertEquals(101., accounts.get(key).doubleValue("balance"));
@@ -450,23 +453,79 @@ public class TxTest extends IgniteAbstractTest {
         log.info("3 balance={}", table.get(makeKey(1)).doubleValue("balance"));
     }
 
+    @Test
+    public void testReorder() throws Exception {
+        accounts.upsert(makeValue(1, 100.));
+
+        InternalTransaction tx = txManager.begin();
+        InternalTransaction tx2 = txManager.begin();
+        InternalTransaction tx3 = txManager.begin();
+
+        Table table = accounts.withTransaction(tx);
+        Table table2 = accounts.withTransaction(tx2);
+        Table table3 = accounts.withTransaction(tx3);
+
+        double v0 = table.get(makeKey(1)).doubleValue("balance");
+        double v1 = table3.get(makeKey(1)).doubleValue("balance");
+
+        assertEquals(v0, v1);
+
+        CompletableFuture<Void> fut = table3.upsertAsync(makeValue(1, v0 + 10));
+        assertFalse(fut.isDone());
+
+        table.upsert(makeValue(1, v0 + 20));
+
+        CompletableFuture<Tuple> fut2 = table2.getAsync(makeKey(1));
+        assertFalse(fut2.isDone());
+
+        tx.commit();
+
+        fut2.get();
+
+        tx2.rollback();
+
+        assertTrue(hasCause(assertThrows(ExecutionException.class, () -> fut.get()), LockException.class, null),
+            "Wrong exception type, expecting LockException");
+    }
+
+    @Test
+    public void testReorder2() throws Exception {
+        accounts.upsert(makeValue(1, 100.));
+
+        InternalTransaction tx = txManager.begin();
+        InternalTransaction tx2 = txManager.begin();
+        InternalTransaction tx3 = txManager.begin();
+
+        Table table = accounts.withTransaction(tx);
+        Table table2 = accounts.withTransaction(tx2);
+        Table table3 = accounts.withTransaction(tx3);
+
+        double v0 = table.get(makeKey(1)).doubleValue("balance");
+
+        table.upsertAsync(makeValue(1, v0 + 10));
+
+        CompletableFuture<Tuple> fut = table2.getAsync(makeKey(1));
+        assertFalse(fut.isDone());
+
+        CompletableFuture<Tuple> fut2 = table3.getAsync(makeKey(1));
+        assertFalse(fut2.isDone());
+    }
+
     /** */
     @Test
-    @Disabled
     public void testBalance() throws InterruptedException {
-        doTestSingleKeyMultithreaded(3_000);
+        doTestSingleKeyMultithreaded(5_000, false);
     }
 
     /**
      * @param duration The duration.
+     * @param verbose Verbose mode.
      * @throws InterruptedException If interrupted while waiting.
      */
-    private void doTestSingleKeyMultithreaded(long duration) throws InterruptedException {
-        int threadsCnt = 3; // Runtime.getRuntime().availableProcessors() * 2;
+    private void doTestSingleKeyMultithreaded(long duration, boolean verbose) throws InterruptedException {
+        int threadsCnt = Runtime.getRuntime().availableProcessors() * 2;
 
         Thread[] threads = new Thread[threadsCnt];
-
-        CyclicBarrier startBar = new CyclicBarrier(threads.length, () -> log.info("Before test"));
 
         final double initial = 1000;
         final double total = threads.length * initial;
@@ -484,7 +543,33 @@ public class TxTest extends IgniteAbstractTest {
 
         assertEquals(total, total0, "Total amount invariant is not preserved");
 
+        CyclicBarrier startBar = new CyclicBarrier(threads.length, () -> log.info("Before test"));
+
+        CyclicBarrier sync = new CyclicBarrier(threads.length, new Runnable() {
+            @Override public void run() {
+                assertTrue(lockManager.isEmpty());
+
+                if (verbose)
+                    log.info("Sync");
+
+                double total0 = 0;
+
+                for (long i = 0; i < threads.length; i++) {
+                    double balance = accounts.get(makeKey(i)).doubleValue("balance");
+
+                    if (verbose)
+                        log.info("Balance id={} val={}", i, balance);
+
+                    total0 += balance;
+                }
+
+                if (total0 != total)
+                    System.out.println();
+            }
+        });
+
         LongAdder ops = new LongAdder();
+        LongAdder fails = new LongAdder();
 
         AtomicBoolean stop = new AtomicBoolean();
 
@@ -511,34 +596,32 @@ public class TxTest extends IgniteAbstractTest {
                         try {
                             long acc1 = finalI;
 
-                            log.info("get {}", acc1);
-
-                            Tuple tuple1 = table.get(makeKey(acc1));
-
                             double amount = 100 + r.nextInt(500);
 
-                            double val0 = tuple1.doubleValue("balance") - amount;
+                            if (verbose)
+                                log.info("op=tryGet ts={} id={}", tx.timestamp(), acc1);
+
+                            double val0 = table.get(makeKey(acc1)).doubleValue("balance");
 
                             long acc2 = acc1;
 
                             while(acc1 == acc2)
                                 acc2 = r.nextInt(threads.length);
 
-                            log.info("get {}", acc2);
+                            if (verbose)
+                                log.info("op=tryGet ts={} id={}", tx.timestamp(), acc2);
 
-                            Tuple tuple2 = table.get(makeKey(acc2));
+                            double val1 = table.get(makeKey(acc2)).doubleValue("balance");
 
-                            double val1 = tuple2.doubleValue("balance") + amount;
+                            if (verbose)
+                                log.info("op=tryPut ts={} id={}", tx.timestamp(), acc1);
 
-                            log.info("put {}", acc1);
+                            table.upsert(makeValue(acc1, val0 - amount));
 
-                            table.upsert(makeValue(acc1, val0));
+                            if (verbose)
+                                log.info("op=tryPut ts={} id={}", tx.timestamp(), acc2);
 
-                            log.info("put {}", acc2);
-
-                            table.upsert(makeValue(acc2, val1));
-
-                            log.info("commit", acc1);
+                            table.upsert(makeValue(acc2, val1 + amount));
 
                             tx.commit();
 
@@ -549,6 +632,8 @@ public class TxTest extends IgniteAbstractTest {
                         catch (Exception e) {
                             assertTrue(IgniteTestUtils.hasCause(e, LockException.class, null),
                                 "Wrong exception type, expecting LockException");
+
+                            fails.increment();
                         }
                     }
                 }
@@ -568,12 +653,12 @@ public class TxTest extends IgniteAbstractTest {
         stop.set(true);
 
         for (Thread thread : threads)
-            thread.join();
+            thread.join(3_000);
 
         if (firstErr.get() != null)
             throw new IgniteException(firstErr.get());
 
-        log.info("After test ops={}", ops.sum());
+        log.info("After test ops={} fails={}", ops.sum(), fails.sum());
 
         total0 = 0;
 

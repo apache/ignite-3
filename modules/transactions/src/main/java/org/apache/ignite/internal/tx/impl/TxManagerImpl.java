@@ -142,12 +142,16 @@ public class TxManagerImpl implements TxManager {
 
         // Should rollback tx on lock error.
         return lockManager.tryAcquire(key, timestamp)
-            .handle((r, e) -> e != null ?
-                rollbackAsync(tx).thenCompose(ignored -> failedFuture(e)) // Preserve failed state.
-                : DONE_FUT)
-            .thenCompose(res -> res)
-            .thenAccept(ignored -> recordLock(key, timestamp, Boolean.FALSE));
+            .handle(new BiFunction<Void, Throwable, CompletableFuture<Void>>() {
+                @Override public CompletableFuture<Void> apply(Void r, Throwable e) {
+                    if (e != null)
+                        return rollbackAsync(tx).thenCompose(ignored -> failedFuture(e)); // Preserve failed state.
+                    else
+                        return completedFuture(null).thenAccept(ignored -> recordLock(key, timestamp, Boolean.FALSE));
+                }
+            }).thenCompose(x -> x);
     }
+
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> readLock(ByteArray key, InternalTransaction tx) {
@@ -157,11 +161,14 @@ public class TxManagerImpl implements TxManager {
             return failedFuture(new TransactionException("The operation is attempted for completed transaction"));
 
         return lockManager.tryAcquireShared(key, timestamp)
-            .handle((r, e) -> e != null ?
-                rollbackAsync(tx).thenCompose(ignored -> failedFuture(e)) // Preserve failed state.
-                : DONE_FUT)
-            .thenCompose(res -> res)
-            .thenAccept(ignore -> recordLock(key, timestamp, Boolean.TRUE));
+            .handle(new BiFunction<Void, Throwable, CompletableFuture<Void>>() {
+                @Override public CompletableFuture<Void> apply(Void r, Throwable e) {
+                    if (e != null)
+                        return rollbackAsync(tx).thenCompose(ignored -> failedFuture(e)); // Preserve failed state.
+                    else
+                        return completedFuture(null).thenAccept(ignored -> recordLock(key, timestamp, Boolean.TRUE));
+                }
+            }).thenCompose(x -> x);
     }
 
     /**

@@ -68,4 +68,9 @@ public interface LockManager extends IgniteComponent {
      * @return The waiter.
      */
     public Waiter waiter(Object key, Timestamp timestamp);
+
+    /**
+     * @return {@code True} if no locks have been acquired.
+     */
+    public boolean isEmpty();
 }

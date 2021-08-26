@@ -260,11 +260,31 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     public void testSingleKeyReadWriteConflict5() throws LockException {
         Timestamp ts0 = Timestamp.nextVersion();
         Timestamp ts1 = Timestamp.nextVersion();
-        Object key2 = new String("test2");
+        Object key = new String("test");
 
-        lockManager.tryAcquire(key2, ts1).join();
+        lockManager.tryAcquire(key, ts1).join();
 
-        expectConflict(lockManager.tryAcquire(key2, ts0));
+        expectConflict(lockManager.tryAcquire(key, ts0));
+    }
+
+    @Test
+    public void testSingleKeyReadWriteConflict6() throws LockException {
+        Timestamp ts0 = Timestamp.nextVersion();
+        Timestamp ts1 = Timestamp.nextVersion();
+        Object key = new String("test");
+
+        lockManager.tryAcquireShared(key, ts0).join();
+
+        lockManager.tryAcquireShared(key, ts1).join();
+
+        CompletableFuture<Void> fut = lockManager.tryAcquire(key, ts1);
+        assertFalse(fut.isDone());
+
+        lockManager.tryAcquire(key, ts0).join();
+
+        lockManager.tryRelease(key, ts0);
+
+        expectConflict(fut);
     }
 
     @Test

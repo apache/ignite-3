@@ -46,7 +46,7 @@ public interface TxManager extends IgniteComponent {
 
     /**
      * @param key The key.
-     * @param timestamp The timestamp.
+     * @param tx The transaction.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
@@ -54,7 +54,7 @@ public interface TxManager extends IgniteComponent {
 
     /**
      * @param key The key.
-     * @param timestamp The timestamp.
+     * @param tx The transaction.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
