@@ -18,21 +18,16 @@
 namespace Apache.Ignite.Internal
 {
     using System;
-    using System.Buffers;
-    using System.IO;
+    using System.Diagnostics.CodeAnalysis;
     using System.Net;
     using System.Net.Sockets;
     using System.Threading.Tasks;
+    using Buffers;
     using MessagePack;
     using Proto;
 
     /// <summary>
     /// Wrapper over framework socket for Ignite thin client operations.
-    ///
-    /// TODO: file tickets for:
-    /// * Logging
-    /// * Buffer pooling
-    /// * SSL.
     /// </summary>
     internal class ClientSocket
     {
@@ -49,6 +44,10 @@ namespace Apache.Ignite.Internal
         /// </summary>
         /// <param name="endPoint">Specific endpoint to connect to.</param>
         /// <returns>A <see cref="Task{TResult}"/> representing the result of the asynchronous operation.</returns>
+        [SuppressMessage(
+            "Microsoft.Reliability",
+            "CA2000:Dispose objects before losing scope",
+            Justification = "NetworkStream is returned from this method in the socket.")]
         public static async Task<ClientSocket> ConnectAsync(EndPoint endPoint)
         {
             using Socket socket = new(SocketType.Stream, ProtocolType.Tcp)
@@ -57,44 +56,74 @@ namespace Apache.Ignite.Internal
             };
 
             await socket.ConnectAsync(endPoint).ConfigureAwait(false);
-            await using var stream = new NetworkStream(socket, ownsSocket: true);
+            var stream = new NetworkStream(socket, ownsSocket: true);
 
-            await stream.WriteAsync(ProtoCommon.MagicBytes).ConfigureAwait(false);
-            WriteHandshake(stream);
+            try
+            {
+                await stream.WriteAsync(ProtoCommon.MagicBytes).ConfigureAwait(false);
+                await WriteHandshakeAsync(stream).ConfigureAwait(false);
 
-            await stream.FlushAsync().ConfigureAwait(false);
+                await stream.FlushAsync().ConfigureAwait(false);
 
-            var responseMagic = new byte[4];
-            await stream.ReadAsync(responseMagic).ConfigureAwait(false);
+                var responseMagic = new byte[4];
+                await stream.ReadAsync(responseMagic).ConfigureAwait(false);
 
-            return new ClientSocket(stream);
+                return new ClientSocket(stream);
+            }
+            catch (Exception)
+            {
+                // ReSharper disable once MethodHasAsyncOverload
+                stream.Dispose();
+
+                throw;
+            }
         }
 
-        private static unsafe void WriteHandshake(Stream stream)
+        // ReSharper disable once SuggestBaseTypeForParameter (NetworkStream has a more efficient overload).
+        private static async Task WriteHandshakeAsync(NetworkStream stream)
         {
-            // TODO: Buffer pooling.
-            var bufferWriter = new ArrayBufferWriter<byte>();
-            var writer = new MessagePackWriter(bufferWriter);
+            using var bufferWriter = WriteHandshake();
 
-            // Version.
-            writer.Write(3);
-            writer.Write(0);
-            writer.Write(0);
+            await stream.WriteAsync(bufferWriter.GetArray().AsMemory(0, bufferWriter.WrittenCount))
+                    .ConfigureAwait(false);
+        }
 
-            writer.Write(2); // Client type: general purpose.
+        private static unsafe PooledArrayBufferWriter WriteHandshake()
+        {
+            var bufferWriter = new PooledArrayBufferWriter();
 
-            writer.WriteBinHeader(0); // Features.
-            writer.WriteMapHeader(0); // Extensions.
+            try
+            {
+                bufferWriter.Advance(4);
 
-            writer.Flush();
+                var writer = new MessagePackWriter(bufferWriter);
 
-            // Write big-endian message size.
-            var msgSize = IPAddress.HostToNetworkOrder(bufferWriter.WrittenCount);
+                // Version.
+                writer.Write(3);
+                writer.Write(0);
+                writer.Write(0);
 
-            stream.Write(new ReadOnlySpan<byte>(&msgSize, 4)); // TODO: Async
+                writer.Write(2); // Client type: general purpose.
 
-            // Write message.
-            stream.Write(bufferWriter.GetSpan()); // TODO: Async
+                writer.WriteBinHeader(0); // Features.
+                writer.WriteMapHeader(0); // Extensions.
+
+                writer.Flush();
+
+                // Write big-endian message size to the start of the buffer.
+                var buffer = bufferWriter.GetArray();
+
+                var msgSize = IPAddress.HostToNetworkOrder(bufferWriter.WrittenCount);
+                var sizeBytes = new ReadOnlySpan<byte>(&msgSize, 4);
+                sizeBytes.CopyTo(buffer);
+
+                return bufferWriter;
+            }
+            catch (Exception)
+            {
+                bufferWriter.Dispose();
+                throw;
+            }
         }
     }
 }
