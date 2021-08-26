@@ -33,9 +33,22 @@ namespace Apache.Ignite.Internal
     // ReSharper disable SuggestBaseTypeForParameter (NetworkStream has more efficient read/write methods).
     internal class ClientSocket
     {
+        /** General-purpose client type code. */
+        private const byte ClientType = 2;
+
+        /** Version 3.0.0. */
+        private static readonly ClientProtocolVersion Ver300 = new(3, 0, 0);
+
+        /** Current version. */
+        private static readonly ClientProtocolVersion CurrentProtocolVersion = Ver300;
+
         /** Underlying stream. */
         private readonly NetworkStream _stream;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ClientSocket"/> class.
+        /// </summary>
+        /// <param name="stream">Network stream.</param>
         private ClientSocket(NetworkStream stream)
         {
             _stream = stream;
@@ -63,7 +76,7 @@ namespace Apache.Ignite.Internal
             try
             {
                 await stream.WriteAsync(ProtoCommon.MagicBytes).ConfigureAwait(false);
-                await WriteHandshakeAsync(stream).ConfigureAwait(false);
+                await WriteHandshakeAsync(stream, CurrentProtocolVersion).ConfigureAwait(false);
 
                 await stream.FlushAsync().ConfigureAwait(false);
 
@@ -84,27 +97,45 @@ namespace Apache.Ignite.Internal
         {
             var responseMagic = ArrayPool<byte>.Shared.Rent(4);
 
-            await stream.ReadAsync(responseMagic).ConfigureAwait(false);
-
-            for (var i = 0; i < responseMagic.Length; i++)
+            try
             {
-                if (responseMagic[i] != ProtoCommon.MagicBytes[i])
+                await stream.ReadAsync(responseMagic).ConfigureAwait(false);
+
+                for (var i = 0; i < responseMagic.Length; i++)
                 {
-                    throw new IgniteClientException("Invalid magic bytes returned from the server: " +
-                                                    BitConverter.ToString(responseMagic));
+                    if (responseMagic[i] != ProtoCommon.MagicBytes[i])
+                    {
+                        throw new IgniteClientException("Invalid magic bytes returned from the server: " +
+                                                        BitConverter.ToString(responseMagic));
+                    }
                 }
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(responseMagic);
             }
         }
 
-        private static async Task WriteHandshakeAsync(NetworkStream stream)
+        private static async Task WriteHandshakeAsync(NetworkStream stream, ClientProtocolVersion version)
         {
-            using var bufferWriter = WriteHandshake();
+            using var bufferWriter = WriteRequest(w =>
+            {
+                // Version.
+                w.Write(version.Major);
+                w.Write(version.Minor);
+                w.Write(version.Patch);
+
+                w.Write(ClientType); // Client type: general purpose.
+
+                w.WriteBinHeader(0); // Features.
+                w.WriteMapHeader(0); // Extensions.
+            });
 
             await stream.WriteAsync(bufferWriter.GetArray().AsMemory(0, bufferWriter.WrittenCount))
                     .ConfigureAwait(false);
         }
 
-        private static unsafe PooledArrayBufferWriter WriteHandshake()
+        private static unsafe PooledArrayBufferWriter WriteRequest(MessageWriter messageWriter)
         {
             var bufferWriter = new PooledArrayBufferWriter();
 
@@ -113,17 +144,7 @@ namespace Apache.Ignite.Internal
                 bufferWriter.Advance(4);
 
                 var writer = new MessagePackWriter(bufferWriter);
-
-                // Version.
-                writer.Write(3);
-                writer.Write(0);
-                writer.Write(0);
-
-                writer.Write(2); // Client type: general purpose.
-
-                writer.WriteBinHeader(0); // Features.
-                writer.WriteMapHeader(0); // Extensions.
-
+                messageWriter(writer);
                 writer.Flush();
 
                 // Write big-endian message size to the start of the buffer.
