@@ -47,7 +47,7 @@ namespace Apache.Ignite.Internal.Buffers
         /// Gets a <see cref="MessagePackReader"/> for this buffer.
         /// </summary>
         /// <returns><see cref="MessagePackReader"/> for this buffer.</returns>
-        public MessagePackReader GetUnpacker() => new MessagePackReader(_bytes.AsMemory(0, _len));
+        public MessagePackReader GetUnpacker() => new(_bytes.AsMemory(0, _len));
 
         /// <summary>
         /// Releases the pooled buffer.

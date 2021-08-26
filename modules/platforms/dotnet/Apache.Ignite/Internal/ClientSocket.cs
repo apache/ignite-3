@@ -105,13 +105,13 @@ namespace Apache.Ignite.Internal
 
         private static async Task CheckMagicBytesAsync(NetworkStream stream)
         {
-            var responseMagic = ArrayPool<byte>.Shared.Rent(4);
+            var responseMagic = ArrayPool<byte>.Shared.Rent(ProtoCommon.MagicBytes.Length);
 
             try
             {
-                await stream.ReadAsync(responseMagic).ConfigureAwait(false);
+                await stream.ReadAsync(responseMagic.AsMemory(0, ProtoCommon.MagicBytes.Length)).ConfigureAwait(false);
 
-                for (var i = 0; i < responseMagic.Length; i++)
+                for (var i = 0; i < ProtoCommon.MagicBytes.Length; i++)
                 {
                     if (responseMagic[i] != ProtoCommon.MagicBytes[i])
                     {
@@ -165,6 +165,8 @@ namespace Apache.Ignite.Internal
         private static async Task<PooledBuf> ReadResponseAsync(NetworkStream stream)
         {
             var size = await ReadMessageSizeAsync(stream).ConfigureAwait(false);
+
+            size = IPAddress.NetworkToHostOrder(size);
 
             var bytes = ArrayPool<byte>.Shared.Rent(size);
 
