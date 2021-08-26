@@ -58,6 +58,7 @@ import static org.apache.ignite.internal.configuration.tree.NamedListNode.ORDER_
 import static org.apache.ignite.internal.configuration.util.ConfigurationFlattener.createFlattenedUpdatesMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectShemas;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.find;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.mergedSchemaFields;
@@ -645,6 +646,24 @@ public class ConfigurationUtilTest {
 
         assertEquals(1, config.size());
         assertNotNull(config.get(schemaKey.key()));
+    }
+
+    /** */
+    @Test
+    void testCollectShemas() {
+        assertTrue(collectShemas(List.of()).isEmpty());
+
+        assertThrows(IllegalArgumentException.class, () -> collectShemas(List.of(Object.class)));
+
+        assertEquals(
+            Set.of(LocalFirstConfigurationSchema.class, SimpleConfigurationSchema.class),
+            collectShemas(List.of(LocalFirstConfigurationSchema.class, SimpleConfigurationSchema.class))
+        );
+
+        assertEquals(
+            Set.of(SimpleRootConfigurationSchema.class, SimpleConfigurationSchema.class),
+            collectShemas(List.of(SimpleRootConfigurationSchema.class))
+        );
     }
 
     /**

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration.util;
 
 import java.io.Serializable;
 import java.lang.reflect.Field;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Queue;
 import java.util.RandomAccess;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -750,12 +752,55 @@ public class ConfigurationUtil {
     }
 
     /**
+     * Collect all configuration schemes with {@link ConfigurationRoot} or {@link Config}
+     * including all sub configuration schemes for fields with {@link ConfigValue} or {@link NamedConfigValue}.
+     *
+     * @param schemaClasses Configuration schemas (starting points) with {@link ConfigurationRoot} or {@link Config}.
+     * @return All configuration schemes with {@link ConfigurationRoot} or {@link Config}.
+     * @throws IllegalArgumentException If the configuration diagram does not contain
+     *      {@link ConfigurationRoot} or {@link Config}.
+     */
+    public static Set<Class<?>> collectShemas(Collection<Class<?>> schemaClasses) {
+        if (schemaClasses.isEmpty())
+            return Set.of();
+        else {
+            Set<Class<?>> res = new HashSet<>();
+
+            Queue<Class<?>> queue = new ArrayDeque<>(Set.copyOf(schemaClasses));
+
+            while (!queue.isEmpty()) {
+                Class<?> cls = queue.poll();
+
+                if (!cls.isAnnotationPresent(ConfigurationRoot.class) && !cls.isAnnotationPresent(Config.class)) {
+                    throw new IllegalArgumentException(String.format(
+                        "Configuration schema must contain @%s or @%s: %s",
+                        ConfigurationRoot.class.getSimpleName(),
+                        Config.class.getSimpleName(),
+                        cls.getName()
+                    ));
+                }
+                else {
+                    res.add(cls);
+
+                    for (Field f : cls.getDeclaredFields()) {
+                        if ((f.isAnnotationPresent(ConfigValue.class) || f.isAnnotationPresent(NamedConfigValue.class))
+                            && !res.contains(f.getType()))
+                            queue.add(f.getType());
+                    }
+                }
+            }
+
+            return res;
+        }
+    }
+
+    /**
      * Get the class names of the fields.
      *
      * @param fields Fields.
      * @return Fields class names.
      */
-    private static List<String> classNames(Field... fields) {
+    public static List<String> classNames(Field... fields) {
         return Stream.of(fields).map(Field::getDeclaringClass).map(Class::getName).collect(toList());
     }
 }

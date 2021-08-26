@@ -52,8 +52,11 @@ import org.apache.ignite.internal.configuration.validation.MinValidator;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.lang.IgniteLogger;
 
+import static java.util.function.Predicate.not;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.configuration.util.ConfigurationNotificationsUtil.notifyListeners;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectShemas;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
 
@@ -93,6 +96,20 @@ public class ConfigurationRegistry implements IgniteComponent {
     ) {
         checkConfigurationType(rootKeys, storage);
 
+        Set<Class<?>> allSchemas = collectShemas(rootKeys.stream().map(RootKey::schemaClass).collect(toSet()));
+
+        Map<Class<?>, Set<Class<?>>> extensions = internalSchemaExtensions(internalSchemaExtensions);
+
+        Set<Class<?>> notInAllSchemas = extensions.keySet().stream()
+            .filter(not(allSchemas::contains))
+            .collect(toSet());
+
+        if (!notInAllSchemas.isEmpty()) {
+            throw new IllegalArgumentException(
+                "Internal extensions for which no parent configuration schemes were found: " + notInAllSchemas
+            );
+        }
+
         this.rootKeys = rootKeys;
 
         Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators0 = new HashMap<>(validators);
@@ -107,8 +124,6 @@ public class ConfigurationRegistry implements IgniteComponent {
                 return cgen.instantiateNode(rootKey.schemaClass());
             }
         };
-
-        Map<Class<?>, Set<Class<?>>> extensions = internalSchemaExtensions(internalSchemaExtensions);
 
         rootKeys.forEach(rootKey -> {
             cgen.compileRootSchema(rootKey.schemaClass(), extensions);
