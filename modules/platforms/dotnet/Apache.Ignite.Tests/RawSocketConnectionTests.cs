@@ -30,23 +30,9 @@ namespace Apache.Ignite.Tests
     /// <summary>
     /// Tests protocol basics with simple socket connection.
     /// </summary>
-    public class RawSocketConnectionTests
+    public class RawSocketConnectionTests : IgniteTestsBase
     {
         private static readonly byte[] Magic = "IGNI".Select(c => (byte)c).ToArray();
-
-        private IDisposable? _serverNode;
-
-        [OneTimeSetUp]
-        public async Task OneTimeSetUp()
-        {
-            _serverNode = await JavaServer.Start();
-        }
-
-        [OneTimeTearDown]
-        public void OneTimeTearDown()
-        {
-            _serverNode?.Dispose();
-        }
 
         [Test]
         public async Task TestHandshake()

@@ -55,5 +55,11 @@ namespace Apache.Ignite.Tests
                 }
             }
         }
+
+        [Test]
+        public void TestTodosHaveTickets()
+        {
+            Assert.Fail("TODO");
+        }
     }
 }

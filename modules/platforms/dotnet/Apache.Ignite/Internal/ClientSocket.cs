@@ -29,9 +29,12 @@ namespace Apache.Ignite.Internal
 
     /// <summary>
     /// Wrapper over framework socket for Ignite thin client operations.
+    ///
+    /// TODO:
+    /// * Assembly signing.
     /// </summary>
     // ReSharper disable SuggestBaseTypeForParameter (NetworkStream has more efficient read/write methods).
-    internal class ClientSocket
+    internal sealed class ClientSocket : IDisposable
     {
         /** General-purpose client type code. */
         private const byte ClientType = 2;
@@ -92,6 +95,12 @@ namespace Apache.Ignite.Internal
 
                 throw;
             }
+        }
+
+        /// <inheritdoc/>
+        public void Dispose()
+        {
+            _stream.Dispose();
         }
 
         private static async Task CheckMagicBytesAsync(NetworkStream stream)

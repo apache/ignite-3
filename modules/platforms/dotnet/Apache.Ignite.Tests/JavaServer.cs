@@ -35,6 +35,8 @@ namespace Apache.Ignite.Tests
     {
         public const int ClientPort = 10942;
 
+        public static readonly IPEndPoint EndPoint = new(IPAddress.Loopback, ClientPort);
+
         /** Maven command to execute the main class. */
         private const string MavenCommandExec =
             "-Dtest=ITThinClientConnectionTest -DfailIfNoTests=false -DIGNITE_TEST_KEEP_NODES_RUNNING=true " +
