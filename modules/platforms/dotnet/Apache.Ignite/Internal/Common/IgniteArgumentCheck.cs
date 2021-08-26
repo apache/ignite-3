@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Common
 {
     using System;
     using System.Collections.Generic;
+    using System.Runtime.CompilerServices;
 
     /// <summary>
     /// Arguments check helpers.
@@ -31,7 +32,7 @@ namespace Apache.Ignite.Internal.Common
         /// </summary>
         /// <param name="arg">The argument.</param>
         /// <param name="argName">Name of the argument.</param>
-        public static void NotNull(object arg, string argName)
+        public static void NotNull(object arg, [CallerArgumentExpression("arg")] string? argName = null)
         {
             if (arg == null)
             {
@@ -45,7 +46,7 @@ namespace Apache.Ignite.Internal.Common
         /// <param name="arg">The argument.</param>
         /// <param name="argName">Name of the argument.</param>
         /// <returns><see cref="arg"/>.</returns>
-        public static string NotNullOrEmpty(string arg, string argName)
+        public static string NotNullOrEmpty(string arg, [CallerArgumentExpression("arg")] string? argName = null)
         {
             if (string.IsNullOrEmpty(arg))
             {
@@ -61,7 +62,9 @@ namespace Apache.Ignite.Internal.Common
         /// <param name="collection">The collection.</param>
         /// <param name="argName">Name of the argument.</param>
         /// <typeparam name="T">Type.</typeparam>
-        public static void NotNullOrEmpty<T>(ICollection<T> collection, string argName)
+        public static void NotNullOrEmpty<T>(
+            ICollection<T> collection,
+            [CallerArgumentExpression("arg")] string? argName = null)
         {
             if (collection == null || collection.Count == 0)
             {
@@ -75,7 +78,10 @@ namespace Apache.Ignite.Internal.Common
         /// <param name="condition">Condition.</param>
         /// <param name="argName">Name of the argument.</param>
         /// <param name="message">Message.</param>
-        public static void Ensure(bool condition, string argName, string message)
+        public static void Ensure(
+            bool condition,
+            [CallerArgumentExpression("arg")] string? argName = null,
+            string? message = null)
         {
             if (!condition)
             {
