@@ -19,9 +19,10 @@ namespace Apache.Ignite.Log
 {
     using System;
     using System.Globalization;
+    using Internal.Common;
 
     /// <summary>
-    /// Extension methods for <see cref="IIgniteLogger" />
+    /// Extension methods for <see cref="IIgniteLogger" />.
     /// </summary>
     public static class LoggerExtensions
     {

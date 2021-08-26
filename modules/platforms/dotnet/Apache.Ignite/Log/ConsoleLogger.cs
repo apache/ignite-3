@@ -63,7 +63,7 @@ namespace Apache.Ignite.Log
         public void Log(
             LogLevel level,
             string message,
-            object[] args,
+            object[]? args,
             IFormatProvider? formatProvider,
             string? category,
             string? nativeErrorInfo,
