@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.proto.query;
+package org.apache.ignite.client.handler;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteResult;
 import org.apache.ignite.client.proto.query.event.JdbcQuery;
