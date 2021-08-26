@@ -25,6 +25,6 @@ namespace Apache.Ignite.Internal.Proto
         /// <summary>
         /// Magic bytes.
         /// </summary>
-        public static readonly byte[] MagicBytes = { (byte)'I', (byte)'G', (byte)'N', (byte)'I', };
+        public static readonly byte[] MagicBytes = { (byte)'I', (byte)'G', (byte)'N', (byte)'I' };
     }
 }

@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal
 {
     using System;
+    using System.Buffers;
     using System.Diagnostics.CodeAnalysis;
     using System.Net;
     using System.Net.Sockets;
@@ -29,6 +30,7 @@ namespace Apache.Ignite.Internal
     /// <summary>
     /// Wrapper over framework socket for Ignite thin client operations.
     /// </summary>
+    // ReSharper disable SuggestBaseTypeForParameter (NetworkStream has more efficient read/write methods).
     internal class ClientSocket
     {
         /** Underlying stream. */
@@ -65,8 +67,7 @@ namespace Apache.Ignite.Internal
 
                 await stream.FlushAsync().ConfigureAwait(false);
 
-                var responseMagic = new byte[4];
-                await stream.ReadAsync(responseMagic).ConfigureAwait(false);
+                await CheckMagicBytesAsync(stream).ConfigureAwait(false);
 
                 return new ClientSocket(stream);
             }
@@ -79,7 +80,22 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        // ReSharper disable once SuggestBaseTypeForParameter (NetworkStream has a more efficient overload).
+        private static async Task CheckMagicBytesAsync(NetworkStream stream)
+        {
+            var responseMagic = ArrayPool<byte>.Shared.Rent(4);
+
+            await stream.ReadAsync(responseMagic).ConfigureAwait(false);
+
+            for (var i = 0; i < responseMagic.Length; i++)
+            {
+                if (responseMagic[i] != ProtoCommon.MagicBytes[i])
+                {
+                    throw new IgniteClientException("Invalid magic bytes returned from the server: " +
+                                                    BitConverter.ToString(responseMagic));
+                }
+            }
+        }
+
         private static async Task WriteHandshakeAsync(NetworkStream stream)
         {
             using var bufferWriter = WriteHandshake();
