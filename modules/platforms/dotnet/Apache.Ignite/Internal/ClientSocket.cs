@@ -29,6 +29,7 @@ namespace Apache.Ignite.Internal
     using System.Threading;
     using System.Threading.Tasks;
     using Log;
+    using MessagePack;
     using Proto;
 
     /// <summary>
@@ -41,6 +42,20 @@ namespace Apache.Ignite.Internal
     /// </summary>
     internal sealed class ClientSocket : IDisposable
     {
+        /// <summary>
+        /// Message writer delegate.
+        /// </summary>
+        /// <param name="writer">Writer.</param>
+        public delegate void MessageWriter(MessagePackWriter writer);
+
+        /// <summary>
+        /// Message writer delegate.
+        /// </summary>
+        /// <param name="reader">Reader.</param>
+        /// <returns>Read result.</returns>
+        /// <typeparam name="T">Result type.</typeparam>
+        public delegate T MessageReader<out T>(MessagePackReader reader);
+
         /** Handshake opcode. */
         private const byte OpHandshake = 1;
 
@@ -112,38 +127,38 @@ namespace Apache.Ignite.Internal
 
             ServerVersion = version ?? CurrentProtocolVersion;
 
-            Validate(clientConfiguration);
+            Handshake(clientConfiguration, ServerVersion);
 
-            _features = Handshake(clientConfiguration, ServerVersion);
-
-            // Check periodically if any request has timed out.
-            if (_timeout > TimeSpan.Zero)
-            {
-                // Minimum Socket timeout is 500ms.
-                _timeoutCheckTimer = new Timer(CheckTimeouts, null, _timeout, TimeSpan.FromMilliseconds(500));
-            }
-
-            // Continuously and asynchronously wait for data from server.
-            // TaskCreationOptions.LongRunning actually means a new thread.
-            TaskRunner.Run(WaitForMessages, TaskCreationOptions.LongRunning);
+            // TODO: Start async receiver loop.
         }
 
         /// <summary>
         /// Performs a send-receive operation.
         /// </summary>
-        [SuppressMessage("Microsoft.Reliability", "CA2000:Dispose objects before losing scope",
+        /// <param name="opId">Operation id.</param>
+        /// <param name="writer">Writer.</param>
+        /// <param name="reader">Reader.</param>
+        /// <param name="errorFunc">Error handler.</param>
+        /// <typeparam name="T">Result type.</typeparam>
+        /// <returns>Result.</returns>
+        [SuppressMessage(
+            "Microsoft.Reliability",
+            "CA2000:Dispose objects before losing scope",
             Justification = "BinaryHeapStream does not need to be disposed.")]
-        public T DoOutInOp<T>(ClientOp opId, Action<ClientRequestContext> writeAction,
-            Func<ClientResponseContext, T> readFunc, Func<ClientStatusCode, string, T> errorFunc = null)
+        public T DoOutInOp<T>(
+            ClientOp opId,
+            MessageWriter writer,
+            MessageReader<T> reader,
+            Func<ClientErrorCode, string, T>? errorFunc = null)
         {
             // Encode.
-            var reqMsg = WriteMessage(writeAction, opId);
+            var reqMsg = WriteMessage(writer, opId);
 
             // Send.
             var response = SendRequest(ref reqMsg) ?? SendRequestAsync(ref  reqMsg).Result;
 
             // Decode.
-            return DecodeResponse(response, readFunc, errorFunc);
+            return DecodeResponse(response, reader, errorFunc);
         }
 
         /// <summary>
@@ -576,7 +591,7 @@ namespace Apache.Ignite.Internal
         /// </summary>
         [SuppressMessage("Microsoft.Reliability", "CA2000:Dispose objects before losing scope",
             Justification = "BinaryHeapStream does not need to be disposed.")]
-        private RequestMessage WriteMessage(Action<ClientRequestContext> writeAction, ClientOp opId)
+        private RequestMessage WriteMessage(MessageWriter writeAction, ClientOp opId)
         {
             _features.ValidateOp(opId);
 
