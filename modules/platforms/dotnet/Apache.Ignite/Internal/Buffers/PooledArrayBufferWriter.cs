@@ -59,10 +59,10 @@ namespace Apache.Ignite.Internal.Buffers
         public unsafe ReadOnlyMemory<byte> GetWrittenMemory()
         {
             // Write big-endian message size to the start of the buffer.
-            fixed (int* bufPtr = &_buffer[0])
+            fixed (byte* bufPtr = &_buffer[0])
             {
                 var msgSize = IPAddress.HostToNetworkOrder(_index - 4);
-                *bufPtr = msgSize;
+                *(int*)bufPtr = msgSize;
             }
 
             return _buffer.AsMemory(0, _index);

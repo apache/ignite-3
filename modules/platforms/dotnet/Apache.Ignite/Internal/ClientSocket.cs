@@ -192,9 +192,9 @@ namespace Apache.Ignite.Internal
 
         private static unsafe int GetMessageSize(byte[] responseLenBytes)
         {
-            fixed (int* len = &responseLenBytes[0])
+            fixed (byte* len = &responseLenBytes[0])
             {
-                return *len;
+                return *(int*)len;
             }
         }
 

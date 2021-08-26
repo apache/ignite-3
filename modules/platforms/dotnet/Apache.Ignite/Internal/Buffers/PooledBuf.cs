@@ -36,7 +36,7 @@ namespace Apache.Ignite.Internal.Buffers
         /// Initializes a new instance of the <see cref="PooledBuf"/> struct.
         /// </summary>
         /// <param name="bytes">Bytes.</param>
-        /// <param name="len">Data length within <see cref="bytes"/>.</param>
+        /// <param name="len">Data length within specified byte array.</param>
         public PooledBuf(byte[] bytes, int len)
         {
             _bytes = bytes;

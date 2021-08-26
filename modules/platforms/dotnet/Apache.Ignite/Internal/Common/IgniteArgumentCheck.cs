@@ -45,7 +45,7 @@ namespace Apache.Ignite.Internal.Common
         /// </summary>
         /// <param name="arg">The argument.</param>
         /// <param name="argName">Name of the argument.</param>
-        /// <returns><see cref="arg"/>.</returns>
+        /// <returns>Argument.</returns>
         public static string NotNullOrEmpty(string arg, [CallerArgumentExpression("arg")] string? argName = null)
         {
             if (string.IsNullOrEmpty(arg))
