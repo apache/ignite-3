@@ -32,6 +32,11 @@ namespace Apache.Ignite.Internal
 
     /// <summary>
     /// Wrapper over framework socket for Ignite thin client operations.
+    ///
+    /// TODO: file tickets for:
+    /// * Logging
+    /// * Buffer pooling
+    ///
     /// </summary>
     internal sealed class ClientSocket : IDisposable
     {
@@ -73,10 +78,6 @@ namespace Apache.Ignite.Internal
         private readonly ConcurrentDictionary<long, Request> _requests
             = new ConcurrentDictionary<long, Request>();
 
-        /** Server -> Client notification listeners. */
-        private readonly ConcurrentDictionary<long, ClientNotificationHandler> _notificationListeners
-            = new ConcurrentDictionary<long, ClientNotificationHandler>();
-
         /** Expected notifications counter. */
         private long _expectedNotifications;
 
@@ -86,32 +87,11 @@ namespace Apache.Ignite.Internal
         /** Socket failure exception. */
         private volatile Exception _exception;
 
-        /** Locker. */
-        private readonly object _sendRequestSyncRoot = new object();
-
-        /** Locker. */
-        private readonly object _receiveMessageSyncRoot = new object();
-
-        /** Background socket receiver trigger. */
-        private readonly ManualResetEventSlim _listenerEvent = new ManualResetEventSlim();
-
         /** Dispose locker. */
         private readonly object _disposeSyncRoot = new object();
 
         /** Disposed flag. */
         private bool _isDisposed;
-
-        /** Topology version update callback. */
-        private readonly Action<AffinityTopologyVersion> _topVerCallback;
-
-        /** Logger. */
-        private readonly ILogger _logger;
-
-        /** Marshaller. */
-        private readonly Marshaller _marsh;
-
-        /** Features. */
-        private readonly ClientFeatures _features;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ClientSocket" /> class.
