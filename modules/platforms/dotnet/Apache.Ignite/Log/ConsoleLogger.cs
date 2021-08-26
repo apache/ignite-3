@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Log
 {
     using System;
+    using System.Globalization;
     using System.Text;
 
     /// <summary>
@@ -29,7 +30,7 @@ namespace Apache.Ignite.Log
     public class ConsoleLogger : IIgniteLogger
     {
         /// <summary>
-        /// Initializes a new instance of <see cref="ConsoleLogger"/> class.
+        /// Initializes a new instance of the <see cref="ConsoleLogger"/> class.
         /// Uses <see cref="LogLevel.Warn"/> minimum level.
         /// </summary>
         public ConsoleLogger()
@@ -38,7 +39,7 @@ namespace Apache.Ignite.Log
         }
 
         /// <summary>
-        /// Gets the minimum level to be logged. Any levels lower than that are ignored.
+        /// Gets or sets the minimum level to be logged. Any levels lower than that are ignored.
         /// Default is <see cref="LogLevel.Warn"/>.
         /// </summary>
         public LogLevel MinLevel { get; set; }
@@ -46,7 +47,7 @@ namespace Apache.Ignite.Log
         /// <summary>
         /// Gets or sets DateTime provider.
         /// </summary>
-        public IDateTimeProvider DateTimeProvider { get; set; }
+        public IDateTimeProvider? DateTimeProvider { get; set; }
 
         /// <summary>
         /// Logs the specified message.
@@ -59,8 +60,14 @@ namespace Apache.Ignite.Log
         /// <param name="category">The logging category name.</param>
         /// <param name="nativeErrorInfo">The native error information.</param>
         /// <param name="ex">The exception. Can be null.</param>
-        public void Log(LogLevel level, string message, object[] args, IFormatProvider formatProvider, string category,
-            string nativeErrorInfo, Exception ex)
+        public void Log(
+            LogLevel level,
+            string message,
+            object[] args,
+            IFormatProvider? formatProvider,
+            string? category,
+            string? nativeErrorInfo,
+            Exception? ex)
         {
             if (!IsEnabled(level))
             {
@@ -70,9 +77,13 @@ namespace Apache.Ignite.Log
             var dateTimeProvider = DateTimeProvider ?? LocalDateTimeProvider.Instance;
 
             var sb = new StringBuilder().AppendFormat(
-                "[{0:HH:mm:ss}] [{1}] [{2}] ", dateTimeProvider.Now(), level, category);
+                CultureInfo.InvariantCulture,
+                "[{0:HH:mm:ss}] [{1}] [{2}] ",
+                dateTimeProvider.Now(),
+                level,
+                category);
 
-            if (args != null)
+            if (args is { Length: > 0 })
             {
                 sb.AppendFormat(formatProvider, message, args);
             }
@@ -83,7 +94,7 @@ namespace Apache.Ignite.Log
 
             if (ex != null)
             {
-                sb.AppendFormat(" (exception: {0})", ex);
+                sb.AppendFormat(CultureInfo.InvariantCulture, " (exception: {0})", ex);
             }
 
             Console.WriteLine(sb.ToString());
@@ -93,7 +104,7 @@ namespace Apache.Ignite.Log
         /// Determines whether the specified log level is enabled.
         /// </summary>
         /// <param name="level">The level.</param>
-        /// <returns>Value indicating whether the specified log level is enabled</returns>
+        /// <returns>Value indicating whether the specified log level is enabled.</returns>
         public bool IsEnabled(LogLevel level)
         {
             return level >= MinLevel;
