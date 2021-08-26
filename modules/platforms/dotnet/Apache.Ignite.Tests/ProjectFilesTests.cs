@@ -35,6 +35,7 @@ namespace Apache.Ignite.Tests
         [Test]
         public void TestInternalNamespaceHasNoPublicTypes()
         {
+            // Create a Roslyn analyzer for this.
             var files = Directory.GetFiles(TestUtils.SolutionDir, "*.cs", SearchOption.AllDirectories);
 
             var internalDir = Path.DirectorySeparatorChar + "Internal" + Path.DirectorySeparatorChar;
