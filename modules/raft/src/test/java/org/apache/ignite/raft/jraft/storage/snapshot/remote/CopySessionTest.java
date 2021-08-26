@@ -106,21 +106,24 @@ public class CopySessionTest {
                 // No-op.
             }
         });
-        t.start();
-        assertNull(this.session.getRpcCall());
-        final ByteBufferCollector bufRef = ByteBufferCollector.allocate(0);
-        this.session.setDestBuf(bufRef);
+        try {
+            t.start();
+            assertNull(this.session.getRpcCall());
+            final ByteBufferCollector bufRef = ByteBufferCollector.allocate(0);
+            this.session.setDestBuf(bufRef);
 
-        this.session.onRpcReturned(Status.OK(), raftOpts.getRaftMessagesFactory().getFileResponse().readSize(100).eof(true)
-            .data(new ByteString(new byte[100])).build());
-        assertEquals(100, bufRef.capacity());
-        //should be flip
-        assertEquals(0, bufRef.getBuffer().position());
-        assertEquals(100, bufRef.getBuffer().remaining());
+            this.session.onRpcReturned(Status.OK(), raftOpts.getRaftMessagesFactory().getFileResponse().readSize(100).eof(true)
+                .data(new ByteString(new byte[100])).build());
+            assertEquals(100, bufRef.capacity());
+            //should be flip
+            assertEquals(0, bufRef.getBuffer().position());
+            assertEquals(100, bufRef.getBuffer().remaining());
 
-        assertNull(this.session.getRpcCall());
-        latch.await();
-        t.join();
+            assertNull(this.session.getRpcCall());
+            latch.await();
+        } finally {
+            t.join();
+        }
     }
 
     @Test

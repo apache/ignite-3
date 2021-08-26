@@ -52,15 +52,18 @@ public class SynchronizedClosureTest {
             }
             latch.countDown();
         });
-        t.start();
+        try {
+            t.start();
 
-        int n = 1000;
-        Thread.sleep(n);
-        this.done.run(Status.OK());
-        latch.await();
-        assertEquals(n, cost.get(), 50);
-        assertTrue(this.done.getStatus().isOk());
-        t.join();
+            int n = 1000;
+            Thread.sleep(n);
+            this.done.run(Status.OK());
+            latch.await();
+            assertEquals(n, cost.get(), 50);
+            assertTrue(this.done.getStatus().isOk());
+        } finally {
+            t.join();
+        }
     }
 
     @Test

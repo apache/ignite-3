@@ -55,48 +55,56 @@ public class LongHeldDetectingReadWriteLockTest {
         };
 
         final CountDownLatch latch = new CountDownLatch(1);
-        Thread t1 = new Thread(() -> {
-            readWriteLock.writeLock().lock();
-            latch.countDown();
-            try {
-                Thread.sleep(2000);
-            }
-            catch (final InterruptedException e) {
-                LOG.error("Thread was interrupted", e);
-            }
-            finally {
-                readWriteLock.writeLock().unlock();
-            }
-        }, "write-lock-thread");
+        Thread t1 = null;
+        Thread t2 = null;
+        Thread t3 = null;
+        try {
+            t1 = new Thread(() -> {
+                readWriteLock.writeLock().lock();
+                latch.countDown();
+                try {
+                    Thread.sleep(2000);
+                }
+                catch (final InterruptedException e) {
+                    LOG.error("Thread was interrupted", e);
+                }
+                finally {
+                    readWriteLock.writeLock().unlock();
+                }
+            }, "write-lock-thread");
 
-        t1.start();
+            t1.start();
 
-        latch.await();
+            latch.await();
 
-        final CountDownLatch latch1 = new CountDownLatch(2);
-        Thread t2 = new Thread(() -> {
-            readWriteLock.readLock().lock();
-            readWriteLock.readLock().unlock();
-            latch1.countDown();
-        }, "read-lock-thread-1");
+            final CountDownLatch latch1 = new CountDownLatch(2);
+            t2 = new Thread(() -> {
+                readWriteLock.readLock().lock();
+                readWriteLock.readLock().unlock();
+                latch1.countDown();
+            }, "read-lock-thread-1");
 
-        t2.start();
+            t2.start();
 
-        Thread t3 = new Thread(() -> {
-            readWriteLock.readLock().lock();
-            readWriteLock.readLock().unlock();
-            latch1.countDown();
-        }, "read-lock-thread-2");
+            t3 = new Thread(() -> {
+                readWriteLock.readLock().lock();
+                readWriteLock.readLock().unlock();
+                latch1.countDown();
+            }, "read-lock-thread-2");
 
-        t3.start();
+            t3.start();
 
-        latch1.await();
+            latch1.await();
+        } finally {
+            if (t1 != null)
+                t1.join();
 
-        t1.join();
+            if (t2 != null)
+                t2.join();
 
-        t2.join();
-
-        t3.join();
+            if (t3 != null)
+                t3.join();
+        }
     }
 
     @Test
@@ -120,47 +128,55 @@ public class LongHeldDetectingReadWriteLockTest {
         };
 
         final CountDownLatch latch = new CountDownLatch(1);
-        Thread t1 = new Thread(() -> {
-            readWriteLock.readLock().lock();
-            latch.countDown();
-            try {
-                Thread.sleep(2000);
-            }
-            catch (final InterruptedException e) {
-                LOG.error("Thread was interrupted", e);
-            }
-            finally {
-                readWriteLock.readLock().unlock();
-            }
-        }, "read-lock-thread");
+        Thread t1 = null;
+        Thread t2 = null;
+        Thread t3 = null;
+        try {
+            t1 = new Thread(() -> {
+                readWriteLock.readLock().lock();
+                latch.countDown();
+                try {
+                    Thread.sleep(2000);
+                }
+                catch (final InterruptedException e) {
+                    LOG.error("Thread was interrupted", e);
+                }
+                finally {
+                    readWriteLock.readLock().unlock();
+                }
+            }, "read-lock-thread");
 
-        t1.start();
+            t1.start();
 
-        latch.await();
+            latch.await();
 
-        final CountDownLatch latch1 = new CountDownLatch(2);
-        Thread t2 = new Thread(() -> {
-            readWriteLock.writeLock().lock();
-            readWriteLock.writeLock().unlock();
-            latch1.countDown();
-        }, "write-lock-thread-1");
+            final CountDownLatch latch1 = new CountDownLatch(2);
+            t2 = new Thread(() -> {
+                readWriteLock.writeLock().lock();
+                readWriteLock.writeLock().unlock();
+                latch1.countDown();
+            }, "write-lock-thread-1");
 
-        t2.start();
+            t2.start();
 
-        Thread t3 = new Thread(() -> {
-            readWriteLock.writeLock().lock();
-            readWriteLock.writeLock().unlock();
-            latch1.countDown();
-        }, "write-lock-thread-2");
+            t3 = new Thread(() -> {
+                readWriteLock.writeLock().lock();
+                readWriteLock.writeLock().unlock();
+                latch1.countDown();
+            }, "write-lock-thread-2");
 
-        t3.start();
+            t3.start();
 
-        latch1.await();
+            latch1.await();
+        } finally {
+            if (t1 != null)
+                t1.join();
 
-        t1.join();
+            if (t2 != null)
+                t2.join();
 
-        t2.join();
-
-        t3.join();
+            if (t3 != null)
+                t3.join();
+        }
     }
 }
