@@ -118,6 +118,7 @@ namespace Apache.Ignite.Internal
 
         private static async Task WriteHandshakeAsync(NetworkStream stream, ClientProtocolVersion version)
         {
+            // TODO: Don't allocate delegates, serialize to pooled byte array => zero alloc.
             using var bufferWriter = WriteRequest(w =>
             {
                 // Version.
@@ -131,28 +132,18 @@ namespace Apache.Ignite.Internal
                 w.WriteMapHeader(0); // Extensions.
             });
 
-            await stream.WriteAsync(bufferWriter.GetArray().AsMemory(0, bufferWriter.WrittenCount))
-                    .ConfigureAwait(false);
+            await stream.WriteAsync(bufferWriter.GetWrittenMemory()).ConfigureAwait(false);
         }
 
-        private static unsafe PooledArrayBufferWriter WriteRequest(MessageWriter messageWriter)
+        private static PooledArrayBufferWriter WriteRequest(MessageWriter messageWriter)
         {
             var bufferWriter = new PooledArrayBufferWriter();
 
             try
             {
-                bufferWriter.Advance(4);
-
                 var writer = new MessagePackWriter(bufferWriter);
                 messageWriter(writer);
-                writer.Flush();
-
-                // Write big-endian message size to the start of the buffer.
-                var buffer = bufferWriter.GetArray();
-
-                var msgSize = IPAddress.HostToNetworkOrder(bufferWriter.WrittenCount);
-                var sizeBytes = new ReadOnlySpan<byte>(&msgSize, 4);
-                sizeBytes.CopyTo(buffer);
+                writer.Flush(); // TODO: This includes more buffering - why?
 
                 return bufferWriter;
             }

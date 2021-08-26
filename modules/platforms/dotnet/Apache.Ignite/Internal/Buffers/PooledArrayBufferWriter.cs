@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Buffers
 {
     using System;
     using System.Buffers;
+    using System.Net;
     using MessagePack;
 
     /// <summary>
@@ -42,54 +43,30 @@ namespace Apache.Ignite.Internal.Buffers
         /// </summary>
         public PooledArrayBufferWriter()
         {
-            _buffer = Array.Empty<byte>();
-            _index = 0;
+            _buffer = ArrayPool<byte>.Shared.Rent(4096);
+            _index = 4; // Reserve for message length.
         }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="PooledArrayBufferWriter"/> class.
-        /// </summary>
-        /// <param name="initialCapacity">Initial capacity.</param>
-        /// <exception cref="ArgumentException">When capacity is less than 1.</exception>
-        public PooledArrayBufferWriter(int initialCapacity)
-        {
-            _buffer = initialCapacity > 0
-                ? ArrayPool<byte>.Shared.Rent(initialCapacity)
-                : throw new ArgumentException(null, nameof(initialCapacity));
-
-            _index = 0;
-        }
-
-        /// <summary>
-        /// Gets written data as memory..
-        /// </summary>
-        public ReadOnlyMemory<byte> WrittenMemory => _buffer.AsMemory(0, _index);
-
-        /// <summary>
-        /// Gets written data as span.
-        /// </summary>
-        public ReadOnlySpan<byte> WrittenSpan => _buffer.AsSpan(0, _index);
-
-        /// <summary>
-        /// Gets the written count.
-        /// </summary>
-        public int WrittenCount => _index;
-
-        /// <summary>
-        /// Gets the capacity.
-        /// </summary>
-        public int Capacity => _buffer.Length;
 
         /// <summary>
         /// Gets the free capacity.
         /// </summary>
-        public int FreeCapacity => _buffer.Length - _index;
+        private int FreeCapacity => _buffer.Length - _index;
 
         /// <summary>
-        /// Gets the underlying array.
+        /// Gets the underlying array with first 4 bytes set to the buffer size.
         /// </summary>
         /// <returns>Underlying array.</returns>
-        public byte[] GetArray() => _buffer;
+        public unsafe ReadOnlyMemory<byte> GetWrittenMemory()
+        {
+            // Write big-endian message size to the start of the buffer.
+            fixed (int* bufPtr = &_buffer[0])
+            {
+                var msgSize = IPAddress.HostToNetworkOrder(_index - 4);
+                *bufPtr = msgSize;
+            }
+
+            return _buffer.AsMemory(0, _index);
+        }
 
         /// <inheritdoc />
         public void Advance(int count)
@@ -146,11 +123,6 @@ namespace Apache.Ignite.Internal.Buffers
 
             int length = _buffer.Length;
             int increase = Math.Max(sizeHint, length);
-
-            if (length == 0)
-            {
-                increase = Math.Max(increase, 256); // TODO: Use stackalloc for default small buffer.
-            }
 
             int newSize = length + increase;
             if ((uint)newSize > int.MaxValue)
