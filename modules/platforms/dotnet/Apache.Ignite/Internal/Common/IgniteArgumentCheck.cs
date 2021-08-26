@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -16,11 +16,10 @@
  */
 
 // ReSharper disable ParameterOnlyUsedForPreconditionCheck.Global
-namespace Apache.Ignite.Core.Impl.Common
+namespace Apache.Ignite.Internal.Common
 {
     using System;
     using System.Collections.Generic;
-    using System.Globalization;
 
     /// <summary>
     /// Arguments check helpers.
@@ -35,7 +34,9 @@ namespace Apache.Ignite.Core.Impl.Common
         public static void NotNull(object arg, string argName)
         {
             if (arg == null)
+            {
                 throw new ArgumentNullException(argName);
+            }
         }
 
         /// <summary>
@@ -43,11 +44,13 @@ namespace Apache.Ignite.Core.Impl.Common
         /// </summary>
         /// <param name="arg">The argument.</param>
         /// <param name="argName">Name of the argument.</param>
+        /// <returns><see cref="arg"/>.</returns>
         public static string NotNullOrEmpty(string arg, string argName)
         {
             if (string.IsNullOrEmpty(arg))
-                throw new ArgumentException(string.Format(CultureInfo.InvariantCulture,
-                    "'{0}' argument should not be null or empty.", argName), argName);
+            {
+                throw new ArgumentException($"'{argName}' argument should not be null or empty.", argName);
+            }
 
             return arg;
         }
@@ -57,11 +60,13 @@ namespace Apache.Ignite.Core.Impl.Common
         /// </summary>
         /// <param name="collection">The collection.</param>
         /// <param name="argName">Name of the argument.</param>
+        /// <typeparam name="T">Type.</typeparam>
         public static void NotNullOrEmpty<T>(ICollection<T> collection, string argName)
         {
             if (collection == null || collection.Count == 0)
-                throw new ArgumentException(string.Format(CultureInfo.InvariantCulture,
-                    "'{0}' argument should not be null or empty.", argName), argName);
+            {
+                throw new ArgumentException($"'{argName}' argument should not be null or empty.", argName);
+            }
         }
 
         /// <summary>
@@ -73,8 +78,9 @@ namespace Apache.Ignite.Core.Impl.Common
         public static void Ensure(bool condition, string argName, string message)
         {
             if (!condition)
-                throw new ArgumentException(string.Format(CultureInfo.InvariantCulture,
-                    "'{0}' argument is invalid: {1}", argName, message), argName);
+            {
+                throw new ArgumentException($"'{argName}' argument is invalid: {message}", argName);
+            }
         }
     }
 }
