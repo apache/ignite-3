@@ -1,10 +1,10 @@
 ﻿/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -29,22 +29,22 @@ namespace Apache.Ignite.Log
         /// Trace log level.
         /// </summary>
         Trace = 0,
-        
+
         /// <summary>
         /// Debug log level.
         /// </summary>
         Debug = 1,
-        
+
         /// <summary>
         /// Info log level.
         /// </summary>
         Info = 2,
-        
+
         /// <summary>
         /// Warning log level.
         /// </summary>
         Warn = 3,
-        
+
         /// <summary>
         /// Error log level.
         /// </summary>

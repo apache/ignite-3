@@ -1,10 +1,10 @@
 ﻿/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -42,7 +42,7 @@ namespace Apache.Ignite.Log
         /// Default is <see cref="LogLevel.Warn"/>.
         /// </summary>
         public LogLevel MinLevel { get; set; }
-        
+
         /// <summary>
         /// Gets or sets DateTime provider.
         /// </summary>
@@ -71,7 +71,7 @@ namespace Apache.Ignite.Log
 
             var sb = new StringBuilder().AppendFormat(
                 "[{0:HH:mm:ss}] [{1}] [{2}] ", dateTimeProvider.Now(), level, category);
-            
+
             if (args != null)
             {
                 sb.AppendFormat(formatProvider, message, args);
@@ -85,7 +85,7 @@ namespace Apache.Ignite.Log
             {
                 sb.AppendFormat(" (exception: {0})", ex);
             }
-            
+
             Console.WriteLine(sb.ToString());
         }
 
