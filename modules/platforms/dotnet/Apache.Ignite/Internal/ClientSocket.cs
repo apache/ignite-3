@@ -118,40 +118,29 @@ namespace Apache.Ignite.Internal
 
         private static async Task WriteHandshakeAsync(NetworkStream stream, ClientProtocolVersion version)
         {
-            // TODO: Don't allocate delegates, serialize to pooled byte array => zero alloc.
-            using var bufferWriter = WriteRequest(w =>
-            {
-                // Version.
-                w.Write(version.Major);
-                w.Write(version.Minor);
-                w.Write(version.Patch);
-
-                w.Write(ClientType); // Client type: general purpose.
-
-                w.WriteBinHeader(0); // Features.
-                w.WriteMapHeader(0); // Extensions.
-            });
+            // TODO:
+            // 1. Avoid allocating PooledArrayBufferWriter - but how?
+            //    - struct with interface will box
+            // 2. Flush packer automatically
+            using var bufferWriter = new PooledArrayBufferWriter();
+            WriteHandshake(version, bufferWriter.GetPacker());
 
             await stream.WriteAsync(bufferWriter.GetWrittenMemory()).ConfigureAwait(false);
         }
 
-        private static PooledArrayBufferWriter WriteRequest(MessageWriter messageWriter)
+        private static void WriteHandshake(ClientProtocolVersion version, MessagePackWriter w)
         {
-            var bufferWriter = new PooledArrayBufferWriter();
+            // Version.
+            w.Write(version.Major);
+            w.Write(version.Minor);
+            w.Write(version.Patch);
 
-            try
-            {
-                var writer = new MessagePackWriter(bufferWriter);
-                messageWriter(writer);
-                writer.Flush();
+            w.Write(ClientType); // Client type: general purpose.
 
-                return bufferWriter;
-            }
-            catch (Exception)
-            {
-                bufferWriter.Dispose();
-                throw;
-            }
+            w.WriteBinHeader(0); // Features.
+            w.WriteMapHeader(0); // Extensions.
+
+            w.Flush();
         }
     }
 }

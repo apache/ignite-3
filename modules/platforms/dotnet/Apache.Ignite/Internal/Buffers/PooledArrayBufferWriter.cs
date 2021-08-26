@@ -98,6 +98,12 @@ namespace Apache.Ignite.Internal.Buffers
             return _buffer.AsSpan(_index);
         }
 
+        /// <summary>
+        /// Gets the <see cref="MessagePackWriter"/> for this buffer.
+        /// </summary>
+        /// <returns><see cref="MessagePackWriter"/> for this buffer.</returns>
+        public MessagePackWriter GetPacker() => new(this);
+
         /// <inheritdoc />
         public void Dispose()
         {
