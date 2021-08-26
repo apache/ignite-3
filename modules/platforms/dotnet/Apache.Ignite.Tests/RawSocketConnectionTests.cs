@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests
 {
     using System;
     using System.Buffers;
+    using System.IO;
     using System.Linq;
     using System.Net;
     using System.Net.Sockets;
@@ -26,7 +27,10 @@ namespace Apache.Ignite.Tests
     using MessagePack;
     using NUnit.Framework;
 
-    public class ConnectionTests
+    /// <summary>
+    /// Tests protocol basics with simple socket connection.
+    /// </summary>
+    public class RawSocketConnectionTests
     {
         private static readonly byte[] Magic = "IGNI".Select(c => (byte)c).ToArray();
 
@@ -47,34 +51,26 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestHandshake()
         {
-            Socket socket = new(SocketType.Stream, ProtocolType.Tcp)
+            using Socket socket = new(SocketType.Stream, ProtocolType.Tcp)
             {
                 NoDelay = true
             };
 
-            try
-            {
-                await socket.ConnectAsync(IPAddress.Loopback, JavaServer.ClientPort);
-                var stream = new NetworkStream(socket, ownsSocket: true);
+            await socket.ConnectAsync(IPAddress.Loopback, JavaServer.ClientPort);
+            await using var stream = new NetworkStream(socket, ownsSocket: true);
 
-                await stream.WriteAsync(Magic);
-                WriteHandshake(stream);
+            await stream.WriteAsync(Magic);
+            WriteHandshake(stream);
 
-                await stream.FlushAsync();
+            await stream.FlushAsync();
 
-                var responseMagic = new byte[4];
-                await stream.ReadAsync(responseMagic);
+            var responseMagic = new byte[4];
+            await stream.ReadAsync(responseMagic);
 
-                CollectionAssert.AreEqual(Magic, responseMagic);
-            }
-            catch
-            {
-                socket.Dispose();
-                throw;
-            }
+            CollectionAssert.AreEqual(Magic, responseMagic);
         }
 
-        private static unsafe void WriteHandshake(NetworkStream stream)
+        private static unsafe void WriteHandshake(Stream stream)
         {
             // TODO: Buffer pooling.
             var bufferWriter = new ArrayBufferWriter<byte>();
