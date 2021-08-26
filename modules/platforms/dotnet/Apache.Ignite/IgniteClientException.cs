@@ -55,7 +55,7 @@ namespace Apache.Ignite
         /// </summary>
         /// <param name="message">The message.</param>
         /// <param name="cause">The cause.</param>
-        public IgniteClientException(string message, Exception cause)
+        public IgniteClientException(string message, Exception? cause)
             : base(message, cause)
         {
             // No-op.
@@ -67,7 +67,7 @@ namespace Apache.Ignite
         /// <param name="message">The message.</param>
         /// <param name="cause">The cause.</param>
         /// <param name="statusCode">The error code.</param>
-        public IgniteClientException(string message, Exception cause, ClientErrorCode statusCode)
+        public IgniteClientException(string message, Exception? cause, ClientErrorCode statusCode)
             : base(message, cause)
         {
             _errorCode = statusCode;

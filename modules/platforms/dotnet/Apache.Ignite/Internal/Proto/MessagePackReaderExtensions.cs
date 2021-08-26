@@ -15,15 +15,26 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Buffers
+namespace Apache.Ignite.Internal.Proto
 {
     using MessagePack;
 
     /// <summary>
-    /// Message reader delegate.
+    /// Extension methods for <see cref="MessagePackReader"/>.
     /// </summary>
-    /// <param name="reader">Reader.</param>
-    /// <returns>Read result.</returns>
-    /// <typeparam name="T">Result type.</typeparam>
-    public delegate T MessageReader<out T>(MessagePackReader reader);
+    internal static class MessagePackReaderExtensions
+    {
+        /// <summary>
+        /// Skips multiple elements.
+        /// </summary>
+        /// <param name="reader">Reader.</param>
+        /// <param name="count">Element count to skip.</param>
+        public static void Skip(this MessagePackReader reader, int count)
+        {
+            for (var i = 0; i < count; i++)
+            {
+                reader.Skip();
+            }
+        }
+    }
 }

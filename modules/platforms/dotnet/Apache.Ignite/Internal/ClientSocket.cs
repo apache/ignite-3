@@ -81,6 +81,7 @@ namespace Apache.Ignite.Internal
                 await stream.FlushAsync().ConfigureAwait(false);
 
                 await CheckMagicBytesAsync(stream).ConfigureAwait(false);
+                await CheckHandshakeResponseAsync(stream).ConfigureAwait(false);
 
                 return new ClientSocket(stream);
             }
@@ -116,12 +117,84 @@ namespace Apache.Ignite.Internal
             }
         }
 
+        private static async Task CheckHandshakeResponseAsync(NetworkStream stream)
+        {
+            var response = await ReadResponseAsync(stream).ConfigureAwait(false);
+
+            try
+            {
+                CheckHandshakeResponse(response.GetUnpacker());
+            }
+            finally
+            {
+                response.Release();
+            }
+        }
+
+        private static void CheckHandshakeResponse(MessagePackReader reader)
+        {
+            var serverVer = new ClientProtocolVersion(reader.ReadInt16(), reader.ReadInt16(), reader.ReadInt16());
+
+            if (serverVer != CurrentProtocolVersion)
+            {
+                throw new IgniteClientException("Unexpected server version: " + serverVer);
+            }
+
+            var errorCode = (ClientErrorCode)reader.ReadInt32();
+
+            if (errorCode != ClientErrorCode.Success)
+            {
+                var errorMessage = reader.ReadString();
+
+                throw new IgniteClientException(errorMessage, null, errorCode);
+            }
+
+            reader.Skip(); // Features.
+            reader.Skip(); // Extensions.
+        }
+
+        private static async Task<PooledBuf> ReadResponseAsync(NetworkStream stream)
+        {
+            var size = await ReadMessageSizeAsync(stream).ConfigureAwait(false);
+
+            var bytes = ArrayPool<byte>.Shared.Rent(size);
+
+            await stream.ReadAsync(bytes.AsMemory(0, size)).ConfigureAwait(false);
+
+            return new PooledBuf(bytes, size);
+        }
+
+        private static async Task<int> ReadMessageSizeAsync(NetworkStream stream)
+        {
+            const int messageSizeByteCount = 4;
+            var bytes = ArrayPool<byte>.Shared.Rent(messageSizeByteCount);
+
+            try
+            {
+                await stream.ReadAsync(bytes.AsMemory(0, messageSizeByteCount)).ConfigureAwait(false);
+
+                return GetMessageSize(bytes);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(bytes);
+            }
+        }
+
+        private static unsafe int GetMessageSize(byte[] responseLenBytes)
+        {
+            fixed (int* len = &responseLenBytes[0])
+            {
+                return *len;
+            }
+        }
+
         private static async Task WriteHandshakeAsync(NetworkStream stream, ClientProtocolVersion version)
         {
             // TODO:
             // 1. Avoid allocating PooledArrayBufferWriter - but how?
             //    - struct with interface will box
-            // 2. Flush packer automatically
+            // 2. Flush packer automatically: use delegates (allocatey) or don't (more boilerplate)
             using var bufferWriter = new PooledArrayBufferWriter();
             WriteHandshake(version, bufferWriter.GetPacker());
 
