@@ -145,7 +145,7 @@ namespace Apache.Ignite.Internal
             "Microsoft.Reliability",
             "CA2000:Dispose objects before losing scope",
             Justification = "BinaryHeapStream does not need to be disposed.")]
-        public T DoOutInOp<T>(
+        public Task<T> DoOutInOpAsync<T>(
             ClientOp opId,
             MessageWriter writer,
             MessageReader<T> reader,
@@ -153,23 +153,6 @@ namespace Apache.Ignite.Internal
         {
             // Encode.
             var reqMsg = WriteMessage(writer, opId);
-
-            // Send.
-            var response = SendRequest(ref reqMsg) ?? SendRequestAsync(ref  reqMsg).Result;
-
-            // Decode.
-            return DecodeResponse(response, reader, errorFunc);
-        }
-
-        /// <summary>
-        /// Performs a send-receive operation asynchronously.
-        /// </summary>
-        public Task<T> DoOutInOpAsync<T>(ClientOp opId, Action<ClientRequestContext> writeAction,
-            Func<ClientResponseContext, T> readFunc, Func<ClientStatusCode, string, T> errorFunc = null,
-            bool syncCallback = false)
-        {
-            // Encode.
-            var reqMsg = WriteMessage(writeAction, opId);
 
             // Send.
             var task = SendRequestAsync(ref reqMsg);
@@ -188,78 +171,14 @@ namespace Apache.Ignite.Internal
         }
 
         /// <summary>
-        /// Enables notifications on this socket.
-        /// </summary>
-        public void ExpectNotifications()
-        {
-            Interlocked.Increment(ref _expectedNotifications);
-        }
-
-        /// <summary>
-        /// Adds a notification handler.
-        /// </summary>
-        /// <param name="notificationId">Notification id.</param>
-        /// <param name="handlerDelegate">Handler delegate.</param>
-        public void AddNotificationHandler(long notificationId, ClientNotificationHandler.Handler handlerDelegate)
-        {
-            var handler = _notificationListeners.GetOrAdd(notificationId,
-                _ => new ClientNotificationHandler(_logger, handlerDelegate));
-
-            if (!handler.HasHandler)
-            {
-                // We could use AddOrUpdate, but SetHandler must be called outside of Update call,
-                // because it causes handler execution, which, in turn, may call RemoveNotificationHandler.
-                handler.SetHandler(handlerDelegate);
-            }
-
-            _listenerEvent.Set();
-        }
-
-        /// <summary>
-        /// Removes a notification handler with the given id.
-        /// </summary>
-        /// <param name="notificationId">Notification id.</param>
-        /// <returns>True when removed, false otherwise.</returns>
-        public void RemoveNotificationHandler(long notificationId)
-        {
-            if (IsDisposed)
-            {
-                return;
-            }
-
-            ClientNotificationHandler unused;
-            var removed = _notificationListeners.TryRemove(notificationId, out unused);
-            Debug.Assert(removed);
-
-            var count = Interlocked.Decrement(ref _expectedNotifications);
-            if (count < 0)
-            {
-                throw new IgniteClientException("Negative thin client expected notification count.");
-            }
-        }
-
-        /// <summary>
-        /// Gets the features.
-        /// </summary>
-        public ClientFeatures Features
-        {
-            get { return _features; }
-        }
-
-        /// <summary>
         /// Gets the current remote EndPoint.
         /// </summary>
-        public EndPoint RemoteEndPoint { get { return _socket.RemoteEndPoint; } }
+        public EndPoint RemoteEndPoint => _socket.RemoteEndPoint!;
 
         /// <summary>
         /// Gets the current local EndPoint.
         /// </summary>
-        public EndPoint LocalEndPoint { get { return _socket.LocalEndPoint; } }
-
-        /// <summary>
-        /// Gets the ID of the connected server node.
-        /// </summary>
-        public Guid? ServerNodeId { get; private set; }
+        public EndPoint LocalEndPoint => _socket.LocalEndPoint!;
 
         /// <summary>
         /// Gets a value indicating whether this socket is disposed.
@@ -275,85 +194,8 @@ namespace Apache.Ignite.Internal
         public ClientProtocolVersion ServerVersion { get; private set; }
 
         /// <summary>
-        /// Gets the marshaller.
-        /// </summary>
-        public Marshaller Marshaller
-        {
-            get { return _marsh; }
-        }
-
-        /// <summary>
-        /// Gets a value indicating that this socket is in async mode:
-        /// async requests are pending, or notifications are expected.
-        /// <para />
-        /// We have sync and async modes because sync mode is faster.
-        /// </summary>
-        private bool IsAsyncMode
-        {
-            get { return !_requests.IsEmpty || Interlocked.Read(ref _expectedNotifications) > 0; }
-        }
-
-        /// <summary>
-        /// Starts waiting for the new message.
-        /// </summary>
-        [SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes")]
-        private void WaitForMessages()
-        {
-            _logger.Trace("Receiver thread #{0} started.", Thread.CurrentThread.ManagedThreadId);
-
-            try
-            {
-                // Null exception means active socket.
-                while (_exception == null)
-                {
-                    // Do not call Receive if there are no pending async requests or notification listeners.
-                    while (!IsAsyncMode)
-                    {
-                        // Wait with a timeout so we check for disposed state periodically.
-                        _listenerEvent.Wait(1000);
-
-                        if (_exception != null)
-                        {
-                            return;
-                        }
-
-                        _listenerEvent.Reset();
-                    }
-
-                    lock (_receiveMessageSyncRoot)
-                    {
-                        // Async operations should not have a read timeout.
-                        if (_isReadTimeoutEnabled)
-                        {
-                            _stream.ReadTimeout = Timeout.Infinite;
-                            _isReadTimeoutEnabled = false;
-                        }
-
-                        var msg = ReceiveMessage();
-
-                        HandleResponse(msg);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                // Socket failure (connection dropped, etc).
-                // Close socket and all pending requests.
-                // Note that this does not include request decoding exceptions (failed request, invalid data, etc).
-                _exception = ex;
-                Dispose();
-            }
-            finally
-            {
-                _logger.Trace("Receiver thread #{0} stopped.", Thread.CurrentThread.ManagedThreadId);
-            }
-        }
-
-        /// <summary>
         /// Handles the response.
         /// </summary>
-        [SuppressMessage("Microsoft.Reliability", "CA2000:Dispose objects before losing scope",
-            Justification = "BinaryHeapStream does not need to be disposed.")]
         private void HandleResponse(byte[] response)
         {
             var stream = new BinaryHeapStream(response);
