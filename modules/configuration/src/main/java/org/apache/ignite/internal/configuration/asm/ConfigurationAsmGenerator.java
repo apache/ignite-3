@@ -77,6 +77,7 @@ import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
+import static com.facebook.presto.bytecode.Access.BRIDGE;
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
@@ -287,9 +288,9 @@ public class ConfigurationAsmGenerator {
             assert schemasInfo.containsKey(schemaClass) : schemaClass;
 
             Set<Class<?>> schemaExtensions = internalSchemaExtensions.getOrDefault(schemaClass, Set.of());
-            Set<Field> schemaFields = mergedSchemaFields(schemaClass, schemaExtensions);
+            Map<Field, Set<Class<?>>> schemaFields = mergedSchemaFields(schemaClass, schemaExtensions);
 
-            for (Field field : schemaFields) {
+            for (Field field : schemaFields.keySet()) {
                 if (isConfigValue(field) || isNamedConfigValue(field)) {
                     Class<?> subSchemaClass = field.getType();
 
@@ -302,7 +303,7 @@ public class ConfigurationAsmGenerator {
 
             schemas.add(schemaClass);
             definitions.add(createNodeClass(schemaClass, schemaFields, schemaExtensions));
-            definitions.add(createCfgImplClass(schemaClass, schemaFields, schemaExtensions));
+            definitions.add(createCfgImplClass(schemaClass, schemaFields.keySet(), schemaExtensions));
         }
 
         Map<String, Class<?>> definedClasses = generator.defineClasses(definitions);
@@ -320,12 +321,13 @@ public class ConfigurationAsmGenerator {
      *
      * @param schemaClass Configuration schema class.
      * @param schemaFields Fields of the schema and its extensions.
+     *      Mapping: field -> empty if a schema field, otherwise schema extensions that contain this field.
      * @param schemaExtensions Internal extensions of the configuration schema.
      * @return Constructed {@link InnerNode} definition for the configuration schema.
      */
     private ClassDefinition createNodeClass(
         Class<?> schemaClass,
-        Set<Field> schemaFields,
+        Map<Field, Set<Class<?>>> schemaFields,
         Set<Class<?>> schemaExtensions
     ) {
         SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaClass);
@@ -357,35 +359,44 @@ public class ConfigurationAsmGenerator {
         // Define the rest of the fields.
         Map<String, FieldDefinition> fieldDefs = new HashMap<>();
 
-        for (Field schemaField : schemaFields) {
+        for (Field schemaField : schemaFields.keySet()) {
             assert isValue(schemaField) || isConfigValue(schemaField) || isNamedConfigValue(schemaField) : schemaField;
 
             fieldDefs.put(schemaField.getName(), addNodeField(classDef, schemaField));
         }
 
         // Constructor.
-        addNodeConstructor(classDef, specFields, schemaFields, fieldDefs);
+        addNodeConstructor(classDef, specFields, schemaFields.keySet(), fieldDefs);
 
         // VIEW and CHANGE methods.
-        for (Field schemaField : schemaFields) {
+        for (Map.Entry<Field, Set<Class<?>>> e : schemaFields.entrySet()) {
+            Field schemaField = e.getKey();
+
             FieldDefinition fieldDef = fieldDefs.get(schemaField.getName());
 
             addNodeViewMethod(classDef, schemaField, fieldDef);
 
-            addNodeChangeMethod(classDef, schemaField, fieldDef, schemaClassInfo);
+            addNodeChangeMethod(classDef, schemaField, fieldDef, schemaClassInfo.changeClassName, false);
+
+            // Creation of bridge methods for internal extensions.
+            for (Class<?> internalExtension : e.getValue()) {
+                String changeClassName = prefix(internalExtension) + CHANGE_CLASS_POSTFIX;
+
+                addNodeChangeMethod(classDef, schemaField, fieldDef, changeClassName, true);
+            }
         }
 
         // traverseChildren
-        addNodeTraverseChildrenMethod(classDef, schemaFields, fieldDefs, schemaExtensions);
+        addNodeTraverseChildrenMethod(classDef, schemaFields.keySet(), fieldDefs, schemaExtensions);
 
         // traverseChild
-        addNodeTraverseChildMethod(classDef, schemaFields, fieldDefs, schemaExtensions);
+        addNodeTraverseChildMethod(classDef, schemaFields.keySet(), fieldDefs, schemaExtensions);
 
         // construct
-        addNodeConstructMethod(classDef, schemaFields, fieldDefs, schemaExtensions);
+        addNodeConstructMethod(classDef, schemaFields.keySet(), fieldDefs, schemaExtensions);
 
         // constructDefault
-        addNodeConstructDefaultMethod(classDef, specFields, schemaFields, fieldDefs);
+        addNodeConstructDefaultMethod(classDef, specFields, schemaFields.keySet(), fieldDefs);
 
         return classDef;
     }
@@ -545,23 +556,26 @@ public class ConfigurationAsmGenerator {
 
     /**
      * Implements changer method from {@code CHANGE} interface.
+     *
      * @param classDef Node class definition.
      * @param schemaField Configuration Schema class field.
      * @param fieldDef Field definition.
-     * @param schemaClassInfo {@link SchemaClassesInfo} for Configuration Schema that contains original field.
+     * @param changeClassName Class name for the CHANGE class.
+     * @param bridge {@code true} if create a bridge method.
      */
     private void addNodeChangeMethod(
         ClassDefinition classDef,
         Field schemaField,
         FieldDefinition fieldDef,
-        SchemaClassesInfo schemaClassInfo
+        String changeClassName,
+        boolean bridge
     ) {
         Class<?> schemaFieldType = schemaField.getType();
 
         MethodDefinition changeMtd = classDef.declareMethod(
-            of(PUBLIC),
+            bridge ? of(PUBLIC, SYNTHETIC, BRIDGE) : of(PUBLIC),
             "change" + capitalize(schemaField.getName()),
-            typeFromJavaClassName(schemaClassInfo.changeClassName),
+            typeFromJavaClassName(changeClassName),
             // Change argument type is a Consumer for all inner or named fields.
             arg("change", isValue(schemaField) ? type(schemaFieldType) : type(Consumer.class))
         );

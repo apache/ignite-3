@@ -20,12 +20,12 @@ package org.apache.ignite.internal.configuration.util;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -47,9 +47,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static java.util.Collections.singletonMap;
-import static java.util.Comparator.comparing;
 import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
@@ -518,7 +516,7 @@ public class ConfigurationUtilTest {
         );
 
         assertEquals(
-            Set.of(schema.getDeclaredFields()),
+            Arrays.stream(schema.getDeclaredFields()).collect(toMap(identity(), f -> Set.of())),
             mergedSchemaFields(schema, List.of())
         );
 
@@ -527,16 +525,19 @@ public class ConfigurationUtilTest {
             InternalSecondSimpleRootConfigurationSchema.class
         );
 
-        Map<String, Field> exp = Arrays.stream(schema.getDeclaredFields()).collect(toMap(Field::getName, identity()));
+        Map<String, IgniteBiTuple<Field, Set<Object>>> exp = Arrays.stream(schema.getDeclaredFields())
+            .collect(toMap(Field::getName, f -> new IgniteBiTuple<>(f, Set.of())));
 
-        extensions.stream()
-            .flatMap(cls -> Stream.of(cls.getDeclaredFields()))
-            .filter(field -> !exp.containsKey(field.getName()))
-            .forEach(field -> exp.put(field.getName(), field));
+        for (Class<?> extension : extensions) {
+            for (Field f : extension.getDeclaredFields()) {
+                exp.computeIfAbsent(f.getName(), s -> new IgniteBiTuple<>(f, new HashSet<>()))
+                    .getValue().add(f.getDeclaringClass());
+            }
+        }
 
         assertEquals(
-            exp.values().stream().sorted(comparing(Field::getName)).collect(toList()),
-            mergedSchemaFields(schema, extensions).stream().sorted(comparing(Field::getName)).collect(toList())
+            exp.values().stream().collect(toMap(IgniteBiTuple::getKey, IgniteBiTuple::getValue)),
+            mergedSchemaFields(schema, extensions)
         );
     }
 

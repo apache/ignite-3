@@ -49,6 +49,7 @@ import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
+import org.apache.ignite.lang.IgniteBiTuple;
 
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
@@ -655,31 +656,38 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Get a merged unique list of configuration schema fields.
+     * Get the merged fields of the configuration schema and its internal extensions.
      * Uniqueness is achieved by {@link Field#getName}, if the names of the fields are the same,
      * then we check for equality by {@link Field#getType}, {@link Value}, {@link ConfigValue}
      * and {@link NamedConfigValue}.
      *
      * @param schema Configuration schema.
      * @param extensions Configuration schema extensions ({@link InternalConfiguration}).
-     * @return Unique merged fields of the configuration schema and its extensions.
+     * @return Merged fields of the configuration schema.
+     *      Mapping: field -> empty if a schema field, otherwise schema extensions that contain this field.
      * @throws IllegalArgumentException If the same fields by {@link Field#getName} are not equal.
      */
-    public static Set<Field> mergedSchemaFields(Class<?> schema, Collection<Class<?>> extensions) {
+    public static Map<Field, Set<Class<?>>> mergedSchemaFields(Class<?> schema, Collection<Class<?>> extensions) {
         if (extensions.isEmpty())
-            return Set.of(schema.getDeclaredFields());
+            return Arrays.stream(schema.getDeclaredFields()).collect(toMap(identity(), f -> Set.of()));
         else {
-            Map<String, Field> res = Arrays.stream(schema.getDeclaredFields())
-                .collect(toMap(Field::getName, identity()));
+            Map<String, IgniteBiTuple<Field, Set<Class<?>>>> res = Arrays.stream(schema.getDeclaredFields())
+                .collect(toMap(Field::getName, f -> new IgniteBiTuple<>(f, Set.of())));
 
             for (Class<?> extension : extensions) {
                 assert schema.isAssignableFrom(extension) : extension;
 
                 for (Field field : extension.getDeclaredFields()) {
-                    if (!res.containsKey(field.getName()))
-                        res.put(field.getName(), field);
+                    if (!res.containsKey(field.getName())) {
+                        res.put(
+                            field.getName(),
+                            new IgniteBiTuple<>(field, new HashSet<>(Set.of(field.getDeclaringClass())))
+                        );
+                    }
                     else {
-                        Field existField = res.get(field.getName());
+                        IgniteBiTuple<Field, Set<Class<?>>> fieldTuple = res.get(field.getName());
+
+                        Field existField = fieldTuple.getKey();
 
                         if (existField.getType() != field.getType()) {
                             throw new IllegalArgumentException(String.format(
@@ -725,11 +733,13 @@ public class ConfigurationUtil {
                                 ));
                             }
                         }
+
+                        fieldTuple.getValue().add(field.getDeclaringClass());
                     }
                 }
             }
 
-            return Set.copyOf(res.values());
+            return res.values().stream().collect(toMap(IgniteBiTuple::getKey, IgniteBiTuple::getValue));
         }
     }
 

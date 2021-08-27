@@ -60,8 +60,8 @@ public class ConfigurationAsmGeneratorTest {
     public static void beforeAll() {
         Collection<Class<?>> extensions = List.of(
             ExtendedTestRootConfigurationSchema.class,
-            ExtendedTestConfigurationSchema.class,
             ExtendedSecondTestRootConfigurationSchema.class,
+            ExtendedTestConfigurationSchema.class,
             ExtendedSecondTestConfigurationSchema.class
         );
 
@@ -90,7 +90,7 @@ public class ConfigurationAsmGeneratorTest {
 
     /** */
     @Test
-    void testExtendedRootConfiguration() {
+    void testExtendedRootConfiguration() throws Exception {
         DynamicConfiguration<?, ?> config = generator.instantiateCfg(TestRootConfiguration.KEY, changer);
 
         TestRootConfiguration baseRootConfig = (TestRootConfiguration)config;
@@ -126,12 +126,17 @@ public class ConfigurationAsmGeneratorTest {
         baseRootConfig.change(c -> {
             assertTrue(c instanceof ExtendedTestRootChange);
             assertTrue(c instanceof ExtendedSecondTestRootChange);
-        });
+
+            c.changeI0(10).changeStr0("str0");
+
+            ((ExtendedTestRootChange)c).changeStr1("str1").changeStr0("str0");
+            ((ExtendedSecondTestRootChange)c).changeStr1("str1").changeI1(200).changeStr0("str0");
+        }).get(1, SECONDS);
     }
 
     /** */
     @Test
-    void testExtendedSubConfiguration() {
+    void testExtendedSubConfiguration() throws Exception {
         DynamicConfiguration<?, ?> config = generator.instantiateCfg(TestRootConfiguration.KEY, changer);
 
         TestRootConfiguration rootConfig = (TestRootConfiguration)config;
@@ -164,7 +169,12 @@ public class ConfigurationAsmGeneratorTest {
         baseSubConfig.change(c -> {
             assertTrue(c instanceof ExtendedTestChange);
             assertTrue(c instanceof ExtendedSecondTestChange);
-        });
+
+            c.changeI0(10).changeStr2("str2");
+
+            ((ExtendedTestChange)c).changeStr3("str3").changeStr2("str2");
+            ((ExtendedSecondTestChange)c).changeStr3("str3").changeI1(200).changeStr2("str2");
+        }).get(1, SECONDS);
     }
 
     /** */
@@ -191,7 +201,12 @@ public class ConfigurationAsmGeneratorTest {
         namedConfig.change(c -> {
             assertTrue(c instanceof ExtendedTestChange);
             assertTrue(c instanceof ExtendedSecondTestChange);
-        });
+
+            c.changeStr2("str2").changeI0(10);
+
+            ((ExtendedTestChange)c).changeStr3("str3").changeStr2("str2");
+            ((ExtendedSecondTestChange)c).changeStr3("str3").changeI1(100).changeStr2("str2");
+        }).get(1, SECONDS);
     }
 
     /** */
