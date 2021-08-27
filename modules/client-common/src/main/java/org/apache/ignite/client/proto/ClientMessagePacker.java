@@ -354,7 +354,6 @@ public class ClientMessagePacker extends MessagePacker {
     public ClientMessagePacker packNumber(BigInteger val) {
         assert !closed : "Packer is closed";
 
-        // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
         byte[] data = val.toByteArray();
 
         packExtensionTypeHeader(ClientMsgPackType.NUMBER, data.length);
