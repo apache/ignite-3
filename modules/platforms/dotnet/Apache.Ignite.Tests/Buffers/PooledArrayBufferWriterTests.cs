@@ -28,23 +28,25 @@ namespace Apache.Ignite.Tests.Buffers
         [Test]
         public void TestBufferWriterPrependsMessageLength()
         {
-            Assert.Fail("TODO");
-        }
-
-        [Test]
-        public void TestBufferWriterDoesNotRequireFlush()
-        {
-            Assert.Fail("TODO");
-
             using var bufferWriter = new PooledArrayBufferWriter();
+            var res = bufferWriter.GetWrittenMemory().ToArray();
+            CollectionAssert.AreEqual(new byte[] { 0, 0, 0, 0 }, res);
 
             var writer = bufferWriter.GetMessageWriter();
 
             writer.Write(1);
-            writer.Write("Hello");
+            writer.Write("A");
+            writer.Flush();
 
-            var res = bufferWriter.GetWrittenMemory();
-            Assert.AreEqual(12, res.Length); // 4 + 1 + 1 + 1 + 5 = 12
+            res = bufferWriter.GetWrittenMemory().ToArray();
+
+            var expectedBytes = new byte[]
+            {
+                // 4 bytes BE length + 1 byte int + 1 byte fixstr + 1 byte char.
+                0, 0, 0, 3, 1, 0xa1, (byte)'A'
+            };
+
+            CollectionAssert.AreEqual(expectedBytes, res);
         }
     }
 }

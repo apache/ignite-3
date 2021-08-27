@@ -34,6 +34,9 @@ namespace Apache.Ignite.Internal.Buffers
     /// </summary>
     public sealed class PooledArrayBufferWriter : IBufferWriter<byte>, IDisposable
     {
+        /** Default capacity. */
+        private const int DefaultCapacity = 4096;
+
         /** Underlying pooled array. */
         private byte[] _buffer;
 
@@ -45,7 +48,7 @@ namespace Apache.Ignite.Internal.Buffers
         /// </summary>
         public PooledArrayBufferWriter()
         {
-            _buffer = ArrayPool<byte>.Shared.Rent(4096);
+            _buffer = ArrayPool<byte>.Shared.Rent(DefaultCapacity);
             _index = 4; // Reserve for message length.
         }
 
