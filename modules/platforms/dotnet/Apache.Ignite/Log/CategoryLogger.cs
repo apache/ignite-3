@@ -41,7 +41,7 @@ namespace Apache.Ignite.Log
         /// <param name="category">The category.</param>
         public CategoryLogger(IIgniteLogger logger, string category)
         {
-            IgniteArgumentCheck.NotNull(logger);
+            IgniteArgumentCheck.NotNull(logger, nameof(logger));
 
             // If logger is already a CategoryLogger, get underlying logger instead to avoid unnecessary nesting.
             _logger = logger is CategoryLogger catLogger ? catLogger._logger : logger;

@@ -14,6 +14,7 @@ ProjectSection(SolutionItems) = preProject
 	Directory.Build.props = Directory.Build.props
 	Apache.Ignite.Tests.ruleset = Apache.Ignite.Tests.ruleset
 	Apache.Ignite.ruleset = Apache.Ignite.ruleset
+	DEVNOTES.md = DEVNOTES.md
 EndProjectSection
 EndProject
 Global
