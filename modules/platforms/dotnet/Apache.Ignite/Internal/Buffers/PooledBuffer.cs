@@ -29,25 +29,36 @@ namespace Apache.Ignite.Internal.Buffers
         /** Bytes. */
         private readonly byte[] _bytes;
 
+        /** Position. */
+        private readonly int _position;
+
         /** Length. */
-        private readonly int _len;
+        private readonly int _length;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PooledBuffer"/> struct.
         /// </summary>
         /// <param name="bytes">Bytes.</param>
-        /// <param name="len">Data length within specified byte array.</param>
-        public PooledBuffer(byte[] bytes, int len)
+        /// <param name="position">Data position within specified byte array.</param>
+        /// <param name="length">Data length within specified byte array.</param>
+        public PooledBuffer(byte[] bytes, int position, int length)
         {
             _bytes = bytes;
-            _len = len;
+            _position = position;
+            _length = length;
         }
 
         /// <summary>
         /// Gets a <see cref="MessagePackReader"/> for this buffer.
         /// </summary>
         /// <returns><see cref="MessagePackReader"/> for this buffer.</returns>
-        public MessagePackReader GetReader() => new(new ReadOnlyMemory<byte>(_bytes, 0, _len));
+        public MessagePackReader GetReader() => new(new ReadOnlyMemory<byte>(_bytes, _position, _length));
+
+        public PooledBuffer Slice(int offset)
+        {
+            // TODO: Range checks.
+            return new(_bytes, _position + offset, _length - offset);
+        }
 
         /// <summary>
         /// Releases the pooled buffer.

@@ -231,13 +231,18 @@ namespace Apache.Ignite.Internal
                 throw new IgniteClientException("Unexpected server version: " + serverVer);
             }
 
-            CheckErrorCode(reader);
+            var exception = ReadError(reader);
+
+            if (exception != null)
+            {
+                throw exception;
+            }
 
             reader.Skip(); // Features.
             reader.Skip(); // Extensions.
         }
 
-        private static void CheckErrorCode(MessagePackReader reader)
+        private static IgniteClientException? ReadError(MessagePackReader reader)
         {
             var errorCode = (ClientErrorCode)reader.ReadInt32();
 
@@ -245,8 +250,10 @@ namespace Apache.Ignite.Internal
             {
                 var errorMessage = reader.ReadString();
 
-                throw new IgniteClientException(errorMessage, null, errorCode);
+                return new IgniteClientException(errorMessage, null, errorCode);
             }
+
+            return null;
         }
 
         private static async ValueTask<PooledBuffer> ReadResponseAsync(
@@ -261,7 +268,7 @@ namespace Apache.Ignite.Internal
 
             await stream.ReadAsync(bytes.AsMemory(0, size), cancellationToken).ConfigureAwait(false);
 
-            return new PooledBuffer(bytes, size);
+            return new PooledBuffer(bytes, 0, size);
         }
 
         private static async Task<int> ReadMessageSizeAsync(NetworkStream stream, CancellationToken cancellationToken)
@@ -338,19 +345,43 @@ namespace Apache.Ignite.Internal
                 PooledBuffer response = await ReadResponseAsync(_stream, cancellationToken).ConfigureAwait(false);
 
                 // Response buffer should be disposed by the task handler.
-                ReadResponse(response);
+                HandleResponse(response);
             }
         }
 
-        private void ReadResponse(PooledBuffer response)
+        private void HandleResponse(PooledBuffer response)
         {
             var reader = response.GetReader();
 
-            var responseType = reader.ReadInt32();
+            var responseType = (ServerMessageType)reader.ReadInt32();
+
+            if (responseType != ServerMessageType.Response)
+            {
+                // Notifications are not used for now.
+                return;
+            }
+
             var requestId = reader.ReadInt64();
 
-            // TODO: Don't throw here, get exception and pass to TCS
-            CheckErrorCode(reader);
+            if (!_requests.TryRemove(requestId, out var taskCompletionSource))
+            {
+                // Invalid request id.
+                // TODO: Log error, close socket.
+                return;
+            }
+
+            var exception = ReadError(reader);
+
+            if (exception != null)
+            {
+                taskCompletionSource.SetException(exception);
+            }
+            else
+            {
+                var resultBuffer = response.Slice((int)reader.Consumed);
+
+                taskCompletionSource.SetResult(resultBuffer);
+            }
         }
     }
 }
