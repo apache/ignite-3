@@ -19,11 +19,11 @@ package org.apache.ignite.internal.configuration.processor.internal;
 
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.internal.configuration.processor.TestConfigurationSchema;
 
+/**
+ * If {@link InternalConfiguration} is present and {@link ConfigurationRoot} is absent,
+ * the class must have a parent (superclass).
+ */
 @InternalConfiguration
-public class ExtendedInternalTestConfigurationSchema extends TestConfigurationSchema {
-    @Value
-    public String value2;
+public class ErrorInternal2ConfigurationSchema {
 }

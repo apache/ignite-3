@@ -17,22 +17,15 @@
 
 package org.apache.ignite.internal.configuration.processor.internal;
 
-import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.Value;
 
+/**
+ * Simple internal root configuration schema.
+ */
 @InternalConfiguration
-@Config
-public class ErrorInternalTestConfigurationSchema {
+public class ExtendedSimpleRootConfigurationSchema extends SimpleRootConfigurationSchema {
+    /** String value. */
     @Value
-    public String value1;
-
-    @Value
-    public long primitiveLong;
-
-    @Value
-    public int primitiveInt;
-
-    @Value
-    public String[] stringArray;
+    public String exStr;
 }

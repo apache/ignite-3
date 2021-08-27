@@ -17,22 +17,11 @@
 
 package org.apache.ignite.internal.configuration.processor.internal;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
-import org.apache.ignite.configuration.annotation.Value;
 
+/**
+ * Parent (superclass) must not contain {@link InternalConfiguration}.
+ */
 @InternalConfiguration
-@ConfigurationRoot(rootName = "test")
-public class InternalTestRootConfigurationSchema {
-    @Value
-    public String value1;
-
-    @Value
-    public long primitiveLong;
-
-    @Value
-    public int primitiveInt;
-
-    @Value
-    public String[] stringArray;
+public class ErrorInternal3ConfigurationSchema extends ErrorInternal0ConfigurationSchema {
 }

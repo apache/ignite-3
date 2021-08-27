@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.configuration.processor.internal;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.Value;
 
+/**
+ * Extension and the parent (superclass) must not have the same fields by name.
+ */
 @InternalConfiguration
-public class ErrorExtendedInternalTestConfigurationSchema {
+public class ErrorInternal5ConfigurationSchema extends SimpleRootConfigurationSchema {
+    /** String value. */
     @Value
-    public String value2;
+    public String str;
 }
