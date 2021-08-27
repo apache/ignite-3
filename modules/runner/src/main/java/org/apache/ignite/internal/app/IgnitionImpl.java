@@ -330,18 +330,18 @@ public class IgnitionImpl implements Ignition {
                 )
             );
 
-            // TX manager startup.
-            TxManager txManager = doStartComponent(
-                nodeName,
-                startedComponents,
-                new TxManagerImpl(clusterNetSvc)
-            );
-
             // Lock manager startup.
             LockManager lockManager = doStartComponent(
                 nodeName,
                 startedComponents,
                 new HeapLockManager()
+            );
+
+            // TX manager startup.
+            TxManager txManager = doStartComponent(
+                nodeName,
+                startedComponents,
+                new TxManagerImpl(clusterNetSvc, lockManager)
             );
 
             // Distributed table manager startup.

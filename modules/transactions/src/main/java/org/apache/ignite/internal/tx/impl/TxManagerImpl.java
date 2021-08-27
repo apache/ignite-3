@@ -63,6 +63,7 @@ public class TxManagerImpl implements TxManager {
         this.lockManager = lockManager;
     }
 
+    /** {@inheritDoc} */
     @Override public InternalTransaction begin() {
         Timestamp ts = Timestamp.nextVersion();
 
@@ -71,14 +72,17 @@ public class TxManagerImpl implements TxManager {
         return new TransactionImpl(this, ts);
     }
 
+    /** {@inheritDoc} */
     @Override public TxState state(Timestamp ts) {
         return states.get(ts);
     }
 
+    /** {@inheritDoc} */
     @Override public void forget(Timestamp ts) {
         states.remove(ts);
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Void> commitAsync(InternalTransaction tx) {
         if (changeState(tx.timestamp(), TxState.PENDING, TxState.COMMITED)) {
             unlockAll(tx);
@@ -89,6 +93,7 @@ public class TxManagerImpl implements TxManager {
         return failedFuture(new TransactionException("Failed to commit a transaction"));
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Void> rollbackAsync(InternalTransaction tx) {
         if (changeState(tx.timestamp(), TxState.PENDING, TxState.ABORTED)) {
             unlockAll(tx);
@@ -123,12 +128,7 @@ public class TxManagerImpl implements TxManager {
         }
     }
 
-    /**
-     * @param ts The timestamp.
-     * @param before Before state.
-     * @param after After state.
-     * @return {@code} True if the state was changed.
-     */
+    /** {@inheritDoc} */
     @Override public boolean changeState(Timestamp ts, TxState before, TxState after) {
         return states.replace(ts, before, after);
     }
@@ -196,10 +196,12 @@ public class TxManagerImpl implements TxManager {
         });
     }
 
+    /** {@inheritDoc} */
     @Override public void start() {
         // No-op.
     }
 
+    /** {@inheritDoc} */
     @Override public void stop() throws Exception {
         // No-op.
     }

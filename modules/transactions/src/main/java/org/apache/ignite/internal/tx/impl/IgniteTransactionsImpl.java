@@ -57,7 +57,14 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
             tx.commit();
         }
         catch (Throwable t) {
-            tx.rollback();
+            try {
+                tx.rollback();
+            }
+            catch (TransactionException e) {
+                t.addSuppressed(e);
+            }
+
+            throw t;
         }
     }
 }

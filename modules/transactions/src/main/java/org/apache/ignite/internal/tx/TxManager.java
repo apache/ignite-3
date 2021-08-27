@@ -19,8 +19,8 @@ package org.apache.ignite.internal.tx;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.tx.impl.TransactionImpl;
 import org.apache.ignite.lang.ByteArray;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * TODO: local tx ?
@@ -33,15 +33,35 @@ public interface TxManager extends IgniteComponent {
      */
     InternalTransaction begin();
 
-    TxState state(Timestamp ts);
+    /**
+     * @param ts The timestamp.
+     * @return The state or null if the state is unknown.
+     */
+    @Nullable TxState state(Timestamp ts);
 
+    /**
+     * @param ts The timestamp.
+     * @param before Before state.
+     * @param after After state.
+     * @return {@code True} if a state was changed.
+     */
     boolean changeState(Timestamp ts, TxState before, TxState after);
 
+    /**
+     * @param ts The timestamp.
+     */
     void forget(Timestamp ts);
 
-    // TODO asch do we need async here ?
+    /**
+     * @param transaction The transaction.
+     * @return The future.
+     */
     CompletableFuture<Void> commitAsync(InternalTransaction transaction);
 
+    /**
+     * @param transaction The transaction.
+     * @return The future.
+     */
     CompletableFuture<Void> rollbackAsync(InternalTransaction transaction);
 
     /**
