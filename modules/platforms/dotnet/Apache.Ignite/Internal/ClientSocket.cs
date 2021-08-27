@@ -77,6 +77,12 @@ namespace Apache.Ignite.Internal
         private ClientSocket(NetworkStream stream)
         {
             _stream = stream;
+
+            // Because this call is not awaited, execution of the current method continues before the call is completed.
+            // Receive loop runs in the background and should not be awaited.
+#pragma warning disable 4014
+            RunReceiveLoop(_disposeTokenSource.Token);
+#pragma warning restore 4014
         }
 
         /// <summary>
@@ -182,7 +188,7 @@ namespace Apache.Ignite.Internal
 
         private static async ValueTask CheckHandshakeResponseAsync(NetworkStream stream)
         {
-            var response = await ReadResponseAsync(stream).ConfigureAwait(false);
+            var response = await ReadResponseAsync(stream, CancellationToken.None).ConfigureAwait(false);
 
             try
             {
@@ -216,27 +222,29 @@ namespace Apache.Ignite.Internal
             reader.Skip(); // Extensions.
         }
 
-        private static async ValueTask<PooledBuffer> ReadResponseAsync(NetworkStream stream)
+        private static async ValueTask<PooledBuffer> ReadResponseAsync(
+            NetworkStream stream,
+            CancellationToken cancellationToken)
         {
-            var size = await ReadMessageSizeAsync(stream).ConfigureAwait(false);
+            var size = await ReadMessageSizeAsync(stream, cancellationToken).ConfigureAwait(false);
 
             size = IPAddress.NetworkToHostOrder(size);
 
             var bytes = ArrayPool<byte>.Shared.Rent(size);
 
-            await stream.ReadAsync(bytes.AsMemory(0, size)).ConfigureAwait(false);
+            await stream.ReadAsync(bytes.AsMemory(0, size), cancellationToken).ConfigureAwait(false);
 
             return new PooledBuffer(bytes, size);
         }
 
-        private static async Task<int> ReadMessageSizeAsync(NetworkStream stream)
+        private static async Task<int> ReadMessageSizeAsync(NetworkStream stream, CancellationToken cancellationToken)
         {
             const int messageSizeByteCount = 4;
             var bytes = ArrayPool<byte>.Shared.Rent(messageSizeByteCount);
 
             try
             {
-                await stream.ReadAsync(bytes.AsMemory(0, messageSizeByteCount)).ConfigureAwait(false);
+                await stream.ReadAsync(bytes.AsMemory(0, messageSizeByteCount), cancellationToken).ConfigureAwait(false);
 
                 return GetMessageSize(bytes);
             }
@@ -295,11 +303,14 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private async Task RunReceiveLoop()
+        private async Task RunReceiveLoop(CancellationToken cancellationToken)
         {
-            // TODO
-            await Task.Delay(1).ConfigureAwait(false);
-            Console.WriteLine(_requests);
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                // TODO: Handle responses
+                // TODO: Move continuations to thread pool to avoid starving .NET SocketAsyncEngine.EventLoop?
+                var response = await ReadResponseAsync(_stream, cancellationToken).ConfigureAwait(false);
+            }
         }
     }
 }
