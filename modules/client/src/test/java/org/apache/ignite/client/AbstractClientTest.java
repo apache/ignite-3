@@ -20,7 +20,7 @@ package org.apache.ignite.client;
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Map;
-import io.netty.channel.ChannelFuture;
+import java.util.Objects;
 import io.netty.util.ResourceLeakDetector;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
@@ -28,11 +28,11 @@ import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.slf4j.helpers.NOPLogger;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -46,7 +46,7 @@ public abstract class AbstractClientTest {
 
     protected static ConfigurationRegistry configurationRegistry;
 
-    protected static ChannelFuture serverFuture;
+    protected static ClientHandlerModule clientHandlerModule;
 
     protected static Ignite server;
 
@@ -55,11 +55,17 @@ public abstract class AbstractClientTest {
     protected static int serverPort;
 
     @BeforeAll
-    public static void beforeAll() throws Exception {
+    public static void beforeAll() {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
-        serverFuture = startServer(null);
-        serverPort = ((InetSocketAddress)serverFuture.channel().localAddress()).getPort();
+        server = new FakeIgnite();
+
+        IgniteBiTuple<ClientHandlerModule, ConfigurationRegistry> srv = startServer(10800, 10, server);
+
+        clientHandlerModule = srv.get1();
+        configurationRegistry = srv.get2();
+
+        serverPort = getPort(clientHandlerModule);
 
         client = startClient();
     }
@@ -67,9 +73,7 @@ public abstract class AbstractClientTest {
     @AfterAll
     public static void afterAll() throws Exception {
         client.close();
-        serverFuture.cancel(true);
-        serverFuture.await();
-        serverFuture.channel().closeFuture().await();
+        clientHandlerModule.stop();
         configurationRegistry.stop();
     }
 
@@ -88,22 +92,27 @@ public abstract class AbstractClientTest {
         return builder.build();
     }
 
-    public static ChannelFuture startServer(String host) throws InterruptedException {
-        configurationRegistry = new ConfigurationRegistry(
+    public static IgniteBiTuple<ClientHandlerModule, ConfigurationRegistry> startServer(
+            int port,
+            int portRange,
+            Ignite ignite
+    ) {
+        var cfg = new ConfigurationRegistry(
             List.of(ClientConnectorConfiguration.KEY),
             Map.of(),
             new TestConfigurationStorage(LOCAL)
         );
 
-        configurationRegistry.start();
+        cfg.start();
 
-        server = new FakeIgnite();
+        cfg.getConfiguration(ClientConnectorConfiguration.KEY).change(
+                local -> local.changePort(port).changePortRange(portRange)
+        ).join();
 
-        var module = new ClientHandlerModule(server, NOPLogger.NOP_LOGGER);
+        var module = new ClientHandlerModule(ignite.tables(), cfg);
+        module.start();
 
-        module.prepareStart(configurationRegistry);
-
-        return module.start();
+        return new IgniteBiTuple<>(module, cfg);
     }
 
     public static void assertTupleEquals(Tuple x, Tuple y) {
@@ -124,5 +133,9 @@ public abstract class AbstractClientTest {
             assertEquals(x.columnName(i), y.columnName(i));
             assertEquals((Object) x.value(i), y.value(i));
         }
+    }
+
+    public static int getPort(ClientHandlerModule hnd) {
+        return ((InetSocketAddress) Objects.requireNonNull(hnd.localAddress())).getPort();
     }
 }

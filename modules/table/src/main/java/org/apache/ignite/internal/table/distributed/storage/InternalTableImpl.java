@@ -127,10 +127,8 @@ public class InternalTableImpl implements InternalTable {
         InternalTransaction tx) {
         HashMap<Integer, HashSet<BinaryRow>> keyRowsByPartition = new HashMap<>();
 
-        for (BinaryRow keyRow : keyRows) {
-            keyRowsByPartition.computeIfAbsent(partId(keyRow), HashSet::new)
-                .add(keyRow);
-        }
+        for (BinaryRow keyRow : keyRows)
+            keyRowsByPartition.computeIfAbsent(partId(keyRow), HashSet::new).add(keyRow);
 
         CompletableFuture<MultiRowsResponse>[] futures = new CompletableFuture[keyRowsByPartition.size()];
 

@@ -2,9 +2,11 @@ package org.apache.ignite.internal.table.distributed.storage;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -430,6 +432,21 @@ public class VersionedRowStore {
     }
 
     /**
+     * @param path The path.
+     * @return Snapshot future.
+     */
+    public CompletionStage<Void> snapshot(Path path) {
+        return storage.snapshot(path);
+    }
+
+    /**
+     * @param path The path.
+     */
+    public void restoreSnapshot(Path path) {
+        storage.restoreSnapshot(path);
+    }
+
+    /**
      * Versioned value.
      */
     private static class Value {
@@ -484,5 +501,12 @@ public class VersionedRowStore {
         @Override public int hashCode() {
             return hash;
         }
+    }
+
+    /**
+     * @return The delegate.
+     */
+    public Storage delegate() {
+        return storage;
     }
 }
