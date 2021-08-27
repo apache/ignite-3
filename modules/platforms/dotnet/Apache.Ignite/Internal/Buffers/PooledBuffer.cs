@@ -24,7 +24,7 @@ namespace Apache.Ignite.Internal.Buffers
     /// <summary>
     /// Pooled byte buffer.
     /// </summary>
-    internal readonly struct PooledBuf
+    internal readonly struct PooledBuffer
     {
         /** Bytes. */
         private readonly byte[] _bytes;
@@ -33,11 +33,11 @@ namespace Apache.Ignite.Internal.Buffers
         private readonly int _len;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="PooledBuf"/> struct.
+        /// Initializes a new instance of the <see cref="PooledBuffer"/> struct.
         /// </summary>
         /// <param name="bytes">Bytes.</param>
         /// <param name="len">Data length within specified byte array.</param>
-        public PooledBuf(byte[] bytes, int len)
+        public PooledBuffer(byte[] bytes, int len)
         {
             _bytes = bytes;
             _len = len;
@@ -47,7 +47,7 @@ namespace Apache.Ignite.Internal.Buffers
         /// Gets a <see cref="MessagePackReader"/> for this buffer.
         /// </summary>
         /// <returns><see cref="MessagePackReader"/> for this buffer.</returns>
-        public MessagePackReader GetUnpacker() => new(_bytes.AsMemory(0, _len));
+        public MessagePackReader GetReader() => new(new ReadOnlyMemory<byte>(_bytes, 0, _len));
 
         /// <summary>
         /// Releases the pooled buffer.

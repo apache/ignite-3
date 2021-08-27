@@ -64,7 +64,7 @@ namespace Apache.Ignite.Internal.Buffers
                 *(int*)bufPtr = msgSize;
             }
 
-            return _buffer.AsMemory(0, _index);
+            return new ReadOnlyMemory<byte>(_buffer, 0, _index);
         }
 
         /// <inheritdoc />

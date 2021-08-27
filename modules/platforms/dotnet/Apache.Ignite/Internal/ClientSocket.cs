@@ -19,9 +19,11 @@ namespace Apache.Ignite.Internal
 {
     using System;
     using System.Buffers;
+    using System.Collections.Concurrent;
     using System.Diagnostics.CodeAnalysis;
     using System.Net;
     using System.Net.Sockets;
+    using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
     using MessagePack;
@@ -47,6 +49,12 @@ namespace Apache.Ignite.Internal
 
         /** Underlying stream. */
         private readonly NetworkStream _stream;
+
+        /** Current async operations, map from request id. */
+        private readonly ConcurrentDictionary<long, TaskCompletionSource<PooledBuffer>> _requests = new();
+
+        /** Request id generator. */
+        private long _requestId;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ClientSocket"/> class.
@@ -97,13 +105,44 @@ namespace Apache.Ignite.Internal
             }
         }
 
+        /// <summary>
+        /// Performs an in-out operation.
+        /// </summary>
+        /// <param name="request">Request data.</param>
+        /// <returns>Response data.</returns>
+        public Task<PooledBuffer> DoOutInOp(PooledArrayBufferWriter request)
+        {
+            var requestId = Interlocked.Increment(ref _requestId);
+            var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
+
+            _requests[requestId] = taskCompletionSource;
+
+            // TODO: Prepend request ID - add reserved bytes to PooledArrayBufferWriter?
+            _stream.WriteAsync(request.GetWrittenMemory())
+                .AsTask()
+                .ContinueWith(
+                    (task, state) =>
+                    {
+                        if (task.Exception != null)
+                        {
+                            ((TaskCompletionSource<PooledBuffer>)state!).TrySetException(task.Exception);
+                        }
+                    },
+                    taskCompletionSource,
+                    CancellationToken.None,
+                    TaskContinuationOptions.None,
+                    TaskScheduler.Default);
+
+            return taskCompletionSource.Task;
+        }
+
         /// <inheritdoc/>
         public void Dispose()
         {
             _stream.Dispose();
         }
 
-        private static async Task CheckMagicBytesAsync(NetworkStream stream)
+        private static async ValueTask CheckMagicBytesAsync(NetworkStream stream)
         {
             var responseMagic = ArrayPool<byte>.Shared.Rent(ProtoCommon.MagicBytes.Length);
 
@@ -126,13 +165,13 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private static async Task CheckHandshakeResponseAsync(NetworkStream stream)
+        private static async ValueTask CheckHandshakeResponseAsync(NetworkStream stream)
         {
             var response = await ReadResponseAsync(stream).ConfigureAwait(false);
 
             try
             {
-                CheckHandshakeResponse(response.GetUnpacker());
+                CheckHandshakeResponse(response.GetReader());
             }
             finally
             {
@@ -162,7 +201,7 @@ namespace Apache.Ignite.Internal
             reader.Skip(); // Extensions.
         }
 
-        private static async Task<PooledBuf> ReadResponseAsync(NetworkStream stream)
+        private static async ValueTask<PooledBuffer> ReadResponseAsync(NetworkStream stream)
         {
             var size = await ReadMessageSizeAsync(stream).ConfigureAwait(false);
 
@@ -172,7 +211,7 @@ namespace Apache.Ignite.Internal
 
             await stream.ReadAsync(bytes.AsMemory(0, size)).ConfigureAwait(false);
 
-            return new PooledBuf(bytes, size);
+            return new PooledBuffer(bytes, size);
         }
 
         private static async Task<int> ReadMessageSizeAsync(NetworkStream stream)
@@ -200,7 +239,7 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private static async Task WriteHandshakeAsync(NetworkStream stream, ClientProtocolVersion version)
+        private static async ValueTask WriteHandshakeAsync(NetworkStream stream, ClientProtocolVersion version)
         {
             // TODO:
             // 1. Avoid allocating PooledArrayBufferWriter - but how?
