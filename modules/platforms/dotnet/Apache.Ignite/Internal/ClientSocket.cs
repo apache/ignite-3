@@ -231,6 +231,14 @@ namespace Apache.Ignite.Internal
                 throw new IgniteClientException("Unexpected server version: " + serverVer);
             }
 
+            CheckErrorCode(reader);
+
+            reader.Skip(); // Features.
+            reader.Skip(); // Extensions.
+        }
+
+        private static void CheckErrorCode(MessagePackReader reader)
+        {
             var errorCode = (ClientErrorCode)reader.ReadInt32();
 
             if (errorCode != ClientErrorCode.Success)
@@ -239,9 +247,6 @@ namespace Apache.Ignite.Internal
 
                 throw new IgniteClientException(errorMessage, null, errorCode);
             }
-
-            reader.Skip(); // Features.
-            reader.Skip(); // Extensions.
         }
 
         private static async ValueTask<PooledBuffer> ReadResponseAsync(
@@ -329,10 +334,23 @@ namespace Apache.Ignite.Internal
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                // TODO: Handle responses
                 // TODO: Move continuations to thread pool to avoid starving .NET SocketAsyncEngine.EventLoop?
-                var response = await ReadResponseAsync(_stream, cancellationToken).ConfigureAwait(false);
+                PooledBuffer response = await ReadResponseAsync(_stream, cancellationToken).ConfigureAwait(false);
+
+                // Response buffer should be disposed by the task handler.
+                ReadResponse(response);
             }
+        }
+
+        private void ReadResponse(PooledBuffer response)
+        {
+            var reader = response.GetReader();
+
+            var responseType = reader.ReadInt32();
+            var requestId = reader.ReadInt64();
+
+            // TODO: Don't throw here, get exception and pass to TCS
+            CheckErrorCode(reader);
         }
     }
 }
