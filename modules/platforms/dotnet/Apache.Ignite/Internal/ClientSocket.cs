@@ -53,6 +53,12 @@ namespace Apache.Ignite.Internal
         /** Current async operations, map from request id. */
         private readonly ConcurrentDictionary<long, TaskCompletionSource<PooledBuffer>> _requests = new();
 
+        /** Requests can be sent by one thread at a time.  */
+        private readonly SemaphoreSlim _sendLock = new(initialCount: 1);
+
+        /** Cancellation token source that gets cancelled when this instance is disposed. */
+        private readonly CancellationTokenSource _disposeTokenSource = new();
+
         /** Request id generator. */
         private long _requestId;
 
@@ -110,7 +116,7 @@ namespace Apache.Ignite.Internal
         /// </summary>
         /// <param name="request">Request data.</param>
         /// <returns>Response data.</returns>
-        public Task<PooledBuffer> DoOutInOp(PooledArrayBufferWriter request)
+        public Task<PooledBuffer> DoOutInOpAsync(PooledArrayBufferWriter request)
         {
             var requestId = Interlocked.Increment(ref _requestId);
             var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
@@ -118,7 +124,7 @@ namespace Apache.Ignite.Internal
             _requests[requestId] = taskCompletionSource;
 
             // TODO: Prepend request ID - add reserved bytes to PooledArrayBufferWriter?
-            _stream.WriteAsync(request.GetWrittenMemory())
+            SendRequestAsync(request)
                 .AsTask()
                 .ContinueWith(
                     (task, state) =>
@@ -129,7 +135,7 @@ namespace Apache.Ignite.Internal
                         }
                     },
                     taskCompletionSource,
-                    CancellationToken.None,
+                    _disposeTokenSource.Token,
                     TaskContinuationOptions.None,
                     TaskScheduler.Default);
 
@@ -139,7 +145,10 @@ namespace Apache.Ignite.Internal
         /// <inheritdoc/>
         public void Dispose()
         {
+            _disposeTokenSource.Cancel();
+
             _stream.Dispose();
+            _sendLock.Dispose(); // TODO: This is not necessary and may cause issues on close.
         }
 
         private static async ValueTask CheckMagicBytesAsync(NetworkStream stream)
@@ -264,6 +273,25 @@ namespace Apache.Ignite.Internal
             w.WriteMapHeader(0); // Extensions.
 
             w.Flush();
+        }
+
+        private async ValueTask SendRequestAsync(PooledArrayBufferWriter request)
+        {
+            await _sendLock.WaitAsync(_disposeTokenSource.Token).ConfigureAwait(false);
+
+            try
+            {
+                await _stream.WriteAsync(request.GetWrittenMemory(), _disposeTokenSource.Token).ConfigureAwait(false);
+            }
+            finally
+            {
+                _sendLock.Release();
+            }
+        }
+
+        private async Task RunReceiveLoop()
+        {
+
         }
     }
 }
