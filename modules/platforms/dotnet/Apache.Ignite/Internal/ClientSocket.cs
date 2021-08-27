@@ -54,9 +54,17 @@ namespace Apache.Ignite.Internal
         private readonly ConcurrentDictionary<long, TaskCompletionSource<PooledBuffer>> _requests = new();
 
         /** Requests can be sent by one thread at a time.  */
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA2213:DisposableFieldsShouldBeDisposed",
+            Justification = "WaitHandle is not used in SemaphoreSlim, no need to dispose.")]
         private readonly SemaphoreSlim _sendLock = new(initialCount: 1);
 
         /** Cancellation token source that gets cancelled when this instance is disposed. */
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA2213:DisposableFieldsShouldBeDisposed",
+            Justification = "WaitHandle is not used in CancellationTokenSource, no need to dispose.")]
         private readonly CancellationTokenSource _disposeTokenSource = new();
 
         /** Request id generator. */
@@ -146,9 +154,7 @@ namespace Apache.Ignite.Internal
         public void Dispose()
         {
             _disposeTokenSource.Cancel();
-
             _stream.Dispose();
-            _sendLock.Dispose(); // TODO: This is not necessary and may cause issues on close.
         }
 
         private static async ValueTask CheckMagicBytesAsync(NetworkStream stream)
@@ -291,7 +297,9 @@ namespace Apache.Ignite.Internal
 
         private async Task RunReceiveLoop()
         {
-
+            // TODO
+            await Task.Delay(1).ConfigureAwait(false);
+            Console.WriteLine(_requests);
         }
     }
 }
