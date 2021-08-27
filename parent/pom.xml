@@ -1086,20 +1086,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
-                <configuration>
-                    <sourceDirectories>
-                        <sourceDirectory>${project.build.sourceDirectory}</sourceDirectory>
-                        <sourceDirectory>${project.build.testSourceDirectory}</sourceDirectory>
-                    </sourceDirectories>
-                    <consoleOutput>true</consoleOutput>
-                    <logViolationsToConsole>true</logViolationsToConsole>
-                    <failOnViolation>true</failOnViolation>
-                    <outputFile>${project.build.directory}/checkstyle.xml</outputFile>
-                    <configLocation>${project.basedir}/check-rules/checkstyle-rules.xml</configLocation>
-                    <suppressionsLocation>${project.basedir}/check-rules/checkstyle-suppressions.xml</suppressionsLocation>
-                    <includeTestSourceDirectory>true</includeTestSourceDirectory>
-                    <excludes>generated/**/*,com/facebook/presto/bytecode/**/*,org/apache/ignite/raft/jraft/**/*</excludes>
-                </configuration>
                 <dependencies>
                     <dependency>
                         <groupId>com.puppycrawl.tools</groupId>
@@ -1107,6 +1093,17 @@
                         <version>${checkstyle.puppycrawl.version}</version>
                     </dependency>
                 </dependencies>
+                <configuration>
+                    <outputFile>${project.build.directory}/checkstyle.xml</outputFile>
+                    <configLocation>${project.basedir}/check-rules/checkstyle-rules.xml</configLocation>
+                    <suppressionsLocation>${project.basedir}/check-rules/checkstyle-suppressions.xml</suppressionsLocation>
+                    <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                    <excludes>com/facebook/presto/bytecode/**/*,org/apache/ignite/raft/jraft/**/*</excludes>
+                    <linkXRef>false</linkXRef>
+
+                    <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                    <testSourceDirectories>src/integrationTest/java</testSourceDirectories>
+                </configuration>
             </plugin>
 
             <!--
