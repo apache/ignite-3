@@ -24,15 +24,9 @@ namespace Apache.Ignite.Internal.Buffers
 
     /// <summary>
     /// Pooled buffer writer.
-    ///
-    /// TODO:
-    /// * Internal.
-    /// * Start with passed stackalloc buffer for small payloads.
-    /// * Use unmanaged memory and a built-in pool?
-    /// * Use a string of segments?
-    /// USE <see cref="SequencePool"/>! (MessagePack lib).
+    /// Based on <see cref="ArrayBufferWriter{T}"/>, but uses <see cref="ArrayPool{T}.Shared"/> to allocate arrays.
     /// </summary>
-    public sealed class PooledArrayBufferWriter : IBufferWriter<byte>, IDisposable
+    internal sealed class PooledArrayBufferWriter : IBufferWriter<byte>, IDisposable
     {
         /** Default capacity. */
         private const int DefaultCapacity = 4096;
