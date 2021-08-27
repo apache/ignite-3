@@ -26,7 +26,7 @@ public interface SchemaAware {
     /**
      * Gets the schema descriptor.
      *
-     * @return Schema descriptor or {@code null} if a schema is inapplicable for the entity.
+     * @return Schema descriptor or {@code null} if a schema is not set or inapplicable for the entity.
      */
     @Nullable SchemaDescriptor schema();
 }
