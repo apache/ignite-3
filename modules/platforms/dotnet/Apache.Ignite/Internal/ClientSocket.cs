@@ -341,7 +341,6 @@ namespace Apache.Ignite.Internal
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                // TODO: Move continuations to thread pool to avoid starving .NET SocketAsyncEngine.EventLoop?
                 PooledBuffer response = await ReadResponseAsync(_stream, cancellationToken).ConfigureAwait(false);
 
                 // Response buffer should be disposed by the task handler.
@@ -374,6 +373,7 @@ namespace Apache.Ignite.Internal
 
             if (exception != null)
             {
+                // TODO: Move continuations to thread pool to avoid starving .NET SocketAsyncEngine.EventLoop?
                 taskCompletionSource.SetException(exception);
             }
             else
