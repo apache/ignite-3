@@ -207,7 +207,7 @@ namespace Apache.Ignite.Internal
             //    - struct with interface will box
             // 2. Flush packer automatically: use delegates (allocatey) or don't (more boilerplate)
             using var bufferWriter = new PooledArrayBufferWriter();
-            WriteHandshake(version, bufferWriter.GetPacker());
+            WriteHandshake(version, bufferWriter.GetMessageWriter());
 
             await stream.WriteAsync(bufferWriter.GetWrittenMemory()).ConfigureAwait(false);
         }

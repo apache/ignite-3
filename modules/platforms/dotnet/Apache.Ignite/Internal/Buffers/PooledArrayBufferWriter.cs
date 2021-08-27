@@ -34,8 +34,10 @@ namespace Apache.Ignite.Internal.Buffers
     /// </summary>
     public sealed class PooledArrayBufferWriter : IBufferWriter<byte>, IDisposable
     {
+        /** Underlying pooled array. */
         private byte[] _buffer;
 
+        /** Index within the array. */
         private int _index;
 
         /// <summary>
@@ -102,7 +104,7 @@ namespace Apache.Ignite.Internal.Buffers
         /// Gets the <see cref="MessagePackWriter"/> for this buffer.
         /// </summary>
         /// <returns><see cref="MessagePackWriter"/> for this buffer.</returns>
-        public MessagePackWriter GetPacker() => new(this);
+        public MessagePackWriter GetMessageWriter() => new(this);
 
         /// <inheritdoc />
         public void Dispose()
