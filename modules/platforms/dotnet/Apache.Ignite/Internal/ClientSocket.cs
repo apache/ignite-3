@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal
     using System;
     using System.Buffers;
     using System.Collections.Concurrent;
+    using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
     using System.Net;
     using System.Net.Sockets;
@@ -132,12 +133,13 @@ namespace Apache.Ignite.Internal
         /// <returns>Response data.</returns>
         public Task<PooledBuffer> DoOutInOpAsync(PooledArrayBufferWriter request)
         {
-            var requestId = Interlocked.Increment(ref _requestId);
+            Debug.Assert(request.RequestId != null, "request.RequestId != null");
+            var requestId = request.RequestId.Value;
+
             var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
 
             _requests[requestId] = taskCompletionSource;
 
-            // TODO: Prepend request ID - add reserved bytes to PooledArrayBufferWriter?
             SendRequestAsync(request)
                 .AsTask()
                 .ContinueWith(
@@ -154,6 +156,26 @@ namespace Apache.Ignite.Internal
                     TaskScheduler.Default);
 
             return taskCompletionSource.Task;
+        }
+
+        /// <summary>
+        /// Gets the request writer for the specified operation.
+        /// </summary>
+        /// <param name="clientOp">Operation code.</param>
+        /// <returns>Request writer.</returns>
+        public PooledArrayBufferWriter GetRequestWriter(ClientOp clientOp)
+        {
+            var requestId = Interlocked.Increment(ref _requestId);
+            var bufferWriter = new PooledArrayBufferWriter(requestId);
+
+            var writer = bufferWriter.GetMessageWriter();
+
+            writer.Write((int)clientOp);
+            writer.Write(requestId);
+
+            writer.Flush();
+
+            return bufferWriter;
         }
 
         /// <inheritdoc/>

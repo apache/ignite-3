@@ -40,11 +40,18 @@ namespace Apache.Ignite.Internal.Buffers
         /// <summary>
         /// Initializes a new instance of the <see cref="PooledArrayBufferWriter"/> class.
         /// </summary>
-        public PooledArrayBufferWriter()
+        /// <param name="requestId">Optional associated request id.</param>
+        public PooledArrayBufferWriter(long? requestId = null)
         {
             _buffer = ArrayPool<byte>.Shared.Rent(DefaultCapacity);
             _index = 4; // Reserve for message length.
+            RequestId = requestId;
         }
+
+        /// <summary>
+        /// Gets the associated request id.
+        /// </summary>
+        public long? RequestId { get; }
 
         /// <summary>
         /// Gets the free capacity.
