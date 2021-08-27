@@ -56,7 +56,7 @@ import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.configuration.util.ConfigurationNotificationsUtil.notifyListeners;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectShemas;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectSchemas;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
 
@@ -96,7 +96,7 @@ public class ConfigurationRegistry implements IgniteComponent {
     ) {
         checkConfigurationType(rootKeys, storage);
 
-        Set<Class<?>> allSchemas = collectShemas(rootKeys.stream().map(RootKey::schemaClass).collect(toSet()));
+        Set<Class<?>> allSchemas = collectSchemas(rootKeys.stream().map(RootKey::schemaClass).collect(toSet()));
 
         Map<Class<?>, Set<Class<?>>> extensions = internalSchemaExtensions(internalSchemaExtensions);
 

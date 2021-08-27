@@ -20,15 +20,16 @@ package org.apache.ignite.internal.configuration.processor;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.Name;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
@@ -57,6 +58,8 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.jetbrains.annotations.Nullable;
 
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -100,7 +103,7 @@ public class Processor extends AbstractProcessor {
             .stream()
             .filter(element -> element.getKind() == ElementKind.CLASS)
             .map(TypeElement.class::cast)
-            .collect(Collectors.toList());
+            .collect(toList());
 
         if (annotatedConfigs.isEmpty())
             return false;
@@ -111,10 +114,7 @@ public class Processor extends AbstractProcessor {
             String packageName = elementPackage.getQualifiedName().toString();
 
             // Find all the fields of the schema
-            List<VariableElement> fields = clazz.getEnclosedElements().stream()
-                .filter(el -> el.getKind() == ElementKind.FIELD)
-                .map(VariableElement.class::cast)
-                .collect(Collectors.toList());
+            Collection<VariableElement> fields = fields(clazz);
 
             ConfigurationRoot rootAnnotation = clazz.getAnnotation(ConfigurationRoot.class);
 
@@ -152,6 +152,47 @@ public class Processor extends AbstractProcessor {
                         InternalConfiguration.class.getSimpleName(),
                         clazz.getQualifiedName()
                     ));
+                }
+                else {
+                    TypeElement superClazz = processingEnv
+                        .getElementUtils()
+                        .getTypeElement(clazz.getSuperclass().toString());
+
+                    if (superClazz.getAnnotation(InternalConfiguration.class) != null) {
+                        throw new ProcessorException(String.format(
+                            "Superclass must not have @%s: %s",
+                            InternalConfiguration.class.getSimpleName(),
+                            clazz.getQualifiedName()
+                        ));
+                    }
+                    else if (superClazz.getAnnotation(ConfigurationRoot.class) == null &&
+                        superClazz.getAnnotation(Config.class) == null) {
+                        throw new ProcessorException(String.format(
+                            "Superclass must have @%s or @%s: %s",
+                            ConfigurationRoot.class.getSimpleName(),
+                            Config.class.getSimpleName(),
+                            clazz.getQualifiedName()
+                        ));
+                    }
+                    else {
+                        Set<Name> superClazzFieldNames = fields(superClazz).stream()
+                            .map(VariableElement::getSimpleName)
+                            .collect(toSet());
+
+                        Collection<Name> duplicateFieldNames = fields.stream()
+                            .map(VariableElement::getSimpleName)
+                            .filter(superClazzFieldNames::contains)
+                            .collect(toList());
+
+                        if (!duplicateFieldNames.isEmpty()) {
+                            throw new ProcessorException(String.format(
+                                "Duplicate field names are not allowed [class=%s, superClass=%s, fields=%s]",
+                                clazz.getQualifiedName(),
+                                superClazz.getQualifiedName(),
+                                duplicateFieldNames
+                            ));
+                        }
+                    }
                 }
             }
 
@@ -326,7 +367,7 @@ public class Processor extends AbstractProcessor {
      * @param realSchemaClass Class descriptor.
      */
     private void createPojoBindings(
-        List<VariableElement> fields,
+        Collection<VariableElement> fields,
         ClassName schemaClassName,
         TypeSpec.Builder configurationInterfaceBuilder,
         boolean extendBaseSchema,
@@ -480,10 +521,10 @@ public class Processor extends AbstractProcessor {
     }
 
     /**
-     * Check if a type is {@link Object}.
+     * Check if a class type is {@link Object}.
      *
-     * @param type Type.
-     * @return {@code true} if type is {@link Object}.
+     * @param type Class type.
+     * @return {@code true} if class type is {@link Object}.
      */
     private boolean isObjectClass(TypeMirror type) {
         TypeMirror objectType = processingEnv
@@ -492,6 +533,19 @@ public class Processor extends AbstractProcessor {
             .asType();
 
         return objectType.equals(type);
+    }
+
+    /**
+     * Get class fields.
+     *
+     * @param type Class type.
+     * @return Class fields.
+     */
+    private Collection<VariableElement> fields(TypeElement type) {
+        return type.getEnclosedElements().stream()
+            .filter(el -> el.getKind() == ElementKind.FIELD)
+            .map(VariableElement.class::cast)
+            .collect(toList());
     }
 
     /** {@inheritDoc} */

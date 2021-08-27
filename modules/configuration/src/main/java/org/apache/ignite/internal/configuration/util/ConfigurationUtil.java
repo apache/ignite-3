@@ -571,28 +571,8 @@ public class ConfigurationUtil {
                         extension.getName()
                     ));
                 }
-                else {
-                    Class<?> superclass = extension.getSuperclass();
-
-                    if (superclass.isAnnotationPresent(InternalConfiguration.class)) {
-                        throw new IllegalArgumentException(String.format(
-                            "Superclass of an extension shouldn't contain @%s: %s",
-                            InternalConfiguration.class.getSimpleName(),
-                            extension.getName()
-                        ));
-                    }
-                    else if (!superclass.isAnnotationPresent(ConfigurationRoot.class) &&
-                        !superclass.isAnnotationPresent(Config.class)) {
-                        throw new IllegalArgumentException(String.format(
-                            "Superclass of an extension should contain @%s or @%s: %s",
-                            ConfigurationRoot.class.getSimpleName(),
-                            Config.class.getSimpleName(),
-                            extension.getName()
-                        ));
-                    }
-                    else
-                        res.computeIfAbsent(superclass, cls -> new HashSet<>()).add(extension);
-                }
+                else
+                    res.computeIfAbsent(extension.getSuperclass(), cls -> new HashSet<>()).add(extension);
             }
 
             return res;
@@ -720,7 +700,8 @@ public class ConfigurationUtil {
                         else if (isNamedConfigValue(existField)) {
                             if (!Objects.equals(syntheticKeyName(existField), syntheticKeyName(field))) {
                                 throw new IllegalArgumentException(String.format(
-                                    "Field @NamedConfigValue.syntheticKeyName() value mismatch [name=%s, classes=%s]",
+                                    "Field @%s.syntheticKeyName() value mismatch [name=%s, classes=%s]",
+                                    NamedConfigValue.class.getSimpleName(),
                                     field.getName(),
                                     classNames(existField, field)
                                 ));
@@ -729,7 +710,8 @@ public class ConfigurationUtil {
                         else if (isValue(existField)) {
                             if (hasDefault(existField) != hasDefault(field)) {
                                 throw new IllegalArgumentException(String.format(
-                                    "Field @Value.hasDefault() value mismatch [name=%s, classes=%s]",
+                                    "Field @%s.hasDefault() value mismatch [name=%s, classes=%s]",
+                                    Value.class.getSimpleName(),
                                     field.getName(),
                                     classNames(existField, field)
                                 ));
@@ -757,10 +739,10 @@ public class ConfigurationUtil {
      *
      * @param schemaClasses Configuration schemas (starting points) with {@link ConfigurationRoot} or {@link Config}.
      * @return All configuration schemes with {@link ConfigurationRoot} or {@link Config}.
-     * @throws IllegalArgumentException If the configuration diagram does not contain
+     * @throws IllegalArgumentException If the configuration schemas does not contain
      *      {@link ConfigurationRoot} or {@link Config}.
      */
-    public static Set<Class<?>> collectShemas(Collection<Class<?>> schemaClasses) {
+    public static Set<Class<?>> collectSchemas(Collection<Class<?>> schemaClasses) {
         if (schemaClasses.isEmpty())
             return Set.of();
         else {

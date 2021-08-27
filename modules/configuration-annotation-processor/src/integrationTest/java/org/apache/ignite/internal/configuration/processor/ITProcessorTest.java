@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.internal.configuration.processor;
 
+import java.util.Arrays;
 import com.google.testing.compile.Compilation;
 import com.squareup.javapoet.ClassName;
 import org.junit.jupiter.api.Test;
@@ -51,86 +52,87 @@ public class ITProcessorTest extends AbstractProcessorTest {
         assertTrue(classSet.allGenerated());
     }
 
-    /**
-     * Check the successful generation of the internal root configuration code.
-     */
+    /** */
     @Test
-    void testInternalRootConfigCodeGeneration() {
+    void testSuccessInternalConfigCodeGeneration() {
         String packageName = "org.apache.ignite.internal.configuration.processor.internal";
 
-        ClassName internalConfigSchemas = ClassName.get(packageName, "InternalTestRootConfigurationSchema");
+        ClassName cls0 = ClassName.get(packageName, "SimpleRootConfigurationSchema");
+        ClassName cls1 = ClassName.get(packageName, "SimpleConfigurationSchema");
+        ClassName cls2 = ClassName.get(packageName, "ExtendedSimpleRootConfigurationSchema");
+        ClassName cls3 = ClassName.get(packageName, "ExtendedSimpleConfigurationSchema");
 
-        BatchCompilation batch = batchCompile(internalConfigSchemas);
+        BatchCompilation batchCompile = batchCompile(cls0, cls1, cls2, cls3);
 
-        Compilation status = batch.getCompilationStatus();
+        assertNotEquals(Compilation.Status.FAILURE, batchCompile.getCompilationStatus().status());
 
-        assertNotEquals(Compilation.Status.FAILURE, status.status());
+        assertEquals(4 * 3, batchCompile.generated().size());
 
-        assertEquals(3, batch.generated().size());
-
-        assertTrue(batch.getBySchema(internalConfigSchemas).allGenerated());
+        assertTrue(batchCompile.getBySchema(cls0).allGenerated());
+        assertTrue(batchCompile.getBySchema(cls1).allGenerated());
+        assertTrue(batchCompile.getBySchema(cls2).allGenerated());
+        assertTrue(batchCompile.getBySchema(cls3).allGenerated());
     }
 
-    /**
-     * Check the successful generation of the internal extended configuration code.
-     */
+    /** */
     @Test
-    void testInternalExtendedConfigCodeGeneration() {
-        String packageName = "org.apache.ignite.internal.configuration.processor.internal";
-
-        ClassName[] internalConfigSchemas = {
-            ClassName.get("org.apache.ignite.internal.configuration.processor", "TestConfigurationSchema"),
-            ClassName.get(packageName, "ExtendedInternalTestConfigurationSchema"),
-        };
-
-        BatchCompilation batch = batchCompile(internalConfigSchemas);
-
-        Compilation status = batch.getCompilationStatus();
-
-        assertNotEquals(Compilation.Status.FAILURE, status.status());
-
-        assertEquals(2 * 3, batch.generated().size());
-
-        assertTrue(batch.getBySchema(internalConfigSchemas[0]).allGenerated());
-        assertTrue(batch.getBySchema(internalConfigSchemas[1]).allGenerated());
-    }
-
-    /**
-     * Check for errors in the generation of the internal root configuration code.
-     */
-    @Test
-    void testInternalCodeGenerationErrorForRootConfiguration() {
+    void testErrorInternalConfigCodeGeneration() {
         String packageName = "org.apache.ignite.internal.configuration.processor.internal";
 
         assertThrows(
-            Throwable.class,
-            () -> batchCompile(ClassName.get(packageName, "ErrorInternalTestRootConfigurationSchema"))
+            IllegalStateException.class,
+            () -> batchCompile(packageName, "ErrorInternal0ConfigurationSchema")
+        );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> batchCompile(packageName, "ErrorInternal1ConfigurationSchema")
+        );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> batchCompile(packageName, "ErrorInternal2ConfigurationSchema")
+        );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> batchCompile(
+                packageName,
+                "SimpleRootConfigurationSchema",
+                "SimpleConfigurationSchema",
+                "ExtendedSimpleRootConfigurationSchema",
+                "ErrorInternal3ConfigurationSchema"
+            )
+        );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> batchCompile(packageName, "ErrorInternal4ConfigurationSchema")
+        );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> batchCompile(
+                packageName,
+                "SimpleRootConfigurationSchema",
+                "SimpleConfigurationSchema",
+                "ErrorInternal5ConfigurationSchema"
+            )
         );
     }
 
     /**
-     * Check for errors in the generation of the internal configuration code.
+     * Compile set of classes.
+     *
+     * @param packageName Package names.
+     * @param classNames Simple class names.
+     * @return Result of batch compilation.
      */
-    @Test
-    void testInternalCodeGenerationErrorForConfiguration() {
-        String packageName = "org.apache.ignite.internal.configuration.processor.internal";
+    private BatchCompilation batchCompile(String packageName, String... classNames) {
+        ClassName[] classes = Arrays.stream(classNames)
+            .map(clsName -> ClassName.get(packageName, clsName))
+            .toArray(ClassName[]::new);
 
-        assertThrows(
-            Throwable.class,
-            () -> batchCompile(ClassName.get(packageName, "ErrorInternalTestConfigurationSchema"))
-        );
-    }
-
-    /**
-     * Check for errors in the generation of the internal extended configuration code.
-     */
-    @Test
-    void testInternalCodeGenerationErrorForExtendedConfiguration() {
-        String packageName = "org.apache.ignite.internal.configuration.processor.internal";
-
-        assertThrows(
-            Throwable.class,
-            () -> batchCompile(ClassName.get(packageName, "ErrorExtendedInternalTestConfigurationSchema"))
-        );
+        return batchCompile(classes);
     }
 }

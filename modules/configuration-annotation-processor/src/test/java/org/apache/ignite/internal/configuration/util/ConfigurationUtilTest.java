@@ -58,7 +58,7 @@ import static org.apache.ignite.internal.configuration.tree.NamedListNode.ORDER_
 import static org.apache.ignite.internal.configuration.util.ConfigurationFlattener.createFlattenedUpdatesMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectShemas;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectSchemas;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.find;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.mergedSchemaFields;
@@ -416,11 +416,10 @@ public class ConfigurationUtilTest {
 
     /** */
     @Test
-    void testErrorInternalSchemaExtensions() {
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> internalSchemaExtensions(List.of(SimpleConfigurationSchema.class))
-        );
+    void testInternalSchemaExtensions() {
+        assertTrue(internalSchemaExtensions(List.of()).isEmpty());
+
+        assertThrows(IllegalArgumentException.class, () -> internalSchemaExtensions(List.of(Object.class)));
 
         assertThrows(
             IllegalArgumentException.class,
@@ -429,70 +428,94 @@ public class ConfigurationUtilTest {
 
         assertThrows(
             IllegalArgumentException.class,
-            () -> internalSchemaExtensions(List.of(InternalWithoutSuperclassConfigurationSchema.class))
+            () -> internalSchemaExtensions(List.of(SimpleConfigurationSchema.class))
         );
 
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> internalSchemaExtensions(List.of(InternalSuperclassConfigurationSchema.class))
-        );
-    }
-
-    /** */
-    @Test
-    void testSuccessInternalSchemaExtensions() {
-        assertTrue(internalSchemaExtensions(List.of()).isEmpty());
-
-        Map<Class<?>, Set<Class<?>>> res = internalSchemaExtensions(List.of(
-            InternalFirstSimpleConfigurationSchema.class,
-            InternalSecondSimpleConfigurationSchema.class,
+        Map<Class<?>, Set<Class<?>>> extensions = internalSchemaExtensions(List.of(
             InternalFirstSimpleRootConfigurationSchema.class,
-            InternalSecondSimpleRootConfigurationSchema.class
-        ));
-
-        assertEquals(2, res.size());
-        assertTrue(res.containsKey(SimpleConfigurationSchema.class));
-        assertTrue(res.containsKey(SimpleRootConfigurationSchema.class));
-
-        Set<Class<?>> simpleInternalSchemaExtensions = Set.of(
+            InternalSecondSimpleRootConfigurationSchema.class,
             InternalFirstSimpleConfigurationSchema.class,
             InternalSecondSimpleConfigurationSchema.class
+        ));
+
+        assertEquals(2, extensions.size());
+
+        assertEquals(
+            Set.of(
+                InternalFirstSimpleRootConfigurationSchema.class,
+                InternalSecondSimpleRootConfigurationSchema.class
+            ),
+            extensions.get(SimpleRootConfigurationSchema.class)
         );
 
-        Set<Class<?>> simpleRootInternalSchemaExtensions = Set.of(
-            InternalFirstSimpleRootConfigurationSchema.class,
-            InternalSecondSimpleRootConfigurationSchema.class
-        );
-
-        assertEquals(simpleInternalSchemaExtensions, res.get(SimpleConfigurationSchema.class));
-        assertEquals(simpleRootInternalSchemaExtensions, res.get(SimpleRootConfigurationSchema.class));
-    }
-
-    /** */
-    @Test
-    void testErrorMergeSchemaFields() {
-        Class<?> schema = SimpleRootConfigurationSchema.class;
-
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> mergedSchemaFields(schema, List.of(InternalError0SimpleRootConfigurationSchema.class))
-        );
-
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> mergedSchemaFields(schema, List.of(InternalError1SimpleRootConfigurationSchema.class))
-        );
-
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> mergedSchemaFields(schema, List.of(InternalError2SimpleRootConfigurationSchema.class))
+        assertEquals(
+            Set.of(
+                InternalFirstSimpleConfigurationSchema.class,
+                InternalSecondSimpleConfigurationSchema.class
+            ),
+            extensions.get(SimpleConfigurationSchema.class)
         );
     }
 
     /** */
     @Test
-    void testSuccessMergeSchemaFields() {
+    void testMergeSchemaFields() {
         Class<?> schema = SimpleRootConfigurationSchema.class;
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> mergedSchemaFields(
+                schema,
+                List.of(
+                    InternalExtendedSimpleRootConfigurationSchema.class,
+                    ErrorInternalExtended0SimpleRootConfigurationSchema.class
+                )
+            )
+        );
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> mergedSchemaFields(
+                schema,
+                List.of(
+                    InternalExtendedSimpleRootConfigurationSchema.class,
+                    ErrorInternalExtended1SimpleRootConfigurationSchema.class
+                )
+            )
+        );
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> mergedSchemaFields(
+                schema,
+                List.of(
+                    InternalExtendedSimpleRootConfigurationSchema.class,
+                    ErrorInternalExtended2SimpleRootConfigurationSchema.class
+                )
+            )
+        );
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> mergedSchemaFields(
+                schema,
+                List.of(
+                    InternalExtendedSimpleRootConfigurationSchema.class,
+                    ErrorInternalExtended3SimpleRootConfigurationSchema.class
+                )
+            )
+        );
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> mergedSchemaFields(
+                schema,
+                List.of(
+                    InternalExtendedSimpleRootConfigurationSchema.class,
+                    ErrorInternalExtended4SimpleRootConfigurationSchema.class
+                )
+            )
+        );
 
         assertEquals(
             Set.of(schema.getDeclaredFields()),
@@ -650,19 +673,19 @@ public class ConfigurationUtilTest {
 
     /** */
     @Test
-    void testCollectShemas() {
-        assertTrue(collectShemas(List.of()).isEmpty());
+    void testCollectSchemas() {
+        assertTrue(collectSchemas(List.of()).isEmpty());
 
-        assertThrows(IllegalArgumentException.class, () -> collectShemas(List.of(Object.class)));
+        assertThrows(IllegalArgumentException.class, () -> collectSchemas(List.of(Object.class)));
 
         assertEquals(
             Set.of(LocalFirstConfigurationSchema.class, SimpleConfigurationSchema.class),
-            collectShemas(List.of(LocalFirstConfigurationSchema.class, SimpleConfigurationSchema.class))
+            collectSchemas(List.of(LocalFirstConfigurationSchema.class, SimpleConfigurationSchema.class))
         );
 
         assertEquals(
             Set.of(SimpleRootConfigurationSchema.class, SimpleConfigurationSchema.class),
-            collectShemas(List.of(SimpleRootConfigurationSchema.class))
+            collectSchemas(List.of(SimpleRootConfigurationSchema.class))
         );
     }
 
@@ -769,13 +792,6 @@ public class ConfigurationUtilTest {
     }
 
     /**
-     * Internal schema extension with an internal superclass.
-     */
-    @InternalConfiguration
-    public static class InternalSuperclassConfigurationSchema extends InternalWithoutSuperclassConfigurationSchema {
-    }
-
-    /**
      * First simple internal schema extension.
      */
     @InternalConfiguration
@@ -800,22 +816,6 @@ public class ConfigurationUtilTest {
      */
     @InternalConfiguration
     public static class InternalFirstSimpleRootConfigurationSchema extends SimpleRootConfigurationSchema {
-        /** String value without default. */
-        @Value
-        public String str0;
-
-        /** String value with default. */
-        @Value(hasDefault = true)
-        public String str1 = "foo";
-
-        /** Sub configuration schema. */
-        @ConfigValue
-        public SimpleConfigurationSchema subCfg;
-
-        /** Named configuration schema. */
-        @NamedConfigValue
-        public SimpleConfigurationSchema namedCfg;
-
         /** Second string value without default. */
         @Value
         public String str2;
@@ -830,22 +830,6 @@ public class ConfigurationUtilTest {
      */
     @InternalConfiguration
     public static class InternalSecondSimpleRootConfigurationSchema extends SimpleRootConfigurationSchema {
-        /** String value without default. */
-        @Value
-        public String str0;
-
-        /** String value with default. */
-        @Value(hasDefault = true)
-        public String str1 = "foo";
-
-        /** Sub configuration schema. */
-        @ConfigValue
-        public SimpleConfigurationSchema subCfg;
-
-        /** Named configuration schema. */
-        @NamedConfigValue
-        public SimpleConfigurationSchema namedCfg;
-
         /** Second string value without default. */
         @Value
         public String str2;
@@ -856,32 +840,74 @@ public class ConfigurationUtilTest {
     }
 
     /**
-     * Root config extension with error: {@link #str0} changed {@link Value#hasDefault} -> {@code true}.
+     * Internal extended simple root configuration schema.
      */
     @InternalConfiguration
-    public static class InternalError0SimpleRootConfigurationSchema extends SimpleRootConfigurationSchema {
+    public static class InternalExtendedSimpleRootConfigurationSchema extends SimpleRootConfigurationSchema {
+        /** String value without default. */
+        @Value
+        public String str00;
+
         /** String value with default. */
         @Value(hasDefault = true)
-        public String str0 = "foo";
-    }
+        public String str01 = "foo";
 
-    /**
-     * Root config extension with error: {@link #str1} changed default value.
-     */
-    @InternalConfiguration
-    public static class InternalError1SimpleRootConfigurationSchema extends SimpleRootConfigurationSchema {
-        /** String value with default. */
-        @Value(hasDefault = true)
-        public String str1 = "bar";
-    }
-
-    /**
-     * Root config extension with error: {@link #namedCfg} changed {@link NamedConfigValue#syntheticKeyName}.
-     */
-    @InternalConfiguration
-    public static class InternalError2SimpleRootConfigurationSchema extends SimpleRootConfigurationSchema {
         /** Sub configuration schema. */
-        @NamedConfigValue(syntheticKeyName = "foo")
-        public SimpleConfigurationSchema namedCfg;
+        @ConfigValue
+        public SimpleConfigurationSchema subCfg0;
+
+        /** Named configuration schema. */
+        @NamedConfigValue
+        public SimpleConfigurationSchema namedCfg0;
+    }
+
+    /**
+     * Error: field type is different.
+     */
+    @InternalConfiguration
+    public static class ErrorInternalExtended0SimpleRootConfigurationSchema extends SimpleRootConfigurationSchema {
+        /** String value without default. */
+        @Value
+        public int str00;
+    }
+
+    /**
+     * Error: field default value is different.
+     */
+    @InternalConfiguration
+    public static class ErrorInternalExtended1SimpleRootConfigurationSchema extends SimpleRootConfigurationSchema {
+        /** String value with default. */
+        @Value(hasDefault = true)
+        public String str01 = "bar";
+    }
+
+    /**
+     * Error: field {@link Value#hasDefault} is different.
+     */
+    @InternalConfiguration
+    public static class ErrorInternalExtended2SimpleRootConfigurationSchema extends SimpleRootConfigurationSchema {
+        /** String value with default. */
+        @Value(hasDefault = false)
+        public String str01 = "foo";
+    }
+
+    /**
+     * Error: field annotation is different.
+     */
+    @InternalConfiguration
+    public static class ErrorInternalExtended3SimpleRootConfigurationSchema extends SimpleRootConfigurationSchema {
+        /** Sub configuration schema. */
+        @NamedConfigValue
+        public SimpleConfigurationSchema subCfg0;
+    }
+
+    /**
+     * Error: field {@link NamedConfigValue#syntheticKeyName} is different.
+     */
+    @InternalConfiguration
+    public static class ErrorInternalExtended4SimpleRootConfigurationSchema extends SimpleRootConfigurationSchema {
+        /** Named configuration schema. */
+        @NamedConfigValue(syntheticKeyName = "error")
+        public SimpleConfigurationSchema namedCfg0;
     }
 }
