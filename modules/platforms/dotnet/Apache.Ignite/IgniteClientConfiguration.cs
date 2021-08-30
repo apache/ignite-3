@@ -20,6 +20,7 @@ namespace Apache.Ignite
     using System;
     using System.Collections.Generic;
     using System.ComponentModel;
+    using Internal.Common;
     using Log;
 
     /// <summary>
@@ -36,6 +37,28 @@ namespace Apache.Ignite
         /// Default socket timeout.
         /// </summary>
         public static readonly TimeSpan DefaultSocketTimeout = TimeSpan.FromSeconds(5);
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="IgniteClientConfiguration"/> class.
+        /// </summary>
+        public IgniteClientConfiguration()
+        {
+            // No-op.
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="IgniteClientConfiguration"/> class.
+        /// </summary>
+        /// <param name="endpoints">Endpoints.</param>
+        public IgniteClientConfiguration(params string[] endpoints)
+        {
+            IgniteArgumentCheck.NotNull(endpoints, nameof(endpoints));
+
+            foreach (var endpoint in endpoints)
+            {
+                Endpoints.Add(endpoint);
+            }
+        }
 
         /// <summary>
         /// Gets or sets the logger.
