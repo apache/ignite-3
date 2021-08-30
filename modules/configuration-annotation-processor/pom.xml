@@ -116,6 +116,7 @@
                             </includes>
                         </configuration>
                     </execution>
+
                     <execution>
                         <id>compile-project</id>
                         <phase>compile</phase>
