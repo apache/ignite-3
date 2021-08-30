@@ -36,11 +36,9 @@ namespace Apache.Ignite.Tests
         public void TestInternalNamespaceHasNoPublicTypes()
         {
             // Create a Roslyn analyzer for this.
-            var files = Directory.GetFiles(TestUtils.SolutionDir, "*.cs", SearchOption.AllDirectories);
-
             var internalDir = Path.DirectorySeparatorChar + "Internal" + Path.DirectorySeparatorChar;
 
-            foreach (var file in files)
+            foreach (var file in GetCsFiles())
             {
                 if (!file.Contains(internalDir, StringComparison.OrdinalIgnoreCase))
                 {
@@ -59,7 +57,29 @@ namespace Apache.Ignite.Tests
         [Test]
         public void TestTodosHaveTickets()
         {
-            Assert.Fail("TODO");
+            Assert.Multiple(() =>
+            {
+                foreach (var file in GetCsFiles())
+                {
+                    if (file.EndsWith("ProjectFilesTests.cs", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    foreach (var line in File.ReadAllLines(file))
+                    {
+                        if (line.Contains("TODO", StringComparison.Ordinal))
+                        {
+                            StringAssert.Contains("IGNITE-", line, "TODOs should be linked to tickets: " + file);
+                        }
+                    }
+                }
+            });
+        }
+
+        private static IEnumerable<string> GetCsFiles()
+        {
+            return Directory.GetFiles(TestUtils.SolutionDir, "*.cs", SearchOption.AllDirectories);
         }
     }
 }
