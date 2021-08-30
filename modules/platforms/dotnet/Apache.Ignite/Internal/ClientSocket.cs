@@ -97,16 +97,16 @@ namespace Apache.Ignite.Internal
             Justification = "NetworkStream is returned from this method in the socket.")]
         public static async Task<ClientSocket> ConnectAsync(EndPoint endPoint)
         {
-            using Socket socket = new(SocketType.Stream, ProtocolType.Tcp)
+            var socket = new Socket(SocketType.Stream, ProtocolType.Tcp)
             {
                 NoDelay = true
             };
 
-            await socket.ConnectAsync(endPoint).ConfigureAwait(false);
-            var stream = new NetworkStream(socket, ownsSocket: true);
-
             try
             {
+                await socket.ConnectAsync(endPoint).ConfigureAwait(false);
+                var stream = new NetworkStream(socket, ownsSocket: true);
+
                 await stream.WriteAsync(ProtoCommon.MagicBytes).ConfigureAwait(false);
                 await WriteHandshakeAsync(stream, CurrentProtocolVersion).ConfigureAwait(false);
 
@@ -120,7 +120,7 @@ namespace Apache.Ignite.Internal
             catch (Exception)
             {
                 // ReSharper disable once MethodHasAsyncOverload
-                stream.Dispose();
+                socket.Dispose();
 
                 throw;
             }

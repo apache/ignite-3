@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests
 {
     using System.Threading.Tasks;
     using Internal;
+    using Internal.Proto;
     using NUnit.Framework;
 
     /// <summary>
@@ -27,9 +28,22 @@ namespace Apache.Ignite.Tests
     public class ClientSocketTests : IgniteTestsBase
     {
         [Test]
-        public async Task TestConnect()
+        public async Task TestConnectAndSendRequest()
         {
             using var socket = await ClientSocket.ConnectAsync(JavaServer.EndPoint);
+
+            using var requestWriter = socket.GetRequestWriter(ClientOp.TablesGet);
+
+            var response = await socket.DoOutInOpAsync(requestWriter);
+            var tableCount = response.GetReader().ReadMapHeader();
+
+            Assert.AreEqual(1, tableCount);
+        }
+
+        [Test]
+        public void TestConnectWithoutServerThrowsException()
+        {
+            Assert.Fail("TODO");
         }
     }
 }
