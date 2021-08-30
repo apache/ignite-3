@@ -28,4 +28,7 @@ When the release time comes:
 * Add multi-targeting to our packages.
 * Use conditional compilation, if necessary, to deal with unsupported APIs on older SDKs.
 
-More info: https://docs.microsoft.com/en-us/dotnet/standard/net-standard#net-5-and-net-standard, https://dotnet.microsoft.com/platform/support/policy/dotnet-framework
+More info: 
+* https://docs.microsoft.com/en-us/dotnet/standard/net-standard#net-5-and-net-standard
+* https://dotnet.microsoft.com/platform/support/policy/dotnet-framework
+* https://cwiki.apache.org/confluence/display/IGNITE/IEP-78+.NET+Thin+Client
