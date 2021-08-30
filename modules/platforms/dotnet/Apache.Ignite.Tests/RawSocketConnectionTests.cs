@@ -23,6 +23,7 @@ namespace Apache.Ignite.Tests
     using System.Linq;
     using System.Net;
     using System.Net.Sockets;
+    using System.Text;
     using System.Threading.Tasks;
     using MessagePack;
     using NUnit.Framework;
@@ -35,35 +36,83 @@ namespace Apache.Ignite.Tests
         private static readonly byte[] Magic = "IGNI".Select(c => (byte)c).ToArray();
 
         [Test]
-        public async Task TestHandshake()
+        public async Task TestCorrectHandshakeReturnsSuccess()
         {
-            using Socket socket = new(SocketType.Stream, ProtocolType.Tcp)
-            {
-                NoDelay = true
-            };
-
-            await socket.ConnectAsync(IPAddress.Loopback, JavaServer.ClientPort);
-            await using var stream = new NetworkStream(socket, ownsSocket: true);
+            await using var stream = await Connect();
 
             await stream.WriteAsync(Magic);
             WriteHandshake(stream);
 
             await stream.FlushAsync();
+            await CheckResponseMagic(stream);
 
+            ReadHandshake(stream);
+        }
+
+        [Test]
+        public async Task TestUnsupportedVersionHandshakeReturnsError()
+        {
+            await using var stream = await Connect();
+
+            await stream.WriteAsync(Magic);
+            WriteHandshake(stream, majorVersion: 33);
+
+            await stream.FlushAsync();
+            await CheckResponseMagic(stream);
+
+            var ex = Assert.Throws<AssertionException>(() => ReadHandshake(stream));
+            StringAssert.Contains("Unsupported version: 33.0.0", ex!.Message);
+        }
+
+        private static async Task<NetworkStream> Connect()
+        {
+            Socket socket = new(SocketType.Stream, ProtocolType.Tcp)
+            {
+                NoDelay = true
+            };
+
+            await socket.ConnectAsync(IPAddress.Loopback, JavaServer.ClientPort);
+
+            return new NetworkStream(socket, ownsSocket: true);
+        }
+
+        private static async Task CheckResponseMagic(NetworkStream stream)
+        {
             var responseMagic = new byte[4];
             await stream.ReadAsync(responseMagic);
 
             CollectionAssert.AreEqual(Magic, responseMagic);
         }
 
-        private static unsafe void WriteHandshake(Stream stream)
+        private static unsafe void ReadHandshake(NetworkStream stream)
         {
-            // TODO: Buffer pooling.
+            var msgSize = 0;
+            stream.Read(new Span<byte>(&msgSize, 4));
+            msgSize = IPAddress.NetworkToHostOrder(msgSize);
+
+            var msg = new byte[msgSize];
+            stream.Read(msg);
+
+            var str = Encoding.UTF8.GetString(msg);
+
+            Assert.AreEqual(7, msgSize, str);
+
+            // Protocol version.
+            Assert.AreEqual(3, msg[0]);
+            Assert.AreEqual(0, msg[1]);
+            Assert.AreEqual(0, msg[2]);
+
+            // Result code.
+            Assert.AreEqual(0, msg[3]);
+        }
+
+        private static unsafe void WriteHandshake(Stream stream, int majorVersion = 3)
+        {
             var bufferWriter = new ArrayBufferWriter<byte>();
             var writer = new MessagePackWriter(bufferWriter);
 
             // Version.
-            writer.Write(3);
+            writer.Write(majorVersion);
             writer.Write(0);
             writer.Write(0);
 
@@ -77,10 +126,10 @@ namespace Apache.Ignite.Tests
             // Write big-endian message size.
             var msgSize = IPAddress.HostToNetworkOrder(bufferWriter.WrittenCount);
 
-            stream.Write(new ReadOnlySpan<byte>(&msgSize, 4)); // TODO: Async
+            stream.Write(new ReadOnlySpan<byte>(&msgSize, 4));
 
             // Write message.
-            stream.Write(bufferWriter.GetSpan()); // TODO: Async
+            stream.Write(bufferWriter.WrittenSpan);
         }
     }
 }
