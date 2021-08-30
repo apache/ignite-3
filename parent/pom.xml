@@ -782,11 +782,7 @@
             Profile to add generated sources to the list of paths for the PMD plugin.
         -->
         <profile>
-            <activation>
-                <property>
-                    <name>pmd.check-generated-sources</name>
-                </property>
-            </activation>
+            <id>pmd</id>
             <build>
                 <plugins>
                     <plugin>
