@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Buffers
 {
     using System;
     using System.Buffers;
+    using System.Diagnostics;
     using MessagePack;
 
     /// <summary>
@@ -54,9 +55,16 @@ namespace Apache.Ignite.Internal.Buffers
         /// <returns><see cref="MessagePackReader"/> for this buffer.</returns>
         public MessagePackReader GetReader() => new(new ReadOnlyMemory<byte>(_bytes, _position, _length));
 
+        /// <summary>
+        /// Gets a slice of the current buffer.
+        /// </summary>
+        /// <param name="offset">Offset.</param>
+        /// <returns>Sliced buffer.</returns>
         public PooledBuffer Slice(int offset)
         {
-            // TODO: Range checks.
+            Debug.Assert(offset > 0, "offset > 0");
+            Debug.Assert(offset < _length, "offset < _length");
+
             return new(_bytes, _position + offset, _length - offset);
         }
 

@@ -374,6 +374,7 @@ namespace Apache.Ignite.Internal
             if (exception != null)
             {
                 // TODO: Move continuations to thread pool to avoid starving .NET SocketAsyncEngine.EventLoop?
+                // Double check: SocketAsyncEngine seems to be doing this already.
                 taskCompletionSource.SetException(exception);
             }
             else
