@@ -1,5 +1,5 @@
 ## Prerequisites
-* .NET 5 SDK
+* .NET Core 3.1 SDK
 * Java 11 SDK
 * Maven 3.6.0+ (for building)
 
@@ -12,13 +12,13 @@ In `modules/platforms/dotnet/Apache.Ignite.Tests`: `dotnet test`
 ## Start a Test Node
 `mvn -Dtest=ITThinClientConnectionTest -DfailIfNoTests=false -DIGNITE_TEST_KEEP_NODES_RUNNING=true surefire:test`
 
-## .NET 5 and .NET Standard 2.1
+## .NET Core 3.1 and .NET Standard 2.1
 
 * `Apache.Ignite` project targets `netstandard2.1`
-* Test projects target `net5.0`
+* Test projects target `netcoreapp3.1`
 
 Ignite 3 is in alpha stage, we don't know the final release date.
-Right now (Sep 2021) [the oldest supported LTS version of .NET SDK is .NET Core 3.1](https://dotnet.microsoft.com/platform/support/policy), which supports `netstandard2.1`.
+Right now (Sep 2021) [the only supported LTS version of .NET SDK is .NET Core 3.1](https://dotnet.microsoft.com/platform/support/policy), which supports `netstandard2.1`.
 
 **There are no supported SDKs that don't support `netstandard2.1`.** 
 
