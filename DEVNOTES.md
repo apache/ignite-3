@@ -39,9 +39,8 @@ mvn clean <compile|package|install|deploy> -Dmaven.checkstyle.skip
 
 Run code style checks only:
 ```
-mvn clean validate -Pcheckstyle -Dmaven.checkstyle.skip
+mvn clean validate -Pcheckstyle
 ```
->ℹ Both profile and property declaration is required to run ONLY Checkstyle.
 
 Run javadoc style checks for public api only:
 ```
