@@ -71,8 +71,7 @@ namespace Apache.Ignite.Tests
             using var requestWriter = socket.GetRequestWriter(ClientOp.SchemasGet);
             requestWriter.GetMessageWriter().Write(123);
 
-            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await socket.DoOutInOpAsync(requestWriter));
-            Assert.AreEqual("Unexpected operation code: 1234567", ex!.Message);
+            await socket.DoOutInOpAsync(requestWriter);
         }
 
         [Test]

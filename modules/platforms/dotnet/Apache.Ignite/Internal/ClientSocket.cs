@@ -140,8 +140,10 @@ namespace Apache.Ignite.Internal
 
             _requests[requestId] = taskCompletionSource;
 
-            SendRequestAsync(request)
-                .AsTask()
+            var asTask = SendRequestAsync(request)
+                .AsTask();
+
+            asTask
                 .ContinueWith(
                     (task, state) =>
                     {
@@ -149,10 +151,14 @@ namespace Apache.Ignite.Internal
                         {
                             ((TaskCompletionSource<PooledBuffer>)state!).TrySetException(task.Exception);
                         }
+                        else if (task.IsCanceled)
+                        {
+                            ((TaskCompletionSource<PooledBuffer>)state!).TrySetCanceled();
+                        }
                     },
                     taskCompletionSource,
-                    _disposeTokenSource.Token,
-                    TaskContinuationOptions.None,
+                    CancellationToken.None,
+                    TaskContinuationOptions.NotOnRanToCompletion,
                     TaskScheduler.Default);
 
             return taskCompletionSource.Task;
