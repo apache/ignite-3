@@ -25,6 +25,7 @@ namespace Apache.Ignite.Internal.Buffers
     /// <summary>
     /// Pooled buffer writer.
     /// Based on <see cref="ArrayBufferWriter{T}"/>, but uses <see cref="ArrayPool{T}.Shared"/> to allocate arrays.
+    /// Not a struct because <see cref="GetMessageWriter"/> will cause boxing.
     /// </summary>
     internal sealed class PooledArrayBufferWriter : IBufferWriter<byte>, IDisposable
     {
@@ -118,6 +119,10 @@ namespace Apache.Ignite.Internal.Buffers
             ArrayPool<byte>.Shared.Return(_buffer);
         }
 
+        /// <summary>
+        /// Checks underlying buffer and resizes if necessary.
+        /// </summary>
+        /// <param name="sizeHint">Size hint.</param>
         private void CheckAndResizeBuffer(int sizeHint)
         {
             if (sizeHint < 0)
@@ -139,6 +144,7 @@ namespace Apache.Ignite.Internal.Buffers
             int increase = Math.Max(sizeHint, length);
 
             int newSize = length + increase;
+
             if ((uint)newSize > int.MaxValue)
             {
                 newSize = length + sizeHint;
