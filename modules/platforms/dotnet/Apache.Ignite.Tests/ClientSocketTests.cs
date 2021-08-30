@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests
 {
+    using System.Net;
     using System.Threading.Tasks;
     using Internal;
     using Internal.Proto;
@@ -43,7 +44,7 @@ namespace Apache.Ignite.Tests
         [Test]
         public void TestConnectWithoutServerThrowsException()
         {
-            Assert.Fail("TODO");
+            Assert.CatchAsync(async () => await ClientSocket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, 569)));
         }
     }
 }
