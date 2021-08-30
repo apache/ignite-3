@@ -1,4 +1,2 @@
-# Apache Ignite .NET Thin Client
+# Apache Ignite 3 .NET Thin Client
 
-TODO: notes on framework version, alpha status
-TODO: Assembly signing

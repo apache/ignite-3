@@ -18,3 +18,6 @@ In `modules/platforms/dotnet/Apache.Ignite.Tests`: `dotnet test`
 * Test projects target `netcoreapp3.1`
 
 See [IEP-78 .NET Thin Client](https://cwiki.apache.org/confluence/display/IGNITE/IEP-78+.NET+Thin+Client) for design considerations.
+
+
+TODO: Assembly signing
