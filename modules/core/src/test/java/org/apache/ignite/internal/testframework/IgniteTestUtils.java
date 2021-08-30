@@ -212,18 +212,6 @@ public final class IgniteTestUtils {
 
     /**
      * @param rnd Random generator.
-     * @param len Byte array length.
-     * @return Random byte array.
-     */
-    public static byte[] randomBytes(Random rnd, int len) {
-        byte[] data = new byte[len];
-        rnd.nextBytes(data);
-
-        return data;
-    }
-
-    /**
-     * @param rnd Random generator.
      * @param bits Amount of bits in bitset.
      * @return Random BitSet.
      */
@@ -236,6 +224,18 @@ public final class IgniteTestUtils {
         }
 
         return set;
+    }
+
+    /**
+     * @param rnd Random generator.
+     * @param len Byte array length.
+     * @return Random byte array.
+     */
+    public static byte[] randomBytes(Random rnd, int len) {
+        byte[] data = new byte[len];
+        rnd.nextBytes(data);
+
+        return data;
     }
 
     /**
