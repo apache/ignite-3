@@ -19,13 +19,12 @@ package org.apache.ignite.internal.configuration.util;
 
 import java.io.Serializable;
 import java.lang.reflect.Field;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -47,8 +46,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static java.util.Collections.singletonMap;
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.configuration.tree.NamedListNode.NAME;
@@ -59,7 +57,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.ch
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectSchemas;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.find;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.mergedSchemaFields;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaFields;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.allOf;
@@ -457,67 +455,23 @@ public class ConfigurationUtilTest {
 
     /** */
     @Test
-    void testMergeSchemaFields() {
+    void testSchemaFields() {
         Class<?> schema = SimpleRootConfigurationSchema.class;
 
         assertThrows(
             IllegalArgumentException.class,
-            () -> mergedSchemaFields(
+            () -> schemaFields(
                 schema,
                 List.of(
                     InternalExtendedSimpleRootConfigurationSchema.class,
-                    ErrorInternalExtended0SimpleRootConfigurationSchema.class
-                )
-            )
-        );
-
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> mergedSchemaFields(
-                schema,
-                List.of(
-                    InternalExtendedSimpleRootConfigurationSchema.class,
-                    ErrorInternalExtended1SimpleRootConfigurationSchema.class
-                )
-            )
-        );
-
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> mergedSchemaFields(
-                schema,
-                List.of(
-                    InternalExtendedSimpleRootConfigurationSchema.class,
-                    ErrorInternalExtended2SimpleRootConfigurationSchema.class
-                )
-            )
-        );
-
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> mergedSchemaFields(
-                schema,
-                List.of(
-                    InternalExtendedSimpleRootConfigurationSchema.class,
-                    ErrorInternalExtended3SimpleRootConfigurationSchema.class
-                )
-            )
-        );
-
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> mergedSchemaFields(
-                schema,
-                List.of(
-                    InternalExtendedSimpleRootConfigurationSchema.class,
-                    ErrorInternalExtended4SimpleRootConfigurationSchema.class
+                    ErrorInternalExtendedSimpleRootConfigurationSchema.class
                 )
             )
         );
 
         assertEquals(
-            Arrays.stream(schema.getDeclaredFields()).collect(toMap(identity(), f -> Set.of())),
-            mergedSchemaFields(schema, List.of())
+            Set.of(schema.getDeclaredFields()),
+            schemaFields(schema, List.of())
         );
 
         List<Class<?>> extensions = List.of(
@@ -525,19 +479,13 @@ public class ConfigurationUtilTest {
             InternalSecondSimpleRootConfigurationSchema.class
         );
 
-        Map<String, IgniteBiTuple<Field, Set<Object>>> exp = Arrays.stream(schema.getDeclaredFields())
-            .collect(toMap(Field::getName, f -> new IgniteBiTuple<>(f, Set.of())));
-
-        for (Class<?> extension : extensions) {
-            for (Field f : extension.getDeclaredFields()) {
-                exp.computeIfAbsent(f.getName(), s -> new IgniteBiTuple<>(f, new HashSet<>()))
-                    .getValue().add(f.getDeclaringClass());
-            }
-        }
+        Set<Field> exp = Stream.concat(Stream.of(schema), extensions.stream())
+            .flatMap(cls -> Stream.of(cls.getDeclaredFields()))
+            .collect(toSet());
 
         assertEquals(
-            exp.values().stream().collect(toMap(IgniteBiTuple::getKey, IgniteBiTuple::getValue)),
-            mergedSchemaFields(schema, extensions)
+            exp,
+            schemaFields(schema, extensions)
         );
     }
 
@@ -831,10 +779,6 @@ public class ConfigurationUtilTest {
      */
     @InternalConfiguration
     public static class InternalSecondSimpleRootConfigurationSchema extends SimpleRootConfigurationSchema {
-        /** Second string value without default. */
-        @Value
-        public String str2;
-
         /** Second sub configuration schema. */
         @ConfigValue
         public SimpleConfigurationSchema subCfg1;
@@ -863,52 +807,12 @@ public class ConfigurationUtilTest {
     }
 
     /**
-     * Error: field type is different.
+     * Error: Duplicate field.
      */
     @InternalConfiguration
-    public static class ErrorInternalExtended0SimpleRootConfigurationSchema extends SimpleRootConfigurationSchema {
+    public static class ErrorInternalExtendedSimpleRootConfigurationSchema extends SimpleRootConfigurationSchema {
         /** String value without default. */
         @Value
-        public int str00;
-    }
-
-    /**
-     * Error: field default value is different.
-     */
-    @InternalConfiguration
-    public static class ErrorInternalExtended1SimpleRootConfigurationSchema extends SimpleRootConfigurationSchema {
-        /** String value with default. */
-        @Value(hasDefault = true)
-        public String str01 = "bar";
-    }
-
-    /**
-     * Error: field {@link Value#hasDefault} is different.
-     */
-    @InternalConfiguration
-    public static class ErrorInternalExtended2SimpleRootConfigurationSchema extends SimpleRootConfigurationSchema {
-        /** String value with default. */
-        @Value(hasDefault = false)
-        public String str01 = "foo";
-    }
-
-    /**
-     * Error: field annotation is different.
-     */
-    @InternalConfiguration
-    public static class ErrorInternalExtended3SimpleRootConfigurationSchema extends SimpleRootConfigurationSchema {
-        /** Sub configuration schema. */
-        @NamedConfigValue
-        public SimpleConfigurationSchema subCfg0;
-    }
-
-    /**
-     * Error: field {@link NamedConfigValue#syntheticKeyName} is different.
-     */
-    @InternalConfiguration
-    public static class ErrorInternalExtended4SimpleRootConfigurationSchema extends SimpleRootConfigurationSchema {
-        /** Named configuration schema. */
-        @NamedConfigValue(syntheticKeyName = "error")
-        public SimpleConfigurationSchema namedCfg0;
+        public String str00;
     }
 }

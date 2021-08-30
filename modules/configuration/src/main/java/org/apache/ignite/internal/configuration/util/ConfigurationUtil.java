@@ -28,7 +28,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Objects;
 import java.util.Queue;
 import java.util.RandomAccess;
 import java.util.Set;
@@ -49,7 +48,6 @@ import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
-import org.apache.ignite.lang.IgniteBiTuple;
 
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
@@ -656,90 +654,39 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Get the merged fields of the configuration schema and its internal extensions.
-     * Uniqueness is achieved by {@link Field#getName}, if the names of the fields are the same,
-     * then we check for equality by {@link Field#getType}, {@link Value}, {@link ConfigValue}
-     * and {@link NamedConfigValue}.
+     * Get the merged fields of the schema and its extensions.
      *
      * @param schema Configuration schema.
      * @param extensions Configuration schema extensions ({@link InternalConfiguration}).
-     * @return Merged fields of the configuration schema.
-     *      Mapping: field -> empty if a schema field, otherwise schema extensions that contain this field.
-     * @throws IllegalArgumentException If the same fields by {@link Field#getName} are not equal.
+     * @return Unique fields of the schema and its extensions.
+     * @throws IllegalArgumentException If there is a conflict in field names.
      */
-    public static Map<Field, Set<Class<?>>> mergedSchemaFields(Class<?> schema, Collection<Class<?>> extensions) {
+    public static Set<Field> schemaFields(Class<?> schema, Collection<Class<?>> extensions) {
         if (extensions.isEmpty())
-            return Arrays.stream(schema.getDeclaredFields()).collect(toMap(identity(), f -> Set.of()));
+            return Set.of(schema.getDeclaredFields());
         else {
-            Map<String, IgniteBiTuple<Field, Set<Class<?>>>> res = Arrays.stream(schema.getDeclaredFields())
-                .collect(toMap(Field::getName, f -> new IgniteBiTuple<>(f, Set.of())));
+            Map<String, Field> res = Arrays.stream(schema.getDeclaredFields())
+                .collect(toMap(Field::getName, identity()));
 
             for (Class<?> extension : extensions) {
                 assert schema.isAssignableFrom(extension) : extension;
 
                 for (Field field : extension.getDeclaredFields()) {
-                    if (!res.containsKey(field.getName())) {
-                        res.put(
-                            field.getName(),
-                            new IgniteBiTuple<>(field, new HashSet<>(Set.of(field.getDeclaringClass())))
-                        );
+                    String fieldName = field.getName();
+
+                    if (res.containsKey(fieldName)) {
+                        throw new IllegalArgumentException(String.format(
+                            "Duplicate field names are not allowed [field=%s, classes=%s]",
+                            field,
+                            classNames(res.get(fieldName), field)
+                        ));
                     }
-                    else {
-                        IgniteBiTuple<Field, Set<Class<?>>> fieldTuple = res.get(field.getName());
-
-                        Field existField = fieldTuple.getKey();
-
-                        if (existField.getType() != field.getType()) {
-                            throw new IllegalArgumentException(String.format(
-                                "Field type mismatch [name=%s, classes=%s]",
-                                field.getName(),
-                                classNames(existField, field)
-                            ));
-                        }
-                        else if ((isValue(existField) && !isValue(field)) ||
-                            (isConfigValue(existField) && !isConfigValue(field)) ||
-                            (isNamedConfigValue(existField) && !isNamedConfigValue(field))) {
-                            throw new IllegalArgumentException(String.format(
-                                "Field configuration value mismatch [name=%s, classes=%s]",
-                                field.getName(),
-                                classNames(existField, field)
-                            ));
-                        }
-                        else if (isNamedConfigValue(existField)) {
-                            if (!Objects.equals(syntheticKeyName(existField), syntheticKeyName(field))) {
-                                throw new IllegalArgumentException(String.format(
-                                    "Field @%s.syntheticKeyName() value mismatch [name=%s, classes=%s]",
-                                    NamedConfigValue.class.getSimpleName(),
-                                    field.getName(),
-                                    classNames(existField, field)
-                                ));
-                            }
-                        }
-                        else if (isValue(existField)) {
-                            if (hasDefault(existField) != hasDefault(field)) {
-                                throw new IllegalArgumentException(String.format(
-                                    "Field @%s.hasDefault() value mismatch [name=%s, classes=%s]",
-                                    Value.class.getSimpleName(),
-                                    field.getName(),
-                                    classNames(existField, field)
-                                ));
-                            }
-                            else if (hasDefault(existField) &&
-                                !Objects.equals(defaultValue(existField), defaultValue(field))) {
-                                throw new IllegalArgumentException(String.format(
-                                    "Field default value mismatch [name=%s, classes=%s]",
-                                    field.getName(),
-                                    classNames(existField, field)
-                                ));
-                            }
-                        }
-
-                        fieldTuple.getValue().add(field.getDeclaringClass());
-                    }
+                    else
+                        res.put(fieldName, field);
                 }
             }
 
-            return res.values().stream().collect(toMap(IgniteBiTuple::getKey, IgniteBiTuple::getValue));
+            return Set.copyOf(res.values());
         }
     }
 
