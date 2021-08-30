@@ -44,6 +44,7 @@ import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
 import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -69,22 +70,27 @@ public class InternalTableImpl implements InternalTable {
     /** Table schema mode. */
     private volatile SchemaMode schemaMode;
 
+    /** TX manager. */
+    private final TxManager txManager;
+
     /**
      * @param tableName Table name.
      * @param tableId Table id.
      * @param partMap Map partition id to raft group.
      * @param partitions Partitions.
+     * @param txManager Transaction manager.
      */
     public InternalTableImpl(
         String tableName,
         UUID tableId,
         Map<Integer, RaftGroupService> partMap,
-        int partitions
-    ) {
+        int partitions,
+        TxManager txManager) {
         this.tableName = tableName;
         this.tableId = tableId;
         this.partitionMap = partMap;
         this.partitions = partitions;
+        this.txManager = txManager;
 
         this.schemaMode = SchemaMode.STRICT_SCHEMA;
     }
@@ -118,7 +124,7 @@ public class InternalTableImpl implements InternalTable {
         if (leader == null)
             throw new IgniteInternalException();
 
-        return service.<SingleRowResponse>run(new GetCommand(keyRow))
+        return service.<SingleRowResponse>run(new GetCommand(keyRow, tx.timestamp()))
             .thenApply(SingleRowResponse::getValue);
     }
 
@@ -150,7 +156,15 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> upsert(BinaryRow row, InternalTransaction tx) {
-        return partitionMap.get(partId(row)).run(new UpsertCommand(row));
+        if (tx != null) {
+            return partitionMap.get(partId(row)).run(new UpsertCommand(row, tx.timestamp()));
+        }
+        else {
+            InternalTransaction tx0 = txManager.begin();
+
+            return partitionMap.get(partId(row))
+                .run(new UpsertCommand(row, tx0.timestamp())).thenCompose(r -> tx0.commitAsync());
+        }
     }
 
     /** {@inheritDoc} */
@@ -183,7 +197,15 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Boolean> insert(BinaryRow row, InternalTransaction tx) {
-        return partitionMap.get(partId(row)).run(new InsertCommand(row));
+        if (tx != null) {
+            return partitionMap.get(partId(row)).run(new InsertCommand(row, tx.timestamp()));
+        }
+        else {
+            InternalTransaction tx0 = txManager.begin();
+
+            return partitionMap.get(partId(row))
+                .run(new InsertCommand(row, tx0.timestamp())).thenCompose(r -> tx0.commitAsync().thenApply(ignored -> (Boolean) r));
+        }
     }
 
     /** {@inheritDoc} */

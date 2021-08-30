@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.command;
 
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
@@ -26,6 +27,9 @@ import org.jetbrains.annotations.NotNull;
  * The command inserts or updates a value for the key specified.
  */
 public class UpsertCommand implements WriteCommand {
+    /** The timestamp. */
+    private final Timestamp timestamp;
+
     /** Binary row. */
     private transient BinaryRow row;
 
@@ -41,11 +45,13 @@ public class UpsertCommand implements WriteCommand {
      * The {@code row} should not be {@code null}.
      *
      * @param row Binary row.
+     * @param timestamp The timestamp.
      */
-    public UpsertCommand(@NotNull BinaryRow row) {
+    public UpsertCommand(@NotNull BinaryRow row, Timestamp timestamp) {
         assert row != null;
 
         this.row = row;
+        this.timestamp = timestamp;
 
         CommandUtils.rowToBytes(row, bytes -> rowBytes = bytes);
     }
@@ -60,5 +66,12 @@ public class UpsertCommand implements WriteCommand {
             row = new ByteBufferRow(rowBytes);
 
         return row;
+    }
+
+    /**
+     * @return The timestamp.
+     */
+    public Timestamp timestamp() {
+        return timestamp;
     }
 }

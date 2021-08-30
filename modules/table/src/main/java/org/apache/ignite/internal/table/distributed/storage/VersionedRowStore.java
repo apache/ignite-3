@@ -92,11 +92,7 @@ public class VersionedRowStore {
 
         Pair<BinaryRow, BinaryRow> pair = result(value, tx);
 
-        // Read in tx TODO asch get rid
-        BinaryRow oldRow = value.timestamp != null && value.timestamp.equals(tx.timestamp()) ? pair.getSecond() :
-            pair.getFirst();
-
-        storage.write(packValue(key, new Value(row, oldRow, tx.timestamp())));
+        storage.write(packValue(key, new Value(row, pair.getSecond(), tx.timestamp())));
     }
 
     /** {@inheritDoc} */
@@ -141,13 +137,30 @@ public class VersionedRowStore {
     public Boolean insert(BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        DataRow newRow = extractAndWrapKeyValue(row);
+//        DataRow newRow = extractAndWrapKeyValue(row);
+//
+//        InsertInvokeClosure writeIfAbsent = new InsertInvokeClosure(newRow);
+//
+//        storage.invoke(newRow, writeIfAbsent);
+//
+//        return writeIfAbsent.result();
 
-        InsertInvokeClosure writeIfAbsent = new InsertInvokeClosure(newRow);
+        TxState state = txManager.state(tx.timestamp());
 
-        storage.invoke(newRow, writeIfAbsent);
+        assert state == TxState.PENDING;
 
-        return writeIfAbsent.result();
+        SimpleDataRow key = new SimpleDataRow(extractAndWrapKey(row).keyBytes(), null);
+
+        Value value = extractValue(storage.read(key));
+
+        Pair<BinaryRow, BinaryRow> pair = result(value, tx);
+
+        if (pair.getFirst() != null)
+            return Boolean.FALSE;
+
+        storage.write(packValue(key, new Value(row, null, tx.timestamp())));
+
+        return Boolean.TRUE;
     }
 
     /** {@inheritDoc} */
@@ -421,14 +434,22 @@ public class VersionedRowStore {
             return new Pair<>(val.newRow, null);
         }
 
+        // Will be false if this is a first transactional op.
+        boolean inTx = tx.timestamp().equals(val.timestamp);
+
+        if (inTx)
+            return new Pair<>(val.newRow, val.oldRow);
+
         TxState state = txManager.state(val.timestamp);
 
-        if (state == TxState.COMMITED)
-            return new Pair<>(val.newRow, null);
-        else if (state == TxState.ABORTED)
-            return new Pair<>(val.oldRow, null);
+        BinaryRow cur;
+
+        if (state == TxState.ABORTED) // Was aborted and have written temp value.
+            cur = val.oldRow;
         else
-            return tx.timestamp().equals(val.timestamp) ? new Pair<>(val.newRow, val.oldRow) : new Pair<>(val.oldRow, null);
+            cur = val.newRow;
+
+        return new Pair<>(cur, cur);
     }
 
     /**
@@ -450,10 +471,13 @@ public class VersionedRowStore {
      * Versioned value.
      */
     private static class Value {
+        /** Current value. */
         BinaryRow newRow;
 
+        /** The value for rollback. */
         BinaryRow oldRow;
 
+        /** Transaction's timestamp. */
         Timestamp timestamp;
 
         Value(BinaryRow newRow, BinaryRow oldRow, Timestamp timestamp) {

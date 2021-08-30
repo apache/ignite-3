@@ -314,6 +314,18 @@ public class TxTest extends IgniteAbstractTest {
 
     /** */
     @Test
+    public void testAbortNoUpdate() throws TransactionException {
+        accounts.upsert(makeValue(1, 100.));
+
+        InternalTransaction tx = txManager.begin();
+
+        tx.rollback();
+
+        assertEquals(100., accounts.get(makeKey(1)).doubleValue("balance"));
+    }
+
+    /** */
+    @Test
     public void testConcurrent() throws TransactionException {
         InternalTransaction tx = txManager.begin();
         InternalTransaction tx2 = txManager.begin();
@@ -438,19 +450,37 @@ public class TxTest extends IgniteAbstractTest {
 
     /** */
     @Test
-    public void testManyUpdates() throws TransactionException {
+    public void testInsert() throws TransactionException {
+        assertNull(accounts.get(makeKey(1)));
+
         InternalTransaction tx = txManager.begin();
 
         Table table = accounts.withTransaction(tx);
 
-        table.upsert(makeValue(1, 100.));
-        log.info("1 balance={}", table.get(makeKey(1)).doubleValue("balance"));
+        assertTrue(table.insert(makeValue(1, 100.)));
+        assertFalse(table.insert(makeValue(1, 200.)));
+        assertEquals(100., table.get(makeKey(1)).doubleValue("balance"));
 
-        table.upsert(makeValue(1, 200.));
-        log.info("2 balance={}", table.get(makeKey(1)).doubleValue("balance"));
+        tx.commit();
 
-        table.upsert(makeValue(1, 300.));
-        log.info("3 balance={}", table.get(makeKey(1)).doubleValue("balance"));
+        assertEquals(100., accounts.get(makeKey(1)).doubleValue("balance"));
+
+        assertTrue(accounts.insert(makeValue(2, 200.)));
+        assertEquals(200., accounts.get(makeKey(2)).doubleValue("balance"));
+
+        InternalTransaction tx2 = txManager.begin();
+
+        table = accounts.withTransaction(tx2);
+
+        assertTrue(table.insert(makeValue(3, 100.)));
+        assertFalse(table.insert(makeValue(3, 200.)));
+        assertEquals(100., table.get(makeKey(3)).doubleValue("balance"));
+
+        tx2.rollback();
+
+        assertEquals(100., accounts.get(makeKey(1)).doubleValue("balance"));
+        assertEquals(200., accounts.get(makeKey(2)).doubleValue("balance"));
+        assertNull(accounts.get(makeKey(3)));
     }
 
     @Test

@@ -17,13 +17,17 @@
 
 package org.apache.ignite.internal.tx;
 
+import java.io.Serializable;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * The timestamp.
  */
-public class Timestamp implements Comparable<Timestamp> {
+public class Timestamp implements Comparable<Timestamp>, Serializable {
+    /** */
+    private static final long serialVersionUID = 1L;
+
     /** */
     private static long localTime;
 

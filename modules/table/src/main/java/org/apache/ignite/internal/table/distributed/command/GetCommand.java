@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.command;
 
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.jetbrains.annotations.NotNull;
 
@@ -26,6 +27,9 @@ import org.jetbrains.annotations.NotNull;
  * The command gets a value by key specified.
  */
 public class GetCommand implements ReadCommand {
+    /** The timestamp or null for implicit read. */
+    private final Timestamp timestamp;
+
     /** Binary key row. */
     private transient BinaryRow keyRow;
 
@@ -41,11 +45,13 @@ public class GetCommand implements ReadCommand {
      * The {@code keyRow} should not be {@code null}.
      *
      * @param keyRow Binary key row.
+     * @param timestamp The timestamp.
      */
-    public GetCommand(@NotNull BinaryRow keyRow) {
+    public GetCommand(@NotNull BinaryRow keyRow, Timestamp timestamp) {
         assert keyRow != null;
 
         this.keyRow = keyRow;
+        this.timestamp = timestamp;
 
         CommandUtils.rowToBytes(keyRow, bytes -> keyRowBytes = bytes);
     }
@@ -60,5 +66,12 @@ public class GetCommand implements ReadCommand {
             keyRow = new ByteBufferRow(keyRowBytes);
 
         return keyRow;
+    }
+
+    /**
+     * @return The timestamp.
+     */
+    public Timestamp timestamp() {
+        return timestamp;
     }
 }

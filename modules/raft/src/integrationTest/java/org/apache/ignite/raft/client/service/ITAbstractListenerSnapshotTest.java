@@ -379,6 +379,13 @@ public abstract class ITAbstractListenerSnapshotTest<T extends RaftGroupListener
     }
 
     /**
+     * @return The client service.
+     */
+    protected ClusterService clientService() {
+        return cluster.get(INITIAL_CONF.size());
+    }
+
+    /**
      * Starts a client with a specific address.
      */
     private RaftGroupService startClient(String groupId, NetworkAddress addr) throws Exception {

@@ -36,6 +36,7 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterService;
@@ -68,14 +69,18 @@ public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
 
     /** {@inheritDoc} */
     @Override public void beforeFollowerStop(RaftGroupService service) throws Exception {
-        var table = new InternalTableImpl("table", UUID.randomUUID(), Map.of(0, service), 1);
+        TxManager txManager = new TxManagerImpl(clientService(), new HeapLockManager());
+
+        var table = new InternalTableImpl("table", UUID.randomUUID(), Map.of(0, service), 1, txManager);
 
         table.upsert(FIRST_VALUE, null).get();
     }
 
     /** {@inheritDoc} */
     @Override public void afterFollowerStop(RaftGroupService service) throws Exception {
-        var table = new InternalTableImpl("table", UUID.randomUUID(), Map.of(0, service), 1);
+        TxManager txManager = new TxManagerImpl(clientService(), new HeapLockManager());
+
+        var table = new InternalTableImpl("table", UUID.randomUUID(), Map.of(0, service), 1, txManager);
 
         // Remove the first key
         table.delete(FIRST_KEY, null).get();
@@ -86,7 +91,9 @@ public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
 
     /** {@inheritDoc} */
     @Override public void afterSnapshot(RaftGroupService service) throws Exception {
-        var table = new InternalTableImpl("table", UUID.randomUUID(), Map.of(0, service), 1);
+        TxManager txManager = new TxManagerImpl(clientService(), new HeapLockManager());
+
+        var table = new InternalTableImpl("table", UUID.randomUUID(), Map.of(0, service), 1, txManager);
 
         table.upsert(SECOND_VALUE, null).get();
     }

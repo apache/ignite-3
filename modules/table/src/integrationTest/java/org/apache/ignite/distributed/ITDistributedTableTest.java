@@ -50,6 +50,8 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.lang.IgniteLogger;
@@ -71,7 +73,6 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -92,7 +93,7 @@ public class ITDistributedTableTest {
     public static final int NODE_PORT_BASE = 20_000;
 
     /** Nodes. */
-    public static final int NODES = 5;
+    private int nodes;
 
     /** Partitions. */
     public static final int PARTS = 10;
@@ -126,22 +127,23 @@ public class ITDistributedTableTest {
     /**
      * Start all cluster nodes before each test.
      */
-    @BeforeEach
-    public void beforeTest() {
-        var nodeFinder = new LocalPortRangeNodeFinder(NODE_PORT_BASE, NODE_PORT_BASE + NODES);
+    public void startGrid() {
+        assertTrue(nodes > 0);
+
+        var nodeFinder = new LocalPortRangeNodeFinder(NODE_PORT_BASE, NODE_PORT_BASE + nodes);
 
         nodeFinder.findNodes().stream()
             .map(addr -> startClient(addr.toString(), addr.port(), nodeFinder))
             .forEach(cluster::add);
 
         for (ClusterService node : cluster)
-            assertTrue(waitForTopology(node, NODES, 1000));
+            assertTrue(waitForTopology(node, nodes, 1000));
 
         LOG.info("Cluster started.");
 
-        client = startClient("client", NODE_PORT_BASE + NODES, nodeFinder);
+        client = startClient("client", NODE_PORT_BASE + nodes, nodeFinder);
 
-        assertTrue(waitForTopology(client, NODES + 1, 1000));
+        assertTrue(waitForTopology(client, nodes + 1, 1000));
 
         LOG.info("Client started.");
     }
@@ -167,6 +169,10 @@ public class ITDistributedTableTest {
      */
     @Test
     public void partitionListener() throws Exception {
+        nodes = 1;
+
+        startGrid();
+
         String grpId = "part";
 
         RaftServer partSrv = new JRaftServerImpl(cluster.get(0), dataPath);
@@ -191,14 +197,16 @@ public class ITDistributedTableTest {
 
         Row testRow = getTestRow();
 
-        CompletableFuture<Boolean> insertFur = partRaftGrp.run(new InsertCommand(testRow));
+        InternalTransaction tx = txManager.begin();
+
+        CompletableFuture<Boolean> insertFur = partRaftGrp.run(new InsertCommand(testRow, tx.timestamp()));
 
         assertTrue(insertFur.get());
 
 //        Row keyChunk = new Row(SCHEMA, new ByteBufferRow(testRow.keySlice()));
         Row keyChunk = getTestKey();
 
-        CompletableFuture<SingleRowResponse> getFut = partRaftGrp.run(new GetCommand(keyChunk));
+        CompletableFuture<SingleRowResponse> getFut = partRaftGrp.run(new GetCommand(keyChunk, tx.timestamp()));
 
         assertNotNull(getFut.get().getValue());
 
@@ -241,9 +249,13 @@ public class ITDistributedTableTest {
      */
     @Test
     public void partitionedTable() throws Exception {
-        HashMap<ClusterNode, RaftServer> raftServers = new HashMap<>(NODES);
+        nodes = 5;
 
-        for (int i = 0; i < NODES; i++) {
+        startGrid();
+
+        HashMap<ClusterNode, RaftServer> raftServers = new HashMap<>(nodes);
+
+        for (int i = 0; i < nodes; i++) {
             var raftSrv = new JRaftServerImpl(cluster.get(i), dataPath);
 
             raftSrv.start();
@@ -287,11 +299,15 @@ public class ITDistributedTableTest {
             p++;
         }
 
+        // Initiator's tx manager.
+        TxManager txManager = new TxManagerImpl(client, new HeapLockManager());
+
         Table tbl = new TableImpl(new InternalTableImpl(
             "tbl",
             UUID.randomUUID(),
             partMap,
-            PARTS
+            PARTS,
+            txManager
         ), new SchemaRegistry() {
             @Override public SchemaDescriptor schema() {
                 return SCHEMA;
@@ -310,9 +326,15 @@ public class ITDistributedTableTest {
             }
         }, null, null);
 
-        partitionedTableView(tbl, PARTS * 10);
+        InternalTransaction tx = txManager.begin();
 
-        partitionedTableKVBinaryView(tbl.kvView(), PARTS * 10);
+        Table txTable = tbl.withTransaction(tx);
+
+        partitionedTableView(txTable, PARTS * 10);
+
+        partitionedTableKVBinaryView(txTable.kvView(), PARTS * 10);
+
+        tx.commit();
     }
 
     /**

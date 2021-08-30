@@ -20,6 +20,8 @@ package org.apache.ignite.internal.table.impl;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.table.InternalTable;
@@ -83,21 +85,35 @@ public class DummyInternalTableImpl implements InternalTable {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> upsert(@NotNull BinaryRow row, InternalTransaction tx) {
+    /**
+     * @param row The row.
+     * @param tx The transaction.
+     * @param op The operation.
+     * @return The future.
+     */
+    private <T> CompletableFuture<T> wrapInTx(@NotNull BinaryRow row, InternalTransaction tx, Function<InternalTransaction, T> op) {
         assert row != null;
 
         if (tx != null) {
             return txManager.writeLock(new ByteArray(extractAndWrapKey(row)), tx).
-                thenAccept(ignore -> store.upsert(row, tx));
+                thenApply(ignore -> op.apply(tx));
         }
         else {
             InternalTransaction tx0 = txManager.begin();
 
             return txManager.writeLock(new ByteArray(extractAndWrapKey(row)), tx0).
-                thenAccept(ignore -> store.upsert(row, tx0)).
-                thenCompose(r -> tx0.commitAsync());
+                thenApply(ignore -> op.apply(tx0)).
+                thenCompose(r -> tx0.commitAsync().thenApply(ignore -> r));
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<Void> upsert(@NotNull BinaryRow row, InternalTransaction tx) {
+        return wrapInTx(row, tx, tx0 -> {
+            store.upsert(row, tx0);
+
+            return null;
+        });
     }
 
     /**
@@ -150,7 +166,7 @@ public class DummyInternalTableImpl implements InternalTable {
     @Override public CompletableFuture<Boolean> insert(BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        return completedFuture(store.insert(row, tx));
+        return wrapInTx(row, tx, tx0 -> store.insert(row, tx0));
     }
 
     /** {@inheritDoc} */

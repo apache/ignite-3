@@ -51,6 +51,7 @@ import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
 import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
+import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterService;
@@ -440,8 +441,10 @@ public class PartitionCommandListenerTest {
      * Upserts rows.
      */
     private void upsert() {
+        Timestamp ts = Timestamp.nextVersion();
+
         commandListener.onWrite(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new UpsertCommand(getTestRow(i, i)));
+            when(clo.command()).thenReturn(new UpsertCommand(getTestRow(i, i), ts));
 
             doAnswer(invocation -> {
                 assertNull(invocation.getArgument(0));
@@ -482,8 +485,10 @@ public class PartitionCommandListenerTest {
      * @param keyValueMapper Mapper a key to the value which will be expected.
      */
     private void readAndCheck(boolean existed, Function<Integer, Integer> keyValueMapper) {
+        Timestamp ts = Timestamp.nextVersion();
+
         commandListener.onRead(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new GetCommand(getTestKey(i)));
+            when(clo.command()).thenReturn(new GetCommand(getTestKey(i), ts));
 
             doAnswer(invocation -> {
                 SingleRowResponse resp = invocation.getArgument(0);
@@ -510,8 +515,10 @@ public class PartitionCommandListenerTest {
      * @param existed True if rows are existed, false otherwise.
      */
     private void insert(boolean existed) {
+        Timestamp ts = Timestamp.nextVersion();
+
         commandListener.onWrite(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new InsertCommand(getTestRow(i, i)));
+            when(clo.command()).thenReturn(new InsertCommand(getTestRow(i, i), ts));
 
             doAnswer(mock -> {
                 assertEquals(!existed, mock.getArgument(0));
