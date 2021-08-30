@@ -25,7 +25,7 @@ namespace Apache.Ignite.Internal.Buffers
     /// <summary>
     /// Pooled byte buffer.
     /// </summary>
-    internal readonly struct PooledBuffer
+    internal readonly struct PooledBuffer : IDisposable
     {
         /** Bytes. */
         private readonly byte[] _bytes;
@@ -71,7 +71,7 @@ namespace Apache.Ignite.Internal.Buffers
         /// <summary>
         /// Releases the pooled buffer.
         /// </summary>
-        public void Release()
+        public void Dispose()
         {
             ArrayPool<byte>.Shared.Return(_bytes);
         }

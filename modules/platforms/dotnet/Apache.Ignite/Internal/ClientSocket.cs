@@ -221,16 +221,9 @@ namespace Apache.Ignite.Internal
 
         private static async ValueTask CheckHandshakeResponseAsync(NetworkStream stream)
         {
-            var response = await ReadResponseAsync(stream, CancellationToken.None).ConfigureAwait(false);
+            using var response = await ReadResponseAsync(stream, CancellationToken.None).ConfigureAwait(false);
 
-            try
-            {
-                CheckHandshakeResponse(response.GetReader());
-            }
-            finally
-            {
-                response.Release();
-            }
+            CheckHandshakeResponse(response.GetReader());
         }
 
         private static void CheckHandshakeResponse(MessagePackReader reader)
