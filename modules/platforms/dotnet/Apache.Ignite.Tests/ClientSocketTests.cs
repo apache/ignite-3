@@ -18,9 +18,11 @@
 namespace Apache.Ignite.Tests
 {
     using System.Net;
+    using System.Text;
     using System.Threading.Tasks;
     using Internal;
     using Internal.Proto;
+    using MessagePack;
     using NUnit.Framework;
 
     /// <summary>
@@ -29,16 +31,34 @@ namespace Apache.Ignite.Tests
     public class ClientSocketTests : IgniteTestsBase
     {
         [Test]
-        public async Task TestConnectAndSendRequest()
+        public async Task TestConnectAndSendRequestReturnsResponse()
         {
             using var socket = await ClientSocket.ConnectAsync(JavaServer.EndPoint);
 
-            using var requestWriter = socket.GetRequestWriter(ClientOp.TablesGet);
+            using var requestWriter = socket.GetRequestWriter(ClientOp.TableGet);
+
+            WriteString(requestWriter.GetMessageWriter(), "non-existent-table");
 
             var response = await socket.DoOutInOpAsync(requestWriter);
-            var tableCount = response.GetReader().ReadMapHeader();
+            Assert.IsTrue(response.GetReader().IsNil);
 
-            Assert.AreEqual(1, tableCount);
+            void WriteString(MessagePackWriter writer, string str)
+            {
+                writer.WriteString(Encoding.UTF8.GetBytes(str));
+                writer.Flush();
+            }
+        }
+
+        [Test]
+        public async Task TestConnectAndSendRequestWithInvalidOpCodeThrowsError()
+        {
+            using var socket = await ClientSocket.ConnectAsync(JavaServer.EndPoint);
+
+            using var requestWriter = socket.GetRequestWriter((ClientOp)1234567);
+            requestWriter.GetMessageWriter().Write(123);
+
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await socket.DoOutInOpAsync(requestWriter));
+            Assert.AreEqual("Unexpected operation code: 1234567", ex!.Message);
         }
 
         [Test]
