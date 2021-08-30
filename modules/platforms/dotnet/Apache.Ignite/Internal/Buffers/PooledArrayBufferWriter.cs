@@ -43,6 +43,8 @@ namespace Apache.Ignite.Internal.Buffers
         /// <param name="requestId">Optional associated request id.</param>
         public PooledArrayBufferWriter(long? requestId = null)
         {
+            // NOTE: Shared pool has 1M elements limit before .NET 6.
+            // https://devblogs.microsoft.com/dotnet/performance-improvements-in-net-6/#buffering
             _buffer = ArrayPool<byte>.Shared.Rent(DefaultCapacity);
             _index = 4; // Reserve for message length.
             RequestId = requestId;
