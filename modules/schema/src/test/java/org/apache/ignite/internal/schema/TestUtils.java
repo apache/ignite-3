@@ -31,9 +31,6 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import static org.apache.ignite.internal.schema.row.TemporalTypesHelper.MAX_YEAR;
 import static org.apache.ignite.internal.schema.row.TemporalTypesHelper.MIN_YEAR;
 import static org.apache.ignite.internal.schema.row.TemporalTypesHelper.normalizeNanos;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBitSet;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBytes;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomString;
 
 /**
  * Test utility class.
