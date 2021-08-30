@@ -51,7 +51,7 @@ namespace Apache.Ignite.Tests
         /// <returns>Disposable object to stop the server.</returns>
         public static async Task<IDisposable?> Start()
         {
-            if (await TryConnect(CancellationToken.None))
+            if (await TryConnect())
             {
                 // Server started from outside.
                 return null;
@@ -125,13 +125,13 @@ namespace Apache.Ignite.Tests
 
         private static async Task TryConnectForever(CancellationToken ct)
         {
-            while (!await TryConnect(ct))
+            while (!await TryConnect())
             {
                 ct.ThrowIfCancellationRequested();
             }
         }
 
-        private static async Task<bool> TryConnect(CancellationToken ct)
+        private static async Task<bool> TryConnect()
         {
             try
             {
@@ -140,7 +140,7 @@ namespace Apache.Ignite.Tests
                     NoDelay = true
                 };
 
-                await socket.ConnectAsync(IPAddress.Loopback, ClientPort, ct);
+                await socket.ConnectAsync(IPAddress.Loopback, ClientPort);
 
                 return true;
             }
