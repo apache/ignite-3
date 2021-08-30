@@ -19,6 +19,10 @@ package org.apache.ignite.client.proto.query;
 
 import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteResult;
+import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsRequest;
+import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsResult;
+import org.apache.ignite.client.proto.query.event.JdbcMetaTablesRequest;
+import org.apache.ignite.client.proto.query.event.JdbcMetaTablesResult;
 import org.apache.ignite.client.proto.query.event.JdbcQueryCloseRequest;
 import org.apache.ignite.client.proto.query.event.JdbcQueryCloseResult;
 import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteRequest;
@@ -61,4 +65,20 @@ public interface JdbcQueryEventHandler {
      * @return Result.
      */
     JdbcQueryCloseResult close(JdbcQueryCloseRequest req);
+
+    /**
+     * {@link JdbcQueryExecuteRequest} command handler.
+     *
+     * @param req Execute query request.
+     * @return Result.
+     */
+    JdbcMetaTablesResult tablesMeta(JdbcMetaTablesRequest req);
+
+    /**
+     * {@link JdbcQueryExecuteRequest} command handler.
+     *
+     * @param req Execute query request.
+     * @return Result.
+     */
+    JdbcMetaColumnsResult columnsMeta(JdbcMetaColumnsRequest req);
 }

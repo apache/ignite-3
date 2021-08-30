@@ -21,6 +21,10 @@ import org.apache.ignite.client.proto.ClientOp;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteResult;
+import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsRequest;
+import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsResult;
+import org.apache.ignite.client.proto.query.event.JdbcMetaTablesRequest;
+import org.apache.ignite.client.proto.query.event.JdbcMetaTablesResult;
 import org.apache.ignite.client.proto.query.event.JdbcQueryCloseRequest;
 import org.apache.ignite.client.proto.query.event.JdbcQueryCloseResult;
 import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteRequest;
@@ -73,6 +77,24 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override public JdbcQueryCloseResult close(JdbcQueryCloseRequest req) {
         JdbcQueryCloseResult res = new JdbcQueryCloseResult();
+
+        client.sendRequest(ClientOp.SQL_CURSOR_CLOSE, req, res);
+
+        return res;
+    }
+
+    /** {@inheritDoc} */
+    @Override public JdbcMetaTablesResult tablesMeta(JdbcMetaTablesRequest req) {
+        JdbcMetaTablesResult res = new JdbcMetaTablesResult();
+
+        client.sendRequest(ClientOp.SQL_CURSOR_CLOSE, req, res);
+
+        return res;
+    }
+
+    /** {@inheritDoc} */
+    @Override public JdbcMetaColumnsResult columnsMeta(JdbcMetaColumnsRequest req) {
+        JdbcMetaColumnsResult res = new JdbcMetaColumnsResult();
 
         client.sendRequest(ClientOp.SQL_CURSOR_CLOSE, req, res);
 

@@ -18,12 +18,20 @@
 package org.apache.ignite.client.handler;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
+import org.apache.ignite.client.handler.requests.sql.JdbcMetadataInfo;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteResult;
+import org.apache.ignite.client.proto.query.event.JdbcColumnMeta;
+import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsRequest;
+import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsResult;
+import org.apache.ignite.client.proto.query.event.JdbcMetaTablesRequest;
+import org.apache.ignite.client.proto.query.event.JdbcMetaTablesResult;
 import org.apache.ignite.client.proto.query.event.JdbcQueryCloseRequest;
 import org.apache.ignite.client.proto.query.event.JdbcQueryCloseResult;
 import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteRequest;
@@ -32,9 +40,14 @@ import org.apache.ignite.client.proto.query.event.JdbcQueryFetchRequest;
 import org.apache.ignite.client.proto.query.event.JdbcQueryFetchResult;
 import org.apache.ignite.client.proto.query.event.JdbcQuerySingleResult;
 import org.apache.ignite.client.proto.query.event.JdbcResponse;
+import org.apache.ignite.client.proto.query.event.JdbcTableMeta;
 import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
 import org.apache.ignite.internal.processors.query.calcite.SqlCursor;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.table.Table;
 
 import static org.apache.ignite.client.proto.query.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
 
@@ -51,13 +64,17 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** Sql query processor. */
     private final QueryProcessor processor;
 
+    /** Sql query processor. */
+    private final JdbcMetadataInfo meta;
+
     /**
      * Constructor.
      *
      * @param processor Processor.
      */
-    public JdbcQueryEventHandlerImpl(QueryProcessor processor) {
+    public JdbcQueryEventHandlerImpl(QueryProcessor processor, JdbcMetadataInfo meta) {
         this.processor = processor;
+        this.meta = meta;
     }
 
     /** {@inheritDoc} */
@@ -142,6 +159,20 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         }
 
         return new JdbcQueryCloseResult();
+    }
+
+    /** {@inheritDoc} */
+    @Override public JdbcMetaTablesResult tablesMeta(JdbcMetaTablesRequest req) {
+        List<JdbcTableMeta> tblsMeta = meta.getTablesMeta(req.schemaName(), req.tableName(), req.tableTypes());
+
+        return new JdbcMetaTablesResult(tblsMeta);
+    }
+
+    /** {@inheritDoc} */
+    @Override public JdbcMetaColumnsResult columnsMeta(JdbcMetaColumnsRequest req) {
+        Collection<JdbcColumnMeta> tblsMeta = meta.getColumnsMeta(req.schemaName(), req.tableName(), req.columnName());
+
+        return new JdbcMetaColumnsResult(tblsMeta);
     }
 
     /**

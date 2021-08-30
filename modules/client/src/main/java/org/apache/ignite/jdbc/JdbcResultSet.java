@@ -49,6 +49,7 @@ import java.util.Map;
 import org.apache.ignite.client.proto.query.IgniteQueryErrorCode;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.client.proto.query.SqlStateCode;
+import org.apache.ignite.client.proto.query.event.JdbcColumnMeta;
 import org.apache.ignite.client.proto.query.event.JdbcQueryCloseRequest;
 import org.apache.ignite.client.proto.query.event.JdbcQueryCloseResult;
 import org.apache.ignite.client.proto.query.event.JdbcQueryFetchRequest;
@@ -158,6 +159,11 @@ public class JdbcResultSet implements ResultSet {
         }
         else
             this.updCnt = updCnt;
+    }
+
+    public JdbcResultSet(List<List<Object>> list, List<JdbcColumnMeta> list1) {
+        stmt = null;
+        cursorId = null;
     }
 
     /** {@inheritDoc} */
