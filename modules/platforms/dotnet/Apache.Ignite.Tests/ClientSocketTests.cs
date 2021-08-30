@@ -62,6 +62,20 @@ namespace Apache.Ignite.Tests
         }
 
         [Test]
+        public async Task TestDisposedSocketThrowsExceptionOnSend()
+        {
+            var socket = await ClientSocket.ConnectAsync(JavaServer.EndPoint);
+
+            socket.Dispose();
+
+            using var requestWriter = socket.GetRequestWriter(ClientOp.SchemasGet);
+            requestWriter.GetMessageWriter().Write(123);
+
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await socket.DoOutInOpAsync(requestWriter));
+            Assert.AreEqual("Unexpected operation code: 1234567", ex!.Message);
+        }
+
+        [Test]
         public void TestConnectWithoutServerThrowsException()
         {
             Assert.CatchAsync(async () => await ClientSocket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, 569)));
