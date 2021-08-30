@@ -133,6 +133,11 @@ namespace Apache.Ignite.Internal
         /// <returns>Response data.</returns>
         public Task<PooledBuffer> DoOutInOpAsync(PooledArrayBufferWriter request)
         {
+            if (_disposeTokenSource.IsCancellationRequested)
+            {
+                throw new ObjectDisposedException(nameof(ClientSocket));
+            }
+
             Debug.Assert(request.RequestId != null, "request.RequestId != null");
             var requestId = request.RequestId.Value;
 
@@ -140,20 +145,20 @@ namespace Apache.Ignite.Internal
 
             _requests[requestId] = taskCompletionSource;
 
-            var asTask = SendRequestAsync(request)
-                .AsTask();
-
-            asTask
+            SendRequestAsync(request)
+                .AsTask()
                 .ContinueWith(
                     (task, state) =>
                     {
+                        var completionSource = (TaskCompletionSource<PooledBuffer>)state!;
+
                         if (task.Exception != null)
                         {
-                            ((TaskCompletionSource<PooledBuffer>)state!).TrySetException(task.Exception);
+                            completionSource.TrySetException(task.Exception);
                         }
                         else if (task.IsCanceled)
                         {
-                            ((TaskCompletionSource<PooledBuffer>)state!).TrySetCanceled();
+                            completionSource.TrySetCanceled();
                         }
                     },
                     taskCompletionSource,

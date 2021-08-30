@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests
 {
+    using System;
     using System.Net;
     using System.Text;
     using System.Threading.Tasks;
@@ -71,7 +72,7 @@ namespace Apache.Ignite.Tests
             using var requestWriter = socket.GetRequestWriter(ClientOp.SchemasGet);
             requestWriter.GetMessageWriter().Write(123);
 
-            await socket.DoOutInOpAsync(requestWriter);
+            Assert.ThrowsAsync<ObjectDisposedException>(async () => await socket.DoOutInOpAsync(requestWriter));
         }
 
         [Test]
