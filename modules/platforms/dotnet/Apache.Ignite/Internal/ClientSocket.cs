@@ -231,7 +231,7 @@ namespace Apache.Ignite.Internal
                 throw new IgniteClientException("Unexpected server version: " + serverVer);
             }
 
-            var exception = ReadError(reader);
+            var exception = ReadError(ref reader);
 
             if (exception != null)
             {
@@ -242,7 +242,7 @@ namespace Apache.Ignite.Internal
             reader.Skip(); // Extensions.
         }
 
-        private static IgniteClientException? ReadError(MessagePackReader reader)
+        private static IgniteClientException? ReadError(ref MessagePackReader reader)
         {
             var errorCode = (ClientErrorCode)reader.ReadInt32();
 
@@ -369,7 +369,7 @@ namespace Apache.Ignite.Internal
                 return;
             }
 
-            var exception = ReadError(reader);
+            var exception = ReadError(ref reader);
 
             if (exception != null)
             {
