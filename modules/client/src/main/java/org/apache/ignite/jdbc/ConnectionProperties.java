@@ -24,7 +24,7 @@ import org.apache.ignite.internal.client.ProtocolBitmaskFeature;
 /**
  * Provide access and manipulations with connection JDBC properties.
  */
-interface ConnectionProperties {
+public interface ConnectionProperties {
     /** SSL mode: DISABLE. */
     String SSL_MODE_DISABLE = "disable";
 

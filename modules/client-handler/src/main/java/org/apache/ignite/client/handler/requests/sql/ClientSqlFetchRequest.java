@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
-import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
@@ -36,13 +35,12 @@ public class ClientSqlFetchRequest {
      * @param out Client message packer.
      * @param handler Query event handler.
      * @return null value indicates synchronous operation.
-     * @throws IOException in case of network troubles.
      */
     public static CompletableFuture<Void> process(
         ClientMessageUnpacker in,
         ClientMessagePacker out,
         JdbcQueryEventHandler handler
-    ) throws IOException {
+    ) {
         var req = new JdbcQueryFetchRequest();
 
         req.readBinary(in);

@@ -632,7 +632,7 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
             }
         }
 
-        if (addrs == null || addrs.length == 0 || addrs[0].host() == null || addrs[0].host().equals(""))
+        if (addrs == null || addrs.length == 0 || addrs[0].host() == null || addrs[0].host().isEmpty())
             throw new SQLException("Host name is empty", SqlStateCode.CLIENT_CONNECTION_FAILED);
     }
 
@@ -1131,6 +1131,20 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         @Override String valueObject() {
             return val;
         }
+    }
+
+    /**
+     * Get the driver properties.
+     *
+     * @return Driver's properties info array.
+     */
+    public DriverPropertyInfo[] getDriverPropertyInfo() {
+        DriverPropertyInfo[] infos = new DriverPropertyInfo[propsArray.length];
+
+        for (int i = 0; i < propsArray.length; ++i)
+            infos[i] = propsArray[i].getDriverPropertyInfo();
+
+        return infos;
     }
 
     /**

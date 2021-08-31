@@ -35,6 +35,7 @@ import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteResult;
 import org.apache.ignite.client.proto.query.event.JdbcQuerySingleResult;
 import org.apache.ignite.client.proto.query.event.JdbcResponse;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
@@ -62,6 +63,9 @@ public class JdbcStatement implements Statement {
 
     /** Query timeout. */
     private int timeout;
+
+    /** Explicit timeout ({@code true} is the timeout is set explicitly for the query. Otherwise {@code false}). */
+    boolean explicitTimeout;
 
     /** Rows limit. */
     private int maxRows;
@@ -128,7 +132,7 @@ public class JdbcStatement implements Statement {
             throw new SQLException("SQL query is empty.");
 
         JdbcQueryExecuteRequest req = new JdbcQueryExecuteRequest(schema, pageSize,
-            maxRows, conn.getAutoCommit(), false, sql, args == null ? null : args.toArray(new Object[args.size()]));
+            maxRows, conn.getAutoCommit(), false, sql, args == null ? null : ArrayUtils.OBJECT_EMPTY_ARRAY);
 
         JdbcQueryExecuteResult res = conn.handler().query(req);
 
@@ -157,8 +161,10 @@ public class JdbcStatement implements Statement {
 
         int res = getUpdateCount();
 
-        if (res == -1)
+        if (res == -1) {
+            closeResults();
             throw new SQLException("The query is not DML statement: " + sql);
+        }
 
         return res;
     }
@@ -231,7 +237,7 @@ public class JdbcStatement implements Statement {
         if (timeout < 0)
             throw new SQLException("Invalid timeout value.");
 
-        this.timeout = timeout;
+        timeout(timeout * 1000 > timeout ? timeout * 1000 : Integer.MAX_VALUE);
     }
 
     /** {@inheritDoc} */
@@ -595,7 +601,7 @@ public class JdbcStatement implements Statement {
     private void closeResults() throws SQLException {
         if (resSets != null) {
             for (JdbcResultSet rs : resSets)
-                rs.close();
+                rs.close0();
 
             resSets = null;
             curRes = 0;
@@ -622,5 +628,20 @@ public class JdbcStatement implements Statement {
 
         if (allRsClosed)
             close();
+    }
+
+    /**
+     * Sets timeout in milliseconds.
+     *
+     * For test purposes.
+     *
+     * @param timeout Timeout.
+     */
+    public final void timeout(int timeout) {
+        assert timeout >= 0;
+
+        this.timeout = timeout;
+
+        explicitTimeout = true;
     }
 }

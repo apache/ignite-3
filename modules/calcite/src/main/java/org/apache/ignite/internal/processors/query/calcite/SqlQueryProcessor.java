@@ -17,7 +17,6 @@
 package org.apache.ignite.internal.processors.query.calcite;
 
 import java.util.List;
-
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.processors.query.calcite.exec.ArrayRowHandler;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionService;
@@ -28,10 +27,11 @@ import org.apache.ignite.internal.processors.query.calcite.message.MessageServic
 import org.apache.ignite.internal.processors.query.calcite.message.MessageServiceImpl;
 import org.apache.ignite.internal.processors.query.calcite.prepare.DummyPlanCache;
 import org.apache.ignite.internal.processors.query.calcite.schema.SchemaHolderImpl;
-import org.apache.ignite.internal.processors.query.calcite.util.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.NotNull;
@@ -61,10 +61,12 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override public void start() {
+        String nodeName = clusterSrvc.localConfiguration().getName();
+
         taskExecutor = new QueryTaskExecutorImpl(
             new StripedThreadPoolExecutor(
                 4,
-                "calciteQry",
+                NamedThreadFactory.threadPrefix(nodeName, "calciteQry"),
                 null,
                 true,
                 DFLT_THREAD_KEEP_ALIVE_TIME

@@ -59,11 +59,6 @@
             <artifactId>ignite-table</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-runner</artifactId>
-        </dependency>
-
         <!-- 3rd party dependencies -->
         <dependency>
             <groupId>com.google.code.gson</groupId>
@@ -72,7 +67,7 @@
 
         <dependency>
             <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-simple</artifactId>
+            <artifactId>slf4j-jdk14</artifactId>
         </dependency>
 
         <dependency>
@@ -103,6 +98,11 @@
         <dependency>
             <groupId>org.msgpack</groupId>
             <artifactId>jackson-dataformat-msgpack</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-calcite</artifactId>
         </dependency>
 
         <!-- Test dependencies -->
