@@ -88,6 +88,11 @@ namespace Apache.Ignite.Internal
         }
 
         /// <summary>
+        /// Gets a value indicating whether this socket is disposed.
+        /// </summary>
+        public bool IsDisposed => _disposeTokenSource.IsCancellationRequested;
+
+        /// <summary>
         /// Connects the socket to the specified endpoint and performs handshake.
         /// </summary>
         /// <param name="endPoint">Specific endpoint to connect to.</param>
@@ -97,7 +102,7 @@ namespace Apache.Ignite.Internal
             "Microsoft.Reliability",
             "CA2000:Dispose objects before losing scope",
             Justification = "NetworkStream is returned from this method in the socket.")]
-        public static async Task<ClientSocket> ConnectAsync(EndPoint endPoint, IIgniteLogger? logger)
+        public static async Task<ClientSocket> ConnectAsync(EndPoint endPoint, IIgniteLogger? logger = null)
         {
             var socket = new Socket(SocketType.Stream, ProtocolType.Tcp)
             {

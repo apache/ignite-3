@@ -32,6 +32,9 @@ namespace Apache.Ignite.Internal
     /// </summary>
     internal class ClientFailoverSocket
     {
+        /** Current global endpoint index for Round-robin. */
+        private static long _endPointIndex;
+
         /** Client configuration. */
         private readonly IgniteClientConfiguration _configuration;
 
@@ -55,42 +58,28 @@ namespace Apache.Ignite.Internal
         /// <summary>
         /// Gets next connected socket, or connects a new one.
         /// </summary>
-        private ClientSocket GetNextSocket()
+        private async Task<ClientSocket> GetNextSocketAsync()
         {
-            List<Exception> errors = null;
+            List<Exception>? errors = null;
             var startIdx = (int) Interlocked.Increment(ref _endPointIndex);
 
-            // Check socket map first, if available: it includes all cluster nodes.
-            var map = _nodeSocketMap;
-            foreach (var socket in map.Values)
-            {
-                if (!socket.IsDisposed)
-                {
-                    return socket;
-                }
-            }
-
-            // Fall back to initially known endpoints.
             for (var i = 0; i < _endPoints.Count; i++)
             {
                 var idx = (startIdx + i) % _endPoints.Count;
                 var endPoint = _endPoints[idx];
 
-                if (endPoint.Socket != null && !endPoint.Socket.IsDisposed)
+                if (endPoint.Socket is { IsDisposed: false })
                 {
                     return endPoint.Socket;
                 }
 
                 try
                 {
-                    return Connect(endPoint);
+                    return await ConnectAsync(endPoint).ConfigureAwait(false);
                 }
                 catch (SocketException e)
                 {
-                    if (errors == null)
-                    {
-                        errors = new List<Exception>();
-                    }
+                    errors ??= new List<Exception>();
 
                     errors.Add(e);
                 }
