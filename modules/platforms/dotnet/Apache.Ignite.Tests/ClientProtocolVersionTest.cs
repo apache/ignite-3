@@ -154,7 +154,7 @@ namespace Apache.Ignite.Tests
         public void TestToString()
         {
             Assert.AreEqual(
-                "16.42.128",
+                "ClientProtocolVersion [16.42.128]",
                 new ClientProtocolVersion(16, 42, 128).ToString());
         }
     }

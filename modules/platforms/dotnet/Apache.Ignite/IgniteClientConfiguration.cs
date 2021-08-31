@@ -20,6 +20,7 @@ namespace Apache.Ignite
     using System;
     using System.Collections.Generic;
     using System.ComponentModel;
+    using System.Linq;
     using Internal.Common;
     using Log;
 
@@ -71,11 +72,7 @@ namespace Apache.Ignite
 
             Logger = other.Logger;
             SocketTimeout = other.SocketTimeout;
-
-            foreach (var endpoint in other.Endpoints)
-            {
-                Endpoints.Add(endpoint);
-            }
+            Endpoints = other.Endpoints.ToList();
         }
 
         /// <summary>
