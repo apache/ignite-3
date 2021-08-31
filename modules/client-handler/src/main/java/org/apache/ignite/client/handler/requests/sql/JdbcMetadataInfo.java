@@ -54,6 +54,12 @@ public class JdbcMetadataInfo {
     /** Table schema. */
     private static final int TABLE_SCHEMA = 0;
 
+    /** Primary key identifier. */
+    private static final String PK = "PK_";
+
+    /** Table type. */
+    private static final String TBL_TYPE = "TABLE";
+
     /** Root context. Used to get all the database metadata. */
     private final IgniteTables tables;
 
@@ -90,13 +96,13 @@ public class JdbcMetadataInfo {
         String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
 
         tables.tables().stream()
-            .filter(t -> matches(getTableSchema(t), schemaNameRegex))
-            .filter(t -> matches(getTblName(t), tlbNameRegex))
+            .filter(t -> matches(getTblSchema(t.tableName()), schemaNameRegex))
+            .filter(t -> matches(getTblName(t.tableName()), tlbNameRegex))
             .forEach(tbl -> {
-                String schemaName = getTableSchema(tbl);
-                String tblName = getTblName(tbl);
+                String schemaName = getTblSchema(tbl.tableName());
+                String tblName = getTblName(tbl.tableName());
 
-                final String keyName = "PK_" + tblName;
+                final String keyName = PK + tblName;
 
                 SchemaRegistry registry = ((TableImpl)tbl).schemaView();
 
@@ -110,26 +116,6 @@ public class JdbcMetadataInfo {
             });
 
         return metaSet;
-    }
-
-    /**
-     * Splits the tableName into schema and table name and returns the table name.
-     *
-     * @param tbl Table.
-     * @return Table name string.
-     */
-    private String getTblName(Table tbl) {
-        return tbl.tableName().split(TABLE_NAME_SEPARATOR)[TABLE_NAME];
-    }
-
-    /**
-     * Splits the tableName into schema and table name and returns the table schema.
-     *
-     * @param tbl Table.
-     * @return Table schema string.
-     */
-    private String getTableSchema(Table tbl) {
-        return tbl.tableName().split(TABLE_NAME_SEPARATOR)[TABLE_SCHEMA];
     }
 
     /**
@@ -150,13 +136,14 @@ public class JdbcMetadataInfo {
         String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
 
         List<Table> tblsMeta = tables.tables().stream()
-            .filter(t -> matches(getTableSchema(t), schemaNameRegex))
-            .filter(t -> matches(getTblName(t), tlbNameRegex))
+            .filter(t -> matches(getTblSchema(t.tableName()), schemaNameRegex))
+            .filter(t -> matches(getTblName(t.tableName()), tlbNameRegex))
             .collect(Collectors.toList());
 
+        //TODO Should be refactored after 'view' and/or other types will appear.
         return tblsMeta.stream()
             .sorted(byTblTypeThenSchemaThenTblName)
-            .map(t -> new JdbcTableMeta(getTableSchema(t), getTblName(t), "TABLE"))
+            .map(t -> new JdbcTableMeta(getTblSchema(t.tableName()), getTblName(t.tableName()), TBL_TYPE))
             .collect(Collectors.toList());
     }
 
@@ -178,8 +165,8 @@ public class JdbcMetadataInfo {
         String colNameRegex = translateSqlWildcardsToRegex(colNamePtrn);
 
         tables.tables().stream()
-            .filter(t -> matches(getTableSchema(t), schemaNameRegex))
-            .filter(t -> matches(getTblName(t), tlbNameRegex))
+            .filter(t -> matches(getTblSchema(t.tableName()), schemaNameRegex))
+            .filter(t -> matches(getTblName(t.tableName()), tlbNameRegex))
             .flatMap(
                 tbl -> {
                     SchemaDescriptor schema = ((TableImpl)tbl).schemaView().schema();
@@ -201,8 +188,8 @@ public class JdbcMetadataInfo {
                 Column col = pair.getSecond();
 
                 var colMeta = new JdbcColumnMeta(
-                    tblName.split("\\.")[0],
-                    tblName.split("\\.")[1],
+                    getTblSchema(tblName),
+                    getTblName(tblName),
                     col.name(),
                     Commons.nativeTypeToClass(col.type()),
                     col.nullable()
@@ -229,11 +216,31 @@ public class JdbcMetadataInfo {
         String schemaNameRegex = translateSqlWildcardsToRegex(schemaNamePtrn);
 
         tables.tables().stream()
-            .map(this::getTableSchema)
-            .filter(e -> matches(e, schemaNameRegex))
+            .map(tbl -> getTblSchema(tbl.tableName()))
+            .filter(schema -> matches(schema, schemaNameRegex))
             .forEach(schemas::add);
 
         return schemas;
+    }
+
+    /**
+     * Splits the tableName into schema and table name and returns the table name.
+     *
+     * @param tblName Table name.
+     * @return Table name string.
+     */
+    private String getTblName(String tblName) {
+        return tblName.split(TABLE_NAME_SEPARATOR)[TABLE_NAME];
+    }
+
+    /**
+     * Splits the tableName into schema and table name and returns the table schema.
+     *
+     * @param tblName Table name.
+     * @return Table schema string.
+     */
+    private String getTblSchema(String tblName) {
+        return tblName.split(TABLE_NAME_SEPARATOR)[TABLE_SCHEMA];
     }
 
     /**
@@ -243,7 +250,7 @@ public class JdbcMetadataInfo {
      * @param sqlPtrn Pattern.
      * @return Whether string matches pattern.
      */
-    public static boolean matches(String str, String sqlPtrn) {
+    private static boolean matches(String str, String sqlPtrn) {
         if (str == null)
             return false;
 
