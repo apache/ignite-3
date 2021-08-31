@@ -73,6 +73,9 @@ namespace Apache.Ignite.Tests
             requestWriter.GetMessageWriter().Write(123);
 
             Assert.ThrowsAsync<ObjectDisposedException>(async () => await socket.DoOutInOpAsync(requestWriter));
+
+            // Multiple dispose is allowed.
+            socket.Dispose();
         }
 
         [Test]

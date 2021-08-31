@@ -147,6 +147,8 @@ namespace Apache.Ignite.Internal
             }
 
             Debug.Assert(request.RequestId != null, "request.RequestId != null");
+            Debug.Assert(request.Socket == this, "request.Socket == this");
+
             var requestId = request.RequestId.Value;
 
             var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
@@ -185,7 +187,7 @@ namespace Apache.Ignite.Internal
         public PooledArrayBufferWriter GetRequestWriter(ClientOp clientOp)
         {
             var requestId = Interlocked.Increment(ref _requestId);
-            var bufferWriter = new PooledArrayBufferWriter(requestId);
+            var bufferWriter = new PooledArrayBufferWriter(requestId, this);
 
             var writer = bufferWriter.GetMessageWriter();
 

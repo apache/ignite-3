@@ -25,7 +25,9 @@ namespace Apache.Ignite.Internal
     using System.Net.Sockets;
     using System.Threading;
     using System.Threading.Tasks;
+    using Buffers;
     using Log;
+    using Proto;
 
     /// <summary>
     /// Client socket wrapper with reconnect/failover functionality.
@@ -53,6 +55,19 @@ namespace Apache.Ignite.Internal
             _configuration = new IgniteClientConfiguration(configuration);
             _logger = _configuration.Logger;
             _endPoints = GetIpEndPoints(configuration).ToList();
+        }
+
+        /// <summary>
+        /// Gets the request writer for the specified operation.
+        /// </summary>
+        /// <param name="clientOp">Operation code.</param>
+        /// <returns>Request writer.</returns>
+        public async Task<PooledArrayBufferWriter> GetRequestWriter(ClientOp clientOp)
+        {
+            // TODO: Should be GetSocket for current socket.
+            var socket = await GetNextSocketAsync().ConfigureAwait(false);
+
+            return socket.GetRequestWriter(clientOp);
         }
 
         /// <summary>

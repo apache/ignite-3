@@ -39,19 +39,27 @@ namespace Apache.Ignite.Internal.Buffers
         /// Initializes a new instance of the <see cref="PooledArrayBufferWriter"/> class.
         /// </summary>
         /// <param name="requestId">Optional associated request id.</param>
-        public PooledArrayBufferWriter(long? requestId = null)
+        /// <param name="socket">Optional associated socket.</param>
+        public PooledArrayBufferWriter(long? requestId = null, ClientSocket? socket = null)
         {
             // NOTE: Shared pool has 1M elements limit before .NET 6.
             // https://devblogs.microsoft.com/dotnet/performance-improvements-in-net-6/#buffering
             _buffer = ArrayPool<byte>.Shared.Rent(PooledBuffer.DefaultCapacity);
             _index = 4; // Reserve for message length.
+
             RequestId = requestId;
+            Socket = socket;
         }
 
         /// <summary>
         /// Gets the associated request id.
         /// </summary>
         public long? RequestId { get; }
+
+        /// <summary>
+        /// Gets the associated socket.
+        /// </summary>
+        public ClientSocket? Socket { get; }
 
         /// <summary>
         /// Gets the free capacity.
