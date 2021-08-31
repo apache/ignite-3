@@ -17,6 +17,13 @@
 
 namespace Apache.Ignite.Internal
 {
+    using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.Linq;
+    using System.Net;
+    using System.Net.Sockets;
+    using Log;
+
     /// <summary>
     /// Client socket wrapper with reconnect/failover functionality.
     /// </summary>
@@ -25,6 +32,12 @@ namespace Apache.Ignite.Internal
         /** Client configuration. */
         private readonly IgniteClientConfiguration _configuration;
 
+        /** Logger. */
+        private readonly IIgniteLogger? _logger;
+
+        /** Endpoints with corresponding hosts - from configuration. */
+        private readonly IReadOnlyList<SocketEndpoint> _endPoints;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="ClientFailoverSocket"/> class.
         /// </summary>
@@ -32,6 +45,54 @@ namespace Apache.Ignite.Internal
         public ClientFailoverSocket(IgniteClientConfiguration configuration)
         {
             _configuration = new IgniteClientConfiguration(configuration);
+            _logger = _configuration.Logger;
+            _endPoints = GetIpEndPoints(configuration).ToList();
+        }
+
+        /// <summary>
+        /// Gets the endpoints: all combinations of IP addresses and ports according to configuration.
+        /// </summary>
+        private IEnumerable<SocketEndpoint> GetIpEndPoints(IgniteClientConfiguration cfg)
+        {
+            foreach (var e in Endpoint.GetEndpoints(cfg))
+            {
+                var host = e.Host;
+                Debug.Assert(host != null, "host != null");  // Checked by GetEndpoints.
+
+                for (var port = e.Port; port <= e.PortRange + e.Port; port++)
+                {
+                    foreach (var ip in GetIps(e.Host))
+                    {
+                        yield return new SocketEndpoint(new IPEndPoint(ip, port), e.Host);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets IP address list from a given host.
+        /// When host is an IP already - parses it. Otherwise, resolves DNS name to IPs.
+        /// </summary>
+        private IEnumerable<IPAddress> GetIps(string host, bool suppressExceptions = false)
+        {
+            try
+            {
+                IPAddress ip;
+
+                // GetHostEntry accepts IPs, but TryParse is a more efficient shortcut.
+                return IPAddress.TryParse(host, out ip) ? new[] {ip} : Dns.GetHostEntry(host).AddressList;
+            }
+            catch (SocketException e)
+            {
+                _logger?.Debug(e, "Failed to parse host: " + host);
+
+                if (suppressExceptions)
+                {
+                    return Enumerable.Empty<IPAddress>();
+                }
+
+                throw;
+            }
         }
     }
 }
