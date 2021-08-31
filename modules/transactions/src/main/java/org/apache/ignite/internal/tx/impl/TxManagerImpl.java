@@ -87,9 +87,9 @@ public class TxManagerImpl implements TxManager {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> commitAsync(InternalTransaction tx) {
-        if (changeState(tx.timestamp(), TxState.PENDING, TxState.COMMITED)) {
-            unlockAll(tx);
+    @Override public CompletableFuture<Void> commitAsync(Timestamp ts) {
+        if (changeState(ts, TxState.PENDING, TxState.COMMITED)) {
+            unlockAll(ts);
 
             return completedFuture(null);
         }
@@ -98,9 +98,9 @@ public class TxManagerImpl implements TxManager {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> rollbackAsync(InternalTransaction tx) {
-        if (changeState(tx.timestamp(), TxState.PENDING, TxState.ABORTED)) {
-            unlockAll(tx);
+    @Override public CompletableFuture<Void> rollbackAsync(Timestamp ts) {
+        if (changeState(ts, TxState.PENDING, TxState.ABORTED)) {
+            unlockAll(ts);
 
             return completedFuture(null);
         }
@@ -111,8 +111,8 @@ public class TxManagerImpl implements TxManager {
     /**
      * @param tx The transaction.
      */
-    private void unlockAll(InternalTransaction tx) {
-        Map<ByteArray, Boolean> locks = this.locks.remove(tx.timestamp());
+    private void unlockAll(Timestamp ts) {
+        Map<ByteArray, Boolean> locks = this.locks.remove(ts);
 
         if (locks == null)
             return;
@@ -120,10 +120,10 @@ public class TxManagerImpl implements TxManager {
         for (Map.Entry<ByteArray, Boolean> lock : locks.entrySet()) {
             try {
                 if (lock.getValue()) {
-                    lockManager.tryReleaseShared(lock.getKey(), tx.timestamp());
+                    lockManager.tryReleaseShared(lock.getKey(), ts);
                 }
                 else {
-                    lockManager.tryRelease(lock.getKey(), tx.timestamp());
+                    lockManager.tryRelease(lock.getKey(), ts);
                 }
             }
             catch (LockException e) {
@@ -138,39 +138,35 @@ public class TxManagerImpl implements TxManager {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> writeLock(ByteArray key, InternalTransaction tx) {
-        Timestamp timestamp = tx.timestamp();
-
-        if (state(timestamp) != TxState.PENDING)
+    @Override public CompletableFuture<Void> writeLock(ByteArray key, Timestamp ts) {
+        if (state(ts) != TxState.PENDING)
             return failedFuture(new TransactionException("The operation is attempted for completed transaction"));
 
         // Should rollback tx on lock error.
-        return lockManager.tryAcquire(key, timestamp)
+        return lockManager.tryAcquire(key, ts)
             .handle(new BiFunction<Void, Throwable, CompletableFuture<Void>>() {
                 @Override public CompletableFuture<Void> apply(Void r, Throwable e) {
-                    if (e != null)
-                        return rollbackAsync(tx).thenCompose(ignored -> failedFuture(e)); // Preserve failed state.
+                    if (e != null) // TODO asch add suppressed exception to rollback exception.
+                        return rollbackAsync(ts).thenCompose(ignored -> failedFuture(e)); // Preserve failed state or report rollback exception.
                     else
-                        return completedFuture(null).thenAccept(ignored -> recordLock(key, timestamp, Boolean.FALSE));
+                        return completedFuture(null).thenAccept(ignored -> recordLock(key, ts, Boolean.FALSE));
                 }
             }).thenCompose(x -> x);
     }
 
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> readLock(ByteArray key, InternalTransaction tx) {
-        Timestamp timestamp = tx.timestamp();
-
-        if (state(timestamp) != TxState.PENDING)
+    @Override public CompletableFuture<Void> readLock(ByteArray key, Timestamp ts) {
+        if (state(ts) != TxState.PENDING)
             return failedFuture(new TransactionException("The operation is attempted for completed transaction"));
 
-        return lockManager.tryAcquireShared(key, timestamp)
+        return lockManager.tryAcquireShared(key, ts)
             .handle(new BiFunction<Void, Throwable, CompletableFuture<Void>>() {
                 @Override public CompletableFuture<Void> apply(Void r, Throwable e) {
                     if (e != null)
-                        return rollbackAsync(tx).thenCompose(ignored -> failedFuture(e)); // Preserve failed state.
+                        return rollbackAsync(ts).thenCompose(ignored -> failedFuture(e)); // Preserve failed state.
                     else
-                        return completedFuture(null).thenAccept(ignored -> recordLock(key, timestamp, Boolean.TRUE));
+                        return completedFuture(null).thenAccept(ignored -> recordLock(key, ts, Boolean.TRUE));
                 }
             }).thenCompose(x -> x);
     }
@@ -198,6 +194,11 @@ public class TxManagerImpl implements TxManager {
                 return map;
             }
         });
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean getOrCreateTransaction(Timestamp timestamp) {
+        return states.putIfAbsent(timestamp, TxState.PENDING) == null;
     }
 
     /** {@inheritDoc} */

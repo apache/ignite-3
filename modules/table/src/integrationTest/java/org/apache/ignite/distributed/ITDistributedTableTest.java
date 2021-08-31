@@ -370,6 +370,8 @@ public class ITDistributedTableTest {
 
         TxManager locMgr = srv.transactionManager();
 
+        assertNotNull(locMgr);
+
         assertNotEquals(nearMgr, locMgr);
 
         Table txTable = table.withTransaction(tx);
@@ -377,6 +379,13 @@ public class ITDistributedTableTest {
         txTable.upsert(makeValue(1, 1));
 
         long val = txTable.get(makeKey(1)).longValue("value");
+
+        assertEquals(1, val);
+
+        tx.commit();
+
+        assertEquals(TxState.COMMITED, nearMgr.state(tx.timestamp()));
+        assertEquals(TxState.COMMITED, locMgr.state(tx.timestamp()));
 
         System.out.println();
 //

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx;
 
+import java.sql.Time;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.lang.ByteArray;
@@ -53,30 +54,36 @@ public interface TxManager extends IgniteComponent {
     void forget(Timestamp ts);
 
     /**
-     * @param transaction The transaction.
+     * @param ts The timestamp.
      * @return The future.
      */
-    CompletableFuture<Void> commitAsync(InternalTransaction transaction);
+    CompletableFuture<Void> commitAsync(Timestamp ts);
 
     /**
-     * @param transaction The transaction.
+     * @param ts The timestamp.
      * @return The future.
      */
-    CompletableFuture<Void> rollbackAsync(InternalTransaction transaction);
-
-    /**
-     * @param key The key.
-     * @param tx The transaction.
-     * @return The future.
-     * @throws LockException When a lock can't be taken due to possible deadlock.
-     */
-    public CompletableFuture<Void> writeLock(ByteArray key, InternalTransaction tx);
+    CompletableFuture<Void> rollbackAsync(Timestamp ts);
 
     /**
      * @param key The key.
-     * @param tx The transaction.
+     * @param ts The timestamp.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> readLock(ByteArray key, InternalTransaction tx);
+    public CompletableFuture<Void> writeLock(ByteArray key, Timestamp ts);
+
+    /**
+     * @param key The key.
+     * @param ts The timestamp.
+     * @return The future.
+     * @throws LockException When a lock can't be taken due to possible deadlock.
+     */
+    public CompletableFuture<Void> readLock(ByteArray key, Timestamp ts);
+
+    /**
+     * @param timestamp The timestamp.
+     * @return {@code True} if a transaction was created in PENDING state.
+     */
+    boolean getOrCreateTransaction(Timestamp timestamp);
 }

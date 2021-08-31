@@ -21,5 +21,9 @@ import java.util.concurrent.CompletableFuture;
 
 /** */
 public interface Lockable {
+    /**
+     * @param mgr Transaction manager.
+     * @return The future.
+     */
     CompletableFuture<Void> tryLock(TxManager mgr);
 }

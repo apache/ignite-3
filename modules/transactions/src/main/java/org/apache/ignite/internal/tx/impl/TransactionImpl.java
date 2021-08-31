@@ -17,12 +17,8 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.Timestamp;
@@ -78,7 +74,7 @@ public class TransactionImpl implements InternalTransaction {
     /** {@inheritDoc} */
     @Override public void commit() throws TransactionException {
         try {
-            txManager.commitAsync(this).get();
+            txManager.commitAsync(this.timestamp).get();
         }
         catch (Exception e) {
             throw new TransactionException(e);
@@ -87,13 +83,13 @@ public class TransactionImpl implements InternalTransaction {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> commitAsync() {
-        return txManager.commitAsync(this);
+        return txManager.commitAsync(this.timestamp);
     }
 
     /** {@inheritDoc} */
     @Override public void rollback() throws TransactionException {
         try {
-            txManager.rollbackAsync(this).get();
+            txManager.rollbackAsync(this.timestamp).get();
         }
         catch (Exception e) {
             throw new TransactionException(e);
@@ -102,6 +98,6 @@ public class TransactionImpl implements InternalTransaction {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> rollbackAsync() {
-        return txManager.rollbackAsync(this);
+        return txManager.rollbackAsync(this.timestamp);
     }
 }

@@ -63,6 +63,7 @@ public interface RaftServer extends IgniteComponent {
     @Nullable Peer localPeer(String groupId);
 
     /**
+     * TODO asch do we need nullable ?
      * @return Transaction manager or null if a server configured without tx support.
      */
     @Nullable TxManager transactionManager();

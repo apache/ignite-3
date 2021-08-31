@@ -73,12 +73,12 @@ public class DummyInternalTableImpl implements InternalTable {
         assert row != null;
 
         if (tx != null)
-            return txManager.readLock(new ByteArray(extractAndWrapKey(row)), tx).thenApply(ignore -> store.get(row, tx.timestamp()));
+            return txManager.readLock(new ByteArray(extractAndWrapKey(row)), tx.timestamp()).thenApply(ignore -> store.get(row, tx.timestamp()));
         else {
             InternalTransaction tx0 = txManager.begin();
 
             // TODO asch lock doesn't look necessary for single key read.
-            return txManager.readLock(new ByteArray(extractAndWrapKey(row)), tx0).
+            return txManager.readLock(new ByteArray(extractAndWrapKey(row)), tx0.timestamp()).
                 thenApply(ignore -> store.get(row, tx0.timestamp())).
                 thenCompose(r -> tx0.commitAsync().thenApply(ignored -> r));
         }
@@ -94,13 +94,13 @@ public class DummyInternalTableImpl implements InternalTable {
         assert row != null;
 
         if (tx != null) {
-            return txManager.writeLock(new ByteArray(extractAndWrapKey(row)), tx).
+            return txManager.writeLock(new ByteArray(extractAndWrapKey(row)), tx.timestamp()).
                 thenApply(ignore -> op.apply(tx));
         }
         else {
             InternalTransaction tx0 = txManager.begin();
 
-            return txManager.writeLock(new ByteArray(extractAndWrapKey(row)), tx0).
+            return txManager.writeLock(new ByteArray(extractAndWrapKey(row)), tx0.timestamp()).
                 thenApply(ignore -> op.apply(tx0)).
                 thenCompose(r -> tx0.commitAsync().thenApply(ignore -> r));
         }
