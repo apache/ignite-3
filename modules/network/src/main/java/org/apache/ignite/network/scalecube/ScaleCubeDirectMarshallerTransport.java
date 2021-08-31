@@ -60,7 +60,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
     /** Message sink. */
     private final FluxSink<Message> sink = subject.sink();
 
-    /** Close handler */
+    /** Close handler. */
     private final MonoProcessor<Void> stop = MonoProcessor.create();
 
     /** On stop. */
@@ -72,13 +72,15 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
     /** Message factory. */
     private final NetworkMessagesFactory messageFactory;
 
-    /** */
+    /** Topology service. */
     private final ScaleCubeTopologyService topologyService;
 
     /** Node address. */
     private Address address;
 
     /**
+     * Constructor.
+     *
      * @param connectionManager connection manager
      * @param topologyService topology service
      * @param messageFactory message factory
@@ -130,7 +132,6 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
         return Mono.defer(() -> {
             LOG.info("Stopping {}", address);
 
-            // Complete incoming messages observable
             sink.complete();
 
             LOG.info("Stopped {}", address);
@@ -152,7 +153,10 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
 
     /** {@inheritDoc} */
     @Override public Mono<Void> stop() {
-        return doStop();
+        return Mono.defer(() -> {
+            stop.onComplete();
+            return onStop;
+        });
     }
 
     /** {@inheritDoc} */

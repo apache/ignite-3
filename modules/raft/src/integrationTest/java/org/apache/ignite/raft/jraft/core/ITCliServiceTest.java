@@ -28,12 +28,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NodeFinder;
@@ -49,6 +49,8 @@ import org.apache.ignite.raft.jraft.entity.Task;
 import org.apache.ignite.raft.jraft.option.CliOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.test.TestUtils;
+import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
+import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -86,6 +88,8 @@ public class ITCliServiceTest {
 
     private Configuration conf;
 
+    private ExecutorService clientExecutor;
+
     /** */
     @BeforeEach
     public void setup(TestInfo testInfo, @WorkDirectory Path dataPath) throws Exception {
@@ -113,7 +117,8 @@ public class ITCliServiceTest {
         conf = new Configuration(peers, learners);
 
         CliOptions opts = new CliOptions();
-        opts.setClientExecutor(JRaftUtils.createClientExecutor(opts, "client"));
+        clientExecutor = JRaftUtils.createClientExecutor(opts, "client");
+        opts.setClientExecutor(clientExecutor);
 
         NodeFinder nodeFinder = peers.stream()
             .map(PeerId::getEndpoint)
@@ -122,11 +127,13 @@ public class ITCliServiceTest {
 
         var registry = new MessageSerializationRegistryImpl();
 
-        var serviceConfig = new ClusterLocalConfiguration("client", TestUtils.INIT_PORT - 1, nodeFinder, registry);
-
-        var factory = new TestScaleCubeClusterServiceFactory();
-
-        ClusterService clientSvc = factory.createClusterService(serviceConfig);
+        ClusterService clientSvc = ClusterServiceTestUtils.clusterService(
+            "client",
+            TestUtils.INIT_PORT - 1,
+            nodeFinder,
+            registry,
+            new TestScaleCubeClusterServiceFactory()
+        );
 
         clientSvc.start();
 
@@ -134,7 +141,7 @@ public class ITCliServiceTest {
             @Override public void shutdown() {
                 super.shutdown();
 
-                clientSvc.shutdown();
+                clientSvc.stop();
             }
         };
 
@@ -146,6 +153,7 @@ public class ITCliServiceTest {
     public void teardown(TestInfo testInfo) throws Exception {
         cliService.shutdown();
         cluster.stopAll();
+        ExecutorServiceHelper.shutdownAndAwaitTermination(clientExecutor);
 
         LOG.info(">>>>>>>>>>>>>>> End test method: " + testInfo.getDisplayName());
     }
@@ -180,6 +188,7 @@ public class ITCliServiceTest {
         assertTrue(latch.await(10, TimeUnit.SECONDS));
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15244")
     @Test
     public void testLearnerServices() throws Exception {
         PeerId learner3 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + LEARNER_PORT_STEP + 3);

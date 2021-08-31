@@ -17,9 +17,16 @@
 
 package org.apache.ignite.internal.schema.row;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.UUID;
@@ -30,10 +37,13 @@ import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
+import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.schema.NumberNativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.TemporalNativeType;
 
 import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.KEY_FLAGS_OFFSET;
 import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.VAL_FLAGS_OFFSET;
@@ -41,8 +51,14 @@ import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.VAL_FLAGS_OFF
 /**
  * Utility class to build rows using column appending pattern. The external user of this class must consult
  * with the schema and provide the columns in strict internal column sort order during the row construction.
+ * <p>
  * Additionally, the user of this class should pre-calculate the resulting row size when possible to avoid
- * unnecessary data copies and allow some size-optimizations can be applied.
+ * unnecessary data copies and allow some size optimizations to be applied.
+ * <p>
+ * Natively supported temporal types are encoded automatically with preserving sort order before writing.
+ *
+ * @see #utf8EncodedLength(CharSequence)
+ * @see TemporalTypesHelper
  */
 public class RowAssembler {
     /** Schema. */
@@ -173,6 +189,26 @@ public class RowAssembler {
 
                 break;
             }
+            case TIME: {
+                rowAsm.appendTime((LocalTime)val);
+
+                break;
+            }
+            case DATE: {
+                rowAsm.appendDate((LocalDate)val);
+
+                break;
+            }
+            case DATETIME: {
+                rowAsm.appendDateTime((LocalDateTime)val);
+
+                break;
+            }
+            case TIMESTAMP: {
+                rowAsm.appendTimestamp((Instant)val);
+
+                break;
+            }
             case STRING: {
                 rowAsm.appendString((String)val);
 
@@ -188,9 +224,33 @@ public class RowAssembler {
 
                 break;
             }
+            case NUMBER: {
+                rowAsm.appendNumber((BigInteger)val);
+
+                break;
+            }
+            case DECIMAL: {
+                rowAsm.appendDecimal((BigDecimal)val);
+
+                break;
+            }
             default:
                 throw new IllegalStateException("Unexpected value: " + col.type());
         }
+    }
+
+    /**
+     * Calculates byte size for BigInteger value.
+     */
+    public static int sizeInBytes(BigInteger val) {
+        return val.bitLength() / 8 + 1;
+    }
+
+    /**
+     * Calculates byte size for BigDecimal value.
+     */
+    public static int sizeInBytes(BigDecimal val) {
+        return sizeInBytes(val.unscaledValue());
     }
 
     /**
@@ -390,6 +450,77 @@ public class RowAssembler {
     }
 
     /**
+     * Appends BigInteger value for the current column to the chunk.
+     *
+     * @param val Column value.
+     * @return {@code this} for chaining.
+     */
+    public RowAssembler appendNumber(BigInteger val) {
+        checkType(NativeTypeSpec.NUMBER);
+
+        Column col = curCols.column(curCol);
+
+        NumberNativeType type = (NumberNativeType)col.type();
+
+        //0 is a magic number for "unlimited precision"
+        if (type.precision() > 0 && new BigDecimal(val).precision() > type.precision())
+            throw new IllegalArgumentException("Failed to set number value for column '" + col.name() + "' " +
+                "(max precision exceeds allocated precision) " +
+                "[number=" + val + ", max precision=" + type.precision() + "]");
+
+        byte[] bytes = val.toByteArray();
+
+        buf.putBytes(curOff, bytes);
+
+        if (isKeyChunk())
+            keyHash = 31 * keyHash + Arrays.hashCode(bytes);
+
+        writeVarlenOffset(curVartblEntry, curOff - dataOff);
+
+        curVartblEntry++;
+
+        shiftColumn(bytes.length);
+
+        return this;
+    }
+
+    /**
+     * Appends BigDecimal value for the current column to the chunk.
+     *
+     * @param val Column value.
+     * @return {@code this} for chaining.
+     */
+    public RowAssembler appendDecimal(BigDecimal val) {
+        checkType(NativeTypeSpec.DECIMAL);
+
+        Column col = curCols.column(curCol);
+
+        DecimalNativeType type = (DecimalNativeType)col.type();
+
+        val = val.setScale(type.scale(), RoundingMode.HALF_UP);
+
+        if (val.precision() > type.precision())
+            throw new IllegalArgumentException("Failed to set decimal value for column '" + col.name() + "' " +
+                "(max precision exceeds allocated precision)" +
+                " [decimal=" + val + ", max precision=" + type.precision() + "]");
+
+        byte[] bytes = val.unscaledValue().toByteArray();
+
+        buf.putBytes(curOff, bytes);
+
+        if (isKeyChunk())
+            keyHash = 31 * keyHash + Arrays.hashCode(bytes);
+
+        writeVarlenOffset(curVartblEntry, curOff - dataOff);
+
+        curVartblEntry++;
+
+        shiftColumn(bytes.length);
+
+        return this;
+    }
+
+    /**
      * Appends UUID value for the current column to the chunk.
      *
      * @param uuid Column value.
@@ -493,6 +624,101 @@ public class RowAssembler {
     }
 
     /**
+     * Appends LocalDate value for the current column to the chunk.
+     *
+     * @param val Column value.
+     * @return {@code this} for chaining.
+     */
+    public RowAssembler appendDate(LocalDate val) {
+        checkType(NativeTypes.DATE);
+
+        int date = TemporalTypesHelper.encodeDate(val);
+
+        writeDate(curOff, date);
+
+        if (isKeyChunk())
+            keyHash += 31 * keyHash + val.hashCode();
+
+        shiftColumn(NativeTypes.DATE.sizeInBytes());
+
+        return this;
+    }
+
+    /**
+     * Appends LocalTime value for the current column to the chunk.
+     *
+     * @param val Column value.
+     * @return {@code this} for chaining.
+     */
+    public RowAssembler appendTime(LocalTime val) {
+        checkType(NativeTypeSpec.TIME);
+
+        TemporalNativeType type = (TemporalNativeType)curCols.column(curCol).type();
+
+        writeTime(buf, curOff, val, type);
+
+        if (isKeyChunk())
+            keyHash += 31 * keyHash + val.hashCode();
+
+        shiftColumn(type.sizeInBytes());
+
+        return this;
+    }
+
+    /**
+     * Appends LocalDateTime value for the current column to the chunk.
+     *
+     * @param val Column value.
+     * @return {@code this} for chaining.
+     */
+    public RowAssembler appendDateTime(LocalDateTime val) {
+        checkType(NativeTypeSpec.DATETIME);
+
+        TemporalNativeType type = (TemporalNativeType)curCols.column(curCol).type();
+
+        int date = TemporalTypesHelper.encodeDate(val.toLocalDate());
+
+        writeDate(curOff, date);
+        writeTime(buf, curOff + 3, val.toLocalTime(), type);
+
+        if (isKeyChunk())
+            keyHash += 31 * keyHash + val.hashCode();
+
+        shiftColumn(type.sizeInBytes());
+
+        return this;
+    }
+
+    /**
+     * Appends Instant value for the current column to the chunk.
+     *
+     * @param val Column value.
+     * @return {@code this} for chaining.
+     */
+    public RowAssembler appendTimestamp(Instant val) {
+        checkType(NativeTypeSpec.TIMESTAMP);
+
+        TemporalNativeType type = (TemporalNativeType)curCols.column(curCol).type();
+
+        long seconds = val.getEpochSecond();
+        int nanos = TemporalTypesHelper.normalizeNanos(val.getNano(), type.precision());
+
+        buf.putLong(curOff, seconds);
+
+        if (type.precision() != 0) // Write only meaningful bytes.
+            buf.putInt(curOff + 8, nanos);
+
+        if (isKeyChunk()) {
+            keyHash += 31 * keyHash + Long.hashCode(seconds);
+            keyHash += 31 * keyHash + Integer.hashCode(nanos);
+        }
+
+        shiftColumn(type.sizeInBytes());
+
+        return this;
+    }
+
+    /**
      * @return Serialized row.
      */
     public BinaryRow build() {
@@ -550,6 +776,41 @@ public class RowAssembler {
             return; // Omit offset for very first varlen.
 
         buf.putInt(varTblOff + Short.BYTES + (entryIdx - 1) * Integer.BYTES, off);
+    }
+
+    /**
+     * Writes date.
+     *
+     * @param off Offset.
+     * @param date Compacted date.
+     */
+    private void writeDate(int off, int date) {
+        buf.putShort(off, (short)(date >>> 8));
+        buf.put(off + 2, (byte)(date & 0xFF));
+    }
+
+    /**
+     * Writes time.
+     *
+     * @param buf
+     * @param off Offset.
+     * @param val Time.
+     * @param type Native type.
+     */
+    static void writeTime(ExpandableByteBuf buf, int off, LocalTime val, TemporalNativeType type) {
+        long time = TemporalTypesHelper.encodeTime(type, val);
+
+        if (type.precision() > 3) {
+            time = ((time >>> 32) << TemporalTypesHelper.NANOSECOND_PART_LEN) | (time & TemporalTypesHelper.NANOSECOND_PART_MASK);
+
+            buf.putInt(off, (int)(time >>> 16));
+            buf.putShort(off + 4, (short)(time & 0xFFFF_FFFFL));
+        }
+        else {
+            time = ((time >>> 32) << TemporalTypesHelper.MILLISECOND_PART_LEN) | (time & TemporalTypesHelper.MILLISECOND_PART_MASK);
+
+            buf.putInt(off, (int)time);
+        }
     }
 
     /**

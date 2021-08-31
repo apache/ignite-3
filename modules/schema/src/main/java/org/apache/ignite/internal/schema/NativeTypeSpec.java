@@ -17,6 +17,12 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.BitSet;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.tostring.S;
@@ -91,7 +97,7 @@ public enum NativeTypeSpec {
     },
 
     /**
-     * Native type representing an eight-bytes floating-point value.
+     * Native type representing a BigDecimal.
      */
     DECIMAL("decimal", false) {
         /** {@inheritDoc} */
@@ -137,6 +143,56 @@ public enum NativeTypeSpec {
         /** {@inheritDoc} */
         @Override public Object objectValue(Row tup, int colIdx) {
             return tup.bitmaskValue(colIdx);
+        }
+    },
+
+    /**
+     * Native type representing a BigInteger.
+     */
+    NUMBER("number", false) {
+        /** {@inheritDoc} */
+        @Override public Object objectValue(Row tup, int colIdx) {
+            return tup.numberValue(colIdx);
+        }
+    },
+
+    /**
+     * Native type representing a timezone-free date.
+     */
+    DATE("date", true) {
+        /** {@inheritDoc} */
+        @Override public Object objectValue(Row tup, int colIdx) {
+            return tup.dateValue(colIdx);
+        }
+    },
+
+    /**
+     * Native type representing a timezone-free time.
+     */
+    TIME("time", true) {
+        /** {@inheritDoc} */
+        @Override public Object objectValue(Row tup, int colIdx) {
+            return tup.timeValue(colIdx);
+        }
+    },
+
+    /**
+     * Native type representing a timezone-free datetime.
+     */
+    DATETIME("datetime", true) {
+        /** {@inheritDoc} */
+        @Override public Object objectValue(Row tup, int colIdx) {
+            return tup.dateTimeValue(colIdx);
+        }
+    },
+
+    /**
+     * Native type representing a timestamp in milliseconds since Jan 1, 1970 00:00:00.000 (with no timezone).
+     */
+    TIMESTAMP("timestamp", true) {
+        /** {@inheritDoc} */
+        @Override public Object objectValue(Row tup, int colIdx) {
+            return tup.timestampValue(colIdx);
         }
     };
 
@@ -222,7 +278,17 @@ public enum NativeTypeSpec {
         else if (cls == Double.class)
             return NativeTypeSpec.DOUBLE;
 
-        // Other types
+        // Temporal types.
+        else if (cls == LocalDate.class)
+            return NativeTypeSpec.DATE;
+        else if (cls == LocalTime.class)
+            return NativeTypeSpec.TIME;
+        else if (cls == LocalDateTime.class)
+            return NativeTypeSpec.DATETIME;
+        else if (cls == Instant.class)
+            return NativeTypeSpec.TIMESTAMP;
+
+        // Other types.
         else if (cls == byte[].class)
             return NativeTypeSpec.BYTES;
         else if (cls == String.class)
@@ -231,6 +297,10 @@ public enum NativeTypeSpec {
             return NativeTypeSpec.UUID;
         else if (cls == BitSet.class)
             return NativeTypeSpec.BITMASK;
+        else if (cls == BigInteger.class)
+            return NativeTypeSpec.NUMBER;
+        else if (cls == BigDecimal.class)
+            return NativeTypeSpec.DECIMAL;
 
         return null;
     }

@@ -29,6 +29,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.metastorage.common.OperationType;
@@ -42,19 +43,17 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.LocalPortRangeNodeFinder;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
-import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
+import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -180,8 +179,19 @@ public class ITMetaStorageServiceTest {
         var nodeFinder = new LocalPortRangeNodeFinder(NODE_PORT_BASE, NODE_PORT_BASE + NODES);
 
         nodeFinder.findNodes().stream()
-            .map(addr -> startClusterNode(addr, nodeFinder))
-            .forEach(cluster::add);
+            .map(
+                addr -> ClusterServiceTestUtils.clusterService(
+                    addr.toString(),
+                    addr.port(),
+                    nodeFinder,
+                    SERIALIZATION_REGISTRY,
+                    NETWORK_FACTORY
+                )
+            )
+            .forEach(clusterService -> {
+                clusterService.start();
+                cluster.add(clusterService);
+            });
 
         for (ClusterService node : cluster)
             assertTrue(waitForTopology(node, NODES, 1000));
@@ -196,10 +206,10 @@ public class ITMetaStorageServiceTest {
      */
     @AfterEach
     public void afterTest() throws Exception {
-        metaStorageRaftSrv.shutdown();
+        metaStorageRaftSrv.stop();
 
         for (ClusterService node : cluster)
-            node.shutdown();
+            node.stop();
     }
 
     /**
@@ -946,7 +956,7 @@ public class ITMetaStorageServiceTest {
      */
     @Disabled // TODO: IGNITE-14693 Add tests for exception handling logic.
     @Test
-    public void testGetThatThrowsCompactedException() {
+    public void testGetThatThrowsCompactedException() throws Exception {
         MetaStorageService metaStorageSvc = prepareMetaStorage(
                 new AbstractKeyValueStorage() {
                     @Override public @NotNull org.apache.ignite.internal.metastorage.server.Entry get(byte[] key) {
@@ -964,7 +974,7 @@ public class ITMetaStorageServiceTest {
      */
     @Disabled // TODO: IGNITE-14693 Add tests for exception handling logic.
     @Test
-    public void testGetThatThrowsOperationTimeoutException() {
+    public void testGetThatThrowsOperationTimeoutException() throws Exception {
         MetaStorageService metaStorageSvc = prepareMetaStorage(
                 new AbstractKeyValueStorage() {
                     @Override public @NotNull org.apache.ignite.internal.metastorage.server.Entry get(byte[] key) {
@@ -1018,7 +1028,7 @@ public class ITMetaStorageServiceTest {
 
         List<Peer> peers = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
 
-        RaftGroupService metaStorageRaftGrpSvc = new RaftGroupServiceImpl(
+        RaftGroupService metaStorageRaftGrpSvc = RaftGroupServiceImpl.start(
             METASTORAGE_RAFT_GROUP_NAME,
             cluster.get(1),
             FACTORY,
@@ -1026,7 +1036,7 @@ public class ITMetaStorageServiceTest {
             peers,
             true,
             200
-        );
+        ).get(3, TimeUnit.SECONDS);
 
         MetaStorageService metaStorageSvc2 =  new MetaStorageServiceImpl(metaStorageRaftGrpSvc, NODE_ID_1);
 
@@ -1043,21 +1053,6 @@ public class ITMetaStorageServiceTest {
         assertThrows(NoSuchElementException.class, () -> cursor2Node0.iterator().next());
 
         assertEquals(EXPECTED_RESULT_ENTRY, (cursorNode1.iterator().next()));
-    }
-
-    /**
-     * @param addr Node address.
-     * @param nodeFinder Node finder.
-     * @return The client cluster view.
-     */
-    private static ClusterService startClusterNode(NetworkAddress addr, NodeFinder nodeFinder) {
-        var ctx = new ClusterLocalConfiguration(addr.toString(), addr.port(), nodeFinder, SERIALIZATION_REGISTRY);
-
-        var net = NETWORK_FACTORY.createClusterService(ctx);
-
-        net.start();
-
-        return net;
     }
 
     /**
@@ -1092,15 +1087,17 @@ public class ITMetaStorageServiceTest {
      * @param keyValStorageMock {@link KeyValueStorage} mock.
      * @return {@link MetaStorageService} instance.
      */
-    private MetaStorageService prepareMetaStorage(KeyValueStorage keyValStorageMock) {
+    private MetaStorageService prepareMetaStorage(KeyValueStorage keyValStorageMock) throws Exception {
         List<Peer> peers = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
 
         metaStorageRaftSrv = new RaftServerImpl(cluster.get(0), FACTORY);
 
+        metaStorageRaftSrv.start();
+
         metaStorageRaftSrv.
             startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(keyValStorageMock), peers);
 
-        RaftGroupService metaStorageRaftGrpSvc = new RaftGroupServiceImpl(
+        RaftGroupService metaStorageRaftGrpSvc = RaftGroupServiceImpl.start(
             METASTORAGE_RAFT_GROUP_NAME,
             cluster.get(1),
             FACTORY,
@@ -1108,7 +1105,7 @@ public class ITMetaStorageServiceTest {
             peers,
             true,
             200
-        );
+        ).get(3, TimeUnit.SECONDS);
 
         return new MetaStorageServiceImpl(metaStorageRaftGrpSvc, NODE_ID_0);
     }

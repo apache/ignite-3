@@ -19,11 +19,18 @@ package org.apache.ignite.internal.schema.configuration;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.RoundingMode;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
@@ -33,12 +40,12 @@ import org.apache.ignite.internal.schema.SchemaException;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaTable;
 
-import static org.apache.ignite.internal.schema.NativeTypes.INT8;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
 import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
+import static org.apache.ignite.internal.schema.NativeTypes.INT16;
 import static org.apache.ignite.internal.schema.NativeTypes.INT32;
 import static org.apache.ignite.internal.schema.NativeTypes.INT64;
-import static org.apache.ignite.internal.schema.NativeTypes.INT16;
+import static org.apache.ignite.internal.schema.NativeTypes.INT8;
 import static org.apache.ignite.internal.schema.NativeTypes.UUID;
 
 /**
@@ -81,32 +88,56 @@ public class SchemaDescriptorConverter {
             case DOUBLE:
                 return DOUBLE;
 
-            case DECIMAL:
-                ColumnType.NumericColumnType numType = (ColumnType.NumericColumnType)colType;
+            case DECIMAL: {
+                ColumnType.DecimalColumnType numType = (ColumnType.DecimalColumnType)colType;
 
                 return NativeTypes.decimalOf(numType.precision(), numType.scale());
+            }
             case UUID:
                 return UUID;
 
             case BITMASK:
                 return NativeTypes.bitmaskOf(((ColumnType.VarLenColumnType)colType).length());
 
-            case STRING:
+            case STRING: {
                 int strLen = ((ColumnType.VarLenColumnType)colType).length();
 
                 if (strLen == 0)
                     strLen = Integer.MAX_VALUE;
 
                 return NativeTypes.stringOf(strLen);
-
-            case BLOB:
+            }
+            case BLOB: {
                 int blobLen = ((ColumnType.VarLenColumnType)colType).length();
 
                 if (blobLen == 0)
                     blobLen = Integer.MAX_VALUE;
 
                 return NativeTypes.blobOf(blobLen);
+            }
+            case DATE:
+                return NativeTypes.DATE;
+            case TIME: {
+                ColumnType.TemporalColumnType temporalType = (ColumnType.TemporalColumnType)colType;
 
+                return NativeTypes.time(temporalType.precision());
+            }
+            case DATETIME: {
+                ColumnType.TemporalColumnType temporalType = (ColumnType.TemporalColumnType)colType;
+
+                return NativeTypes.datetime(temporalType.precision());
+            }
+            case TIMESTAMP: {
+                ColumnType.TemporalColumnType temporalType = (ColumnType.TemporalColumnType)colType;
+
+                return NativeTypes.timestamp(temporalType.precision());
+            }
+
+            case NUMBER: {
+                ColumnType.NumberColumnType numberType = (ColumnType.NumberColumnType)colType;
+
+                return NativeTypes.numberOf(numberType.precision());
+            }
             default:
                 throw new InvalidTypeException("Unexpected type " + type);
         }
@@ -151,11 +182,21 @@ public class SchemaDescriptorConverter {
             case DOUBLE:
                 return Double.parseDouble(dflt);
             case DECIMAL:
-                return new BigDecimal(dflt);
+                return new BigDecimal(dflt).setScale(((DecimalNativeType)type).scale(), RoundingMode.HALF_UP);
+            case NUMBER:
+                return new BigInteger(dflt);
             case STRING:
                 return dflt;
             case UUID:
                 return java.util.UUID.fromString(dflt);
+            case DATE:
+                return LocalDate.parse(dflt);
+            case TIME:
+                return LocalTime.parse(dflt);
+            case DATETIME:
+                return LocalDateTime.parse(dflt);
+            case TIMESTAMP:
+                return Instant.parse(dflt);
             default:
                 throw new SchemaException("Default value is not supported for type: type=" + type.toString());
         }

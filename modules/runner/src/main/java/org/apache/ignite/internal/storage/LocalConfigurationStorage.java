@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage;
 
 import java.io.Serializable;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
@@ -29,8 +28,9 @@ import org.apache.ignite.internal.configuration.storage.ConfigurationStorageList
 import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultEntry;
+import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.NotNull;
@@ -52,7 +52,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     private ConfigurationStorageListener lsnr;
 
     /** Storage version. */
-    private AtomicLong ver = new AtomicLong(0L);
+    private final AtomicLong ver = new AtomicLong(0L);
 
     /** Start key in range for searching local configuration keys. */
     private static final ByteArray LOC_KEYS_START_RANGE = ByteArray.fromString(LOC_PREFIX);
@@ -71,16 +71,22 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
 
     /** {@inheritDoc} */
     @Override public synchronized Data readAll() throws StorageException {
-        Iterator<VaultEntry> iter =
-            vaultMgr.range(LOC_KEYS_START_RANGE, LOC_KEYS_END_RANGE);
+        var data = new HashMap<String, Serializable>();
 
-        HashMap<String, Serializable> data = new HashMap<>();
+        try (Cursor<VaultEntry> cursor = vaultMgr.range(LOC_KEYS_START_RANGE, LOC_KEYS_END_RANGE)) {
+            for (VaultEntry entry : cursor) {
+                String key = entry.key().toString().substring(LOC_KEYS_START_RANGE.toString().length());
 
-        while (iter.hasNext()) {
-            VaultEntry val = iter.next();
+                byte[] value = entry.value();
 
-            data.put(val.key().toString().substring(LOC_KEYS_START_RANGE.toString().length()),
-                (Serializable)ByteUtils.fromBytes(val.value()));
+                // vault iterator should not return nulls as values
+                assert value != null;
+
+                data.put(key, (Serializable)ByteUtils.fromBytes(value));
+            }
+        }
+        catch (Exception e) {
+            throw new StorageException("Exception when closing a Vault cursor", e);
         }
 
         // TODO: Need to restore version from pds when restart will be developed
@@ -105,11 +111,9 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
 
         Data entries = new Data(newValues, ver.incrementAndGet());
 
-        return vaultMgr.putAll(data).thenApply(res -> {
-            lsnr.onEntriesChanged(entries);
-
-            return true;
-        });
+        return vaultMgr.putAll(data)
+            .thenCompose(v -> lsnr.onEntriesChanged(entries))
+            .thenApply(v -> true);
     }
 
     /** {@inheritDoc} */
@@ -118,13 +122,6 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
             this.lsnr = lsnr;
         else
             LOG.warn("Configuration listener has already been set.");
-    }
-
-    /** {@inheritDoc} */
-    @Override public void notifyApplied(long storageRevision) {
-        // No-op.
-        // TODO: implement this method when restart mechanism will be introduced
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-14697
     }
 
     /** {@inheritDoc} */

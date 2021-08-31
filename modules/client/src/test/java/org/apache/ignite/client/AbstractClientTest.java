@@ -17,22 +17,24 @@
 
 package org.apache.ignite.client;
 
-import java.util.Collections;
-
-import io.netty.channel.ChannelFuture;
+import java.net.InetSocketAddress;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import io.netty.util.ResourceLeakDetector;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.handler.ClientHandlerModule;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
-import org.apache.ignite.internal.client.table.ClientTupleBuilder;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.slf4j.helpers.NOPLogger;
 
+import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -42,23 +44,37 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 public abstract class AbstractClientTest {
     protected static final String DEFAULT_TABLE = "default_test_table";
 
-    protected static ChannelFuture serverFuture;
+    protected static ConfigurationRegistry configurationRegistry;
+
+    protected static ClientHandlerModule clientHandlerModule;
 
     protected static Ignite server;
 
     protected static Ignite client;
 
+    protected static int serverPort;
+
     @BeforeAll
-    public static void beforeAll() throws Exception {
-        serverFuture = startServer(null);
+    public static void beforeAll() {
+        ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
+
+        server = new FakeIgnite();
+
+        IgniteBiTuple<ClientHandlerModule, ConfigurationRegistry> srv = startServer(10800, 10, server);
+
+        clientHandlerModule = srv.get1();
+        configurationRegistry = srv.get2();
+
+        serverPort = getPort(clientHandlerModule);
+
         client = startClient();
     }
 
     @AfterAll
     public static void afterAll() throws Exception {
         client.close();
-        serverFuture.cancel(true);
-        serverFuture.await();
+        clientHandlerModule.stop();
+        configurationRegistry.stop();
     }
 
     @BeforeEach
@@ -69,44 +85,57 @@ public abstract class AbstractClientTest {
 
     public static Ignite startClient(String... addrs) {
         if (addrs == null || addrs.length == 0)
-            addrs = new String[]{"127.0.0.2:10800"};
+            addrs = new String[]{"127.0.0.2:" + serverPort};
 
         var builder = IgniteClient.builder().addresses(addrs);
 
         return builder.build();
     }
 
-    public static ChannelFuture startServer(String host) throws InterruptedException {
-        var registry = new ConfigurationRegistry(
-                Collections.singletonList(ClientConnectorConfiguration.KEY),
-                Collections.emptyMap(),
-                Collections.singletonList(new TestConfigurationStorage(ConfigurationType.LOCAL))
+    public static IgniteBiTuple<ClientHandlerModule, ConfigurationRegistry> startServer(
+            int port,
+            int portRange,
+            Ignite ignite
+    ) {
+        var cfg = new ConfigurationRegistry(
+            List.of(ClientConnectorConfiguration.KEY),
+            Map.of(),
+            new TestConfigurationStorage(LOCAL)
         );
 
-        server = new FakeIgnite();
+        cfg.start();
 
-        var module = new ClientHandlerModule(server, NOPLogger.NOP_LOGGER);
+        cfg.getConfiguration(ClientConnectorConfiguration.KEY).change(
+                local -> local.changePort(port).changePortRange(portRange)
+        ).join();
 
-        module.prepareStart(registry);
+        var module = new ClientHandlerModule(ignite.tables(), cfg);
+        module.start();
 
-        return module.start();
+        return new IgniteBiTuple<>(module, cfg);
     }
 
     public static void assertTupleEquals(Tuple x, Tuple y) {
-        if (x == null)
+        if (x == null) {
             assertNull(y);
-
-        if (y == null)
-            assertNull(x);
-
-        var a = (ClientTupleBuilder) x;
-        var b = (ClientTupleBuilder) y;
-
-        assertEquals(a.columnCount(), b.columnCount());
-
-        for (var i = 0; i < a.columnCount(); i++) {
-            assertEquals(a.columnName(i), b.columnName(i));
-            assertEquals((Object)a.value(i), b.value(i));
+            return;
         }
+
+        if (y == null) {
+            //noinspection ConstantConditions
+            assertNull(x);
+            return;
+        }
+
+        assertEquals(x.columnCount(), y.columnCount());
+
+        for (var i = 0; i < x.columnCount(); i++) {
+            assertEquals(x.columnName(i), y.columnName(i));
+            assertEquals((Object) x.value(i), y.value(i));
+        }
+    }
+
+    public static int getPort(ClientHandlerModule hnd) {
+        return ((InetSocketAddress) Objects.requireNonNull(hnd.localAddress())).getPort();
     }
 }

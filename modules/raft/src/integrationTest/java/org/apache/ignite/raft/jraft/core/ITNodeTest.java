@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.Vector;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -42,7 +41,6 @@ import com.codahale.metrics.ConsoleReporter;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.StaticNodeFinder;
@@ -60,6 +58,7 @@ import org.apache.ignite.raft.jraft.closure.ReadIndexClosure;
 import org.apache.ignite.raft.jraft.closure.SynchronizedClosure;
 import org.apache.ignite.raft.jraft.closure.TaskClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
+import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.Task;
@@ -79,12 +78,16 @@ import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.core.DefaultRaftClientService;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
+import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.ThroughputSnapshotThrottle;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Bits;
 import org.apache.ignite.raft.jraft.util.Endpoint;
+import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Utils;
+import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
+import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -149,6 +152,10 @@ public class ITNodeTest {
 
     private final List<RaftGroupService> services = new ArrayList<>();
 
+    private final List<ExecutorService> executors = new ArrayList<>();
+
+    private final List<FixedThreadsExecutorGroup> appendEntriesExecutors = new ArrayList<>();
+
     @BeforeAll
     public static void setupNodeTest() {
         dumpThread = new DumpThread();
@@ -184,6 +191,10 @@ public class ITNodeTest {
                 LOG.error("Error while closing a service", e);
             }
         });
+
+        executors.forEach(ExecutorServiceHelper::shutdownAndAwaitTermination);
+
+        appendEntriesExecutors.forEach(FixedThreadsExecutorGroup::shutdownGracefully);
 
         if (cluster != null)
             cluster.stopAll();
@@ -1352,10 +1363,15 @@ public class ITNodeTest {
         assertEquals(3, leader.listPeers().size());
 
         CountDownLatch latch = new CountDownLatch(10);
+
+        ExecutorService executor = Executors.newFixedThreadPool(10);
+
+        executors.add(executor);
+
         for (int i = 0; i < 10; i++) {
-            new Thread() {
-                @Override
-                public void run() {
+            executor.submit(new Runnable() {
+                /** {@inheritDoc} */
+                @Override public void run() {
                     try {
                         for (int i = 0; i < 100; i++) {
                             try {
@@ -1395,7 +1411,7 @@ public class ITNodeTest {
                         Thread.currentThread().interrupt();
                     }
                 }
-            }.start();
+            });
         }
 
         latch.await();
@@ -1729,6 +1745,7 @@ public class ITNodeTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15312")
     public void testPreVote() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2015,7 +2032,6 @@ public class ITNodeTest {
     }
 
     @Test // TODO add test for timeout on snapshot install https://issues.apache.org/jira/browse/IGNITE-14832
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-14943")
     public void testInstallLargeSnapshotWithThrottle() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(4);
         cluster = new TestCluster("unitest", dataPath, peers.subList(0, 3));
@@ -2707,6 +2723,7 @@ public class ITNodeTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15202")
     public void readCommittedUserLog() throws Exception {
         // setup cluster
         List<PeerId> peers = TestUtils.generatePeers(3);
@@ -3046,6 +3063,8 @@ public class ITNodeTest {
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
 
+        executors.add(executor);
+
         return Utils.runInThread(executor, () -> {
             try {
                 while (!arg.stop) {
@@ -3193,7 +3212,9 @@ public class ITNodeTest {
         List<Future<?>> futures = new ArrayList<>();
         CountDownLatch latch = new CountDownLatch(threads);
 
-        Executor executor = Executors.newFixedThreadPool(threads);
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
+
+        executors.add(executor);
 
         for (int t = 0; t < threads; t++) {
             ChangeArg arg = new ChangeArg(cluster, peers, false, true);
@@ -3306,8 +3327,12 @@ public class ITNodeTest {
     private NodeOptions createNodeOptions() {
         NodeOptions options = new NodeOptions();
 
-        options.setCommonExecutor(JRaftUtils.createCommonExecutor(options));
-        options.setStripedExecutor(JRaftUtils.createAppendEntriesExecutor(options));
+        ExecutorService executor = JRaftUtils.createCommonExecutor(options);
+        executors.add(executor);
+        options.setCommonExecutor(executor);
+        FixedThreadsExecutorGroup appendEntriesExecutor = JRaftUtils.createAppendEntriesExecutor(options);
+        appendEntriesExecutors.add(appendEntriesExecutor);
+        options.setStripedExecutor(appendEntriesExecutor);
 
         return options;
     }
@@ -3385,6 +3410,36 @@ public class ITNodeTest {
      */
     private RaftGroupService createService(String groupId, PeerId peerId, NodeOptions nodeOptions) {
         Configuration initialConf = nodeOptions.getInitialConf();
+        nodeOptions.setStripes(1);
+
+        StripedDisruptor<FSMCallerImpl.ApplyTask> fsmCallerDusruptor;
+        StripedDisruptor<NodeImpl.LogEntryAndClosure> nodeDisruptor;
+        StripedDisruptor<ReadOnlyServiceImpl.ReadIndexEvent> readOnlyServiceDisruptor;
+        StripedDisruptor<LogManagerImpl.StableClosureEvent> logManagerDisruptor;
+
+        nodeOptions.setfSMCallerExecutorDisruptor(fsmCallerDusruptor = new StripedDisruptor<>(
+            "JRaft-FSMCaller-Disruptor_ITNodeTest",
+            nodeOptions.getRaftOptions().getDisruptorBufferSize(),
+            () -> new FSMCallerImpl.ApplyTask(),
+            nodeOptions.getStripes()));
+
+        nodeOptions.setNodeApplyDisruptor(nodeDisruptor = new StripedDisruptor<>(
+            "JRaft-NodeImpl-Disruptor_ITNodeTest",
+            nodeOptions.getRaftOptions().getDisruptorBufferSize(),
+            () -> new NodeImpl.LogEntryAndClosure(),
+            nodeOptions.getStripes()));
+
+        nodeOptions.setReadOnlyServiceDisruptor(readOnlyServiceDisruptor = new StripedDisruptor<>(
+            "JRaft-ReadOnlyService-Disruptor_ITNodeTest",
+            nodeOptions.getRaftOptions().getDisruptorBufferSize(),
+            () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
+            nodeOptions.getStripes()));
+
+        nodeOptions.setLogManagerDisruptor(logManagerDisruptor = new StripedDisruptor<>(
+            "JRaft-LogManager-Disruptor_ITNodeTest",
+            nodeOptions.getRaftOptions().getDisruptorBufferSize(),
+            () -> new LogManagerImpl.StableClosureEvent(),
+            nodeOptions.getStripes()));
 
         Stream<PeerId> peers = initialConf == null ?
             Stream.empty() :
@@ -3397,9 +3452,19 @@ public class ITNodeTest {
 
         var nodeManager = new NodeManager();
 
-        ClusterService clusterService = createClusterService(peerId.getEndpoint(), nodeFinder);
+        ClusterService clusterService = ClusterServiceTestUtils.clusterService(
+            peerId.getEndpoint().toString(),
+            peerId.getEndpoint().getPort(),
+            nodeFinder,
+            new TestMessageSerializationRegistryImpl(),
+            new TestScaleCubeClusterServiceFactory()
+        );
 
-        IgniteRpcServer rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions);
+        ExecutorService requestExecutor = JRaftUtils.createRequestExecutor(nodeOptions);
+
+        executors.add(requestExecutor);
+
+        IgniteRpcServer rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions, requestExecutor);
 
         nodeOptions.setRpcClient(new IgniteRpcClient(clusterService));
 
@@ -3409,7 +3474,12 @@ public class ITNodeTest {
             @Override public synchronized void shutdown() {
                 super.shutdown();
 
-                clusterService.shutdown();
+                clusterService.stop();
+
+                fsmCallerDusruptor.shutdown();
+                nodeDisruptor.shutdown();
+                readOnlyServiceDisruptor.shutdown();
+                logManagerDisruptor.shutdown();
             }
         };
 
@@ -3422,13 +3492,13 @@ public class ITNodeTest {
      * Creates a non-started {@link ClusterService}.
      */
     private static ClusterService createClusterService(Endpoint endpoint, NodeFinder nodeFinder) {
-        var registry = new TestMessageSerializationRegistryImpl();
-
-        var clusterConfig = new ClusterLocalConfiguration(endpoint.toString(), endpoint.getPort(), nodeFinder, registry);
-
-        var clusterServiceFactory = new TestScaleCubeClusterServiceFactory();
-
-        return clusterServiceFactory.createClusterService(clusterConfig);
+       return ClusterServiceTestUtils.clusterService(
+            endpoint.toString(),
+            endpoint.getPort(),
+            nodeFinder,
+            new TestMessageSerializationRegistryImpl(),
+            new TestScaleCubeClusterServiceFactory()
+        );
     }
 
     private void sendTestTaskAndWait(final Node node) throws InterruptedException {

@@ -17,6 +17,12 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -88,15 +94,19 @@ public class SchemaConfigurationConverter {
         putType(ColumnType.FLOAT);
         putType(ColumnType.DOUBLE);
         putType(ColumnType.UUID);
+        putType(ColumnType.DATE);
     }
 
-    /** */
+    /**
+     * @param type Column type.
+     */
     private static void putType(ColumnType type) {
         types.put(type.typeSpec().name(), type);
     }
 
     /**
      * Convert SortedIndexColumn to IndexColumnChange.
+     *
      * @param col IndexColumnChange.
      * @param colInit IndexColumnChange to fulfill.
      * @return IndexColumnChange to get result from.
@@ -278,10 +288,26 @@ public class SchemaConfigurationConverter {
                     break;
 
                 case "DECIMAL":
-                    ColumnType.NumericColumnType numColType = (ColumnType.NumericColumnType)colType;
+                    ColumnType.DecimalColumnType numColType = (ColumnType.DecimalColumnType)colType;
 
                     colTypeChg.changePrecision(numColType.precision());
                     colTypeChg.changeScale(numColType.scale());
+
+                    break;
+
+                case "NUMBER":
+                    ColumnType.NumberColumnType numType = (ColumnType.NumberColumnType)colType;
+
+                    colTypeChg.changePrecision(numType.precision());
+
+                    break;
+
+                case "TIME":
+                case "DATETIME":
+                case "TIMESTAMP":
+                    ColumnType.TemporalColumnType temporalColType = (ColumnType.TemporalColumnType)colType;
+
+                    colTypeChg.changePrecision(temporalColType.precision());
 
                     break;
 
@@ -326,7 +352,19 @@ public class SchemaConfigurationConverter {
                     int prec = colTypeView.precision();
                     int scale = colTypeView.scale();
 
-                    return ColumnType.number(prec, scale);
+                    return ColumnType.decimalOf(prec, scale);
+
+                case "NUMBER":
+                    return ColumnType.numberOf(colTypeView.precision());
+
+                case "TIME":
+                    return ColumnType.time(colTypeView.precision());
+
+                case "DATETIME":
+                    return ColumnType.datetime(colTypeView.precision());
+
+                case "TIMESTAMP":
+                    return ColumnType.timestamp(colTypeView.precision());
 
                 default:
                     throw new IllegalArgumentException("Unknown type " + typeName);
@@ -443,7 +481,7 @@ public class SchemaConfigurationConverter {
 
         LinkedHashMap<String, Column> colsMap = new LinkedHashMap<>(colsView.size());
 
-        columns.forEach((i,v) -> colsMap.put(v.name(), v));
+        columns.forEach((i, v) -> colsMap.put(v.name(), v));
 
         return new SchemaTableImpl(schemaName, tableName, colsMap, indices);
     }
@@ -537,7 +575,7 @@ public class SchemaConfigurationConverter {
         else if (cls == double.class)
             return ColumnType.DOUBLE;
 
-            // Boxed primitives.
+        // Boxed primitives.
         else if (cls == Byte.class)
             return ColumnType.INT8;
         else if (cls == Short.class)
@@ -551,11 +589,25 @@ public class SchemaConfigurationConverter {
         else if (cls == Double.class)
             return ColumnType.DOUBLE;
 
-            // Other types
+        // Temporal types.
+        else if (cls == LocalDate.class)
+            return ColumnType.DATE;
+        else if (cls == LocalTime.class)
+            return ColumnType.time(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
+        else if (cls == LocalDateTime.class)
+            return ColumnType.datetime(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
+        else if (cls == Instant.class)
+            return ColumnType.timestamp(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
+
+        // Other types
         else if (cls == String.class)
             return ColumnType.string();
         else if (cls == UUID.class)
             return ColumnType.UUID;
+        else if (cls == BigInteger.class)
+            return ColumnType.numberOf();
+        else if (cls == BigDecimal.class)
+            return ColumnType.decimalOf();
 
         return null;
     }

@@ -15,6 +15,10 @@
  * limitations under the License.
  */
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -32,7 +36,8 @@ public class TestRow implements SqlRow {
     /** Columns values. */
     private final Map<String, Object> map = new HashMap<>();
 
-    public TestRow set(String columnName, Object value) {
+    /** {@inheritDoc} */
+    @Override public TestRow set(String columnName, Object value) {
         map.put(columnName, value);
 
         return this;
@@ -68,15 +73,13 @@ public class TestRow implements SqlRow {
     }
 
     /** {@inheritDoc} */
-    @Override public Integer columnIndex(String columnName) {
+    @Override public int columnIndex(String columnName) {
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override public BinaryObject binaryObjectValue(String columnName) {
-        byte[] data = value(columnName);
-
-        return BinaryObjects.wrap(data);
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -171,6 +174,45 @@ public class TestRow implements SqlRow {
 
     /** {@inheritDoc} */
     @Override public BitSet bitmaskValue(int columnIndex) {
+        return null;
+    }
+
+    @Override public LocalDate dateValue(String columnName) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public LocalDate dateValue(int columnIndex) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public LocalTime timeValue(String columnName) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public LocalTime timeValue(int columnIndex) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public LocalDateTime datetimeValue(String columnName) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public LocalDateTime datetimeValue(int columnIndex) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Instant timestampValue(String columnName) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Instant timestampValue(int columnIndex) {
         return null;
     }
 

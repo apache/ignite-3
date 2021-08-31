@@ -17,33 +17,43 @@
 
 package org.apache.ignite.network;
 
+import org.apache.ignite.internal.manager.IgniteComponent;
+
 /**
- * Class that represents the network-related resources of a node and provides entry points for working with the
+ * Class, that represents the network-related resources of a node and provides entry points for working with the
  * network members of a cluster.
  */
-public interface ClusterService {
+public interface ClusterService extends IgniteComponent {
     /**
-     * @return {@link TopologyService} for working with the cluster topology.
+     * Returns the {@link TopologyService} for working with the cluster topology.
+     *
+     * @return Topology Service.
      */
     TopologyService topologyService();
 
     /**
-     * @return {@link TopologyService} for sending messages to the cluster members.
+     * Returns the {@link MessagingService} for sending messages to the cluster members.
+     *
+     * @return Messaging Service.
      */
     MessagingService messagingService();
 
     /**
-     * @return Context associated with the current node.
+     * Returns the local configuration of this node.
+     *
+     * @return Configuration of the current node.
      */
     ClusterLocalConfiguration localConfiguration();
 
-    /**
-     * Starts the current node, allowing it to join the cluster and start receiving messages.
-     */
-    void start();
+    /** {@inheritDoc} */
+    @Override default void stop() {
+        // TODO: IGNITE-15161 Implement component's stop.
+    }
 
     /**
-     * Stops the current node, gracefully freeing the encapsulated resources.
+     * Checks whether cluster service has been stopped.
+     *
+     * @return {@code true} if cluster service is stopped, {@code false} otherwise.
      */
-    void shutdown();
+    public boolean isStopped();
 }

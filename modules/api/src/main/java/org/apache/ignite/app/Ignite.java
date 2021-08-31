@@ -26,6 +26,13 @@ import org.apache.ignite.tx.IgniteTransactions;
  */
 public interface Ignite extends AutoCloseable {
     /**
+     * Returns ignite node name.
+     *
+     * @return Ignite node name.
+     */
+    String name();
+
+    /**
      * Gets an object for manipulate Ignite tables.
      *
      * @return Ignite tables.

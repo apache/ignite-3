@@ -18,12 +18,15 @@ package org.apache.ignite.raft.jraft.core;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.ReadIndexClosure;
+import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.ReadIndexState;
@@ -35,6 +38,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosure;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Bytes;
+import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -67,6 +71,13 @@ public class ReadOnlyServiceTest {
     @Mock
     private FSMCaller fsmCaller;
 
+    /** Disruptor for this service test. */
+    private StripedDisruptor disruptor;
+
+    private List<ExecutorService> executors = new ArrayList<>();
+
+    private Scheduler scheduler;
+
     @BeforeEach
     public void setup() {
         this.readOnlyServiceImpl = new ReadOnlyServiceImpl();
@@ -76,10 +87,21 @@ public class ReadOnlyServiceTest {
         opts.setFsmCaller(this.fsmCaller);
         opts.setNode(this.node);
         opts.setRaftOptions(raftOptions);
+        opts.setGroupId("TestSrv");
+        opts.setReadOnlyServiceDisruptor(disruptor = new StripedDisruptor<>("TestReadOnlyServiceDisruptor",
+            1024,
+            () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
+            1));
         NodeOptions nodeOptions = new NodeOptions();
-        nodeOptions.setCommonExecutor(JRaftUtils.createExecutor("test-executor", Utils.cpus()));
-        nodeOptions.setClientExecutor(JRaftUtils.createClientExecutor(nodeOptions, "unittest"));
-        nodeOptions.setScheduler(JRaftUtils.createScheduler(nodeOptions));
+        ExecutorService executor = JRaftUtils.createExecutor("test-executor", Utils.cpus());
+        executors.add(executor);
+        nodeOptions.setCommonExecutor(executor);
+        ExecutorService clientExecutor = JRaftUtils.createClientExecutor(nodeOptions, "unittest");
+        executors.add(clientExecutor);
+        nodeOptions.setClientExecutor(clientExecutor);
+        Scheduler scheduler = JRaftUtils.createScheduler(nodeOptions);
+        this.scheduler = scheduler;
+        nodeOptions.setScheduler(scheduler);
         Mockito.when(this.node.getNodeMetrics()).thenReturn(new NodeMetrics(false));
         Mockito.when(this.node.getGroupId()).thenReturn("test");
         Mockito.when(this.node.getTimerManager()).thenReturn(nodeOptions.getScheduler());
@@ -93,6 +115,9 @@ public class ReadOnlyServiceTest {
     public void teardown() throws Exception {
         this.readOnlyServiceImpl.shutdown();
         this.readOnlyServiceImpl.join();
+        disruptor.shutdown();
+        executors.forEach(ExecutorServiceHelper::shutdownAndAwaitTermination);
+        scheduler.shutdown();
     }
 
     @Test

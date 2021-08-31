@@ -17,8 +17,7 @@
 
 package org.apache.ignite.internal.client.io;
 
-import java.nio.ByteBuffer;
-
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
 import org.apache.ignite.lang.IgniteException;
 
@@ -32,7 +31,14 @@ public interface ClientConnection extends AutoCloseable {
      * @param msg Message buffer.
      * @return Future for the operation.
      */
-    ChannelFuture send(ByteBuffer msg) throws IgniteException;
+    ChannelFuture send(ByteBuf msg) throws IgniteException;
+
+    /**
+     * Gets a buffer to write to.
+     *
+     * @return Buffer.
+     */
+    ByteBuf getBuffer();
 
     /**
      * Closes the connection.

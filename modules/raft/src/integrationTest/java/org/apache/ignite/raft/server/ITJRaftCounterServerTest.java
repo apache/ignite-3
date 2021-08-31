@@ -17,17 +17,20 @@
 
 package org.apache.ignite.raft.server;
 
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -44,6 +47,8 @@ import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -108,7 +113,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
     /**
      * Servers list.
      */
-    protected final List<JRaftServerImpl> servers = new ArrayList<>();
+    private final List<JRaftServerImpl> servers = new ArrayList<>();
 
     /**
      * Clients list.
@@ -129,7 +134,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
     /** */
     @AfterEach
-    void after(TestInfo testInfo) throws Exception {
+    @Override protected void after(TestInfo testInfo) throws Exception {
         LOG.info("Start client shutdown");
 
         Iterator<RaftGroupService> iterClients = clients.iterator();
@@ -151,8 +156,10 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
             iterSrv.remove();
 
-            server.shutdown();
+            server.stop();
         }
+
+        super.after(testInfo);
 
         LOG.info(">>>>>>>>>>>>>>> End test method: {}", testInfo.getTestMethod().orElseThrow().getName());
     }
@@ -166,15 +173,17 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
         ClusterService service = clusterService("server" + idx, PORT + idx, List.of(addr), true);
 
-        JRaftServerImpl server = new JRaftServerImpl(service, dataPath.toString()) {
-            @Override public void shutdown() throws Exception {
+        JRaftServerImpl server = new JRaftServerImpl(service, dataPath) {
+            @Override public void stop() {
                 servers.remove(this);
 
-                super.shutdown();
+                super.stop();
 
-                service.shutdown();
+                service.stop();
             }
         };
+
+        server.start();
 
         clo.accept(server);
 
@@ -188,23 +197,16 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
     /**
      * @param groupId Group id.
      * @return The client.
+     * @throws Exception If failed.
      */
-    private RaftGroupService startClient(String groupId) {
+    private RaftGroupService startClient(String groupId) throws Exception {
         var addr = new NetworkAddress(getLocalAddress(), PORT);
 
         ClusterService clientNode = clusterService(
             "client_" + groupId + "_", CLIENT_PORT + clients.size(), List.of(addr), true);
 
-        RaftGroupServiceImpl client = new RaftGroupServiceImpl(groupId, clientNode, FACTORY, 10_000,
-            List.of(new Peer(addr)), false, 200) {
-            @Override public void shutdown() {
-                clients.remove(this);
-
-                super.shutdown();
-
-                clientNode.shutdown();
-            }
-        };
+        RaftGroupService client = RaftGroupServiceImpl.start(groupId, clientNode, FACTORY, 10_000,
+            List.of(new Peer(addr)), false, 200).get(3, TimeUnit.SECONDS);
 
         clients.add(client);
 
@@ -213,8 +215,10 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
     /**
      * Starts a cluster for the test.
+     *
+     * @throws Exception If failed.
      */
-    private void startCluster() {
+    private void startCluster() throws Exception {
         for (int i = 0; i < 3; i++) {
             startServer(i, raftServer -> {
                 raftServer.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF);
@@ -224,6 +228,53 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
         startClient(COUNTER_GROUP_0);
         startClient(COUNTER_GROUP_1);
+    }
+
+    /**
+     * Checks that the number of Disruptor threads does not depend on  count started RAFT nodes.
+     */
+    @Test
+    public void testDisruptorThreadsCount() {
+        startServer(0, raftServer -> {
+            raftServer.startRaftGroup("test_raft_group", listenerFactory.get(), INITIAL_CONF);
+        });
+
+        Set<Thread> threads = getAllDisruptorCurrentThreads();
+
+        int threadsBefore = threads.size();
+
+        Set<String> threadNamesBefore = threads.stream().map(Thread::getName).collect(Collectors.toSet());
+
+        assertEquals(NodeOptions.DEFAULT_STRIPES * 4/*services*/, threadsBefore, "Started thread names: " + threadNamesBefore);
+
+        servers.forEach(srv -> {
+            for (int i = 0; i < 10; i++)
+                srv.startRaftGroup("test_raft_group_" + i, listenerFactory.get(), INITIAL_CONF);
+        });
+
+        threads = getAllDisruptorCurrentThreads();
+
+        int threadsAfter = threads.size();
+
+        Set<String> threadNamesAfter = threads.stream().map(Thread::getName).collect(Collectors.toSet());
+
+        threadNamesAfter.removeAll(threadNamesBefore);
+
+        assertEquals(threadsBefore, threadsAfter, "Difference: " + threadNamesAfter);
+    }
+
+    /**
+     * Get a set of Disruptor threads for the well known JRaft services.
+     *
+     * @return Set of Disruptor threads.
+     */
+    @NotNull private Set<Thread> getAllDisruptorCurrentThreads() {
+        return Thread.getAllStackTraces().keySet().stream().filter(t ->
+            t.getName().contains("JRaft-FSMCaller-Disruptor") ||
+                t.getName().contains("JRaft-NodeImpl-Disruptor") ||
+                t.getName().contains("JRaft-ReadOnlyService-Disruptor") ||
+                t.getName().contains("JRaft-LogManager-Disruptor"))
+            .collect(Collectors.toSet());
     }
 
     /**
@@ -301,11 +352,20 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
         client2.snapshot(server.localPeer(COUNTER_GROUP_1)).get();
 
-        String snapshotDir0 = server.getServerDataPath(COUNTER_GROUP_0) + File.separator + "snapshot";
-        assertEquals(1, new File(snapshotDir0).list().length);
+        Path snapshotDir0 = server.getServerDataPath(COUNTER_GROUP_0).resolve("snapshot");
+        assertEquals(1L, countFiles(snapshotDir0));
 
-        String snapshotDir1 = server.getServerDataPath(COUNTER_GROUP_1) + File.separator + "snapshot";
-        assertEquals(1, new File(snapshotDir1).list().length);
+        Path snapshotDir1 = server.getServerDataPath(COUNTER_GROUP_1).resolve("snapshot");
+        assertEquals(1L, countFiles(snapshotDir1));
+    }
+
+    /**
+     * Returns the number of files in the given directory (non-recursive).
+     */
+    private static long countFiles(Path dir) throws IOException {
+        try (Stream<Path> files = Files.list(dir)) {
+            return files.count();
+        }
     }
 
     @Test
@@ -408,7 +468,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         client1.refreshLeader().get();
         client2.refreshLeader().get();
 
-        NodeImpl leader = servers.stream().map(s -> ((NodeImpl) s.raftGroupService(COUNTER_GROUP_0).getRaftNode())).
+        NodeImpl leader = servers.stream().map(s -> ((NodeImpl)s.raftGroupService(COUNTER_GROUP_0).getRaftNode())).
             filter(n -> n.getState() == STATE_LEADER).findFirst().orElse(null);
 
         assertNotNull(leader);
@@ -521,12 +581,12 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
             }
         }
 
-        String serverDataPath0 = toStop.getServerDataPath(COUNTER_GROUP_0);
-        String serverDataPath1 = toStop.getServerDataPath(COUNTER_GROUP_1);
+        Path serverDataPath0 = toStop.getServerDataPath(COUNTER_GROUP_0);
+        Path serverDataPath1 = toStop.getServerDataPath(COUNTER_GROUP_1);
 
         int stopIdx = servers.indexOf(toStop);
 
-        toStop.shutdown();
+        toStop.stop();
 
         applyIncrements(client1, 11, 20);
         applyIncrements(client2, 21, 30);
@@ -537,8 +597,8 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         }
 
         if (cleanDir) {
-            IgniteUtils.deleteIfExists(Paths.get(serverDataPath0));
-            IgniteUtils.deleteIfExists(Paths.get(serverDataPath1));
+            IgniteUtils.deleteIfExists(serverDataPath0);
+            IgniteUtils.deleteIfExists(serverDataPath1);
         }
 
         var svc2 = startServer(stopIdx, r -> {
@@ -549,7 +609,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         waitForCondition(() -> validateStateMachine(sum(20), svc2, COUNTER_GROUP_0), 5_000);
         waitForCondition(() -> validateStateMachine(sum(30), svc2, COUNTER_GROUP_1), 5_000);
 
-        svc2.shutdown();
+        svc2.stop();
 
         var svc3 = startServer(stopIdx, r -> {
             r.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF);
@@ -599,8 +659,8 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         org.apache.ignite.raft.jraft.RaftGroupService svc = server.raftGroupService(groupId);
 
         JRaftServerImpl.DelegatingStateMachine fsm0 =
-            (JRaftServerImpl.DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
+            (JRaftServerImpl.DelegatingStateMachine)svc.getRaftNode().getOptions().getFsm();
 
-        return expected == ((CounterListener) fsm0.getListener()).value();
+        return expected == ((CounterListener)fsm0.getListener()).value();
     }
 }

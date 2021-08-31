@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.storage.impl;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -26,11 +27,10 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.core.NodeMetrics;
+import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
-import org.apache.ignite.raft.jraft.entity.NodeId;
-import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
 import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import org.apache.ignite.raft.jraft.option.LogManagerOptions;
@@ -40,6 +40,7 @@ import org.apache.ignite.raft.jraft.storage.BaseStorageTest;
 import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.test.TestUtils;
+import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -72,6 +73,11 @@ public class LogManagerTest extends BaseStorageTest {
 
     private LogStorage logStorage;
 
+    /** Disruptor for this service test. */
+    private StripedDisruptor disruptor;
+
+    private ExecutorService executor;
+
     @BeforeEach
     public void setup() throws Exception {
         this.confManager = new ConfigurationManager();
@@ -80,9 +86,9 @@ public class LogManagerTest extends BaseStorageTest {
         this.logManager = new LogManagerImpl();
         final LogManagerOptions opts = new LogManagerOptions();
 
-        Mockito.when(node.getNodeId()).thenReturn(new NodeId("test", new PeerId("localhost", 8082)));
         NodeOptions nodeOptions = new NodeOptions();
-        nodeOptions.setCommonExecutor(JRaftUtils.createExecutor("test-executor", Utils.cpus()));
+        executor = JRaftUtils.createExecutor("test-executor", Utils.cpus());
+        nodeOptions.setCommonExecutor(executor);
         Mockito.when(node.getOptions()).thenReturn(nodeOptions);
 
         opts.setConfigurationManager(this.confManager);
@@ -92,6 +98,11 @@ public class LogManagerTest extends BaseStorageTest {
         opts.setNodeMetrics(new NodeMetrics(false));
         opts.setLogStorage(this.logStorage);
         opts.setRaftOptions(raftOptions);
+        opts.setGroupId("TestSrv");
+        opts.setLogManagerDisruptor(disruptor = new StripedDisruptor<>("TestLogManagerDisruptor",
+            1024,
+            () -> new LogManagerImpl.StableClosureEvent(),
+            1));
         assertTrue(this.logManager.init(opts));
     }
 
@@ -102,6 +113,8 @@ public class LogManagerTest extends BaseStorageTest {
     @AfterEach
     public void teardown() throws Exception {
         this.logStorage.shutdown();
+        disruptor.shutdown();
+        ExecutorServiceHelper.shutdownAndAwaitTermination(executor);
     }
 
     @Test

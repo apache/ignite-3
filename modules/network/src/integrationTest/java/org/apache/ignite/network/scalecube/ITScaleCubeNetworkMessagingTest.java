@@ -25,13 +25,14 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.transport.api.Transport;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
-import org.apache.ignite.network.ClusterLocalConfiguration;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
@@ -46,6 +47,7 @@ import org.apache.ignite.network.TestMessagesFactory;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.annotations.MessageGroup;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
@@ -53,11 +55,15 @@ import reactor.core.publisher.Mono;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** */
+/**
+ * Integration tests for messaging based on ScaleCube.
+ */
 class ITScaleCubeNetworkMessagingTest {
     /**
      * Test cluster.
@@ -69,14 +75,16 @@ class ITScaleCubeNetworkMessagingTest {
     /** Message factory. */
     private final TestMessagesFactory messageFactory = new TestMessagesFactory();
 
-    /** */
+    /** Tear down method. */
     @AfterEach
-    public void afterEach() {
+    public void tearDown() {
         testCluster.shutdown();
     }
 
     /**
      * Tests sending and receiving messages.
+     *
+     * @throws Exception in case of errors.
      */
     @Test
     public void messageWasSentToAllMembersSuccessfully() throws Exception {
@@ -115,7 +123,7 @@ class ITScaleCubeNetworkMessagingTest {
     }
 
     /**
-     * Tests graceful shutdown.
+     * Tests a graceful shutdown.
      *
      * @throws Exception If failed.
      */
@@ -125,7 +133,8 @@ class ITScaleCubeNetworkMessagingTest {
     }
 
     /**
-     * Tests forceful shutdown.
+     * Tests a forceful shutdown.
+     *
      * @throws Exception If failed.
      */
     @Test
@@ -135,6 +144,8 @@ class ITScaleCubeNetworkMessagingTest {
 
     /**
      * Sends a message from a node to itself and verifies that it gets delivered successfully.
+     *
+     * @throws Exception in case of errors.
      */
     @Test
     public void testSendMessageToSelf() throws Exception {
@@ -181,6 +192,8 @@ class ITScaleCubeNetworkMessagingTest {
 
     /**
      * Sends a messages from a node to itself and awaits the response.
+     *
+     * @throws Exception in case of errors.
      */
     @Test
     public void testInvokeMessageToSelf() throws Exception {
@@ -211,6 +224,44 @@ class ITScaleCubeNetworkMessagingTest {
     }
 
     /**
+     * Tests that if the network component is stopped while waiting for a response to an "invoke" call,
+     * the corresponding future completes exceptionally.
+     */
+    @Test
+    public void testInvokeDuringStop() throws InterruptedException {
+        testCluster = new Cluster(2);
+        testCluster.startAwait();
+
+        ClusterService member0 = testCluster.members.get(0);
+        ClusterService member1 = testCluster.members.get(1);
+
+        // we don't register a message listener on the receiving side, so all "invoke"s should timeout
+
+        // perform two invokes to test that multiple requests can get cancelled
+        CompletableFuture<NetworkMessage> invoke0 = member0.messagingService().invoke(
+            member1.topologyService().localMember(),
+            messageFactory.testMessage().build(),
+            1000
+        );
+
+        CompletableFuture<NetworkMessage> invoke1 = member0.messagingService().invoke(
+            member1.topologyService().localMember(),
+            messageFactory.testMessage().build(),
+            1000
+        );
+
+        member0.stop();
+
+        ExecutionException e = assertThrows(ExecutionException.class, () -> invoke0.get(1, TimeUnit.SECONDS));
+
+        assertThat(e.getCause(), instanceOf(NodeStoppingException.class));
+
+        e = assertThrows(ExecutionException.class, () -> invoke1.get(1, TimeUnit.SECONDS));
+
+        assertThat(e.getCause(), instanceOf(NodeStoppingException.class));
+    }
+
+    /**
      * Serializable message that belongs to the {@link NetworkMessageTypes} message group.
      */
     private static class MockNetworkMessage implements NetworkMessage, Serializable {
@@ -232,6 +283,8 @@ class ITScaleCubeNetworkMessagingTest {
 
     /**
      * Tests that messages from different message groups can be delivered to different sets of handlers.
+     *
+     * @throws Exception in case of errors.
      */
     @Test
     public void testMessageGroupsHandlers() throws Exception {
@@ -313,7 +366,7 @@ class ITScaleCubeNetworkMessagingTest {
         if (forceful)
             stopForcefully(alice);
         else
-            alice.shutdown();
+            alice.stop();
 
         boolean aliceShutdownReceived = aliceShutdownLatch.await(forceful ? 10 : 3, TimeUnit.SECONDS);
         assertTrue(aliceShutdownReceived);
@@ -330,10 +383,15 @@ class ITScaleCubeNetworkMessagingTest {
      * @throws Exception If failed to stop.
      */
     private static void stopForcefully(ClusterService cluster) throws Exception {
-        Field clusterImplField = cluster.getClass().getDeclaredField("val$cluster");
+        Field clusterSvcImplField = cluster.getClass().getDeclaredField("val$clusterSvc");
+        clusterSvcImplField.setAccessible(true);
+
+        ClusterService innerClusterSvc = (ClusterService) clusterSvcImplField.get(cluster);
+
+        Field clusterImplField = innerClusterSvc.getClass().getDeclaredField("cluster");
         clusterImplField.setAccessible(true);
 
-        ClusterImpl clusterImpl = (ClusterImpl) clusterImplField.get(cluster);
+        ClusterImpl clusterImpl = (ClusterImpl) clusterImplField.get(innerClusterSvc);
         Field transportField = clusterImpl.getClass().getDeclaredField("transport");
         transportField.setAccessible(true);
 
@@ -349,19 +407,23 @@ class ITScaleCubeNetworkMessagingTest {
      * Wrapper for a cluster.
      */
     private static final class Cluster {
-        /** */
+        /** Network factory. */
         private final ClusterServiceFactory networkFactory = new TestScaleCubeClusterServiceFactory();
 
-        /** */
+        /** Serialization registry. */
         private final MessageSerializationRegistry serializationRegistry = new TestMessageSerializationRegistryImpl();
 
-        /** */
+        /** Members of the cluster. */
         final List<ClusterService> members;
 
-        /** */
+        /** Latch that is locked until all members are visible in the topology. */
         private final CountDownLatch startupLatch;
 
-        /** Constructor. */
+        /**
+         * Creates a test cluster with the given amount of members.
+         *
+         * @param numOfNodes Amount of cluster members.
+         */
         Cluster(int numOfNodes) {
             startupLatch = new CountDownLatch(numOfNodes - 1);
 
@@ -385,12 +447,16 @@ class ITScaleCubeNetworkMessagingTest {
          * @return Started cluster node.
          */
         private ClusterService startNode(NetworkAddress addr, NodeFinder nodeFinder, boolean initial) {
-            var context = new ClusterLocalConfiguration(addr.toString(), addr.port(), nodeFinder, serializationRegistry);
-
-            ClusterService clusterService = networkFactory.createClusterService(context);
+            ClusterService clusterSvc = ClusterServiceTestUtils.clusterService(
+                addr.toString(),
+                addr.port(),
+                nodeFinder,
+                serializationRegistry,
+                networkFactory
+            );
 
             if (initial)
-                clusterService.topologyService().addEventHandler(new TopologyEventHandler() {
+                clusterSvc.topologyService().addEventHandler(new TopologyEventHandler() {
                     /** {@inheritDoc} */
                     @Override public void onAppeared(ClusterNode member) {
                         startupLatch.countDown();
@@ -401,13 +467,14 @@ class ITScaleCubeNetworkMessagingTest {
                     }
                 });
 
-            return clusterService;
+            return clusterSvc;
         }
 
         /**
-         * Start and wait for cluster to come up.
+         * Starts and waits for the cluster to come up.
          *
          * @throws InterruptedException If failed.
+         * @throws AssertionError If the cluster was unable to start in 3 seconds.
          */
         void startAwait() throws InterruptedException {
             members.forEach(ClusterService::start);
@@ -417,10 +484,10 @@ class ITScaleCubeNetworkMessagingTest {
         }
 
         /**
-         * Shutdown cluster.
+         * Stops the cluster.
          */
         void shutdown() {
-            members.forEach(ClusterService::shutdown);
+            members.forEach(ClusterService::stop);
         }
     }
 }

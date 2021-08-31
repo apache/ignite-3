@@ -17,14 +17,19 @@
 package org.apache.ignite.internal.raft.server.impl;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.raft.server.RaftServer;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -40,14 +45,20 @@ import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
+import org.apache.ignite.raft.jraft.core.FSMCallerImpl;
+import org.apache.ignite.raft.jraft.core.NodeImpl;
+import org.apache.ignite.raft.jraft.core.ReadOnlyServiceImpl;
 import org.apache.ignite.raft.jraft.core.StateMachineAdapter;
+import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
+import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
+import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
 import org.jetbrains.annotations.Nullable;
 
@@ -61,7 +72,7 @@ public class JRaftServerImpl implements RaftServer {
     private final ClusterService service;
 
     /** Data path. */
-    private final String dataPath;
+    private final Path dataPath;
 
     /** Server instance. */
     private IgniteRpcServer rpcServer;
@@ -75,11 +86,14 @@ public class JRaftServerImpl implements RaftServer {
     /** Options. */
     private final NodeOptions opts;
 
+    /** Request executor. */
+    private ExecutorService requestExecutor;
+
     /**
      * @param service Cluster service.
      * @param dataPath Data path.
      */
-    public JRaftServerImpl(ClusterService service, String dataPath) {
+    public JRaftServerImpl(ClusterService service, Path dataPath) {
         this(service, dataPath, new NodeOptions());
     }
 
@@ -90,7 +104,7 @@ public class JRaftServerImpl implements RaftServer {
      */
     public JRaftServerImpl(
         ClusterService service,
-        String dataPath,
+        Path dataPath,
         NodeOptions opts
     ) {
         this.service = service;
@@ -98,11 +112,12 @@ public class JRaftServerImpl implements RaftServer {
         this.nodeManager = new NodeManager();
         this.opts = opts;
 
-        assert service.topologyService().localMember() != null;
-
         if (opts.getServerName() == null)
             opts.setServerName(service.localConfiguration().getName());
+    }
 
+    /** {@inheritDoc} */
+    @Override public void start() {
         if (opts.getCommonExecutor() == null)
             opts.setCommonExecutor(JRaftUtils.createCommonExecutor(opts));
 
@@ -115,15 +130,83 @@ public class JRaftServerImpl implements RaftServer {
         if (opts.getClientExecutor() == null)
             opts.setClientExecutor(JRaftUtils.createClientExecutor(opts, opts.getServerName()));
 
+        requestExecutor = JRaftUtils.createRequestExecutor(opts);
+
         rpcServer = new IgniteRpcServer(
             service,
             nodeManager,
             opts.getRaftClientMessagesFactory(),
             opts.getRaftMessagesFactory(),
-            JRaftUtils.createRequestExecutor(opts)
+            requestExecutor
         );
 
+        if (opts.getfSMCallerExecutorDisruptor() == null) {
+            opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<FSMCallerImpl.ApplyTask>(
+                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-FSMCaller-Disruptor"),
+                opts.getRaftOptions().getDisruptorBufferSize(),
+                () -> new FSMCallerImpl.ApplyTask(),
+                opts.getStripes()));
+        }
+
+        if (opts.getNodeApplyDisruptor() == null) {
+            opts.setNodeApplyDisruptor(new StripedDisruptor<NodeImpl.LogEntryAndClosure>(
+                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-NodeImpl-Disruptor"),
+                opts.getRaftOptions().getDisruptorBufferSize(),
+                () -> new NodeImpl.LogEntryAndClosure(),
+                opts.getStripes()));
+        }
+
+        if (opts.getReadOnlyServiceDisruptor() == null) {
+            opts.setReadOnlyServiceDisruptor(new StripedDisruptor<ReadOnlyServiceImpl.ReadIndexEvent>(
+                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-ReadOnlyService-Disruptor"),
+                opts.getRaftOptions().getDisruptorBufferSize(),
+                () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
+                opts.getStripes()));
+        }
+
+        if (opts.getLogManagerDisruptor() == null) {
+            opts.setLogManagerDisruptor(new StripedDisruptor<LogManagerImpl.StableClosureEvent>(
+                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-LogManager-Disruptor"),
+                opts.getRaftOptions().getDisruptorBufferSize(),
+                () -> new LogManagerImpl.StableClosureEvent(),
+                opts.getStripes()));
+        }
+
         rpcServer.init(null);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void stop() {
+        for (RaftGroupService groupService : groups.values())
+            groupService.shutdown();
+
+        rpcServer.shutdown();
+
+        if (opts.getfSMCallerExecutorDisruptor() != null)
+            opts.getfSMCallerExecutorDisruptor().shutdown();
+
+        if (opts.getNodeApplyDisruptor() != null)
+            opts.getNodeApplyDisruptor().shutdown();
+
+        if (opts.getReadOnlyServiceDisruptor() != null)
+            opts.getReadOnlyServiceDisruptor().shutdown();
+
+        if (opts.getLogManagerDisruptor() != null)
+            opts.getLogManagerDisruptor().shutdown();
+
+        if (opts.getCommonExecutor() != null)
+            ExecutorServiceHelper.shutdownAndAwaitTermination(opts.getCommonExecutor());
+
+        if (opts.getStripedExecutor() != null)
+            opts.getStripedExecutor().shutdownGracefully();
+
+        if (opts.getScheduler() != null)
+            opts.getScheduler().shutdown();
+
+        if (opts.getClientExecutor() != null)
+            ExecutorServiceHelper.shutdownAndAwaitTermination(opts.getClientExecutor());
+
+        ExecutorServiceHelper.shutdownAndAwaitTermination(requestExecutor);
     }
 
     /** {@inheritDoc} */
@@ -135,10 +218,12 @@ public class JRaftServerImpl implements RaftServer {
      * @param groupId Group id.
      * @return The path to persistence folder.
      */
-    public String getServerDataPath(String groupId) {
+    public Path getServerDataPath(String groupId) {
         ClusterNode clusterNode = service.topologyService().localMember();
 
-        return this.dataPath + File.separator + groupId + "_" + clusterNode.address().toString().replace(':', '_');
+        String dirName = groupId + "_" + clusterNode.address().toString().replace(':', '_');
+
+        return this.dataPath.resolve(dirName);
     }
 
     /** {@inheritDoc} */
@@ -148,14 +233,20 @@ public class JRaftServerImpl implements RaftServer {
             return false;
 
         // Thread pools are shared by all raft groups.
-        final NodeOptions nodeOptions = opts.copy();
+        NodeOptions nodeOptions = opts.copy();
 
-        final String serverDataPath = getServerDataPath(groupId);
-        new File(serverDataPath).mkdirs();
+        Path serverDataPath = getServerDataPath(groupId);
 
-        nodeOptions.setLogUri(serverDataPath + File.separator + "logs");
-        nodeOptions.setRaftMetaUri(serverDataPath + File.separator + "meta");
-        nodeOptions.setSnapshotUri(serverDataPath + File.separator + "snapshot");
+        try {
+            Files.createDirectories(serverDataPath);
+        }
+        catch (IOException e) {
+            throw new IgniteInternalException(e);
+        }
+
+        nodeOptions.setLogUri(serverDataPath.resolve("logs").toString());
+        nodeOptions.setRaftMetaUri(serverDataPath.resolve("meta").toString());
+        nodeOptions.setSnapshotUri(serverDataPath.resolve("snapshot").toString());
 
         nodeOptions.setFsm(new DelegatingStateMachine(lsnr));
 
@@ -212,14 +303,6 @@ public class JRaftServerImpl implements RaftServer {
      */
     public RaftGroupService raftGroupService(String groupId) {
         return groups.get(groupId);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void shutdown() throws Exception {
-        for (RaftGroupService groupService : groups.values())
-            groupService.shutdown();
-
-        rpcServer.shutdown();
     }
 
     /**

@@ -19,12 +19,16 @@ package org.apache.ignite.internal.schema.configuration;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.HashIndex;
 import org.apache.ignite.schema.PartialIndex;
@@ -39,9 +43,11 @@ import org.apache.ignite.schema.builder.PartialIndexBuilder;
 import org.apache.ignite.schema.builder.PrimaryIndexBuilder;
 import org.apache.ignite.schema.builder.SchemaTableBuilder;
 import org.apache.ignite.schema.builder.SortedIndexBuilder;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -65,11 +71,14 @@ public class SchemaConfigurationConverterTest {
     @BeforeEach
     public void createRegistry() throws ExecutionException, InterruptedException {
         confRegistry = new ConfigurationRegistry(
-            Collections.singleton(TablesConfiguration.KEY),
-            Collections.singletonMap(TableValidator.class, Collections.singleton(SchemaTableValidatorImpl.INSTANCE)),
-            Collections.singleton(new TestConfigurationStorage()));
+            List.of(TablesConfiguration.KEY),
+            Map.of(TableValidator.class, Set.of(SchemaTableValidatorImpl.INSTANCE)),
+            new TestConfigurationStorage(DISTRIBUTED)
+        );
 
-        tblBuilder = SchemaBuilders.tableBuilder("SNAME","TNAME")
+        confRegistry.start();
+
+        tblBuilder = SchemaBuilders.tableBuilder("SNAME", "TNAME")
             .columns(
                 SchemaBuilders.column("COL1", ColumnType.DOUBLE).build(),
                 SchemaBuilders.column("COL2", ColumnType.DOUBLE).build(),
@@ -88,6 +97,11 @@ public class SchemaConfigurationConverterTest {
             }).get();
     }
 
+    @AfterEach
+    void tearDown() {
+        confRegistry.stop();
+    }
+
     /**
      * Add/remove HashIndex into configuration and read it back.
      */
@@ -95,7 +109,7 @@ public class SchemaConfigurationConverterTest {
     public void testConvertHashIndex() throws ExecutionException, InterruptedException {
         HashIndexBuilder builder = SchemaBuilders.hashIndex("testHI")
             .withColumns("A", "B", "C")
-            .withHints(Collections.singletonMap("param","value"));
+            .withHints(Collections.singletonMap("param", "value"));
         HashIndex idx = builder.build();
 
         getTbl().change(ch -> SchemaConfigurationConverter.addIndex(idx, ch)).get();

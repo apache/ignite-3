@@ -40,8 +40,23 @@ public interface Ignition {
     /**
      * Starts an Ignite node with an optional bootstrap configuration from an input stream with HOCON configs.
      *
-     * @param name Name of the node. Must not be {@code null}.
-     * @param config Input stream from the node configuration in HOCON format. Can be {@code null}.
+     * @param name    Name of the node. Must not be {@code null}.
+     * @param config  Optional node configuration based on
+     *                {@link org.apache.ignite.configuration.schemas.runner.NodeConfigurationSchema} and
+     *                {@link org.apache.ignite.configuration.schemas.network.NetworkConfigurationSchema}.
+     *                Following rules are used for applying the configuration properties:
+     *                <ol>
+     *                  <li>Specified property overrides existing one or just applies itself if it wasn't
+     *                      previously specified.</li>
+     *                  <li>All non-specified properties either use previous value or use default one from
+     *                      corresponding configuration schema.</li>
+     *                </ol>
+     *                So that, in case of initial node start (first start ever) specified configuration, supplemented
+     *                with defaults, is used. If no configuration was provided defaults are used for all
+     *                configuration properties. In case of node restart, specified properties override existing
+     *                ones, non specified properties that also weren't specified previously use default values.
+     *                Please pay attention that previously specified properties are searched in the
+     *                {@code workDir} specified by the user.
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @return Started Ignite node.
      */
@@ -55,4 +70,14 @@ public interface Ignition {
      * @return Started Ignite node.
      */
     public Ignite start(@NotNull String name, @NotNull Path workDir);
+
+    /**
+     * Stops the node with given {@code name}.
+     * It's possible to stop both already started node or node that is currently starting.
+     * Has no effect if node with specified name doesn't exist.
+     *
+     * @param name Node name to stop.
+     * @throws IllegalArgumentException if null is specified instead of node name.
+     */
+    public void stop(@NotNull String name);
 }

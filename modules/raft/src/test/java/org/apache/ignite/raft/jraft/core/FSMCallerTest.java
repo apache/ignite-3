@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.core;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -25,13 +26,12 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.ClosureQueueImpl;
 import org.apache.ignite.raft.jraft.closure.LoadSnapshotClosure;
 import org.apache.ignite.raft.jraft.closure.SaveSnapshotClosure;
+import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.EntryType;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.ErrorType;
 import org.apache.ignite.raft.jraft.entity.LeaderChangeContext;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
-import org.apache.ignite.raft.jraft.entity.NodeId;
-import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RaftException;
@@ -41,6 +41,7 @@ import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.test.TestUtils;
+import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -67,15 +68,20 @@ public class FSMCallerTest {
     private LogManager logManager;
     private ClosureQueueImpl closureQueue;
 
+    /** Disruptor for this service test. */
+    private StripedDisruptor disruptor;
+
+    private ExecutorService executor;
+
     @BeforeEach
     public void setup() {
         this.fsmCaller = new FSMCallerImpl();
         NodeOptions options = new NodeOptions();
-        options.setCommonExecutor(JRaftUtils.createExecutor("test-executor-", Utils.cpus()));
+        executor = JRaftUtils.createExecutor("test-executor-", Utils.cpus());
+        options.setCommonExecutor(executor);
         this.closureQueue = new ClosureQueueImpl(options);
         opts = new FSMCallerOptions();
         Mockito.when(this.node.getNodeMetrics()).thenReturn(new NodeMetrics(false));
-        Mockito.when(this.node.getNodeId()).thenReturn(new NodeId("test", new PeerId("localhost", 8082)));
         Mockito.when(this.node.getOptions()).thenReturn(options);
         opts.setNode(this.node);
         opts.setFsm(this.fsm);
@@ -83,6 +89,11 @@ public class FSMCallerTest {
         opts.setBootstrapId(new LogId(10, 1));
         opts.setClosureQueue(this.closureQueue);
         opts.setRaftMessagesFactory(new RaftMessagesFactory());
+        opts.setGroupId("TestSrv");
+        opts.setfSMCallerExecutorDisruptor(disruptor = new StripedDisruptor<>("TestFSMDisruptor",
+            1024,
+            () -> new FSMCallerImpl.ApplyTask(),
+            1));
         assertTrue(this.fsmCaller.init(opts));
     }
 
@@ -91,7 +102,9 @@ public class FSMCallerTest {
         if (this.fsmCaller != null) {
             this.fsmCaller.shutdown();
             this.fsmCaller.join();
+            disruptor.shutdown();
         }
+        ExecutorServiceHelper.shutdownAndAwaitTermination(executor);
     }
 
     @Test

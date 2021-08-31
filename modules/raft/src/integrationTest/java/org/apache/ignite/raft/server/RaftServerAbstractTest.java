@@ -17,9 +17,9 @@
 
 package org.apache.ignite.raft.server;
 
+import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
@@ -28,6 +28,9 @@ import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
+import org.apache.ignite.utils.ClusterServiceTestUtils;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.TestInfo;
 
 /**
  * Abstract test for raft server.
@@ -50,6 +53,13 @@ abstract class RaftServerAbstractTest {
     /** */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
 
+    private final List<ClusterService> clusterServices = new ArrayList<>();
+
+    @AfterEach
+    protected void after(TestInfo testInfo) throws Exception {
+        clusterServices.forEach(ClusterService::stop);
+    }
+
     /**
      * @param name Node name.
      * @param port Local port.
@@ -57,12 +67,18 @@ abstract class RaftServerAbstractTest {
      * @return The client cluster view.
      */
     protected ClusterService clusterService(String name, int port, List<NetworkAddress> servers, boolean start) {
-        var context = new ClusterLocalConfiguration(name, port, new StaticNodeFinder(servers), SERIALIZATION_REGISTRY);
-
-        var network = NETWORK_FACTORY.createClusterService(context);
+        var network = ClusterServiceTestUtils.clusterService(
+            name,
+            port,
+            new StaticNodeFinder(servers),
+            SERIALIZATION_REGISTRY,
+            NETWORK_FACTORY
+        );
 
         if (start)
             network.start();
+
+        clusterServices.add(network);
 
         return network;
     }

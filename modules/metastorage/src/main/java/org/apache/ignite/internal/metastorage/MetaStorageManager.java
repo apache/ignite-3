@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metastorage;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -29,6 +30,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.client.CompactedException;
 import org.apache.ignite.internal.metastorage.client.Condition;
 import org.apache.ignite.internal.metastorage.client.Entry;
@@ -69,18 +71,15 @@ import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
  */
 // TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
 @SuppressWarnings("unused")
-public class MetaStorageManager {
+public class MetaStorageManager implements IgniteComponent {
     /** Meta storage raft group name. */
     private static final String METASTORAGE_RAFT_GROUP_NAME = "metastorage_raft_group";
-
-    /** Prefix added to configuration keys to distinguish them in the meta storage. Must end with a dot. */
-    public static final String DISTRIBUTED_PREFIX = "dst-cfg.";
 
     /**
      * Special key for the vault where the applied revision for {@link MetaStorageManager#storeEntries}
      * operation is stored. This mechanism is needed for committing processed watches to {@link VaultManager}.
      */
-    public static final ByteArray APPLIED_REV = ByteArray.fromString(DISTRIBUTED_PREFIX + "applied_revision");
+    public static final ByteArray APPLIED_REV = ByteArray.fromString("applied_revision");
 
     /** Vault manager in order to commit processed watches with corresponding applied revision. */
     private final VaultManager vaultMgr;
@@ -95,7 +94,7 @@ public class MetaStorageManager {
     private final Loza raftMgr;
 
     /** Meta storage service. */
-    private final CompletableFuture<MetaStorageService> metaStorageSvcFut;
+    private volatile CompletableFuture<MetaStorageService> metaStorageSvcFut;
 
     /**
      * Aggregator of multiple watches to deploy them as one batch.
@@ -123,11 +122,6 @@ public class MetaStorageManager {
     private boolean metaStorageNodesOnStart;
 
     /**
-     * Lock for the read-then-update logic in the {@link #storeEntries} method.
-     */
-    private final Object revisionLock = new Object();
-
-    /**
      * The constructor.
      *
      * @param vaultMgr Vault manager.
@@ -147,8 +141,11 @@ public class MetaStorageManager {
         this.raftMgr = raftMgr;
         watchAggregator = new WatchAggregator();
         deployFut = new CompletableFuture<>();
+    }
 
-        String[] metastorageNodes = locCfgMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
+    /** {@inheritDoc} */
+    @Override public void start() {
+        String[] metastorageNodes = this.locCfgMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
             .metastorageNodes().value();
 
         Predicate<ClusterNode> metaStorageNodesContainsLocPred =
@@ -157,16 +154,16 @@ public class MetaStorageManager {
         if (metastorageNodes.length > 0) {
             metaStorageNodesOnStart = true;
 
-            this.metaStorageSvcFut = CompletableFuture.completedFuture(new MetaStorageServiceImpl(
-                    raftMgr.prepareRaftGroup(
-                        METASTORAGE_RAFT_GROUP_NAME,
-                        clusterNetSvc.topologyService().allMembers().stream().filter(
-                            metaStorageNodesContainsLocPred).
-                            collect(Collectors.toList()),
-                        new MetaStorageListener(new SimpleInMemoryKeyValueStorage())
-                    ),
-                    clusterNetSvc.topologyService().localMember().id()
-                )
+            List<ClusterNode> metaStorageMembers = clusterNetSvc.topologyService().allMembers().stream()
+                .filter(metaStorageNodesContainsLocPred)
+                .collect(Collectors.toList());
+
+            this.metaStorageSvcFut = raftMgr.prepareRaftGroup(
+                METASTORAGE_RAFT_GROUP_NAME,
+                metaStorageMembers,
+                new MetaStorageListener(new SimpleInMemoryKeyValueStorage())
+            ).thenApply(service ->
+                new MetaStorageServiceImpl(service, clusterNetSvc.topologyService().localMember().id())
             );
 
             if (hasMetastorageLocally(locCfgMgr)) {
@@ -194,6 +191,11 @@ public class MetaStorageManager {
 
         // TODO: IGNITE-14414 Cluster initialization flow. Here we should complete metaStorageServiceFuture.
 //        clusterNetSvc.messagingService().addMessageHandler((message, senderAddr, correlationId) -> {});
+    }
+
+    /** {@inheritDoc} */
+    @Override public void stop() {
+        // TODO: IGNITE-15161 Implement component's stop.
     }
 
     /**
@@ -556,20 +558,18 @@ public class MetaStorageManager {
 
         entries.forEach(e -> batch.put(e.getKey(), e.getValue()));
 
-        synchronized (revisionLock) {
-            byte[] appliedRevisionBytes = vaultMgr.get(APPLIED_REV).join().value();
+        byte[] appliedRevisionBytes = vaultMgr.get(APPLIED_REV).join().value();
 
-            long appliedRevision = appliedRevisionBytes == null ? 0L : bytesToLong(appliedRevisionBytes);
+        long appliedRevision = appliedRevisionBytes == null ? 0L : bytesToLong(appliedRevisionBytes);
 
-            if (revision <= appliedRevision) {
-                throw new IgniteInternalException(String.format(
-                    "Current revision (%d) must be greater than the revision in the Vault (%d)",
-                    revision, appliedRevision
-                ));
-            }
-
-            vaultMgr.putAll(batch).join();
+        if (revision <= appliedRevision) {
+            throw new IgniteInternalException(String.format(
+                "Current revision (%d) must be greater than the revision in the Vault (%d)",
+                revision, appliedRevision
+            ));
         }
+
+        vaultMgr.putAll(batch).join();
     }
 
     /**

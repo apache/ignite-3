@@ -18,20 +18,22 @@
 package org.apache.ignite.internal.configuration.util;
 
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
+import java.util.function.BiFunction;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
+import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.configuration.ConfigurationNode;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.DynamicProperty;
 import org.apache.ignite.internal.configuration.NamedListConfiguration;
-import org.apache.ignite.internal.configuration.notifications.ConfigurationNotificationEventImpl;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
@@ -57,10 +59,21 @@ public class ConfigurationNotificationsUtil {
         long storageRevision,
         List<CompletableFuture<?>> futures
     ) {
+        assert !(cfgNode instanceof NamedListConfiguration);
+
         if (oldInnerNode == null || oldInnerNode == newInnerNode)
             return;
 
-        notifyPublicListeners(cfgNode.listeners(), oldInnerNode, newInnerNode, storageRevision, futures);
+        notifyPublicListeners(
+            cfgNode.listeners(),
+            oldInnerNode,
+            newInnerNode,
+            storageRevision,
+            futures,
+            ConfigurationListener::onUpdate
+        );
+
+        Map<String, ConfigurationProperty<?, ?>> cfgNodeMembers = cfgNode.members();
 
         oldInnerNode.traverseChildren(new ConfigurationVisitor<Void>() {
             /** {@inheritDoc} */
@@ -68,9 +81,16 @@ public class ConfigurationNotificationsUtil {
                 Serializable newLeaf = newInnerNode.traverseChild(key, leafNodeVisitor());
 
                 if (newLeaf != oldLeaf) {
-                    var dynProperty = (DynamicProperty<Serializable>)cfgNode.members().get(key);
+                    var dynProperty = (DynamicProperty<Serializable>)cfgNodeMembers.get(key);
 
-                    notifyPublicListeners(dynProperty.listeners(), oldLeaf, newLeaf, storageRevision, futures);
+                    notifyPublicListeners(
+                        dynProperty.listeners(),
+                        oldLeaf,
+                        newLeaf,
+                        storageRevision,
+                        futures,
+                        ConfigurationListener::onUpdate
+                    );
                 }
 
                 return null;
@@ -80,7 +100,7 @@ public class ConfigurationNotificationsUtil {
             @Override public Void visitInnerNode(String key, InnerNode oldNode) {
                 InnerNode newNode = newInnerNode.traverseChild(key, innerNodeVisitor());
 
-                var dynCfg = (DynamicConfiguration<InnerNode, ?>)cfgNode.members().get(key);
+                var dynCfg = (DynamicConfiguration<InnerNode, ?>)cfgNodeMembers.get(key);
 
                 notifyListeners(oldNode, newNode, dynCfg, storageRevision, futures);
 
@@ -92,48 +112,111 @@ public class ConfigurationNotificationsUtil {
                 var newNamedList = (NamedListNode<InnerNode>)newInnerNode.traverseChild(key, namedListNodeVisitor());
 
                 if (newNamedList != oldNamedList) {
-                    var namedListCfg = (NamedListConfiguration<?, InnerNode, ?>)cfgNode.members().get(key);
+                    var namedListCfg = (NamedListConfiguration<?, InnerNode, ?>)cfgNodeMembers.get(key);
 
-                    notifyPublicListeners(namedListCfg.listeners(), (NamedListView<InnerNode>)oldNamedList, newNamedList, storageRevision, futures);
+                    notifyPublicListeners(
+                        namedListCfg.listeners(),
+                        (NamedListView<InnerNode>)oldNamedList,
+                        newNamedList,
+                        storageRevision,
+                        futures,
+                        ConfigurationListener::onUpdate
+                    );
 
                     // This is optimization, we could use "NamedListConfiguration#get" directly, but we don't want to.
-
                     List<String> oldNames = oldNamedList.namedListKeys();
                     List<String> newNames = newNamedList.namedListKeys();
 
-                    Map<String, ConfigurationProperty<?, ?>> namedListCfgMembers = namedListCfg.members();
+                    Map<String, ConfigurationProperty<?, ?>> namedListCfgMembers = namedListCfg.touchMembers();
 
                     Set<String> created = new HashSet<>(newNames);
                     created.removeAll(oldNames);
 
-                    if (!created.isEmpty()) {
-                        List<ConfigurationListener<InnerNode>> list = namedListCfg.extendedListeners()
-                            .stream()
-                            .map(l -> (ConfigurationListener<InnerNode>)l::onCreate)
-                            .collect(Collectors.toList());
-
-                        for (String name : created)
-                            notifyPublicListeners(list, null, newNamedList.get(name), storageRevision, futures);
-                    }
-
                     Set<String> deleted = new HashSet<>(oldNames);
                     deleted.removeAll(newNames);
 
-                    if (!deleted.isEmpty()) {
-                        List<ConfigurationListener<InnerNode>> list = namedListCfg.extendedListeners()
-                            .stream()
-                            .map(l -> (ConfigurationListener<InnerNode>)l::onDelete)
-                            .collect(Collectors.toList());
+                    Map<String, String> renamed = new HashMap<>();
+                    if (!created.isEmpty() && !deleted.isEmpty()) {
+                        Map<String, String> createdIds = new HashMap<>();
 
-                        for (String name : deleted)
-                            notifyPublicListeners(list, oldNamedList.get(name), null, storageRevision, futures);
+                        for (String createdKey : created)
+                            createdIds.put(newNamedList.internalId(createdKey), createdKey);
+
+                        // Avoiding ConcurrentModificationException.
+                        for (String deletedKey : Set.copyOf(deleted)) {
+                            String internalId = oldNamedList.internalId(deletedKey);
+
+                            String maybeRenamedKey = createdIds.get(internalId);
+
+                            if (maybeRenamedKey == null)
+                                continue;
+
+                            deleted.remove(deletedKey);
+                            created.remove(maybeRenamedKey);
+                            renamed.put(deletedKey, maybeRenamedKey);
+                        }
+                    }
+
+                    List<ConfigurationNamedListListener<InnerNode>> extListeners = namedListCfg.extendedListeners();
+
+                    for (String name : created) {
+                        notifyPublicListeners(
+                            extListeners,
+                            null,
+                            newNamedList.get(name),
+                            storageRevision,
+                            futures,
+                            ConfigurationNamedListListener::onCreate
+                        );
+
+                        touch((DynamicConfiguration<?, ?>)namedListCfg.members().get(name));
+                    }
+
+                    for (String name : deleted) {
+                        notifyPublicListeners(
+                            extListeners,
+                            oldNamedList.get(name),
+                            null,
+                            storageRevision,
+                            futures,
+                            ConfigurationNamedListListener::onDelete
+                        );
+
+                        var deletedProp = (ConfigurationNode<N, ?>)namedListCfgMembers.get(name);
+
+                        notifyPublicListeners(
+                            deletedProp.listeners(),
+                            oldNamedList.get(name),
+                            null,
+                            storageRevision,
+                            futures,
+                            ConfigurationListener::onUpdate
+                        );
+                    }
+
+                    for (Map.Entry<String, String> entry : renamed.entrySet()) {
+                        notifyPublicListeners(
+                            extListeners,
+                            oldNamedList.get(entry.getKey()),
+                            newNamedList.get(entry.getValue()),
+                            storageRevision,
+                            futures,
+                            (listener, evt) -> listener.onRename(entry.getKey(), entry.getValue(), evt)
+                        );
                     }
 
                     for (String name : newNames) {
                         if (!oldNames.contains(name))
                             continue;
 
-                        notifyPublicListeners(namedListCfg.extendedListeners(), oldNamedList.get(name), newNamedList.get(name), storageRevision, futures);
+                        notifyPublicListeners(
+                            extListeners,
+                            oldNamedList.get(name),
+                            newNamedList.get(name),
+                            storageRevision,
+                            futures,
+                            ConfigurationListener::onUpdate
+                        );
 
                         var dynCfg = (DynamicConfiguration<InnerNode, ?>)namedListCfgMembers.get(name);
 
@@ -149,19 +232,23 @@ public class ConfigurationNotificationsUtil {
     /**
      * Invoke {@link ConfigurationListener#onUpdate(ConfigurationNotificationEvent)} on all passed listeners and put
      * results in {@code futures}. Not recursively.
+     *
      * @param listeners List o flisteners.
      * @param oldVal Old configuration value.
      * @param newVal New configuration value.
      * @param storageRevision Storage revision.
      * @param futures Write-only list of futures.
+     * @param updater Update closure to be invoked on the listener instance.
      * @param <V> Type of the node.
+     * @param <L> Type of the configuration listener.
      */
-    private static <V> void notifyPublicListeners(
-        List<? extends ConfigurationListener<V>> listeners,
+    private static <V, L extends ConfigurationListener<V>> void notifyPublicListeners(
+        List<? extends L> listeners,
         V oldVal,
         V newVal,
         long storageRevision,
-        List<CompletableFuture<?>> futures
+        List<CompletableFuture<?>> futures,
+        BiFunction<L, ConfigurationNotificationEvent<V>, CompletableFuture<?>> updater
     ) {
         ConfigurationNotificationEvent<V> evt = new ConfigurationNotificationEventImpl<>(
             oldVal,
@@ -169,16 +256,32 @@ public class ConfigurationNotificationsUtil {
             storageRevision
         );
 
-        for (ConfigurationListener<V> listener : listeners) {
+        for (L listener : listeners) {
             try {
-                CompletableFuture<?> future = listener.onUpdate(evt);
+                CompletableFuture<?> future = updater.apply(listener, evt);
 
-                if (future != null && (future.isCompletedExceptionally() || future.isCancelled() || !future.isDone()))
+                assert future != null : updater;
+
+                if (future.isCompletedExceptionally() || future.isCancelled() || !future.isDone())
                     futures.add(future);
             }
             catch (Throwable t) {
                 futures.add(CompletableFuture.failedFuture(t));
             }
+        }
+    }
+
+    /**
+     * Ensures that dynamic configuration tree is up to date and further notifications on it will be invoked correctly.
+     *
+     * @param cfg Dynamic configuration node instance.
+     */
+    public static void touch(DynamicConfiguration<?, ?> cfg) {
+        cfg.touchMembers();
+
+        for (ConfigurationProperty<?, ?> value : cfg.members().values()) {
+            if (value instanceof DynamicConfiguration)
+                touch((DynamicConfiguration<?, ?>)value);
         }
     }
 }
