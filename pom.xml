@@ -73,8 +73,8 @@
         <!--
             This profile is used to check the code for coding guidelines.
 
-            It runs by default and can be skipped with -Dmaven.chechstyle.skip
-            flag.
+            It runs by default and can be skipped with either
+            -Dmaven.chechstyle.skip or -Dcheckstyle.skip flag.
 
             It executes 2 times - first for generating report and second
             for failing build if errors found.
@@ -83,7 +83,7 @@
             <id>checkstyle</id>
             <activation>
                 <property>
-                    <name>!maven.checkstyle.skip</name>
+                    <name>!maven.all-checks.skip</name>
                 </property>
             </activation>
             <build>

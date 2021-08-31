@@ -34,12 +34,12 @@ It is enabled by default and is bound to `compile` phase.
 
 Build project without code style check:
 ```
-mvn clean <compile|package|install|deploy> -Dmaven.checkstyle.skip
+mvn clean <compile|package|install|deploy> -Dcheckstyle.skip
 ```
 
 Run code style checks only:
 ```
-mvn clean validate -Pcheckstyle
+mvn clean validate -Pcheckstyle -Dmaven.all-checks.skip
 ```
 
 Run javadoc style checks for public api only:
