@@ -17,7 +17,6 @@
 
 package org.apache.ignite.query.sql;
 
-import java.sql.PreparedStatement;
 import org.apache.ignite.query.sql.async.AsyncSqlSession;
 import org.apache.ignite.query.sql.reactive.ReactiveSqlSession;
 import org.apache.ignite.tx.Transaction;
@@ -28,46 +27,40 @@ import org.jetbrains.annotations.Nullable;
  * SQL Session provides methods for query execution.
  */
 public interface SqlSession extends AsyncSqlSession, ReactiveSqlSession {
+    /** */
+    SqlSession withTransaction(@Nullable Transaction tx);
+
+    /** */
+    SqlSession setTimeout(@NotNull int timeout);
+
+    /** */
+    SqlSession setQuota(@NotNull Object quota);
+
+    /** */
+    SqlSession setSchema(@NotNull String schema);
+
     /**
      * Executes SQL query.
      *
      * @param sql SQL query template.
-     * @param tx Transaction (optional).
      * @param args Arguments for template (optional).
-     * @return SQL query resultset.
+     * @return SQL query results set.
      * @throws SQLException If failed.
      */
-    SqlResultSet executeQuery(@NotNull String sql, @Nullable Transaction tx, Object... args);
+    SqlResultSet execute(@NotNull String sql, Object... args);
+
+    /** */
+    SqlResultSet execute(@NotNull SqlPrepared prep);
 
     /**
-     * Executes DML query.
-     *
-     * @param sql SQL statement template.
-     * @param tx Transaction (optional).
-     * @param args Agruments for template (optional).
-     * @return Number of updated rows.
-     */
-    int executeUpdate(@NotNull String sql, @Nullable Transaction tx, Object... args);
-    //TODO: useful for bulk DML query, when we don't care of results.
-    //TODO: in contrary, execute() method may return inserted rows IDs that looks useful if AutoIncrement ID column is used.
-
-    /**
-     * Executes DDL query.
-     *
-     * @param sql SQL statement template.
-     * @param tx Transaction (optional).
-     * @param args Agruments for template (optional).
-     */
-    void execute(@NotNull String sql, @Nullable Transaction tx, Object... args);
-
-    /**
-     * Creates prepared statement.
+     * Executes SQL query.
      *
      * @param sql SQL query template.
-     * @return Prepared statement.
-     * @throws SQLException If parsing failed.
+     * @param args Arguments for template (optional).
+     * @return SQL query results set.
+     * @throws SQLException If failed.
      */
-    PreparedStatement preparedStatement(@NotNull String sql);
+    SqlMultiResultSet executeMulti(@NotNull String sql, Object... args);
 
     /**
      * Sets query session parameter.

@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow;
 import java.util.function.Consumer;
 import org.apache.ignite.query.sql.IgniteSql;
@@ -68,6 +68,9 @@ public class SqlTest {
 //            sess.setParameter("forceJoinOrder", true);
 //            sess.setParameter("useIndexHint", "idx1"); TODO: Where to move query hints?
 
+
+            SqlResultSet rs = sess.executeQuery("INSERT INTO table VALUES (?, ?)", tx, 10, "str%");
+
             SqlResultSet rs = sess.executeQuery("SELECT id, val FROM table WHERE id < {} AND val LIKE {};", tx, 10, "str%");
 
             for (SqlRow r : rs) {
@@ -82,11 +85,52 @@ public class SqlTest {
     }
 
     @Test
-    public void testAsyncSql() {
+    public void testAsyncSql() throws ExecutionException, InterruptedException {
+        SqlSession sess = queryMgr.session();
+
+        Iterable<CompletableFuture<SqlResultSet>> f = sess.executeAsync(
+                "CREATE TABLE tbl(id INTEGER PRIMARY KEY, val VARCHAR);" +
+                    "INSERT INTO  tbl VALUES (1, 2);" +
+                    "INSERT INTO  tbl VALUES (1, 2);" +
+                    "INSERT INTO  tbl VALUES (1, 2);" +
+                    "INSERT INTO  tbl VALUES (1, 2);" +
+                    "INSERT INTO  tbl VALUES (1, 2);" +
+                    "INSERT INTO  tbl VALUES (1, 2);" +
+                    "INSERT INTO  tbl VALUES (1, 2);" +
+                    "CREATE INDEX IDX_0 ON tbl (val);" +
+
+                    "CREATE TABLE tbl2(id INTEGER PRIMARY KEY, val VARCHAR);" +
+//                    "SELECT id, val FROM tbl WHERE id == {};" +
+//                    "DROP TABLE tbl", tx, 10)
+
+
+                    "CREATE TABLE tbl(id INTEGER PRIMARY KEY, val VARCHAR);" +
+                    "INSERT INTO  tbl VALUES (1, 2)" +
+                    "SELECT id, val FROM tbl WHERE id == {};" +
+                    "DROP TABLE tbl", tx, 10)
+
+            .thenCompose(rs -> {
+                String str = rs.iterator().next().stringValue("val");
+
+                return sess.executeQueryAsync("SELECT val FROM table where val LIKE {};", tx, str);
+            })
+            .thenApply(ignore -> tx);
+
+        sess.setTimeout(1);
+
+        Iterable<SqlResultSet> itRes = f.get();
+        // CREATE TABLE - not planned
+        // SELECT - not planned
+        // DROP - not planned
+
         igniteTx.beginAsync().thenCompose(tx -> {
             SqlSession sess = queryMgr.session();
 
-            return sess.executeQueryAsync("SELECT id, val FROM table WHERE id == {};", tx, 10)
+            return sess.executeQueryAsync(
+                "CREATE TABLE tbl(id INTEGER PRI<ARY KEY, val VARCHAR);" +
+                    "SELECT id, val FROM tbl WHERE id == {};" +
+                    "DROP TABLE tbl", tx, 10)
+
                 .thenCompose(rs -> {
                     String str = rs.iterator().next().stringValue("val");
 

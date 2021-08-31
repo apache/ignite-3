@@ -19,6 +19,7 @@ package org.apache.ignite.query.sql.async;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.query.sql.SQLException;
+import org.apache.ignite.query.sql.SqlPrepared;
 import org.apache.ignite.query.sql.SqlResultSet;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -31,32 +32,17 @@ public interface AsyncSqlSession {
      * Executes SQL query in async way.
      *
      * @param sql SQL query template.
-     * @param tx Transaction (optional).
      * @param args Arguments for template (optional).
      * @return Operation future.
      * @throws SQLException If failed.
      */
-    CompletableFuture<SqlResultSet> executeQueryAsync(String sql, @Nullable Transaction tx, Object... args);
-
-    /**
-     * Executes DML SQL query in async way.
-     *
-     * @param sql SQL query template.
-     * @param tx Transaction (optional).
-     * @param args Arguments for template (optional).
-     * @return Operation future.
-     * @throws SQLException If failed.
-     */
-    CompletableFuture<Integer> executeUpdateAsync(String sql, @Nullable Transaction tx, Object... args);
+    CompletableFuture<SqlResultSet> executeAsync(String sql, Object... args);
 
     /**
      * Executes DDL SQL query in async way.
      *
-     * @param sql SQL query template.
-     * @param tx Transaction (optional).
-     * @param args Arguments for template (optional).
      * @return Operation future.
      * @throws SQLException If failed.
      */
-    CompletableFuture<Boolean> executeAsync(String sql, @Nullable Transaction tx, Object... args);
+    CompletableFuture<SqlResultSet> executeAsync(SqlPrepared prep);
 }

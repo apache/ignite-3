@@ -18,6 +18,7 @@
 package org.apache.ignite.query.sql;
 
 import java.util.UUID;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Ignite SQL query facade.
@@ -30,6 +31,15 @@ public interface IgniteSql {
      * @return Session.
      */
     SqlSession session();
+
+    /**
+     * Creates prepared statement.
+     *
+     * @param sql SQL query template.
+     * @return Prepared statement.
+     * @throws SQLException If parsing failed.
+     */
+    SqlPrepared prepare(@NotNull String sql);
 
     /**
      * Kills query by its' id.
