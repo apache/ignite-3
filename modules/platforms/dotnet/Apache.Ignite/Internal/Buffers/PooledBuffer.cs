@@ -27,6 +27,11 @@ namespace Apache.Ignite.Internal.Buffers
     /// </summary>
     internal readonly struct PooledBuffer : IDisposable
     {
+        /// <summary>
+        /// Default capacity for all buffers.
+        /// </summary>
+        public const int DefaultCapacity = 65_535;
+
         /** Bytes. */
         private readonly byte[] _bytes;
 

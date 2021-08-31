@@ -211,10 +211,6 @@ namespace Apache.Ignite.Internal
             CheckHandshakeResponse(response.GetReader());
         }
 
-        /// <summary>
-        /// Check magic bytes.
-        /// </summary>
-        /// <param name="stream">Network stream.</param>
         private static async ValueTask CheckMagicBytesAsync(NetworkStream stream)
         {
             var responseMagic = ArrayPool<byte>.Shared.Rent(ProtoCommon.MagicBytes.Length);
@@ -276,48 +272,57 @@ namespace Apache.Ignite.Internal
             NetworkStream stream,
             CancellationToken cancellationToken)
         {
-            var size = await ReadMessageSizeAsync(stream, cancellationToken).ConfigureAwait(false);
-
-            size = IPAddress.NetworkToHostOrder(size);
-
-            var bytes = ArrayPool<byte>.Shared.Rent(size);
-
-            await stream.ReadAsync(bytes.AsMemory(0, size), cancellationToken).ConfigureAwait(false);
-
-            return new PooledBuffer(bytes, 0, size);
-        }
-
-        private static async Task<int> ReadMessageSizeAsync(NetworkStream stream, CancellationToken cancellationToken)
-        {
-            const int messageSizeByteCount = 4;
-            var bytes = ArrayPool<byte>.Shared.Rent(messageSizeByteCount);
+            // Rent a buffer that will hopefully fit the entire message,
+            // so we don't have to rent twice (for message size and contents).
+            var bytes = ArrayPool<byte>.Shared.Rent(PooledBuffer.DefaultCapacity);
 
             try
             {
-                await stream.ReadAsync(bytes.AsMemory(0, messageSizeByteCount), cancellationToken).ConfigureAwait(false);
+                var size = await ReadMessageSizeAsync(stream, bytes, cancellationToken).ConfigureAwait(false);
 
-                return GetMessageSize(bytes);
+                if (size > bytes.Length)
+                {
+                    ArrayPool<byte>.Shared.Return(bytes);
+                    bytes = ArrayPool<byte>.Shared.Rent(size);
+                }
+
+                await stream.ReadAsync(bytes.AsMemory(0, size), cancellationToken).ConfigureAwait(false);
+
+                return new PooledBuffer(bytes, 0, size);
             }
-            finally
+            catch (Exception)
             {
                 ArrayPool<byte>.Shared.Return(bytes);
+
+                throw;
             }
+        }
+
+        private static async Task<int> ReadMessageSizeAsync(
+            NetworkStream stream,
+            byte[] buffer,
+            CancellationToken cancellationToken)
+        {
+            const int messageSizeByteCount = 4;
+            Debug.Assert(buffer.Length >= messageSizeByteCount, "buffer.Length >= messageSizeByteCount");
+
+            await stream.ReadAsync(buffer.AsMemory(0, messageSizeByteCount), cancellationToken).ConfigureAwait(false);
+
+            return GetMessageSize(buffer);
         }
 
         private static unsafe int GetMessageSize(byte[] responseLenBytes)
         {
             fixed (byte* len = &responseLenBytes[0])
             {
-                return *(int*)len;
+                var messageSize = *(int*)len;
+
+                return IPAddress.NetworkToHostOrder(messageSize);
             }
         }
 
         private static async ValueTask WriteHandshakeAsync(NetworkStream stream, ClientProtocolVersion version)
         {
-            // TODO:
-            // 1. Avoid allocating PooledArrayBufferWriter - but how?
-            //    - struct with interface will box
-            // 2. Flush packer automatically: use delegates (allocatey) or don't (more boilerplate)
             using var bufferWriter = new PooledArrayBufferWriter();
             WriteHandshake(version, bufferWriter.GetMessageWriter());
 
