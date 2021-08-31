@@ -47,7 +47,7 @@ public class RootInnerNode {
      * Copy constructor.
      */
     public RootInnerNode(RootInnerNode rootInnerNode) {
-        node = rootInnerNode.node;
+        node = rootInnerNode.node.copy();
         internal = rootInnerNode.internal;
     }
 
