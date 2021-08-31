@@ -17,15 +17,38 @@
 
 package org.apache.ignite.client.proto.query.event;
 
+import java.math.BigDecimal;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.sql.Types;
+import java.util.Date;
 import java.util.Objects;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
 
+import static java.sql.Types.BIGINT;
+import static java.sql.Types.BINARY;
+import static java.sql.Types.BOOLEAN;
+import static java.sql.Types.DATE;
+import static java.sql.Types.DECIMAL;
+import static java.sql.Types.DOUBLE;
+import static java.sql.Types.FLOAT;
+import static java.sql.Types.INTEGER;
+import static java.sql.Types.OTHER;
+import static java.sql.Types.SMALLINT;
+import static java.sql.Types.TIME;
+import static java.sql.Types.TIMESTAMP;
+import static java.sql.Types.TINYINT;
+import static java.sql.Types.VARCHAR;
+
 /**
  * JDBC column metadata.
  */
 public class JdbcColumnMeta extends JdbcResponse {
+    /** Nullable. */
+    private boolean nullable;
+
     /** Cache name. */
     private String schemaName;
 
@@ -41,9 +64,6 @@ public class JdbcColumnMeta extends JdbcResponse {
     /** Data type. */
     private String dataTypeName;
 
-    /** Data type. */
-    private String dataTypeClass;
-
     /**
      * Default constructor is used for serialization.
      */
@@ -58,15 +78,25 @@ public class JdbcColumnMeta extends JdbcResponse {
      * @param cls Type.
      */
     public JdbcColumnMeta(String schemaName, String tblName, String colName, Class<?> cls) {
+        this(schemaName, tblName, colName, cls, true);
+    }
+
+    /**
+     * @param schemaName Schema.
+     * @param tblName Table.
+     * @param colName Column.
+     * @param cls Type.
+     */
+    public JdbcColumnMeta(String schemaName, String tblName, String colName, Class<?> cls, boolean nullable) {
         this.schemaName = schemaName;
         this.tblName = tblName;
         this.colName = colName;
+        this.nullable = nullable;
 
         String type = cls.getName();
 
-        dataType = 0;//JdbcThinUtils.type(type);
-        dataTypeName = null;//JdbcThinUtils.typeName(type);
-        dataTypeClass = type;
+        dataType = type(type);
+        dataTypeName = typeName(type);
     }
 
     /**
@@ -105,13 +135,6 @@ public class JdbcColumnMeta extends JdbcResponse {
     }
 
     /**
-     * @return Column's data type class.
-     */
-    public String dataTypeClass() {
-        return dataTypeClass;
-    }
-
-    /**
      * @return Column's default value.
      */
     public String defaultValue() {
@@ -133,12 +156,10 @@ public class JdbcColumnMeta extends JdbcResponse {
     }
 
     /**
-     * Return 'nullable' flag in compatibility mode (according with column name and column type).
-     *
      * @return {@code true} in case the column allows null values. Otherwise returns {@code false}
      */
     public boolean isNullable() {
-        return nullable(colName, dataTypeClass);
+        return nullable;
     }
 
     /** {@inheritDoc} */
@@ -154,7 +175,7 @@ public class JdbcColumnMeta extends JdbcResponse {
 
         packer.packInt(dataType);
         packer.packString(dataTypeName);
-        packer.packString(dataTypeClass);
+        packer.packBoolean(nullable);
     }
 
     /** {@inheritDoc} */
@@ -170,7 +191,7 @@ public class JdbcColumnMeta extends JdbcResponse {
 
         dataType = unpacker.unpackInt();
         dataTypeName = unpacker.unpackString();
-        dataTypeClass = unpacker.unpackString();
+        nullable = unpacker.unpackBoolean();
     }
 
     /** {@inheritDoc} */
@@ -204,21 +225,76 @@ public class JdbcColumnMeta extends JdbcResponse {
     }
 
     /**
-     * Determines whether type is nullable.
+     * Converts Java class name to type from {@link Types}.
      *
-     * @param name Column name.
      * @param cls Java class name.
-     * @return {@code True} if nullable.
+     * @return Type from {@link Types}.
      */
-    private static boolean nullable(String name, String cls) {
-        return !"_KEY".equalsIgnoreCase(name) &&
-            !"_VAL".equalsIgnoreCase(name) &&
-            !(boolean.class.getName().equals(cls) ||
-                byte.class.getName().equals(cls) ||
-                short.class.getName().equals(cls) ||
-                int.class.getName().equals(cls) ||
-                long.class.getName().equals(cls) ||
-                float.class.getName().equals(cls) ||
-                double.class.getName().equals(cls));
+    private static int type(String cls) {
+        if (Boolean.class.getName().equals(cls) || boolean.class.getName().equals(cls))
+            return BOOLEAN;
+        else if (Byte.class.getName().equals(cls) || byte.class.getName().equals(cls))
+            return TINYINT;
+        else if (Short.class.getName().equals(cls) || short.class.getName().equals(cls))
+            return SMALLINT;
+        else if (Integer.class.getName().equals(cls) || int.class.getName().equals(cls))
+            return INTEGER;
+        else if (Long.class.getName().equals(cls) || long.class.getName().equals(cls))
+            return BIGINT;
+        else if (Float.class.getName().equals(cls) || float.class.getName().equals(cls))
+            return FLOAT;
+        else if (Double.class.getName().equals(cls) || double.class.getName().equals(cls))
+            return DOUBLE;
+        else if (String.class.getName().equals(cls))
+            return VARCHAR;
+        else if (byte[].class.getName().equals(cls))
+            return BINARY;
+        else if (Time.class.getName().equals(cls))
+            return TIME;
+        else if (Timestamp.class.getName().equals(cls))
+            return TIMESTAMP;
+        else if (Date.class.getName().equals(cls) || java.sql.Date.class.getName().equals(cls))
+            return DATE;
+        else if (BigDecimal.class.getName().equals(cls))
+            return DECIMAL;
+        else
+            return OTHER;
+    }
+
+    /**
+     * Converts Java class name to SQL type name.
+     *
+     * @param cls Java class name.
+     * @return SQL type name.
+     */
+    private static String typeName(String cls) {
+        if (Boolean.class.getName().equals(cls) || boolean.class.getName().equals(cls))
+            return "BOOLEAN";
+        else if (Byte.class.getName().equals(cls) || byte.class.getName().equals(cls))
+            return "TINYINT";
+        else if (Short.class.getName().equals(cls) || short.class.getName().equals(cls))
+            return "SMALLINT";
+        else if (Integer.class.getName().equals(cls) || int.class.getName().equals(cls))
+            return "INTEGER";
+        else if (Long.class.getName().equals(cls) || long.class.getName().equals(cls))
+            return "BIGINT";
+        else if (Float.class.getName().equals(cls) || float.class.getName().equals(cls))
+            return "FLOAT";
+        else if (Double.class.getName().equals(cls) || double.class.getName().equals(cls))
+            return "DOUBLE";
+        else if (String.class.getName().equals(cls))
+            return "VARCHAR";
+        else if (byte[].class.getName().equals(cls))
+            return "BINARY";
+        else if (Time.class.getName().equals(cls))
+            return "TIME";
+        else if (Timestamp.class.getName().equals(cls))
+            return "TIMESTAMP";
+        else if (Date.class.getName().equals(cls) || java.sql.Date.class.getName().equals(cls))
+            return "DATE";
+        else if (BigDecimal.class.getName().equals(cls))
+            return "DECIMAL";
+        else
+            return "OTHER";
     }
 }

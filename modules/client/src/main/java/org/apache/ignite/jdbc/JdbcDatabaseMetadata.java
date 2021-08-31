@@ -40,7 +40,6 @@ import static java.sql.Connection.TRANSACTION_NONE;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
 import static java.sql.ResultSet.HOLD_CURSORS_OVER_COMMIT;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
-import static java.sql.ResultSetMetaData.columnNoNulls;
 import static java.sql.RowIdLifetime.ROWID_UNSUPPORTED;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
@@ -83,7 +82,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
 
     /** {@inheritDoc} */
     @Override public String getURL() {
-        return null;//conn.url();
+        return conn.url();
     }
 
     /** {@inheritDoc} */
@@ -218,13 +217,11 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
 
     /** {@inheritDoc} */
     @Override public String getSystemFunctions() {
-        // TODO: IGNITE-6028
         return "";
     }
 
     /** {@inheritDoc} */
     @Override public String getTimeDateFunctions() {
-        // TODO: IGNITE-6028
         return "";
     }
 
@@ -737,7 +734,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
         if (!isValidCatalog(catalog) || !tblTypeMatch)
             return new JdbcResultSet(Collections.emptyList(), meta);
 
-        JdbcMetaTablesResult res = conn.handler().tablesMeta(new JdbcMetaTablesRequest(schemaPtrn, tblNamePtrn, tblTypes));
+        JdbcMetaTablesResult res
+            = conn.handler().tablesMeta(new JdbcMetaTablesRequest(schemaPtrn, tblNamePtrn, tblTypes));
 
         List<List<Object>> rows = new LinkedList<>();
 
@@ -1354,7 +1352,6 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override public ResultSet getFunctions(String catalog, String schemaPtrn,
         String functionNamePtrn) {
-        // TODO: IGNITE-6028
         return new JdbcResultSet(Collections.emptyList(), asList(
             new JdbcColumnMeta(null, null, "FUNCTION_CAT", String.class),
             new JdbcColumnMeta(null, null, "FUNCTION_SCHEM", String.class),

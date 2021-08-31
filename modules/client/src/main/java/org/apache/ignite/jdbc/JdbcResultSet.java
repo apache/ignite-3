@@ -43,6 +43,7 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.ParseException;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -84,6 +85,15 @@ public class JdbcResultSet implements ResultSet {
 
     /** Cursor ID. */
     private final Long cursorId;
+
+    /** Jdbc column metadata. */
+    private List<JdbcColumnMeta> meta;
+
+    /** Metadata initialization flag. */
+    private boolean metaInit;
+
+    /** Column order map. */
+    private Map<String, Integer> colOrder;
 
     /** Rows. */
     private List<List<Object>> rows;
@@ -161,9 +171,25 @@ public class JdbcResultSet implements ResultSet {
             this.updCnt = updCnt;
     }
 
-    public JdbcResultSet(List<List<Object>> list, List<JdbcColumnMeta> list1) {
+    /**
+     * Creates new result set.
+     *
+     * @param rows Rows.
+     * @param meta Column metadata.
+     */
+    public JdbcResultSet(List<List<Object>> rows, List<JdbcColumnMeta> meta) {
         stmt = null;
         cursorId = null;
+
+        finished = true;
+        isQuery = true;
+
+        this.rows = rows;
+        this.rowsIter = rows.iterator();
+        this.meta = meta;
+        this.metaInit = true;
+
+        initColumnOrder();
     }
 
     /** {@inheritDoc} */
@@ -678,8 +704,17 @@ public class JdbcResultSet implements ResultSet {
     @Override public int findColumn(String colLb) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("FindColumn by column label are not supported.");
+        if (!metaInit)
+            throw new SQLFeatureNotSupportedException("FindColumn by column label are not supported.");
 
+        Integer order = colOrder.get(colLb.toUpperCase());
+
+        if (order == null)
+            throw new SQLException("Column not found: " + colLb, SqlStateCode.PARSING_EXCEPTION);
+
+        assert order >= 0;
+
+        return order + 1;
     }
 
     /** {@inheritDoc} */
@@ -1877,6 +1912,20 @@ public class JdbcResultSet implements ResultSet {
             else
                 throw new SQLException("Cannot convert to " + targetCls.getName() + ": " + val,
                     SqlStateCode.CONVERSION_FAILED);
+        }
+    }
+
+    /**
+     * Init column order map.
+     */
+    private void initColumnOrder() {
+        colOrder = new HashMap<>(meta.size());
+
+        for (int i = 0; i < meta.size(); ++i) {
+            String colName = meta.get(i).columnName().toUpperCase();
+
+            if (!colOrder.containsKey(colName))
+                colOrder.put(colName, i);
         }
     }
 }

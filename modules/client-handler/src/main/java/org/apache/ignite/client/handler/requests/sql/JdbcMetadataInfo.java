@@ -117,15 +117,17 @@ public class JdbcMetadataInfo {
      * @return List of metadatas of tables that matches.
      */
     public List<JdbcTableMeta> getTablesMeta(String schemaNamePtrn, String tblNamePtrn, String[] tblTypes) {
-        String tblNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
+        String schemaNameRegex = translateSqlWildcardsToRegex(schemaNamePtrn);
+        String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
 
         List<Table> tblsMeta = tables.tables().stream()
-            .filter(t -> matches(t.tableName(), tblNameRegex))
+            .filter(t -> matches(t.tableName().split("\\.")[0], schemaNameRegex))
+            .filter(t -> matches(t.tableName().split("\\.")[1], tlbNameRegex))
             .collect(Collectors.toList());
 
         return tblsMeta.stream()
             .sorted(byTblTypeThenSchemaThenTblName)
-            .map(t -> new JdbcTableMeta("PUBLIC", t.tableName(), "TABLE"))
+            .map(t -> new JdbcTableMeta(t.tableName().split("\\.")[0], t.tableName().split("\\.")[1], "TABLE"))
             .collect(Collectors.toList());
     }
 
@@ -139,11 +141,13 @@ public class JdbcMetadataInfo {
     public Collection<JdbcColumnMeta> getColumnsMeta(String schemaNamePtrn, String tblNamePtrn, String colNamePtrn) {
         Collection<JdbcColumnMeta> metas = new LinkedHashSet<>();
 
+        String schemaNameRegex = translateSqlWildcardsToRegex(schemaNamePtrn);
         String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
         String colNameRegex = translateSqlWildcardsToRegex(colNamePtrn);
 
         tables.tables().stream()
-            .filter(t -> matches(t.tableName(), tlbNameRegex))
+            .filter(t -> matches(t.tableName().split("\\.")[0], schemaNameRegex))
+            .filter(t -> matches(t.tableName().split("\\.")[1], tlbNameRegex))
             .flatMap(
                 tbl -> {
                     SchemaDescriptor schema = ((TableImpl)tbl).schemaView().schema();
@@ -165,10 +169,11 @@ public class JdbcMetadataInfo {
                 Column col = pair.getSecond();
 
                 var colMeta = new JdbcColumnMeta(
-                    "PUBLIC",
-                    tblName,
+                    tblName.split("\\.")[0],
+                    tblName.split("\\.")[1],
                     col.name(),
-                    Commons.nativeTypeToClass(col.type())
+                    Commons.nativeTypeToClass(col.type()),
+                    col.nullable()
                 );
 
                 if (!metas.contains(colMeta))

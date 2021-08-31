@@ -76,9 +76,21 @@ public class JdbcMetaTablesRequest implements JdbcClientMessage {
 
     /** {@inheritDoc} */
     @Override public void writeBinary(ClientMessagePacker packer) {
-        packer.packString(schemaName);
-        packer.packString(tblName);
+        if (schemaName == null)
+            packer.packNil();
+        else
+            packer.packString(schemaName);
 
+        if (tblName == null)
+            packer.packNil();
+        else
+            packer.packString(tblName);
+
+        if (tblTypes == null) {
+            packer.packNil();
+
+            return;
+        }
         packer.packArrayHeader(tblTypes.length);
 
         for (String type : tblTypes)
@@ -87,8 +99,14 @@ public class JdbcMetaTablesRequest implements JdbcClientMessage {
 
     /** {@inheritDoc} */
     @Override public void readBinary(ClientMessageUnpacker unpacker) {
-        schemaName = unpacker.unpackString();
-        tblName = unpacker.unpackString();
+        if (!unpacker.tryUnpackNil())
+            schemaName = unpacker.unpackString();
+
+        if (!unpacker.tryUnpackNil())
+            tblName = unpacker.unpackString();
+
+        if (unpacker.tryUnpackNil())
+            return;
 
         int size = unpacker.unpackArrayHeader();
 

@@ -87,7 +87,7 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     @Override public JdbcMetaTablesResult tablesMeta(JdbcMetaTablesRequest req) {
         JdbcMetaTablesResult res = new JdbcMetaTablesResult();
 
-        client.sendRequest(ClientOp.SQL_CURSOR_CLOSE, req, res);
+        client.sendRequest(ClientOp.SQL_TABLE_META, req, res);
 
         return res;
     }
@@ -96,7 +96,7 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     @Override public JdbcMetaColumnsResult columnsMeta(JdbcMetaColumnsRequest req) {
         JdbcMetaColumnsResult res = new JdbcMetaColumnsResult();
 
-        client.sendRequest(ClientOp.SQL_CURSOR_CLOSE, req, res);
+        client.sendRequest(ClientOp.SQL_COLUMN_META, req, res);
 
         return res;
     }

@@ -105,6 +105,9 @@ public class JdbcConnection implements Connection {
     /** Ignite remote client. */
     private final TcpIgniteClient client;
 
+    /** Jdbc metadata. Cache the JDBC object on the first access */
+    private JdbcDatabaseMetadata metadata;
+
     /**
      * Constructor.
      *
@@ -306,7 +309,10 @@ public class JdbcConnection implements Connection {
     @Override public DatabaseMetaData getMetaData() throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("DatabaseMetaData is not supported.");
+        if (metadata == null)
+            metadata = new JdbcDatabaseMetadata(this);
+
+        return metadata;
     }
 
     /** {@inheritDoc} */
@@ -749,5 +755,12 @@ public class JdbcConnection implements Connection {
      */
     public ConnectionProperties connectionProperties() {
         return connProps;
+    }
+
+    /**
+     * @return Connection URL.
+     */
+    public String url() {
+        return connProps.getUrl();
     }
 }
