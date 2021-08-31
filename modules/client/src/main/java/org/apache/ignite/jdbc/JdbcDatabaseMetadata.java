@@ -1093,15 +1093,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
         if (!isValidCatalog(catalog))
             return new JdbcResultSet(Collections.emptyList(), meta);
 
-//        JdbcMetaIndexesResult res = conn.sendRequest(new JdbcMetaIndexesRequest(schema, tbl)).response();
-//
-//        List<List<Object>> rows = new LinkedList<>();
-//
-//        for (JdbcIndexMeta idxMeta : res.meta())
-//            rows.addAll(indexRows(idxMeta));
-//
-//        return new JdbcResultSet(rows, meta);
-        return null;
+        throw new UnsupportedOperationException("Index info is not supported yet.");
     }
 
     /** {@inheritDoc} */
@@ -1423,10 +1415,11 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     }
 
     /**
-     * Checks if specified catalog matches the only possible catalog value. See {@link CATALOG_NAME}.
+     * Checks if specified catalog matches the only possible catalog value. See {@link JdbcDatabaseMetadata#CATALOG_NAME}.
      *
      * @param catalog Catalog name or {@code null}.
-     * @return {@code true} If catalog equal ignoring case to {@link CATALOG_NAME} or null (which means any catalog).
+     * @return {@code true} If catalog equal ignoring case to {@link JdbcDatabaseMetadata#CATALOG_NAME}
+     * or null (which means any catalog).
      *  Otherwise returns {@code false}.
      */
     private static boolean isValidCatalog(String catalog) {
