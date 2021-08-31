@@ -81,38 +81,7 @@ public class AffinityManager extends Producer<AffinityEvent, AffinityEventParame
 
     /** {@inheritDoc} */
     @Override public void start() {
-        metaStorageMgr.registerWatchByPrefix(new ByteArray(INTERNAL_PREFIX), new WatchListener() {
-            @Override public boolean onUpdate(@NotNull WatchEvent watchEvt) {
-                for (EntryEvent evt : watchEvt.entryEvents()) {
-                    String keyAsString = new ByteArray(evt.newEntry().key().bytes()).toString();
-
-                    String tabIdVal = keyAsString.substring(INTERNAL_PREFIX.length());
-
-                    UUID tblId = UUID.fromString(tabIdVal);
-
-                    if (evt.newEntry().value() == null) {
-                        assert evt.oldEntry().value() != null : "Previous assignment is unknown";
-
-                        List<List<ClusterNode>> assignment = (List<List<ClusterNode>>)ByteUtils.fromBytes(
-                            evt.oldEntry().value());
-
-                        onEvent(AffinityEvent.REMOVED, new AffinityEventParameters(tblId, assignment), null);
-                    }
-                    else {
-                        List<List<ClusterNode>> assignment = (List<List<ClusterNode>>)ByteUtils.fromBytes(
-                            evt.newEntry().value());
-
-                        onEvent(AffinityEvent.CALCULATED, new AffinityEventParameters(tblId, assignment), null);
-                    }
-                }
-
-                return true;
-            }
-
-            @Override public void onError(@NotNull Throwable e) {
-                LOG.error("Meta storage listener issue", e);
-            }
-        });
+        // TODO: 30.08.21 Affinity calc reassignment should go here.
     }
 
     /** {@inheritDoc} */
@@ -127,38 +96,13 @@ public class AffinityManager extends Producer<AffinityEvent, AffinityEventParame
      * @param tblName Table name.
      * @return A future which will complete when the assignment is calculated.
      */
-    public CompletableFuture<Boolean> calculateAssignments(UUID tblId, String tblName) {
-        TableConfiguration tblConfig = configurationMgr.configurationRegistry()
-            .getConfiguration(TablesConfiguration.KEY).tables().get(tblName);
-
-        var key = new ByteArray(INTERNAL_PREFIX + tblId);
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-14716 Need to support baseline changes.
-        return metaStorageMgr.invoke(
-            Conditions.notExists(key),
-            Operations.put(key, ByteUtils.toBytes(
-                RendezvousAffinityFunction.assignPartitions(
-                    baselineMgr.nodes(),
-                    tblConfig.partitions().value(),
-                    tblConfig.replicas().value(),
-                    false,
-                    null
-                ))),
-            Operations.noop());
-    }
-
-    /**
-     * Removes an assignment for a table which was specified by id.
-     *
-     * @param tblId Table identifier.
-     * @return A future which will complete when assignment is removed.
-     */
-    public CompletableFuture<Boolean> removeAssignment(UUID tblId) {
-        var key = new ByteArray(INTERNAL_PREFIX + tblId);
-
-        return metaStorageMgr.invoke(
-            Conditions.exists(key),
-            Operations.remove(key),
-            Operations.noop());
+    public List<List<ClusterNode>> calculateAssignments(int partitions, int replicas) {
+        return RendezvousAffinityFunction.assignPartitions(
+            baselineMgr.nodes(),
+            partitions,
+            replicas,
+            false,
+            null
+        );
     }
 }

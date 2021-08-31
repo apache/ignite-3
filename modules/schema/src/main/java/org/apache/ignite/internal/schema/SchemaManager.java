@@ -211,6 +211,12 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             });
     }
 
+    public SchemaDescriptor prepareSchemaDescriptor(TableConfiguration tblConfig) {
+        SchemaTable schemaTable = SchemaConfigurationConverter.convert(tblConfig);
+
+        return SchemaDescriptorConverter.convert(tblId, 1, schemaTable);
+    }
+
     /**
      * Creates schema registry for the table with existed schema or
      * registers initial schema from configuration.

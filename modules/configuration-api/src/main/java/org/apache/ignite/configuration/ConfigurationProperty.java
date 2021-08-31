@@ -46,4 +46,6 @@ public interface ConfigurationProperty<VIEW, CHANGE> {
      * @param listener Listener.
      */
     void listen(ConfigurationListener<VIEW> listener);
+
+    VIEW distirbuteValue();
 }

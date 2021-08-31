@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -38,6 +39,7 @@ import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.affinity.AffinityManager;
+import org.apache.ignite.internal.affinity.schema.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -180,7 +182,7 @@ public class IgniteImpl implements Ignite {
             ),
             Map.of(),
             new DistributedConfigurationStorage(metaStorageMgr, vaultMgr),
-            List.of()
+            Collections.singletonList(ExtendedTableConfigurationSchema.class)
         );
 
         baselineMgr = new BaselineManager(

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.server.RaftServer;
@@ -82,7 +83,10 @@ public class Loza implements IgniteComponent {
      * @param lsnr Raft group listener.
      * @return Future representing pending completion of the operation.
      */
-    public CompletableFuture<RaftGroupService> prepareRaftGroup(String groupId, List<ClusterNode> nodes, RaftGroupListener lsnr) {
+    public CompletableFuture<RaftGroupService> prepareRaftGroup(
+        String groupId,
+        List<ClusterNode> nodes,
+        Supplier<RaftGroupListener> lsnrSupplier) {
         assert !nodes.isEmpty();
 
         List<Peer> peers = nodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
@@ -90,7 +94,7 @@ public class Loza implements IgniteComponent {
         String locNodeName = clusterNetSvc.topologyService().localMember().name();
 
         if (nodes.stream().map(ClusterNode::name).collect(Collectors.toSet()).contains(locNodeName))
-            raftServer.startRaftGroup(groupId, lsnr, peers);
+            raftServer.startRaftGroup(groupId, lsnrSupplier.get(), peers);
 
         return RaftGroupServiceImpl.start(
             groupId,
