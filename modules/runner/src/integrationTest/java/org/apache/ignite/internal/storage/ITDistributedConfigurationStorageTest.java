@@ -32,6 +32,10 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.ClusterService;
@@ -69,6 +73,12 @@ public class ITDistributedConfigurationStorageTest {
         private final ClusterService clusterService;
 
         /** */
+        private final LockManager lockManager;
+
+        /** */
+        private final TxManager txManager;
+
+        /** */
         private final Loza raftManager;
 
         /** */
@@ -94,7 +104,11 @@ public class ITDistributedConfigurationStorageTest {
                 new TestScaleCubeClusterServiceFactory()
             );
 
-            raftManager = new Loza(clusterService, workDir);
+            lockManager = new HeapLockManager();
+
+            txManager = new TxManagerImpl(clusterService, lockManager);
+
+            raftManager = new Loza(clusterService, txManager, workDir);
 
             List<RootKey<?, ?>> rootKeys = List.of(NodeConfiguration.KEY);
 

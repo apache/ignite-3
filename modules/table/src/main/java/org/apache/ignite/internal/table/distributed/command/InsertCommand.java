@@ -17,16 +17,19 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.tx.Timestamp;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * The command inserts a row.
  */
-public class InsertCommand implements WriteCommand {
+public class InsertCommand implements WriteCommand, LockableCommand {
     /** Binary row. */
     private transient BinaryRow row;
 
@@ -73,5 +76,12 @@ public class InsertCommand implements WriteCommand {
      */
     public Timestamp getTimestamp() {
         return timestamp;
+    }
+
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<Void> tryLock(TxManager mgr) {
+        mgr.getOrCreateTransaction(timestamp); // TODO asch handle race between rollback and lock.
+
+        return mgr.writeLock(new ByteArray(extractAndWrapKey(getRow())), timestamp);
     }
 }

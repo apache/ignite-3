@@ -173,7 +173,11 @@ public class IgniteImpl implements Ignite {
                 getConfiguration(NetworkConfiguration.KEY).value())
         );
 
-        raftMgr = new Loza(clusterSvc, workDir);
+        lockManager = new HeapLockManager();
+
+        txManager = new TxManagerImpl(clusterSvc, lockManager);
+
+        raftMgr = new Loza(clusterSvc, txManager, workDir);
 
         metaStorageMgr = new MetaStorageManager(
             vaultMgr,
@@ -208,10 +212,6 @@ public class IgniteImpl implements Ignite {
             metaStorageMgr,
             vaultMgr
         );
-
-        lockManager = new HeapLockManager();
-
-        txManager = new TxManagerImpl(clusterSvc, lockManager);
 
         distributedTblMgr = new TableManager(
             nodeCfgMgr,

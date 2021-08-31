@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.tx;
 
-import java.sql.Time;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * TODO: local tx ?
+ *
  */
 public interface TxManager extends IgniteComponent {
     /**
@@ -85,5 +85,18 @@ public interface TxManager extends IgniteComponent {
      * @param timestamp The timestamp.
      * @return {@code True} if a transaction was created in PENDING state.
      */
-    boolean getOrCreateTransaction(Timestamp timestamp);
+    boolean getOrCreateTransaction(Timestamp ts);
+
+    /**
+     * @param addr The address.
+     * @param timestamp The timestamp.
+     * @param commit {@code True} if a commit requested.
+     */
+    CompletableFuture<TxState> sendFinishMessage(NetworkAddress addr, Timestamp ts, boolean commit);
+
+    /**
+     * @param addr The address.
+     * @return {@code True} if a local node.
+     */
+    boolean isLocal(NetworkAddress addr);
 }

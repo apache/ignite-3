@@ -116,6 +116,7 @@ public class DummyInternalTableImpl implements InternalTable {
     }
 
     /**
+     * TODO asch refactor to utility method.
      * Extracts a key from the {@link BinaryRow} and wraps it in a {@link SearchRow}.
      *
      * @param row Binary row.

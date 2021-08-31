@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -74,7 +75,7 @@ public class TransactionImpl implements InternalTransaction {
     /** {@inheritDoc} */
     @Override public void commit() throws TransactionException {
         try {
-            txManager.commitAsync(this.timestamp).get();
+            commitAsync().get();
         }
         catch (Exception e) {
             throw new TransactionException(e);
@@ -83,13 +84,22 @@ public class TransactionImpl implements InternalTransaction {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> commitAsync() {
-        return txManager.commitAsync(this.timestamp);
+        CompletableFuture[] futs = new CompletableFuture[nodes.size()];
+
+        for (int i = 0; i < nodes.size(); i++) {
+            NetworkAddress node = nodes.get(i);
+
+            futs[i] = (txManager.isLocal(node) ? txManager.commitAsync(timestamp) :
+                txManager.sendFinishMessage(node, timestamp, true));
+        }
+
+        return CompletableFuture.allOf(futs);
     }
 
     /** {@inheritDoc} */
     @Override public void rollback() throws TransactionException {
         try {
-            txManager.rollbackAsync(this.timestamp).get();
+            rollbackAsync().get();
         }
         catch (Exception e) {
             throw new TransactionException(e);

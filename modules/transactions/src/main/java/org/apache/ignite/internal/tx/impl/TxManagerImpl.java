@@ -28,8 +28,15 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.message.TxFinishRequest;
+import org.apache.ignite.internal.tx.message.TxFinishResponse;
+import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.tx.TransactionException;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -38,7 +45,13 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 /**
  * TODO asch do we need the interface ?
  */
-public class TxManagerImpl implements TxManager {
+public class TxManagerImpl implements TxManager, NetworkMessageHandler {
+    /** Factory. */
+    private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
+
+    /** */
+    private static final int TIMEOUT = 5_000;
+
     /** */
     private static final CompletableFuture<Void> DONE_FUT = completedFuture(null);
 
@@ -61,6 +74,8 @@ public class TxManagerImpl implements TxManager {
     public TxManagerImpl(ClusterService clusterService, LockManager lockManager) {
         this.clusterService = clusterService;
         this.lockManager = lockManager;
+
+        clusterService.messagingService().addMessageHandler(TxMessageGroup.class, this);
     }
 
     /** {@inheritDoc} */
@@ -197,8 +212,22 @@ public class TxManagerImpl implements TxManager {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean getOrCreateTransaction(Timestamp timestamp) {
-        return states.putIfAbsent(timestamp, TxState.PENDING) == null;
+    @Override public boolean getOrCreateTransaction(Timestamp ts) {
+        return states.putIfAbsent(ts, TxState.PENDING) == null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<TxState> sendFinishMessage(NetworkAddress addr, Timestamp ts, boolean commit) {
+        TxFinishRequest req = FACTORY.txFinishRequest().timestamp(ts).build();
+
+        CompletableFuture<NetworkMessage> fut = clusterService.messagingService().invoke(addr, req, TIMEOUT);
+
+        return fut.thenApply(resp -> ((TxFinishResponse) resp).state());
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean isLocal(NetworkAddress node) {
+        return clusterService.topologyService().localMember().address().equals(node);
     }
 
     /** {@inheritDoc} */
@@ -209,5 +238,32 @@ public class TxManagerImpl implements TxManager {
     /** {@inheritDoc} */
     @Override public void stop() throws Exception {
         // No-op.
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onReceived(NetworkMessage message, NetworkAddress senderAddr, String correlationId) {
+        // No-op.
+        if (message instanceof TxFinishRequest) {
+            TxFinishRequest req = (TxFinishRequest) message;
+
+            if (req.commit()) {
+                commitAsync(req.timestamp()).handle(new BiFunction<Void, Throwable, Void>() {
+                    @Override public Void apply(Void ignored, Throwable throwable) {
+                        clusterService.messagingService().send(senderAddr, FACTORY.txFinishResponse().build(), correlationId);
+
+                        return null;
+                    }
+                });
+            }
+            else {
+                rollbackAsync(req.timestamp()).handle(new BiFunction<Void, Throwable, Void>() {
+                    @Override public Void apply(Void ignored, Throwable throwable) {
+                        clusterService.messagingService().send(senderAddr, FACTORY.txFinishResponse().build(), correlationId);
+
+                        return null;
+                    }
+                });
+            }
+        }
     }
 }

@@ -20,6 +20,7 @@ package org.apache.ignite.raft.client.service;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.ReadCommand;
@@ -200,4 +201,9 @@ public interface RaftGroupService {
      * Shutdown and cleanup resources for this instance.
      */
     void shutdown();
+
+    /**
+     * @return Cluster service.
+     */
+    ClusterService clusterService();
 }

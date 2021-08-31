@@ -15,21 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.command;
+package org.apache.ignite.internal.tx.message;
 
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.tx.Lockable;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.network.annotations.MessageGroup;
 
-public interface LockableCommand extends Lockable {
+/**
+ * Message types for transactions.
+ */
+@MessageGroup(groupType = 5, groupName = "TxMessages")
+public class TxMessageGroup {
     /**
-     * @param row The row.
-     * @return Bytes.
+     * Message type for {@link TxFinishRequest}.
      */
-    default byte[] extractAndWrapKey(@NotNull BinaryRow row) {
-        byte[] key = new byte[row.keySlice().capacity()];
-        row.keySlice().get(key);
+    public static final short TX_FINISH_REQUEST = 0;
 
-        return key;
-    }
+    /**
+     * Message type for {@link TxFinishResponse}.
+     */
+    public static final short TX_FINISH_RESPONSE = 1;
 }

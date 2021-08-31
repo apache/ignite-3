@@ -365,6 +365,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         // No-op.
     }
 
+    /** {@inheritDoc} */
+    @Override public ClusterService clusterService() {
+        return cluster;
+    }
+
     /**
      * Retries a request until success or timeout.
      *

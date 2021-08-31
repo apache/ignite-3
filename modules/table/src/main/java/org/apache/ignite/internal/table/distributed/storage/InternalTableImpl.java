@@ -45,8 +45,6 @@ import org.apache.ignite.internal.table.distributed.command.response.MultiRowsRe
 import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.schema.SchemaMode;
 import org.jetbrains.annotations.NotNull;
@@ -118,14 +116,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<BinaryRow> get(BinaryRow keyRow, InternalTransaction tx) {
-        RaftGroupService service = partitionMap.get(partId(keyRow));
-
-        Peer leader = service.leader();
-
-        if (leader == null)
-            throw new IgniteInternalException();
-
-        return service.<SingleRowResponse>run(new GetCommand(keyRow, tx.timestamp()))
+        return enlist(keyRow, tx).<SingleRowResponse>run(new GetCommand(keyRow, tx.timestamp()))
             .thenApply(SingleRowResponse::getValue);
     }
 
@@ -157,15 +148,22 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> upsert(BinaryRow row, InternalTransaction tx) {
-        if (tx != null) {
-            return partitionMap.get(partId(row)).run(new UpsertCommand(row, tx.timestamp()));
-        }
+        if (tx != null)
+            return enlist(row, tx).run(new UpsertCommand(row, tx.timestamp()));
         else {
             InternalTransaction tx0 = txManager.begin();
 
-            return partitionMap.get(partId(row))
-                .run(new UpsertCommand(row, tx0.timestamp())).thenCompose(r -> tx0.commitAsync());
+            return enlist(row, tx0).run(new UpsertCommand(row, tx0.timestamp())).thenCompose(r -> tx0.commitAsync());
         }
+    }
+
+    private RaftGroupService enlist(BinaryRow row, InternalTransaction tx) {
+        RaftGroupService svc = partitionMap.get(partId(row));
+
+        // TODO asch fixme need to map to fixed topology.
+        tx.enlist(svc.leader().address()); // Enlist the leaseholder.
+
+        return svc;
     }
 
     /** {@inheritDoc} */
@@ -199,12 +197,12 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override public CompletableFuture<Boolean> insert(BinaryRow row, InternalTransaction tx) {
         if (tx != null) {
-            return partitionMap.get(partId(row)).run(new InsertCommand(row, tx.timestamp()));
+            return enlist(row, tx).run(new InsertCommand(row, tx.timestamp()));
         }
         else {
             InternalTransaction tx0 = txManager.begin();
 
-            return partitionMap.get(partId(row))
+            return enlist(row, tx0)
                 .run(new InsertCommand(row, tx0.timestamp())).thenCompose(r -> tx0.commitAsync().thenApply(ignored -> (Boolean) r));
         }
     }

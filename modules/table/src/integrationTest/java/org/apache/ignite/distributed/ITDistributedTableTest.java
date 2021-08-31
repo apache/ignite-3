@@ -364,7 +364,7 @@ public class ITDistributedTableTest {
 
         InternalTransaction tx = nearMgr.begin();
 
-        assertTrue(!tx.nodes().isEmpty());
+        assertEquals(1, tx.nodes().size());
 
         RaftServer srv = raftServers.get(cluster.get(0).topologyService().localMember());
 
@@ -381,6 +381,8 @@ public class ITDistributedTableTest {
         long val = txTable.get(makeKey(1)).longValue("value");
 
         assertEquals(1, val);
+
+        assertEquals(2, tx.nodes().size());
 
         tx.commit();
 
