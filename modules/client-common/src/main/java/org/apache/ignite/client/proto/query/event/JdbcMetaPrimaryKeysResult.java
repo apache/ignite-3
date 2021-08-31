@@ -21,36 +21,28 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * JDBC columns metadata result.
+ * JDBC primary keys metadata result.
  */
-public class JdbcMetaColumnsResult extends JdbcResponse {
-    /** Columns metadata. */
-    private List<JdbcColumnMeta> meta;
+public class JdbcMetaPrimaryKeysResult extends JdbcResponse {
+    /** Query result rows. */
+    private List<JdbcPrimaryKeyMeta> meta;
 
     /**
      * Default constructor is used for deserialization.
      */
-    public JdbcMetaColumnsResult() {
+    public JdbcMetaPrimaryKeysResult() {
     }
 
     /**
-     * @param meta Columns metadata.
+     * @param meta Column metadata.
      */
-    public JdbcMetaColumnsResult(Collection<JdbcColumnMeta> meta) {
+    public JdbcMetaPrimaryKeysResult(Collection<JdbcPrimaryKeyMeta> meta) {
         this.meta = new ArrayList<>(meta);
-    }
-
-    /**
-     * @return Columns metadata.
-     */
-    public List<JdbcColumnMeta> meta() {
-        return meta;
     }
 
     /** {@inheritDoc} */
@@ -60,10 +52,17 @@ public class JdbcMetaColumnsResult extends JdbcResponse {
         if (status() != STATUS_SUCCESS)
             return;
 
+        if (meta == null || meta.isEmpty()) {
+            packer.packNil();
+
+            return;
+        }
+
         packer.packArrayHeader(meta.size());
 
-        for (JdbcColumnMeta m : meta)
-            m.writeBinary(packer);
+        for (JdbcPrimaryKeyMeta keyMeta : meta) {
+            keyMeta.writeBinary(packer);
+        }
     }
 
     /** {@inheritDoc} */
@@ -73,18 +72,18 @@ public class JdbcMetaColumnsResult extends JdbcResponse {
         if (status() != STATUS_SUCCESS)
             return;
 
-        int size = unpacker.unpackArrayHeader();
-
-        if (size == 0) {
+        if (unpacker.tryUnpackNil()) {
             meta = Collections.emptyList();
 
             return;
         }
 
+        int size = unpacker.unpackArrayHeader();
+
         meta = new ArrayList<>(size);
 
         for (int i = 0; i < size; ++i) {
-            JdbcColumnMeta m = createMetaColumn();
+            JdbcPrimaryKeyMeta m = new JdbcPrimaryKeyMeta();
 
             m.readBinary(unpacker);
 
@@ -93,14 +92,14 @@ public class JdbcMetaColumnsResult extends JdbcResponse {
     }
 
     /**
-     * @return Empty columns metadata to deserialization.
+     * @return Primary keys metadata.
      */
-    protected JdbcColumnMeta createMetaColumn() {
-        return new JdbcColumnMeta();
+    public List<JdbcPrimaryKeyMeta> meta() {
+        return meta;
     }
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(JdbcMetaColumnsResult.class, this);
+        return S.toString(JdbcMetaPrimaryKeysResult.class, this);
     }
 }

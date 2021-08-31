@@ -24,7 +24,10 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -283,6 +286,83 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             assertTrue(meta.supportsAlterTableWithAddColumn());
             assertTrue(meta.supportsAlterTableWithDropColumn());
             assertTrue(meta.nullPlusNonNullIsNull());
+        }
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testSchemasMetadata() throws Exception {
+        try (Connection conn = DriverManager.getConnection(URL)) {
+            ResultSet rs = conn.getMetaData().getSchemas();
+
+            Set<String> expectedSchemas = new HashSet<>(Arrays.asList("pers", "org"));
+
+            Set<String> schemas = new HashSet<>();
+
+            while (rs.next())
+                schemas.add(rs.getString(1));
+
+            assert expectedSchemas.equals(schemas) : "Unexpected schemas: " + schemas +
+                ". Expected schemas: " + expectedSchemas;
+        }
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testEmptySchemasMetadata() throws Exception {
+        try (Connection conn = DriverManager.getConnection(URL)) {
+            ResultSet rs = conn.getMetaData().getSchemas(null, "qqq");
+
+            assert !rs.next() : "Empty result set is expected";
+        }
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testPrimaryKeyMetadata() throws Exception {
+        try (Connection conn = DriverManager.getConnection(URL);
+             ResultSet rs = conn.getMetaData().getPrimaryKeys(null, "pers", "PERSON")) {
+
+            int cnt = 0;
+
+            while (rs.next()) {
+                assert "ORGID".equals(rs.getString("COLUMN_NAME"));
+
+                cnt++;
+            }
+
+            assert cnt == 1;
+        }
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testGetAllPrimaryKeys() throws Exception {
+        try (Connection conn = DriverManager.getConnection(URL)) {
+            ResultSet rs = conn.getMetaData().getPrimaryKeys(null, null, null);
+
+            Set<String> expectedPks = new HashSet<>(Arrays.asList(
+                "org.ORGANIZATION.PK_ORGANIZATION.ID",
+                "pers.PERSON.PK_PERSON.ORGID"));
+
+            Set<String> actualPks = new HashSet<>(expectedPks.size());
+
+            while (rs.next()) {
+                actualPks.add(rs.getString("TABLE_SCHEM") +
+                    '.' + rs.getString("TABLE_NAME") +
+                    '.' + rs.getString("PK_NAME") +
+                    '.' + rs.getString("COLUMN_NAME"));
+            }
+
+            assertEquals(expectedPks, actualPks, "Metadata contains unexpected primary keys info.");
         }
     }
 }

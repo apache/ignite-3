@@ -21,6 +21,10 @@ import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteResult;
 import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsResult;
+import org.apache.ignite.client.proto.query.event.JdbcMetaPrimaryKeysRequest;
+import org.apache.ignite.client.proto.query.event.JdbcMetaPrimaryKeysResult;
+import org.apache.ignite.client.proto.query.event.JdbcMetaSchemasRequest;
+import org.apache.ignite.client.proto.query.event.JdbcMetaSchemasResult;
 import org.apache.ignite.client.proto.query.event.JdbcMetaTablesRequest;
 import org.apache.ignite.client.proto.query.event.JdbcMetaTablesResult;
 import org.apache.ignite.client.proto.query.event.JdbcQueryCloseRequest;
@@ -81,4 +85,21 @@ public interface JdbcQueryEventHandler {
      * @return Result.
      */
     JdbcMetaColumnsResult columnsMeta(JdbcMetaColumnsRequest req);
+
+    /**
+     * {@link JdbcQueryExecuteRequest} command handler.
+     *
+     * @param req Execute query request.
+     * @return Result.
+     */
+    JdbcMetaSchemasResult schemasMeta(JdbcMetaSchemasRequest req);
+
+
+    /**
+     * {@link JdbcQueryExecuteRequest} command handler.
+     *
+     * @param req Execute query request.
+     * @return Result.
+     */
+    JdbcMetaPrimaryKeysResult primaryKeysMeta(JdbcMetaPrimaryKeysRequest req);
 }

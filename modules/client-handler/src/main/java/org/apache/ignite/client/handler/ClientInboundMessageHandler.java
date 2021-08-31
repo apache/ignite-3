@@ -29,6 +29,8 @@ import org.apache.ignite.client.handler.requests.sql.ClientSqlColumnMetadataRequ
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteBatchRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlFetchRequest;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlPrimaryKeyMetadataRequest;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlSchemasMetadataRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlTableMetadataRequest;
 import org.apache.ignite.client.handler.requests.sql.JdbcMetadataInfo;
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
@@ -349,6 +351,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             case ClientOp.SQL_COLUMN_META:
                 return ClientSqlColumnMetadataRequest.process(in, out, handler);
+
+            case ClientOp.SQL_SCHEMAS_META:
+                return ClientSqlSchemasMetadataRequest.process(in, out, handler);
+
+            case ClientOp.SQL_PK_META:
+                return ClientSqlPrimaryKeyMetadataRequest.process(in, out, handler);
 
             default:
                 throw new IgniteException("Unexpected operation code: " + opCode);

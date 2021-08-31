@@ -19,17 +19,23 @@ package org.apache.ignite.client.handler.requests.sql;
 
 import java.sql.DatabaseMetaData;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.proto.query.event.JdbcColumnMeta;
+import org.apache.ignite.client.proto.query.event.JdbcPrimaryKeyMeta;
 import org.apache.ignite.client.proto.query.event.JdbcTableMeta;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.table.Table;
@@ -66,42 +72,34 @@ public class JdbcMetadataInfo {
      *
      * @return Collection of primary keys information for tables that matches specified schema and table name patterns.
      */
-//    public Collection<JdbcPrimaryKeyMeta> getPrimaryKeys(String schemaNamePtrn, String tblNamePtrn) {
-//        Collection<JdbcPrimaryKeyMeta> meta = new HashSet<>();
-//
-//        for (String cacheName : ctx.cache().publicCacheNames()) {
-//            for (GridQueryTypeDescriptor table : ctx.query().types(cacheName)) {
-//                if (!matches(table.schemaName(), schemaNamePtrn))
-//                    continue;
-//
-//                if (!matches(table.tableName(), tblNamePtrn))
-//                    continue;
-//
-//                List<String> fields = new ArrayList<>();
-//
-//                for (String field : table.fields().keySet()) {
-//                    if (table.property(field).key())
-//                        fields.add(field);
-//                }
-//
-//                final String keyName = table.keyFieldName() == null ?
-//                    "PK_" + table.schemaName() + "_" + table.tableName() :
-//                    table.keyFieldName();
-//
-//                if (fields.isEmpty()) {
-//                    String keyColName =
-//                        table.keyFieldName() == null ? QueryUtils.KEY_FIELD_NAME : table.keyFieldName();
-//
-//                    meta.add(new JdbcPrimaryKeyMeta(table.schemaName(), table.tableName(), keyName,
-//                        Collections.singletonList(keyColName)));
-//                }
-//                else
-//                    meta.add(new JdbcPrimaryKeyMeta(table.schemaName(), table.tableName(), keyName, fields));
-//            }
-//        }
-//
-//        return meta;
-//    }
+    public Collection<JdbcPrimaryKeyMeta> getPrimaryKeys(String schemaNamePtrn, String tblNamePtrn) {
+        Collection<JdbcPrimaryKeyMeta> metaSet = new HashSet<>();
+
+        String schemaNameRegex = translateSqlWildcardsToRegex(schemaNamePtrn);
+        String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
+
+        tables.tables().stream()
+            .filter(t -> matches(t.tableName().split("\\.")[0], schemaNameRegex))
+            .filter(t -> matches(t.tableName().split("\\.")[1], tlbNameRegex))
+            .forEach(tbl -> {
+                String schemaName = tbl.tableName().split("\\.")[0];
+                String tblName = tbl.tableName().split("\\.")[1];
+
+                final String keyName = "PK_" + tblName;
+
+                SchemaRegistry registry = ((TableImpl)tbl).schemaView();
+
+                List<String> keyColNames = Arrays.stream(registry.schema().keyColumns().columns())
+                    .map(Column::name)
+                    .collect(Collectors.toList());
+
+                JdbcPrimaryKeyMeta meta = new JdbcPrimaryKeyMeta(schemaName, tblName, keyName, keyColNames);
+
+                metaSet.add(meta);
+            });
+
+        return metaSet;
+    }
 
     /**
      * See {@link DatabaseMetaData#getTables(String, String, String, String[])} for details.
@@ -191,49 +189,18 @@ public class JdbcMetadataInfo {
      * @param schemaNamePtrn sql pattern for schema name filter.
      * @return schema names that matches provided pattern.
      */
-//    public SortedSet<String> getSchemasMeta(String schemaNamePtrn) {
-//        SortedSet<String> schemas = new TreeSet<>(); // to have values sorted.
-//
-//        for (String schema : ctx.query().getIndexing().schemasNames()) {
-//            if (matches(schema, schemaNamePtrn))
-//                schemas.add(schema);
-//        }
-//
-//        return schemas;
-//    }
+    public Collection<String> getSchemasMeta(String schemaNamePtrn) {
+        SortedSet<String> schemas = new TreeSet<>(); // to have values sorted.
 
-    /**
-     * See {@link DatabaseMetaData#getIndexInfo(String, String, String, boolean, boolean)} for details.
-     *
-     * Ignite has only one possible CATALOG_NAME, it is handled on the client (driver) side. Parameters {@code unique}
-     * {@code approximate} are ignored.
-     *
-     * @return Sorted by index name collection of index info, filtered according to specified criterias.
-     */
-//    public SortedSet<JdbcIndexMeta> getIndexesMeta(String schemaNamePtrn, String tblNamePtrn) {
-//        final Comparator<JdbcIndexMeta> byIndexName = new Comparator<JdbcIndexMeta>() {
-//            @Override public int compare(JdbcIndexMeta o1, JdbcIndexMeta o2) {
-//                return o1.indexName().compareTo(o2.indexName());
-//            }
-//        };
-//
-//        TreeSet<JdbcIndexMeta> meta = new TreeSet<>(byIndexName);
-//
-//        for (String cacheName : ctx.cache().publicCacheNames()) {
-//            for (GridQueryTypeDescriptor table : ctx.query().types(cacheName)) {
-//                if (!matches(table.schemaName(), schemaNamePtrn))
-//                    continue;
-//
-//                if (!matches(table.tableName(), tblNamePtrn))
-//                    continue;
-//
-//                for (GridQueryIndexDescriptor idxDesc : table.indexes().values())
-//                    meta.add(new JdbcIndexMeta(table.schemaName(), table.tableName(), idxDesc));
-//            }
-//        }
-//
-//        return meta;
-//    }
+        String schemaNameRegex = translateSqlWildcardsToRegex(schemaNamePtrn);
+
+        tables.tables().stream()
+            .map(e -> e.tableName().split("\\.")[0])
+            .filter(e -> matches(e, schemaNameRegex))
+            .forEach(schemas::add);
+
+        return schemas;
+    }
 
     /**
      * Checks whether string matches SQL pattern.

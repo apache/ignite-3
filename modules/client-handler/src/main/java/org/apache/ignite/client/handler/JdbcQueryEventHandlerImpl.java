@@ -30,8 +30,13 @@ import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteResult;
 import org.apache.ignite.client.proto.query.event.JdbcColumnMeta;
 import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsResult;
+import org.apache.ignite.client.proto.query.event.JdbcMetaPrimaryKeysRequest;
+import org.apache.ignite.client.proto.query.event.JdbcMetaPrimaryKeysResult;
+import org.apache.ignite.client.proto.query.event.JdbcMetaSchemasRequest;
+import org.apache.ignite.client.proto.query.event.JdbcMetaSchemasResult;
 import org.apache.ignite.client.proto.query.event.JdbcMetaTablesRequest;
 import org.apache.ignite.client.proto.query.event.JdbcMetaTablesResult;
+import org.apache.ignite.client.proto.query.event.JdbcPrimaryKeyMeta;
 import org.apache.ignite.client.proto.query.event.JdbcQueryCloseRequest;
 import org.apache.ignite.client.proto.query.event.JdbcQueryCloseResult;
 import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteRequest;
@@ -43,11 +48,7 @@ import org.apache.ignite.client.proto.query.event.JdbcResponse;
 import org.apache.ignite.client.proto.query.event.JdbcTableMeta;
 import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
 import org.apache.ignite.internal.processors.query.calcite.SqlCursor;
-import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.table.Table;
 
 import static org.apache.ignite.client.proto.query.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
 
@@ -173,6 +174,20 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         Collection<JdbcColumnMeta> tblsMeta = meta.getColumnsMeta(req.schemaName(), req.tableName(), req.columnName());
 
         return new JdbcMetaColumnsResult(tblsMeta);
+    }
+
+    /** {@inheritDoc} */
+    @Override public JdbcMetaSchemasResult schemasMeta(JdbcMetaSchemasRequest req) {
+        Collection<String> tblsMeta = meta.getSchemasMeta(req.schemaName());
+
+        return new JdbcMetaSchemasResult(tblsMeta);
+    }
+
+    /** {@inheritDoc} */
+    @Override public JdbcMetaPrimaryKeysResult primaryKeysMeta(JdbcMetaPrimaryKeysRequest req) {
+        Collection<JdbcPrimaryKeyMeta> tblsMeta = meta.getPrimaryKeys(req.schemaName(), req.tableName());
+
+        return new JdbcMetaPrimaryKeysResult(tblsMeta);
     }
 
     /**

@@ -32,8 +32,13 @@ import org.apache.ignite.client.proto.ProtocolVersion;
 import org.apache.ignite.client.proto.query.event.JdbcColumnMeta;
 import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsResult;
+import org.apache.ignite.client.proto.query.event.JdbcMetaPrimaryKeysRequest;
+import org.apache.ignite.client.proto.query.event.JdbcMetaPrimaryKeysResult;
+import org.apache.ignite.client.proto.query.event.JdbcMetaSchemasRequest;
+import org.apache.ignite.client.proto.query.event.JdbcMetaSchemasResult;
 import org.apache.ignite.client.proto.query.event.JdbcMetaTablesRequest;
 import org.apache.ignite.client.proto.query.event.JdbcMetaTablesResult;
+import org.apache.ignite.client.proto.query.event.JdbcPrimaryKeyMeta;
 import org.apache.ignite.client.proto.query.event.JdbcTableMeta;
 
 import static java.sql.Connection.TRANSACTION_NONE;
@@ -881,17 +886,15 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
 
         if (!isValidCatalog(catalog))
             return new JdbcResultSet(Collections.emptyList(), meta);
-//
-//        JdbcMetaPrimaryKeysResult res = conn.sendRequest(new JdbcMetaPrimaryKeysRequest(schema, tbl)).
-//            response();
-//
-//        List<List<Object>> rows = new LinkedList<>();
-//
-//        for (JdbcPrimaryKeyMeta pkMeta : res.meta())
-//            rows.addAll(primaryKeyRows(pkMeta));
-//
-//        return new JdbcResultSet(rows, meta);
-        return null;
+
+        JdbcMetaPrimaryKeysResult res = conn.handler().primaryKeysMeta(new JdbcMetaPrimaryKeysRequest(schema, tbl));
+
+        List<List<Object>> rows = new LinkedList<>();
+
+        for (JdbcPrimaryKeyMeta pkMeta : res.meta())
+            rows.addAll(primaryKeyRows(pkMeta));
+
+        return new JdbcResultSet(rows, meta);
     }
 
     /** {@inheritDoc} */
@@ -1312,21 +1315,20 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
         if (!isValidCatalog(catalog))
             return new JdbcResultSet(Collections.emptyList(), meta);
 
-//        JdbcMetaSchemasResult res = conn.sendRequest(new JdbcMetaSchemasRequest(schemaPtrn)).response();
-//
-//        List<List<Object>> rows = new LinkedList<>();
-//
-//        for (String schema : res.schemas()) {
-//            List<Object> row = new ArrayList<>(2);
-//
-//            row.add(schema);
-//            row.add(CATALOG_NAME);
-//
-//            rows.add(row);
-//        }
-//
-//        return new JdbcResultSet(rows, meta);
-        return null;
+        JdbcMetaSchemasResult res = conn.handler().schemasMeta(new JdbcMetaSchemasRequest(schemaPtrn));
+
+        List<List<Object>> rows = new LinkedList<>();
+
+        for (String schema : res.schemas()) {
+            List<Object> row = new ArrayList<>(2);
+
+            row.add(schema);
+            row.add(CATALOG_NAME);
+
+            rows.add(row);
+        }
+
+        return new JdbcResultSet(rows, meta);
     }
 
     /** {@inheritDoc} */
@@ -1489,5 +1491,28 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
         row.add("NO");                          // 23. IS_GENERATEDCOLUMN
 
         return row;
+    }
+
+    /**
+     * @param pkMeta Primary key metadata.
+     * @return Result set rows for primary key.
+     */
+    public static List<List<Object>> primaryKeyRows(JdbcPrimaryKeyMeta pkMeta) {
+        List<List<Object>> rows = new ArrayList<>(pkMeta.fields().size());
+
+        for (int i = 0; i < pkMeta.fields().size(); ++i) {
+            List<Object> row = new ArrayList<>(6);
+
+            row.add(CATALOG_NAME); // table catalog
+            row.add(pkMeta.schemaName());
+            row.add(pkMeta.tableName());
+            row.add(pkMeta.fields().get(i));
+            row.add(i + 1); // sequence number
+            row.add(pkMeta.name());
+
+            rows.add(row);
+        }
+
+        return rows;
     }
 }

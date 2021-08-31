@@ -122,4 +122,10 @@ public class ClientOp {
 
     /** Close query cursor. */
     public static final int SQL_COLUMN_META = 38;
+
+    /** Close query cursor. */
+    public static final int SQL_SCHEMAS_META = 39;
+
+    /** Close query cursor. */
+    public static final int SQL_PK_META = 40;
 }

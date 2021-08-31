@@ -20,37 +20,28 @@ package org.apache.ignite.client.proto.query.event;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
-
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * JDBC columns metadata result.
+ * JDBC tables metadata result.
  */
-public class JdbcMetaColumnsResult extends JdbcResponse {
-    /** Columns metadata. */
-    private List<JdbcColumnMeta> meta;
+public class JdbcMetaSchemasResult extends JdbcResponse {
+    /** Found schemas. */
+    private Collection<String> schemas;
 
     /**
      * Default constructor is used for deserialization.
      */
-    public JdbcMetaColumnsResult() {
+    public JdbcMetaSchemasResult() {
     }
 
     /**
-     * @param meta Columns metadata.
+     * @param schemas Found schemas.
      */
-    public JdbcMetaColumnsResult(Collection<JdbcColumnMeta> meta) {
-        this.meta = new ArrayList<>(meta);
-    }
-
-    /**
-     * @return Columns metadata.
-     */
-    public List<JdbcColumnMeta> meta() {
-        return meta;
+    public JdbcMetaSchemasResult(Collection<String> schemas) {
+        this.schemas = schemas;
     }
 
     /** {@inheritDoc} */
@@ -60,10 +51,16 @@ public class JdbcMetaColumnsResult extends JdbcResponse {
         if (status() != STATUS_SUCCESS)
             return;
 
-        packer.packArrayHeader(meta.size());
+        if (schemas == null) {
+            packer.packNil();
 
-        for (JdbcColumnMeta m : meta)
-            m.writeBinary(packer);
+            return;
+        }
+
+        packer.packArrayHeader(schemas.size());
+
+        for (String schema : schemas)
+            packer.packString(schema);
     }
 
     /** {@inheritDoc} */
@@ -73,34 +70,29 @@ public class JdbcMetaColumnsResult extends JdbcResponse {
         if (status() != STATUS_SUCCESS)
             return;
 
-        int size = unpacker.unpackArrayHeader();
-
-        if (size == 0) {
-            meta = Collections.emptyList();
+        if (unpacker.tryUnpackNil()) {
+            schemas = Collections.EMPTY_LIST;
 
             return;
         }
 
-        meta = new ArrayList<>(size);
+        int size = unpacker.unpackArrayHeader();
 
-        for (int i = 0; i < size; ++i) {
-            JdbcColumnMeta m = createMetaColumn();
+        schemas = new ArrayList<>(size);
 
-            m.readBinary(unpacker);
-
-            meta.add(m);
-        }
+        for (int i = 0; i < size; i++)
+            schemas.add(unpacker.unpackString());
     }
 
     /**
-     * @return Empty columns metadata to deserialization.
+     * @return Found schemas.
      */
-    protected JdbcColumnMeta createMetaColumn() {
-        return new JdbcColumnMeta();
+    public Collection<String> schemas() {
+        return schemas;
     }
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(JdbcMetaColumnsResult.class, this);
+        return S.toString(JdbcMetaSchemasResult.class, this);
     }
 }
