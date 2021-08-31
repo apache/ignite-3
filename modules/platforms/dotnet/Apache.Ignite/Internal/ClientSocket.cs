@@ -69,6 +69,9 @@ namespace Apache.Ignite.Internal
             Justification = "WaitHandle is not used in CancellationTokenSource, no need to dispose.")]
         private readonly CancellationTokenSource _disposeTokenSource = new();
 
+        /** Logger. */
+        private readonly IIgniteLogger? _logger;
+
         /** Request id generator. */
         private long _requestId;
 
@@ -76,9 +79,11 @@ namespace Apache.Ignite.Internal
         /// Initializes a new instance of the <see cref="ClientSocket"/> class.
         /// </summary>
         /// <param name="stream">Network stream.</param>
-        private ClientSocket(NetworkStream stream)
+        /// <param name="logger">Logger.</param>
+        private ClientSocket(NetworkStream stream, IIgniteLogger? logger)
         {
             _stream = stream;
+            _logger = logger;
 
             // Because this call is not awaited, execution of the current method continues before the call is completed.
             // Receive loop runs in the background and should not be awaited.
@@ -118,7 +123,7 @@ namespace Apache.Ignite.Internal
 
                 await HandshakeAsync(stream).ConfigureAwait(false);
 
-                return new ClientSocket(stream);
+                return new ClientSocket(stream, logger);
             }
             catch (Exception)
             {
@@ -387,8 +392,9 @@ namespace Apache.Ignite.Internal
 
             if (!_requests.TryRemove(requestId, out var taskCompletionSource))
             {
-                // Invalid request id.
-                // TODO: Log error, close socket.
+                _logger?.Error($"Unexpected response ID ({requestId}) received from the server, closing the socket.");
+                Dispose();
+
                 return;
             }
 
