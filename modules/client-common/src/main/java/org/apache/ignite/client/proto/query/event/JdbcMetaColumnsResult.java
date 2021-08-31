@@ -40,6 +40,8 @@ public class JdbcMetaColumnsResult extends JdbcResponse {
     }
 
     /**
+     * Constructor.
+     *
      * @param meta Columns metadata.
      */
     public JdbcMetaColumnsResult(Collection<JdbcColumnMeta> meta) {
@@ -47,6 +49,8 @@ public class JdbcMetaColumnsResult extends JdbcResponse {
     }
 
     /**
+     * Gets column metadata.
+     *
      * @return Columns metadata.
      */
     public List<JdbcColumnMeta> meta() {
@@ -84,19 +88,12 @@ public class JdbcMetaColumnsResult extends JdbcResponse {
         meta = new ArrayList<>(size);
 
         for (int i = 0; i < size; ++i) {
-            JdbcColumnMeta m = createMetaColumn();
+            var m = new JdbcColumnMeta();
 
             m.readBinary(unpacker);
 
             meta.add(m);
         }
-    }
-
-    /**
-     * @return Empty columns metadata to deserialization.
-     */
-    protected JdbcColumnMeta createMetaColumn() {
-        return new JdbcColumnMeta();
     }
 
     /** {@inheritDoc} */

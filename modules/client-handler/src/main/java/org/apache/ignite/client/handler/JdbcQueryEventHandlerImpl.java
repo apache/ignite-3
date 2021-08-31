@@ -22,7 +22,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 import org.apache.ignite.client.handler.requests.sql.JdbcMetadataInfo;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteRequest;
@@ -72,6 +71,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
      * Constructor.
      *
      * @param processor Processor.
+     * @param meta JdbcMetadataInfo.
      */
     public JdbcQueryEventHandlerImpl(QueryProcessor processor, JdbcMetadataInfo meta) {
         this.processor = processor;

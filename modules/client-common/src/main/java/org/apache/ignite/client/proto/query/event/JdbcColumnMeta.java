@@ -72,6 +72,8 @@ public class JdbcColumnMeta extends JdbcResponse {
     }
 
     /**
+     * Constructor.
+     *
      * @param schemaName Schema.
      * @param tblName Table.
      * @param colName Column.
@@ -82,10 +84,13 @@ public class JdbcColumnMeta extends JdbcResponse {
     }
 
     /**
+     * Constructor with nullable flag.
+     *
      * @param schemaName Schema.
      * @param tblName Table.
      * @param colName Column.
      * @param cls Type.
+     * @param nullable Nullable flag.
      */
     public JdbcColumnMeta(String schemaName, String tblName, String colName, Class<?> cls, boolean nullable) {
         this.schemaName = schemaName;
@@ -100,6 +105,8 @@ public class JdbcColumnMeta extends JdbcResponse {
     }
 
     /**
+     * Gets schema name.
+     *
      * @return Schema name.
      */
     public String schemaName() {
@@ -107,6 +114,8 @@ public class JdbcColumnMeta extends JdbcResponse {
     }
 
     /**
+     * Gets table name.
+     *
      * @return Table name.
      */
     public String tableName() {
@@ -114,6 +123,8 @@ public class JdbcColumnMeta extends JdbcResponse {
     }
 
     /**
+     * Gets column name.
+     *
      * @return Column name.
      */
     public String columnName() {
@@ -121,6 +132,8 @@ public class JdbcColumnMeta extends JdbcResponse {
     }
 
     /**
+     * Gets data type id.
+     *
      * @return Column's data type.
      */
     public int dataType() {
@@ -128,6 +141,8 @@ public class JdbcColumnMeta extends JdbcResponse {
     }
 
     /**
+     * Gets data type name.
+     *
      * @return Column's data type name.
      */
     public String dataTypeName() {
@@ -135,6 +150,8 @@ public class JdbcColumnMeta extends JdbcResponse {
     }
 
     /**
+     * Gets default value.
+     *
      * @return Column's default value.
      */
     public String defaultValue() {
@@ -142,6 +159,8 @@ public class JdbcColumnMeta extends JdbcResponse {
     }
 
     /**
+     * Gets column precision.
+     *
      * @return Column's precision.
      */
     public int precision() {
@@ -149,6 +168,8 @@ public class JdbcColumnMeta extends JdbcResponse {
     }
 
     /**
+     * Gets column scale.
+     *
      * @return Column's scale.
      */
     public int scale() {
@@ -156,6 +177,8 @@ public class JdbcColumnMeta extends JdbcResponse {
     }
 
     /**
+     * Gets nullable flag.
+     *
      * @return {@code true} in case the column allows null values. Otherwise returns {@code false}
      */
     public boolean isNullable() {

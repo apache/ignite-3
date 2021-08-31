@@ -38,6 +38,8 @@ public class JdbcMetaSchemasResult extends JdbcResponse {
     }
 
     /**
+     * Constructor.
+     *
      * @param schemas Found schemas.
      */
     public JdbcMetaSchemasResult(Collection<String> schemas) {
@@ -85,6 +87,8 @@ public class JdbcMetaSchemasResult extends JdbcResponse {
     }
 
     /**
+     * Gets found table schemas.
+     *
      * @return Found schemas.
      */
     public Collection<String> schemas() {

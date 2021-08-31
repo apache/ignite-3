@@ -39,6 +39,8 @@ public class JdbcMetaPrimaryKeysResult extends JdbcResponse {
     }
 
     /**
+     * Constructor.
+     *
      * @param meta Column metadata.
      */
     public JdbcMetaPrimaryKeysResult(Collection<JdbcPrimaryKeyMeta> meta) {
@@ -92,6 +94,8 @@ public class JdbcMetaPrimaryKeysResult extends JdbcResponse {
     }
 
     /**
+     * Gets primary key metadata.
+     *
      * @return Primary keys metadata.
      */
     public List<JdbcPrimaryKeyMeta> meta() {

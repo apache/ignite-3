@@ -43,6 +43,8 @@ public class JdbcTableMeta extends JdbcResponse {
     }
 
     /**
+     * Constructor.
+     *
      * @param schemaName Schema name.
      * @param tblName Table name.
      * @param tblType Table type.
@@ -54,6 +56,8 @@ public class JdbcTableMeta extends JdbcResponse {
     }
 
     /**
+     * Gets schema name.
+     *
      * @return Schema name.
      */
     public String schemaName() {
@@ -61,6 +65,8 @@ public class JdbcTableMeta extends JdbcResponse {
     }
 
     /**
+     * Gets table name.
+     *
      * @return Table name.
      */
     public String tableName() {
@@ -68,6 +74,8 @@ public class JdbcTableMeta extends JdbcResponse {
     }
 
     /**
+     * Gets table type.
+     *
      * @return Table type.
      */
     public String tableType() {

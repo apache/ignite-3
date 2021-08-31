@@ -42,6 +42,8 @@ public class JdbcMetaColumnsRequest implements JdbcClientMessage {
     }
 
     /**
+     * Constructor.
+     *
      * @param schemaName Schema name.
      * @param tblName Table name.
      * @param colName Column name.
@@ -53,6 +55,8 @@ public class JdbcMetaColumnsRequest implements JdbcClientMessage {
     }
 
     /**
+     * Gets schema name sql pattern.
+     *
      * @return Schema name pattern.
      */
     @Nullable public String schemaName() {
@@ -60,6 +64,8 @@ public class JdbcMetaColumnsRequest implements JdbcClientMessage {
     }
 
     /**
+     * Gets table name sql pattern.
+     *
      * @return Table name pattern.
      */
     public String tableName() {
@@ -67,6 +73,8 @@ public class JdbcMetaColumnsRequest implements JdbcClientMessage {
     }
 
     /**
+     * Gets column name sql pattern.
+     *
      * @return Column name pattern.
      */
     public String columnName() {

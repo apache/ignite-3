@@ -758,6 +758,8 @@ public class JdbcConnection implements Connection {
     }
 
     /**
+     * Gets connection url.
+     *
      * @return Connection URL.
      */
     public String url() {

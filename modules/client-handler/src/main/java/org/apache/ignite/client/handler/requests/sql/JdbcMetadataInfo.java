@@ -45,6 +45,15 @@ import org.apache.ignite.table.manager.IgniteTables;
  * Facade over {@link IgniteTables} to get information about database entities in terms of JDBC.
  */
 public class JdbcMetadataInfo {
+    /** Table name separator. */
+    private static final String TABLE_NAME_SEPARATOR = "\\.";
+
+    /** Table name. */
+    private static final int TABLE_NAME = 1;
+
+    /** Table schema. */
+    private static final int TABLE_SCHEMA = 0;
+
     /** Root context. Used to get all the database metadata. */
     private final IgniteTables tables;
 
@@ -70,6 +79,8 @@ public class JdbcMetadataInfo {
      *
      * Ignite has only one possible CATALOG_NAME, it is handled on the client (driver) side.
      *
+     * @param schemaNamePtrn sql pattern for schema name.
+     * @param tblNamePtrn sql pattern for table name.
      * @return Collection of primary keys information for tables that matches specified schema and table name patterns.
      */
     public Collection<JdbcPrimaryKeyMeta> getPrimaryKeys(String schemaNamePtrn, String tblNamePtrn) {
@@ -79,11 +90,11 @@ public class JdbcMetadataInfo {
         String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
 
         tables.tables().stream()
-            .filter(t -> matches(t.tableName().split("\\.")[0], schemaNameRegex))
-            .filter(t -> matches(t.tableName().split("\\.")[1], tlbNameRegex))
+            .filter(t -> matches(getTableSchema(t), schemaNameRegex))
+            .filter(t -> matches(getTblName(t), tlbNameRegex))
             .forEach(tbl -> {
-                String schemaName = tbl.tableName().split("\\.")[0];
-                String tblName = tbl.tableName().split("\\.")[1];
+                String schemaName = getTableSchema(tbl);
+                String tblName = getTblName(tbl);
 
                 final String keyName = "PK_" + tblName;
 
@@ -99,6 +110,26 @@ public class JdbcMetadataInfo {
             });
 
         return metaSet;
+    }
+
+    /**
+     * Splits the tableName into schema and table name and returns the table name.
+     *
+     * @param tbl Table.
+     * @return Table name string.
+     */
+    private String getTblName(Table tbl) {
+        return tbl.tableName().split(TABLE_NAME_SEPARATOR)[TABLE_NAME];
+    }
+
+    /**
+     * Splits the tableName into schema and table name and returns the table schema.
+     *
+     * @param tbl Table.
+     * @return Table schema string.
+     */
+    private String getTableSchema(Table tbl) {
+        return tbl.tableName().split(TABLE_NAME_SEPARATOR)[TABLE_SCHEMA];
     }
 
     /**
@@ -119,13 +150,13 @@ public class JdbcMetadataInfo {
         String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
 
         List<Table> tblsMeta = tables.tables().stream()
-            .filter(t -> matches(t.tableName().split("\\.")[0], schemaNameRegex))
-            .filter(t -> matches(t.tableName().split("\\.")[1], tlbNameRegex))
+            .filter(t -> matches(getTableSchema(t), schemaNameRegex))
+            .filter(t -> matches(getTblName(t), tlbNameRegex))
             .collect(Collectors.toList());
 
         return tblsMeta.stream()
             .sorted(byTblTypeThenSchemaThenTblName)
-            .map(t -> new JdbcTableMeta(t.tableName().split("\\.")[0], t.tableName().split("\\.")[1], "TABLE"))
+            .map(t -> new JdbcTableMeta(getTableSchema(t), getTblName(t), "TABLE"))
             .collect(Collectors.toList());
     }
 
@@ -134,6 +165,9 @@ public class JdbcMetadataInfo {
      *
      * Ignite has only one possible CATALOG_NAME, it is handled on the client (driver) side.
      *
+     * @param schemaNamePtrn Schema name java regex pattern.
+     * @param tblNamePtrn Table name java regex pattern.
+     * @param colNamePtrn Column name java regex pattern.
      * @return List of metadatas about columns that match specified schema/tablename/columnname criterias.
      */
     public Collection<JdbcColumnMeta> getColumnsMeta(String schemaNamePtrn, String tblNamePtrn, String colNamePtrn) {
@@ -144,8 +178,8 @@ public class JdbcMetadataInfo {
         String colNameRegex = translateSqlWildcardsToRegex(colNamePtrn);
 
         tables.tables().stream()
-            .filter(t -> matches(t.tableName().split("\\.")[0], schemaNameRegex))
-            .filter(t -> matches(t.tableName().split("\\.")[1], tlbNameRegex))
+            .filter(t -> matches(getTableSchema(t), schemaNameRegex))
+            .filter(t -> matches(getTblName(t), tlbNameRegex))
             .flatMap(
                 tbl -> {
                     SchemaDescriptor schema = ((TableImpl)tbl).schemaView().schema();
@@ -195,7 +229,7 @@ public class JdbcMetadataInfo {
         String schemaNameRegex = translateSqlWildcardsToRegex(schemaNamePtrn);
 
         tables.tables().stream()
-            .map(e -> e.tableName().split("\\.")[0])
+            .map(this::getTableSchema)
             .filter(e -> matches(e, schemaNameRegex))
             .forEach(schemas::add);
 
@@ -232,6 +266,9 @@ public class JdbcMetadataInfo {
      *      some?   -->     some\?
      *      som\e   -->     som\\e
      * </pre>
+     *
+     * @param sqlPtrn Sql pattern.
+     * @return Java regex pattern,
      */
     private static String translateSqlWildcardsToRegex(String sqlPtrn) {
         if (sqlPtrn == null || sqlPtrn.isEmpty())

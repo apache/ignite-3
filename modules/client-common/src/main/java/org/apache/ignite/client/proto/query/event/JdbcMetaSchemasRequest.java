@@ -35,6 +35,8 @@ public class JdbcMetaSchemasRequest implements JdbcClientMessage {
     }
 
     /**
+     * Constructor.
+     *
      * @param schemaName Schema search pattern.
      */
     public JdbcMetaSchemasRequest(String schemaName) {
@@ -42,6 +44,8 @@ public class JdbcMetaSchemasRequest implements JdbcClientMessage {
     }
 
     /**
+     * Gets schema name sql pattern.
+     *
      * @return Schema search pattern.
      */
     public String schemaName() {
@@ -50,16 +54,12 @@ public class JdbcMetaSchemasRequest implements JdbcClientMessage {
 
     /** {@inheritDoc} */
     @Override public void writeBinary(ClientMessagePacker packer) {
-        if (schemaName == null)
-            packer.packNil();
-        else
-            packer.packString(schemaName);
+        ClientMessageUtils.writeStringNullable(packer, schemaName);
     }
 
     /** {@inheritDoc} */
     @Override public void readBinary(ClientMessageUnpacker unpacker) {
-        if (!unpacker.tryUnpackNil())
-            schemaName = unpacker.unpackString();
+        schemaName = ClientMessageUtils.readStringNullable(unpacker);
     }
 
     /** {@inheritDoc} */

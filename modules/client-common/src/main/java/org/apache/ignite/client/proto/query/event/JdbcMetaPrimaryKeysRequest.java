@@ -20,7 +20,6 @@ package org.apache.ignite.client.proto.query.event;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * JDBC get primary keys metadata request.
@@ -39,6 +38,8 @@ public class JdbcMetaPrimaryKeysRequest implements JdbcClientMessage {
     }
 
     /**
+     * Constructor.
+     *
      * @param schemaName Cache name.
      * @param tblName Table name.
      */
@@ -48,13 +49,17 @@ public class JdbcMetaPrimaryKeysRequest implements JdbcClientMessage {
     }
 
     /**
+     * Gets schema name sql pattern.
+     *
      * @return Schema name pattern.
      */
-    @Nullable public String schemaName() {
+    public String schemaName() {
         return schemaName;
     }
 
     /**
+     * Gets table name sql pattern.
+     *
      * @return Table name pattern.
      */
     public String tableName() {
@@ -63,24 +68,14 @@ public class JdbcMetaPrimaryKeysRequest implements JdbcClientMessage {
 
     /** {@inheritDoc} */
     @Override public void readBinary(ClientMessageUnpacker unpacker) {
-        if (!unpacker.tryUnpackNil())
-            schemaName = unpacker.unpackString();
-
-        if (!unpacker.tryUnpackNil())
-            tblName = unpacker.unpackString();
+        schemaName = ClientMessageUtils.readStringNullable(unpacker);
+        tblName = ClientMessageUtils.readStringNullable(unpacker);
     }
 
     /** {@inheritDoc} */
     @Override public void writeBinary(ClientMessagePacker packer) {
-        if (schemaName == null)
-            packer.packNil();
-        else
-            packer.packString(schemaName);
-
-        if (tblName == null)
-            packer.packNil();
-        else
-            packer.packString(tblName);
+        ClientMessageUtils.writeStringNullable(packer, schemaName);
+        ClientMessageUtils.writeStringNullable(packer, tblName);
     }
 
     /** {@inheritDoc} */

@@ -38,6 +38,8 @@ public class JdbcMetaTablesResult extends JdbcResponse {
     }
 
     /**
+     * Constructor.
+     *
      * @param meta Tables metadata.
      */
     public JdbcMetaTablesResult(List<JdbcTableMeta> meta) {
@@ -82,6 +84,8 @@ public class JdbcMetaTablesResult extends JdbcResponse {
     }
 
     /**
+     * Gets table metadata.
+     *
      * @return Tables metadata.
      */
     public List<JdbcTableMeta> meta() {

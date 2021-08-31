@@ -48,6 +48,8 @@ public class JdbcPrimaryKeyMeta implements JdbcClientMessage {
     }
 
     /**
+     * Constructor.
+     *
      * @param schemaName Schema.
      * @param tblName Table.
      * @param name Name.
@@ -61,6 +63,8 @@ public class JdbcPrimaryKeyMeta implements JdbcClientMessage {
     }
 
     /**
+     * Gets schema name.
+     *
      * @return Schema name.
      */
     public String schemaName() {
@@ -68,6 +72,8 @@ public class JdbcPrimaryKeyMeta implements JdbcClientMessage {
     }
 
     /**
+     * Gets table name.
+     *
      * @return Table name.
      */
     public String tableName() {
@@ -75,6 +81,8 @@ public class JdbcPrimaryKeyMeta implements JdbcClientMessage {
     }
 
     /**
+     * Gets primary key name.
+     *
      * @return Primary key name.
      */
     public String name() {
@@ -82,6 +90,8 @@ public class JdbcPrimaryKeyMeta implements JdbcClientMessage {
     }
 
     /**
+     * Gets key field names.
+     *
      * @return Key fields.
      */
     public List<String> fields() {

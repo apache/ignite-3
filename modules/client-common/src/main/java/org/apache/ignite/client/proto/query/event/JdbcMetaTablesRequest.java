@@ -17,8 +17,6 @@
 
 package org.apache.ignite.client.proto.query.event;
 
-import java.util.ArrayList;
-import java.util.List;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
@@ -43,6 +41,8 @@ public class JdbcMetaTablesRequest implements JdbcClientMessage {
     }
 
     /**
+     * Constructor.
+     *
      * @param schemaName Schema search pattern.
      * @param tblName Table search pattern.
      * @param tblTypes Table types.
@@ -54,6 +54,8 @@ public class JdbcMetaTablesRequest implements JdbcClientMessage {
     }
 
     /**
+     * Gets schema name pattern.
+     *
      * @return Schema search pattern.
      */
     public String schemaName() {
@@ -61,6 +63,8 @@ public class JdbcMetaTablesRequest implements JdbcClientMessage {
     }
 
     /**
+     * Gets table name pattern.
+     *
      * @return Table search pattern.
      */
     public String tableName() {
@@ -68,6 +72,8 @@ public class JdbcMetaTablesRequest implements JdbcClientMessage {
     }
 
     /**
+     * Gets allowed table types.
+     *
      * @return Table types.
      */
     public String[] tableTypes() {
@@ -76,21 +82,15 @@ public class JdbcMetaTablesRequest implements JdbcClientMessage {
 
     /** {@inheritDoc} */
     @Override public void writeBinary(ClientMessagePacker packer) {
-        if (schemaName == null)
-            packer.packNil();
-        else
-            packer.packString(schemaName);
-
-        if (tblName == null)
-            packer.packNil();
-        else
-            packer.packString(tblName);
+        ClientMessageUtils.writeStringNullable(packer, schemaName);
+        ClientMessageUtils.writeStringNullable(packer, tblName);
 
         if (tblTypes == null) {
             packer.packNil();
 
             return;
         }
+
         packer.packArrayHeader(tblTypes.length);
 
         for (String type : tblTypes)
@@ -99,23 +99,18 @@ public class JdbcMetaTablesRequest implements JdbcClientMessage {
 
     /** {@inheritDoc} */
     @Override public void readBinary(ClientMessageUnpacker unpacker) {
-        if (!unpacker.tryUnpackNil())
-            schemaName = unpacker.unpackString();
-
-        if (!unpacker.tryUnpackNil())
-            tblName = unpacker.unpackString();
+        schemaName = ClientMessageUtils.readStringNullable(unpacker);
+        tblName = ClientMessageUtils.readStringNullable(unpacker);
 
         if (unpacker.tryUnpackNil())
             return;
 
         int size = unpacker.unpackArrayHeader();
 
-        List<String> types = new ArrayList<>(size);
+        tblTypes = new String[size];
 
         for (int i = 0; i < size; i++)
-            types.add(unpacker.unpackString());
-
-        tblTypes = types.toArray(new String[0]);
+            tblTypes[i] = unpacker.unpackString();
     }
 
     /** {@inheritDoc} */

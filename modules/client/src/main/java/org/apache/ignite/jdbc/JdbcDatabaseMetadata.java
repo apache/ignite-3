@@ -69,6 +69,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     private final JdbcConnection conn;
 
     /**
+     * Constructor.
+     *
      * @param conn Connection.
      */
     JdbcDatabaseMetadata(JdbcConnection conn) {
@@ -1437,6 +1439,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     }
 
     /**
+     * Constructs a list of rows in jdbc format for a given table metadata.
+     *
      * @param tblMeta Table metadata.
      * @return Table metadata row.
      */
@@ -1458,6 +1462,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     }
 
     /**
+     * Constructs a list of rows in jdbc format for a given column metadata.
+     *
      * @param colMeta Column metadata.
      * @param pos Ordinal position.
      * @return Column metadata row.
@@ -1494,10 +1500,12 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     }
 
     /**
+     * Constructs a list of rows in jdbc format for a given primary key metadata.
+     *
      * @param pkMeta Primary key metadata.
      * @return Result set rows for primary key.
      */
-    public static List<List<Object>> primaryKeyRows(JdbcPrimaryKeyMeta pkMeta) {
+    private static List<List<Object>> primaryKeyRows(JdbcPrimaryKeyMeta pkMeta) {
         List<List<Object>> rows = new ArrayList<>(pkMeta.fields().size());
 
         for (int i = 0; i < pkMeta.fields().size(); ++i) {
