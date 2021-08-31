@@ -17,11 +17,14 @@
 
 namespace Apache.Ignite.Internal
 {
+    using System;
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Linq;
     using System.Net;
     using System.Net.Sockets;
+    using System.Threading;
+    using System.Threading.Tasks;
     using Log;
 
     /// <summary>
@@ -47,6 +50,66 @@ namespace Apache.Ignite.Internal
             _configuration = new IgniteClientConfiguration(configuration);
             _logger = _configuration.Logger;
             _endPoints = GetIpEndPoints(configuration).ToList();
+        }
+
+        /// <summary>
+        /// Gets next connected socket, or connects a new one.
+        /// </summary>
+        private ClientSocket GetNextSocket()
+        {
+            List<Exception> errors = null;
+            var startIdx = (int) Interlocked.Increment(ref _endPointIndex);
+
+            // Check socket map first, if available: it includes all cluster nodes.
+            var map = _nodeSocketMap;
+            foreach (var socket in map.Values)
+            {
+                if (!socket.IsDisposed)
+                {
+                    return socket;
+                }
+            }
+
+            // Fall back to initially known endpoints.
+            for (var i = 0; i < _endPoints.Count; i++)
+            {
+                var idx = (startIdx + i) % _endPoints.Count;
+                var endPoint = _endPoints[idx];
+
+                if (endPoint.Socket != null && !endPoint.Socket.IsDisposed)
+                {
+                    return endPoint.Socket;
+                }
+
+                try
+                {
+                    return Connect(endPoint);
+                }
+                catch (SocketException e)
+                {
+                    if (errors == null)
+                    {
+                        errors = new List<Exception>();
+                    }
+
+                    errors.Add(e);
+                }
+            }
+
+            throw new AggregateException(
+                "Failed to establish Ignite thin client connection, examine inner exceptions for details.", errors);
+        }
+
+        /// <summary>
+        /// Connects to the given endpoint.
+        /// </summary>
+        private async Task<ClientSocket> ConnectAsync(SocketEndpoint endPoint)
+        {
+            var socket = await ClientSocket.ConnectAsync(endPoint.EndPoint, _logger).ConfigureAwait(false);
+
+            endPoint.Socket = socket;
+
+            return socket;
         }
 
         /// <summary>

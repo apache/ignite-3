@@ -27,6 +27,7 @@ namespace Apache.Ignite.Internal
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
+    using Log;
     using MessagePack;
     using Proto;
 
@@ -90,12 +91,13 @@ namespace Apache.Ignite.Internal
         /// Connects the socket to the specified endpoint and performs handshake.
         /// </summary>
         /// <param name="endPoint">Specific endpoint to connect to.</param>
+        /// <param name="logger">Logger.</param>
         /// <returns>A <see cref="Task{TResult}"/> representing the result of the asynchronous operation.</returns>
         [SuppressMessage(
             "Microsoft.Reliability",
             "CA2000:Dispose objects before losing scope",
             Justification = "NetworkStream is returned from this method in the socket.")]
-        public static async Task<ClientSocket> ConnectAsync(EndPoint endPoint)
+        public static async Task<ClientSocket> ConnectAsync(EndPoint endPoint, IIgniteLogger? logger)
         {
             var socket = new Socket(SocketType.Stream, ProtocolType.Tcp)
             {
@@ -105,15 +107,11 @@ namespace Apache.Ignite.Internal
             try
             {
                 await socket.ConnectAsync(endPoint).ConfigureAwait(false);
+                logger?.Debug("Socket connection established: {0} -> {1}", socket.LocalEndPoint, socket.RemoteEndPoint);
+
                 var stream = new NetworkStream(socket, ownsSocket: true);
 
-                await stream.WriteAsync(ProtoCommon.MagicBytes).ConfigureAwait(false);
-                await WriteHandshakeAsync(stream, CurrentProtocolVersion).ConfigureAwait(false);
-
-                await stream.FlushAsync().ConfigureAwait(false);
-
-                await CheckMagicBytesAsync(stream).ConfigureAwait(false);
-                await CheckHandshakeResponseAsync(stream).ConfigureAwait(false);
+                await HandshakeAsync(stream).ConfigureAwait(false);
 
                 return new ClientSocket(stream);
             }
@@ -196,6 +194,27 @@ namespace Apache.Ignite.Internal
             _stream.Dispose();
         }
 
+        /// <summary>
+        /// Performs the handshake exchange.
+        /// </summary>
+        /// <param name="stream">Network stream.</param>
+        private static async Task HandshakeAsync(NetworkStream stream)
+        {
+            await stream.WriteAsync(ProtoCommon.MagicBytes).ConfigureAwait(false);
+            await WriteHandshakeAsync(stream, CurrentProtocolVersion).ConfigureAwait(false);
+
+            await stream.FlushAsync().ConfigureAwait(false);
+
+            await CheckMagicBytesAsync(stream).ConfigureAwait(false);
+
+            using var response = await ReadResponseAsync(stream, CancellationToken.None).ConfigureAwait(false);
+            CheckHandshakeResponse(response.GetReader());
+        }
+
+        /// <summary>
+        /// Check magic bytes.
+        /// </summary>
+        /// <param name="stream">Network stream.</param>
         private static async ValueTask CheckMagicBytesAsync(NetworkStream stream)
         {
             var responseMagic = ArrayPool<byte>.Shared.Rent(ProtoCommon.MagicBytes.Length);
@@ -217,13 +236,6 @@ namespace Apache.Ignite.Internal
             {
                 ArrayPool<byte>.Shared.Return(responseMagic);
             }
-        }
-
-        private static async ValueTask CheckHandshakeResponseAsync(NetworkStream stream)
-        {
-            using var response = await ReadResponseAsync(stream, CancellationToken.None).ConfigureAwait(false);
-
-            CheckHandshakeResponse(response.GetReader());
         }
 
         private static void CheckHandshakeResponse(MessagePackReader reader)
