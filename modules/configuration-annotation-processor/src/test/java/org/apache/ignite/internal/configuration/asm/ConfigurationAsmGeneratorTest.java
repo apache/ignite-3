@@ -111,8 +111,6 @@ public class ConfigurationAsmGeneratorTest {
         assertSame(baseRootConfig.namedCfg(), extendedRootConfig.namedCfg());
         assertSame(baseRootConfig.namedCfg(), extendedSecondRootConfig.namedCfg());
 
-        assertSame(extendedRootConfig.str1(), extendedSecondRootConfig.str1());
-
         assertNotNull(extendedSecondRootConfig.i1());
 
         // Check view and change interfaces.
@@ -130,7 +128,7 @@ public class ConfigurationAsmGeneratorTest {
             c.changeI0(10).changeStr0("str0");
 
             ((ExtendedTestRootChange)c).changeStr1("str1").changeStr0("str0");
-            ((ExtendedSecondTestRootChange)c).changeStr1("str1").changeI1(200).changeStr0("str0");
+            ((ExtendedSecondTestRootChange)c).changeI1(200).changeStr0("str0");
         }).get(1, SECONDS);
     }
 
@@ -154,8 +152,6 @@ public class ConfigurationAsmGeneratorTest {
         assertSame(baseSubConfig.str2(), extendedSubConfig.str2());
         assertSame(baseSubConfig.str2(), extendedSecondSubConfig.str2());
 
-        assertSame(extendedSubConfig.str3(), extendedSecondSubConfig.str3());
-
         assertNotNull(extendedSecondSubConfig.i1());
 
         // Check view and change interfaces.
@@ -173,7 +169,7 @@ public class ConfigurationAsmGeneratorTest {
             c.changeI0(10).changeStr2("str2");
 
             ((ExtendedTestChange)c).changeStr3("str3").changeStr2("str2");
-            ((ExtendedSecondTestChange)c).changeStr3("str3").changeI1(200).changeStr2("str2");
+            ((ExtendedSecondTestChange)c).changeI1(200).changeStr2("str2");
         }).get(1, SECONDS);
     }
 
@@ -205,7 +201,7 @@ public class ConfigurationAsmGeneratorTest {
             c.changeStr2("str2").changeI0(10);
 
             ((ExtendedTestChange)c).changeStr3("str3").changeStr2("str2");
-            ((ExtendedSecondTestChange)c).changeStr3("str3").changeI1(100).changeStr2("str2");
+            ((ExtendedSecondTestChange)c).changeI1(100).changeStr2("str2");
         }).get(1, SECONDS);
     }
 
@@ -272,10 +268,6 @@ public class ConfigurationAsmGeneratorTest {
      */
     @InternalConfiguration
     public static class ExtendedSecondTestRootConfigurationSchema extends TestRootConfigurationSchema {
-        /** String field. */
-        @Value(hasDefault = true)
-        public String str1 = "str1";
-
         /** Integer field. */
         @Value(hasDefault = true)
         public int i1 = 0;
@@ -310,10 +302,6 @@ public class ConfigurationAsmGeneratorTest {
      */
     @InternalConfiguration
     public static class ExtendedSecondTestConfigurationSchema extends TestConfigurationSchema {
-        /** String field. */
-        @Value(hasDefault = true)
-        public String str3 = "str3";
-
         /** Integer field. */
         @Value(hasDefault = true)
         public int i1 = 0;

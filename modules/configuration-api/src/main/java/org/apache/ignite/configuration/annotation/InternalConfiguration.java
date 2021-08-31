@@ -30,12 +30,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * It indicates that this is an internal configuration that should be hidden from the end user.
  * Any extensions are allowed for any configuration.
  * <p>
- * NOTE:
- * <ul>
- * <li>Extension and superclass fields cannot have the same name.</li>
- * <li>Extensions of the same superclass can have the same fields, they must be semantically equal,
- * then they will share it among themselves.</li>
- * </ul>
+ * NOTE: Field name collisions are not allowed.
  *
  * @see ConfigurationRoot
  * @see Config
