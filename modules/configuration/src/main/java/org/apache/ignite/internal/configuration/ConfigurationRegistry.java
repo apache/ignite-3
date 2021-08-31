@@ -100,11 +100,11 @@ public class ConfigurationRegistry implements IgniteComponent {
 
         Map<Class<?>, Set<Class<?>>> extensions = internalSchemaExtensions(internalSchemaExtensions);
 
-        Set<Class<?>> notInAllSchemas = extensions.keySet().stream()
-            .filter(not(allSchemas::contains))
-            .collect(toSet());
+        if (!allSchemas.containsAll(extensions.keySet())) {
+            Set<Class<?>> notInAllSchemas = extensions.keySet().stream()
+                .filter(not(allSchemas::contains))
+                .collect(toSet());
 
-        if (!notInAllSchemas.isEmpty()) {
             throw new IllegalArgumentException(
                 "Internal extensions for which no parent configuration schemes were found: " + notInAllSchemas
             );
@@ -192,11 +192,10 @@ public class ConfigurationRegistry implements IgniteComponent {
 
         if (node instanceof TraversableTreeNode)
             return ((TraversableTreeNode)node).accept(null, visitor);
-        else {
-            assert node == null || node instanceof Serializable;
 
-            return visitor.visitLeafNode(null, (Serializable)node);
-        }
+        assert node == null || node instanceof Serializable;
+
+        return visitor.visitLeafNode(null, (Serializable)node);
     }
 
     /**

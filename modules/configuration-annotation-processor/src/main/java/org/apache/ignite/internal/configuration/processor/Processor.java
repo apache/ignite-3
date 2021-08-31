@@ -30,7 +30,6 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Name;
-import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.ArrayType;
@@ -109,92 +108,19 @@ public class Processor extends AbstractProcessor {
             return false;
 
         for (TypeElement clazz : annotatedConfigs) {
-            // Get package name of the schema class
-            PackageElement elementPackage = elementUtils.getPackageOf(clazz);
-            String packageName = elementPackage.getQualifiedName().toString();
-
-            // Find all the fields of the schema
+            // Find all the fields of the schema.
             Collection<VariableElement> fields = fields(clazz);
 
-            ConfigurationRoot rootAnnotation = clazz.getAnnotation(ConfigurationRoot.class);
+            validate(clazz, fields);
 
             // Is root of the configuration.
-            boolean isRootConfig = rootAnnotation != null;
-
-            // Is the configuration.
-            boolean isConfig = clazz.getAnnotation(Config.class) != null;
+            boolean isRootConfig = clazz.getAnnotation(ConfigurationRoot.class) != null;
 
             // Is the internal configuration.
             boolean isInternalConfig = clazz.getAnnotation(InternalConfiguration.class) != null;
 
-            if (isInternalConfig) {
-                if (isConfig) {
-                    throw new ProcessorException(String.format(
-                        "Class with @%s is not allowed with @%s: %s",
-                        Config.class.getSimpleName(),
-                        InternalConfiguration.class.getSimpleName(),
-                        clazz.getQualifiedName()
-                    ));
-                }
-                else if (isRootConfig) {
-                    if (!isObjectClass(clazz.getSuperclass())) {
-                        throw new ProcessorException(String.format(
-                            "Class with @%s and @%s should not have a superclass: %s",
-                            ConfigurationRoot.class.getSimpleName(),
-                            InternalConfiguration.class.getSimpleName(),
-                            clazz.getQualifiedName()
-                        ));
-                    }
-                }
-                else if (isObjectClass(clazz.getSuperclass())) {
-                    throw new ProcessorException(String.format(
-                        "Class with @%s must have a superclass: %s",
-                        InternalConfiguration.class.getSimpleName(),
-                        clazz.getQualifiedName()
-                    ));
-                }
-                else {
-                    TypeElement superClazz = processingEnv
-                        .getElementUtils()
-                        .getTypeElement(clazz.getSuperclass().toString());
-
-                    if (superClazz.getAnnotation(InternalConfiguration.class) != null) {
-                        throw new ProcessorException(String.format(
-                            "Superclass must not have @%s: %s",
-                            InternalConfiguration.class.getSimpleName(),
-                            clazz.getQualifiedName()
-                        ));
-                    }
-                    else if (superClazz.getAnnotation(ConfigurationRoot.class) == null &&
-                        superClazz.getAnnotation(Config.class) == null) {
-                        throw new ProcessorException(String.format(
-                            "Superclass must have @%s or @%s: %s",
-                            ConfigurationRoot.class.getSimpleName(),
-                            Config.class.getSimpleName(),
-                            clazz.getQualifiedName()
-                        ));
-                    }
-                    else {
-                        Set<Name> superClazzFieldNames = fields(superClazz).stream()
-                            .map(VariableElement::getSimpleName)
-                            .collect(toSet());
-
-                        Collection<Name> duplicateFieldNames = fields.stream()
-                            .map(VariableElement::getSimpleName)
-                            .filter(superClazzFieldNames::contains)
-                            .collect(toList());
-
-                        if (!duplicateFieldNames.isEmpty()) {
-                            throw new ProcessorException(String.format(
-                                "Duplicate field names are not allowed [class=%s, superClass=%s, fields=%s]",
-                                clazz.getQualifiedName(),
-                                superClazz.getQualifiedName(),
-                                duplicateFieldNames
-                            ));
-                        }
-                    }
-                }
-            }
+            // Get package name of the schema class
+            String packageName = elementUtils.getPackageOf(clazz).getQualifiedName().toString();
 
             ClassName schemaClassName = ClassName.get(packageName, clazz.getSimpleName().toString());
 
@@ -546,6 +472,84 @@ public class Processor extends AbstractProcessor {
             .filter(el -> el.getKind() == ElementKind.FIELD)
             .map(VariableElement.class::cast)
             .collect(toList());
+    }
+
+    /**
+     * Validate the class.
+     *
+     * @param clazz Class type.
+     * @param fields Class fields.
+     * @throws ProcessorException If the class validation fails.
+     */
+    private void validate(TypeElement clazz, Collection<VariableElement> fields) {
+        if (clazz.getAnnotation(InternalConfiguration.class) != null) {
+            if (clazz.getAnnotation(Config.class) != null) {
+                throw new ProcessorException(String.format(
+                    "Class with @%s is not allowed with @%s: %s",
+                    Config.class.getSimpleName(),
+                    InternalConfiguration.class.getSimpleName(),
+                    clazz.getQualifiedName()
+                ));
+            }
+            else if (clazz.getAnnotation(ConfigurationRoot.class) != null) {
+                if (!isObjectClass(clazz.getSuperclass())) {
+                    throw new ProcessorException(String.format(
+                        "Class with @%s and @%s should not have a superclass: %s",
+                        ConfigurationRoot.class.getSimpleName(),
+                        InternalConfiguration.class.getSimpleName(),
+                        clazz.getQualifiedName()
+                    ));
+                }
+            }
+            else if (isObjectClass(clazz.getSuperclass())) {
+                throw new ProcessorException(String.format(
+                    "Class with @%s must have a superclass: %s",
+                    InternalConfiguration.class.getSimpleName(),
+                    clazz.getQualifiedName()
+                ));
+            }
+            else {
+                TypeElement superClazz = processingEnv
+                    .getElementUtils()
+                    .getTypeElement(clazz.getSuperclass().toString());
+
+                if (superClazz.getAnnotation(InternalConfiguration.class) != null) {
+                    throw new ProcessorException(String.format(
+                        "Superclass must not have @%s: %s",
+                        InternalConfiguration.class.getSimpleName(),
+                        clazz.getQualifiedName()
+                    ));
+                }
+                else if (superClazz.getAnnotation(ConfigurationRoot.class) == null &&
+                    superClazz.getAnnotation(Config.class) == null) {
+                    throw new ProcessorException(String.format(
+                        "Superclass must have @%s or @%s: %s",
+                        ConfigurationRoot.class.getSimpleName(),
+                        Config.class.getSimpleName(),
+                        clazz.getQualifiedName()
+                    ));
+                }
+                else {
+                    Set<Name> superClazzFieldNames = fields(superClazz).stream()
+                        .map(VariableElement::getSimpleName)
+                        .collect(toSet());
+
+                    Collection<Name> duplicateFieldNames = fields.stream()
+                        .map(VariableElement::getSimpleName)
+                        .filter(superClazzFieldNames::contains)
+                        .collect(toList());
+
+                    if (!duplicateFieldNames.isEmpty()) {
+                        throw new ProcessorException(String.format(
+                            "Duplicate field names are not allowed [class=%s, superClass=%s, fields=%s]",
+                            clazz.getQualifiedName(),
+                            superClazz.getQualifiedName(),
+                            duplicateFieldNames
+                        ));
+                    }
+                }
+            }
+        }
     }
 
     /** {@inheritDoc} */

@@ -36,7 +36,7 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      *
      *     visitor.visitLeafNode("primitiveField1", this.primitiveField1);
      *
-     *     if(includeInternal) {
+     *     if (includeInternal) {
      *          visitor.visitLeafNode("primitiveField2", this.primitiveField2);
      *     }
      * }
@@ -54,7 +54,7 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      * Method with auto-generated implementation. Must look like this:
      * <pre><code>
      * {@literal @}Override public void traverseChild(String key, ConfigurationVisitor visitor, boolean includeInternal) throws NoSuchElementException {
-     *     if(boolean includeInternal) {
+     *     if (boolean includeInternal) {
      *         switch (key) {
      *             case "pojoField1":
      *                 visitor.visitInnerNode("pojoField1", this.pojoField1);
@@ -105,7 +105,7 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      * Method with auto-generated implementation. Must look like this:
      * <pre><code>
      * {@literal @}Override public abstract void construct(String key, ConfigurationSource src, boolean includeInternal) throws NoSuchElementException {
-     *     if(includeInternal) {
+     *     if (includeInternal) {
      *         switch (key) {
      *              case "namedList":
      *                  if (src == null)
