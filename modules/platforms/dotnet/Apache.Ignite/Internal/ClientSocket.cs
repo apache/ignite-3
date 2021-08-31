@@ -207,7 +207,7 @@ namespace Apache.Ignite.Internal
 
             await CheckMagicBytesAsync(stream).ConfigureAwait(false);
 
-            using var response = await ReadResponseAsync(stream, CancellationToken.None).ConfigureAwait(false);
+            using var response = await ReadResponseAsync(stream, new byte[4], CancellationToken.None).ConfigureAwait(false);
             CheckHandshakeResponse(response.GetReader());
         }
 
@@ -270,22 +270,15 @@ namespace Apache.Ignite.Internal
 
         private static async ValueTask<PooledBuffer> ReadResponseAsync(
             NetworkStream stream,
+            byte[] messageSizeBytes,
             CancellationToken cancellationToken)
         {
-            // Rent a buffer that will hopefully fit the entire message,
-            // so we don't have to rent twice (for message size and contents).
-            var bytes = ArrayPool<byte>.Shared.Rent(PooledBuffer.DefaultCapacity);
+            var size = await ReadMessageSizeAsync(stream, messageSizeBytes, cancellationToken).ConfigureAwait(false);
+
+            var bytes = ArrayPool<byte>.Shared.Rent(size);
 
             try
             {
-                var size = await ReadMessageSizeAsync(stream, bytes, cancellationToken).ConfigureAwait(false);
-
-                if (size > bytes.Length)
-                {
-                    ArrayPool<byte>.Shared.Return(bytes);
-                    bytes = ArrayPool<byte>.Shared.Rent(size);
-                }
-
                 await stream.ReadAsync(bytes.AsMemory(0, size), cancellationToken).ConfigureAwait(false);
 
                 return new PooledBuffer(bytes, 0, size);
@@ -360,12 +353,16 @@ namespace Apache.Ignite.Internal
 
         private async Task RunReceiveLoop(CancellationToken cancellationToken)
         {
+            // Reuse the same array for all responses.
+            var messageSizeBytes = new byte[4];
+
             while (!cancellationToken.IsCancellationRequested)
             {
-                PooledBuffer response = await ReadResponseAsync(_stream, cancellationToken).ConfigureAwait(false);
+                PooledBuffer response = await ReadResponseAsync(_stream, messageSizeBytes, cancellationToken).ConfigureAwait(false);
 
+                // Invoke response handler in another thread to continue the receive loop.
                 // Response buffer should be disposed by the task handler.
-                HandleResponse(response);
+                ThreadPool.QueueUserWorkItem(r => HandleResponse((PooledBuffer)r), response);
             }
         }
 
@@ -394,8 +391,6 @@ namespace Apache.Ignite.Internal
 
             if (exception != null)
             {
-                // TODO: Move continuations to thread pool to avoid starving .NET SocketAsyncEngine.EventLoop?
-                // Double check: SocketAsyncEngine seems to be doing this already.
                 taskCompletionSource.SetException(exception);
             }
             else
