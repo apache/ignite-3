@@ -51,10 +51,28 @@ namespace Apache.Ignite
         /// </summary>
         /// <param name="endpoints">Endpoints.</param>
         public IgniteClientConfiguration(params string[] endpoints)
+            : this()
         {
             IgniteArgumentCheck.NotNull(endpoints, nameof(endpoints));
 
             foreach (var endpoint in endpoints)
+            {
+                Endpoints.Add(endpoint);
+            }
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="IgniteClientConfiguration"/> class.
+        /// </summary>
+        /// <param name="other">Other configuration.</param>
+        public IgniteClientConfiguration(IgniteClientConfiguration other)
+        {
+            IgniteArgumentCheck.NotNull(other, nameof(other));
+
+            Logger = other.Logger;
+            SocketTimeout = other.SocketTimeout;
+
+            foreach (var endpoint in other.Endpoints)
             {
                 Endpoints.Add(endpoint);
             }

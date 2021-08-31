@@ -184,7 +184,7 @@ namespace Apache.Ignite.Internal
         /** <inheritdoc /> */
         public override string ToString()
         {
-            return $"{Major}.{Minor}.{Patch}";
+            return $"{nameof(ClientProtocolVersion)} [{Major}.{Minor}.{Patch}]";
         }
     }
 }
