@@ -26,7 +26,6 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -34,10 +33,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class SuperRoot extends InnerNode {
     /** Root configurations. Mapping: {@link RootKey#key} -> key : configuration. */
-    private final SortedMap<String, IgniteBiTuple<RootKey<?, ?>, InnerNode>> roots = new TreeMap<>();
+    private final SortedMap<String, RootInnerNode> roots = new TreeMap<>();
 
     /** Function that creates root node by root name or returns {@code null} if root name is not found. */
-    private final Function<String, IgniteBiTuple<RootKey<?, ?>, InnerNode>> nodeCreator;
+    private final Function<String, RootInnerNode> nodeCreator;
 
     /**
      * Copy constructor.
@@ -53,7 +52,7 @@ public final class SuperRoot extends InnerNode {
      *
      * @param nodeCreator Function that creates root node by root name or returns {@code null} if root name is not found.
      */
-    public SuperRoot(Function<String, IgniteBiTuple<RootKey<?, ?>, InnerNode>> nodeCreator) {
+    public SuperRoot(Function<String, RootInnerNode> nodeCreator) {
         this(nodeCreator, Map.of());
     }
 
@@ -63,14 +62,11 @@ public final class SuperRoot extends InnerNode {
      * @param nodeCreator Function that creates root node by root name or returns {@code null} if root name is not found.
      * @param roots Map of roots belonging to this super root.
      */
-    public SuperRoot(
-        Function<String, IgniteBiTuple<RootKey<?, ?>, InnerNode>> nodeCreator,
-        Map<RootKey<?, ?>, InnerNode> roots
-    ) {
+    public SuperRoot(Function<String, RootInnerNode> nodeCreator, Map<RootKey<?, ?>, InnerNode> roots) {
         this.nodeCreator = nodeCreator;
 
         for (Map.Entry<RootKey<?, ?>, InnerNode> entry : roots.entrySet())
-            this.roots.put(entry.getKey().key(), new IgniteBiTuple<>(entry.getKey(), entry.getValue().copy()));
+            this.roots.put(entry.getKey().key(), new RootInnerNode(entry.getKey(), entry.getValue().copy()));
     }
 
     /**
@@ -82,7 +78,7 @@ public final class SuperRoot extends InnerNode {
     public void addRoot(RootKey<?, ?> rootKey, InnerNode root) {
         assert !roots.containsKey(rootKey.key()) : rootKey.key() + " : " + roots;
 
-        roots.put(rootKey.key(), new IgniteBiTuple<>(rootKey, root));
+        roots.put(rootKey.key(), new RootInnerNode(rootKey, root));
     }
 
     /**
@@ -92,16 +88,14 @@ public final class SuperRoot extends InnerNode {
      * @return Root node.
      */
     @Nullable public InnerNode getRoot(RootKey<?, ?> rootKey) {
-        IgniteBiTuple<RootKey<?, ?>, InnerNode> root = roots.get(rootKey.key());
-
-        return root == null ? null : root.getValue();
+        return roots.get(rootKey.key());
     }
 
     /** {@inheritDoc} */
     @Override public <T> void traverseChildren(ConfigurationVisitor<T> visitor, boolean includeInternal) {
-        for (Map.Entry<String, IgniteBiTuple<RootKey<?, ?>, InnerNode>> e : roots.entrySet()) {
-            if (includeInternal || !e.getValue().getKey().internal())
-                visitor.visitInnerNode(e.getKey(), e.getValue().getValue());
+        for (Map.Entry<String, RootInnerNode> e : roots.entrySet()) {
+            if (includeInternal || !e.getValue().internal())
+                visitor.visitInnerNode(e.getKey(), e.getValue());
         }
     }
 
@@ -111,12 +105,12 @@ public final class SuperRoot extends InnerNode {
         ConfigurationVisitor<T> visitor,
         boolean includeInternal
     ) throws NoSuchElementException {
-        IgniteBiTuple<RootKey<?, ?>, InnerNode> root = roots.get(key);
+        RootInnerNode root = roots.get(key);
 
-        if (root == null || (!includeInternal && root.getKey().internal()))
+        if (root == null || (!includeInternal && root.internal()))
             throw new NoSuchElementException(key);
         else
-            return visitor.visitInnerNode(key, root.getValue());
+            return visitor.visitInnerNode(key, root);
     }
 
     /** {@inheritDoc} */
@@ -125,20 +119,20 @@ public final class SuperRoot extends InnerNode {
         ConfigurationSource src,
         boolean includeInternal
     ) throws NoSuchElementException {
-        IgniteBiTuple<RootKey<?, ?>, InnerNode> root = roots.get(key);
+        RootInnerNode root = roots.get(key);
 
         if (root == null)
             root = nodeCreator.apply(key);
 
-        if (root == null || !includeInternal && root.getKey().internal())
+        if (root == null || !includeInternal && root.internal())
             throw new NoSuchElementException(key);
 
         if (src == null)
             roots.remove(key);
         else {
-            roots.put(key, root = new IgniteBiTuple<>(root.getKey(), root.getValue().copy()));
+            roots.put(key, root = root.copy());
 
-            src.descend(root.getValue());
+            src.descend(root);
         }
     }
 

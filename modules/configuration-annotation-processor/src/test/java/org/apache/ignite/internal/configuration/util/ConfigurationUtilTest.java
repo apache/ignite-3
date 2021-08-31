@@ -32,6 +32,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.configuration.RootInnerNode;
 import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -39,7 +40,6 @@ import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -587,7 +587,7 @@ public class ConfigurationUtilTest {
         generator.compileRootSchema(schemaClass, Map.of());
 
         SuperRoot superRoot = new SuperRoot(
-            s -> new IgniteBiTuple<>(schemaKey, generator.instantiateNode(schemaClass))
+            s -> new RootInnerNode(schemaKey, generator.instantiateNode(schemaClass))
         );
 
         assertThrows(NoSuchElementException.class, () -> superRoot.construct(schemaKey.key(), null, false));
