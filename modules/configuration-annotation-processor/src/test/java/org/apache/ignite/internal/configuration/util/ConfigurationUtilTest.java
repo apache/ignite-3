@@ -55,9 +55,9 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationFlatten
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectSchemas;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.extensionsFields;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.find;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaFields;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.allOf;
@@ -456,12 +456,9 @@ public class ConfigurationUtilTest {
     /** */
     @Test
     void testSchemaFields() {
-        Class<?> schema = SimpleRootConfigurationSchema.class;
-
         assertThrows(
             IllegalArgumentException.class,
-            () -> schemaFields(
-                schema,
+            () -> extensionsFields(
                 List.of(
                     InternalExtendedSimpleRootConfigurationSchema.class,
                     ErrorInternalExtendedSimpleRootConfigurationSchema.class
@@ -469,24 +466,18 @@ public class ConfigurationUtilTest {
             )
         );
 
-        assertEquals(
-            Set.of(schema.getDeclaredFields()),
-            schemaFields(schema, List.of())
-        );
+        assertTrue(extensionsFields(List.of()).isEmpty());
 
         List<Class<?>> extensions = List.of(
             InternalFirstSimpleRootConfigurationSchema.class,
             InternalSecondSimpleRootConfigurationSchema.class
         );
 
-        Set<Field> exp = Stream.concat(Stream.of(schema), extensions.stream())
+        Set<Field> exp = extensions.stream()
             .flatMap(cls -> Stream.of(cls.getDeclaredFields()))
             .collect(toSet());
 
-        assertEquals(
-            exp,
-            schemaFields(schema, extensions)
-        );
+        assertEquals(exp, extensionsFields(extensions));
     }
 
     /** */

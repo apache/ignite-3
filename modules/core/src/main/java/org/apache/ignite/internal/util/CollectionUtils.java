@@ -18,13 +18,17 @@
 package org.apache.ignite.internal.util;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import org.jetbrains.annotations.Nullable;
 
 import static java.util.Collections.addAll;
+import static java.util.Collections.emptyIterator;
 import static java.util.Collections.unmodifiableSet;
 
 /**
@@ -95,6 +99,46 @@ public final class CollectionUtils {
             addAll(res, ts);
 
             return unmodifiableSet(res);
+        }
+    }
+
+    /**
+     * Create a lazy concatenation of iterables.
+     * <p>
+     * NOTE: {@link Iterator#remove} - not supported.
+     *
+     * @param iterables Iterables.
+     * @param <T> Type of the elements.
+     * @return Concatenation of iterables.
+     */
+    @SafeVarargs
+    public static <T> Iterable<? extends T> concat(@Nullable Iterable<? extends T>... iterables) {
+        if (iterables == null || iterables.length == 0)
+            return Collections::emptyIterator;
+        else {
+            return () -> new Iterator<T>() {
+                /** Current index at {@code iterables}. */
+                int i = 0;
+
+                /** Current iterator. */
+                Iterator<? extends T> curr = emptyIterator();
+
+                /** {@inheritDoc} */
+                @Override public boolean hasNext() {
+                    while (!curr.hasNext() && i < iterables.length)
+                        curr = iterables[i++].iterator();
+
+                    return curr.hasNext();
+                }
+
+                /** {@inheritDoc} */
+                @Override public T next() {
+                    if (!hasNext())
+                        throw new NoSuchElementException();
+                    else
+                        return curr.next();
+                }
+            };
         }
     }
 
