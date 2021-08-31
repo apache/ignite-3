@@ -32,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
  * Holder of root configurations.
  */
 public final class SuperRoot extends InnerNode {
-    /** Root configurations. Mapping: {@link RootKey#key} -> key : configuration. */
+    /** Root configurations. Mapping: {@link RootKey#key} -> configuration. */
     private final SortedMap<String, RootInnerNode> roots = new TreeMap<>();
 
     /** Function that creates root node by root name or returns {@code null} if root name is not found. */
@@ -88,14 +88,16 @@ public final class SuperRoot extends InnerNode {
      * @return Root node.
      */
     @Nullable public InnerNode getRoot(RootKey<?, ?> rootKey) {
-        return roots.get(rootKey.key());
+        RootInnerNode root = roots.get(rootKey.key());
+
+        return root == null ? null : root.node();
     }
 
     /** {@inheritDoc} */
     @Override public <T> void traverseChildren(ConfigurationVisitor<T> visitor, boolean includeInternal) {
         for (Map.Entry<String, RootInnerNode> e : roots.entrySet()) {
             if (includeInternal || !e.getValue().internal())
-                visitor.visitInnerNode(e.getKey(), e.getValue());
+                visitor.visitInnerNode(e.getKey(), e.getValue().node());
         }
     }
 
@@ -110,7 +112,7 @@ public final class SuperRoot extends InnerNode {
         if (root == null || (!includeInternal && root.internal()))
             throw new NoSuchElementException(key);
         else
-            return visitor.visitInnerNode(key, root);
+            return visitor.visitInnerNode(key, root.node());
     }
 
     /** {@inheritDoc} */
@@ -130,9 +132,9 @@ public final class SuperRoot extends InnerNode {
         if (src == null)
             roots.remove(key);
         else {
-            roots.put(key, root = root.copy());
+            roots.put(key, root = new RootInnerNode(root));
 
-            src.descend(root);
+            src.descend(root.node());
         }
     }
 

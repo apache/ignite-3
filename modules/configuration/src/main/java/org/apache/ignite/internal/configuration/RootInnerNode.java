@@ -17,22 +17,19 @@
 
 package org.apache.ignite.internal.configuration;
 
-import java.util.NoSuchElementException;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
-import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
-import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 
 /**
- * Root configuration.
+ * Holder of root configuration.
  */
-public class RootInnerNode extends InnerNode {
-    /** Root key. */
-    private final RootKey<?, ?> key;
-
+public class RootInnerNode {
     /** Root node. */
     private final InnerNode node;
+
+    /** Internal configuration. */
+    private final boolean internal;
 
     /**
      * Constructor.
@@ -41,42 +38,26 @@ public class RootInnerNode extends InnerNode {
      * @param key Root key.
      */
     public RootInnerNode(RootKey<?, ?> key, InnerNode node) {
-        this.key = key;
         this.node = node;
+
+        internal = key.internal();
     }
 
-    /** {@inheritDoc} */
-    @Override public <T> void traverseChildren(ConfigurationVisitor<T> visitor, boolean includeInternal) {
-        node.traverseChildren(visitor, includeInternal);
+    /**
+     * Copy constructor.
+     */
+    public RootInnerNode(RootInnerNode rootInnerNode) {
+        node = rootInnerNode.node;
+        internal = rootInnerNode.internal;
     }
 
-    /** {@inheritDoc} */
-    @Override public <T> T traverseChild(
-        String key,
-        ConfigurationVisitor<T> visitor,
-        boolean includeInternal
-    ) throws NoSuchElementException {
-        return node.traverseChild(key, visitor, includeInternal);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void construct(String key, ConfigurationSource src, boolean includeInternal) throws NoSuchElementException {
-        node.construct(key, src, includeInternal);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void constructDefault(String fieldName) throws NoSuchElementException {
-        node.constructDefault(fieldName);
-    }
-
-    /** {@inheritDoc} */
-    @Override public Class<?> schemaType() {
-        return node.schemaType();
-    }
-
-    /** {@inheritDoc} */
-    @Override public RootInnerNode copy() {
-        return new RootInnerNode(key, node.copy());
+    /**
+     * Get root node.
+     *
+     * @return Root node.
+     */
+    public InnerNode node() {
+        return node;
     }
 
     /**
@@ -85,6 +66,6 @@ public class RootInnerNode extends InnerNode {
      * @return {@code true} if the root configuration is internal.
      */
     public boolean internal() {
-        return key.internal();
+        return internal;
     }
 }
