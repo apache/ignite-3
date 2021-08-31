@@ -69,7 +69,9 @@ public class PartitionListener implements RaftGroupListener {
             CommandClosure<ReadCommand> clo = iterator.next();
 
             if (clo.command() instanceof GetCommand) {
-                clo.result(new SingleRowResponse(storage.get(((GetCommand)clo.command()).getKeyRow(), null)));
+                GetCommand cmd = (GetCommand) clo.command();
+
+                clo.result(new SingleRowResponse(storage.get(cmd.getKeyRow(), cmd.getTimestamp())));
             }
             else if (clo.command() instanceof GetAllCommand) {
                 Set<BinaryRow> keyRows = ((GetAllCommand)clo.command()).getKeyRows();
@@ -90,11 +92,9 @@ public class PartitionListener implements RaftGroupListener {
             CommandClosure<WriteCommand> clo = iterator.next();
 
             if (clo.command() instanceof InsertCommand) {
-                BinaryRow row = ((InsertCommand)clo.command()).getRow();
+                InsertCommand cmd = (InsertCommand) clo.command();
 
-                assert row.hasValue() : "Insert command should have a value.";
-
-                clo.result(storage.insert(row, null));
+                clo.result(storage.insert(cmd.getRow(), cmd.getTimestamp()));
             }
             else if (clo.command() instanceof DeleteCommand)
                 clo.result(storage.delete(((DeleteCommand)clo.command()).getKeyRow(), null));
@@ -104,11 +104,9 @@ public class PartitionListener implements RaftGroupListener {
                 clo.result(storage.replace(cmd.getOldRow(), cmd.getRow(), null));
             }
             else if (clo.command() instanceof UpsertCommand) {
-                BinaryRow row = ((UpsertCommand)clo.command()).getRow();
+                UpsertCommand cmd = (UpsertCommand) clo.command();
 
-                assert row.hasValue() : "Upsert command should have a value.";
-
-                storage.upsert(row, null);
+                storage.upsert(cmd.getRow(), cmd.getTimestamp());
 
                 clo.result(null);
             }

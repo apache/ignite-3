@@ -16,6 +16,9 @@
  */
 package org.apache.ignite.raft.jraft.test;
 
+import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.rpc.Message;
@@ -42,6 +45,10 @@ public class MockAsyncContext implements RpcContext {
 
     @Override public NodeManager getNodeManager() {
         return nodeManager;
+    }
+
+    @Override public TxManager getTxManager() {
+        return null;
     }
 
     @Override public void sendResponse(Object responseObject) {

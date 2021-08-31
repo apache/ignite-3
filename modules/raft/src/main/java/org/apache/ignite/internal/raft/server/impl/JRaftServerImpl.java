@@ -28,6 +28,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -81,30 +82,41 @@ public class JRaftServerImpl implements RaftServer {
     /** Node manager. */
     private final NodeManager nodeManager;
 
+    /** Transaction manager. */
+    private final TxManager txManager;
+
     /** Options. */
     private final NodeOptions opts;
 
     /**
      * @param service Cluster service.
+     * @param txManager Transaction manager.
      * @param dataPath Data path.
      */
-    public JRaftServerImpl(ClusterService service, Path dataPath) {
-        this(service, dataPath, new NodeOptions());
+    public JRaftServerImpl(
+        ClusterService service,
+        @Nullable TxManager txManager,
+        Path dataPath
+    ) {
+        this(service, txManager, dataPath, new NodeOptions());
     }
 
     /**
      * @param service Cluster service.
+     * @param lockManager Lock manager.
      * @param dataPath Data path.
      * @param opts Default node options.
      */
     public JRaftServerImpl(
         ClusterService service,
+        @Nullable TxManager txManager,
         Path dataPath,
         NodeOptions opts
     ) {
         this.service = service;
         this.dataPath = dataPath;
         this.nodeManager = new NodeManager();
+        this.txManager = txManager;
         this.opts = opts;
 
         if (opts.getServerName() == null)
@@ -128,6 +140,7 @@ public class JRaftServerImpl implements RaftServer {
         rpcServer = new IgniteRpcServer(
             service,
             nodeManager,
+            txManager,
             opts.getRaftClientMessagesFactory(),
             opts.getRaftMessagesFactory(),
             JRaftUtils.createRequestExecutor(opts)
@@ -274,6 +287,11 @@ public class JRaftServerImpl implements RaftServer {
         PeerId peerId = service.getRaftNode().getNodeId().getPeerId();
 
         return new Peer(addressFromEndpoint(peerId.getEndpoint()), peerId.getPriority());
+    }
+
+    /** {@inheritDoc} */
+    @Override public TxManager transactionManager() {
+        return txManager;
     }
 
     /**

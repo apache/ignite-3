@@ -71,7 +71,7 @@ public class UpsertCommand implements WriteCommand {
     /**
      * @return The timestamp.
      */
-    public Timestamp timestamp() {
+    public Timestamp getTimestamp() {
         return timestamp;
     }
 }

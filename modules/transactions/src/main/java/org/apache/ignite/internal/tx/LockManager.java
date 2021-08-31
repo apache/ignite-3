@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Lock manager allows to acquire locks in shared and exclusive mode and supports deadlock prevention by timestamp
@@ -60,6 +61,7 @@ public interface LockManager extends IgniteComponent {
      * @param key The key.
      * @return The waiters queue.
      */
+    @TestOnly
     public Collection<Timestamp> queue(Object key);
 
     /**
@@ -67,10 +69,12 @@ public interface LockManager extends IgniteComponent {
      * @param timestamp The timestamp.
      * @return The waiter.
      */
+    @TestOnly
     public Waiter waiter(Object key, Timestamp timestamp);
 
     /**
      * @return {@code True} if no locks have been acquired.
      */
+    @TestOnly
     public boolean isEmpty();
 }

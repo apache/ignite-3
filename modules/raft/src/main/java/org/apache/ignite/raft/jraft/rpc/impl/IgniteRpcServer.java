@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.raft.client.message.RaftClientMessageGroup;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
@@ -63,6 +64,8 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
     private final NodeManager nodeManager;
 
+    private final TxManager txManager;
+
     private final Executor rpcExecutor;
 
     private final List<ConnectionClosedEventListener> listeners = new CopyOnWriteArrayList<>();
@@ -72,6 +75,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
     /**
      * @param service The cluster service.
      * @param nodeManager The node manager.
+     * @param lockManager The lock manager.
      * @param raftClientMessagesFactory Client message factory.
      * @param raftMessagesFactory Message factory.
      * @param rpcExecutor The executor for RPC requests.
@@ -79,12 +83,14 @@ public class IgniteRpcServer implements RpcServer<Void> {
     public IgniteRpcServer(
         ClusterService service,
         NodeManager nodeManager,
+        @Nullable TxManager txManager,
         RaftClientMessagesFactory raftClientMessagesFactory,
         RaftMessagesFactory raftMessagesFactory,
-        @Nullable Executor rpcExecutor
+        Executor rpcExecutor
     ) {
         this.service = service;
         this.nodeManager = nodeManager;
+        this.txManager = txManager;
         this.rpcExecutor = rpcExecutor;
 
         // raft server RPC
@@ -173,6 +179,10 @@ public class IgniteRpcServer implements RpcServer<Void> {
                 var context = new RpcContext() {
                     @Override public NodeManager getNodeManager() {
                         return nodeManager;
+                    }
+
+                    @Override public TxManager getTxManager() {
+                        return txManager;
                     }
 
                     @Override public void sendResponse(Object responseObj) {

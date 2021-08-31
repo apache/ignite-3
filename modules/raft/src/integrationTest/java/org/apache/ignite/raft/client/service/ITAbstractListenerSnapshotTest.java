@@ -29,6 +29,8 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
@@ -343,7 +345,7 @@ public abstract class ITAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         Path jraft = workDir.resolve("jraft" + idx);
 
-        JRaftServerImpl server = new JRaftServerImpl(service, jraft) {
+        JRaftServerImpl server = new JRaftServerImpl(service, new TxManagerImpl(service, new HeapLockManager()), jraft) {
             @Override public void stop() {
                 super.stop();
 

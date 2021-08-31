@@ -50,6 +50,7 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.schema.SchemaMode;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Storage of table rows.
@@ -334,5 +335,13 @@ public class InternalTableImpl implements InternalTable {
         int partId = row.hash() % partitions;
 
         return (partId < 0) ? -partId : partId;
+    }
+
+    /**
+     * @return Transaction manager.
+     */
+    @TestOnly
+    public TxManager transactionManager() {
+        return txManager;
     }
 }

@@ -37,7 +37,10 @@ public enum RaftErrorCode {
     SNAPSHOT(1005, "Snapshot error"),
 
     /** */
-    STATE_MACHINE(1006, "Unrecoverable state machine error");
+    STATE_MACHINE(1006, "Unrecoverable state machine error"),
+
+    /** */
+    RETRY_AGAIN(1007, "Operation should be retried");
 
     /** */
     private final int code;

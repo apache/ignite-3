@@ -17,29 +17,9 @@
 
 package org.apache.ignite.internal.tx;
 
-import java.util.List;
-import java.util.Set;
-import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.tx.Transaction;
+import java.util.concurrent.CompletableFuture;
 
-public interface InternalTransaction extends Transaction {
-    Timestamp timestamp();
-
-    /**
-     * Returns a transaction topology.
-     *
-     * @return A list of enlisted nodes where the first node is a transaction originator.
-     */
-    List<NetworkAddress> nodes();
-
-    /**
-     * @return The state.
-     */
-    TxState state();
-
-    /**
-     * @param node The node.
-     * @return {@code True} if a node is enlisted into the transaction.
-     */
-    boolean enlist(NetworkAddress node);
+/** */
+public interface Lockable {
+    CompletableFuture<Void> tryLock(TxManager mgr);
 }

@@ -71,7 +71,7 @@ public class GetCommand implements ReadCommand {
     /**
      * @return The timestamp.
      */
-    public Timestamp timestamp() {
+    public Timestamp getTimestamp() {
         return timestamp;
     }
 }

@@ -20,7 +20,10 @@ import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.function.BiFunction;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
+import org.apache.ignite.internal.tx.Lockable;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.RaftErrorCode;
@@ -68,67 +71,113 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             return;
         }
 
-        if (request.command() instanceof WriteCommand) {
-            node.apply(new Task(ByteBuffer.wrap(JDKMarshaller.DEFAULT.marshall(request.command())),
-                new CommandClosureImpl<>(request.command()) {
+        // Acquire a lock before submitting to STM.
+        if (request.command() instanceof Lockable) {
+            Lockable lockable = (Lockable) request.command();
+
+            TxManager mgr = rpcCtx.getTxManager();
+
+            assert mgr != null;
+
+            lockable.tryLock(mgr).handle(new BiFunction<Void, Throwable, Void>() {
+                @Override public Void apply(Void ignored, Throwable err) {
+                    if (err == null) {
+                        if (request.command() instanceof WriteCommand)
+                            applyWrite(node, request, rpcCtx);
+                        else
+                            applyRead(node, request, rpcCtx);
+                    }
+                    else {
+                        RaftErrorResponseBuilder resp =
+                            factory.raftErrorResponse().errorCode(RaftErrorCode.RETRY_AGAIN).errorMessage(err.getMessage());
+
+                        rpcCtx.sendResponse(resp.build());
+                    }
+
+                    return null;
+                }
+            });
+        }
+        else {
+            if (request.command() instanceof WriteCommand)
+                applyWrite(node, request, rpcCtx);
+            else
+                applyRead(node, request, rpcCtx);
+        }
+    }
+
+    /**
+     * @param node The node.
+     * @param request The request.
+     * @param rpcCtx The context.
+     */
+    private void applyWrite(Node node, ActionRequest request, RpcContext rpcCtx) {
+        // TODO asch get rid of JDK marshaller IGNITE-14832
+        node.apply(new Task(ByteBuffer.wrap(JDKMarshaller.DEFAULT.marshall(request.command())),
+            new CommandClosureImpl<>(request.command()) {
+                @Override public void result(Serializable res) {
+                    rpcCtx.sendResponse(factory.actionResponse().result(res).build());
+                }
+
+                @Override public void run(Status status) {
+                    assert !status.isOk() : status;
+
+                    sendError(rpcCtx, status, node);
+                }
+            }));
+    }
+
+    /**
+     * @param node The node.
+     * @param request The request.
+     * @param rpcCtx The context.
+     */
+    private void applyRead(Node node, ActionRequest request, RpcContext rpcCtx) {
+        if (request.readOnlySafe()) {
+            node.readIndex(BytesUtil.EMPTY_BYTES, new ReadIndexClosure() {
+                @Override public void run(Status status, long index, byte[] reqCtx) {
+                    if (status.isOk()) {
+                        JRaftServerImpl.DelegatingStateMachine fsm =
+                            (JRaftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
+
+                        try {
+                            fsm.getListener().onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<>() {
+                                @Override public ReadCommand command() {
+                                    return (ReadCommand) request.command();
+                                }
+
+                                @Override public void result(Serializable res) {
+                                    rpcCtx.sendResponse(factory.actionResponse().result(res).build());
+                                }
+                            }).iterator());
+                        }
+                        catch (Exception e) {
+                            sendError(rpcCtx, RaftErrorCode.STATE_MACHINE, e.getMessage());
+                        }
+                    }
+                    else
+                        sendError(rpcCtx, status, node);
+                }
+            });
+        }
+        else {
+            // TODO asch remove copy paste, batching https://issues.apache.org/jira/browse/IGNITE-14832
+            JRaftServerImpl.DelegatingStateMachine fsm =
+                (JRaftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
+
+            try {
+                fsm.getListener().onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<>() {
+                    @Override public ReadCommand command() {
+                        return (ReadCommand)request.command();
+                    }
+
                     @Override public void result(Serializable res) {
                         rpcCtx.sendResponse(factory.actionResponse().result(res).build());
                     }
-
-                    @Override public void run(Status status) {
-                        assert !status.isOk() : status;
-
-                        sendError(rpcCtx, status, node);
-                    }
-                }));
-        }
-        else {
-            if (request.readOnlySafe()) {
-                node.readIndex(BytesUtil.EMPTY_BYTES, new ReadIndexClosure() {
-                    @Override public void run(Status status, long index, byte[] reqCtx) {
-                        if (status.isOk()) {
-                            JRaftServerImpl.DelegatingStateMachine fsm =
-                                (JRaftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
-
-                            try {
-                                fsm.getListener().onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<>() {
-                                    @Override public ReadCommand command() {
-                                        return (ReadCommand) request.command();
-                                    }
-
-                                    @Override public void result(Serializable res) {
-                                        rpcCtx.sendResponse(factory.actionResponse().result(res).build());
-                                    }
-                                }).iterator());
-                            }
-                            catch (Exception e) {
-                                sendError(rpcCtx, RaftErrorCode.STATE_MACHINE, e.getMessage());
-                            }
-                        }
-                        else
-                            sendError(rpcCtx, status, node);
-                    }
-                });
+                }).iterator());
             }
-            else {
-                // TODO asch remove copy paste, batching https://issues.apache.org/jira/browse/IGNITE-14832
-                JRaftServerImpl.DelegatingStateMachine fsm =
-                    (JRaftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
-
-                try {
-                    fsm.getListener().onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<>() {
-                        @Override public ReadCommand command() {
-                            return (ReadCommand)request.command();
-                        }
-
-                        @Override public void result(Serializable res) {
-                            rpcCtx.sendResponse(factory.actionResponse().result(res).build());
-                        }
-                    }).iterator());
-                }
-                catch (Exception e) {
-                    sendError(rpcCtx, RaftErrorCode.STATE_MACHINE, e.getMessage());
-                }
+            catch (Exception e) {
+                sendError(rpcCtx, RaftErrorCode.STATE_MACHINE, e.getMessage());
             }
         }
     }

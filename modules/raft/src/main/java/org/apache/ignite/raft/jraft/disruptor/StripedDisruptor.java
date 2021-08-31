@@ -254,12 +254,12 @@ public class StripedDisruptor<T extends GroupAware> {
 
         /** {@inheritDoc} */
         @Override public void handleOnStartException(Throwable ex) {
-            LOG.error("Fail to start disruptor [name={}]", name, ex);
+            LOG.error("Fail to start disruptor [name={}]", ex, name);
         }
 
         /** {@inheritDoc} */
         @Override public void handleOnShutdownException(Throwable ex) {
-            LOG.error("Fail to shutdown disruptor [name={}]", name, ex);
+            LOG.error("Fail to shutdown disruptor [name={}]", ex, name);
 
         }
 
@@ -267,7 +267,7 @@ public class StripedDisruptor<T extends GroupAware> {
         @Override public void handleEventException(Throwable ex, long sequence, T event) {
             BiConsumer<T, Throwable> handler = subscrivers.get(event.groupId());
 
-            LOG.error("Handle disruptor event error [name={}, event={}, hasHandler={}]", name, event, handler != null, ex);
+            LOG.error("Handle disruptor event error [name={}, event={}, hasHandler={}]", ex, name, event, handler != null);
 
             if (handler != null)
                 handler.accept(event, ex);

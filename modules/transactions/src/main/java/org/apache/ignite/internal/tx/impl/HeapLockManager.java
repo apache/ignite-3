@@ -434,7 +434,7 @@ public class HeapLockManager implements LockManager {
         /**
          * @return {@code True} if is locked for read.
          */
-        public boolean isForRead() {
+        @Override public boolean isForRead() {
             return forRead;
         }
 

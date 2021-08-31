@@ -40,7 +40,9 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.storage.basic.ConcurrentHashMapStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorage;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
@@ -52,6 +54,7 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.lang.IgniteLogger;
@@ -60,6 +63,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.LocalPortRangeNodeFinder;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
@@ -77,6 +81,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -96,7 +101,7 @@ public class ITDistributedTableTest {
     private int nodes;
 
     /** Partitions. */
-    public static final int PARTS = 10;
+    public int parts;
 
     /** Factory. */
     private static final RaftClientMessagesFactory FACTORY = new RaftClientMessagesFactory();
@@ -121,14 +126,22 @@ public class ITDistributedTableTest {
     private ArrayList<ClusterService> cluster = new ArrayList<>();
 
     /** */
+    private Map<ClusterNode, RaftServer> raftServers;
+
+    /** */
     @WorkDirectory
     private Path dataPath;
 
+    /** */
+    private TableImpl table;
+
     /**
      * Start all cluster nodes before each test.
+     * @param memStore {@code True} to start memory store.
      */
-    public void startGrid() {
+    public void startTable(boolean memStore) throws Exception {
         assertTrue(nodes > 0);
+        assertTrue(parts > 0);
 
         var nodeFinder = new LocalPortRangeNodeFinder(NODE_PORT_BASE, NODE_PORT_BASE + nodes);
 
@@ -146,6 +159,83 @@ public class ITDistributedTableTest {
         assertTrue(waitForTopology(client, nodes + 1, 1000));
 
         LOG.info("Client started.");
+
+        raftServers = new HashMap<>(nodes);
+
+        for (int i = 0; i < nodes; i++) {
+            TxManagerImpl txManager = new TxManagerImpl(cluster.get(i), new HeapLockManager());
+
+            var raftSrv = new JRaftServerImpl(cluster.get(i), txManager, dataPath);
+
+            raftSrv.start();
+
+            raftServers.put(cluster.get(i).topologyService().localMember(), raftSrv);
+        }
+
+        List<List<ClusterNode>> assignment = RendezvousAffinityFunction.assignPartitions(
+            cluster.stream().map(node -> node.topologyService().localMember()).collect(Collectors.toList()),
+            parts,
+            1,
+            false,
+            null
+        );
+
+        int p = 0;
+
+        Map<Integer, RaftGroupService> partMap = new HashMap<>();
+
+        for (List<ClusterNode> partNodes : assignment) {
+            RaftServer rs = raftServers.get(partNodes.get(0));
+
+            String grpId = "part-" + p;
+
+            List<Peer> conf = List.of(new Peer(partNodes.get(0).address()));
+
+            assertNotNull(rs.transactionManager());
+
+            rs.startRaftGroup(
+                grpId,
+                new PartitionListener(new VersionedRowStore(
+                    memStore ? new ConcurrentHashMapStorage() : new RocksDbStorage(dataPath.resolve("part" + p),
+                        ByteBuffer::compareTo),
+                    rs.transactionManager())),
+                conf
+            );
+
+            RaftGroupService service = RaftGroupServiceImpl.start(grpId, client, FACTORY, 10_000, conf, true, 200)
+                .get(3, TimeUnit.SECONDS);
+
+            partMap.put(p, service);
+
+            p++;
+        }
+
+        // Originator's tx manager.
+        TxManager nearMgr = new TxManagerImpl(client, new HeapLockManager());
+
+        table = new TableImpl(new InternalTableImpl(
+            "tbl",
+            UUID.randomUUID(),
+            partMap,
+            parts,
+            nearMgr
+        ), new SchemaRegistry() {
+            @Override public SchemaDescriptor schema() {
+                return SCHEMA;
+            }
+
+            @Override public int lastSchemaVersion() {
+                return SCHEMA.version();
+            }
+
+            @Override public SchemaDescriptor schema(int ver) {
+                return SCHEMA;
+            }
+
+            @Override public Row resolve(BinaryRow row) {
+                return new Row(SCHEMA, row);
+            }
+        }, null, null);
     }
 
     /**
@@ -163,57 +253,71 @@ public class ITDistributedTableTest {
     }
 
     /**
-     * Tests partition listener.
+     * Tests directly partition listener for single client - server configuration.
      *
      * @throws Exception If failed.
      */
-    @Test
-    public void partitionListener() throws Exception {
-        nodes = 1;
-
-        startGrid();
-
-        String grpId = "part";
-
-        RaftServer partSrv = new JRaftServerImpl(cluster.get(0), dataPath);
-
-        partSrv.start();
-
-        List<Peer> conf = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
-
-        TxManagerImpl txManager = new TxManagerImpl(cluster.get(0), new HeapLockManager());
-
-        partSrv.startRaftGroup(
-            grpId,
-            new PartitionListener(new VersionedRowStore(new RocksDbStorage(dataPath.resolve("db"), ByteBuffer::compareTo),
-                txManager)),
-            conf
-        );
-
-        RaftGroupService partRaftGrp =
-            RaftGroupServiceImpl
-                .start(grpId, client, FACTORY, 10_000, conf, true, 200)
-                .get(3, TimeUnit.SECONDS);
-
-        Row testRow = getTestRow();
-
-        InternalTransaction tx = txManager.begin();
-
-        CompletableFuture<Boolean> insertFur = partRaftGrp.run(new InsertCommand(testRow, tx.timestamp()));
-
-        assertTrue(insertFur.get());
-
-//        Row keyChunk = new Row(SCHEMA, new ByteBufferRow(testRow.keySlice()));
-        Row keyChunk = getTestKey();
-
-        CompletableFuture<SingleRowResponse> getFut = partRaftGrp.run(new GetCommand(keyChunk, tx.timestamp()));
-
-        assertNotNull(getFut.get().getValue());
-
-        assertEquals(testRow.longValue(1), new Row(SCHEMA, getFut.get().getValue()).longValue(1));
-
-        partSrv.stop();
-    }
+//    @Test
+//    public void partitionListener() throws Exception {
+//        nodes = 1;
+//
+//        startGrid();
+//
+//        String grpId = "part";
+//
+//        ClusterService srv = cluster.get(0);
+//
+//        TxManagerImpl locMgr = new TxManagerImpl(srv, new HeapLockManager());
+//
+//        RaftServer partSrv = new JRaftServerImpl(srv, locMgr, dataPath);
+//
+//        partSrv.start();
+//
+//        List<Peer> conf = List.of(new Peer(srv.topologyService().localMember().address()));
+//
+//        assertTrue(partSrv.startRaftGroup(
+//            grpId,
+//            new PartitionListener(new VersionedRowStore(new RocksDbStorage(dataPath.resolve("db"),
+//                ByteBuffer::compareTo), locMgr)),
+//            conf
+//        ));
+//
+//        RaftGroupService partRaftGrp =
+//            RaftGroupServiceImpl
+//                .start(grpId, client, FACTORY, 10_000, conf, true, 200)
+//                .get(3, TimeUnit.SECONDS);
+//
+//        Row testRow = getTestRow();
+//
+//        TxManagerImpl nearMgr = new TxManagerImpl(client, new HeapLockManager());
+//
+//        InternalTransaction nearTx = nearMgr.begin();
+//
+//        assertTrue(partRaftGrp.<Boolean>run(new InsertCommand(testRow, nearTx.timestamp())).join());
+//
+////        Row keyChunk = new Row(SCHEMA, new ByteBufferRow(testRow.keySlice()));
+//        Row keyChunk = getTestKey();
+//
+//        CompletableFuture<SingleRowResponse> getFut = partRaftGrp.run(new GetCommand(keyChunk, nearTx.timestamp()));
+//
+//        assertNotNull(getFut.get().getValue());
+//
+//        assertEquals(testRow.longValue(1), new Row(SCHEMA, getFut.get().getValue()).longValue(1));
+//
+//        List<NetworkAddress> nodes = nearTx.nodes();
+//        assertEquals(2, nodes.size());
+//        assertEquals(client.topologyService().localMember().address(), nodes.get(0));
+//        assertEquals(srv.topologyService().localMember().address(), nodes.get(1));
+//
+//        assertEquals(TxState.PENDING, locMgr.state(nearTx.timestamp()));
+//
+//        nearTx.commit();
+//
+//        assertEquals(TxState.COMMITED, nearMgr.state(nearTx.timestamp()));
+//        assertEquals(TxState.COMMITED, locMgr.state(nearTx.timestamp()));
+//
+//        partSrv.stop();
+//    }
 
     /**
      * Prepares a test row which contains one field.
@@ -243,98 +347,65 @@ public class ITDistributedTableTest {
     }
 
     /**
+     * Tests tx flow on single client-server nodes topology.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testClientServerTopology() throws Exception {
+        nodes = 1;
+        parts = 1;
+
+        startTable(true);
+
+        InternalTableImpl impl = (InternalTableImpl) table.internalTable();
+
+        TxManager nearMgr = impl.transactionManager();
+
+        InternalTransaction tx = nearMgr.begin();
+
+        assertTrue(!tx.nodes().isEmpty());
+
+        RaftServer srv = raftServers.get(cluster.get(0).topologyService().localMember());
+
+        TxManager locMgr = srv.transactionManager();
+
+        assertNotEquals(nearMgr, locMgr);
+
+        Table txTable = table.withTransaction(tx);
+
+        txTable.upsert(makeValue(1, 1));
+
+        long val = txTable.get(makeKey(1)).longValue("value");
+
+        System.out.println();
+//
+//        partitionedTableView(txTable, PARTS * 10);
+//
+//        partitionedTableKVBinaryView(txTable.kvView(), PARTS * 10);
+//
+//        tx.commit();
+    }
+
+    /**
      * The test prepares a distributed table and checks operation over various views.
      *
      * @throws Exception If failed.
      */
     @Test
     public void partitionedTable() throws Exception {
-        nodes = 5;
+        nodes = 1;
+        parts = 1;
 
-        startGrid();
-
-        HashMap<ClusterNode, RaftServer> raftServers = new HashMap<>(nodes);
-
-        for (int i = 0; i < nodes; i++) {
-            var raftSrv = new JRaftServerImpl(cluster.get(i), dataPath);
-
-            raftSrv.start();
-
-            raftServers.put(cluster.get(i).topologyService().localMember(), raftSrv);
-        }
-
-        List<List<ClusterNode>> assignment = RendezvousAffinityFunction.assignPartitions(
-            cluster.stream().map(node -> node.topologyService().localMember()).collect(Collectors.toList()),
-            PARTS,
-            1,
-            false,
-            null
-        );
-
-        int p = 0;
-
-        Map<Integer, RaftGroupService> partMap = new HashMap<>();
-
-        for (List<ClusterNode> partNodes : assignment) {
-            RaftServer rs = raftServers.get(partNodes.get(0));
-
-            String grpId = "part-" + p;
-
-            List<Peer> conf = List.of(new Peer(partNodes.get(0).address()));
-
-            TxManagerImpl txManager = new TxManagerImpl(rs.clusterService(), new HeapLockManager());
-
-            rs.startRaftGroup(
-                grpId,
-                new PartitionListener(new VersionedRowStore(new RocksDbStorage(dataPath.resolve("part" + p),
-                    ByteBuffer::compareTo), txManager)),
-                conf
-            );
-
-            RaftGroupService service = RaftGroupServiceImpl.start(grpId, client, FACTORY, 10_000, conf, true, 200)
-                .get(3, TimeUnit.SECONDS);
-
-            partMap.put(p, service);
-
-            p++;
-        }
-
-        // Initiator's tx manager.
-        TxManager txManager = new TxManagerImpl(client, new HeapLockManager());
-
-        Table tbl = new TableImpl(new InternalTableImpl(
-            "tbl",
-            UUID.randomUUID(),
-            partMap,
-            PARTS,
-            txManager
-        ), new SchemaRegistry() {
-            @Override public SchemaDescriptor schema() {
-                return SCHEMA;
-            }
-
-            @Override public int lastSchemaVersion() {
-                return SCHEMA.version();
-            }
-
-            @Override public SchemaDescriptor schema(int ver) {
-                return SCHEMA;
-            }
-
-            @Override public Row resolve(BinaryRow row) {
-                return new Row(SCHEMA, row);
-            }
-        }, null, null);
-
-        InternalTransaction tx = txManager.begin();
-
-        Table txTable = tbl.withTransaction(tx);
-
-        partitionedTableView(txTable, PARTS * 10);
-
-        partitionedTableKVBinaryView(txTable.kvView(), PARTS * 10);
-
-        tx.commit();
+//        InternalTransaction tx = nearMgr.begin();
+//
+//        Table txTable = tbl.withTransaction(tx);
+//
+//        partitionedTableView(txTable, PARTS * 10);
+//
+//        partitionedTableKVBinaryView(txTable.kvView(), PARTS * 10);
+//
+//        tx.commit();
     }
 
     /**
@@ -605,5 +676,24 @@ public class ITDistributedTableTest {
         }
 
         return false;
+    }
+
+
+
+    /**
+     * @param id The id.
+     * @return The key tuple.
+     */
+    private Tuple makeKey(long id) {
+        return table.tupleBuilder().set("key", id).build();
+    }
+
+    /**
+     * @param id The id.
+     * @param balance The balance.
+     * @return The value tuple.
+     */
+    private Tuple makeValue(long id, long val) {
+        return table.tupleBuilder().set("key", id).set("value", val).build();
     }
 }

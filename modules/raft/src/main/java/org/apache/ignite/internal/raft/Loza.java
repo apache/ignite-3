@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Peer;
@@ -55,11 +56,13 @@ public class Loza implements IgniteComponent {
      * Constructor.
      *
      * @param clusterNetSvc Cluster network service.
+     * @param txManager Transaction manager.
+     * @param dataPath Data path.
      */
-    public Loza(ClusterService clusterNetSvc, Path dataPath) {
+    public Loza(ClusterService clusterNetSvc, TxManager txManager, Path dataPath) {
         this.clusterNetSvc = clusterNetSvc;
 
-        this.raftServer = new JRaftServerImpl(clusterNetSvc, dataPath);
+        this.raftServer = new JRaftServerImpl(clusterNetSvc, txManager, dataPath);
     }
 
     /** {@inheritDoc} */

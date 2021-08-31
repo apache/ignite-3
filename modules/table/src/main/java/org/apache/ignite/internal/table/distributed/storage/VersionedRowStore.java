@@ -16,10 +16,8 @@ import org.apache.ignite.internal.storage.Storage;
 import org.apache.ignite.internal.storage.basic.DeleteExactInvokeClosure;
 import org.apache.ignite.internal.storage.basic.GetAndRemoveInvokeClosure;
 import org.apache.ignite.internal.storage.basic.GetAndReplaceInvokeClosure;
-import org.apache.ignite.internal.storage.basic.InsertInvokeClosure;
 import org.apache.ignite.internal.storage.basic.ReplaceExactInvokeClosure;
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -47,7 +45,7 @@ public class VersionedRowStore {
     }
 
     /** {@inheritDoc} */
-    public BinaryRow get(@NotNull BinaryRow row, InternalTransaction tx) {
+    public BinaryRow get(@NotNull BinaryRow row, Timestamp ts) {
         assert row != null;
 
         SearchRow key = extractAndWrapKey(row);
@@ -56,13 +54,13 @@ public class VersionedRowStore {
 
         Value val = extractValue(readValue);
 
-        Pair<BinaryRow, BinaryRow> result = result(val, tx);
+        Pair<BinaryRow, BinaryRow> result = result(val, ts);
 
         return result.getFirst();
     }
 
     /** {@inheritDoc} */
-    public Collection<BinaryRow> getAll(Collection<BinaryRow> keyRows, InternalTransaction tx) {
+    public Collection<BinaryRow> getAll(Collection<BinaryRow> keyRows, Timestamp ts) {
         assert keyRows != null && !keyRows.isEmpty();
 
         List<SearchRow> keys = keyRows.stream().map(VersionedRowStore::extractAndWrapKey)
@@ -79,10 +77,10 @@ public class VersionedRowStore {
     }
 
     /** {@inheritDoc} */
-    public void upsert(@NotNull BinaryRow row, InternalTransaction tx) {
+    public void upsert(@NotNull BinaryRow row, Timestamp ts) {
         assert row != null;
 
-        TxState state = txManager.state(tx.timestamp());
+        TxState state = txManager.state(ts);
 
         assert state == TxState.PENDING;
 
@@ -90,13 +88,13 @@ public class VersionedRowStore {
 
         Value value = extractValue(storage.read(key));
 
-        Pair<BinaryRow, BinaryRow> pair = result(value, tx);
+        Pair<BinaryRow, BinaryRow> pair = result(value, ts);
 
-        storage.write(packValue(key, new Value(row, pair.getSecond(), tx.timestamp())));
+        storage.write(packValue(key, new Value(row, pair.getSecond(), ts)));
     }
 
     /** {@inheritDoc} */
-    public BinaryRow getAndUpsert(@NotNull BinaryRow row, InternalTransaction tx) {
+    public BinaryRow getAndUpsert(@NotNull BinaryRow row, Timestamp ts) {
         assert row != null;
 
         DataRow keyValue = extractAndWrapKeyValue(row);
@@ -114,7 +112,7 @@ public class VersionedRowStore {
     }
 
     /** {@inheritDoc} */
-    public boolean delete(BinaryRow row, InternalTransaction tx) {
+    public boolean delete(BinaryRow row, Timestamp tx) {
         assert row != null;
 
         SearchRow newRow = extractAndWrapKey(row);
@@ -127,15 +125,15 @@ public class VersionedRowStore {
     }
 
     /** {@inheritDoc} */
-    public void upsertAll(Collection<BinaryRow> rows, InternalTransaction tx) {
+    public void upsertAll(Collection<BinaryRow> rows, Timestamp tx) {
         assert rows != null && !rows.isEmpty();
 
         storage.writeAll(rows.stream().map(VersionedRowStore::extractAndWrapKeyValue).collect(Collectors.toList()));
     }
 
     /** {@inheritDoc} */
-    public Boolean insert(BinaryRow row, InternalTransaction tx) {
-        assert row != null;
+    public Boolean insert(BinaryRow row, Timestamp ts) {
+        assert row != null && row.hasValue() : row;
 
 //        DataRow newRow = extractAndWrapKeyValue(row);
 //
@@ -145,26 +143,26 @@ public class VersionedRowStore {
 //
 //        return writeIfAbsent.result();
 
-        TxState state = txManager.state(tx.timestamp());
+        TxState state = txManager.state(ts);
 
-        assert state == TxState.PENDING;
+        assert state == TxState.PENDING : state + " " + ts;
 
         SimpleDataRow key = new SimpleDataRow(extractAndWrapKey(row).keyBytes(), null);
 
         Value value = extractValue(storage.read(key));
 
-        Pair<BinaryRow, BinaryRow> pair = result(value, tx);
+        Pair<BinaryRow, BinaryRow> pair = result(value, ts);
 
         if (pair.getFirst() != null)
             return Boolean.FALSE;
 
-        storage.write(packValue(key, new Value(row, null, tx.timestamp())));
+        storage.write(packValue(key, new Value(row, null, ts)));
 
         return Boolean.TRUE;
     }
 
     /** {@inheritDoc} */
-    public Collection<BinaryRow> insertAll(Collection<BinaryRow> rows, InternalTransaction tx) {
+    public Collection<BinaryRow> insertAll(Collection<BinaryRow> rows, Timestamp tx) {
         assert rows != null && !rows.isEmpty();
 
         List<DataRow> keyValues = rows.stream().map(VersionedRowStore::extractAndWrapKeyValue)
@@ -180,7 +178,7 @@ public class VersionedRowStore {
     }
 
     /** {@inheritDoc} */
-    public boolean replace(BinaryRow row, InternalTransaction tx) {
+    public boolean replace(BinaryRow row, Timestamp tx) {
         assert row != null;
 
         DataRow keyValue = extractAndWrapKeyValue(row);
@@ -192,7 +190,7 @@ public class VersionedRowStore {
         return replaceIfExists.result();
     }
 
-    public boolean replace(BinaryRow oldRow, BinaryRow newRow, InternalTransaction tx) {
+    public boolean replace(BinaryRow oldRow, BinaryRow newRow, Timestamp tx) {
         assert oldRow != null;
         assert newRow != null;
 
@@ -206,7 +204,7 @@ public class VersionedRowStore {
         return replaceClosure.result();
     }
 
-    public BinaryRow getAndReplace(BinaryRow row, InternalTransaction ts) {
+    public BinaryRow getAndReplace(BinaryRow row, Timestamp ts) {
         DataRow keyValue = extractAndWrapKeyValue(row);
 
         var getAndReplace = new GetAndReplaceInvokeClosure(keyValue, true);
@@ -219,7 +217,7 @@ public class VersionedRowStore {
     }
 
     /** {@inheritDoc} */
-    public boolean deleteExact(BinaryRow row, InternalTransaction tx) {
+    public boolean deleteExact(BinaryRow row, Timestamp tx) {
         assert row != null;
         assert row.hasValue();
 
@@ -232,7 +230,7 @@ public class VersionedRowStore {
         return deleteExact.result();
     }
 
-    public BinaryRow getAndDelete(BinaryRow row, InternalTransaction ts) {
+    public BinaryRow getAndDelete(BinaryRow row, Timestamp ts) {
         SearchRow keyRow = extractAndWrapKey(row);
 
         var getAndRemoveClosure = new GetAndRemoveInvokeClosure();
@@ -242,7 +240,7 @@ public class VersionedRowStore {
         return getAndRemoveClosure.result() ? new ByteBufferRow(getAndRemoveClosure.oldRow().valueBytes()) : null;
     }
 
-    public Collection<BinaryRow> deleteAll(Collection<BinaryRow> rows, InternalTransaction ts) {
+    public Collection<BinaryRow> deleteAll(Collection<BinaryRow> rows, Timestamp ts) {
         List<SearchRow> keys = rows.stream().map(VersionedRowStore::extractAndWrapKey)
             .collect(Collectors.toList());
 
@@ -255,8 +253,7 @@ public class VersionedRowStore {
         return res;
     }
 
-    public Collection<BinaryRow> deleteAllExact(Collection<BinaryRow> rows,
-        InternalTransaction ts) {
+    public Collection<BinaryRow> deleteAllExact(Collection<BinaryRow> rows, Timestamp ts) {
         assert rows != null && !rows.isEmpty();
 
         List<DataRow> keyValues = rows.stream().map(VersionedRowStore::extractAndWrapKeyValue)
@@ -424,10 +421,10 @@ public class VersionedRowStore {
 
     /**
      * @param val The value.
-     * @param tx The transaction
+     * @param ts The transaction
      * @return New and old rows pair.
      */
-    private Pair<BinaryRow, BinaryRow> result(Value val, InternalTransaction tx) {
+    private Pair<BinaryRow, BinaryRow> result(Value val, Timestamp ts) {
         if (val.timestamp == null) { // New or after reset.
             assert val.oldRow == null : val;
 
@@ -435,7 +432,7 @@ public class VersionedRowStore {
         }
 
         // Will be false if this is a first transactional op.
-        boolean inTx = tx.timestamp().equals(val.timestamp);
+        boolean inTx = val.timestamp.equals(ts);
 
         if (inTx)
             return new Pair<>(val.newRow, val.oldRow);
@@ -532,5 +529,12 @@ public class VersionedRowStore {
      */
     public Storage delegate() {
         return storage;
+    }
+
+    /**
+     * @return Transaction manager.
+     */
+    public TxManager txManager() {
+        return txManager;
     }
 }

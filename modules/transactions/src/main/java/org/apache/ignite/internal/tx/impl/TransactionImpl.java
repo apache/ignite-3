@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
@@ -37,7 +40,7 @@ public class TransactionImpl implements InternalTransaction {
     private final TxManager txManager;
 
     /** */
-    private Set<NetworkAddress> nodes = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private List<NetworkAddress> nodes = new CopyOnWriteArrayList<>();
 
     /**
      * @param txManager The tx managert.
@@ -53,20 +56,23 @@ public class TransactionImpl implements InternalTransaction {
         return timestamp;
     }
 
-    @Override public Set<NetworkAddress> nodes() {
+    @Override public List<NetworkAddress> nodes() {
         return nodes;
     }
 
+    /** {@inheritDoc} */
     @Override public TxState state() {
         return txManager.state(timestamp);
     }
 
-    /**
-     * @param node The node.
-     * @return {@code True} if node is enlisted into the transaction.
-     */
-    @Override public boolean enlist(NetworkAddress node) {
-        return nodes.add(node);
+    /** {@inheritDoc} */
+    @Override public synchronized boolean enlist(NetworkAddress node) {
+        boolean newNode = !nodes.contains(node);
+
+        if (newNode)
+            nodes.add(node);
+
+        return newNode;
     }
 
     /** {@inheritDoc} */

@@ -16,8 +16,10 @@
  */
 package org.apache.ignite.raft.jraft.rpc;
 
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.NodeManager;
+import org.jetbrains.annotations.Nullable;
 
 /**
  *
@@ -27,6 +29,11 @@ public interface RpcContext {
      * @return Node manager.
      */
     NodeManager getNodeManager();
+
+    /**
+     * @return Transaction manager.
+     */
+    @Nullable TxManager getTxManager();
 
     /**
      * Send a response back.
