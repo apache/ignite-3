@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.configuration.asm;
 
-import java.io.File;
 import java.io.Serializable;
 import java.lang.invoke.LambdaMetafactory;
 import java.lang.invoke.MethodHandle;
@@ -99,6 +98,7 @@ import static java.lang.invoke.MethodType.methodType;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singleton;
 import static java.util.EnumSet.of;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.changeClassName;
 import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.configurationClassName;
 import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.viewClassName;
@@ -200,8 +200,7 @@ public class ConfigurationAsmGenerator {
     private final Map<Class<?>, SchemaClassesInfo> schemasInfo = new HashMap<>();
 
     /** Class generator instance. */
-    private final ClassGenerator generator = ClassGenerator.classGenerator(this.getClass().getClassLoader())
-        .dumpClassFilesTo(new File("C:\\test").toPath());
+    private final ClassGenerator generator = ClassGenerator.classGenerator(this.getClass().getClassLoader());
 
     /**
      * Creates new instance of {@code *Node} class corresponding to the given Configuration Schema.
@@ -376,8 +375,8 @@ public class ConfigurationAsmGenerator {
             addNodeViewMethod(classDef, schemaField, fieldDef);
 
             // Add change methods.
-            addNodeChangeMethod(classDef, schemaField, fieldDef, schemaClassInfo.nodeClassName, false);
-            addNodeChangeMethod(classDef, schemaField, fieldDef, changeClassName(schemaField.getDeclaringClass()), true);
+            MethodDefinition changeMtd = addNodeChangeMethod(classDef, schemaField, fieldDef, schemaClassInfo.nodeClassName);
+            addNodeChangeBridgeMethod(classDef, changeClassName(schemaField.getDeclaringClass()), changeMtd);
         }
 
         // traverseChildren
@@ -556,22 +555,21 @@ public class ConfigurationAsmGenerator {
      * @param classDef Node class definition.
      * @param schemaField Configuration Schema class field.
      * @param fieldDef Field definition.
-     * @param returnTypeClassName Class/interface name of the value returned by the method.
-     * @param bridge Bridge method.
+     * @param nodeClassName Class name for the Node class.
+     * @return Definition of change method.
      */
-    private void addNodeChangeMethod(
+    private MethodDefinition addNodeChangeMethod(
         ClassDefinition classDef,
         Field schemaField,
         FieldDefinition fieldDef,
-        String returnTypeClassName,
-        boolean bridge
+        String nodeClassName
     ) {
         Class<?> schemaFieldType = schemaField.getType();
 
         MethodDefinition changeMtd = classDef.declareMethod(
-            bridge ? of(PUBLIC, SYNTHETIC, BRIDGE) : of(PUBLIC),
+            of(PUBLIC),
             "change" + capitalize(schemaField.getName()),
-            typeFromJavaClassName(returnTypeClassName),
+            typeFromJavaClassName(nodeClassName),
             // Change argument type is a Consumer for all inner or named fields.
             arg("change", isValue(schemaField) ? type(schemaFieldType) : type(Consumer.class))
         );
@@ -611,6 +609,36 @@ public class ConfigurationAsmGenerator {
 
         // return this;
         changeBody.append(changeMtd.getThis()).retObject();
+
+        return changeMtd;
+    }
+
+    /**
+     * Implements changer bridge method from {@code CHANGE} interface.
+     *
+     * @param classDef Node class definition.
+     * @param changeClassName Class name for the CHANGE class.
+     * @param changeMtd Definition of change method.
+     */
+    private void addNodeChangeBridgeMethod(
+        ClassDefinition classDef,
+        String changeClassName,
+        MethodDefinition changeMtd
+    ) {
+        MethodDefinition bridgeMtd = classDef.declareMethod(
+            of(PUBLIC, SYNTHETIC, BRIDGE),
+            changeMtd.getName(),
+            typeFromJavaClassName(changeClassName),
+            changeMtd.getParameters()
+        );
+
+        Variable changeVar = bridgeMtd.getScope().getVariable("change");
+
+        // this.change*(change);
+        BytecodeExpression invokeChangeMtd = bridgeMtd.getThis().invoke(changeMtd, List.of(changeVar));
+
+        // return this.change*(change);
+        bridgeMtd.getBody().append(invokeChangeMtd).retObject();
     }
 
     /**
@@ -1170,16 +1198,9 @@ public class ConfigurationAsmGenerator {
         if (schemaFields.isEmpty())
             return List.of();
         else {
-            List<BytecodeNode> res = new ArrayList<>(schemaFields.size());
-
-            for (Field schemaField : schemaFields) {
-                FieldDefinition fieldDef = fieldDefs.get(schemaField.getName());
-
-                // Visit every field. Returned value isn't used so we pop it off the stack.
-                res.add(invokeVisit(traverseChildrenMtd, schemaField, fieldDef).pop());
-            }
-
-            return res;
+            return schemaFields.stream()
+                .map(field -> invokeVisit(traverseChildrenMtd, field, fieldDefs.get(field.getName())).pop())
+                .collect(toList());
         }
     }
 

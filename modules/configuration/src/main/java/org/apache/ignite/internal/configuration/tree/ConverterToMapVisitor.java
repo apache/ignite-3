@@ -34,7 +34,7 @@ import java.util.stream.Stream;
  * {@link ConfigurationVisitor} implementation that converts a configuration tree to a combination of {@link Map} and
  * {@link List} objects.
  */
-public class ConfigurationVisitorImpl implements ConfigurationVisitor<Object> {
+public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     /** Include internal configuration nodes (private configuration extensions). */
     private final boolean includeInternal;
 
@@ -46,7 +46,7 @@ public class ConfigurationVisitorImpl implements ConfigurationVisitor<Object> {
      *
      * @param includeInternal Include internal configuration nodes (private configuration extensions).
      */
-    public ConfigurationVisitorImpl(boolean includeInternal) {
+    public ConverterToMapVisitor(boolean includeInternal) {
         this.includeInternal = includeInternal;
     }
 
