@@ -82,14 +82,14 @@ namespace Apache.Ignite.Internal.Buffers
             Debug.Assert(_startIndex >= sizeLen, "_startIndex >= 4");
 
             var messageSize = _index - _startIndex;
-            _startIndex -= sizeLen;
+            var startIndex = _startIndex - sizeLen;
 
-            fixed (byte* bufPtr = &_buffer[_startIndex])
+            fixed (byte* bufPtr = &_buffer[startIndex])
             {
                 *(int*)bufPtr = IPAddress.HostToNetworkOrder(messageSize);
             }
 
-            return new(_buffer, _startIndex, _index - _startIndex);
+            return new(_buffer, startIndex, _index - startIndex);
         }
 
         /// <inheritdoc />
