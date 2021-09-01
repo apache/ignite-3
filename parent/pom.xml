@@ -1149,6 +1149,7 @@
                         <exclude>modules/raft/src/main/java/org/apache/ignite/raft/jraft/util/HeapByteBufUtil.java</exclude> <!-- Netty license. -->
                         <exclude>modules/raft/src/main/java/org/apache/ignite/raft/jraft/util/timer/TimerTask.java</exclude> <!-- Netty license. -->
                         <exclude>modules/raft/src/main/java/org/apache/ignite/raft/jraft/util/timer/Timeout.java</exclude> <!-- Netty license. -->
+                        <exclude>**/*.sln</exclude> <!-- Visual Studio solution. -->
                     </excludes>
                 </configuration>
             </plugin>
