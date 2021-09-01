@@ -26,7 +26,7 @@ namespace Apache.Ignite.Log
     /// When <see cref="Log"/> method is called, and <c>category</c> parameter is null, predefined category
     /// will be used.
     /// </summary>
-    public class CategoryLogger : IIgniteLogger
+    public sealed class CategoryLogger : IIgniteLogger
     {
         /** Wrapped logger. */
         private readonly IIgniteLogger _logger;

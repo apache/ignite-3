@@ -23,7 +23,7 @@ namespace Apache.Ignite.Log
     /// <summary>
     /// Returns <see cref="DateTime.Now"/>.
     /// </summary>
-    public class LocalDateTimeProvider : IDateTimeProvider
+    public sealed class LocalDateTimeProvider : IDateTimeProvider
     {
         /// <summary>
         /// Default instance.

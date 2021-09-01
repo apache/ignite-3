@@ -27,7 +27,7 @@ namespace Apache.Ignite.Log
     /// Simple logger implementation without dependencies, provided out of the box for convenience.
     /// For anything more complex please use NLog/log4net integrations.
     /// </summary>
-    public class ConsoleLogger : IIgniteLogger
+    public sealed class ConsoleLogger : IIgniteLogger
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ConsoleLogger"/> class.

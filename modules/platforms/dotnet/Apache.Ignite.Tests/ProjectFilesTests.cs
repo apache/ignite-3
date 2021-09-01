@@ -59,7 +59,9 @@ namespace Apache.Ignite.Tests
         {
             foreach (var file in GetCsFiles())
             {
-                if (file.Contains(InternalDir, StringComparison.OrdinalIgnoreCase))
+                if (file.Contains(InternalDir, StringComparison.Ordinal) ||
+                    file.Contains(".Tests", StringComparison.Ordinal) ||
+                    file.EndsWith("Exception.cs", StringComparison.Ordinal))
                 {
                     continue;
                 }
