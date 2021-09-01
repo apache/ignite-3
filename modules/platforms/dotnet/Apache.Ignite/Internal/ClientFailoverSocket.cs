@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal
     using System;
     using System.Collections.Generic;
     using System.Diagnostics;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Net;
     using System.Net.Sockets;
@@ -32,7 +33,7 @@ namespace Apache.Ignite.Internal
     /// <summary>
     /// Client socket wrapper with reconnect/failover functionality.
     /// </summary>
-    internal class ClientFailoverSocket
+    internal sealed class ClientFailoverSocket : IDisposable
     {
         /** Current global endpoint index for Round-robin. */
         private static long _endPointIndex;
@@ -45,6 +46,19 @@ namespace Apache.Ignite.Internal
 
         /** Endpoints with corresponding hosts - from configuration. */
         private readonly IReadOnlyList<SocketEndpoint> _endPoints;
+
+        /** <see cref="_socket"/> lock. */
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA2213:DisposableFieldsShouldBeDisposed",
+            Justification = "WaitHandle is not used in SemaphoreSlim, no need to dispose.")]
+        private readonly SemaphoreSlim _socketLock = new(1);
+
+        /** Primary socket. */
+        private ClientSocket? _socket;
+
+        /** Disposed flag. */
+        private volatile bool _disposed;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ClientFailoverSocket"/> class.
@@ -62,12 +76,80 @@ namespace Apache.Ignite.Internal
         /// </summary>
         /// <param name="clientOp">Operation code.</param>
         /// <returns>Request writer.</returns>
-        public async Task<PooledArrayBufferWriter> GetRequestWriter(ClientOp clientOp)
+        public async Task<PooledArrayBufferWriter> GetRequestWriterAsync(ClientOp clientOp)
         {
-            // TODO: Should be GetSocket for current socket.
-            var socket = await GetNextSocketAsync().ConfigureAwait(false);
+            ThrowIfDisposed();
+
+            var socket = await GetSocketAsync().ConfigureAwait(false);
 
             return socket.GetRequestWriter(clientOp);
+        }
+
+        /// <summary>
+        /// Connects the socket.
+        /// </summary>
+        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+        public async Task ConnectAsync()
+        {
+            await GetSocketAsync().ConfigureAwait(false);
+        }
+
+        /// <inheritdoc/>
+        public void Dispose()
+        {
+            _socketLock.Wait();
+
+            try
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _disposed = true;
+
+                _socket?.Dispose();
+            }
+            finally
+            {
+                _socketLock.Release();
+            }
+        }
+
+        /// <summary>
+        /// Gets the primary socket. Reconnects if necessary.
+        /// </summary>
+        /// <returns>Client socket.</returns>
+        private async Task<ClientSocket> GetSocketAsync()
+        {
+            await _socketLock.WaitAsync().ConfigureAwait(false);
+
+            try
+            {
+                ThrowIfDisposed();
+
+                if (_socket == null || _socket.IsDisposed)
+                {
+                    _socket = await GetNextSocketAsync().ConfigureAwait(false);
+                }
+
+                return _socket;
+            }
+            finally
+            {
+                _socketLock.Release();
+            }
+        }
+
+        /// <summary>
+        /// Throws if disposed.
+        /// </summary>
+        private void ThrowIfDisposed()
+        {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(nameof(ClientFailoverSocket));
+            }
         }
 
         /// <summary>

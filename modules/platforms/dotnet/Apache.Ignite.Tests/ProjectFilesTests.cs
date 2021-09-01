@@ -32,15 +32,15 @@ namespace Apache.Ignite.Tests
             "class", "struct", "record", "enum", "interface"
         };
 
+        private static readonly string InternalDir =
+            $"{Path.DirectorySeparatorChar}Internal{Path.DirectorySeparatorChar}";
+
         [Test]
         public void TestInternalNamespaceHasNoPublicTypes()
         {
-            // Create a Roslyn analyzer for this.
-            var internalDir = Path.DirectorySeparatorChar + "Internal" + Path.DirectorySeparatorChar;
-
             foreach (var file in GetCsFiles())
             {
-                if (!file.Contains(internalDir, StringComparison.OrdinalIgnoreCase))
+                if (!file.Contains(InternalDir, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
@@ -50,6 +50,26 @@ namespace Apache.Ignite.Tests
                 foreach (var type in Types)
                 {
                     StringAssert.DoesNotContain("public " + type, text, file);
+                }
+            }
+        }
+
+        [Test]
+        public void TestPublicTypesAreSealed()
+        {
+            foreach (var file in GetCsFiles())
+            {
+                if (file.Contains(InternalDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var text = File.ReadAllText(file);
+
+                if (text.Contains("public class", StringComparison.Ordinal) ||
+                    text.Contains("public record", StringComparison.Ordinal))
+                {
+                    Assert.Fail("Public classes must be sealed: " + file);
                 }
             }
         }

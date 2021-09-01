@@ -23,7 +23,7 @@ namespace Apache.Ignite.Internal
     /// <summary>
     /// Internal representation of client socket endpoint.
     /// </summary>
-    internal class SocketEndpoint
+    internal sealed class SocketEndpoint
     {
         /** */
         private volatile ClientSocket? _socket;

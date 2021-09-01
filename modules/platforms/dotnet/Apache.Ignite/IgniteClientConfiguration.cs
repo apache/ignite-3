@@ -27,7 +27,7 @@ namespace Apache.Ignite
     /// <summary>
     /// Ignite client driver configuration.
     /// </summary>
-    public record IgniteClientConfiguration
+    public sealed record IgniteClientConfiguration
     {
         /// <summary>
         /// Default port.
