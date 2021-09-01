@@ -672,6 +672,7 @@ public class JdbcResultSet implements ResultSet {
     @Override public int findColumn(String colLb) throws SQLException {
         ensureNotClosed();
 
+        Objects.requireNonNull(columnName)
         throw new SQLFeatureNotSupportedException("FindColumn by column label are not supported.");
 
     }
