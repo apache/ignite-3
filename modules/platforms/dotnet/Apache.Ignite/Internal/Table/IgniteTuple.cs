@@ -15,23 +15,19 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Table
+namespace Apache.Ignite.Internal.Table
 {
-    /// <summary>
-    /// Ignite Tuple.
-    /// TODO: See ADO.NET for the API.
-    /// </summary>
-    public interface IIgniteTuple
-    {
-        /// <summary>
-        /// Gets the number of columns.
-        /// </summary>
-        int FieldCount { get; }
+    using Ignite.Table;
 
-        /// <summary>
-        /// Gets the value of the specified column as an object.
-        /// </summary>
-        /// <param name="ordinal">The zero-based column ordinal.</param>
-        object? this[int ordinal] { get; }
+    /// <summary>
+    /// Ignite tuple.
+    /// </summary>
+    internal class IgniteTuple : IIgniteTuple
+    {
+        /// <inheritdoc/>
+        public int FieldCount => 0;
+
+        /// <inheritdoc/>
+        public object? this[int ordinal] => null;
     }
 }

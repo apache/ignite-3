@@ -45,12 +45,12 @@ namespace Apache.Ignite.Internal.Table
         public async Task<ITable?> GetTableAsync(string name)
         {
             using var writer = new PooledArrayBufferWriter();
-            Write(writer.GetMessageWriter(), name);
+            Write(writer.GetMessageWriter());
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TableGet, writer).ConfigureAwait(false);
             return Read(resBuf.GetReader());
 
-            static void Write(MessagePackWriter w, string name)
+            void Write(MessagePackWriter w)
             {
                 w.WriteString(name);
                 w.Flush();

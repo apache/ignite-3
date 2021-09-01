@@ -19,7 +19,11 @@ namespace Apache.Ignite.Internal.Table
 {
     using System;
     using System.Threading.Tasks;
+    using Buffers;
+    using Common;
     using Ignite.Table;
+    using MessagePack;
+    using Proto;
 
     /// <summary>
     /// Table API.
@@ -51,9 +55,26 @@ namespace Apache.Ignite.Internal.Table
         public Guid Id { get; }
 
         /// <inheritdoc/>
-        public Task<IIgniteTuple> GetAsync(IIgniteTuple keyRec)
+        public async Task<IIgniteTuple?> GetAsync(IIgniteTuple keyRec)
         {
-            throw new NotImplementedException();
+            IgniteArgumentCheck.NotNull(keyRec, nameof(keyRec));
+
+            using var writer = new PooledArrayBufferWriter();
+            Write(writer.GetMessageWriter());
+
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGet, writer).ConfigureAwait(false);
+            return Read(resBuf.GetReader());
+
+            static void Write(MessagePackWriter w)
+            {
+                // TODO: Get schema, then write.
+                w.Flush();
+            }
+
+            IIgniteTuple? Read(MessagePackReader r) =>
+                r.NextMessagePackType == MessagePackType.Nil
+                    ? null
+                    : new IgniteTuple();
         }
 
         /// <inheritdoc/>

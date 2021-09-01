@@ -31,7 +31,7 @@ namespace Apache.Ignite.Table
         /// </summary>
         /// <param name="keyRec">A record with key columns set.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task<T> GetAsync(T keyRec);
+        Task<T?> GetAsync(T keyRec);
 
         /// <summary>
         /// Inserts a record into the table if it does not exist or replaces the existing one.
