@@ -57,7 +57,7 @@ namespace Apache.Ignite.Internal.Table
 
             IList<ITable> ReadTables(MessagePackReader r)
             {
-                var len = r.ReadArrayHeader();
+                var len = r.ReadMapHeader();
 
                 var res = new List<ITable>(len);
 

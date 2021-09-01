@@ -40,6 +40,10 @@ namespace Apache.Ignite.Tests
             using var client = await IgniteClient.StartAsync(GetConfig());
 
             Assert.IsNotNull(client);
+
+            var tables = await client.Tables.GetTablesAsync();
+
+            Assert.Greater(tables.Count, 0);
         }
     }
 }

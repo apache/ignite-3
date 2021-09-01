@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal
 {
     using Ignite.Table;
+    using Table;
 
     /// <summary>
     /// Ignite client implementation.
@@ -34,7 +35,7 @@ namespace Apache.Ignite.Internal
         public IgniteClientInternal(ClientFailoverSocket socket)
         {
             _socket = socket;
-            Tables = null!;
+            Tables = new Tables(socket);
         }
 
         /// <inheritdoc/>
