@@ -4,6 +4,7 @@
         <WarningsAsErrors/>
         <LangVersion>9</LangVersion>
         <Nullable>enable</Nullable>
+        <Version>3.0.0-alpha3</Version>
     </PropertyGroup>
 
     <ItemGroup>

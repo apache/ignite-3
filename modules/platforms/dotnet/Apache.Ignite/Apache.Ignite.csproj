@@ -14,9 +14,9 @@
   </ItemGroup>
 
   <ItemGroup>
-<!--    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">-->
-<!--      <_Parameter1>$(AssemblyName).Tests</_Parameter1>-->
-<!--    </AssemblyAttribute>-->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>$(AssemblyName).Tests, PublicKey=0024000004800000140100000602000000240000525341310008000001000100b99219bf9bc81eac1a487cbe891e803003ef4b3d34ac47d166b2f44df2ba3c2476a7584066590d2e9ca3eb3d8fe471ad1935e0b67d21066dfb70ec72e4c55ceb7352cad2977a3fe989f4d84de256edf02d465cb6a3159e0851b3d1ce2be06f48e425709afdb9cc496b3d73e2e6ca92cc655919e7668fe52d82836d23696b3cfe8e2a9d282a96f4f509c71e9bcea264516ed6d5594883c0d133970bb6030136255de8f4fe77cfe82a32b97e474c05415e33cc08c6f39a96e48cec59bce4b4593b6b28aea46ba3f1a4e777af9a08faea092bf9dd9782a620415a7a5bb233a563dd6086c6e5e8f2868d71bcfa65dd6f18595bd0fd652ff142b46fcd339d78d82d8d</_Parameter1>
+    </AssemblyAttribute>
   </ItemGroup>
 
 </Project>
