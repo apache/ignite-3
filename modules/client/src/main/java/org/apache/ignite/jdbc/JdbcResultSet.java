@@ -46,6 +46,7 @@ import java.util.Calendar;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.apache.ignite.client.proto.query.IgniteQueryErrorCode;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.client.proto.query.SqlStateCode;
@@ -672,7 +673,8 @@ public class JdbcResultSet implements ResultSet {
     @Override public int findColumn(String colLb) throws SQLException {
         ensureNotClosed();
 
-        Objects.requireNonNull(columnName)
+        Objects.requireNonNull(colLb);
+
         throw new SQLFeatureNotSupportedException("FindColumn by column label are not supported.");
 
     }

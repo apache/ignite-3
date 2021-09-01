@@ -277,8 +277,7 @@ public class QueryEventHandlerTest {
      * @return JdbcQueryExecuteRequest.
      */
     private JdbcQueryExecuteRequest getJdbcQueryExecuteRequest(int pageSize) {
-        return new JdbcQueryExecuteRequest("PUBLIC", pageSize, 3, false,
-            false, "SELECT * FROM Test;", null);
+        return new JdbcQueryExecuteRequest("PUBLIC", pageSize, 3, "SELECT * FROM Test;", null);
     }
 
     /**

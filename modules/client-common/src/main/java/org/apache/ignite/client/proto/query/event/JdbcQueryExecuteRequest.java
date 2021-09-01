@@ -17,10 +17,8 @@
 
 package org.apache.ignite.client.proto.query.event;
 
-import java.sql.Statement;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.client.proto.query.JdbcStatementType;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -42,15 +40,6 @@ public class JdbcQueryExecuteRequest implements JdbcClientMessage {
     /** Sql query arguments. */
     private Object[] args;
 
-    /** Expected statement type. */
-    private JdbcStatementType stmtType;
-
-    /** Client auto commit flag state. */
-    private boolean autoCommit;
-
-    /** Explicit timeout. */
-    private boolean explicitTimeout;
-
     /**
      * Default constructor. For deserialization purposes.
      */
@@ -63,21 +52,16 @@ public class JdbcQueryExecuteRequest implements JdbcClientMessage {
      * @param schemaName Cache name.
      * @param pageSize Fetch size.
      * @param maxRows Max rows.
-     * @param autoCommit Connection auto commit flag state.
      * @param sqlQry SQL query.
      * @param args Arguments list.
-     * @param explicitTimeout Explicit timeout.
      */
-    public JdbcQueryExecuteRequest(String schemaName, int pageSize, int maxRows,
-        boolean autoCommit, boolean explicitTimeout, String sqlQry, Object[] args) {
+    public JdbcQueryExecuteRequest(String schemaName, int pageSize, int maxRows, String sqlQry, Object[] args) {
 
         this.schemaName = schemaName == null || schemaName.isEmpty() ? null : schemaName;
         this.pageSize = pageSize;
         this.maxRows = maxRows;
         this.sqlQry = sqlQry;
         this.args = args;
-        this.autoCommit = autoCommit;
-        this.explicitTimeout = explicitTimeout;
     }
 
     /**
@@ -125,24 +109,6 @@ public class JdbcQueryExecuteRequest implements JdbcClientMessage {
         return schemaName;
     }
 
-    /**
-     * Get the expected statement type.
-     *
-     * @return Expected statement type.
-     */
-    public JdbcStatementType expectedStatementType() {
-        return stmtType;
-    }
-
-    /**
-     * Get the auto commit flag.
-     *
-     * @return Auto commit flag.
-     */
-    boolean autoCommit() {
-        return autoCommit;
-    }
-
     /** {@inheritDoc} */
     @Override public void writeBinary(ClientMessagePacker packer) {
         packer.packString(schemaName);
@@ -161,16 +127,6 @@ public class JdbcQueryExecuteRequest implements JdbcClientMessage {
         sqlQry = unpacker.unpackString();
 
         args = unpacker.unpackObjectArray();
-    }
-
-    /**
-     * Get the explicit timeout.
-     *
-     * @return {@code true} if the query timeout is set explicitly by {@link Statement#setQueryTimeout(int)}.
-     * Otherwise returns {@code false}.
-     */
-    public boolean explicitTimeout() {
-        return explicitTimeout;
     }
 
     /** {@inheritDoc} */

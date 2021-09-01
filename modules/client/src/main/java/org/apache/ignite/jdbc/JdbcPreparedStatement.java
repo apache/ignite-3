@@ -39,6 +39,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Objects;
 import org.apache.ignite.client.proto.query.SqlStateCode;
 import org.apache.ignite.client.proto.query.event.JdbcQuery;
 
@@ -106,10 +107,10 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
         if (batch == null) {
             batch = new ArrayList<>();
 
-            batch.add(new JdbcQuery(sql, args.toArray(new Object[args.size()])));
+            batch.add(new JdbcQuery(sql, args.toArray(new Object[0])));
         }
         else
-            batch.add(new JdbcQuery(null, args.toArray(new Object[args.size()])));
+            batch.add(new JdbcQuery(null, args.toArray(new Object[0])));
 
         args = null;
     }
@@ -493,7 +494,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
 
     /** {@inheritDoc} */
     @Override public <T> T unwrap(Class<T> iface) throws SQLException {
-        if (!isWrapperFor(Objects.requireNotNull(iface)))
+        if (!isWrapperFor(Objects.requireNonNull(iface)))
             throw new SQLException("Prepared statement is not a wrapper for " + iface.getName());
 
         return (T)this;
