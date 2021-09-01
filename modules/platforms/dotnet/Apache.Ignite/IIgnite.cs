@@ -17,12 +17,13 @@
 
 namespace Apache.Ignite
 {
+    using System;
     using Table;
 
     /// <summary>
     /// Ignite API entry point.
     /// </summary>
-    public interface IIgnite
+    public interface IIgnite : IDisposable
     {
         /// <summary>
         /// Gets the tables API.

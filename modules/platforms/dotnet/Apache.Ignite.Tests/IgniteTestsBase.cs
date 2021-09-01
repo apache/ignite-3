@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests
 {
     using System;
+    using System.Net;
     using System.Threading.Tasks;
     using NUnit.Framework;
 
@@ -39,5 +40,10 @@ namespace Apache.Ignite.Tests
         {
             _serverNode?.Dispose();
         }
+
+        protected static IgniteClientConfiguration GetConfig() => new()
+        {
+            Endpoints = { IPAddress.Loopback.ToString() }
+        };
     }
 }
