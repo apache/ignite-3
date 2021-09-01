@@ -124,7 +124,7 @@ public class MessageServiceImpl implements MessageService {
 
     /** */
     private void onMessage(NetworkMessage msg, NetworkAddress addr, String correlationId) {
-        assert msg.groupType() == 3 : "unexpected message group grpType=" + msg.groupType();
+        assert msg.groupType() == 4 : "unexpected message group grpType=" + msg.groupType();
 
         ClusterNode node = topSrvc.getByAddress(addr);
         if (node == null) {

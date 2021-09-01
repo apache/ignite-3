@@ -66,6 +66,7 @@ import org.apache.ignite.internal.processors.query.calcite.SqlQueryType;
 import org.apache.ignite.internal.processors.query.calcite.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.processors.query.calcite.prepare.AbstractMultiStepPlan;
+import org.apache.ignite.internal.processors.query.calcite.prepare.ExplainPlan;
 import org.apache.ignite.internal.processors.query.calcite.prepare.FieldsMetadata;
 import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningContext;
 import org.apache.ignite.internal.processors.query.calcite.prepare.QueryPlan;
@@ -147,7 +148,8 @@ public final class Commons {
             }
 
             @Override public FieldsMetadata getColumnMetadata() {
-                return ((AbstractMultiStepPlan)plan).fieldsMetadata();
+                return plan instanceof AbstractMultiStepPlan ? ((AbstractMultiStepPlan)plan).fieldsMetadata()
+                    : ((ExplainPlan)plan).fieldsMeta();
             }
 
             @Override public void remove() {

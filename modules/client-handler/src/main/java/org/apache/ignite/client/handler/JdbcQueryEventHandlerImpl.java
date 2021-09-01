@@ -51,6 +51,7 @@ import org.apache.ignite.client.proto.query.event.JdbcTableMeta;
 import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
 import org.apache.ignite.internal.processors.query.calcite.SqlCursor;
 import org.apache.ignite.internal.processors.query.calcite.prepare.FieldsMetadata;
+import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.internal.util.Cursor;
 
 import static org.apache.ignite.client.proto.query.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
@@ -176,20 +177,37 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         FieldsMetadata metadata = cur.getColumnMetadata();
 
+        List<List<String>> origins = metadata.origins();
+
         List<RelDataTypeField> list = metadata.rowType().getFieldList();
 
         List<JdbcColumnMeta> meta = new ArrayList<>(list.size());
 
-        for (RelDataTypeField field : list) {
-            String fieldName = field.getKey();
+        IgniteTypeFactory factory = new IgniteTypeFactory();
+
+        for (int i = 0; i < list.size(); i++) {
+            RelDataTypeField field = list.get(i);
+            List<String> origin = origins.get(i);
+
             RelDataType val = field.getValue();
 
+            String schemaName = origin == null ? "UNDEFINED" : origin.get(0);
+            String tableName = origin == null ? "UNDEFINED" : origin.get(1);
+
+            String fieldName = field.getKey();
             String sqlTypeName = val.getSqlTypeName().getName();
             int jdbcOrdinal = val.getSqlTypeName().getJdbcOrdinal();
             boolean isNullable = val.isNullable();
 
-            //TODO fix after schema and table metadata will appear.
-            meta.add(new JdbcColumnMeta("","", fieldName, sqlTypeName, jdbcOrdinal, isNullable));
+            meta.add(new JdbcColumnMeta(
+                schemaName,
+                tableName,
+                fieldName,
+                sqlTypeName,
+                factory.getJavaClass(val).getTypeName(),
+                jdbcOrdinal,
+                isNullable
+            ));
         }
         return new JdbcMetaColumnsResult(meta);
     }
@@ -238,6 +256,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         boolean hasNext = cur.hasNext();
 
         switch (cur.getQueryType()) {
+            case EXPLAIN:
             case QUERY:
                 return new JdbcQuerySingleResult(cursorId, fetch, !hasNext);
             case DML:
@@ -249,7 +268,6 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                 return new JdbcQuerySingleResult(cursorId, (Long)fetch.get(0).get(0));
             }
             case FRAGMENT:
-            case EXPLAIN:
             default:
                 return new JdbcQuerySingleResult(UNSUPPORTED_OPERATION,
                     "Query type [" + cur.getQueryType() + "] is not supported yet.");

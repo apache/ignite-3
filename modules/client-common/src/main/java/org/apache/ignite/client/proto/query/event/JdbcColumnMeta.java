@@ -64,6 +64,9 @@ public class JdbcColumnMeta extends JdbcResponse {
     /** Data type. */
     private String dataTypeName;
 
+    /** Data type class. */
+    private String dataTypeClass;
+
     /**
      * Default constructor is used for serialization.
      */
@@ -93,7 +96,7 @@ public class JdbcColumnMeta extends JdbcResponse {
      * @param nullable Nullable flag.
      */
     public JdbcColumnMeta(String schemaName, String tblName, String colName, Class<?> cls, boolean nullable) {
-        this(schemaName, tblName, colName, typeName(cls.getName()), type(cls.getName()), nullable);
+        this(schemaName, tblName, colName, typeName(cls.getName()), cls.getName(), type(cls.getName()), nullable);
     }
 
     /**
@@ -106,13 +109,15 @@ public class JdbcColumnMeta extends JdbcResponse {
      * @param dataType Jdbc data type index.
      * @param nullable Nullable flag.
      */
-    public JdbcColumnMeta(String schemaName, String tblName, String colName, String sqlTypeName, int dataType, boolean nullable) {
+    public JdbcColumnMeta(String schemaName, String tblName, String colName, String sqlTypeName, String typeClassName,
+        int dataType, boolean nullable) {
         this.schemaName = schemaName;
         this.tblName = tblName;
         this.colName = colName;
         this.nullable = nullable;
         this.dataType = dataType;
         this.dataTypeName = sqlTypeName;
+        this.dataTypeClass = typeClassName;
     }
 
     /**
@@ -196,6 +201,13 @@ public class JdbcColumnMeta extends JdbcResponse {
         return nullable;
     }
 
+    /**
+     * @return Data type class.
+     */
+    public String dataTypeClass() {
+        return dataTypeClass;
+    }
+
     /** {@inheritDoc} */
     @Override public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
@@ -210,6 +222,7 @@ public class JdbcColumnMeta extends JdbcResponse {
         packer.packInt(dataType);
         packer.packString(dataTypeName);
         packer.packBoolean(nullable);
+        packer.packString(dataTypeClass);
     }
 
     /** {@inheritDoc} */
@@ -226,6 +239,7 @@ public class JdbcColumnMeta extends JdbcResponse {
         dataType = unpacker.unpackInt();
         dataTypeName = unpacker.unpackString();
         nullable = unpacker.unpackBoolean();
+        dataTypeClass = unpacker.unpackString();
     }
 
     /** {@inheritDoc} */

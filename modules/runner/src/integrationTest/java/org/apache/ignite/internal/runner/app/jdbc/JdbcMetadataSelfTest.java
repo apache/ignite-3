@@ -19,15 +19,19 @@ package org.apache.ignite.internal.runner.app.jdbc;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
+import java.sql.ParameterMetaData;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
+import org.apache.ignite.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -45,6 +49,7 @@ import static java.sql.Types.DATE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -59,22 +64,22 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     @BeforeEach
     public void beforeTest() {
         // Create table on node 0.
-        SchemaTable persTbl = SchemaBuilders.tableBuilder("pers", "PERSON").columns(
+        SchemaTable perTbl = SchemaBuilders.tableBuilder("PUBLIC", "PERSON").columns(
             SchemaBuilders.column("NAME", ColumnType.string()).asNullable().build(),
             SchemaBuilders.column("AGE", ColumnType.INT32).asNullable().build(),
             SchemaBuilders.column("ORGID", ColumnType.INT32).asNonNull().build()
         ).withPrimaryKey("ORGID").build();
 
-        SchemaTable orgTbl = SchemaBuilders.tableBuilder("org", "ORGANIZATION").columns(
+        SchemaTable orgTbl = SchemaBuilders.tableBuilder("PUBLIC", "ORGANIZATION").columns(
             SchemaBuilders.column("ID", ColumnType.INT32).asNonNull().build(),
             SchemaBuilders.column("NAME", ColumnType.string()).asNullable().build()
         ).withPrimaryKey("ID").build();
 
-        if (clusterNodes.get(0).tables().table(persTbl.canonicalName()) != null)
+        if (clusterNodes.get(0).tables().table(perTbl.canonicalName()) != null)
             return;
 
-        clusterNodes.get(0).tables().createTable(persTbl.canonicalName(), tblCh ->
-            SchemaConfigurationConverter.convert(persTbl, tblCh)
+        clusterNodes.get(0).tables().createTable(perTbl.canonicalName(), tblCh ->
+            SchemaConfigurationConverter.convert(perTbl, tblCh)
                 .changeReplicas(1)
                 .changePartitions(10)
         );
@@ -85,7 +90,7 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
                 .changePartitions(10)
         );
 
-        Table tbl1 = clusterNodes.get(0).tables().table(persTbl.canonicalName());
+        Table tbl1 = clusterNodes.get(0).tables().table(perTbl.canonicalName());
         Table tbl2 = clusterNodes.get(0).tables().table(orgTbl.canonicalName());
 
         tbl1.insert(Tuple.create().set("ORGID", 1).set("NAME", "111").set("AGE", 111));
@@ -96,12 +101,11 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
      * @throws Exception If failed.
      */
     @Test
-    @Disabled
     public void testResultSetMetaData() throws Exception {
         Statement stmt = DriverManager.getConnection(URL).createStatement();
 
         ResultSet rs = stmt.executeQuery(
-            "select p.name, o.id as orgId from \"pers\".Person p, \"org\".Organization o where p.orgId = o.id");
+            "select p.name, o.id as orgId, p.age from PERSON p, ORGANIZATION o where p.orgId = o.id");
 
         assert rs != null;
 
@@ -109,7 +113,7 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
         assert meta != null;
 
-        assert meta.getColumnCount() == 2;
+        assert meta.getColumnCount() == 3;
 
         assert "Person".equalsIgnoreCase(meta.getTableName(1));
         assert "name".equalsIgnoreCase(meta.getColumnName(1));
@@ -170,25 +174,16 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         try (Connection conn = DriverManager.getConnection(URL)) {
             DatabaseMetaData meta = conn.getMetaData();
 
-            ResultSet rs = meta.getTables("IGNITE", "pers", "%", new String[]{"TABLE"});
-            assertNotNull(rs);
-            assertTrue(rs.next());
-            assertEquals("TABLE", rs.getString("TABLE_TYPE"));
-            assertEquals("PERSON", rs.getString("TABLE_NAME"));
-
-            rs = meta.getTables("IGNITE", "org", "%", new String[]{"TABLE"});
+            ResultSet rs = meta.getTables("IGNITE", "PUBLIC", "%", new String[]{"TABLE"});
             assertNotNull(rs);
             assertTrue(rs.next());
             assertEquals("TABLE", rs.getString("TABLE_TYPE"));
             assertEquals("ORGANIZATION", rs.getString("TABLE_NAME"));
-
-            rs = meta.getTables("IGNITE", "pers", "%", null);
-            assertNotNull(rs);
             assertTrue(rs.next());
             assertEquals("TABLE", rs.getString("TABLE_TYPE"));
             assertEquals("PERSON", rs.getString("TABLE_NAME"));
 
-            rs = meta.getTables("IGNITE", "org", "%", null);
+            rs = meta.getTables("IGNITE", "PUBLIC", "%", null);
             assertNotNull(rs);
             assertTrue(rs.next());
             assertEquals("TABLE", rs.getString("TABLE_TYPE"));
@@ -207,7 +202,7 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         try (Connection conn = DriverManager.getConnection(URL)) {
             DatabaseMetaData meta = conn.getMetaData();
 
-            ResultSet rs = meta.getColumns("IGNITE", "pers", "PERSON", "%");
+            ResultSet rs = meta.getColumns("IGNITE", "PUBLIC", "PERSON", "%");
 
             assert rs != null;
 
@@ -243,7 +238,7 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             assert names.isEmpty();
             assert cnt == 3;
 
-            rs = meta.getColumns("IGNITE", "org", "ORGANIZATION", "%");
+            rs = meta.getColumns("IGNITE", "PUBLIC", "ORGANIZATION", "%");
 
             assert rs != null;
 
@@ -294,11 +289,24 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
      * @throws Exception If failed.
      */
     @Test
+    public void testVersions() throws Exception {
+        try (Connection conn = DriverManager.getConnection(URL)) {
+            assertEquals(conn.getMetaData().getDatabaseProductVersion(), ProtocolVersion.LATEST_VER.toString(),
+                "Unexpected ignite database product version.");
+            assertEquals(conn.getMetaData().getDriverVersion(), ProtocolVersion.LATEST_VER.toString(),
+                "Unexpected ignite driver version.");
+        }
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    @Test
     public void testSchemasMetadata() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
             ResultSet rs = conn.getMetaData().getSchemas();
 
-            Set<String> expectedSchemas = new HashSet<>(Arrays.asList("pers", "org"));
+            Set<String> expectedSchemas = new HashSet<>(Arrays.asList("PUBLIC", "PUBLIC"));
 
             Set<String> schemas = new HashSet<>();
 
@@ -328,7 +336,7 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     @Test
     public void testPrimaryKeyMetadata() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL);
-             ResultSet rs = conn.getMetaData().getPrimaryKeys(null, "pers", "PERSON")) {
+             ResultSet rs = conn.getMetaData().getPrimaryKeys(null, "PUBLIC", "PERSON")) {
 
             int cnt = 0;
 
@@ -351,8 +359,8 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             ResultSet rs = conn.getMetaData().getPrimaryKeys(null, null, null);
 
             Set<String> expectedPks = new HashSet<>(Arrays.asList(
-                "org.ORGANIZATION.PK_ORGANIZATION.ID",
-                "pers.PERSON.PK_PERSON.ORGID"));
+                "PUBLIC.ORGANIZATION.PK_ORGANIZATION.ID",
+                "PUBLIC.PERSON.PK_PERSON.ORGID"));
 
             Set<String> actualPks = new HashSet<>(expectedPks.size());
 
@@ -366,4 +374,211 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             assertEquals(expectedPks, actualPks, "Metadata contains unexpected primary keys info.");
         }
     }
+
+    /**
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testInvalidCatalog() throws Exception {
+        try (Connection conn = DriverManager.getConnection(URL)) {
+            DatabaseMetaData meta = conn.getMetaData();
+
+            ResultSet rs = meta.getSchemas("q", null);
+
+            assert !rs.next() : "Results must be empty";
+
+            rs = meta.getTables("q", null, null, null);
+
+            assert !rs.next() : "Results must be empty";
+
+            rs = meta.getColumns("q", null, null, null);
+
+            assert !rs.next() : "Results must be empty";
+
+            rs = meta.getIndexInfo("q", null, null, false, false);
+
+            assert !rs.next() : "Results must be empty";
+
+            rs = meta.getPrimaryKeys("q", null, null);
+
+            assert !rs.next() : "Results must be empty";
+        }
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testGetTableTypes() throws Exception {
+        try (Connection conn = DriverManager.getConnection(URL)) {
+            DatabaseMetaData meta = conn.getMetaData();
+
+            ResultSet rs = meta.getTableTypes();
+
+            assertTrue(rs.next());
+
+            assertEquals("TABLE", rs.getString("TABLE_TYPE"));
+
+            assertTrue(rs.next());
+
+            assertEquals("VIEW", rs.getString("TABLE_TYPE"));
+        }
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    @Test
+    @Disabled
+    public void testParametersMetadata() throws Exception {
+        // Perform checks few times due to query/plan caching.
+        for (int i = 0; i < 3; i++) {
+            // No parameters statement.
+            try (Connection conn = DriverManager.getConnection(URL)) {
+                conn.setSchema("\"pers\"");
+
+                PreparedStatement noParams = conn.prepareStatement("select * from Person;");
+                ParameterMetaData params = noParams.getParameterMetaData();
+
+                assertEquals(0, params.getParameterCount(), "Parameters should be empty.");
+            }
+
+            // Selects.
+            try (Connection conn = DriverManager.getConnection(URL)) {
+                conn.setSchema("\"pers\"");
+
+                PreparedStatement selectStmt = conn.prepareStatement("select orgId from Person p where p.name > ? and p.orgId > ?");
+
+                ParameterMetaData meta = selectStmt.getParameterMetaData();
+
+                assertNotNull(meta);
+
+                assertEquals(2, meta.getParameterCount());
+
+                assertEquals(Types.VARCHAR, meta.getParameterType(1));
+                assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(1));
+                assertEquals(Integer.MAX_VALUE, meta.getPrecision(1));
+
+                assertEquals(Types.INTEGER, meta.getParameterType(2));
+                assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(2));
+            }
+
+            // Updates.
+            try (Connection conn = DriverManager.getConnection(URL)) {
+                conn.setSchema("\"pers\"");
+
+                PreparedStatement updateStmt = conn.prepareStatement("update Person p set orgId = 42 where p.name > ? and p.orgId > ?");
+
+                ParameterMetaData meta = updateStmt.getParameterMetaData();
+
+                assertNotNull(meta);
+
+                assertEquals(2, meta.getParameterCount());
+
+                assertEquals(Types.VARCHAR, meta.getParameterType(1));
+                assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(1));
+                assertEquals(Integer.MAX_VALUE, meta.getPrecision(1));
+
+                assertEquals(Types.INTEGER, meta.getParameterType(2));
+                assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(2));
+            }
+
+            // Multistatement
+            try (Connection conn = DriverManager.getConnection(URL)) {
+                conn.setSchema("\"pers\"");
+
+                PreparedStatement updateStmt = conn.prepareStatement(
+                    "update Person p set orgId = 42 where p.name > ? and p.orgId > ?;" +
+                        "select orgId from Person p where p.name > ? and p.orgId > ?");
+
+                ParameterMetaData meta = updateStmt.getParameterMetaData();
+
+                assertNotNull(meta);
+
+                assertEquals(4, meta.getParameterCount());
+
+                assertEquals(Types.VARCHAR, meta.getParameterType(1));
+                assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(1));
+                assertEquals(Integer.MAX_VALUE, meta.getPrecision(1));
+
+                assertEquals(Types.INTEGER, meta.getParameterType(2));
+                assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(2));
+
+                assertEquals(Types.VARCHAR, meta.getParameterType(3));
+                assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(3));
+                assertEquals(Integer.MAX_VALUE, meta.getPrecision(3));
+
+                assertEquals(Types.INTEGER, meta.getParameterType(4));
+                assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(4));
+            }
+        }
+    }
+
+    /**
+     * Check that parameters metadata throws correct exception on non-parsable statement.
+     */
+    @Test
+    public void testParametersMetadataNegative() throws Exception {
+        try (Connection conn = DriverManager.getConnection(URL)) {
+            conn.setSchema("\"pers\"");
+
+            PreparedStatement notCorrect = conn.prepareStatement("select * from NotExistingTable;");
+
+            assertThrows(SQLException.class, notCorrect::getParameterMetaData, "Table \"NOTEXISTINGTABLE\" not found");
+        }
+    }
+
+    /**
+     * Negative scenarios for catalog name.
+     * Perform metadata lookups, that use incorrect catalog names.
+     */
+    @Test
+    public void testCatalogWithNotExistingName() throws SQLException {
+        checkNoEntitiesFoundForCatalog("");
+        checkNoEntitiesFoundForCatalog("NOT_EXISTING_CATALOG");
+    }
+
+    /**
+     * Check that lookup in the metadata have been performed using specified catalog name (that is neither {@code null}
+     * nor correct catalog name), empty result set is returned.
+     *
+     * @param invalidCat catalog name that is not either
+     */
+    private void checkNoEntitiesFoundForCatalog(String invalidCat) throws SQLException {
+        try (Connection conn = DriverManager.getConnection(URL)) {
+            DatabaseMetaData meta = conn.getMetaData();
+
+            // Intention: we set the other arguments that way, the values to have as many results as possible.
+            assertIsEmpty(meta.getTables(invalidCat, null, "%", new String[] {"TABLE"}));
+            assertIsEmpty(meta.getColumns(invalidCat, null, "%", "%"));
+            assertIsEmpty(meta.getColumnPrivileges(invalidCat, "pers", "PERSON", "%"));
+            assertIsEmpty(meta.getTablePrivileges(invalidCat, null, "%"));
+            assertIsEmpty(meta.getPrimaryKeys(invalidCat, "pers", "PERSON"));
+            assertIsEmpty(meta.getImportedKeys(invalidCat, "pers", "PERSON"));
+            assertIsEmpty(meta.getExportedKeys(invalidCat, "pers", "PERSON"));
+            // meta.getCrossReference(...) doesn't make sense because we don't have FK constraint.
+            assertIsEmpty(meta.getIndexInfo(invalidCat, null, "%", false, true));
+            assertIsEmpty(meta.getSuperTables(invalidCat, "%", "%"));
+            assertIsEmpty(meta.getSchemas(invalidCat, null));
+            assertIsEmpty(meta.getPseudoColumns(invalidCat, null, "%", ""));
+        }
+    }
+
+    /**
+     * Assert that specified ResultSet contains no rows.
+     *
+     * @param rs result set to check.
+     * @throws SQLException on error.
+     */
+    private static void assertIsEmpty(ResultSet rs) throws SQLException {
+        try {
+            boolean empty = !rs.next();
+
+            assertTrue(empty, "Result should be empty because invalid catalog is specified.");
+        }
+        finally {
+            rs.close();
+        }
+    }
+
 }
