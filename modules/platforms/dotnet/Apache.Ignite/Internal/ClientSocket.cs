@@ -33,9 +33,6 @@ namespace Apache.Ignite.Internal
 
     /// <summary>
     /// Wrapper over framework socket for Ignite thin client operations.
-    ///
-    /// TODO:
-    /// * Assembly signing.
     /// </summary>
     // ReSharper disable SuggestBaseTypeForParameter (NetworkStream has more efficient read/write methods).
     internal sealed class ClientSocket : IDisposable

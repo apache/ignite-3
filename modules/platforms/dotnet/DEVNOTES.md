@@ -22,10 +22,6 @@ In this dir: `dotnet test`
 
 See [IEP-78 .NET Thin Client](https://cwiki.apache.org/confluence/display/IGNITE/IEP-78+.NET+Thin+Client) for design considerations.
 
-
-TODO: Assembly signing
-
-
 ## Static Code Analysis
 
 Static code analysis (Roslyn-based) runs as part of the build and includes code style check. Build fails on any warning.
