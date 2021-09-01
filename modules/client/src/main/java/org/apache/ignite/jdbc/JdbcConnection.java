@@ -217,8 +217,7 @@ public class JdbcConnection implements Connection {
     @Override public String nativeSQL(String sql) throws SQLException {
         ensureNotClosed();
 
-        if (sql == null)
-            throw new SQLException("SQL string cannot be null.");
+        Objects.requireNonNull(sql);
 
         return sql;
     }
