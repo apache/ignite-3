@@ -33,6 +33,8 @@ public class JdbcThinResultSetMetadata implements ResultSetMetaData {
     private final List<JdbcColumnMeta> meta;
 
     /**
+     * Constructor.
+     *
      * @param meta Metadata.
      */
     JdbcThinResultSetMetadata(List<JdbcColumnMeta> meta) {

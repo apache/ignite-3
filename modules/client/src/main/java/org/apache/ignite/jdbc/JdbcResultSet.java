@@ -1922,8 +1922,8 @@ public class JdbcResultSet implements ResultSet {
     /**
      * Init if needed and return column order.
      *
-     * @throws SQLException On error.
      * @return Column order map.
+     * @throws SQLException On error.
      */
     private Map<String, Integer> columnOrder() throws SQLException {
         if (colOrder != null)
@@ -1952,6 +1952,8 @@ public class JdbcResultSet implements ResultSet {
     }
 
     /**
+     * Returns columns metadata list.
+     *
      * @return Results metadata.
      * @throws SQLException On error.
      */

@@ -106,6 +106,7 @@ public class JdbcColumnMeta extends JdbcResponse {
      * @param tblName Table.
      * @param colName Column.
      * @param sqlTypeName Sql type name.
+     * @param typeClassName Type class name.
      * @param dataType Jdbc data type index.
      * @param nullable Nullable flag.
      */
@@ -202,6 +203,8 @@ public class JdbcColumnMeta extends JdbcResponse {
     }
 
     /**
+     * Gets data type class.
+     *
      * @return Data type class.
      */
     public String dataTypeClass() {
