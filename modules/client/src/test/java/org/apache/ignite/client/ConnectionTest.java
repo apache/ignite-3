@@ -42,9 +42,6 @@ public class ConnectionTest extends AbstractClientTest {
 
     @Test
     public void testValidNodeAddresses() throws Exception {
-        // TODO: REVERT ME
-        Thread.sleep(Long.MAX_VALUE);
-
         testConnection("127.0.0.1:" + serverPort);
     }
 
