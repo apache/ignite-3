@@ -135,14 +135,10 @@ namespace Apache.Ignite.Tests
         {
             try
             {
-                using Socket socket = new(SocketType.Stream, ProtocolType.Tcp)
-                {
-                    NoDelay = true
-                };
+                var cfg = new IgniteClientConfiguration("127.0.0.1:" + ClientPort);
+                using var client = await IgniteClient.StartAsync(cfg);
 
-                await socket.ConnectAsync(IPAddress.Loopback, ClientPort);
-
-                return true;
+                return (await client.Tables.GetTablesAsync()).Count > 0;
             }
             catch
             {

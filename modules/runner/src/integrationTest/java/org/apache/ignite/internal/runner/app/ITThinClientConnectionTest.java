@@ -87,7 +87,7 @@ public class ITThinClientConnectionTest extends IgniteAbstractTest {
     /** */
     @AfterEach
     void tearDown() throws Exception {
-//        if ("true".equals(System.getProperty("IGNITE_TEST_KEEP_NODES_RUNNING"))) {
+        if ("true".equals(System.getProperty("IGNITE_TEST_KEEP_NODES_RUNNING"))) {
             // Used for non-Java platform tests (.NET, C++, etc).
             String ports = startedNodes.stream()
                     .map(n -> String.valueOf(getPort((IgniteImpl)n)))
@@ -96,7 +96,7 @@ public class ITThinClientConnectionTest extends IgniteAbstractTest {
             System.out.println("TEST_BOUND_PORTS=" + ports);
 
             Thread.sleep(Long.MAX_VALUE);
-//        }
+        }
 
         IgniteUtils.closeAll(Lists.reverse(startedNodes));
     }
