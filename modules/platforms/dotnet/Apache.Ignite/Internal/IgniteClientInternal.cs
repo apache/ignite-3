@@ -15,35 +15,35 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests
+namespace Apache.Ignite.Internal
 {
-    using System;
-    using System.Net;
-    using System.Threading.Tasks;
-    using NUnit.Framework;
+    using Table;
 
     /// <summary>
-    /// Base class for client tests.
+    /// Ignite client implementation.
     /// </summary>
-    public class IgniteTestsBase
+    internal sealed class IgniteClientInternal : IIgnite
     {
-        private IDisposable? _serverNode;
+        /** Underlying connection. */
+        private readonly ClientFailoverSocket _socket;
 
-        [OneTimeSetUp]
-        public async Task OneTimeSetUp()
+        /// <summary>
+        /// Initializes a new instance of the <see cref="IgniteClientInternal"/> class.
+        /// </summary>
+        /// <param name="socket">Socket.</param>
+        public IgniteClientInternal(ClientFailoverSocket socket)
         {
-            _serverNode = await JavaServer.Start();
+            _socket = socket;
+            Tables = null!;
         }
 
-        [OneTimeTearDown]
-        public void OneTimeTearDown()
-        {
-            _serverNode?.Dispose();
-        }
+        /// <inheritdoc/>
+        public ITables Tables { get; }
 
-        protected static IgniteClientConfiguration GetConfig() => new()
+        /// <inheritdoc/>
+        public void Dispose()
         {
-            Endpoints = { "127.0.0.1:" + JavaServer.ClientPort }
-        };
+            _socket.Dispose();
+        }
     }
 }

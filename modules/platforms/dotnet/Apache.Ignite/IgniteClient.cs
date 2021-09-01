@@ -35,11 +35,11 @@ namespace Apache.Ignite
         {
             IgniteArgumentCheck.NotNull(configuration, nameof(configuration));
 
-            using var socket = new ClientFailoverSocket(configuration);
+            var socket = new ClientFailoverSocket(configuration);
 
             await socket.ConnectAsync().ConfigureAwait(false);
 
-            return null!;
+            return new IgniteClientInternal(socket);
         }
     }
 }
