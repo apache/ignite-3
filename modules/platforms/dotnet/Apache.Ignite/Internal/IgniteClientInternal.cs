@@ -17,7 +17,7 @@
 
 namespace Apache.Ignite.Internal
 {
-    using Table;
+    using Ignite.Table;
 
     /// <summary>
     /// Ignite client implementation.

@@ -15,27 +15,33 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Table
+namespace Apache.Ignite.Internal.Table
 {
-    using System.Collections.Generic;
-    using System.Threading.Tasks;
+    using System;
+    using Ignite.Table;
 
     /// <summary>
-    /// Table management.
+    /// Table API.
     /// </summary>
-    public interface ITables
+    internal class Table : ITable
     {
         /// <summary>
-        /// Gets a table by name.
+        /// Initializes a new instance of the <see cref="Table"/> class.
         /// </summary>
         /// <param name="name">Table name.</param>
-        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task<ITable?> GetTableAsync(string name);
+        /// <param name="id">Table id.</param>
+        public Table(string name, Guid id)
+        {
+            Name = name;
+            Id = id;
+        }
+
+        /// <inheritdoc/>
+        public string Name { get; }
 
         /// <summary>
-        /// Gets all tables.
+        /// Gets the id.
         /// </summary>
-        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task<IList<ITable>> GetTablesAsync();
+        public Guid Id { get; }
     }
 }

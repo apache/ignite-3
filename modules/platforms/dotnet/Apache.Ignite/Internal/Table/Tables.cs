@@ -15,27 +15,39 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Table
+namespace Apache.Ignite.Internal.Table
 {
     using System.Collections.Generic;
     using System.Threading.Tasks;
+    using Ignite.Table;
 
     /// <summary>
-    /// Table management.
+    /// Tables API.
     /// </summary>
-    public interface ITables
+    internal class Tables : ITables
     {
-        /// <summary>
-        /// Gets a table by name.
-        /// </summary>
-        /// <param name="name">Table name.</param>
-        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task<ITable?> GetTableAsync(string name);
+        /** Socket. */
+        private readonly ClientFailoverSocket _socket;
 
         /// <summary>
-        /// Gets all tables.
+        /// Initializes a new instance of the <see cref="Tables"/> class.
         /// </summary>
-        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task<IList<ITable>> GetTablesAsync();
+        /// <param name="socket">Socket.</param>
+        public Tables(ClientFailoverSocket socket)
+        {
+            _socket = socket;
+        }
+
+        /// <inheritdoc/>
+        public Task<ITable?> GetTableAsync(string name)
+        {
+            throw new System.NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public Task<IList<ITable>> GetTablesAsync()
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }
