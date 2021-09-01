@@ -38,9 +38,6 @@ namespace Apache.Ignite.Internal
         /** Current global endpoint index for Round-robin. */
         private static long _endPointIndex;
 
-        /** Client configuration. */
-        private readonly IgniteClientConfiguration _configuration;
-
         /** Logger. */
         private readonly IIgniteLogger? _logger;
 
@@ -73,10 +70,16 @@ namespace Apache.Ignite.Internal
                     $"{nameof(IgniteClientConfiguration.Endpoints)} is empty. Nowhere to connect.");
             }
 
-            _configuration = new IgniteClientConfiguration(configuration);
-            _logger = _configuration.Logger;
+            _logger = configuration.Logger;
             _endPoints = GetIpEndPoints(configuration).ToList();
+
+            Configuration = new(configuration); // Defensive copy.
         }
+
+        /// <summary>
+        /// Gets the configuration.
+        /// </summary>
+        public IgniteClientConfiguration Configuration { get; }
 
         /// <summary>
         /// Gets the request writer for the specified operation.

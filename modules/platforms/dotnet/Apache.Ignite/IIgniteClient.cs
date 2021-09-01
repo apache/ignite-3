@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,20 +17,14 @@
 
 namespace Apache.Ignite
 {
-    using System;
-    using Table;
-
     /// <summary>
-    /// Ignite API entry point.
-    /// <para />
-    /// Implementation can be a thin client (see <see cref="IIgniteClient"/> and <see cref="IgniteClient.StartAsync"/>),
-    /// or a direct IPC connection for server-side functionality like compute.
+    /// Ignite client.
     /// </summary>
-    public interface IIgnite : IDisposable
+    public interface IIgniteClient : IIgnite
     {
         /// <summary>
-        /// Gets the tables API.
+        /// Gets the configuration.
         /// </summary>
-        ITables Tables { get; }
+        IgniteClientConfiguration Configuration { get; }
     }
 }

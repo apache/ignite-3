@@ -22,7 +22,7 @@ namespace Apache.Ignite.Internal
     /// <summary>
     /// Ignite client implementation.
     /// </summary>
-    internal sealed class IgniteClientInternal : IIgnite
+    internal sealed class IgniteClientInternal : IIgniteClient
     {
         /** Underlying connection. */
         private readonly ClientFailoverSocket _socket;
@@ -36,6 +36,10 @@ namespace Apache.Ignite.Internal
             _socket = socket;
             Tables = null!;
         }
+
+        /// <inheritdoc/>
+        public IgniteClientConfiguration Configuration =>
+            new(_socket.Configuration); // Defensive copy.
 
         /// <inheritdoc/>
         public ITables Tables { get; }
