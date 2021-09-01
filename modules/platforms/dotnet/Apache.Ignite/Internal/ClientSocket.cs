@@ -150,7 +150,7 @@ namespace Apache.Ignite.Internal
 
             request ??= new PooledArrayBufferWriter(32);
 
-            WritePrelude(request, clientOp, requestId);
+            WritePrefix(request, clientOp, requestId);
 
             var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
 
@@ -330,7 +330,7 @@ namespace Apache.Ignite.Internal
             w.Flush();
         }
 
-        private static void WritePrelude(PooledArrayBufferWriter writer, ClientOp clientOp, long requestId)
+        private static void WritePrefix(PooledArrayBufferWriter writer, ClientOp clientOp, long requestId)
         {
             var writeSize = GetWriteSize((ulong)clientOp) +
                             GetWriteSize((ulong)requestId);
