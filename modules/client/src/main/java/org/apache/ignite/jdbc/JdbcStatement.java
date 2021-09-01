@@ -105,7 +105,7 @@ public class JdbcStatement implements Statement {
 
     /** {@inheritDoc} */
     @Override public ResultSet executeQuery(String sql) throws SQLException {
-        execute0(sql, null);
+        execute0(Objects.requireNotNull(sql), null);
 
         ResultSet rs = getResultSet();
 
