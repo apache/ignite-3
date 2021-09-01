@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite.Internal.Proto
 {
+    using System;
+    using System.Runtime.CompilerServices;
     using MessagePack;
 
     /// <summary>
@@ -35,6 +37,36 @@ namespace Apache.Ignite.Internal.Proto
             {
                 reader.Skip();
             }
+        }
+
+        public static Guid ReadGuid(this ref MessagePackReader reader)
+        {
+            ValidateExtensionType(ref reader, ClientMessagePackType.Uuid, 16);
+
+            return new Guid()
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static ExtensionHeader ValidateExtensionType(
+            ref MessagePackReader reader,
+            ClientMessagePackType expectedType,
+            int expectedLength)
+        {
+            ExtensionHeader hdr = reader.ReadExtensionFormatHeader();
+
+            if (hdr.TypeCode != (int)expectedType)
+            {
+                throw new IgniteClientException(
+                    $"Expected {expectedType} extension ({(int)expectedType}), but got {hdr.TypeCode}.");
+            }
+
+            if (hdr.Length != expectedLength)
+            {
+                throw new IgniteClientException(
+                    $"Expected {expectedLength} bytes for {expectedType} extension, but got {hdr.Length}.");
+            }
+
+            return hdr;
         }
     }
 }

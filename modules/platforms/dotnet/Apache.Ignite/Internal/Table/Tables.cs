@@ -20,6 +20,8 @@ namespace Apache.Ignite.Internal.Table
     using System.Collections.Generic;
     using System.Threading.Tasks;
     using Ignite.Table;
+    using MessagePack;
+    using Proto;
 
     /// <summary>
     /// Tables API.
@@ -45,9 +47,25 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public Task<IList<ITable>> GetTablesAsync()
+        public async Task<IList<ITable>> GetTablesAsync()
         {
-            throw new System.NotImplementedException();
+            using var writer = await _socket.GetRequestWriterAsync(ClientOp.TablesGet).ConfigureAwait(false);
+
+            using var res = await writer.Socket.DoOutInOpAsync(writer).ConfigureAwait(false);
+
+            return ReadTables(res.GetReader());
+
+            IList<ITable> ReadTables(MessagePackReader r)
+            {
+                var len = r.ReadArrayHeader();
+
+                var res = new List<ITable>(len);
+
+                for (var i = 0; i < len; i++)
+                {
+                    var id = r.Read
+                }
+            }
         }
     }
 }

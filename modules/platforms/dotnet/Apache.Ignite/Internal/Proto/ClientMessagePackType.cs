@@ -3,7 +3,7 @@
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
+ * (the "License"), you may not use this file except in compliance with
  * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
@@ -15,28 +15,51 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Table
+namespace Apache.Ignite.Internal.Proto
 {
-    using System.Collections.Generic;
-    using System.Threading.Tasks;
-
     /// <summary>
-    /// Table management.
-    /// TODO: Sync overloads.
+    /// Client MessagePack extension type codes.
     /// </summary>
-    public interface ITables
+    internal enum ClientMessagePackType
     {
         /// <summary>
-        /// Gets a table by name.
+        /// Number.
         /// </summary>
-        /// <param name="name">Table name.</param>
-        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task<ITable?> GetTableAsync(string name);
+        Number = 1,
 
         /// <summary>
-        /// Gets all tables.
+        /// Decimal.
         /// </summary>
-        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task<IList<ITable>> GetTablesAsync();
+        Decimal = 2,
+
+        /// <summary>
+        /// UUID / Guid.
+        /// </summary>
+        Uuid = 3,
+
+        /// <summary>
+        /// Date.
+        /// </summary>
+        Date = 4,
+
+        /// <summary>
+        /// Time.
+        /// </summary>
+        Time = 5,
+
+        /// <summary>
+        /// DateTime.
+        /// </summary>
+        Datetime = 6,
+
+        /// <summary>
+        /// Timestamp.
+        /// </summary>
+        Timestamp = 7,
+
+        /// <summary>
+        /// Bitmask.
+        /// </summary>
+        Bitmask = 8,
     }
 }

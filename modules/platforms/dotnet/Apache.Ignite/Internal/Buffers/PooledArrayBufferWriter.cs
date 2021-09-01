@@ -40,7 +40,7 @@ namespace Apache.Ignite.Internal.Buffers
         /// </summary>
         /// <param name="requestId">Optional associated request id.</param>
         /// <param name="socket">Optional associated socket.</param>
-        public PooledArrayBufferWriter(long? requestId = null, ClientSocket? socket = null)
+        public PooledArrayBufferWriter(long requestId, ClientSocket socket)
         {
             // NOTE: Shared pool has 1M elements limit before .NET 6.
             // https://devblogs.microsoft.com/dotnet/performance-improvements-in-net-6/#buffering
@@ -54,12 +54,12 @@ namespace Apache.Ignite.Internal.Buffers
         /// <summary>
         /// Gets the associated request id.
         /// </summary>
-        public long? RequestId { get; }
+        public long RequestId { get; }
 
         /// <summary>
         /// Gets the associated socket.
         /// </summary>
-        public ClientSocket? Socket { get; }
+        public ClientSocket Socket { get; }
 
         /// <summary>
         /// Gets the free capacity.

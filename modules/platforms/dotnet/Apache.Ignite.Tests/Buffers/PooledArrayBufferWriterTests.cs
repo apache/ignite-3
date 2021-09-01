@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Buffers
 {
+    using System;
     using Internal.Buffers;
     using NUnit.Framework;
 
@@ -28,7 +29,7 @@ namespace Apache.Ignite.Tests.Buffers
         [Test]
         public void TestBufferWriterPrependsMessageLength()
         {
-            using var bufferWriter = new PooledArrayBufferWriter();
+            using var bufferWriter = new PooledArrayBufferWriter(1, null!);
             var res = bufferWriter.GetWrittenMemory().ToArray();
             CollectionAssert.AreEqual(new byte[] { 0, 0, 0, 0 }, res);
 

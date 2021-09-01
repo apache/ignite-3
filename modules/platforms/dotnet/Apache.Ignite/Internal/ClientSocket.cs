@@ -143,10 +143,7 @@ namespace Apache.Ignite.Internal
                 throw new ObjectDisposedException(nameof(ClientSocket));
             }
 
-            Debug.Assert(request.RequestId != null, "request.RequestId != null");
-            Debug.Assert(request.Socket == this, "request.Socket == this");
-
-            var requestId = request.RequestId.Value;
+            var requestId = request.RequestId;
 
             var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
 
@@ -325,7 +322,7 @@ namespace Apache.Ignite.Internal
 
         private static async ValueTask WriteHandshakeAsync(NetworkStream stream, ClientProtocolVersion version)
         {
-            using var bufferWriter = new PooledArrayBufferWriter();
+            using var bufferWriter = new PooledArrayBufferWriter(-1, null!);
             WriteHandshake(version, bufferWriter.GetMessageWriter());
 
             await stream.WriteAsync(bufferWriter.GetWrittenMemory()).ConfigureAwait(false);
