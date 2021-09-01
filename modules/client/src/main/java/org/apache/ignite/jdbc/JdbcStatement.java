@@ -270,7 +270,7 @@ public class JdbcStatement implements Statement {
     @Override public boolean execute(String sql) throws SQLException {
         ensureNotClosed();
 
-        execute0(sql, null);
+        execute0(Objects.requireNonNull(sql), null);
 
         return resSets.get(0).isQuery();
     }
