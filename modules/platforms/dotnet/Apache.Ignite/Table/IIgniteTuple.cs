@@ -18,13 +18,20 @@
 namespace Apache.Ignite.Table
 {
     /// <summary>
-    /// Table view.
+    /// Ignite Tuple.
+    /// TODO: See ADO.NET for the API.
     /// </summary>
-    public interface ITable : ITableView<IIgniteTuple>
+    public interface IIgniteTuple
     {
         /// <summary>
-        /// Gets the table name.
+        /// Gets the number of columns.
         /// </summary>
-        public string Name { get; }
+        int FieldCount { get; }
+
+        /// <summary>
+        /// Gets the value of the specified column as an object.
+        /// </summary>
+        /// <param name="ordinal">The zero-based column ordinal.</param>
+        object this[int ordinal] { get; }
     }
 }

@@ -17,14 +17,27 @@
 
 namespace Apache.Ignite.Table
 {
+    using System.Threading.Tasks;
+
     /// <summary>
-    /// Table view.
+    /// Table view interface provides methods to access table records.
     /// </summary>
-    public interface ITable : ITableView<IIgniteTuple>
+    /// <typeparam name="T">Record type.</typeparam>
+    public interface ITableView<T>
+        where T : class
     {
         /// <summary>
-        /// Gets the table name.
+        /// Gets a record by key.
         /// </summary>
-        public string Name { get; }
+        /// <param name="keyRec">A record with key columns set.</param>
+        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+        Task<T> GetAsync(T keyRec);
+
+        /// <summary>
+        /// Inserts a record into the table if it does not exist or replaces the existing one.
+        /// </summary>
+        /// <param name="rec">Record to upsert.</param>
+        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+        Task UpsertAsync(T rec);
     }
 }

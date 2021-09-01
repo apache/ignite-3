@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Table
 {
     using System;
+    using System.Threading.Tasks;
     using Ignite.Table;
 
     /// <summary>
@@ -25,13 +26,18 @@ namespace Apache.Ignite.Internal.Table
     /// </summary>
     internal class Table : ITable
     {
+        /** Socket. */
+        private readonly ClientFailoverSocket _socket;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="Table"/> class.
         /// </summary>
         /// <param name="name">Table name.</param>
         /// <param name="id">Table id.</param>
-        public Table(string name, Guid id)
+        /// <param name="socket">Socket.</param>
+        public Table(string name, Guid id, ClientFailoverSocket socket)
         {
+            _socket = socket;
             Name = name;
             Id = id;
         }
@@ -43,5 +49,17 @@ namespace Apache.Ignite.Internal.Table
         /// Gets the id.
         /// </summary>
         public Guid Id { get; }
+
+        /// <inheritdoc/>
+        public Task<IIgniteTuple> GetAsync(IIgniteTuple keyRec)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public Task UpsertAsync(IIgniteTuple rec)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
