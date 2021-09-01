@@ -15,18 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.internal.configuration.processor.internal;
+
+import org.apache.ignite.configuration.annotation.InternalConfiguration;
 
 /**
- * Invalid tuple invocation exception is thrown when tuple doesn't match the table schema.
+ * Parent (superclass) must not contain {@link InternalConfiguration}.
  */
-public class ColumnNotFoundException extends SchemaMismatchException {
-    /**
-     * Creates a new exception with the given error message.
-     *
-     * @param msg Error message.
-     */
-    public ColumnNotFoundException(String msg) {
-        super(msg);
-    }
+@InternalConfiguration
+public class ErrorInternal3ConfigurationSchema extends ExtendedSimpleRootConfigurationSchema {
 }

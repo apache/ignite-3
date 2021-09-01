@@ -15,25 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table;
+package org.apache.ignite.internal.configuration.processor.internal;
+
+import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Tuple builder interface.
+ * Extension and the parent (superclass) must not have the same fields by name.
  */
-public interface TupleBuilder {
-    /**
-     * Sets column value.
-     *
-     * @param columnName Column name.
-     * @param value Value to set.
-     * @return {@code this} for chaining.
-     */
-    TupleBuilder set(String columnName, Object value);
-
-    /**
-     * Builds tuple.
-     *
-     * @return Tuple.
-     */
-    Tuple build();
+@InternalConfiguration
+public class ErrorInternal5ConfigurationSchema extends SimpleRootConfigurationSchema {
+    /** String value. */
+    @Value
+    public String str;
 }
