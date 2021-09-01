@@ -202,8 +202,7 @@ public class JdbcConnection implements Connection {
 
         checkCursorOptions(resSetType, resSetConcurrency);
 
-        if (sql == null)
-            throw new SQLException("SQL string cannot be null.");
+        Objects.requireNonNull(sql);
 
         JdbcPreparedStatement stmt = new JdbcPreparedStatement(this, sql, resSetHoldability, schema);
 
