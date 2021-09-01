@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Proto
 {
+    using System;
     using System.Text;
     using MessagePack;
 
@@ -32,8 +33,21 @@ namespace Apache.Ignite.Internal.Proto
         /// <param name="str">String.</param>
         public static void WriteString(this ref MessagePackWriter writer, string str)
         {
-            // TODO: Use array pool or stackalloc for small strings.
-            writer.WriteString(Encoding.UTF8.GetBytes(str));
+            var count = ProtoCommon.Encoding.GetByteCount(str);
+
+            ProtoCommon.Encoding.GetBytes(str, writer.GetSpan(count));
+
+            writer.Advance(count);
+        }
+
+        /// <summary>
+        /// Writes a Guid.
+        /// </summary>
+        /// <param name="writer">Writer.</param>
+        /// <param name="guid">Guid.</param>
+        public static void WriteGuid(this ref MessagePackWriter writer, Guid guid)
+        {
+            throw new NotImplementedException("TODO");
         }
     }
 }
