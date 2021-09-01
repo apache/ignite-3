@@ -493,7 +493,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
 
     /** {@inheritDoc} */
     @Override public <T> T unwrap(Class<T> iface) throws SQLException {
-        if (!isWrapperFor(iface))
+        if (!isWrapperFor(Objects.requireNotNull(iface)))
             throw new SQLException("Prepared statement is not a wrapper for " + iface.getName());
 
         return (T)this;
