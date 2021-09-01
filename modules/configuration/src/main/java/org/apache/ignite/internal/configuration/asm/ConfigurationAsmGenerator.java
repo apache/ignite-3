@@ -41,7 +41,6 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.ClassDefinition;
@@ -1331,7 +1330,7 @@ public class ConfigurationAsmGenerator {
      * @return Interfaces for {@link InnerNode} definition for a configuration schema.
      */
     private static ParameterizedType[] nodeClassInterfaces(Class<?> schemaClass, Set<Class<?>> schemaExtensions) {
-        return StreamSupport.stream(concat(List.of(schemaClass), schemaExtensions).spliterator(), false)
+        return Stream.concat(Stream.of(schemaClass), schemaExtensions.stream())
             .flatMap(cls -> Stream.of(viewClassName(cls), changeClassName(cls)))
             .map(ParameterizedType::typeFromJavaClassName)
             .toArray(ParameterizedType[]::new);
@@ -1345,7 +1344,7 @@ public class ConfigurationAsmGenerator {
      * @return Interfaces for {@link DynamicConfiguration} definition for a configuration schema.
      */
     private static ParameterizedType[] configClassInterfaces(Class<?> schemaClass, Set<Class<?>> schemaExtensions) {
-        return StreamSupport.stream(concat(List.of(schemaClass), schemaExtensions).spliterator(), false)
+        return Stream.concat(Stream.of(schemaClass), schemaExtensions.stream())
             .map(cls -> typeFromJavaClassName(configurationClassName(cls)))
             .toArray(ParameterizedType[]::new);
     }
