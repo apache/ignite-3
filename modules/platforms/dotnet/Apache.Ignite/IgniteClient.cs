@@ -31,7 +31,7 @@ namespace Apache.Ignite
         /// </summary>
         /// <param name="configuration">Configuration.</param>
         /// <returns>Started client.</returns>
-        public static async Task<IIgnite> StartAsync(IgniteClientConfiguration configuration)
+        public static async Task<IIgniteClient> StartAsync(IgniteClientConfiguration configuration)
         {
             IgniteArgumentCheck.NotNull(configuration, nameof(configuration));
 
