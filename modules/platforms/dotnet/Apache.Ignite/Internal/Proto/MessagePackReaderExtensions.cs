@@ -18,6 +18,10 @@
 namespace Apache.Ignite.Internal.Proto
 {
     using System;
+    using System.Buffers;
+    using System.Buffers.Binary;
+    using System.Diagnostics;
+    using System.Net;
     using System.Runtime.CompilerServices;
     using MessagePack;
 
@@ -39,11 +43,37 @@ namespace Apache.Ignite.Internal.Proto
             }
         }
 
+        /// <summary>
+        /// Reads a Guid value.
+        /// </summary>
+        /// <param name="reader">Reader.</param>
+        /// <returns>Guid.</returns>
         public static Guid ReadGuid(this ref MessagePackReader reader)
         {
-            ValidateExtensionType(ref reader, ClientMessagePackType.Uuid, 16);
+            const int guidSize = 16;
 
-            return new Guid()
+            ValidateExtensionType(ref reader, ClientMessagePackType.Uuid, guidSize);
+
+            ReadOnlySequence<byte> seq = reader.ReadRaw(guidSize);
+            ReadOnlySpan<byte> jBytes = seq.FirstSpan;
+
+            Debug.Assert(jBytes.Length == guidSize, "jBytes.Length == 16");
+
+            // Hoist range checks.
+            byte d = jBytes[15];
+            byte e = jBytes[14];
+            byte f = jBytes[13];
+            byte g = jBytes[12];
+            byte h = jBytes[11];
+            byte i = jBytes[10];
+            byte j = jBytes[9];
+            byte k = jBytes[8];
+
+            int a = BinaryPrimitives.ReadInt32LittleEndian(jBytes[4..]);
+            short b = BinaryPrimitives.ReadInt16LittleEndian(jBytes[2..]);
+            short c = BinaryPrimitives.ReadInt16LittleEndian(jBytes);
+
+            return new Guid(a, b, c, d, e, f, g, h, i, j, k);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
