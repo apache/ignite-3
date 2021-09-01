@@ -30,6 +30,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.message.TxFinishRequest;
 import org.apache.ignite.internal.tx.message.TxFinishResponse;
+import org.apache.ignite.internal.tx.message.TxFinishResponseBuilder;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.lang.ByteArray;
@@ -217,12 +218,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<TxState> sendFinishMessage(NetworkAddress addr, Timestamp ts, boolean commit) {
-        TxFinishRequest req = FACTORY.txFinishRequest().timestamp(ts).build();
+    @Override public CompletableFuture<Void> finishRemote(NetworkAddress addr, Timestamp ts, boolean commit) {
+        TxFinishRequest req = FACTORY.txFinishRequest().timestamp(ts).commit(commit).build();
 
         CompletableFuture<NetworkMessage> fut = clusterService.messagingService().invoke(addr, req, TIMEOUT);
 
-        return fut.thenApply(resp -> ((TxFinishResponse) resp).state());
+        return fut.thenApply(resp -> ((TxFinishResponse) resp).errorMessage()).thenCompose(msg ->
+            msg == null ? completedFuture(null) : failedFuture(new TransactionException(msg)));
     }
 
     /** {@inheritDoc} */
@@ -242,28 +244,24 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** {@inheritDoc} */
     @Override public void onReceived(NetworkMessage message, NetworkAddress senderAddr, String correlationId) {
-        // No-op.
         if (message instanceof TxFinishRequest) {
             TxFinishRequest req = (TxFinishRequest) message;
 
-            if (req.commit()) {
-                commitAsync(req.timestamp()).handle(new BiFunction<Void, Throwable, Void>() {
-                    @Override public Void apply(Void ignored, Throwable throwable) {
-                        clusterService.messagingService().send(senderAddr, FACTORY.txFinishResponse().build(), correlationId);
+            CompletableFuture<Void> fut = req.commit() ? commitAsync(req.timestamp()) : rollbackAsync(req.timestamp());
 
-                        return null;
-                    }
-                });
-            }
-            else {
-                rollbackAsync(req.timestamp()).handle(new BiFunction<Void, Throwable, Void>() {
-                    @Override public Void apply(Void ignored, Throwable throwable) {
-                        clusterService.messagingService().send(senderAddr, FACTORY.txFinishResponse().build(), correlationId);
+            fut.handle(new BiFunction<Void, Throwable, Void>() {
+                @Override public Void apply(Void ignored, Throwable err) {
+                    // TODO asch report finish error code.
+                    TxFinishResponseBuilder resp = FACTORY.txFinishResponse();
 
-                        return null;
-                    }
-                });
-            }
+                    if (err != null)
+                        resp.errorMessage(err.getMessage());
+
+                    clusterService.messagingService().send(senderAddr, resp.build(), correlationId);
+
+                    return null;
+                }
+            });
         }
     }
 }

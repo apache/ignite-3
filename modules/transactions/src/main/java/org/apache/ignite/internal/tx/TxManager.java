@@ -92,7 +92,7 @@ public interface TxManager extends IgniteComponent {
      * @param timestamp The timestamp.
      * @param commit {@code True} if a commit requested.
      */
-    CompletableFuture<TxState> sendFinishMessage(NetworkAddress addr, Timestamp ts, boolean commit);
+    CompletableFuture<Void> finishRemote(NetworkAddress addr, Timestamp ts, boolean commit);
 
     /**
      * @param addr The address.

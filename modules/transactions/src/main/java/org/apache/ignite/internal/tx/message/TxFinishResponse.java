@@ -18,10 +18,9 @@
 package org.apache.ignite.internal.tx.message;
 
 import java.io.Serializable;
-import org.apache.ignite.internal.tx.Timestamp;
-import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The result of an action.
@@ -29,12 +28,7 @@ import org.apache.ignite.network.annotations.Transferable;
 @Transferable(value = TxMessageGroup.TX_FINISH_RESPONSE, autoSerializable = false)
 public interface TxFinishResponse extends NetworkMessage, Serializable {
     /**
-     * @return The timestamp.
+     * @return Finish error message or null if finished normally.
      */
-    Timestamp timestamp();
-
-    /**
-     * @return Finished tx state.
-     */
-    TxState state();
+    @Nullable String errorMessage();
 }

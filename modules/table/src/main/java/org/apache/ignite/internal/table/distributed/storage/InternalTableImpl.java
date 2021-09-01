@@ -116,8 +116,15 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<BinaryRow> get(BinaryRow keyRow, InternalTransaction tx) {
-        return enlist(keyRow, tx).<SingleRowResponse>run(new GetCommand(keyRow, tx.timestamp()))
-            .thenApply(SingleRowResponse::getValue);
+        if (tx != null)
+            return enlist(keyRow, tx).<SingleRowResponse>run(new GetCommand(keyRow, tx.timestamp())).
+                thenApply(SingleRowResponse::getValue);
+        else {
+            InternalTransaction tx0 = txManager.begin();
+
+            return enlist(keyRow, tx0).<SingleRowResponse>run(new GetCommand(keyRow, tx0.timestamp())).
+                thenApply(SingleRowResponse::getValue).thenCompose(r -> tx0.commitAsync().thenApply(ignored -> r));
+        }
     }
 
     /** {@inheritDoc} */

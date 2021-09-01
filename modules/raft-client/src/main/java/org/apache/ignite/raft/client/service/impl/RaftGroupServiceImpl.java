@@ -49,6 +49,7 @@ import org.apache.ignite.raft.client.message.SnapshotRequest;
 import org.apache.ignite.raft.client.message.TransferLeadershipRequest;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
@@ -107,7 +108,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         RaftClientMessagesFactory factory,
         int timeout,
         List<Peer> peers,
-        Peer leader,
+        @Nullable Peer leader,
         long retryDelay
     ) {
         this.cluster = requireNonNull(cluster);
@@ -417,6 +418,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                         }, retryDelay, TimeUnit.MILLISECONDS);
                     }
                     else if (resp0.errorCode().equals(LEADER_CHANGED)) {
+                        assert resp0.newLeader() != null;
+
                         leader = resp0.newLeader(); // Update a leader.
 
                         executor.schedule(() -> {
@@ -452,8 +455,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     private Peer randomNode() {
         List<Peer> peers0 = peers;
 
-        if (peers0 == null || peers0.isEmpty())
-            return null;
+        assert peers0 != null && !peers0.isEmpty();
 
         return peers0.get(current().nextInt(peers0.size()));
     }

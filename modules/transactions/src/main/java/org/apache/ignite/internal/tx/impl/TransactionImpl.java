@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -84,16 +83,7 @@ public class TransactionImpl implements InternalTransaction {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> commitAsync() {
-        CompletableFuture[] futs = new CompletableFuture[nodes.size()];
-
-        for (int i = 0; i < nodes.size(); i++) {
-            NetworkAddress node = nodes.get(i);
-
-            futs[i] = (txManager.isLocal(node) ? txManager.commitAsync(timestamp) :
-                txManager.sendFinishMessage(node, timestamp, true));
-        }
-
-        return CompletableFuture.allOf(futs);
+        return finish(true);
     }
 
     /** {@inheritDoc} */
@@ -108,6 +98,23 @@ public class TransactionImpl implements InternalTransaction {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> rollbackAsync() {
-        return txManager.rollbackAsync(this.timestamp);
+        return finish(false);
+    }
+
+    /**
+     * @param commit {@code True} to commit.
+     * @return The future.
+     */
+    private CompletableFuture<Void> finish(boolean commit) {
+        CompletableFuture[] futs = new CompletableFuture[nodes.size()];
+
+        for (int i = 0; i < nodes.size(); i++) {
+            NetworkAddress node = nodes.get(i);
+
+            futs[i] = (txManager.isLocal(node) ? commit ? txManager.commitAsync(timestamp) : txManager.rollbackAsync(timestamp) :
+                txManager.finishRemote(node, timestamp, commit));
+        }
+
+        return CompletableFuture.allOf(futs);
     }
 }

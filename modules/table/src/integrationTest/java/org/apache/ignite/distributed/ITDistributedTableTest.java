@@ -74,6 +74,7 @@ import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
@@ -352,7 +353,7 @@ public class ITDistributedTableTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testClientServerTopology() throws Exception {
+    public void testComplex() throws Exception {
         nodes = 1;
         parts = 1;
 
@@ -364,15 +365,76 @@ public class ITDistributedTableTest {
 
         InternalTransaction tx = nearMgr.begin();
 
-        assertEquals(1, tx.nodes().size());
+        Table txTable = table.withTransaction(tx);
 
-        RaftServer srv = raftServers.get(cluster.get(0).topologyService().localMember());
+        partitionedTableView(txTable, parts * 10);
 
-        TxManager locMgr = srv.transactionManager();
+        partitionedTableKVBinaryView(txTable.kvView(), parts * 10);
+
+        tx.commit();
+    }
+
+    /**
+     * Tests tx flow on single client-server nodes topology.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testClientServerTopology() throws Exception {
+        nodes = 1;
+        parts = 1;
+
+        startTable(true);
+
+        TxManager nearMgr = ((InternalTableImpl) table.internalTable()).transactionManager();
+        TxManager locMgr = raftServers.get(cluster.get(0).topologyService().localMember()).transactionManager();
 
         assertNotNull(locMgr);
 
         assertNotEquals(nearMgr, locMgr);
+
+        InternalTransaction tx = putGet(nearMgr, true);
+
+        assertEquals(TxState.COMMITED, nearMgr.state(tx.timestamp()));
+        assertEquals(TxState.COMMITED, locMgr.state(tx.timestamp()));
+
+        long val2 = table.get(makeKey(1)).longValue("value");
+
+        assertEquals(1, val2);
+    }
+
+    /**
+     * Tests tx flow on single client-server nodes topology.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testClientServerTopologyRollback() throws Exception {
+        nodes = 1;
+        parts = 1;
+
+        startTable(true);
+
+        TxManager nearMgr = ((InternalTableImpl) table.internalTable()).transactionManager();
+        TxManager locMgr = raftServers.get(cluster.get(0).topologyService().localMember()).transactionManager();
+
+        InternalTransaction tx = putGet(nearMgr, false);
+
+        assertEquals(TxState.ABORTED, nearMgr.state(tx.timestamp()));
+        assertEquals(TxState.ABORTED, locMgr.state(tx.timestamp()));
+
+        assertNull(table.get(makeKey(1)));
+    }
+
+    /**
+     * @param nearMgr Near TX manager.
+     * @param commit {@code True} to commit.
+     * @throws TransactionException
+     */
+    private InternalTransaction putGet(TxManager nearMgr, boolean commit) throws TransactionException {
+        InternalTransaction tx = nearMgr.begin();
+
+        assertEquals(1, tx.nodes().size());
 
         Table txTable = table.withTransaction(tx);
 
@@ -384,18 +446,12 @@ public class ITDistributedTableTest {
 
         assertEquals(2, tx.nodes().size());
 
-        tx.commit();
+        if (commit)
+            tx.commit();
+        else
+            tx.rollback();
 
-        assertEquals(TxState.COMMITED, nearMgr.state(tx.timestamp()));
-        assertEquals(TxState.COMMITED, locMgr.state(tx.timestamp()));
-
-        System.out.println();
-//
-//        partitionedTableView(txTable, PARTS * 10);
-//
-//        partitionedTableKVBinaryView(txTable.kvView(), PARTS * 10);
-//
-//        tx.commit();
+        return tx;
     }
 
     /**
