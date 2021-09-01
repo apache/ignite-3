@@ -28,7 +28,7 @@ namespace Apache.Ignite.Tests.Buffers
         [Test]
         public void TestBufferWriterPrependsMessageLength()
         {
-            using var bufferWriter = new PooledArrayBufferWriter(1, null!);
+            using var bufferWriter = new PooledArrayBufferWriter();
             var res = bufferWriter.GetWrittenMemory().ToArray();
             CollectionAssert.AreEqual(new byte[] { 0, 0, 0, 0 }, res);
 

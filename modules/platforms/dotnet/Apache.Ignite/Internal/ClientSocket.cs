@@ -31,6 +31,8 @@ namespace Apache.Ignite.Internal
     using MessagePack;
     using Proto;
 
+    using static Proto.MessagePackUtil;
+
     /// <summary>
     /// Wrapper over framework socket for Ignite thin client operations.
     /// </summary>
@@ -134,16 +136,21 @@ namespace Apache.Ignite.Internal
         /// <summary>
         /// Performs an in-out operation.
         /// </summary>
+        /// <param name="clientOp">Client op code.</param>
         /// <param name="request">Request data.</param>
         /// <returns>Response data.</returns>
-        public Task<PooledBuffer> DoOutInOpAsync(PooledArrayBufferWriter request)
+        public Task<PooledBuffer> DoOutInOpAsync(ClientOp clientOp, PooledArrayBufferWriter? request)
         {
             if (_disposeTokenSource.IsCancellationRequested)
             {
                 throw new ObjectDisposedException(nameof(ClientSocket));
             }
 
-            var requestId = request.RequestId;
+            var requestId = Interlocked.Increment(ref _requestId);
+
+            request ??= new PooledArrayBufferWriter(32);
+
+            WritePrelude(request, clientOp, requestId);
 
             var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
 
@@ -171,27 +178,6 @@ namespace Apache.Ignite.Internal
                     TaskScheduler.Default);
 
             return taskCompletionSource.Task;
-        }
-
-        /// <summary>
-        /// Gets the request writer for the specified operation.
-        /// </summary>
-        /// <param name="clientOp">Operation code.</param>
-        /// <returns>Request writer.</returns>
-        public PooledArrayBufferWriter GetRequestWriter(ClientOp clientOp)
-        {
-            // TODO: Refactor this - reserve bytes for requestId so we don't have to write it in advance - simplify request writer logic.
-            var requestId = Interlocked.Increment(ref _requestId);
-            var bufferWriter = new PooledArrayBufferWriter(requestId, this);
-
-            var writer = bufferWriter.GetMessageWriter();
-
-            writer.Write((int)clientOp);
-            writer.Write(requestId);
-
-            writer.Flush();
-
-            return bufferWriter;
         }
 
         /// <inheritdoc/>
@@ -323,7 +309,7 @@ namespace Apache.Ignite.Internal
 
         private static async ValueTask WriteHandshakeAsync(NetworkStream stream, ClientProtocolVersion version)
         {
-            using var bufferWriter = new PooledArrayBufferWriter(-1, null!);
+            using var bufferWriter = new PooledArrayBufferWriter();
             WriteHandshake(version, bufferWriter.GetMessageWriter());
 
             await stream.WriteAsync(bufferWriter.GetWrittenMemory()).ConfigureAwait(false);
@@ -344,6 +330,19 @@ namespace Apache.Ignite.Internal
             w.Flush();
         }
 
+        private static void WritePrelude(PooledArrayBufferWriter writer, ClientOp clientOp, long requestId)
+        {
+            var writeSize = GetWriteSize((ulong)clientOp) +
+                            GetWriteSize((ulong)requestId);
+
+            var w = writer.GetPrefixWriter(writeSize);
+
+            w.Write((int)clientOp);
+            w.Write(requestId);
+
+            w.Flush();
+        }
+
         private async ValueTask SendRequestAsync(PooledArrayBufferWriter request)
         {
             await _sendLock.WaitAsync(_disposeTokenSource.Token).ConfigureAwait(false);
@@ -355,6 +354,7 @@ namespace Apache.Ignite.Internal
             finally
             {
                 _sendLock.Release();
+                request.Dispose(); // Release pooled buffer as soon as possible.
             }
         }
 

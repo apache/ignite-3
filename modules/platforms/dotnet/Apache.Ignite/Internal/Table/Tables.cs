@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Table
 {
     using System.Collections.Generic;
     using System.Threading.Tasks;
+    using Buffers;
     using Ignite.Table;
     using MessagePack;
     using Proto;
@@ -43,10 +44,10 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<ITable?> GetTableAsync(string name)
         {
-            using var writer = await _socket.GetRequestWriterAsync(ClientOp.TableGet).ConfigureAwait(false);
+            using var writer = new PooledArrayBufferWriter();
             Write(writer.GetMessageWriter(), name);
 
-            using var resBuf = await writer.Socket.DoOutInOpAsync(writer).ConfigureAwait(false);
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TableGet, writer).ConfigureAwait(false);
             return Read(resBuf.GetReader());
 
             static void Write(MessagePackWriter w, string name)
@@ -64,9 +65,7 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<IList<ITable>> GetTablesAsync()
         {
-            using var writer = await _socket.GetRequestWriterAsync(ClientOp.TablesGet).ConfigureAwait(false);
-
-            using var resBuf = await writer.Socket.DoOutInOpAsync(writer).ConfigureAwait(false);
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TablesGet).ConfigureAwait(false);
             return Read(resBuf.GetReader());
 
             IList<ITable> Read(MessagePackReader r)

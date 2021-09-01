@@ -82,26 +82,25 @@ namespace Apache.Ignite.Internal
         public IgniteClientConfiguration Configuration { get; }
 
         /// <summary>
-        /// Gets the request writer for the specified operation.
-        /// </summary>
-        /// <param name="clientOp">Operation code.</param>
-        /// <returns>Request writer.</returns>
-        public async Task<PooledArrayBufferWriter> GetRequestWriterAsync(ClientOp clientOp)
-        {
-            ThrowIfDisposed();
-
-            var socket = await GetSocketAsync().ConfigureAwait(false);
-
-            return socket.GetRequestWriter(clientOp);
-        }
-
-        /// <summary>
         /// Connects the socket.
         /// </summary>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
         public async Task ConnectAsync()
         {
             await GetSocketAsync().ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Performs an in-out operation.
+        /// </summary>
+        /// <param name="clientOp">Client op code.</param>
+        /// <param name="request">Request data.</param>
+        /// <returns>Response data.</returns>
+        public async Task<PooledBuffer> DoOutInOpAsync(ClientOp clientOp, PooledArrayBufferWriter? request = null)
+        {
+            var socket = await GetSocketAsync().ConfigureAwait(false);
+
+            return await socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>

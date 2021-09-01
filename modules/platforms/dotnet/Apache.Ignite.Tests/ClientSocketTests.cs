@@ -22,6 +22,7 @@ namespace Apache.Ignite.Tests
     using System.Text;
     using System.Threading.Tasks;
     using Internal;
+    using Internal.Buffers;
     using Internal.Proto;
     using MessagePack;
     using NUnit.Framework;
@@ -36,11 +37,11 @@ namespace Apache.Ignite.Tests
         {
             using var socket = await ClientSocket.ConnectAsync(JavaServer.EndPoint);
 
-            using var requestWriter = socket.GetRequestWriter(ClientOp.TableGet);
+            using var requestWriter = new PooledArrayBufferWriter();
 
             WriteString(requestWriter.GetMessageWriter(), "non-existent-table");
 
-            using var response = await socket.DoOutInOpAsync(requestWriter);
+            using var response = await socket.DoOutInOpAsync(ClientOp.TableGet, requestWriter);
             Assert.IsTrue(response.GetReader().IsNil);
 
             void WriteString(MessagePackWriter writer, string str)
@@ -55,10 +56,12 @@ namespace Apache.Ignite.Tests
         {
             using var socket = await ClientSocket.ConnectAsync(JavaServer.EndPoint);
 
-            using var requestWriter = socket.GetRequestWriter((ClientOp)1234567);
+            using var requestWriter = new PooledArrayBufferWriter();
             requestWriter.GetMessageWriter().Write(123);
 
-            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await socket.DoOutInOpAsync(requestWriter));
+            var ex = Assert.ThrowsAsync<IgniteClientException>(
+                async () => await socket.DoOutInOpAsync((ClientOp)1234567, requestWriter));
+
             Assert.AreEqual("Unexpected operation code: 1234567", ex!.Message);
         }
 
@@ -69,10 +72,11 @@ namespace Apache.Ignite.Tests
 
             socket.Dispose();
 
-            using var requestWriter = socket.GetRequestWriter(ClientOp.SchemasGet);
+            using var requestWriter = new PooledArrayBufferWriter();
             requestWriter.GetMessageWriter().Write(123);
 
-            Assert.ThrowsAsync<ObjectDisposedException>(async () => await socket.DoOutInOpAsync(requestWriter));
+            Assert.ThrowsAsync<ObjectDisposedException>(
+                async () => await socket.DoOutInOpAsync(ClientOp.SchemasGet, requestWriter));
 
             // Multiple dispose is allowed.
             socket.Dispose();

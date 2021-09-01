@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Buffers
 {
     using System;
     using System.Buffers;
+    using System.Diagnostics;
     using System.Net;
     using MessagePack;
 
@@ -29,37 +30,36 @@ namespace Apache.Ignite.Internal.Buffers
     /// </summary>
     internal sealed class PooledArrayBufferWriter : IBufferWriter<byte>, IDisposable
     {
+        /** Reserved prefix size. */
+        private const int ReservedPrefixSize = 4 + 2 + 8; // Size (4 bytes) + OpCode (2 bytes) + RequestId (8 bytes)/
+
         /** Underlying pooled array. */
         private byte[] _buffer;
 
         /** Index within the array. */
         private int _index;
 
+        /** Index within the array. */
+        private int _index2;
+
+        /** Start index within the array. */
+        private int _startIndex;
+
+        /** Disposed flag. */
+        private bool _disposed;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="PooledArrayBufferWriter"/> class.
         /// </summary>
-        /// <param name="requestId">Optional associated request id.</param>
-        /// <param name="socket">Optional associated socket.</param>
-        public PooledArrayBufferWriter(long requestId, ClientSocket socket)
+        /// <param name="initialCapacity">Initial capacity.</param>
+        public PooledArrayBufferWriter(int initialCapacity = PooledBuffer.DefaultCapacity)
         {
             // NOTE: Shared pool has 1M elements limit before .NET 6.
             // https://devblogs.microsoft.com/dotnet/performance-improvements-in-net-6/#buffering
-            _buffer = ArrayPool<byte>.Shared.Rent(PooledBuffer.DefaultCapacity);
-            _index = 4; // Reserve for message length.
-
-            RequestId = requestId;
-            Socket = socket;
+            _buffer = ArrayPool<byte>.Shared.Rent(initialCapacity);
+            _index = ReservedPrefixSize;
+            _startIndex = _index;
         }
-
-        /// <summary>
-        /// Gets the associated request id.
-        /// </summary>
-        public long RequestId { get; }
-
-        /// <summary>
-        /// Gets the associated socket.
-        /// </summary>
-        public ClientSocket Socket { get; }
 
         /// <summary>
         /// Gets the free capacity.
@@ -67,19 +67,29 @@ namespace Apache.Ignite.Internal.Buffers
         private int FreeCapacity => _buffer.Length - _index;
 
         /// <summary>
-        /// Gets the underlying array with first 4 bytes set to the buffer size.
+        /// Gets the written memory.
         /// </summary>
-        /// <returns>Underlying array.</returns>
+        /// <returns>Written array.</returns>
         public unsafe ReadOnlyMemory<byte> GetWrittenMemory()
         {
-            // Write big-endian message size to the start of the buffer.
-            fixed (byte* bufPtr = &_buffer[0])
+            if (_index2 > 0)
             {
-                var msgSize = IPAddress.HostToNetworkOrder(_index - 4);
-                *(int*)bufPtr = msgSize;
+                _index = _index2;
             }
 
-            return new ReadOnlyMemory<byte>(_buffer, 0, _index);
+            // Write big-endian message size to the start of the buffer.
+            const int sizeLen = 4;
+            Debug.Assert(_startIndex >= sizeLen, "_startIndex >= 4");
+
+            var messageSize = _index - _startIndex;
+            _startIndex -= sizeLen;
+
+            fixed (byte* bufPtr = &_buffer[_startIndex])
+            {
+                *(int*)bufPtr = IPAddress.HostToNetworkOrder(messageSize);
+            }
+
+            return new(_buffer, _startIndex, _index - _startIndex);
         }
 
         /// <inheritdoc />
@@ -118,10 +128,30 @@ namespace Apache.Ignite.Internal.Buffers
         /// <returns><see cref="MessagePackWriter"/> for this buffer.</returns>
         public MessagePackWriter GetMessageWriter() => new(this);
 
+        /// <summary>
+        /// Gets the <see cref="MessagePackWriter"/> for this buffer prefix.
+        /// </summary>
+        /// <param name="prefixSize">Prefix size.</param>
+        /// <returns><see cref="MessagePackWriter"/> for this buffer.</returns>
+        public MessagePackWriter GetPrefixWriter(int prefixSize)
+        {
+            Debug.Assert(prefixSize < _startIndex, "prefixSize < _startIndex");
+
+            _index2 = _index;
+            _startIndex -= prefixSize;
+            _index = _startIndex;
+
+            return new(this);
+        }
+
         /// <inheritdoc />
         public void Dispose()
         {
-            ArrayPool<byte>.Shared.Return(_buffer);
+            if (!_disposed)
+            {
+                ArrayPool<byte>.Shared.Return(_buffer);
+                _disposed = true;
+            }
         }
 
         /// <summary>
