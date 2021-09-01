@@ -66,6 +66,13 @@ namespace Apache.Ignite.Internal
         /// <param name="configuration">Client configuration.</param>
         public ClientFailoverSocket(IgniteClientConfiguration configuration)
         {
+            if (configuration.Endpoints.Count == 0)
+            {
+                throw new IgniteClientException(
+                    $"Invalid {nameof(IgniteClientConfiguration)}: " +
+                    $"{nameof(IgniteClientConfiguration.Endpoints)} is empty. Nowhere to connect.");
+            }
+
             _configuration = new IgniteClientConfiguration(configuration);
             _logger = _configuration.Logger;
             _endPoints = GetIpEndPoints(configuration).ToList();

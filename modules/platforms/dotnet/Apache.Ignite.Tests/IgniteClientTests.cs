@@ -17,17 +17,17 @@
 
 namespace Apache.Ignite.Tests
 {
-    using System.Threading.Tasks;
     using NUnit.Framework;
 
     public class IgniteClientTests
     {
         [Test]
-        public async Task TestStartAsync()
+        public void TestStartAsyncThrowsExceptionOnEmptyEndpoints()
         {
-            var client = await IgniteClient.StartAsync(new IgniteClientConfiguration());
+            var ex = Assert.ThrowsAsync<IgniteClientException>(
+                async () => await IgniteClient.StartAsync(new IgniteClientConfiguration()));
 
-            Assert.IsNull(client);
+            Assert.AreEqual("Invalid IgniteClientConfiguration: Endpoints is empty. Nowhere to connect.", ex!.Message);
         }
     }
 }
