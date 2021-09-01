@@ -17,14 +17,17 @@
 
 namespace Apache.Ignite.Tests
 {
+    using System.Threading.Tasks;
     using NUnit.Framework;
 
     public class IgniteClientTests
     {
         [Test]
-        public void TestStart()
+        public async Task TestStartAsync()
         {
-            Assert.IsNull(IgniteClient.Start());
+            var client = await IgniteClient.StartAsync(new IgniteClientConfiguration());
+
+            Assert.IsNull(client);
         }
     }
 }
