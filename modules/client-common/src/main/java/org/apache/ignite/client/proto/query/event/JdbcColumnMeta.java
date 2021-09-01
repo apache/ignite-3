@@ -93,15 +93,26 @@ public class JdbcColumnMeta extends JdbcResponse {
      * @param nullable Nullable flag.
      */
     public JdbcColumnMeta(String schemaName, String tblName, String colName, Class<?> cls, boolean nullable) {
+        this(schemaName, tblName, colName, typeName(cls.getName()), type(cls.getName()), nullable);
+    }
+
+    /**
+     * Constructor with nullable flag.
+     *
+     * @param schemaName Schema.
+     * @param tblName Table.
+     * @param colName Column.
+     * @param sqlTypeName Sql type name.
+     * @param dataType Jdbc data type index.
+     * @param nullable Nullable flag.
+     */
+    public JdbcColumnMeta(String schemaName, String tblName, String colName, String sqlTypeName, int dataType, boolean nullable) {
         this.schemaName = schemaName;
         this.tblName = tblName;
         this.colName = colName;
         this.nullable = nullable;
-
-        String type = cls.getName();
-
-        dataType = type(type);
-        dataTypeName = typeName(type);
+        this.dataType = dataType;
+        this.dataTypeName = sqlTypeName;
     }
 
     /**

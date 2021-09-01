@@ -42,6 +42,16 @@ public class JdbcMetaColumnsResult extends JdbcResponse {
     /**
      * Constructor.
      *
+     * @param status Status code.
+     * @param err Error message.
+     */
+    public JdbcMetaColumnsResult(int status, String err) {
+        super(status, err);
+    }
+
+    /**
+     * Constructor.
+     *
      * @param meta Columns metadata.
      */
     public JdbcMetaColumnsResult(Collection<JdbcColumnMeta> meta) {

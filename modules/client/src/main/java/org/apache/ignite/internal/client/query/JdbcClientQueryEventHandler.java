@@ -35,6 +35,7 @@ import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteResult;
 import org.apache.ignite.client.proto.query.event.JdbcQueryFetchRequest;
 import org.apache.ignite.client.proto.query.event.JdbcQueryFetchResult;
+import org.apache.ignite.client.proto.query.event.JdbcQueryMetaRequest;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 
 /**
@@ -119,6 +120,15 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
         JdbcMetaPrimaryKeysResult res = new JdbcMetaPrimaryKeysResult();
 
         client.sendRequest(ClientOp.SQL_PK_META, req, res);
+
+        return res;
+    }
+
+    /** {@inheritDoc} */
+    @Override public JdbcMetaColumnsResult fieldMetadata(JdbcQueryMetaRequest req) {
+        JdbcMetaColumnsResult res = new JdbcMetaColumnsResult();
+
+        client.sendRequest(ClientOp.SQL_QUERY_META, req, res);
 
         return res;
     }

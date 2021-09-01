@@ -65,6 +65,8 @@ import org.apache.ignite.internal.processors.query.calcite.SqlCursor;
 import org.apache.ignite.internal.processors.query.calcite.SqlQueryType;
 import org.apache.ignite.internal.processors.query.calcite.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteCostFactory;
+import org.apache.ignite.internal.processors.query.calcite.prepare.AbstractMultiStepPlan;
+import org.apache.ignite.internal.processors.query.calcite.prepare.FieldsMetadata;
 import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningContext;
 import org.apache.ignite.internal.processors.query.calcite.prepare.QueryPlan;
 import org.apache.ignite.internal.processors.query.calcite.sql.fun.IgniteSqlOperatorTable;
@@ -134,14 +136,18 @@ public final class Commons {
     /** */
     private Commons(){}
 
-    public static <T> SqlCursor<T> createCursor(Iterable<T> iterable, QueryPlan.Type plan) {
+    public static <T> SqlCursor<T> createCursor(Iterable<T> iterable, QueryPlan plan) {
         return createCursor(iterable.iterator(), plan);
     }
 
-    public static <T> SqlCursor<T> createCursor(Iterator<T> iter, QueryPlan.Type type) {
+    public static <T> SqlCursor<T> createCursor(Iterator<T> iter, QueryPlan plan) {
         return new SqlCursor<>() {
             @Override public SqlQueryType getQueryType() {
-                return SqlQueryType.mapPlanTypeToSqlType(type);
+                return SqlQueryType.mapPlanTypeToSqlType(plan.type());
+            }
+
+            @Override public FieldsMetadata getColumnMetadata() {
+                return ((AbstractMultiStepPlan)plan).fieldsMetadata();
             }
 
             @Override public void remove() {

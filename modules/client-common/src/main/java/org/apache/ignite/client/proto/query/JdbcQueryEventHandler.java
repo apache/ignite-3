@@ -33,6 +33,7 @@ import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteResult;
 import org.apache.ignite.client.proto.query.event.JdbcQueryFetchRequest;
 import org.apache.ignite.client.proto.query.event.JdbcQueryFetchResult;
+import org.apache.ignite.client.proto.query.event.JdbcQueryMetaRequest;
 
 /**
  * Jdbc client request handler.
@@ -102,4 +103,12 @@ public interface JdbcQueryEventHandler {
      * @return Result.
      */
     JdbcMetaPrimaryKeysResult primaryKeysMeta(JdbcMetaPrimaryKeysRequest req);
+
+    /**
+     * {@link JdbcQueryMetaRequest} command handler.
+     *
+     * @param req Execute query metadata request.
+     * @return Result.
+     */
+    JdbcMetaColumnsResult fieldMetadata(JdbcQueryMetaRequest req);
 }

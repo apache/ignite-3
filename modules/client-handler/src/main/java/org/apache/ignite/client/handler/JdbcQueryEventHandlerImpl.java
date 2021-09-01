@@ -22,6 +22,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.ignite.client.handler.requests.sql.JdbcMetadataInfo;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteRequest;
@@ -42,11 +44,13 @@ import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteResult;
 import org.apache.ignite.client.proto.query.event.JdbcQueryFetchRequest;
 import org.apache.ignite.client.proto.query.event.JdbcQueryFetchResult;
+import org.apache.ignite.client.proto.query.event.JdbcQueryMetaRequest;
 import org.apache.ignite.client.proto.query.event.JdbcQuerySingleResult;
 import org.apache.ignite.client.proto.query.event.JdbcResponse;
 import org.apache.ignite.client.proto.query.event.JdbcTableMeta;
 import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
 import org.apache.ignite.internal.processors.query.calcite.SqlCursor;
+import org.apache.ignite.internal.processors.query.calcite.prepare.FieldsMetadata;
 import org.apache.ignite.internal.util.Cursor;
 
 import static org.apache.ignite.client.proto.query.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
@@ -160,6 +164,34 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         }
 
         return new JdbcQueryCloseResult();
+    }
+
+    /** {@inheritDoc} */
+    @Override public JdbcMetaColumnsResult fieldMetadata(JdbcQueryMetaRequest req) {
+        SqlCursor<List<?>> cur = openCursors.remove(req.cursorId());
+
+        if (cur == null)
+            return new JdbcMetaColumnsResult(JdbcResponse.STATUS_FAILED,
+                "Failed to find query cursor with ID: " + req.cursorId());
+
+        FieldsMetadata metadata = cur.getColumnMetadata();
+
+        List<RelDataTypeField> list = metadata.rowType().getFieldList();
+
+        List<JdbcColumnMeta> meta = new ArrayList<>(list.size());
+
+        for (RelDataTypeField field : list) {
+            String fieldName = field.getKey();
+            RelDataType val = field.getValue();
+
+            String sqlTypeName = val.getSqlTypeName().getName();
+            int jdbcOrdinal = val.getSqlTypeName().getJdbcOrdinal();
+            boolean isNullable = val.isNullable();
+
+            //TODO fix after schema and table metadata will appear.
+            meta.add(new JdbcColumnMeta("","", fieldName, sqlTypeName, jdbcOrdinal, isNullable));
+        }
+        return new JdbcMetaColumnsResult(meta);
     }
 
     /** {@inheritDoc} */

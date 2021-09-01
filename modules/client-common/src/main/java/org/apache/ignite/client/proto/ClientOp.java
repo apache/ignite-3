@@ -128,4 +128,7 @@ public class ClientOp {
 
     /** Close query cursor. */
     public static final int SQL_PK_META = 40;
+
+    /** Close query cursor. */
+    public static final int SQL_QUERY_META = 41;
 }
