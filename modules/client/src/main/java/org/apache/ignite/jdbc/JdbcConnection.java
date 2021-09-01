@@ -227,11 +227,10 @@ public class JdbcConnection implements Connection {
     @Override public void setAutoCommit(boolean autoCommit) throws SQLException {
         ensureNotClosed();
 
-        // Do nothing if resulting value doesn't actually change.
         if (autoCommit != this.autoCommit) {
-            doCommit();
-
             this.autoCommit = autoCommit;
+            
+            doCommit(); // Specification requires to commit current tx if 'autoCommit' state was changed.
         }
     }
 
