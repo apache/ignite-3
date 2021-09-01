@@ -33,6 +33,7 @@ import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -87,8 +88,8 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         Table tbl1 = clusterNodes.get(0).tables().table(persTbl.canonicalName());
         Table tbl2 = clusterNodes.get(0).tables().table(orgTbl.canonicalName());
 
-        tbl1.insert(tbl1.tupleBuilder().set("ORGID", 1).set("NAME", "111").set("AGE", 111).build());
-        tbl2.insert(tbl2.tupleBuilder().set("ID", 1).set("NAME", "AAA").build());
+        tbl1.insert(Tuple.create().set("ORGID", 1).set("NAME", "111").set("AGE", 111));
+        tbl2.insert(Tuple.create().set("ID", 1).set("NAME", "AAA"));
     }
 
     /**
