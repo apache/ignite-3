@@ -157,7 +157,7 @@ public class JdbcStatement implements Statement {
 
     /** {@inheritDoc} */
     @Override public int executeUpdate(String sql) throws SQLException {
-        execute0(sql, null);
+        execute0(Objects.requireNonNull(sql), null);
 
         int res = getUpdateCount();
 
