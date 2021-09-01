@@ -29,16 +29,15 @@ namespace Apache.Ignite.Tests.Buffers
         public void TestBufferWriterPrependsMessageLength()
         {
             using var bufferWriter = new PooledArrayBufferWriter();
-            var res = bufferWriter.GetWrittenMemory().ToArray();
-            CollectionAssert.AreEqual(new byte[] { 0, 0, 0, 0 }, res);
 
+            // With payload.
             var writer = bufferWriter.GetMessageWriter();
 
             writer.Write(1);
             writer.Write("A");
             writer.Flush();
 
-            res = bufferWriter.GetWrittenMemory().ToArray();
+            var res = bufferWriter.GetWrittenMemory().ToArray();
 
             var expectedBytes = new byte[]
             {
@@ -47,6 +46,58 @@ namespace Apache.Ignite.Tests.Buffers
             };
 
             CollectionAssert.AreEqual(expectedBytes, res);
+        }
+
+        [Test]
+        public void TestBufferWriterPrependsPrefixAndMessageLength()
+        {
+            using var bufferWriter = new PooledArrayBufferWriter();
+
+            var writer = bufferWriter.GetMessageWriter();
+            writer.Write(1);
+            writer.Write("A");
+            writer.Flush();
+
+            var prefixWriter = bufferWriter.GetPrefixWriter(3);
+            prefixWriter.Write(7);
+            prefixWriter.Write(8);
+            prefixWriter.Write(9);
+            writer.Flush();
+
+            var res = bufferWriter.GetWrittenMemory().ToArray();
+
+            var expectedBytes = new byte[]
+            {
+                // 4 bytes BE length + 3 bytes prefix + 1 byte int + 1 byte fixstr + 1 byte char.
+                0, 0, 0, 6, 7, 8, 9, 1, 0xa1, (byte)'A'
+            };
+
+            CollectionAssert.AreEqual(expectedBytes, res);
+        }
+
+        [Test]
+        public void TestEmptyBufferWriterPrependsZeroMessageLength()
+        {
+            using var bufferWriter = new PooledArrayBufferWriter();
+
+            var res = bufferWriter.GetWrittenMemory().ToArray();
+
+            CollectionAssert.AreEqual(new byte[] { 0, 0, 0, 0 }, res);
+        }
+
+        [Test]
+        public void TestEmptyBufferWriterPrependsPrefix()
+        {
+            using var bufferWriter = new PooledArrayBufferWriter();
+
+            var writer = bufferWriter.GetPrefixWriter(2);
+            writer.Write(7);
+            writer.Write(8);
+            writer.Flush();
+
+            var res = bufferWriter.GetWrittenMemory().ToArray();
+
+            CollectionAssert.AreEqual(new byte[] { 0, 0, 0, 2, 7, 8 }, res);
         }
     }
 }
