@@ -511,9 +511,8 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         try (Connection conn = DriverManager.getConnection(URL)) {
             // null query text
             assertThrows(
-                SQLException.class,
-                () -> conn.prepareStatement(null),
-                "SQL string cannot be null"
+                NullPointerException.class,
+                () -> conn.prepareStatement(null)
             );
 
             final String sqlText = "select * from test where param = ?";
@@ -708,9 +707,8 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         try (Connection conn = DriverManager.getConnection(URL)) {
             // null query text
             assertThrows(
-                SQLException.class,
-                () -> conn.nativeSQL(null),
-                "SQL string cannot be null"
+                NullPointerException.class,
+                () -> conn.nativeSQL(null)
             );
 
             final String sqlText = "select * from test";
