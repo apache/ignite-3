@@ -21,7 +21,6 @@ namespace Apache.Ignite.Internal.Proto
     using System.Buffers;
     using System.Buffers.Binary;
     using System.Diagnostics;
-    using System.Net;
     using System.Runtime.CompilerServices;
     using MessagePack;
 
@@ -77,7 +76,7 @@ namespace Apache.Ignite.Internal.Proto
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static ExtensionHeader ValidateExtensionType(
+        private static void ValidateExtensionType(
             ref MessagePackReader reader,
             ClientMessagePackType expectedType,
             int expectedLength)
@@ -95,8 +94,6 @@ namespace Apache.Ignite.Internal.Proto
                 throw new IgniteClientException(
                     $"Expected {expectedLength} bytes for {expectedType} extension, but got {hdr.Length}.");
             }
-
-            return hdr;
         }
     }
 }

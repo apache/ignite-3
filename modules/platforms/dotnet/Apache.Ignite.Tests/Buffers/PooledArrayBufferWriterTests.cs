@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Tests.Buffers
 {
-    using System;
     using Internal.Buffers;
     using NUnit.Framework;
 

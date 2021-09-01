@@ -51,9 +51,9 @@ namespace Apache.Ignite.Internal.Table
         {
             using var writer = await _socket.GetRequestWriterAsync(ClientOp.TablesGet).ConfigureAwait(false);
 
-            using var res = await writer.Socket.DoOutInOpAsync(writer).ConfigureAwait(false);
+            using var resBuf = await writer.Socket.DoOutInOpAsync(writer).ConfigureAwait(false);
 
-            return ReadTables(res.GetReader());
+            return ReadTables(resBuf.GetReader());
 
             IList<ITable> ReadTables(MessagePackReader r)
             {
@@ -63,8 +63,13 @@ namespace Apache.Ignite.Internal.Table
 
                 for (var i = 0; i < len; i++)
                 {
-                    var id = r.Read
+                    var id = r.ReadGuid();
+                    var name = r.ReadString();
+
+                    res.Add(new Table(name, id));
                 }
+
+                return res;
             }
         }
     }
