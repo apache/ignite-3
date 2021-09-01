@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal.Proto
 {
     using System;
-    using System.Text;
     using MessagePack;
 
     /// <summary>
@@ -48,6 +47,36 @@ namespace Apache.Ignite.Internal.Proto
         public static void WriteGuid(this ref MessagePackWriter writer, Guid guid)
         {
             throw new NotImplementedException("TODO");
+        }
+
+        /// <summary>
+        /// Writes an object.
+        /// </summary>
+        /// <param name="writer">Writer.</param>
+        /// <param name="obj">Object.</param>
+        public static void WriteObject(this ref MessagePackWriter writer, object? obj)
+        {
+            // TODO: Support all types (ticket).
+            switch (obj)
+            {
+                case null:
+                    writer.WriteNil();
+                    return;
+
+                case string str:
+                    writer.WriteString(str);
+                    return;
+
+                case int i:
+                    writer.Write(i);
+                    return;
+
+                case byte b:
+                    writer.Write(b);
+                    return;
+            }
+
+            throw new IgniteClientException("Unsupported type: " + obj.GetType());
         }
     }
 }

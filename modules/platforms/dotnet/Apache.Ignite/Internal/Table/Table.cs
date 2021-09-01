@@ -65,9 +65,17 @@ namespace Apache.Ignite.Internal.Table
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGet, writer).ConfigureAwait(false);
             return Read(resBuf.GetReader());
 
-            static void Write(MessagePackWriter w)
+            void Write(MessagePackWriter w)
             {
-                // TODO: Get schema, then write.
+                w.WriteGuid(Id);
+                w.Write(1); // TODO: Schema id
+
+                // TODO: Schema order with a pooled array.
+                for (var i = 0; i < keyRec.FieldCount; i++)
+                {
+                    w.WriteObject(keyRec[i]);
+                }
+
                 w.Flush();
             }
 
