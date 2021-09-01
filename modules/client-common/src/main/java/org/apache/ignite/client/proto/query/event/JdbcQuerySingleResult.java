@@ -19,6 +19,7 @@ package org.apache.ignite.client.proto.query.event;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
@@ -57,6 +58,8 @@ public class JdbcQuerySingleResult extends JdbcResponse {
      */
     public JdbcQuerySingleResult(int status, String err) {
         super(status, err);
+
+        items = Collections.emptyList();
     }
 
     /**
@@ -139,53 +142,33 @@ public class JdbcQuerySingleResult extends JdbcResponse {
     @Override public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
-        if (status() != STATUS_SUCCESS)
-            return;
-
         packer.packLong(cursorId);
         packer.packBoolean(isQuery);
+        packer.packLong(updateCnt);
+        packer.packBoolean(last);
 
-        if (isQuery) {
-            assert items != null;
+        packer.packArrayHeader(items.size());
 
-            packer.packBoolean(last);
-
-            packer.packInt(items.size());
-
-            for (List<Object> item : items)
-                packer.packObjectArray(item.toArray());
-        }
-        else
-            packer.packLong(updateCnt);
+        for (List<Object> item : items)
+            packer.packObjectArray(item.toArray());
     }
 
     /** {@inheritDoc} */
     @Override public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
 
-        if (status() != STATUS_SUCCESS)
-            return;
-
         cursorId = unpacker.unpackLong();
         isQuery = unpacker.unpackBoolean();
+        updateCnt = unpacker.unpackLong();
 
-        if (isQuery) {
-            last = unpacker.unpackBoolean();
+        last = unpacker.unpackBoolean();
 
-            int size = unpacker.unpackInt();
+        int size = unpacker.unpackArrayHeader();
 
-            if (size > 0) {
-                items = new ArrayList<>(size);
+        items = new ArrayList<>(size);
 
-                for (int i = 0; i < size; i++)
-                    items.add(Arrays.asList(unpacker.unpackObjectArray()));
-            }
-        }
-        else {
-            last = true;
-
-            updateCnt = unpacker.unpackLong();
-        }
+        for (int i = 0; i < size; i++)
+            items.add(Arrays.asList(unpacker.unpackObjectArray()));
     }
 
     /** {@inheritDoc} */
