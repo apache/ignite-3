@@ -572,7 +572,7 @@ public class JdbcStatement implements Statement {
 
     /** {@inheritDoc} */
     @Override public <T> T unwrap(Class<T> iface) throws SQLException {
-        if (!isWrapperFor(iface))
+        if (!isWrapperFor(Objects.requireNonNull(iface)))
             throw new SQLException("Statement is not a wrapper for " + iface.getName());
 
         return (T)this;
