@@ -68,9 +68,9 @@ namespace Apache.Ignite.Internal.Proto
             byte j = jBytes[9];
             byte k = jBytes[8];
 
-            int a = BinaryPrimitives.ReadInt32LittleEndian(jBytes[4..]);
-            short b = BinaryPrimitives.ReadInt16LittleEndian(jBytes[2..]);
-            short c = BinaryPrimitives.ReadInt16LittleEndian(jBytes);
+            int a = BinaryPrimitives.ReadInt32BigEndian(jBytes[4..]);
+            short b = BinaryPrimitives.ReadInt16BigEndian(jBytes[2..]);
+            short c = BinaryPrimitives.ReadInt16BigEndian(jBytes);
 
             return new Guid(a, b, c, d, e, f, g, h, i, j, k);
         }

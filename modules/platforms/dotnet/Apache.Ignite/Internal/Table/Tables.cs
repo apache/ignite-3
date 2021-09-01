@@ -41,9 +41,24 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public Task<ITable?> GetTableAsync(string name)
+        public async Task<ITable?> GetTableAsync(string name)
         {
-            throw new System.NotImplementedException();
+            using var writer = await _socket.GetRequestWriterAsync(ClientOp.TableGet).ConfigureAwait(false);
+            Write(writer.GetMessageWriter(), name);
+
+            using var resBuf = await writer.Socket.DoOutInOpAsync(writer).ConfigureAwait(false);
+            return Read(resBuf.GetReader());
+
+            static void Write(MessagePackWriter w, string name)
+            {
+                w.WriteString(name);
+                w.Flush();
+            }
+
+            ITable? Read(MessagePackReader r) =>
+                r.NextMessagePackType == MessagePackType.Nil
+                    ? null
+                    : new Table(name, r.ReadGuid());
         }
 
         /// <inheritdoc/>
@@ -52,10 +67,9 @@ namespace Apache.Ignite.Internal.Table
             using var writer = await _socket.GetRequestWriterAsync(ClientOp.TablesGet).ConfigureAwait(false);
 
             using var resBuf = await writer.Socket.DoOutInOpAsync(writer).ConfigureAwait(false);
+            return Read(resBuf.GetReader());
 
-            return ReadTables(resBuf.GetReader());
-
-            IList<ITable> ReadTables(MessagePackReader r)
+            IList<ITable> Read(MessagePackReader r)
             {
                 var len = r.ReadMapHeader();
 
@@ -63,14 +77,19 @@ namespace Apache.Ignite.Internal.Table
 
                 for (var i = 0; i < len; i++)
                 {
-                    var id = r.ReadGuid();
-                    var name = r.ReadString();
-
-                    res.Add(new Table(name, id));
+                    res.Add(ReadTable(ref r));
                 }
 
                 return res;
             }
+        }
+
+        private static Table ReadTable(ref MessagePackReader r)
+        {
+            var id = r.ReadGuid();
+            var name = r.ReadString();
+
+            return new Table(name, id);
         }
     }
 }

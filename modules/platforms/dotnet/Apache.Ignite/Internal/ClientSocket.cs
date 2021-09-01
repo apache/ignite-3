@@ -180,6 +180,7 @@ namespace Apache.Ignite.Internal
         /// <returns>Request writer.</returns>
         public PooledArrayBufferWriter GetRequestWriter(ClientOp clientOp)
         {
+            // TODO: Refactor this - reserve bytes for requestId so we don't have to write it in advance - simplify request writer logic.
             var requestId = Interlocked.Increment(ref _requestId);
             var bufferWriter = new PooledArrayBufferWriter(requestId, this);
 
