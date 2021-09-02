@@ -26,8 +26,10 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 import java.util.logging.Logger;
 import org.apache.ignite.client.proto.ProtocolVersion;
+import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
+import org.apache.ignite.internal.jdbc.JdbcConnection;
 
-import static org.apache.ignite.jdbc.ConnectionPropertiesImpl.URL_PREFIX;
+import static org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl.URL_PREFIX;
 
 /**
  * JDBC driver thin implementation for In-Memory Data Grid.

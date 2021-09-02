@@ -32,7 +32,7 @@ import java.util.HashMap;
 import java.util.Properties;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import org.apache.ignite.jdbc.JdbcConnection;
+import org.apache.ignite.internal.jdbc.JdbcConnection;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
