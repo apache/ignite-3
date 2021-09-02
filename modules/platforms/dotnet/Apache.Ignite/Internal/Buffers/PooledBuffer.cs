@@ -68,7 +68,7 @@ namespace Apache.Ignite.Internal.Buffers
         public PooledBuffer Slice(int offset)
         {
             Debug.Assert(offset > 0, "offset > 0");
-            Debug.Assert(offset < _length, "offset < _length");
+            Debug.Assert(offset <= _length, "offset <= _length");
 
             return new(_bytes, _position + offset, _length - offset);
         }

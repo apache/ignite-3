@@ -50,7 +50,7 @@ namespace Apache.Ignite.Tests.Table
             Assert.IsNotNull(resTuple);
             Assert.AreEqual(2, resTuple.FieldCount);
             Assert.AreEqual(1L, resTuple["key"]);
-            Assert.AreEqual("foo", resTuple["name"]);
+            Assert.AreEqual("foo", resTuple["val"]);
         }
     }
 }

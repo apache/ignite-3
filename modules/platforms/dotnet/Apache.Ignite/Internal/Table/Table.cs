@@ -131,7 +131,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = new PooledArrayBufferWriter();
             Write(writer.GetMessageWriter());
 
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGet, writer).ConfigureAwait(false);
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleUpsert, writer).ConfigureAwait(false);
 
             void Write(MessagePackWriter w)
             {
