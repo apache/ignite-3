@@ -639,35 +639,6 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     /**
-     * Extracts extended value value according to value type code.
-     *
-     * @param type Type code.
-     * @return Java object.
-     * @throws IllegalStateException in case of unexpected type.
-     */
-    private Object extractExtendedValue(int type) {
-        switch (type) {
-            case INT8:
-                return unpackByte();
-
-            case INT16:
-                return unpackShort();
-
-            case INT32:
-                return unpackInt();
-
-            case INT64:
-                return unpackLong();
-
-            case ClientDataType.UUID:
-                return unpackUuid();
-
-            default:
-                throw new IllegalStateException("Unexpected value type code: " + type);
-        }
-    }
-
-    /**
      * Creates a copy of this unpacker and the underlying buffer.
      *
      * @return Copied unpacker.
