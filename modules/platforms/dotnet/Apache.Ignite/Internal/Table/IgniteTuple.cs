@@ -23,7 +23,7 @@ namespace Apache.Ignite.Internal.Table
     /// <summary>
     /// Ignite tuple.
     /// </summary>
-    internal class IgniteTuple : IIgniteTuple
+    internal sealed class IgniteTuple : IIgniteTuple
     {
         /** Key-value pairs. */
         private readonly List<(string Key, object? Value)> _pairs;
