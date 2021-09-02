@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.client;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -29,6 +30,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -36,6 +38,7 @@ import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.server.RaftServer;
+import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -53,6 +56,11 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
+import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.core.Replicator;
+import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -65,6 +73,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -86,7 +96,7 @@ public class ITMetaStorageServiceTest {
     private static final int NODE_PORT_BASE = 20_000;
 
     /** Nodes. */
-    private static final int NODES = 2;
+    private static final int NODES = 3;
 
     /** */
     private static final String METASTORAGE_RAFT_GROUP_NAME = "METASTORAGE_RAFT_GROUP";
@@ -101,7 +111,7 @@ public class ITMetaStorageServiceTest {
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
 
     /**  Expected server result entry. */
-    private static final org.apache.ignite.internal.metastorage.server.Entry EXPECTED_SRV_RESULT_ENTRY =
+    private static final org.apache.ignite.internal.metastorage.server.Entry EXPECTED_SRV_RESULT_ENTRY1 =
             new org.apache.ignite.internal.metastorage.server.Entry(
                     new byte[] {1},
                     new byte[] {2},
@@ -110,12 +120,30 @@ public class ITMetaStorageServiceTest {
             );
 
     /**  Expected server result entry. */
-    private static final EntryImpl EXPECTED_RESULT_ENTRY =
+    private static final org.apache.ignite.internal.metastorage.server.Entry EXPECTED_SRV_RESULT_ENTRY2 =
+        new org.apache.ignite.internal.metastorage.server.Entry(
+            new byte[] {3},
+            new byte[] {4},
+            11,
+            3
+        );
+
+    /**  Expected server result entry. */
+    private static final EntryImpl EXPECTED_RESULT_ENTRY1 =
             new EntryImpl(
                     new ByteArray(new byte[] {1}),
                     new byte[] {2},
                     10,
                     2
+            );
+
+    /**  Expected server result entry. */
+    private static final EntryImpl EXPECTED_RESULT_ENTRY2 =
+            new EntryImpl(
+                    new ByteArray(new byte[] {3}),
+                    new byte[] {4},
+                    11,
+                    3
             );
 
     /** Expected result map. */
@@ -134,6 +162,10 @@ public class ITMetaStorageServiceTest {
 
     /**  Meta storage raft server. */
     private RaftServer metaStorageRaftSrv;
+
+    private RaftServer metaStorageRaftSrv2;
+
+    private RaftServer metaStorageRaftSrv3;
 
     /** */
     @WorkDirectory
@@ -208,6 +240,12 @@ public class ITMetaStorageServiceTest {
     public void afterTest() throws Exception {
         metaStorageRaftSrv.stop();
 
+        if (metaStorageRaftSrv2 != null)
+            metaStorageRaftSrv2.stop();
+
+        if (metaStorageRaftSrv3 != null)
+            metaStorageRaftSrv3.stop();
+
         for (ClusterService node : cluster)
             node.stop();
     }
@@ -222,11 +260,11 @@ public class ITMetaStorageServiceTest {
         MetaStorageService metaStorageSvc = prepareMetaStorage(
                 new AbstractKeyValueStorage() {
                     @Override public @NotNull org.apache.ignite.internal.metastorage.server.Entry get(byte[] key) {
-                        return EXPECTED_SRV_RESULT_ENTRY;
+                        return EXPECTED_SRV_RESULT_ENTRY1;
                     }
                 });
 
-        assertEquals(EXPECTED_RESULT_ENTRY, metaStorageSvc.get(EXPECTED_RESULT_ENTRY.key()).get());
+        assertEquals(EXPECTED_RESULT_ENTRY1, metaStorageSvc.get(EXPECTED_RESULT_ENTRY1.key()).get());
     }
 
     /**
@@ -239,13 +277,13 @@ public class ITMetaStorageServiceTest {
         MetaStorageService metaStorageSvc = prepareMetaStorage(
                 new AbstractKeyValueStorage() {
                     @Override public @NotNull org.apache.ignite.internal.metastorage.server.Entry get(byte[] key, long rev) {
-                        return EXPECTED_SRV_RESULT_ENTRY;
+                        return EXPECTED_SRV_RESULT_ENTRY1;
                     }
                 });
 
         assertEquals(
-                EXPECTED_RESULT_ENTRY,
-                metaStorageSvc.get(EXPECTED_RESULT_ENTRY.key(), EXPECTED_RESULT_ENTRY.revision()).get()
+            EXPECTED_RESULT_ENTRY1,
+                metaStorageSvc.get(EXPECTED_RESULT_ENTRY1.key(), EXPECTED_RESULT_ENTRY1.revision()).get()
         );
     }
 
@@ -323,17 +361,17 @@ public class ITMetaStorageServiceTest {
                 new AbstractKeyValueStorage() {
                     @SuppressWarnings("JavaAbbreviationUsage")
                     @Override public @NotNull org.apache.ignite.internal.metastorage.server.Entry getAndPut(byte[] key, byte[] value) {
-                        assertArrayEquals(EXPECTED_RESULT_ENTRY.key().bytes(), key);
+                        assertArrayEquals(EXPECTED_RESULT_ENTRY1.key().bytes(), key);
 
                         assertArrayEquals(expVal, value);
 
-                        return EXPECTED_SRV_RESULT_ENTRY;
+                        return EXPECTED_SRV_RESULT_ENTRY1;
                     }
                 });
 
         assertEquals(
-                EXPECTED_RESULT_ENTRY,
-                metaStorageSvc.getAndPut(EXPECTED_RESULT_ENTRY.key(), expVal).get()
+            EXPECTED_RESULT_ENTRY1,
+                metaStorageSvc.getAndPut(EXPECTED_RESULT_ENTRY1.key(), expVal).get()
         );
     }
 
@@ -726,42 +764,126 @@ public class ITMetaStorageServiceTest {
     @Test
     public void testRangeNext() throws Exception {
         MetaStorageService metaStorageSvc = prepareMetaStorage(
-                new AbstractKeyValueStorage() {
-                    @Override public Cursor<org.apache.ignite.internal.metastorage.server.Entry> range(byte[] keyFrom, byte[] keyTo) {
-                        return new Cursor<>() {
-                            private final Iterator<org.apache.ignite.internal.metastorage.server.Entry> it = new Iterator<>() {
-                                @Override public boolean hasNext() {
-                                    return true;
-                                }
+            new AbstractKeyValueStorage() {
+                List<org.apache.ignite.internal.metastorage.server.Entry> entries = new ArrayList<>(List.of(EXPECTED_SRV_RESULT_ENTRY1, EXPECTED_SRV_RESULT_ENTRY2));
 
-                                @Override public org.apache.ignite.internal.metastorage.server.Entry next() {
-                                    return EXPECTED_SRV_RESULT_ENTRY;
-                                }
-                            };
+                @Override public Cursor<org.apache.ignite.internal.metastorage.server.Entry> range(byte[] keyFrom, byte[] keyTo) {
+                    return new Cursor<>() {
+                        private final Iterator<org.apache.ignite.internal.metastorage.server.Entry> it = entries.iterator();
 
-                            @Override public void close() throws Exception {
+                        @Override public void close() throws Exception {
 
-                            }
+                        }
 
-                            @NotNull @Override public Iterator<org.apache.ignite.internal.metastorage.server.Entry> iterator() {
-                                return it;
-                            }
+                        @NotNull @Override public Iterator<org.apache.ignite.internal.metastorage.server.Entry> iterator() {
+                            return it;
+                        }
 
-                            @Override public boolean hasNext() {
-                                return it.hasNext();
-                            }
+                        @Override public boolean hasNext() {
+                            return it.hasNext();
+                        }
 
-                            @Override
-                            public org.apache.ignite.internal.metastorage.server.Entry next() {
-                                return it.next();
-                            }
-                        };
-                    }
-                });
+                        @Override
+                        public org.apache.ignite.internal.metastorage.server.Entry next() {
+                            return it.next();
+                        }
+                    };
+                }
 
-        Cursor<Entry> cursor = metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null);
+                @Override public void close() {
 
-        assertEquals(EXPECTED_RESULT_ENTRY, (cursor.iterator().next()));
+                }
+            });
+
+        Cursor<Entry> cursor = metaStorageSvc.range(EXPECTED_RESULT_ENTRY1.key(),  new ByteArray(new byte[] {4}));
+
+        assertEquals(EXPECTED_RESULT_ENTRY1, (cursor.iterator().next()));
+        assertEquals(EXPECTED_RESULT_ENTRY2, (cursor.iterator().next()));
+    }
+
+    /**
+     * Tests that {@link MetaStorageService#range(ByteArray, ByteArray, long)}} next command works correctly
+     * after leader changing.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testRangeNextWorksCorrectlyAfterLeaderChange() throws Exception {
+        final AtomicInteger replicatorStartedCounter = new AtomicInteger(0);
+
+        final AtomicInteger replicatorStoppedCounter = new AtomicInteger(0);
+
+        List<RaftGroupService> rafts = prepareJraftMetaStorages(
+            new AbstractKeyValueStorage() {
+                List<org.apache.ignite.internal.metastorage.server.Entry> entries = new ArrayList<>(List.of(EXPECTED_SRV_RESULT_ENTRY1, EXPECTED_SRV_RESULT_ENTRY2));
+
+                @Override
+                public Cursor<org.apache.ignite.internal.metastorage.server.Entry> range(byte[] keyFrom, byte[] keyTo) {
+                    return new Cursor<>() {
+                        private final Iterator<org.apache.ignite.internal.metastorage.server.Entry> it = entries.iterator();
+
+                        @Override public void close() throws Exception {
+
+                        }
+
+                        @NotNull @Override
+                        public Iterator<org.apache.ignite.internal.metastorage.server.Entry> iterator() {
+                            return it;
+                        }
+
+                        @Override public boolean hasNext() {
+                            return it.hasNext();
+                        }
+
+                        @Override
+                        public org.apache.ignite.internal.metastorage.server.Entry next() {
+                            return it.next();
+                        }
+                    };
+                }
+
+                @Override public void close() {
+
+                }
+            },
+            replicatorStartedCounter,
+            replicatorStoppedCounter);
+
+        List<RaftServer> raftServers = Arrays.asList(metaStorageRaftSrv, metaStorageRaftSrv2, metaStorageRaftSrv3);
+
+        Peer oldLeader = rafts.get(0).leader();
+
+        int leaderIndex = oldLeader.address().port() % 10;
+
+        int liveServerIndex = (leaderIndex + 1) % cluster.size();
+
+        MetaStorageService metaStorageSvc = new MetaStorageServiceImpl(rafts.get(liveServerIndex), "some_node");
+
+        Cursor<Entry> cursor = metaStorageSvc.range(EXPECTED_RESULT_ENTRY1.key(), new ByteArray(new byte[] {4}));
+
+        assertTrue(TestUtils.waitForCondition(() -> replicatorStartedCounter.get() == 2, 5_000), replicatorStartedCounter.get() + "");
+
+        assertTrue(cursor.hasNext());
+
+        assertEquals(EXPECTED_RESULT_ENTRY1, (cursor.iterator().next()));
+
+        // ensure that leader has not been changed
+        assertTrue(TestUtils.waitForCondition(() -> replicatorStartedCounter.get() == 2, 5_000), replicatorStartedCounter.get() + "");
+
+        //stop leader
+        raftServers.get(leaderIndex).stop();
+        cluster.get(leaderIndex).stop();
+
+        rafts.get(liveServerIndex).refreshLeader().get();
+
+        assertNotSame(oldLeader, rafts.get(liveServerIndex).leader());
+
+        // ensure that leader has been changed only once
+        assertTrue(TestUtils.waitForCondition(() -> replicatorStartedCounter.get() == 4, 5_000), replicatorStartedCounter.get() + "");
+        assertTrue(TestUtils.waitForCondition(() -> replicatorStoppedCounter.get() == 2, 5_000), replicatorStartedCounter.get() + "");
+
+        assertTrue(cursor.hasNext());
+        assertEquals(EXPECTED_RESULT_ENTRY2, (cursor.iterator().next()));
     }
 
     /**
@@ -964,7 +1086,7 @@ public class ITMetaStorageServiceTest {
                     }
                 });
 
-        assertThrows(CompactedException.class, () -> metaStorageSvc.get(EXPECTED_RESULT_ENTRY.key()).get());
+        assertThrows(CompactedException.class, () -> metaStorageSvc.get(EXPECTED_RESULT_ENTRY1.key()).get());
     }
 
     /**
@@ -982,7 +1104,7 @@ public class ITMetaStorageServiceTest {
                     }
                 });
 
-        assertThrows(OperationTimeoutException.class, () -> metaStorageSvc.get(EXPECTED_RESULT_ENTRY.key()).get());
+        assertThrows(OperationTimeoutException.class, () -> metaStorageSvc.get(EXPECTED_RESULT_ENTRY1.key()).get());
     }
 
     /**
@@ -1002,7 +1124,7 @@ public class ITMetaStorageServiceTest {
                             }
 
                             @Override public org.apache.ignite.internal.metastorage.server.Entry next() {
-                                return EXPECTED_SRV_RESULT_ENTRY;
+                                return EXPECTED_SRV_RESULT_ENTRY1;
                             }
                         };
 
@@ -1040,11 +1162,11 @@ public class ITMetaStorageServiceTest {
 
         MetaStorageService metaStorageSvc2 =  new MetaStorageServiceImpl(metaStorageRaftGrpSvc, NODE_ID_1);
 
-        Cursor<Entry> cursorNode0 = metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null);
+        Cursor<Entry> cursorNode0 = metaStorageSvc.range(EXPECTED_RESULT_ENTRY1.key(), null);
 
-        Cursor<Entry> cursor2Node0 = metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null);
+        Cursor<Entry> cursor2Node0 = metaStorageSvc.range(EXPECTED_RESULT_ENTRY1.key(), null);
 
-        Cursor<Entry> cursorNode1 = metaStorageSvc2.range(EXPECTED_RESULT_ENTRY.key(), null);
+        Cursor<Entry> cursorNode1 = metaStorageSvc2.range(EXPECTED_RESULT_ENTRY1.key(), null);
 
         metaStorageSvc.closeCursors(NODE_ID_0).get();
 
@@ -1052,7 +1174,7 @@ public class ITMetaStorageServiceTest {
 
         assertThrows(NoSuchElementException.class, () -> cursor2Node0.iterator().next());
 
-        assertEquals(EXPECTED_RESULT_ENTRY, (cursorNode1.iterator().next()));
+        assertEquals(EXPECTED_RESULT_ENTRY1, (cursorNode1.iterator().next()));
     }
 
     /**
@@ -1108,6 +1230,84 @@ public class ITMetaStorageServiceTest {
         ).get(3, TimeUnit.SECONDS);
 
         return new MetaStorageServiceImpl(metaStorageRaftGrpSvc, NODE_ID_0);
+    }
+
+    private List<RaftGroupService> prepareJraftMetaStorages(KeyValueStorage keyValStorageMock,
+        AtomicInteger replicatorStartedCounter,
+        AtomicInteger replicatorStoppedCounter) throws InterruptedException, ExecutionException {
+        List<Peer> peers = new ArrayList<>();
+
+        cluster.forEach(c -> peers.add(new Peer(c.topologyService().localMember().address())));
+
+        assertTrue(cluster.size() > 1);
+
+        NodeOptions opt1 = new NodeOptions();
+        opt1.setReplicationStateListeners(List.of(new UserReplicatorStateListener(replicatorStartedCounter, replicatorStoppedCounter)));
+
+        NodeOptions opt2 = new NodeOptions();
+        opt2.setReplicationStateListeners(List.of(new UserReplicatorStateListener(replicatorStartedCounter, replicatorStoppedCounter)));
+
+        NodeOptions opt3 = new NodeOptions();
+        opt3.setReplicationStateListeners(List.of(new UserReplicatorStateListener(replicatorStartedCounter, replicatorStoppedCounter)));
+
+        metaStorageRaftSrv = new JRaftServerImpl(cluster.get(0), dataPath, opt1);
+
+        metaStorageRaftSrv2 = new JRaftServerImpl(cluster.get(1), dataPath, opt2);
+
+        metaStorageRaftSrv3 = new JRaftServerImpl(cluster.get(2), dataPath, opt3);
+
+        metaStorageRaftSrv.start();
+
+        metaStorageRaftSrv2.start();
+
+        metaStorageRaftSrv3.start();
+
+        metaStorageRaftSrv.
+            startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(keyValStorageMock), peers);
+
+        metaStorageRaftSrv2.
+            startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(keyValStorageMock), peers);
+
+        metaStorageRaftSrv3.
+            startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(keyValStorageMock), peers);
+
+        RaftGroupService metaStorageRaftGrpSvc1 = RaftGroupServiceImpl.start(
+            METASTORAGE_RAFT_GROUP_NAME,
+            cluster.get(0),
+            FACTORY,
+            10_000,
+            peers,
+            true,
+            200
+        ).get();
+
+        RaftGroupService metaStorageRaftGrpSvc2 = RaftGroupServiceImpl.start(
+            METASTORAGE_RAFT_GROUP_NAME,
+            cluster.get(1),
+            FACTORY,
+            10_000,
+            peers,
+            true,
+            200
+        ).get();
+
+        RaftGroupService metaStorageRaftGrpSvc3 = RaftGroupServiceImpl.start(
+            METASTORAGE_RAFT_GROUP_NAME,
+            cluster.get(2),
+            FACTORY,
+            10_000,
+            peers,
+            true,
+            200
+        ).get();
+
+        assertNotNull(metaStorageRaftGrpSvc1.leader());
+
+        assertEquals(metaStorageRaftGrpSvc1.leader(), metaStorageRaftGrpSvc2.leader());
+
+        assertEquals(metaStorageRaftGrpSvc2.leader(), metaStorageRaftGrpSvc3.leader());
+
+        return List.of(metaStorageRaftGrpSvc1, metaStorageRaftGrpSvc2, metaStorageRaftGrpSvc3);
     }
 
     /**
@@ -1268,6 +1468,48 @@ public class ITMetaStorageServiceTest {
         /** {@inheritDoc} */
         @Override public void restoreSnapshot(Path snapshotPath) {
             fail();
+        }
+    }
+
+    /**
+     * User's replicator state listener.
+     */
+    static class UserReplicatorStateListener implements Replicator.ReplicatorStateListener {
+        /** Replicator started counter. */
+        private AtomicInteger replicatorStartedCounter;
+
+        /** Replicator stopped counter. */
+        private AtomicInteger replicatorStoppedCounter;
+
+        /**
+         * @param replicatorStartedCounter Replicator started counter.
+         * @param replicatorStoppedCounter Replicator stopped counter.
+         */
+        UserReplicatorStateListener(AtomicInteger replicatorStartedCounter, AtomicInteger replicatorStoppedCounter) {
+            this.replicatorStartedCounter = replicatorStartedCounter;
+            this.replicatorStoppedCounter = replicatorStoppedCounter;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void onCreated(PeerId peer) {
+            int val = replicatorStartedCounter.incrementAndGet();
+
+            LOG.info("Replicator has been created {} {}", peer, val);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void onError(PeerId peer, Status status) {
+            LOG.info("Replicator has errors {} {}", peer, status);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void onDestroyed(PeerId peer) {
+            int val = replicatorStoppedCounter.incrementAndGet();
+
+            LOG.info("Replicator has been destroyed {} {}", peer, val);
         }
     }
 }
