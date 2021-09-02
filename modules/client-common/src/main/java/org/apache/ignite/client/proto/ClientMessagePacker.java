@@ -671,7 +671,7 @@ public class ClientMessagePacker extends MessagePacker {
             }
             else if (cls == Timestamp.class) {
                 packInt(ClientDataType.TIMESTAMP);
-                packTimestamp(((Timestamp)arg).toInstant());
+                packTimestamp(((java.util.Date)arg).toInstant());
             }
             else
                 throw new UnsupportedOperationException("Custom objects are not supported");
