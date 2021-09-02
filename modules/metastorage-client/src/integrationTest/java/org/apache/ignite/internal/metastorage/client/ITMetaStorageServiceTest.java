@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
-import org.apache.ignite.internal.raft.NewRaftGroupServiceImpl;
+import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -1028,7 +1028,7 @@ public class ITMetaStorageServiceTest {
 
         List<Peer> peers = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
 
-        RaftGroupService metaStorageRaftGrpSvc = NewRaftGroupServiceImpl.start(
+        RaftGroupService metaStorageRaftGrpSvc = RaftGroupServiceImpl.start(
             METASTORAGE_RAFT_GROUP_NAME,
             cluster.get(1),
             FACTORY,
@@ -1097,7 +1097,7 @@ public class ITMetaStorageServiceTest {
         metaStorageRaftSrv.
             startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(keyValStorageMock), peers);
 
-        RaftGroupService metaStorageRaftGrpSvc = NewRaftGroupServiceImpl.start(
+        RaftGroupService metaStorageRaftGrpSvc = RaftGroupServiceImpl.start(
             METASTORAGE_RAFT_GROUP_NAME,
             cluster.get(1),
             FACTORY,

@@ -65,9 +65,9 @@ import static org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest
 /**
  * The implementation of {@link RaftGroupService}
  */
-public class NewRaftGroupServiceImpl implements RaftGroupService {
+public class RaftGroupServiceImpl implements RaftGroupService {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(NewRaftGroupServiceImpl.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(RaftGroupServiceImpl.class);
 
     /** */
     private volatile long timeout;
@@ -107,7 +107,7 @@ public class NewRaftGroupServiceImpl implements RaftGroupService {
      * @param leader Group leader.
      * @param retryDelay Retry delay.
      */
-    private NewRaftGroupServiceImpl(
+    private RaftGroupServiceImpl(
         String groupId,
         ClusterService cluster,
         RaftMessagesFactory factory,
@@ -146,7 +146,7 @@ public class NewRaftGroupServiceImpl implements RaftGroupService {
         boolean getLeader,
         long retryDelay
     ) {
-        var service = new NewRaftGroupServiceImpl(groupId, cluster, factory, timeout, peers, null, retryDelay);
+        var service = new RaftGroupServiceImpl(groupId, cluster, factory, timeout, peers, null, retryDelay);
 
         if (!getLeader)
             return CompletableFuture.completedFuture(service);

@@ -30,7 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
-import org.apache.ignite.internal.raft.NewRaftGroupServiceImpl;
+import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -179,7 +179,7 @@ public class ITDistributedTableTest {
         );
 
         RaftGroupService partRaftGrp =
-            NewRaftGroupServiceImpl
+            RaftGroupServiceImpl
                 .start(grpId, client, FACTORY, 10_000, conf, true, 200)
                 .get(3, TimeUnit.SECONDS);
 
@@ -270,7 +270,7 @@ public class ITDistributedTableTest {
                 conf
             );
 
-            RaftGroupService service = NewRaftGroupServiceImpl.start(grpId, client, FACTORY, 10_000, conf, true, 200)
+            RaftGroupService service = RaftGroupServiceImpl.start(grpId, client, FACTORY, 10_000, conf, true, 200)
                 .get(3, TimeUnit.SECONDS);
 
             partMap.put(p, service);

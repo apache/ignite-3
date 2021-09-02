@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.raft.NewRaftGroupServiceImpl;
+import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -382,7 +382,7 @@ public abstract class ITAbstractListenerSnapshotTest<T extends RaftGroupListener
     private RaftGroupService startClient(String groupId, NetworkAddress addr) throws Exception {
         ClusterService clientNode = clusterService("client_" + groupId + "_", CLIENT_PORT + clients.size(), addr);
 
-        RaftGroupService client = NewRaftGroupServiceImpl.start(groupId, clientNode, FACTORY, 10_000,
+        RaftGroupService client = RaftGroupServiceImpl.start(groupId, clientNode, FACTORY, 10_000,
             List.of(new Peer(addr)), false, 200).get(3, TimeUnit.SECONDS);
 
         clients.add(client);

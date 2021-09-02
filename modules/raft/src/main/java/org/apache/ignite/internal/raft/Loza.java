@@ -92,7 +92,7 @@ public class Loza implements IgniteComponent {
             raftServer.startRaftGroup(groupId, lsnr, peers);
         }
 
-        return NewRaftGroupServiceImpl.start(
+        return RaftGroupServiceImpl.start(
             groupId,
             clusterNetSvc,
             FACTORY,
