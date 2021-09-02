@@ -69,16 +69,32 @@ namespace Apache.Ignite.Internal.Proto
             jBytes[8] = bytes[15]; // k
             jBytes[15] = bytes[8]; // d
 
-            jBytes[0] = bytes[6]; // c1
-            jBytes[1] = bytes[7]; // c2
+            if (BitConverter.IsLittleEndian)
+            {
+                jBytes[0] = bytes[7]; // c1
+                jBytes[1] = bytes[6]; // c2
 
-            jBytes[2] = bytes[4]; // b1
-            jBytes[3] = bytes[5]; // b2
+                jBytes[2] = bytes[5]; // b1
+                jBytes[3] = bytes[4]; // b2
 
-            jBytes[4] = bytes[0]; // a1
-            jBytes[5] = bytes[1]; // a2
-            jBytes[6] = bytes[2]; // a3
-            jBytes[7] = bytes[3]; // a4
+                jBytes[4] = bytes[3]; // a1
+                jBytes[5] = bytes[2]; // a2
+                jBytes[6] = bytes[1]; // a3
+                jBytes[7] = bytes[0]; // a4
+            }
+            else
+            {
+                jBytes[0] = bytes[6]; // c1
+                jBytes[1] = bytes[7]; // c2
+
+                jBytes[2] = bytes[4]; // b1
+                jBytes[3] = bytes[5]; // b2
+
+                jBytes[4] = bytes[0]; // a1
+                jBytes[5] = bytes[1]; // a2
+                jBytes[6] = bytes[2]; // a3
+                jBytes[7] = bytes[3]; // a4
+            }
 
             jBytes[9] = bytes[14]; // j
             jBytes[10] = bytes[13]; // i
