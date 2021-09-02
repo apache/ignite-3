@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Proto
 {
+    using System;
     using Internal.Buffers;
     using Internal.Proto;
     using MessagePack;
@@ -27,22 +28,44 @@ namespace Apache.Ignite.Tests.Proto
     /// </summary>
     public class MessagePackExtensionsTest
     {
+        public static readonly string[] TestStrings =
+        {
+            "foo",
+            string.Empty,
+            null!,
+            "тест",
+            new(new[] {(char) 0xD800, '的', (char) 0xD800, (char) 0xD800, (char) 0xDC00, (char) 0xDFFF}),
+            "ascii0123456789",
+            "的的abcdкириллица",
+            new(new[] {(char) 0xD801, (char) 0xDC37}),
+        };
+
         [Test]
         public void TestWriteString()
         {
+            foreach (var val in TestStrings)
+            {
+                var res = WriteRead(
+                    buf =>
+                    {
+                        var w = buf.GetMessageWriter();
+
+                        w.WriteString(val);
+                        w.Flush();
+                    },
+                    m => new MessagePackReader(m).ReadString());
+
+                Assert.AreEqual(val, res);
+            }
+        }
+
+        private static T WriteRead<T>(Action<PooledArrayBufferWriter> write, Func<ReadOnlyMemory<byte>, T> read)
+        {
             var bufferWriter = new PooledArrayBufferWriter();
+            write(bufferWriter);
 
-            var w = bufferWriter.GetMessageWriter();
-
-            w.WriteString("foo");
-            w.Flush();
-
-            var mem = bufferWriter.GetWrittenMemory().Slice(4); // Skip length.
-            var reader = new MessagePackReader(mem);
-
-            var res = reader.ReadString();
-
-            Assert.AreEqual("foo", res);
+            var mem = bufferWriter.GetWrittenMemory()[4..]; // Skip length.
+            return read(mem);
         }
     }
 }

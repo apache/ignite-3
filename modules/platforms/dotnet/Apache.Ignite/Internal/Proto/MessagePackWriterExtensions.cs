@@ -31,9 +31,17 @@ namespace Apache.Ignite.Internal.Proto
         /// </summary>
         /// <param name="writer">Writer.</param>
         /// <param name="str">String.</param>
-        public static void WriteString(this ref MessagePackWriter writer, string str)
+        public static void WriteString(this ref MessagePackWriter writer, string? str)
         {
+            if (str == null)
+            {
+                writer.WriteNil();
+                return;
+            }
+
             var count = ProtoCommon.Encoding.GetByteCount(str);
+
+            writer.WriteStringHeader(count);
 
             ProtoCommon.Encoding.GetBytes(str, writer.GetSpan(count));
 
