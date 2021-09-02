@@ -71,6 +71,8 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(keyRec, nameof(keyRec));
 
+            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+
             using var writer = new PooledArrayBufferWriter();
             Write(writer.GetMessageWriter());
 
@@ -80,7 +82,7 @@ namespace Apache.Ignite.Internal.Table
             void Write(MessagePackWriter w)
             {
                 w.Write(Id);
-                w.Write(_schemas.Count); // TODO: Schema id
+                w.Write(schema.Version); // TODO: Schema id
 
                 // TODO: Schema order with a pooled array.
                 for (var i = 0; i < keyRec.FieldCount; i++)
@@ -103,7 +105,19 @@ namespace Apache.Ignite.Internal.Table
             throw new NotImplementedException();
         }
 
-        private async Task<Schema> LoadSchema(int version)
+        private async Task<Schema> GetLatestSchemaAsync()
+        {
+            var latestSchemaVersion = _latestSchemaVersion;
+
+            if (latestSchemaVersion >= 0)
+            {
+                return _schemas[latestSchemaVersion];
+            }
+
+            return await LoadSchemaAsync(null).ConfigureAwait(false);
+        }
+
+        private async Task<Schema> LoadSchemaAsync(int? version)
         {
             using var writer = new PooledArrayBufferWriter();
             Write(writer.GetMessageWriter());
@@ -114,7 +128,17 @@ namespace Apache.Ignite.Internal.Table
             void Write(MessagePackWriter w)
             {
                 w.Write(Id);
-                w.Write(version);
+
+                if (version == null)
+                {
+                    w.WriteNil();
+                }
+                else
+                {
+                    w.WriteArrayHeader(1);
+                    w.Write(version.Value);
+                }
+
                 w.Flush();
             }
 
@@ -127,7 +151,15 @@ namespace Apache.Ignite.Internal.Table
                     throw new IgniteClientException("Schema not found: " + version);
                 }
 
-                return ReadSchema(r);
+                Schema last = null!;
+
+                for (var i = 0; i < schemaCount; i++)
+                {
+                    last = ReadSchema(r);
+                }
+
+                // Store all schemas in the map, and return last.
+                return last;
             }
         }
 
