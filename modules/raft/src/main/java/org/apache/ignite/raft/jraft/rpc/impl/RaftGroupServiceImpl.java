@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.rpc.impl;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
@@ -180,12 +181,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     /** {@inheritDoc} */
     @Override public List<Peer> peers() {
-        return peers.stream().map(this::peerFromPeerId).collect(Collectors.toList());
+        return convertPeerIdList(peers);
     }
 
     /** {@inheritDoc} */
     @Override public List<Peer> learners() {
-        return learners.stream().map(this::peerFromPeerId).collect(Collectors.toList());
+        return convertPeerIdList(learners);
     }
 
     /** {@inheritDoc} */
@@ -527,6 +528,17 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         List<PeerId> res = new ArrayList<>(peers.size());
         for (String peer: peers) {
             res.add(PeerId.parsePeer(peer));
+        }
+        return res;
+    }
+
+    private List<Peer> convertPeerIdList(List<PeerId> peers) {
+        if (peers == null)
+            return Collections.emptyList();
+
+        List<Peer> res = new ArrayList<>(peers.size());
+        for (PeerId peerId: peers) {
+            res.add(peerFromPeerId(peerId));
         }
         return res;
     }

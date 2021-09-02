@@ -18,6 +18,8 @@
 package org.apache.ignite.raft.jraft.core;
 
 import java.net.ConnectException;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -62,6 +64,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 /**
@@ -458,6 +461,37 @@ public class RaftGroupServiceTest {
         catch (ExecutionException e) {
             assertTrue(e.getCause() instanceof RaftException);
         }
+    }
+
+    /**
+     * @throws Exception
+     */
+    @Test
+    public void testRefreshMembers() throws Exception {
+        String groupId = "test";
+
+        List<String> respPeers =
+            NODES.subList(0, 2).stream().map(p -> PeerId.fromPeer(p).toString()).collect(Collectors.toList());
+        List<String> respLearners =
+            NODES.subList(2, 2).stream().map(p -> PeerId.fromPeer(p).toString()).collect(Collectors.toList());
+
+        when(messagingService.invoke(any(NetworkAddress.class),
+             eq(FACTORY.getPeersRequest().onlyAlive(false).groupId(groupId).build()), anyLong()))
+            .then(invocation ->
+                completedFuture(FACTORY.getPeersResponse().peersList(respPeers).learnersList(respLearners).build()));
+
+        mockLeaderRequest(false);
+
+        RaftGroupService service =
+            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, true, DELAY).get(3, TimeUnit.SECONDS);
+
+        assertEquals(NODES, service.peers());
+        assertEquals(Collections.emptyList(), service.learners());
+
+        service.refreshMembers(false);
+
+        assertEquals(NODES.subList(0, 2), service.peers());
+        assertEquals(NODES.subList(2, 2), service.learners());
     }
 
     /**
