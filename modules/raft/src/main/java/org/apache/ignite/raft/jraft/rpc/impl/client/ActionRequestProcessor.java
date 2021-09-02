@@ -19,11 +19,10 @@ package org.apache.ignite.raft.jraft.rpc.impl.client;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
-import org.apache.ignite.internal.tx.Lockable;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.RaftErrorCode;
@@ -71,15 +70,13 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             return;
         }
 
-        // Acquire a lock before submitting to STM.
-        if (request.command() instanceof Lockable) {
-            Lockable lockable = (Lockable) request.command();
+        JRaftServerImpl.DelegatingStateMachine fsm = (JRaftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
 
-            TxManager mgr = rpcCtx.getTxManager();
+        // Apply a filter before commiting to STM.
+        CompletableFuture<Void> fut = fsm.getListener().onBeforeApply(request.command());
 
-            assert mgr != null;
-
-            lockable.tryLock(mgr).handle(new BiFunction<Void, Throwable, Void>() {
+        if (fut != null) {
+            fut.handle(new BiFunction<Void, Throwable, Void>() {
                 @Override public Void apply(Void ignored, Throwable err) {
                     if (err == null) {
                         if (request.command() instanceof WriteCommand)

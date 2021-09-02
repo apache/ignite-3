@@ -53,7 +53,6 @@ import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -96,33 +95,24 @@ public class TxTest extends IgniteAbstractTest {
     /** */
     private IgniteTransactions igniteTransactions;
 
-    @Mock
-    private ClusterService clusterService;
-
     /** */
     private TxManager txManager;
-
-    /** */
-    private LockManager lockManager;
-
-    /** */
-    private InternalTable table;
 
     /**
      * Initialize the test state.
      */
     @BeforeEach
     public void before() {
-        clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(ADDR);
 
-        lockManager = new HeapLockManager();
+        LockManager lockManager = new HeapLockManager();
 
         txManager = new TxManagerImpl(clusterService, lockManager);
 
         igniteTransactions = new IgniteTransactionsImpl(txManager);
 
-        table = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapStorage(), txManager), txManager);
+        InternalTable table = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapStorage(), txManager), txManager);
 
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
@@ -132,6 +122,21 @@ public class TxTest extends IgniteAbstractTest {
         );
 
         accounts = new TableImpl(table, new DummySchemaManagerImpl(schema), null, null);
+    }
+
+    /** */
+    @Test
+    public void testMixedPutGet() throws TransactionException {
+        accounts.upsert(makeValue(1, BALANCE_1));
+
+        igniteTransactions.runInTransaction(tx -> {
+            Table txAcc = accounts.withTransaction(tx);
+
+            txAcc.getAsync(makeKey(1)).thenCompose(r ->
+                txAcc.upsertAsync(makeValue(1, r.doubleValue("balance") + DELTA))).join();
+        });
+
+        assertEquals(BALANCE_1 + DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
     }
 
     /**
@@ -573,29 +578,6 @@ public class TxTest extends IgniteAbstractTest {
         assertEquals(total, total0, "Total amount invariant is not preserved");
 
         CyclicBarrier startBar = new CyclicBarrier(threads.length, () -> log.info("Before test"));
-
-        CyclicBarrier sync = new CyclicBarrier(threads.length, new Runnable() {
-            @Override public void run() {
-                assertTrue(lockManager.isEmpty());
-
-                if (verbose)
-                    log.info("Sync");
-
-                double total0 = 0;
-
-                for (long i = 0; i < threads.length; i++) {
-                    double balance = accounts.get(makeKey(i)).doubleValue("balance");
-
-                    if (verbose)
-                        log.info("Balance id={} val={}", i, balance);
-
-                    total0 += balance;
-                }
-
-                if (total0 != total)
-                    System.out.println();
-            }
-        });
 
         LongAdder ops = new LongAdder();
         LongAdder fails = new LongAdder();

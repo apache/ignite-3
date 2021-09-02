@@ -21,6 +21,8 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
@@ -41,11 +43,17 @@ import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
 import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
+import org.apache.ignite.internal.tx.Lockable;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.raft.client.Command;
+import org.apache.ignite.raft.client.RaftErrorCode;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
+import org.apache.ignite.raft.client.message.RaftErrorResponseBuilder;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -203,6 +211,21 @@ public class PartitionListener implements RaftGroupListener {
         catch (Exception e) {
             throw new IgniteInternalException("Failed to close storage: " + e.getMessage(), e);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override public @Nullable CompletableFuture<Void> onBeforeApply(Command command) {
+        if (command instanceof Lockable) {
+            Lockable lockable = (Lockable) command;
+
+            TxManager mgr = storage.txManager();
+
+            assert mgr != null;
+
+            return lockable.tryLock(mgr);
+        }
+
+        return null;
     }
 
     /**
