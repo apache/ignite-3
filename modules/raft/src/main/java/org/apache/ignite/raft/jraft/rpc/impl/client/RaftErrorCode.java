@@ -37,9 +37,6 @@ public enum RaftErrorCode {
     SNAPSHOT(1005, "Snapshot error"),
 
     /** */
-    UNKNOWN(1007, "No no no"),
-
-    /** */
     STATE_MACHINE(1006, "Unrecoverable state machine error");
 
     /** */

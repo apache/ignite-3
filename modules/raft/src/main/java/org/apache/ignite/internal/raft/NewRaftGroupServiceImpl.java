@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raft;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
@@ -42,16 +43,25 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.impl.client.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.client.ActionResponse;
 import org.apache.ignite.raft.jraft.rpc.impl.client.RaftErrorCode;
-import org.apache.ignite.raft.jraft.rpc.impl.client.RaftErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.impl.client.RaftException;
 import org.jetbrains.annotations.NotNull;
 
 import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.ThreadLocalRandom.current;
-import static org.apache.ignite.raft.jraft.rpc.CliRequests.*;
-import static org.apache.ignite.raft.jraft.rpc.impl.client.RaftErrorCode.LEADER_CHANGED;
-import static org.apache.ignite.raft.jraft.rpc.impl.client.RaftErrorCode.NO_LEADER;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerRequest;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersRequest;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersResponse;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderRequest;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderResponse;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.GetPeersRequest;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.GetPeersResponse;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.LearnersOpResponse;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.RemovePeerRequest;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.SnapshotRequest;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
 
 /**
  * The implementation of {@link RaftGroupService}
@@ -108,10 +118,7 @@ public class NewRaftGroupServiceImpl implements RaftGroupService {
         long retryDelay
     ) {
         this.cluster = requireNonNull(cluster);
-
-        requireNonNull(peers);
-        this.peers = peers.stream().map(PeerId::fromPeer).collect(Collectors.toList());
-
+        this.peers = requireNonNull(peers).stream().map(PeerId::fromPeer).collect(Collectors.toList());
         this.factory = factory;
         this.timeout = timeout;
         this.groupId = groupId;
@@ -142,9 +149,8 @@ public class NewRaftGroupServiceImpl implements RaftGroupService {
     ) {
         var service = new NewRaftGroupServiceImpl(groupId, cluster, factory, timeout, peers, null, retryDelay);
 
-        if (!getLeader) {
+        if (!getLeader)
             return CompletableFuture.completedFuture(service);
-        }
 
         return service.refreshLeader().handle((unused, throwable) -> {
             if (throwable != null)
@@ -213,8 +219,8 @@ public class NewRaftGroupServiceImpl implements RaftGroupService {
         sendWithRetry(leader, req, currentTimeMillis() + timeout, fut);
 
         return fut.thenApply(resp -> {
-            peers = resp.peersList().stream().map(PeerId::parsePeer).collect(Collectors.toList());
-            learners = resp.learnersList().stream().map(PeerId::parsePeer).collect(Collectors.toList());
+            peers = parsePeerList(resp.peersList());
+            learners = parsePeerList(resp.learnersList());
 
             return null;
         });
@@ -234,7 +240,7 @@ public class NewRaftGroupServiceImpl implements RaftGroupService {
         sendWithRetry(leader, req, currentTimeMillis() + timeout, fut);
 
         return fut.thenApply(resp -> {
-            this.peers = resp.newPeersList().stream().map(PeerId::parsePeer).collect(Collectors.toList());
+            this.peers = parsePeerList(resp.newPeersList());
 
             return null;
         });
@@ -254,7 +260,7 @@ public class NewRaftGroupServiceImpl implements RaftGroupService {
         sendWithRetry(leader, req, currentTimeMillis() + timeout, fut);
 
         return fut.thenApply(resp -> {
-            this.peers = resp.newPeersList().stream().map(PeerId::parsePeer).collect(Collectors.toList());
+            this.peers = parsePeerList(resp.newPeersList());
 
             return null;
         });
@@ -277,7 +283,7 @@ public class NewRaftGroupServiceImpl implements RaftGroupService {
         sendWithRetry(leader, req, currentTimeMillis() + timeout, fut);
 
         return fut.thenApply(resp -> {
-            this.peers = resp.newPeersList().stream().map(PeerId::parsePeer).collect(Collectors.toList());
+            this.peers = parsePeerList(resp.newPeersList());
 
             return null;
         });
@@ -298,7 +304,7 @@ public class NewRaftGroupServiceImpl implements RaftGroupService {
         sendWithRetry(leader, req, currentTimeMillis() + timeout, fut);
 
         return fut.thenApply(resp -> {
-            this.learners = resp.newLearnersList().stream().map(PeerId::parsePeer).collect(Collectors.toList());
+            this.learners = parsePeerList(resp.newLearnersList());
 
             return null;
         });
@@ -319,7 +325,7 @@ public class NewRaftGroupServiceImpl implements RaftGroupService {
         sendWithRetry(leader, req, currentTimeMillis() + timeout, fut);
 
         return fut.thenApply(resp -> {
-            this.learners = resp.newLearnersList().stream().map(PeerId::parsePeer).collect(Collectors.toList());
+            this.learners = parsePeerList(resp.newLearnersList());
 
             return null;
         });
@@ -340,7 +346,7 @@ public class NewRaftGroupServiceImpl implements RaftGroupService {
         sendWithRetry(leader, req, currentTimeMillis() + timeout, fut);
 
         return fut.thenApply(resp -> {
-            this.learners = resp.newLearnersList().stream().map(PeerId::parsePeer).collect(Collectors.toList());
+            this.learners = parsePeerList(resp.newLearnersList());
 
             return null;
         });
@@ -516,5 +522,13 @@ public class NewRaftGroupServiceImpl implements RaftGroupService {
             return null;
         else
             return new Peer(NetworkAddress.from(peer.getEndpoint().getIp() + ":" + peer.getEndpoint().getPort()));
+    }
+
+    private List<PeerId> parsePeerList(List<String> peers) {
+        List<PeerId> res = new ArrayList<>(peers.size());
+        for (String peer: peers) {
+            res.add(PeerId.parsePeer(peer));
+        }
+        return res;
     }
 }

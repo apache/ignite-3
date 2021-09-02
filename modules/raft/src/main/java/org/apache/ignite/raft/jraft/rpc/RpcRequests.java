@@ -49,6 +49,9 @@ public final class RpcRequests {
          */
         String errorMsg();
 
+        /**
+         * <code>optional string leaderId = 3;</code>
+         */
         String leaderId();
     }
 

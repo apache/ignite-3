@@ -77,19 +77,7 @@ public interface RpcResponseFactory {
     /**
      * Creates an error response with parameters.
      *
-     * @param msgFactory Raft message factory
-     * @param error error with raft info
-     * @param fmt message with format string
-     * @param args arguments referenced by the format specifiers in the format string
-     * @return a response instance
-     */
-    default Message newResponse(String leaderId, RaftMessagesFactory msgFactory, RaftError error, String fmt, Object... args) {
-        return newResponse(msgFactory, error.getNumber(), fmt, args, leaderId);
-    }
-
-    /**
-     * Creates an error response with parameters.
-     *
+     * @param leaderId New leader id
      * @param msgFactory Raft message factory
      * @param code error code with raft info
      * @param fmt message with format string

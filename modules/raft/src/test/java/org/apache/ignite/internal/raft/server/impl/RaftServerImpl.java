@@ -36,12 +36,12 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.CliRequests;
-import org.apache.ignite.raft.jraft.rpc.impl.client.RaftErrorCode;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.jraft.rpc.impl.client.ActionRequest;
-import org.apache.ignite.raft.jraft.rpc.impl.client.RaftErrorResponse;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.jetbrains.annotations.Nullable;
@@ -111,7 +111,7 @@ public class RaftServerImpl implements RaftServer {
                     RaftGroupListener lsnr = listeners.get(req0.groupId());
 
                     if (lsnr == null) {
-                        sendError(senderAddr, correlationId, RaftErrorCode.ILLEGAL_STATE);
+                        sendError(senderAddr, correlationId, RaftError.UNKNOWN);
 
                         return;
                     }
@@ -217,7 +217,7 @@ public class RaftServerImpl implements RaftServer {
             }
         })) {
             // Queue out of capacity.
-            sendError(sender, corellationId, RaftErrorCode.BUSY);
+            sendError(sender, corellationId, RaftError.EBUSY);
         }
     }
 
@@ -247,8 +247,8 @@ public class RaftServerImpl implements RaftServer {
         }
     }
 
-    private void sendError(NetworkAddress sender, String corellationId, RaftErrorCode errorCode) {
-        RaftErrorResponse resp = clientMsgFactory.raftErrorResponse().errorCode(errorCode).build();
+    private void sendError(NetworkAddress sender, String corellationId, RaftError error) {
+        RpcRequests.ErrorResponse resp = clientMsgFactory.errorResponse().errorCode(error.getNumber()).build();
 
         service.messagingService().send(sender, resp, corellationId);
     }

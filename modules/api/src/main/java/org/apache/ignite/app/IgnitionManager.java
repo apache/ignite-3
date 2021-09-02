@@ -23,7 +23,6 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ServiceLoader;
-//import kgusakov.debug.Debugger;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -66,9 +65,7 @@ public class IgnitionManager {
         @Nullable String configStr,
         @NotNull Path workDir
     ) {
-//        Debugger.trace("start " + nodeName);
         synchronized (IgnitionManager.class) {
-//            Debugger.trace("in sync start " + nodeName);
             if (ignition == null) {
                 ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class);
                 ignition = ldr.iterator().next();

@@ -33,7 +33,7 @@ public class IgniteCliRpcRequestClosure implements Closure {
         if (msg instanceof RpcRequests.ErrorResponse) {
             var err = (RpcRequests.ErrorResponse)msg;
 
-            PeerId newLeader = null;
+            PeerId newLeader;
 
             if (err.errorCode() == RaftError.EPERM.getNumber()) {
                 newLeader = node.getLeaderId();

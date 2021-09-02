@@ -22,13 +22,11 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.raft.client.Command;
-import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.ErrorResponseBuilder;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
-import org.apache.ignite.raft.jraft.rpc.impl.client.RaftErrorResponseBuilder;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
@@ -41,8 +39,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.util.BytesUtil;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
-
-import static org.apache.ignite.raft.jraft.JRaftUtils.addressFromEndpoint;
 
 /**
  * Process action request.
@@ -62,7 +58,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
         Node node = rpcCtx.getNodeManager().get(request.groupId(), new PeerId(rpcCtx.getLocalAddress()));
 
         if (node == null) {
-            rpcCtx.sendResponse(factory.raftErrorResponse().errorCode(RaftErrorCode.ILLEGAL_STATE).build());
+            rpcCtx.sendResponse(factory.errorResponse().errorCode(RaftError.UNKNOWN.getNumber()).build());
 
             return;
         }
@@ -101,7 +97,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                                 }).iterator());
                             }
                             catch (Exception e) {
-                                sendError(rpcCtx, RaftErrorCode.STATE_MACHINE, e.getMessage());
+                                sendError(rpcCtx, RaftError.ESTATEMACHINE, e.getMessage());
                             }
                         }
                         else
@@ -126,7 +122,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                     }).iterator());
                 }
                 catch (Exception e) {
-                    sendError(rpcCtx, RaftErrorCode.STATE_MACHINE, e.getMessage());
+                    sendError(rpcCtx, RaftError.ESTATEMACHINE, e.getMessage());
                 }
             }
         }
@@ -144,13 +140,13 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
     /**
      * @param ctx Context.
-     * @param errorCode Error code.
+     * @param error RaftError code.
      * @param msg Message.
      */
-    private void sendError(RpcContext ctx, RaftErrorCode errorCode, String msg) {
-        RaftErrorResponse resp = factory.raftErrorResponse()
-            .errorCode(errorCode)
-            .errorMessage(msg)
+    private void sendError(RpcContext ctx, RaftError error, String msg) {
+        RpcRequests.ErrorResponse resp = factory.errorResponse()
+            .errorCode(error.getNumber())
+            .errorMsg(msg)
             .build();
 
         ctx.sendResponse(resp);
