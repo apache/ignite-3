@@ -80,8 +80,11 @@ public class TxTest extends IgniteAbstractTest {
     /** */
     private static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
-    /** Accounts table. */
+    /** Accounts table id -> balance. */
     private Table accounts;
+
+    /** Customers table id -> name. */
+    private Table customers;
 
     /** */
     public static final double BALANCE_1 = 500;
@@ -122,6 +125,17 @@ public class TxTest extends IgniteAbstractTest {
         );
 
         accounts = new TableImpl(table, new DummySchemaManagerImpl(schema), null, null);
+
+        InternalTable table2 = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapStorage(), txManager), txManager);
+
+        SchemaDescriptor schema2 = new SchemaDescriptor(
+            tableId,
+            1,
+            new Column[]{new Column("accountNumber", NativeTypes.INT64, false)},
+            new Column[]{new Column("name", NativeTypes.STRING, false)}
+        );
+
+        customers = new TableImpl(table2, new DummySchemaManagerImpl(schema2), null, null);
     }
 
     /** */
@@ -547,6 +561,28 @@ public class TxTest extends IgniteAbstractTest {
 
     /** */
     @Test
+    public void testCrossTable() throws TransactionException {
+//        customers.upsert(makeValue(1, "test"));
+//        accounts.upsert(makeValue(1, 100.));
+
+//        assertEquals("test", customers.get(makeKey2(1)).stringValue("name"));
+//        assertEquals(100., accounts.get(makeKey(1)).doubleValue("balance"));
+
+        InternalTransaction tx = txManager.begin();
+        InternalTransaction tx2 = txManager.begin();
+
+        Table txCust = customers.withTransaction(tx);
+        Table txAcc = accounts.withTransaction(tx2);
+
+        txCust.upsert(makeValue(1, "test"));
+        txAcc.upsert(makeValue(1, 100.));
+
+        tx.commit();
+        tx2.commit();
+    }
+
+    /** */
+    @Test
     public void testBalance() throws InterruptedException {
         doTestSingleKeyMultithreaded(5_000, false);
     }
@@ -692,10 +728,27 @@ public class TxTest extends IgniteAbstractTest {
 
     /**
      * @param id The id.
+     * @return The key tuple.
+     */
+    private Tuple makeKey2(long id) {
+        return customers.tupleBuilder().set("accountNumber", id).build();
+    }
+
+    /**
+     * @param id The id.
      * @param balance The balance.
      * @return The value tuple.
      */
     private Tuple makeValue(long id, double balance) {
         return accounts.tupleBuilder().set("accountNumber", id).set("balance", balance).build();
+    }
+
+    /**
+     * @param id The id.
+     * @param balance The balance.
+     * @return The value tuple.
+     */
+    private Tuple makeValue(long id, String name) {
+        return customers.tupleBuilder().set("accountNumber", id).set("name", name).build();
     }
 }

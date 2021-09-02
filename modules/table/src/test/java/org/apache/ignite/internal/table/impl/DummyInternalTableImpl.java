@@ -41,8 +41,11 @@ public class DummyInternalTableImpl implements InternalTable {
     /** In-memory dummy store. */
     private final VersionedRowStore store;
 
-    /** Lock manager. */
+    /** TX manager. */
     private final TxManager txManager;
+
+    /** */
+    private final UUID tableId = UUID.randomUUID();
 
     public DummyInternalTableImpl(VersionedRowStore store, TxManager txManager) {
         this.store = store;
@@ -51,7 +54,7 @@ public class DummyInternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public @NotNull UUID tableId() {
-        return UUID.randomUUID();
+        return tableId;
     }
 
     /** {@inheritDoc} */
