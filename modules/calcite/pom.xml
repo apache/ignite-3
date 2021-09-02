@@ -218,7 +218,7 @@
                 <executions>
                     <execution>
                         <id>generate-fmpp-sources</id>
-                        <phase>validate</phase>
+                        <phase>generate-resources</phase>
                         <goals>
                             <goal>generate</goal>
                         </goals>
@@ -234,6 +234,7 @@
                         <goals>
                             <goal>javacc</goal>
                         </goals>
+                        <phase>generate-resources</phase>
                         <configuration>
                             <sourceDirectory>${project.build.directory}/generated-sources/fmpp</sourceDirectory>
                             <outputDirectory>${project.build.directory}/generated-sources/javacc</outputDirectory>
