@@ -37,9 +37,7 @@ namespace Apache.Ignite.Tests
         public static readonly IPEndPoint EndPoint = new(IPAddress.Loopback, ClientPort);
 
         /** Maven command to execute the main class. */
-        private const string MavenCommandExec =
-            "-Dtest=ITThinClientConnectionTest -DfailIfNoTests=false -DIGNITE_TEST_KEEP_NODES_RUNNING=true " +
-            "surefire:test";
+        private const string MavenCommandExec = "exec:java@platform-test-node-runner";
 
         /** Full path to Maven binary. */
         private static readonly string MavenPath = GetMaven();
@@ -70,7 +68,7 @@ namespace Apache.Ignite.Tests
                     },
                     CreateNoWindow = true,
                     UseShellExecute = false,
-                    WorkingDirectory = TestUtils.RepoRootDir,
+                    WorkingDirectory = Path.Combine(TestUtils.RepoRootDir, "modules", "runner"),
                     RedirectStandardOutput = true,
                     RedirectStandardError = true
                 }
