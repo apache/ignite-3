@@ -1281,19 +1281,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override public Date getDate(int colIdx, Calendar cal) throws SQLException {
-        Object val = getValue(colIdx);
-
-        if (val == null)
-            return null;
-
-        Class<?> cls = val.getClass();
-
-        if (cls == Date.class)
-            return (Date)val;
-        else if (cls == java.util.Date.class || cls == Time.class || cls == Timestamp.class)
-            return new Date(((java.util.Date)val).getTime());
-        else
-            throw new SQLException("Cannot convert to date: " + val, SqlStateCode.CONVERSION_FAILED);
+        return getDate(colIdx);
     }
 
     /** {@inheritDoc} */
