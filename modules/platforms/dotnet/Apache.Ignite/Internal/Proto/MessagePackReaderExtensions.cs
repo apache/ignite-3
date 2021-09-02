@@ -30,11 +30,50 @@ namespace Apache.Ignite.Internal.Proto
     internal static class MessagePackReaderExtensions
     {
         /// <summary>
+        /// Reads an object with specified type.
+        /// </summary>
+        /// <param name="reader">Reader.</param>
+        /// <param name="type">Type.</param>
+        /// <returns>Resulting object.</returns>
+        public static object? ReadObject(this ref MessagePackReader reader, ClientDataType type)
+        {
+            switch (type)
+            {
+                case ClientDataType.Int8:
+                    return reader.ReadByte();
+
+                case ClientDataType.Int16:
+                    return reader.ReadInt16();
+
+                case ClientDataType.Int32:
+                    return reader.ReadInt32();
+
+                case ClientDataType.Int64:
+                    return reader.ReadInt64();
+
+                case ClientDataType.Float:
+                    return reader.ReadSingle();
+
+                case ClientDataType.Double:
+                    return reader.ReadDouble();
+
+                case ClientDataType.Uuid:
+                    return reader.ReadGuid();
+
+                case ClientDataType.String:
+                    return reader.ReadString();
+
+                default:
+                    throw new IgniteClientException("Unsupported type: " + type);
+            }
+        }
+
+        /// <summary>
         /// Skips multiple elements.
         /// </summary>
         /// <param name="reader">Reader.</param>
         /// <param name="count">Element count to skip.</param>
-        public static void Skip(this MessagePackReader reader, int count)
+        public static void Skip(this ref MessagePackReader reader, int count)
         {
             for (var i = 0; i < count; i++)
             {

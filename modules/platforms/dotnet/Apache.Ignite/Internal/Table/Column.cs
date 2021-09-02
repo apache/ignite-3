@@ -17,8 +17,10 @@
 
 namespace Apache.Ignite.Internal.Table
 {
+    using Proto;
+
     /// <summary>
     /// Schema column.
     /// </summary>
-    internal record Column(string Name, int Type, bool Nullable, bool IsKey, int SchemaIndex);
+    internal record Column(string Name, ClientDataType Type, bool Nullable, bool IsKey, int SchemaIndex);
 }

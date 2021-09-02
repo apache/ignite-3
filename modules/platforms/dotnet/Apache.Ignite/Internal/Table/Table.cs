@@ -82,7 +82,7 @@ namespace Apache.Ignite.Internal.Table
             void Write(MessagePackWriter w)
             {
                 w.Write(Id);
-                w.Write(schema.Version); // TODO: Schema id
+                w.Write(schema.Version);
 
                 for (var i = 0; i < schema.KeyColumnCount; i++)
                 {
@@ -94,10 +94,31 @@ namespace Apache.Ignite.Internal.Table
                 w.Flush();
             }
 
-            IIgniteTuple? Read(MessagePackReader r) =>
-                r.NextMessagePackType == MessagePackType.Nil
-                    ? null
-                    : new IgniteTuple();
+            IIgniteTuple? Read(MessagePackReader r)
+            {
+                if (r.NextMessagePackType == MessagePackType.Nil)
+                {
+                    return null;
+                }
+
+                var schemaVersion = r.ReadInt32();
+
+                if (schemaVersion != schema.Version)
+                {
+                    throw new NotSupportedException("TODO: Load schema");
+                }
+
+                var columns = schema.Columns;
+
+                var tuple = new IgniteTuple(columns.Count);
+
+                foreach (var column in columns)
+                {
+                    tuple[column.Name] = r.ReadObject(column.Type);
+                }
+
+                return tuple;
+            }
         }
 
         /// <inheritdoc/>
@@ -156,7 +177,7 @@ namespace Apache.Ignite.Internal.Table
 
                 for (var i = 0; i < schemaCount; i++)
                 {
-                    last = ReadSchema(r);
+                    last = ReadSchema(ref r);
                 }
 
                 // Store all schemas in the map, and return last.
@@ -164,7 +185,7 @@ namespace Apache.Ignite.Internal.Table
             }
         }
 
-        private Schema ReadSchema(MessagePackReader r)
+        private Schema ReadSchema(ref MessagePackReader r)
         {
             var schemaVersion = r.ReadInt32();
             var columnCount = r.ReadInt32();
@@ -186,7 +207,7 @@ namespace Apache.Ignite.Internal.Table
 
                 r.Skip(propertyCount - 4);
 
-                var column = new Column(name, type, isNullable, isKey, i);
+                var column = new Column(name, (ClientDataType)type, isNullable, isKey, i);
 
                 columns[i] = column;
                 columnsMap[column.Name] = column;
