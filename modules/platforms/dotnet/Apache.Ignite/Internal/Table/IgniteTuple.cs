@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Table
 {
+    using System.Collections.Generic;
     using Ignite.Table;
 
     /// <summary>
@@ -24,10 +25,35 @@ namespace Apache.Ignite.Internal.Table
     /// </summary>
     internal class IgniteTuple : IIgniteTuple
     {
-        /// <inheritdoc/>
-        public int FieldCount => 0;
+        /** Key-value pairs. */
+        private readonly List<KeyValuePair<string, object>> _pairs;
+
+        /** Column index map. */
+        private readonly Dictionary<string, int> _indexes;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="IgniteTuple"/> class.
+        /// </summary>
+        /// <param name="capacity">Capacity.</param>
+        public IgniteTuple(int capacity = 16)
+        {
+            _pairs = new List<KeyValuePair<string, object>>(capacity);
+            _indexes = new Dictionary<string, int>(capacity);
+        }
 
         /// <inheritdoc/>
-        public object? this[int ordinal] => null;
+        public int FieldCount => _pairs.Count;
+
+        /// <inheritdoc/>
+        public object? this[int ordinal] => _pairs[ordinal].Value;
+
+        /// <inheritdoc/>
+        public object? this[string name] => _pairs[_indexes[name]].Value;
+
+        /// <inheritdoc/>
+        public string GetName(int ordinal) => _pairs[ordinal].Key;
+
+        /// <inheritdoc/>
+        public int GetOrdinal(string name) => _indexes[name];
     }
 }

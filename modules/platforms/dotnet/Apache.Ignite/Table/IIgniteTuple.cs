@@ -17,9 +17,12 @@
 
 namespace Apache.Ignite.Table
 {
+    using Internal.Table;
+
     /// <summary>
     /// Ignite Tuple.
-    /// TODO: See ADO.NET for the API.
+    /// <para />
+    /// Use <see cref="Create()"/> to create an instance.
     /// </summary>
     public interface IIgniteTuple
     {
@@ -33,5 +36,38 @@ namespace Apache.Ignite.Table
         /// </summary>
         /// <param name="ordinal">The zero-based column ordinal.</param>
         object? this[int ordinal] { get; }
+
+        /// <summary>
+        /// Gets the value of the specified column as an object.
+        /// </summary>
+        /// <param name="name">The column name.</param>
+        object? this[string name] { get; }
+
+        /// <summary>
+        /// Gets the name of the column, given the zero-based column ordinal.
+        /// </summary>
+        /// <param name="ordinal">Zero-based column ordinal.</param>
+        /// <returns>Column name.</returns>
+        string GetName(int ordinal);
+
+        /// <summary>
+        /// Gets the column ordinal given the name of the column.
+        /// </summary>
+        /// <param name="name">Column name.</param>
+        /// <returns>Column ordinal.</returns>
+        int GetOrdinal(string name);
+
+        /// <summary>
+        /// Creates a new tuple.
+        /// </summary>
+        /// <returns>New tuple.</returns>
+        static IIgniteTuple Create() => new IgniteTuple();
+
+        /// <summary>
+        /// Creates a new tuple.
+        /// </summary>
+        /// <param name="capacity">Capacity.</param>
+        /// <returns>New tuple.</returns>
+        static IIgniteTuple Create(int capacity) => new IgniteTuple(capacity);
     }
 }
