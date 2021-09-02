@@ -237,6 +237,8 @@ public class JdbcStatement implements Statement {
         if (timeout < 0)
             throw new SQLException("Invalid timeout value.");
 
+        //The timeout value of 0 will be converted to Integer.MAX_VALUE timeout to avoid further checks to 0.
+        //This is because zero means there is no timeout limit.
         timeout(timeout * 1000 > timeout ? timeout * 1000 : Integer.MAX_VALUE);
     }
 
