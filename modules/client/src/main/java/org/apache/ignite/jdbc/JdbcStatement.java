@@ -636,8 +636,9 @@ public class JdbcStatement implements Statement {
      *
      * @param timeout Timeout.
      */
-    public final void timeout(int timeout) {
-        assert timeout >= 0;
+    public final void timeout(int timeout) throws SQLException {
+        if (timeout < 0)
+            throw new SQLException("Condition timeout >= 0 is not satisfied.");
 
         this.timeout = timeout;
 
