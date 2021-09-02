@@ -28,7 +28,7 @@ namespace Apache.Ignite.Tests.Proto
     /// </summary>
     public class MessagePackExtensionsTest
     {
-        public static readonly string?[] TestStrings =
+        private static readonly string?[] TestStrings =
         {
             "foo",
             string.Empty,
@@ -39,8 +39,13 @@ namespace Apache.Ignite.Tests.Proto
             new(new[] {(char) 0xD801, (char) 0xDC37}),
         };
 
+        private static readonly Guid[] TestGuids =
+        {
+            Guid.Empty, new(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11), Guid.NewGuid()
+        };
+
         [Test]
-        public void TestWriteString()
+        public void TestString()
         {
             foreach (var val in TestStrings)
             {
@@ -55,6 +60,30 @@ namespace Apache.Ignite.Tests.Proto
                     m => new MessagePackReader(m).ReadString());
 
                 Assert.AreEqual(val, res);
+            }
+        }
+
+        [Test]
+        public void TestGuid()
+        {
+            foreach (var guid in TestGuids)
+            {
+                var res = WriteRead(
+                    buf =>
+                    {
+                        var w = buf.GetMessageWriter();
+
+                        w.WriteGuid(guid);
+                        w.Flush();
+                    },
+                    m =>
+                    {
+                        var r = new MessagePackReader(m);
+
+                        return r.ReadGuid();
+                    });
+
+                Assert.AreEqual(guid, res);
             }
         }
 
