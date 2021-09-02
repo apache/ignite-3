@@ -18,36 +18,27 @@
 package org.apache.ignite.internal.runner.app;
 
 import java.net.InetSocketAddress;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import com.google.common.collect.Lists;
+import java.util.stream.Collectors;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
-import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
-import org.apache.ignite.table.Table;
-import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests thin client connecting to a real server node.
+ * Helper class for non-Java platform tests (.NET, C++, Python, ...).
+ * Starts nodes, populates tables and data for tests.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public class ITThinClientConnectionTest extends IgniteAbstractTest {
+public class PlatformTestNodeRunner {
     /** */
     private static final String SCHEMA_NAME = "PUB";
 
@@ -60,39 +51,29 @@ public class ITThinClientConnectionTest extends IgniteAbstractTest {
                 "  \"node\": {\n" +
                 "    \"metastorageNodes\":[ \"node0\" ]\n" +
                 "  },\n" +
+                "  \"clientConnector\":{\"port\": 10942,\"portRange\":0}," +
                 "  \"network\": {\n" +
                 "    \"port\":3344,\n" +
                 "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\" ]\n" +
                 "  }\n" +
                 "}");
+    }};
 
-        put("node1", "{\n" +
-                "  \"node\": {\n" +
-                "    \"metastorageNodes\":[ \"node0\" ]\n" +
-                "  },\n" +
-                "  \"network\": {\n" +
-                "    \"port\":3345,\n" +
-                "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\" ]\n" +
-                "  }\n" +
-                "}");
-        }};
-
-    /** */
-    private final List<Ignite> startedNodes = new ArrayList<>();
-
-    /** */
-    @AfterEach
-    void tearDown() throws Exception {
-        IgniteUtils.closeAll(Lists.reverse(startedNodes));
-    }
+    /** Base path for all temporary folders. */
+    private static final Path BASE_PATH = Path.of("target", "work", "PlatformTestNodeRunner");
 
     /**
-     * Check that thin client can connect to any server node and work with table API.
+     * Entry point.
+     * @param args Args.
      */
-    @Test
-    void testThinClientConnectsToServerNodesAndExecutesBasicTableOperations() throws Exception {
+    public static void main(String[] args) throws Exception {
+        IgniteUtils.deleteIfExists(BASE_PATH);
+        Files.createDirectories(BASE_PATH);
+
+        List<Ignite> startedNodes = new ArrayList<>();
+
         nodesBootstrapCfg.forEach((nodeName, configStr) ->
-                startedNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
+                startedNodes.add(IgnitionManager.start(nodeName, configStr, BASE_PATH.resolve(nodeName)))
         );
 
         var keyCol = "key";
@@ -109,26 +90,21 @@ public class ITThinClientConnectionTest extends IgniteAbstractTest {
                         .changePartitions(10)
         );
 
-        var addrs = new String[]{"127.0.0.1:" +
-            ((InetSocketAddress) ((IgniteImpl)startedNodes.stream().filter(node -> "node0".equals(node.name())).
-                findAny().get()).clientHandlerModule().localAddress()).getPort()};
+        String ports = startedNodes.stream()
+                .map(n -> String.valueOf(getPort((IgniteImpl)n)))
+                .collect(Collectors.joining (","));
 
-        for (var addr : addrs) {
-            try (var client = IgniteClient.builder().addresses(addr).build()) {
-                List<Table> tables = client.tables().tables();
-                assertEquals(1, tables.size());
+        System.out.println("THIN_CLIENT_PORTS=" + ports);
 
-                Table table = tables.get(0);
-                assertEquals(String.format("%s.%s", SCHEMA_NAME, TABLE_NAME), table.tableName());
+        Thread.sleep(Long.MAX_VALUE);
+    }
 
-                var tuple = Tuple.create().set(keyCol, 1).set(valCol, "Hello");
-                var keyTuple = Tuple.create().set(keyCol, 1);
-
-                table.upsert(tuple);
-                assertEquals("Hello", table.get(keyTuple).stringValue(valCol));
-
-                assertTrue(table.delete(keyTuple));
-            }
-        }
+    /**
+     * Gets the thin client port.
+     * @param node Node.
+     * @return Port number.
+     */
+    private static int getPort(IgniteImpl node) {
+        return ((InetSocketAddress)node.clientHandlerModule().localAddress()).getPort();
     }
 }
