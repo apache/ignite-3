@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.raft;
+package org.apache.ignite.raft.jraft.rpc.impl;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -39,10 +39,9 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.rpc.ActionRequest;
+import org.apache.ignite.raft.jraft.rpc.ActionResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
-import org.apache.ignite.raft.jraft.rpc.impl.client.ActionRequest;
-import org.apache.ignite.raft.jraft.rpc.impl.client.ActionResponse;
-import org.apache.ignite.raft.jraft.rpc.impl.client.RaftException;
 import org.jetbrains.annotations.NotNull;
 
 import static java.lang.System.currentTimeMillis;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.rpc.impl.client;
+package org.apache.ignite.raft.jraft.rpc.impl;
 
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.raft.jraft.error.RaftError;

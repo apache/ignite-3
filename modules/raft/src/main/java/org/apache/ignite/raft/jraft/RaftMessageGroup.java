@@ -21,8 +21,8 @@ import org.apache.ignite.network.annotations.MessageGroup;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
 import org.apache.ignite.raft.jraft.rpc.CliRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
-import org.apache.ignite.raft.jraft.rpc.impl.client.ActionRequest;
-import org.apache.ignite.raft.jraft.rpc.impl.client.ActionResponse;
+import org.apache.ignite.raft.jraft.rpc.ActionRequest;
+import org.apache.ignite.raft.jraft.rpc.ActionResponse;
 
 /**
  * Message group for the Raft module.

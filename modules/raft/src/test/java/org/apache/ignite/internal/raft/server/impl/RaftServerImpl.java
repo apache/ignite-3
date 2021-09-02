@@ -43,7 +43,7 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.CliRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
-import org.apache.ignite.raft.jraft.rpc.impl.client.ActionRequest;
+import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.jetbrains.annotations.Nullable;
 
 /**

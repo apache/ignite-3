@@ -44,7 +44,6 @@ import org.apache.ignite.raft.jraft.rpc.impl.cli.ResetLearnersRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.ResetPeerRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.SnapshotRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.TransferLeaderRequestProcessor;
-import org.apache.ignite.raft.jraft.rpc.impl.client.ActionRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.GetFileRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.InstallSnapshotRequestProcessor;
