@@ -51,10 +51,11 @@ namespace Apache.Ignite.Table
         string GetName(int ordinal);
 
         /// <summary>
-        /// Gets the column ordinal given the name of the column.
+        /// Gets the column ordinal given the name of the column,
+        /// or -1 when the column with the given name does not exist.
         /// </summary>
         /// <param name="name">Column name.</param>
-        /// <returns>Column ordinal.</returns>
+        /// <returns>Column ordinal, or -1 when the column with the given name does not exist.</returns>
         int GetOrdinal(string name);
 
         /// <summary>

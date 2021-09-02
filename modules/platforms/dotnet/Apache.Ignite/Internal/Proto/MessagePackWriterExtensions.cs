@@ -124,12 +124,52 @@ namespace Apache.Ignite.Internal.Proto
                     writer.Write(str);
                     return;
 
-                case int i:
-                    writer.Write(i);
+                case Guid g:
+                    writer.Write(g);
                     return;
 
                 case byte b:
                     writer.Write(b);
+                    return;
+
+                case sbyte sb:
+                    writer.Write(sb);
+                    return;
+
+                case short s:
+                    writer.Write(s);
+                    return;
+
+                case ushort us:
+                    writer.Write(us);
+                    return;
+
+                case int i:
+                    writer.Write(i);
+                    return;
+
+                case uint ui:
+                    writer.Write(ui);
+                    return;
+
+                case long l:
+                    writer.Write(l);
+                    return;
+
+                case ulong ul:
+                    writer.Write(ul);
+                    return;
+
+                case char ch:
+                    writer.Write(ch);
+                    return;
+
+                case float f:
+                    writer.Write(f);
+                    return;
+
+                case double d:
+                    writer.Write(d);
                     return;
             }
 

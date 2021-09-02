@@ -84,10 +84,11 @@ namespace Apache.Ignite.Internal.Table
                 w.Write(Id);
                 w.Write(schema.Version); // TODO: Schema id
 
-                // TODO: Schema order with a pooled array.
-                for (var i = 0; i < keyRec.FieldCount; i++)
+                for (var i = 0; i < schema.KeyColumnCount; i++)
                 {
-                    w.WriteObject(keyRec[i]);
+                    var col = schema.Columns[i];
+
+                    w.WriteObject(keyRec[col.Name]);
                 }
 
                 w.Flush();

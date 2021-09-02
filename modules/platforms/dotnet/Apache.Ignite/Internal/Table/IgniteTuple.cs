@@ -76,6 +76,6 @@ namespace Apache.Ignite.Internal.Table
         public string GetName(int ordinal) => _pairs[ordinal].Key;
 
         /// <inheritdoc/>
-        public int GetOrdinal(string name) => _indexes[name];
+        public int GetOrdinal(string name) => _indexes.TryGetValue(name, out var index) ? index : -1;
     }
 }
