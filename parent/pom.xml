@@ -169,12 +169,6 @@
 
             <dependency>
                 <groupId>org.apache.ignite</groupId>
-                <artifactId>ignite-configuration-annotation-processor</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-configuration-api</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -212,12 +206,6 @@
             <dependency>
                 <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-network</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.ignite</groupId>
-                <artifactId>ignite-network-annotation-processor</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
