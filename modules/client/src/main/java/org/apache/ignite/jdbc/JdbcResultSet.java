@@ -54,7 +54,6 @@ import org.apache.ignite.client.proto.query.event.JdbcQueryCloseRequest;
 import org.apache.ignite.client.proto.query.event.JdbcQueryCloseResult;
 import org.apache.ignite.client.proto.query.event.JdbcQueryFetchRequest;
 import org.apache.ignite.client.proto.query.event.JdbcQueryFetchResult;
-import org.apache.ignite.client.proto.query.event.JdbcResponse;
 
 /**
  * Jdbc result set implementation.
@@ -168,7 +167,7 @@ public class JdbcResultSet implements ResultSet {
         if ((rowsIter == null || !rowsIter.hasNext()) && !finished) {
             JdbcQueryFetchResult res = qryHandler.fetch(new JdbcQueryFetchRequest(cursorId, fetchSize));
 
-            if (res.status() != JdbcResponse.STATUS_SUCCESS)
+            if (!res.hasResults())
                 throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
 
             rows = res.items();
@@ -217,7 +216,7 @@ public class JdbcResultSet implements ResultSet {
             if (stmt != null && (!finished || (isQuery && !autoClose))) {
                 JdbcQueryCloseResult res = qryHandler.close(new JdbcQueryCloseRequest(cursorId));
 
-                if (res.status() != JdbcResponse.STATUS_SUCCESS)
+                if (!res.hasResults())
                     throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
             }
         }

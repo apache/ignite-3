@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
@@ -58,8 +59,6 @@ public class JdbcQuerySingleResult extends JdbcResponse {
      */
     public JdbcQuerySingleResult(int status, String err) {
         super(status, err);
-
-        items = Collections.emptyList();
     }
 
     /**
@@ -72,10 +71,14 @@ public class JdbcQuerySingleResult extends JdbcResponse {
     public JdbcQuerySingleResult(long cursorId, List<List<Object>> items, boolean last) {
         super();
 
+        Objects.requireNonNull(items);
+
         this.cursorId = cursorId;
         this.items = items;
         this.last = last;
-        isQuery = true;
+        this.isQuery = true;
+
+        hasResults = true;
     }
 
     /**
@@ -88,9 +91,12 @@ public class JdbcQuerySingleResult extends JdbcResponse {
         super();
 
         this.cursorId = cursorId;
-        last = true;
-        isQuery = false;
+        this.last = true;
+        this.isQuery = false;
         this.updateCnt = updateCnt;
+        this.items = Collections.emptyList();
+
+        hasResults = true;
     }
 
     /**
@@ -142,6 +148,9 @@ public class JdbcQuerySingleResult extends JdbcResponse {
     @Override public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
+        if (!hasResults)
+            return;
+
         packer.packLong(cursorId);
         packer.packBoolean(isQuery);
         packer.packLong(updateCnt);
@@ -157,10 +166,12 @@ public class JdbcQuerySingleResult extends JdbcResponse {
     @Override public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
 
+        if (!hasResults)
+            return;
+
         cursorId = unpacker.unpackLong();
         isQuery = unpacker.unpackBoolean();
         updateCnt = unpacker.unpackLong();
-
         last = unpacker.unpackBoolean();
 
         int size = unpacker.unpackArrayHeader();

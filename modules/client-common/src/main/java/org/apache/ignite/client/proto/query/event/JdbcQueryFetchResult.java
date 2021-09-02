@@ -19,7 +19,6 @@ package org.apache.ignite.client.proto.query.event;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.client.proto.ClientMessagePacker;
@@ -50,8 +49,6 @@ public class JdbcQueryFetchResult extends JdbcResponse {
      */
     public JdbcQueryFetchResult(int status, String err) {
         super(status, err);
-
-        items = Collections.emptyList();
     }
 
     /**
@@ -65,6 +62,8 @@ public class JdbcQueryFetchResult extends JdbcResponse {
 
         this.items = items;
         this.last = last;
+
+        hasResults = true;
     }
 
     /**
@@ -89,6 +88,9 @@ public class JdbcQueryFetchResult extends JdbcResponse {
     @Override public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
+        if (!hasResults)
+            return;
+
         packer.packBoolean(last);
 
         packer.packArrayHeader(items.size());
@@ -100,6 +102,9 @@ public class JdbcQueryFetchResult extends JdbcResponse {
     /** {@inheritDoc} */
     @Override public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
+
+        if (!hasResults)
+            return;
 
         last = unpacker.unpackBoolean();
 

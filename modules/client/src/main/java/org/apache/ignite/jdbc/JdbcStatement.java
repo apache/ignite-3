@@ -35,7 +35,6 @@ import org.apache.ignite.client.proto.query.event.JdbcQuery;
 import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteResult;
 import org.apache.ignite.client.proto.query.event.JdbcQuerySingleResult;
-import org.apache.ignite.client.proto.query.event.JdbcResponse;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 
@@ -137,11 +136,11 @@ public class JdbcStatement implements Statement {
 
         JdbcQueryExecuteResult res = conn.handler().query(req);
 
-        if (res.status() != JdbcResponse.STATUS_SUCCESS)
+        if (!res.hasResults())
             throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
 
         for (JdbcQuerySingleResult jdbcRes : res.results()) {
-            if (jdbcRes.status() != JdbcResponse.STATUS_SUCCESS)
+            if (!jdbcRes.hasResults())
                 throw IgniteQueryErrorCode.createJdbcSqlException(jdbcRes.err(), jdbcRes.status());
         }
 
@@ -392,12 +391,11 @@ public class JdbcStatement implements Statement {
         try {
             JdbcBatchExecuteResult res = conn.handler().batch(req);
 
-            if (res.status() != JdbcResponse.STATUS_SUCCESS) {
+            if (!res.hasResults())
                 throw new BatchUpdateException(res.err(),
                     IgniteQueryErrorCode.codeToSqlState(res.status()),
                     res.status(),
                     res.updateCounts());
-            }
 
             return res.updateCounts();
         }

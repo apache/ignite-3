@@ -46,8 +46,6 @@ public class JdbcQueryExecuteResult extends JdbcResponse {
      */
     public JdbcQueryExecuteResult(int status, String err) {
         super(status, err);
-
-        results = Collections.emptyList();
     }
 
     /**
@@ -61,11 +59,16 @@ public class JdbcQueryExecuteResult extends JdbcResponse {
         Objects.requireNonNull(results);
 
         this.results = results;
+
+        this.hasResults = true;
     }
 
     /** {@inheritDoc} */
     @Override public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
+
+        if (!hasResults)
+            return;
 
         packer.packArrayHeader(results.size());
 
@@ -77,7 +80,16 @@ public class JdbcQueryExecuteResult extends JdbcResponse {
     @Override public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
 
+        if (!hasResults)
+            return;
+
         int size = unpacker.unpackArrayHeader();
+
+        if (size == 0) {
+            results = Collections.emptyList();
+
+            return;
+        }
 
         results = new ArrayList<>(size);
 
