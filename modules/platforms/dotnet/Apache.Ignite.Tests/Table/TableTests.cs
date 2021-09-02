@@ -34,11 +34,23 @@ namespace Apache.Ignite.Tests.Table
 
             var tuple = new IgniteTuple
             {
-                ["key"] = 1L,
-                ["name"] = "foo"
+                ["key"] = 1,
+                ["val"] = "foo"
             };
 
             await table.UpsertAsync(tuple);
+
+            var keyTuple = new IgniteTuple
+            {
+                ["key"] = 1
+            };
+
+            var resTuple = (await table.GetAsync(keyTuple))!;
+
+            Assert.IsNotNull(resTuple);
+            Assert.AreEqual(2, resTuple.FieldCount);
+            Assert.AreEqual(1L, resTuple["key"]);
+            Assert.AreEqual("foo", resTuple["name"]);
         }
     }
 }

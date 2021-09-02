@@ -122,9 +122,38 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public Task UpsertAsync(IIgniteTuple rec)
+        public async Task UpsertAsync(IIgniteTuple rec)
         {
-            throw new NotImplementedException();
+            IgniteArgumentCheck.NotNull(rec, nameof(rec));
+
+            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+
+            using var writer = new PooledArrayBufferWriter();
+            Write(writer.GetMessageWriter());
+
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGet, writer).ConfigureAwait(false);
+
+            void Write(MessagePackWriter w)
+            {
+                w.Write(Id);
+                w.Write(schema.Version);
+
+                foreach (var col in schema.Columns)
+                {
+                    var colIdx = rec.GetOrdinal(col.Name);
+
+                    if (colIdx < 0)
+                    {
+                        w.WriteNil();
+                    }
+                    else
+                    {
+                        w.WriteObject(rec[colIdx]);
+                    }
+                }
+
+                w.Flush();
+            }
         }
 
         private async Task<Schema> GetLatestSchemaAsync()
@@ -144,7 +173,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = new PooledArrayBufferWriter();
             Write(writer.GetMessageWriter());
 
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGet, writer).ConfigureAwait(false);
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.SchemasGet, writer).ConfigureAwait(false);
             return Read(resBuf.GetReader());
 
             void Write(MessagePackWriter w)
@@ -166,7 +195,7 @@ namespace Apache.Ignite.Internal.Table
 
             Schema Read(MessagePackReader r)
             {
-                var schemaCount = r.ReadInt32();
+                var schemaCount = r.ReadMapHeader();
 
                 if (schemaCount == 0)
                 {
@@ -188,7 +217,7 @@ namespace Apache.Ignite.Internal.Table
         private Schema ReadSchema(ref MessagePackReader r)
         {
             var schemaVersion = r.ReadInt32();
-            var columnCount = r.ReadInt32();
+            var columnCount = r.ReadArrayHeader();
             var keyColumnCount = 0;
 
             var columns = new Column[columnCount];
