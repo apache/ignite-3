@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Table
 {
     using System;
+    using System.Collections.Concurrent;
     using System.Threading.Tasks;
     using Buffers;
     using Common;
@@ -32,6 +33,9 @@ namespace Apache.Ignite.Internal.Table
     {
         /** Socket. */
         private readonly ClientFailoverSocket _socket;
+
+        /** Schemas. */
+        private readonly ConcurrentDictionary<int, Schema> _schemas = new();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Table"/> class.
@@ -68,7 +72,7 @@ namespace Apache.Ignite.Internal.Table
             void Write(MessagePackWriter w)
             {
                 w.WriteGuid(Id);
-                w.Write(1); // TODO: Schema id
+                w.Write(_schemas.Count); // TODO: Schema id
 
                 // TODO: Schema order with a pooled array.
                 for (var i = 0; i < keyRec.FieldCount; i++)
