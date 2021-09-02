@@ -24,6 +24,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.metastorage.common.OperationType;
@@ -177,7 +178,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     @Override public @NotNull Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound) {
         return new CursorImpl<>(
                 metaStorageRaftGrpSvc,
-                metaStorageRaftGrpSvc.run(new RangeCommand(keyFrom, keyTo, revUpperBound, localNodeId)),
+                metaStorageRaftGrpSvc.run(
+                    new RangeCommand(keyFrom, keyTo, revUpperBound, localNodeId, new IgniteUuid(UUID.randomUUID(), 0L))),
                 MetaStorageServiceImpl::singleEntryResult
         );
     }
@@ -186,7 +188,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     @Override public @NotNull Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo) {
         return new CursorImpl<>(
                 metaStorageRaftGrpSvc,
-                metaStorageRaftGrpSvc.run(new RangeCommand(keyFrom, keyTo, localNodeId)),
+                metaStorageRaftGrpSvc.run(
+                    new RangeCommand(keyFrom, keyTo, localNodeId, new IgniteUuid(UUID.randomUUID(), 0L))),
                 MetaStorageServiceImpl::singleEntryResult
         );
     }
@@ -199,7 +202,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         @NotNull WatchListener lsnr
     ) {
         CompletableFuture<IgniteUuid> watchRes =
-            metaStorageRaftGrpSvc.run(new WatchRangeKeysCommand(keyFrom, keyTo, revision, localNodeId));
+            metaStorageRaftGrpSvc.run(new WatchRangeKeysCommand(keyFrom, keyTo, revision, localNodeId, new IgniteUuid(UUID.randomUUID(), 0L)));
 
         watchRes.thenAccept(
             watchId -> watchProcessor.addWatch(
@@ -228,7 +231,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         @NotNull WatchListener lsnr
     ) {
         CompletableFuture<IgniteUuid> watchRes =
-            metaStorageRaftGrpSvc.run(new WatchExactKeysCommand(keys, revision, localNodeId));
+            metaStorageRaftGrpSvc.run(new WatchExactKeysCommand(keys, revision, localNodeId, new IgniteUuid(UUID.randomUUID(), 0L)));
 
         watchRes.thenAccept(
             watchId -> watchProcessor.addWatch(
