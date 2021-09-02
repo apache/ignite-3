@@ -28,13 +28,12 @@ namespace Apache.Ignite.Tests.Proto
     /// </summary>
     public class MessagePackExtensionsTest
     {
-        public static readonly string[] TestStrings =
+        public static readonly string?[] TestStrings =
         {
             "foo",
             string.Empty,
-            null!,
+            null,
             "тест",
-            new(new[] {(char) 0xD800, '的', (char) 0xD800, (char) 0xD800, (char) 0xDC00, (char) 0xDFFF}),
             "ascii0123456789",
             "的的abcdкириллица",
             new(new[] {(char) 0xD801, (char) 0xDC37}),

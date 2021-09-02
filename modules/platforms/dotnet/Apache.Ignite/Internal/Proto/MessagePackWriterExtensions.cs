@@ -43,7 +43,9 @@ namespace Apache.Ignite.Internal.Proto
 
             writer.WriteStringHeader(count);
 
-            ProtoCommon.Encoding.GetBytes(str, writer.GetSpan(count));
+            var targetSpan = writer.GetSpan(count);
+
+            ProtoCommon.Encoding.GetBytes(str, targetSpan);
 
             writer.Advance(count);
         }

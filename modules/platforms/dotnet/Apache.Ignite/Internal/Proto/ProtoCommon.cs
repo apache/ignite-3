@@ -32,6 +32,6 @@ namespace Apache.Ignite.Internal.Proto
         /// <summary>
         /// String encoding.
         /// </summary>
-        public static readonly Encoding Encoding = Encoding.UTF8;
+        public static readonly Encoding Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
     }
 }
