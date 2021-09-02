@@ -35,7 +35,7 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestConnectAndSendRequestReturnsResponse()
         {
-            using var socket = await ClientSocket.ConnectAsync(JavaServer.EndPoint);
+            using var socket = await ClientSocket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, ServerPort));
 
             using var requestWriter = new PooledArrayBufferWriter();
 
@@ -54,7 +54,7 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestConnectAndSendRequestWithInvalidOpCodeThrowsError()
         {
-            using var socket = await ClientSocket.ConnectAsync(JavaServer.EndPoint);
+            using var socket = await ClientSocket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, ServerPort));
 
             using var requestWriter = new PooledArrayBufferWriter();
             requestWriter.GetMessageWriter().Write(123);
@@ -68,7 +68,7 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestDisposedSocketThrowsExceptionOnSend()
         {
-            var socket = await ClientSocket.ConnectAsync(JavaServer.EndPoint);
+            var socket = await ClientSocket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, ServerPort));
 
             socket.Dispose();
 

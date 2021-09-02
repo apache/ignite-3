@@ -21,7 +21,6 @@ namespace Apache.Ignite.Tests
     using System.Diagnostics;
     using System.IO;
     using System.Linq;
-    using System.Net;
     using System.Runtime.InteropServices;
     using System.Threading;
     using System.Threading.Tasks;
@@ -30,11 +29,9 @@ namespace Apache.Ignite.Tests
     /// <summary>
     /// Starts Java server nodes.
     /// </summary>
-    public static class JavaServer
+    public sealed class JavaServer : IDisposable
     {
-        public const int ClientPort = 10942;
-
-        public static readonly IPEndPoint EndPoint = new(IPAddress.Loopback, ClientPort);
+        private const int DefaultClientPort = 10942;
 
         /** Maven command to execute the main class. */
         private const string MavenCommandExec = "exec:java@platform-test-node-runner";
@@ -42,16 +39,26 @@ namespace Apache.Ignite.Tests
         /** Full path to Maven binary. */
         private static readonly string MavenPath = GetMaven();
 
+        private readonly Process? _process;
+
+        public JavaServer(int port, Process? process)
+        {
+            Port = port;
+            _process = process;
+        }
+
+        public int Port { get; }
+
         /// <summary>
         /// Starts a server node.
         /// </summary>
         /// <returns>Disposable object to stop the server.</returns>
-        public static async Task<IDisposable?> Start()
+        public static async Task<JavaServer> Start()
         {
-            if (await TryConnect())
+            if (await TryConnect(DefaultClientPort))
             {
                 // Server started from outside.
-                return null;
+                return new JavaServer(DefaultClientPort, null);
             }
 
             var file = TestUtils.IsWindows ? "cmd.exe" : "/bin/bash";
@@ -74,18 +81,28 @@ namespace Apache.Ignite.Tests
                 }
             };
 
+            var evt = new ManualResetEventSlim(false);
+            int[]? ports = null;
+
             DataReceivedEventHandler handler = (_, eventArgs) =>
             {
-                if (eventArgs.Data == null)
+                var line = eventArgs.Data;
+                if (line == null)
                 {
                     return;
                 }
 
                 // For IDE
-                Console.WriteLine(eventArgs.Data);
+                Console.WriteLine(line);
 
                 // For `dotnet test`
-                TestContext.Progress.WriteLine(eventArgs.Data);
+                TestContext.Progress.WriteLine(line);
+
+                if (line.StartsWith("THIN_CLIENT_PORTS", StringComparison.Ordinal))
+                {
+                    ports = line.Split('=').Last().Split(',').Select(int.Parse).ToArray();
+                    evt.Set();
+                }
             };
 
             process.OutputDataReceived += handler;
@@ -96,23 +113,29 @@ namespace Apache.Ignite.Tests
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
 
-            if (!WaitForServer())
+            if (!evt.Wait(TimeSpan.FromSeconds(15)) || !WaitForServer(ports?.FirstOrDefault() ?? DefaultClientPort))
             {
                 process.Kill(true);
 
                 throw new InvalidOperationException("Failed to wait for the server to start.");
             }
 
-            return new DisposeAction(() => process.Kill(true));
+            return new JavaServer(ports?.FirstOrDefault() ?? DefaultClientPort, process);
         }
 
-        private static bool WaitForServer()
+        public void Dispose()
+        {
+            _process?.Kill();
+            _process?.Dispose();
+        }
+
+        private static bool WaitForServer(int port)
         {
             var cts = new CancellationTokenSource();
 
             try
             {
-                return TryConnectForever(cts.Token).Wait(TimeSpan.FromSeconds(15));
+                return TryConnectForever(port, cts.Token).Wait(TimeSpan.FromSeconds(15));
             }
             finally
             {
@@ -120,19 +143,19 @@ namespace Apache.Ignite.Tests
             }
         }
 
-        private static async Task TryConnectForever(CancellationToken ct)
+        private static async Task TryConnectForever(int port, CancellationToken ct)
         {
-            while (!await TryConnect())
+            while (!await TryConnect(port))
             {
                 ct.ThrowIfCancellationRequested();
             }
         }
 
-        private static async Task<bool> TryConnect()
+        private static async Task<bool> TryConnect(int port)
         {
             try
             {
-                var cfg = new IgniteClientConfiguration("127.0.0.1:" + ClientPort);
+                var cfg = new IgniteClientConfiguration("127.0.0.1:" + port);
                 using var client = await IgniteClient.StartAsync(cfg);
 
                 return (await client.Tables.GetTablesAsync()).Count > 0;

@@ -64,18 +64,6 @@ namespace Apache.Ignite.Tests
             StringAssert.Contains("Unsupported version: 33.0.0", ex!.Message);
         }
 
-        private static async Task<NetworkStream> Connect()
-        {
-            Socket socket = new(SocketType.Stream, ProtocolType.Tcp)
-            {
-                NoDelay = true
-            };
-
-            await socket.ConnectAsync(IPAddress.Loopback, JavaServer.ClientPort);
-
-            return new NetworkStream(socket, ownsSocket: true);
-        }
-
         private static async Task CheckResponseMagic(NetworkStream stream)
         {
             var responseMagic = new byte[4];
@@ -130,6 +118,18 @@ namespace Apache.Ignite.Tests
 
             // Write message.
             stream.Write(bufferWriter.WrittenSpan);
+        }
+
+        private async Task<NetworkStream> Connect()
+        {
+            Socket socket = new(SocketType.Stream, ProtocolType.Tcp)
+            {
+                NoDelay = true
+            };
+
+            await socket.ConnectAsync(IPAddress.Loopback, ServerPort);
+
+            return new NetworkStream(socket, ownsSocket: true);
         }
     }
 }
