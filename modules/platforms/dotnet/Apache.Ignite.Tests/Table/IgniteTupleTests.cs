@@ -29,7 +29,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public void TestCreateUpdateRead()
         {
-            var tuple = IIgniteTuple.Create();
+            IIgniteTuple tuple = new IgniteTuple();
             Assert.AreEqual(0, tuple.FieldCount);
 
             tuple["foo"] = 1;

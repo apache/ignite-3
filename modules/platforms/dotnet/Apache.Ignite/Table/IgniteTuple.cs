@@ -15,15 +15,14 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Table
+namespace Apache.Ignite.Table
 {
     using System.Collections.Generic;
-    using Ignite.Table;
 
     /// <summary>
     /// Ignite tuple.
     /// </summary>
-    internal sealed class IgniteTuple : IIgniteTuple
+    public sealed class IgniteTuple : IIgniteTuple
     {
         /** Key-value pairs. */
         private readonly List<(string Key, object? Value)> _pairs;

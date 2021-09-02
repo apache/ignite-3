@@ -30,15 +30,15 @@ namespace Apache.Ignite.Tests.Table
         public async Task TestUpsertGet()
         {
             using var client = await IgniteClient.StartAsync(GetConfig());
-            var table = await client.Tables.GetTableAsync("PUB.tbl1");
+            var table = (await client.Tables.GetTableAsync("PUB.tbl1"))!;
 
-            // TODO: Support adder syntax
-            var tuple = IIgniteTuple.Create()
+            var tuple = new IgniteTuple
             {
-                ("foo", 1)
-            }
+                ["key"] = 1L,
+                ["name"] = "foo"
+            };
 
-            var res = table.GetAsync()
+            await table.UpsertAsync(tuple);
         }
     }
 }

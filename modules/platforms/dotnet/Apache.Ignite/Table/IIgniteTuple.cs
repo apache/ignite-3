@@ -17,12 +17,10 @@
 
 namespace Apache.Ignite.Table
 {
-    using Internal.Table;
-
     /// <summary>
     /// Ignite Tuple.
     /// <para />
-    /// Use <see cref="Create()"/> to create an instance.
+    /// Default implementation is <see cref="IgniteTuple"/>.
     /// </summary>
     public interface IIgniteTuple
     {
@@ -57,18 +55,5 @@ namespace Apache.Ignite.Table
         /// <param name="name">Column name.</param>
         /// <returns>Column ordinal, or -1 when the column with the given name does not exist.</returns>
         int GetOrdinal(string name);
-
-        /// <summary>
-        /// Creates a new tuple.
-        /// </summary>
-        /// <returns>New tuple.</returns>
-        static IIgniteTuple Create() => new IgniteTuple();
-
-        /// <summary>
-        /// Creates a new tuple.
-        /// </summary>
-        /// <param name="capacity">Capacity.</param>
-        /// <returns>New tuple.</returns>
-        static IIgniteTuple Create(int capacity) => new IgniteTuple(capacity);
     }
 }
