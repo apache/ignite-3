@@ -18,12 +18,13 @@
 package org.apache.ignite.internal.network.processor;
 
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.TestMessageTypes;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Test message used in {@link SerializationOrderTest}.
  */
-@Transferable(TestMessageGroup.SERIALIZATION_ORDER_MESSAGE)
+@Transferable(TestMessageTypes.SERIALIZATION_ORDER_MESSAGE)
 public interface SerializationOrderMessage extends NetworkMessage {
     /** */
     String b();

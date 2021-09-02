@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.processor;
 
+import org.apache.ignite.network.TestMessagesFactory;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageReader;
 import org.apache.ignite.network.serialization.MessageSerializer;
@@ -37,7 +38,7 @@ import static org.mockito.Mockito.when;
  */
 public class SerializationOrderTest {
     /** */
-    private final ProcTestMessagesFactory messageFactory = new ProcTestMessagesFactory();
+    private final TestMessagesFactory messageFactory = new TestMessagesFactory();
 
     /** */
     private final SerializationOrderMessageSerializationFactory serializationFactory =

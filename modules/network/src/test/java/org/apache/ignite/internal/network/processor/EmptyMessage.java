@@ -18,9 +18,10 @@
 package org.apache.ignite.internal.network.processor;
 
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.TestMessageTypes;
 import org.apache.ignite.network.annotations.Transferable;
 
 /** */
-@Transferable(TestMessageGroup.EMPTY_MESSAGE)
-interface EmptyMessage extends NetworkMessage {
+@Transferable(TestMessageTypes.EMPTY_MESSAGE)
+public interface EmptyMessage extends NetworkMessage {
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.processor;
 
+import org.apache.ignite.network.TestMessagesFactory;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -25,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 /** */
 public class EmptyMessageTest {
     /** */
-    private final ProcTestMessagesFactory factory = new ProcTestMessagesFactory();
+    private final TestMessagesFactory factory = new TestMessagesFactory();
 
     /**
      * Test that {@code hashCode} and {@code equals} are generated correctly for empty messages.
