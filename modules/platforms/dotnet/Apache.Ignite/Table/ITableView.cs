@@ -21,6 +21,8 @@ namespace Apache.Ignite.Table
 
     /// <summary>
     /// Table view interface provides methods to access table records.
+    /// <para />
+    /// TODO: All APIs, sync overloads (IGNITE-15431).
     /// </summary>
     /// <typeparam name="T">Record type.</typeparam>
     public interface ITableView<T>

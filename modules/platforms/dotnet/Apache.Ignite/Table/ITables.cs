@@ -22,7 +22,8 @@ namespace Apache.Ignite.Table
 
     /// <summary>
     /// Table management.
-    /// TODO: Sync overloads.
+    /// <para />
+    /// TODO: Sync overloads (IGNITE-15431).
     /// </summary>
     public interface ITables
     {

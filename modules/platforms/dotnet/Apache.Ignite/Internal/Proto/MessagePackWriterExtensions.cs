@@ -113,7 +113,7 @@ namespace Apache.Ignite.Internal.Proto
         /// <param name="obj">Object.</param>
         public static void WriteObject(this ref MessagePackWriter writer, object? obj)
         {
-            // TODO: Support all types (ticket).
+            // TODO: Support all types (IGNITE-15430).
             switch (obj)
             {
                 case null:

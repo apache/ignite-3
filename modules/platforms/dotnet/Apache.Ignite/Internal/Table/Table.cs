@@ -105,7 +105,8 @@ namespace Apache.Ignite.Internal.Table
 
                 if (schemaVersion != schema.Version)
                 {
-                    throw new NotSupportedException("TODO: Load schema");
+                    // TODO: Load schema (IGNITE-15431).
+                    throw new NotSupportedException();
                 }
 
                 var columns = schema.Columns;
