@@ -37,7 +37,7 @@ import static org.mockito.Mockito.when;
  */
 public class SerializationOrderTest {
     /** */
-    private final TestMessagesFactory messageFactory = new TestMessagesFactory();
+    private final ProcTestMessagesFactory messageFactory = new ProcTestMessagesFactory();
 
     /** */
     private final SerializationOrderMessageSerializationFactory serializationFactory =

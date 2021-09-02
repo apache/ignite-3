@@ -38,7 +38,7 @@ import static org.mockito.Mockito.when;
  */
 public class InheritedMessageTest {
     /** */
-    private final TestMessagesFactory messageFactory = new TestMessagesFactory();
+    private final ProcTestMessagesFactory messageFactory = new ProcTestMessagesFactory();
 
     /** */
     private final InheritedMessageSerializationFactory serializationFactory =
