@@ -66,7 +66,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     private static final IgniteLogger LOG = IgniteLogger.forClass(MetaStorageServiceImpl.class);
 
     /** IgniteUuid generator. */
-    private final static IgniteUuidGenerator uuidGenerator = new IgniteUuidGenerator(UUID.randomUUID(), 0);
+    private static final IgniteUuidGenerator uuidGenerator = new IgniteUuidGenerator(UUID.randomUUID(), 0);
 
     /** Meta storage raft group service. */
     private final RaftGroupService metaStorageRaftGrpSvc;
