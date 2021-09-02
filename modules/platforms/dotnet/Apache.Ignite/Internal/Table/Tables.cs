@@ -52,7 +52,7 @@ namespace Apache.Ignite.Internal.Table
 
             void Write(MessagePackWriter w)
             {
-                w.WriteString(name);
+                w.Write(name);
                 w.Flush();
             }
 

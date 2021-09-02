@@ -54,7 +54,7 @@ namespace Apache.Ignite.Tests.Proto
                     {
                         var w = buf.GetMessageWriter();
 
-                        w.WriteString(val);
+                        w.Write(val);
                         w.Flush();
                     },
                     m => new MessagePackReader(m).ReadString());
@@ -73,7 +73,7 @@ namespace Apache.Ignite.Tests.Proto
                     {
                         var w = buf.GetMessageWriter();
 
-                        w.WriteGuid(guid);
+                        w.Write(guid);
                         w.Flush();
                     },
                     m =>

@@ -31,7 +31,7 @@ namespace Apache.Ignite.Internal.Proto
         /// </summary>
         /// <param name="writer">Writer.</param>
         /// <param name="str">String.</param>
-        public static void WriteString(this ref MessagePackWriter writer, string? str)
+        public static void Write(this ref MessagePackWriter writer, string? str)
         {
             if (str == null)
             {
@@ -55,7 +55,7 @@ namespace Apache.Ignite.Internal.Proto
         /// </summary>
         /// <param name="writer">Writer.</param>
         /// <param name="guid">Guid.</param>
-        public static void WriteGuid(this ref MessagePackWriter writer, Guid guid)
+        public static void Write(this ref MessagePackWriter writer, Guid guid)
         {
             writer.WriteExtensionFormatHeader(new ExtensionHeader((sbyte)ClientMessagePackType.Uuid, 16));
 
@@ -121,7 +121,7 @@ namespace Apache.Ignite.Internal.Proto
                     return;
 
                 case string str:
-                    writer.WriteString(str);
+                    writer.Write(str);
                     return;
 
                 case int i:
