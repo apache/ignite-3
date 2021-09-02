@@ -42,7 +42,6 @@ import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.impl.client.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.client.ActionResponse;
-import org.apache.ignite.raft.jraft.rpc.impl.client.RaftErrorCode;
 import org.apache.ignite.raft.jraft.rpc.impl.client.RaftException;
 import org.jetbrains.annotations.NotNull;
 
@@ -364,7 +363,7 @@ public class NewRaftGroupServiceImpl implements RaftGroupService {
                 RpcRequests.ErrorResponse resp0 = (RpcRequests.ErrorResponse) resp;
 
                 if (resp0.errorCode() != RaftError.SUCCESS.getNumber())
-                    throw new RaftException(RaftErrorCode.from(resp0.errorCode()), resp0.errorMsg());
+                    throw new RaftException(RaftError.forNumber(resp0.errorCode()), resp0.errorMsg());
             }
 
             return null;
@@ -485,7 +484,8 @@ public class NewRaftGroupServiceImpl implements RaftGroupService {
                         }
                     }
                     else
-                        fut.completeExceptionally(new RaftException(RaftErrorCode.from(resp0.errorCode()), resp0.errorMsg()));
+                        fut.completeExceptionally(
+                            new RaftException(RaftError.forNumber(resp0.errorCode()), resp0.errorMsg()));
                 }
                 else {
                     leader = PeerId.fromPeer(peer); // The OK response was received from a leader.

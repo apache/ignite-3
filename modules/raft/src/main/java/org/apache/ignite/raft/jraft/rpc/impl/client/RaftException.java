@@ -18,34 +18,37 @@
 package org.apache.ignite.raft.jraft.rpc.impl.client;
 
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.raft.jraft.error.RaftError;
 
 /**
  * A raft exception containing code and description.
  */
 public class RaftException extends IgniteInternalException {
-    private final RaftErrorCode code;
+    /** Raft error. */
+    private final RaftError raftError;
 
     /**
-     * @param errCode Error code.
+     * @param raftError RaftError.
      */
-    public RaftException(RaftErrorCode errCode) {
-        this.code = errCode;
+    public RaftException(RaftError raftError) {
+        super(RaftError.describeCode(raftError.getNumber()));
+        this.raftError = raftError;
     }
 
     /**
-     * @param errCode Error code.
+     * @param raftError RaftError..
      * @param message Error message.
      */
-    public RaftException(RaftErrorCode errCode, String message) {
-        super(message);
+    public RaftException(RaftError raftError, String message) {
+        super(RaftError.describeCode(raftError.getNumber()) + ":" + message);
 
-        this.code = errCode;
+        this.raftError = raftError;
     }
 
     /**
-     * @return Error code.
+     * @return RaftError.
      */
-    public RaftErrorCode errorCode() {
-        return code;
+    public RaftError raftError() {
+        return raftError;
     }
 }
