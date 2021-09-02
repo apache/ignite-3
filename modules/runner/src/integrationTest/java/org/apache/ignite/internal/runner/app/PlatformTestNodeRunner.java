@@ -51,7 +51,7 @@ public class PlatformTestNodeRunner {
                 "  \"node\": {\n" +
                 "    \"metastorageNodes\":[ \"node0\" ]\n" +
                 "  },\n" +
-                "  \"clientConnector\":{\"port\": 10942,\"portRange\":0}," +
+                "  \"clientConnector\":{\"port\": 10942,\"portRange\":10}," +
                 "  \"network\": {\n" +
                 "    \"port\":3344,\n" +
                 "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\" ]\n" +
