@@ -22,7 +22,7 @@ import org.apache.ignite.network.annotations.MessageGroup;
 /**
  * Message group for tests.
  */
-@MessageGroup(groupType = 1, groupName = "ProcTestMessages")
+@MessageGroup(groupType = 0, groupName = "ProcTestMessages")
 public class TestMessageGroup {
     /** Type of {@link SerializationOrderMessage} */
     public static final short SERIALIZATION_ORDER_MESSAGE = 1;
