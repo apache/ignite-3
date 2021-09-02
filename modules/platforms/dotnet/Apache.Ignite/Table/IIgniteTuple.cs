@@ -35,7 +35,7 @@ namespace Apache.Ignite.Table
         /// Gets the value of the specified column as an object.
         /// </summary>
         /// <param name="ordinal">The zero-based column ordinal.</param>
-        object? this[int ordinal] { get; }
+        object? this[int ordinal] { get; set; }
 
         /// <summary>
         /// Gets the value of the specified column as an object.

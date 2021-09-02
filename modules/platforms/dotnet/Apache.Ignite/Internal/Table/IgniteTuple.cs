@@ -26,7 +26,7 @@ namespace Apache.Ignite.Internal.Table
     internal class IgniteTuple : IIgniteTuple
     {
         /** Key-value pairs. */
-        private readonly List<KeyValuePair<string, object?>> _pairs;
+        private readonly List<(string Key, object? Value)> _pairs;
 
         /** Column index map. */
         private readonly Dictionary<string, int> _indexes;
@@ -37,7 +37,7 @@ namespace Apache.Ignite.Internal.Table
         /// <param name="capacity">Capacity.</param>
         public IgniteTuple(int capacity = 16)
         {
-            _pairs = new List<KeyValuePair<string, object?>>(capacity);
+            _pairs = new List<(string, object?)>(capacity);
             _indexes = new Dictionary<string, int>(capacity);
         }
 
@@ -45,7 +45,11 @@ namespace Apache.Ignite.Internal.Table
         public int FieldCount => _pairs.Count;
 
         /// <inheritdoc/>
-        public object? this[int ordinal] => _pairs[ordinal].Value;
+        public object? this[int ordinal]
+        {
+            get => _pairs[ordinal].Value;
+            set => _pairs[ordinal] = (_pairs[ordinal].Key, value);
+        }
 
         /// <inheritdoc/>
         public object? this[string name]
@@ -53,7 +57,7 @@ namespace Apache.Ignite.Internal.Table
             get => _pairs[_indexes[name]].Value;
             set
             {
-                var pair = new KeyValuePair<string, object?>(name, value);
+                var pair = (name, value);
 
                 if (_indexes.TryGetValue(name, out var index))
                 {
