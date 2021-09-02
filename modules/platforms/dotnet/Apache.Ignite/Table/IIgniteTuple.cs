@@ -41,7 +41,7 @@ namespace Apache.Ignite.Table
         /// Gets the value of the specified column as an object.
         /// </summary>
         /// <param name="name">The column name.</param>
-        object? this[string name] { get; }
+        object? this[string name] { get; set; }
 
         /// <summary>
         /// Gets the name of the column, given the zero-based column ordinal.

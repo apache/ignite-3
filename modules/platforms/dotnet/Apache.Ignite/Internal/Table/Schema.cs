@@ -30,7 +30,5 @@ namespace Apache.Ignite.Internal.Table
         int Version,
         int KeyColumnCount,
         IReadOnlyList<Column> Columns,
-        IReadOnlyDictionary<string, Column> ColumnsMap)
-    {
-    }
+        IReadOnlyDictionary<string, Column> ColumnsMap);
 }
