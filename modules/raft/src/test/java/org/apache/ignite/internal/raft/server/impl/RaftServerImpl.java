@@ -33,17 +33,17 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.raft.client.ReadCommand;
+import org.apache.ignite.raft.client.WriteCommand;
+import org.apache.ignite.raft.client.service.CommandClosure;
+import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.CliRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
-import org.apache.ignite.raft.client.ReadCommand;
-import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.jraft.rpc.impl.client.ActionRequest;
-import org.apache.ignite.raft.client.service.CommandClosure;
-import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.jetbrains.annotations.Nullable;
 
 /**
