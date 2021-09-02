@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Proto
 {
     using System;
+    using System.Diagnostics;
     using MessagePack;
 
     /// <summary>
@@ -46,7 +47,37 @@ namespace Apache.Ignite.Internal.Proto
         /// <param name="guid">Guid.</param>
         public static void WriteGuid(this ref MessagePackWriter writer, Guid guid)
         {
-            throw new NotImplementedException("TODO");
+            writer.WriteExtensionFormatHeader(new ExtensionHeader((sbyte)ClientMessagePackType.Uuid, 16));
+
+            Span<byte> bytes = stackalloc byte[16];
+            Span<byte> jBytes = writer.GetSpan(16);
+
+            var written = guid.TryWriteBytes(bytes);
+            Debug.Assert(written, "written");
+
+            // Hoist range checks.
+            jBytes[8] = bytes[15]; // k
+            jBytes[15] = bytes[8]; // d
+
+            jBytes[0] = bytes[6]; // c1
+            jBytes[1] = bytes[7]; // c2
+
+            jBytes[2] = bytes[4]; // b1
+            jBytes[3] = bytes[5]; // b2
+
+            jBytes[4] = bytes[0]; // a1
+            jBytes[5] = bytes[1]; // a2
+            jBytes[6] = bytes[2]; // a3
+            jBytes[7] = bytes[3]; // a4
+
+            jBytes[9] = bytes[14]; // j
+            jBytes[10] = bytes[13]; // i
+            jBytes[11] = bytes[12]; // h
+            jBytes[12] = bytes[11]; // g
+            jBytes[13] = bytes[10]; // f
+            jBytes[14] = bytes[9]; // e
+
+            writer.Advance(16);
         }
 
         /// <summary>
