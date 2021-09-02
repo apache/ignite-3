@@ -635,6 +635,7 @@ public class JdbcStatement implements Statement {
      * For test purposes.
      *
      * @param timeout Timeout.
+     * @throws SQLException If timeout condition is not satisfied.
      */
     public final void timeout(int timeout) throws SQLException {
         if (timeout < 0)

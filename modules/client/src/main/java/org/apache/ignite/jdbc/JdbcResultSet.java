@@ -42,6 +42,9 @@ import java.sql.Timestamp;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.ParseException;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Calendar;
 import java.util.Iterator;
 import java.util.List;
@@ -466,10 +469,14 @@ public class JdbcResultSet implements ResultSet {
 
         Class<?> cls = val.getClass();
 
-        if (cls == Date.class)
-            return (Date)val;
-        else if (cls == java.util.Date.class || cls == Time.class || cls == Timestamp.class)
-            return new Date(((java.util.Date)val).getTime());
+        if (cls == LocalDate.class)
+            return Date.valueOf((LocalDate)val);
+        else if (cls == LocalTime.class)
+            return new Date(Time.valueOf((LocalTime)val).getTime());
+        else if (cls == Instant.class) {
+            var odlDate = java.util.Date.from((Instant)val);
+            return new Date(odlDate.getTime());
+        }
         else
             throw new SQLException("Cannot convert to date: " + val, SqlStateCode.CONVERSION_FAILED);
     }
@@ -483,10 +490,14 @@ public class JdbcResultSet implements ResultSet {
 
         Class<?> cls = val.getClass();
 
-        if (cls == Time.class)
-            return (Time)val;
-        else if (cls == java.util.Date.class || cls == Date.class || cls == Timestamp.class)
-            return new Time(((java.util.Date)val).getTime());
+        if (cls == LocalTime.class)
+            return Time.valueOf((LocalTime)val);
+        else if (cls == LocalDate.class)
+            return new Time(Date.valueOf((LocalDate)val).getTime());
+        else if (cls == Instant.class) {
+            var oldTs = Timestamp.from((Instant)val);
+            return new Time(oldTs.getTime());
+        }
         else
             throw new SQLException("Cannot convert to time: " + val, SqlStateCode.CONVERSION_FAILED);
     }
@@ -500,10 +511,12 @@ public class JdbcResultSet implements ResultSet {
 
         Class<?> cls = val.getClass();
 
-        if (cls == Timestamp.class)
-            return (Timestamp)val;
-        else if (cls == java.util.Date.class || cls == Date.class || cls == Time.class)
-            return new Timestamp(((java.util.Date)val).getTime());
+        if (cls == LocalTime.class)
+            return new Timestamp(Time.valueOf((LocalTime)val).getTime());
+        else if (cls == LocalDate.class)
+            return new Timestamp(Date.valueOf((LocalDate)val).getTime());
+        else if (cls == Instant.class)
+            return Timestamp.from(((Instant)val));
         else
             throw new SQLException("Cannot convert to timestamp: " + val, SqlStateCode.CONVERSION_FAILED);
     }
