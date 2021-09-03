@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -52,6 +53,7 @@ import org.jetbrains.annotations.NotNull;
  * Storage of table rows.
  */
 public class InternalTableImpl implements InternalTable {
+    //TODO: IGNITE-15443 Use IntMap structure instead of HashMap.
     /** Partition map. */
     private Map<Integer, RaftGroupService> partitionMap;
 
@@ -114,20 +116,14 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows,
-        Transaction tx) {
-        HashMap<Integer, HashSet<BinaryRow>> keyRowsByPartition = new HashMap<>();
-
-        for (BinaryRow keyRow : keyRows) {
-            keyRowsByPartition.computeIfAbsent(partId(keyRow), HashSet::new)
-                .add(keyRow);
-        }
+    @Override public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows, Transaction tx) {
+        Map<Integer, Set<BinaryRow>> keyRowsByPartition = mapRowsToPartitions(keyRows);
 
         CompletableFuture<MultiRowsResponse>[] futures = new CompletableFuture[keyRowsByPartition.size()];
 
         int batchNum = 0;
 
-        for (Map.Entry<Integer, HashSet<BinaryRow>> partToRows : keyRowsByPartition.entrySet()) {
+        for (Map.Entry<Integer, Set<BinaryRow>> partToRows : keyRowsByPartition.entrySet()) {
             futures[batchNum] = partitionMap.get(partToRows.getKey()).run(new GetAllCommand(partToRows.getValue()));
 
             batchNum++;
@@ -148,18 +144,13 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> upsertAll(Collection<BinaryRow> rows, Transaction tx) {
-        HashMap<Integer, HashSet<BinaryRow>> keyRowsByPartition = new HashMap<>();
-
-        for (BinaryRow keyRow : rows) {
-            keyRowsByPartition.computeIfAbsent(partId(keyRow), HashSet::new)
-                .add(keyRow);
-        }
+        Map<Integer, Set<BinaryRow>> keyRowsByPartition = mapRowsToPartitions(rows);
 
         CompletableFuture<Void>[] futures = new CompletableFuture[keyRowsByPartition.size()];
 
         int batchNum = 0;
 
-        for (Map.Entry<Integer, HashSet<BinaryRow>> partToRows : keyRowsByPartition.entrySet()) {
+        for (Map.Entry<Integer, Set<BinaryRow>> partToRows : keyRowsByPartition.entrySet()) {
             futures[batchNum] = partitionMap.get(partToRows.getKey()).run(new UpsertAllCommand(partToRows.getValue()));
 
             batchNum++;
@@ -181,18 +172,13 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> rows, Transaction tx) {
-        HashMap<Integer, HashSet<BinaryRow>> keyRowsByPartition = new HashMap<>();
-
-        for (BinaryRow keyRow : rows) {
-            keyRowsByPartition.computeIfAbsent(partId(keyRow), HashSet::new)
-                .add(keyRow);
-        }
+        Map<Integer, Set<BinaryRow>> keyRowsByPartition = mapRowsToPartitions(rows);
 
         CompletableFuture<MultiRowsResponse>[] futures = new CompletableFuture[keyRowsByPartition.size()];
 
         int batchNum = 0;
 
-        for (Map.Entry<Integer, HashSet<BinaryRow>> partToRows : keyRowsByPartition.entrySet()) {
+        for (Map.Entry<Integer, Set<BinaryRow>> partToRows : keyRowsByPartition.entrySet()) {
             futures[batchNum] = partitionMap.get(partToRows.getKey()).run(new InsertAllCommand(partToRows.getValue()));
 
             batchNum++;
@@ -240,20 +226,14 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows,
-        Transaction tx) {
-        HashMap<Integer, HashSet<BinaryRow>> keyRowsByPartition = new HashMap<>();
-
-        for (BinaryRow keyRow : rows) {
-            keyRowsByPartition.computeIfAbsent(partId(keyRow), HashSet::new)
-                .add(keyRow);
-        }
+    @Override public CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows, Transaction tx) {
+        Map<Integer, Set<BinaryRow>> keyRowsByPartition = mapRowsToPartitions(rows);
 
         CompletableFuture<MultiRowsResponse>[] futures = new CompletableFuture[keyRowsByPartition.size()];
 
         int batchNum = 0;
 
-        for (Map.Entry<Integer, HashSet<BinaryRow>> partToRows : keyRowsByPartition.entrySet()) {
+        for (Map.Entry<Integer, Set<BinaryRow>> partToRows : keyRowsByPartition.entrySet()) {
             futures[batchNum] = partitionMap.get(partToRows.getKey()).run(new DeleteAllCommand(partToRows.getValue()));
 
             batchNum++;
@@ -268,20 +248,17 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows,
-        Transaction tx) {
-        HashMap<Integer, HashSet<BinaryRow>> keyRowsByPartition = new HashMap<>();
-
-        for (BinaryRow keyRow : rows) {
-            keyRowsByPartition.computeIfAbsent(partId(keyRow), HashSet::new)
-                .add(keyRow);
-        }
+    @Override public CompletableFuture<Collection<BinaryRow>> deleteAllExact(
+        Collection<BinaryRow> rows,
+        Transaction tx
+    ) {
+        Map<Integer, Set<BinaryRow>> keyRowsByPartition = mapRowsToPartitions(rows);
 
         CompletableFuture<MultiRowsResponse>[] futures = new CompletableFuture[keyRowsByPartition.size()];
 
         int batchNum = 0;
 
-        for (Map.Entry<Integer, HashSet<BinaryRow>> partToRows : keyRowsByPartition.entrySet()) {
+        for (Map.Entry<Integer, Set<BinaryRow>> partToRows : keyRowsByPartition.entrySet()) {
             futures[batchNum] = partitionMap.get(partToRows.getKey()).run(new DeleteExactAllCommand(partToRows.getValue()));
 
             batchNum++;
@@ -293,6 +270,22 @@ public class InternalTableImpl implements InternalTable {
                 .map(MultiRowsResponse::getValues)
                 .flatMap(Collection::stream)
                 .collect(Collectors.toList()));
+    }
+
+    /**
+     * Map rows to partitions.
+     *
+     * @param rows Rows.
+     * @return Partition -%gt; rows mapping.
+     */
+    private Map<Integer, Set<BinaryRow>> mapRowsToPartitions(Collection<BinaryRow> rows) {
+        //TODO: IGNITE-15443 Use IntMap structure instead of HashMap.
+        HashMap<Integer, Set<BinaryRow>> keyRowsByPartition = new HashMap<>();
+
+        for (BinaryRow keyRow : rows)
+            keyRowsByPartition.computeIfAbsent(partId(keyRow), k -> new HashSet<>()).add(keyRow);
+
+        return keyRowsByPartition;
     }
 
     /**
