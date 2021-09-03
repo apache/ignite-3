@@ -76,7 +76,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
     }
 
     @Override public void onDisappeared(ClusterNode member) {
-        readyAddresses.remove(member.address());
+        readyAddresses.remove(member.address().toString());
     }
 
     protected void configRpcClient(final RpcClient rpcClient) {

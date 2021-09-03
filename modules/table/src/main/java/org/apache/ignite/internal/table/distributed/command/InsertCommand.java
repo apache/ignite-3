@@ -29,7 +29,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * The command inserts a row.
  */
-public class InsertCommand implements WriteCommand, LockableCommand {
+public class InsertCommand implements WriteCommand {
     /** Binary row. */
     private transient BinaryRow row;
 
@@ -76,12 +76,5 @@ public class InsertCommand implements WriteCommand, LockableCommand {
      */
     public Timestamp getTimestamp() {
         return timestamp;
-    }
-
-    /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> tryLock(TxManager mgr) {
-        mgr.getOrCreateTransaction(timestamp); // TODO asch handle race between rollback and lock.
-
-        return mgr.writeLock(new ByteArray(extractAndWrapKey(getRow())), timestamp);
     }
 }

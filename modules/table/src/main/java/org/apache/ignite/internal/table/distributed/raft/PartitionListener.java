@@ -21,8 +21,8 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
@@ -43,23 +43,22 @@ import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
 import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
-import org.apache.ignite.internal.tx.Lockable;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.raft.client.Command;
-import org.apache.ignite.raft.client.RaftErrorCode;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
-import org.apache.ignite.raft.client.message.RaftErrorResponseBuilder;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
-import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
  * Partition command handler.
  */
 public class PartitionListener implements RaftGroupListener {
+    /** Table ID. */
+    private final UUID tableId;
+
     /**
      * Storage.
      * This is a temporary solution, it will apply until persistence layer would not be implemented.
@@ -67,8 +66,17 @@ public class PartitionListener implements RaftGroupListener {
      */
     private final VersionedRowStore storage;
 
-    public PartitionListener(VersionedRowStore store) {
+    /** TX manager. */
+    private final TxManager txManager;
+
+    /**
+     * @param tableId Table id.
+     * @param store The storage.
+     */
+    public PartitionListener(UUID tableId, VersionedRowStore store) {
+        this.tableId = tableId;
         this.storage = store;
+        this.txManager = store.txManager();
     }
 
     /** {@inheritDoc} */
@@ -213,16 +221,30 @@ public class PartitionListener implements RaftGroupListener {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override public @Nullable CompletableFuture<Void> onBeforeApply(Command command) {
-        if (command instanceof Lockable) {
-            Lockable lockable = (Lockable) command;
+    /** {@inheritDoc}
+     * @param cmd*/
+    @Override public CompletableFuture<Void> onBeforeApply(Command cmd) {
+        // TODO asch refactor copypaste
+        if (cmd instanceof InsertCommand) {
+            InsertCommand cmd0 = (InsertCommand) cmd;
 
-            TxManager mgr = storage.txManager();
+            txManager.getOrCreateTransaction(cmd0.getTimestamp()); // TODO asch handle race between rollback and lock.
 
-            assert mgr != null;
+            return txManager.writeLock(tableId, cmd0.getRow().keySlice(), cmd0.getTimestamp());
+        }
+        else if (cmd instanceof UpsertCommand) {
+            UpsertCommand cmd0 = (UpsertCommand) cmd;
 
-            return lockable.tryLock(mgr);
+            txManager.getOrCreateTransaction(cmd0.getTimestamp());
+
+            return txManager.writeLock(tableId, cmd0.getRow().keySlice(), cmd0.getTimestamp());
+        }
+        else if (cmd instanceof GetCommand) {
+            GetCommand cmd0 = (GetCommand) cmd;
+
+            txManager.getOrCreateTransaction(cmd0.getTimestamp());
+
+            return txManager.readLock(tableId, cmd0.getKeyRow().keySlice(), cmd0.getTimestamp());
         }
 
         return null;

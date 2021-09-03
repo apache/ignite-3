@@ -566,22 +566,25 @@ public class TxTest extends IgniteAbstractTest {
     @Test
     public void testCrossTable() throws TransactionException {
         customers.upsert(makeValue(1, "test"));
-//        accounts.upsert(makeValue(1, 100.));
+        accounts.upsert(makeValue(1, 100.));
 
         assertEquals("test", customers.get(makeKey(1)).stringValue("name"));
-//        assertEquals(100., accounts.get(makeKey(1)).doubleValue("balance"));
+        assertEquals(100., accounts.get(makeKey(1)).doubleValue("balance"));
 
-//        InternalTransaction tx = txManager.begin();
-//        InternalTransaction tx2 = txManager.begin();
-//
-//        Table txCust = customers.withTransaction(tx);
-//        Table txAcc = accounts.withTransaction(tx2);
-//
-//        txCust.upsert(makeValue(1, "test"));
-//        txAcc.upsert(makeValue(1, 100.));
-//
-//        tx.commit();
-//        tx2.commit();
+        InternalTransaction tx = txManager.begin();
+        InternalTransaction tx2 = txManager.begin();
+
+        Table txCust = customers.withTransaction(tx);
+        Table txAcc = accounts.withTransaction(tx2);
+
+        txCust.upsert(makeValue(1, "test2"));
+        txAcc.upsert(makeValue(1, 200.));
+
+        tx.commit();
+        tx2.commit();
+
+        assertEquals("test2", customers.get(makeKey(1)).stringValue("name"));
+        assertEquals(200., accounts.get(makeKey(1)).doubleValue("balance"));
     }
 
     /** */

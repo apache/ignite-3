@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
@@ -66,7 +69,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private final ConcurrentHashMap<Timestamp, TxState> states = new ConcurrentHashMap<>();
 
     /** The storage for tx locks. Each key is mapped to lock type: true for read. TODO asch use Storage for locks */
-    private final ConcurrentHashMap<Timestamp, Map<ByteArray, Boolean>> locks = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Timestamp, Map<TableLockKey, Boolean>> locks = new ConcurrentHashMap<>();
 
     /**
      * @param clusterService Cluster service.
@@ -128,12 +131,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param tx The transaction.
      */
     private void unlockAll(Timestamp ts) {
-        Map<ByteArray, Boolean> locks = this.locks.remove(ts);
+        Map<TableLockKey, Boolean> locks = this.locks.remove(ts);
 
         if (locks == null)
             return;
 
-        for (Map.Entry<ByteArray, Boolean> lock : locks.entrySet()) {
+        for (Map.Entry<TableLockKey, Boolean> lock : locks.entrySet()) {
             try {
                 if (lock.getValue()) {
                     lockManager.tryReleaseShared(lock.getKey(), ts);
@@ -154,11 +157,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> writeLock(ByteArray key, Timestamp ts) {
+    @Override public CompletableFuture<Void> writeLock(UUID tableId, ByteBuffer keyData, Timestamp ts) {
         if (state(ts) != TxState.PENDING)
             return failedFuture(new TransactionException("The operation is attempted for completed transaction"));
 
         // Should rollback tx on lock error.
+        TableLockKey key = new TableLockKey(tableId, keyData);
+
         return lockManager.tryAcquire(key, ts)
             .handle(new BiFunction<Void, Throwable, CompletableFuture<Void>>() {
                 @Override public CompletableFuture<Void> apply(Void r, Throwable e) {
@@ -172,9 +177,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> readLock(ByteArray key, Timestamp ts) {
+    @Override public CompletableFuture<Void> readLock(UUID tableId, ByteBuffer keyData, Timestamp ts) {
         if (state(ts) != TxState.PENDING)
             return failedFuture(new TransactionException("The operation is attempted for completed transaction"));
+
+        TableLockKey key = new TableLockKey(tableId, keyData);
 
         return lockManager.tryAcquireShared(key, ts)
             .handle(new BiFunction<Void, Throwable, CompletableFuture<Void>>() {
@@ -194,9 +201,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param timestamp The tx timestamp.
      * @param read Read lock.
      */
-    private void recordLock(ByteArray key, Timestamp timestamp, Boolean read) {
-        locks.compute(timestamp, new BiFunction<Timestamp, Map<ByteArray, Boolean>, Map<ByteArray, Boolean>>() {
-            @Override public Map<ByteArray, Boolean> apply(Timestamp timestamp, Map<ByteArray, Boolean> map) {
+    private void recordLock(TableLockKey key, Timestamp timestamp, Boolean read) {
+        locks.compute(timestamp, new BiFunction<Timestamp, Map<TableLockKey, Boolean>, Map<TableLockKey, Boolean>>() {
+            @Override public Map<TableLockKey, Boolean> apply(Timestamp timestamp, Map<TableLockKey, Boolean> map) {
                 if (map == null)
                     map = new HashMap<>();
 
@@ -214,6 +221,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** {@inheritDoc} */
     @Override public boolean getOrCreateTransaction(Timestamp ts) {
+        // TODO asch track originator
         return states.putIfAbsent(ts, TxState.PENDING) == null;
     }
 
@@ -262,6 +270,40 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     return null;
                 }
             });
+        }
+    }
+
+    /** */
+    private static class TableLockKey {
+        /** */
+        private final UUID tableId;
+
+        /** */
+        private final ByteBuffer key;
+
+        /**
+         * @param tableId Table ID.
+         * @param key The key.
+         */
+        TableLockKey(UUID tableId, ByteBuffer key) {
+            this.tableId = tableId;
+            this.key = key;
+        }
+
+        /** {@inheritDoc} */
+        @Override public boolean equals(Object o) {
+            if (this == o)
+                return true;
+            if (o == null || getClass() != o.getClass())
+                return false;
+            TableLockKey key1 = (TableLockKey) o;
+            return tableId.equals(key1.tableId) &&
+                key.equals(key1.key);
+        }
+
+        /** {@inheritDoc} */
+        @Override public int hashCode() {
+            return Objects.hash(tableId, key);
         }
     }
 }

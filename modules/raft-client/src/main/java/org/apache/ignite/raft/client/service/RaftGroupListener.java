@@ -77,7 +77,7 @@ public interface RaftGroupListener {
 
     /**
      * Invoked before submitting a command to a raft group.
-     * @param command The command.
+     * @param cmd The command.
      * @return The future or null if no-op.
      */
     @Nullable CompletableFuture<Void> onBeforeApply(Command command);

@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.tx;
 
+import java.nio.ByteBuffer;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 
@@ -66,12 +67,12 @@ public interface TxManager extends IgniteComponent {
     CompletableFuture<Void> rollbackAsync(Timestamp ts);
 
     /**
-     * @param key The key.
+     * @param tableId Table ID.
      * @param ts The timestamp.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> writeLock(ByteArray key, Timestamp ts);
+    public CompletableFuture<Void> writeLock(UUID tableId, ByteBuffer keyData, Timestamp ts);
 
     /**
      * @param key The key.
@@ -79,7 +80,7 @@ public interface TxManager extends IgniteComponent {
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> readLock(ByteArray key, Timestamp ts);
+    public CompletableFuture<Void> readLock(UUID tableId, ByteBuffer keyData, Timestamp ts);
 
     /**
      * @param timestamp The timestamp.

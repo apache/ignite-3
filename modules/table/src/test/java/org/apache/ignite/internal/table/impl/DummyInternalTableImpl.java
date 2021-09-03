@@ -27,7 +27,6 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.schema.SchemaMode;
 import org.jetbrains.annotations.NotNull;
 
@@ -47,6 +46,10 @@ public class DummyInternalTableImpl implements InternalTable {
     /** */
     private final UUID tableId = UUID.randomUUID();
 
+    /**
+     * @param store The store.
+     * @param txManager Transaction manager.
+     */
     public DummyInternalTableImpl(VersionedRowStore store, TxManager txManager) {
         this.store = store;
         this.txManager = txManager;
@@ -76,12 +79,12 @@ public class DummyInternalTableImpl implements InternalTable {
         assert row != null;
 
         if (tx != null)
-            return txManager.readLock(new ByteArray(extractAndWrapKey(row)), tx.timestamp()).thenApply(ignore -> store.get(row, tx.timestamp()));
+            return txManager.readLock(tableId, row.keySlice(), tx.timestamp()).thenApply(ignore -> store.get(row, tx.timestamp()));
         else {
             InternalTransaction tx0 = txManager.begin();
 
             // TODO asch lock doesn't look necessary for single key read.
-            return txManager.readLock(new ByteArray(extractAndWrapKey(row)), tx0.timestamp()).
+            return txManager.readLock(tableId, row.keySlice(), tx0.timestamp()).
                 thenApply(ignore -> store.get(row, tx0.timestamp())).
                 thenCompose(r -> tx0.commitAsync().thenApply(ignored -> r));
         }
@@ -97,13 +100,13 @@ public class DummyInternalTableImpl implements InternalTable {
         assert row != null;
 
         if (tx != null) {
-            return txManager.writeLock(new ByteArray(extractAndWrapKey(row)), tx.timestamp()).
+            return txManager.writeLock(tableId, row.keySlice(), tx.timestamp()).
                 thenApply(ignore -> op.apply(tx));
         }
         else {
             InternalTransaction tx0 = txManager.begin();
 
-            return txManager.writeLock(new ByteArray(extractAndWrapKey(row)), tx0.timestamp()).
+            return txManager.writeLock(tableId, row.keySlice(), tx0.timestamp()).
                 thenApply(ignore -> op.apply(tx0)).
                 thenCompose(r -> tx0.commitAsync().thenApply(ignore -> r));
         }

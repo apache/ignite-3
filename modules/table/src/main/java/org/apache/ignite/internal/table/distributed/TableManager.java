@@ -220,7 +220,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             partitionsGroupsFutures.add(raftMgr.prepareRaftGroup(
                 raftGroupName(tblId, p),
                 assignment.get(p),
-                new PartitionListener(new VersionedRowStore(storage, txManager))
+                new PartitionListener(tblId, new VersionedRowStore(storage, txManager))
             ));
         }
 

@@ -25,7 +25,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- *
+ * TODO asch use read only buffers ?
  */
 public class VersionedRowStore {
     /** Storage delegate. */
@@ -384,7 +384,6 @@ public class VersionedRowStore {
             byte[] tmp = new byte[l2];
 
             buf.get(tmp);
-
             //ByteBuffer tmp = buf.duplicate().limit(pos + l2).slice().limit(pos + l2).order(ByteOrder.LITTLE_ENDIAN);
 
             oldVal = new ByteBufferRow(tmp);

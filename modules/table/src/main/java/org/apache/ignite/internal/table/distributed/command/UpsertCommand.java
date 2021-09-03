@@ -29,7 +29,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * The command inserts or updates a value for the key specified.
  */
-public class UpsertCommand implements WriteCommand, LockableCommand {
+public class UpsertCommand implements WriteCommand {
     /** The timestamp. */
     private final Timestamp timestamp;
 
@@ -76,12 +76,5 @@ public class UpsertCommand implements WriteCommand, LockableCommand {
      */
     public Timestamp getTimestamp() {
         return timestamp;
-    }
-
-    /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> tryLock(TxManager mgr) {
-        mgr.getOrCreateTransaction(timestamp);
-
-        return mgr.writeLock(new ByteArray(extractAndWrapKey(getRow())), timestamp);
     }
 }

@@ -130,7 +130,7 @@ public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
         VersionedRowStore store = new VersionedRowStore(new RocksDbStorage(workDir.resolve(UUID.randomUUID().toString()),
             ByteBuffer::compareTo), txManager);
 
-        return new PartitionListener(store);
+        return new PartitionListener(UUID.randomUUID(), store);
     }
 
     /** {@inheritDoc} */

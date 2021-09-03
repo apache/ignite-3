@@ -190,7 +190,7 @@ public class ITDistributedTableTest {
 
             rs.startRaftGroup(
                 grpId,
-                new PartitionListener(new VersionedRowStore(
+                new PartitionListener(UUID.randomUUID(), new VersionedRowStore(
                     memStore ? new ConcurrentHashMapStorage() : new RocksDbStorage(dataPath.resolve("part" + p),
                         ByteBuffer::compareTo),
                     rs.transactionManager())),
@@ -245,6 +245,8 @@ public class ITDistributedTableTest {
         }
 
         client.stop();
+
+        // TODO asch stop other components.
     }
 
     /**
