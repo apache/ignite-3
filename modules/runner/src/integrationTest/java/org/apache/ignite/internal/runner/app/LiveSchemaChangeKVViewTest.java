@@ -17,19 +17,16 @@
 
 package org.apache.ignite.internal.runner.app;
 
-import com.google.common.collect.Lists;
 import java.util.List;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.schema.SchemaMode;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
