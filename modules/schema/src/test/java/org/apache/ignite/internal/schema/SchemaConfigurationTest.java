@@ -20,8 +20,8 @@ package org.apache.ignite.internal.schema;
 import java.util.Map;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.SchemaTable;
-import org.apache.ignite.schema.builder.SchemaTableBuilder;
+import org.apache.ignite.schema.TableSchema;
+import org.apache.ignite.schema.builder.TableSchemaBuilder;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -33,7 +33,7 @@ public class SchemaConfigurationTest {
      */
     @Test
     public void testInitialSchema() {
-        final SchemaTableBuilder builder = SchemaBuilders.tableBuilder(SchemaTable.DEFAULT_SCHEMA_NAME, "table1");
+        final TableSchemaBuilder builder = SchemaBuilders.tableBuilder(TableSchema.DEFAULT_SCHEMA_NAME, "table1");
 
         builder
             .columns(
@@ -87,7 +87,7 @@ public class SchemaConfigurationTest {
      */
     @Test
     public void testSchemaModification() {
-        final SchemaTable table = SchemaBuilders.tableBuilder("PUBLIC", "table1")
+        final TableSchema table = SchemaBuilders.tableBuilder("PUBLIC", "table1")
             .columns(
                 // Declaring columns in user order.
                 SchemaBuilders.column("id", ColumnType.INT64).build(),

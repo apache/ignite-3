@@ -365,7 +365,7 @@ public class ClientTableTest extends AbstractClientTest {
     }
 
     private Table defaultTable() {
-        server.tables().getOrCreateTable(DEFAULT_TABLE, tbl -> tbl.changeReplicas(1));
+        server.tables().createTableIfNotExists(DEFAULT_TABLE, tbl -> tbl.changeReplicas(1));
 
         return client.tables().table(DEFAULT_TABLE);
     }

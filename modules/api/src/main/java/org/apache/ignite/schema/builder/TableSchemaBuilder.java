@@ -20,20 +20,20 @@ package org.apache.ignite.schema.builder;
 import java.util.Map;
 import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.PrimaryIndex;
-import org.apache.ignite.schema.SchemaTable;
+import org.apache.ignite.schema.TableSchema;
 import org.apache.ignite.schema.TableIndex;
 
 /**
  * Table descriptor builder.
  */
-public interface SchemaTableBuilder extends SchemaObjectBuilder {
+public interface TableSchemaBuilder extends SchemaObjectBuilder {
     /**
      * Adds columns to the table.
      *
      * @param columns Table columns.
      * @return {@code This} for chaining.
      */
-    SchemaTableBuilder columns(Column... columns);
+    TableSchemaBuilder columns(Column... columns);
 
     /**
      * Adds an index.
@@ -41,7 +41,7 @@ public interface SchemaTableBuilder extends SchemaObjectBuilder {
      * @param index Table index.
      * @return {@code This} for chaining.
      */
-    SchemaTableBuilder withIndex(TableIndex index);
+    TableSchemaBuilder withIndex(TableIndex index);
 
     /**
      * Shortcut method for adding {@link PrimaryIndex} via {@link #withIndex(TableIndex)}.
@@ -49,16 +49,16 @@ public interface SchemaTableBuilder extends SchemaObjectBuilder {
      * @param colName Key column name.
      * @return {@code This} for chaining.
      */
-    SchemaTableBuilder withPrimaryKey(String colName);
+    TableSchemaBuilder withPrimaryKey(String colName);
 
     /** {@inheritDoc} */
-    @Override SchemaTableBuilder withHints(Map<String, String> hints);
+    @Override TableSchemaBuilder withHints(Map<String, String> hints);
 
     /**
      * Builds table.
      *
      * @return Table.
      */
-    @Override SchemaTable build();
+    @Override TableSchema build();
 
 }

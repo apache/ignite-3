@@ -38,7 +38,7 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaException;
 import org.apache.ignite.schema.ColumnType;
-import org.apache.ignite.schema.SchemaTable;
+import org.apache.ignite.schema.TableSchema;
 
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
 import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
@@ -49,7 +49,7 @@ import static org.apache.ignite.internal.schema.NativeTypes.INT8;
 import static org.apache.ignite.internal.schema.NativeTypes.UUID;
 
 /**
- * Build SchemaDescriptor from SchemaTable internal configuration.
+ * Build SchemaDescriptor from Table internal configuration.
  */
 public class SchemaDescriptorConverter {
     /**
@@ -203,14 +203,14 @@ public class SchemaDescriptorConverter {
     }
 
     /**
-     * Build schema descriptor by SchemaTable.
+     * Build schema descriptor by table schema.
      *
      * @param tblId Table id.
      * @param schemaVer Schema version.
-     * @param tblCfg SchemaTable.
+     * @param tblCfg Table schema.
      * @return SchemaDescriptor.
      */
-    public static SchemaDescriptor convert(UUID tblId, int schemaVer, SchemaTable tblCfg) {
+    public static SchemaDescriptor convert(UUID tblId, int schemaVer, TableSchema tblCfg) {
         List<org.apache.ignite.schema.Column> keyColsCfg = new ArrayList<>(tblCfg.keyColumns());
 
         Column[] keyCols = new Column[keyColsCfg.size()];

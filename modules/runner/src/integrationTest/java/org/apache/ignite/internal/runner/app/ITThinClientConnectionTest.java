@@ -33,7 +33,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.SchemaTable;
+import org.apache.ignite.schema.TableSchema;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
@@ -98,7 +98,7 @@ public class ITThinClientConnectionTest extends IgniteAbstractTest {
         var keyCol = "key";
         var valCol = "val";
 
-        SchemaTable schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
+        TableSchema schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
                 SchemaBuilders.column(keyCol, ColumnType.INT32).asNonNull().build(),
                 SchemaBuilders.column(valCol, ColumnType.string()).asNullable().build()
         ).withPrimaryKey(keyCol).build();

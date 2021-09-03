@@ -32,7 +32,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.SchemaTable;
+import org.apache.ignite.schema.TableSchema;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -107,7 +107,7 @@ class DynamicTableCreationTest {
         assertEquals(3, clusterNodes.size());
 
         // Create table on node 0.
-        SchemaTable schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
+        TableSchema schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
             SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
             SchemaBuilders.column("val", ColumnType.INT32).asNullable().build()
         ).withPrimaryKey("key").build();
@@ -158,7 +158,7 @@ class DynamicTableCreationTest {
         assertEquals(3, clusterNodes.size());
 
         // Create table on node 0.
-        SchemaTable scmTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
+        TableSchema scmTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
             SchemaBuilders.column("key", ColumnType.UUID).asNonNull().build(),
             SchemaBuilders.column("affKey", ColumnType.INT64).asNonNull().build(),
             SchemaBuilders.column("valStr", ColumnType.string()).asNullable().build(),

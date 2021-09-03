@@ -34,14 +34,14 @@ import org.apache.ignite.schema.HashIndex;
 import org.apache.ignite.schema.PartialIndex;
 import org.apache.ignite.schema.PrimaryIndex;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.SchemaTable;
+import org.apache.ignite.schema.TableSchema;
 import org.apache.ignite.schema.SortedIndex;
 import org.apache.ignite.schema.SortedIndexColumn;
 import org.apache.ignite.schema.TableIndex;
 import org.apache.ignite.schema.builder.HashIndexBuilder;
 import org.apache.ignite.schema.builder.PartialIndexBuilder;
 import org.apache.ignite.schema.builder.PrimaryIndexBuilder;
-import org.apache.ignite.schema.builder.SchemaTableBuilder;
+import org.apache.ignite.schema.builder.TableSchemaBuilder;
 import org.apache.ignite.schema.builder.SortedIndexBuilder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,7 +57,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 @SuppressWarnings("InstanceVariableMayNotBeInitialized")
 public class SchemaConfigurationConverterTest {
     /** Table builder. */
-    private SchemaTableBuilder tblBuilder;
+    private TableSchemaBuilder tblBuilder;
 
     /** Configuration registry with one table for each test. */
     private ConfigurationRegistry confRegistry;
@@ -72,7 +72,7 @@ public class SchemaConfigurationConverterTest {
     public void createRegistry() throws ExecutionException, InterruptedException {
         confRegistry = new ConfigurationRegistry(
             List.of(TablesConfiguration.KEY),
-            Map.of(TableValidator.class, Set.of(SchemaTableValidatorImpl.INSTANCE)),
+            Map.of(TableValidator.class, Set.of(TableValidatorImpl.INSTANCE)),
             new TestConfigurationStorage(DISTRIBUTED),
             List.of()
         );
@@ -88,7 +88,7 @@ public class SchemaConfigurationConverterTest {
                 SchemaBuilders.column("C", ColumnType.INT8).build()
             ).withPrimaryKey("COL1");
 
-        SchemaTable tbl = tblBuilder.build();
+        TableSchema tbl = tblBuilder.build();
 
         confRegistry.getConfiguration(TablesConfiguration.KEY).change(
             ch -> {
@@ -115,7 +115,7 @@ public class SchemaConfigurationConverterTest {
 
         getTbl().change(ch -> SchemaConfigurationConverter.addIndex(idx, ch)).get();
 
-        SchemaTable tbl = SchemaConfigurationConverter.convert(getTbl().value());
+        TableSchema tbl = SchemaConfigurationConverter.convert(getTbl().value());
 
         HashIndex idx2 = (HashIndex)getIdx(idx.name(), tbl.indices());
 
@@ -140,7 +140,7 @@ public class SchemaConfigurationConverterTest {
 
         getTbl().change(ch -> SchemaConfigurationConverter.addIndex(idx, ch)).get();
 
-        SchemaTable tbl = SchemaConfigurationConverter.convert(getTbl().value());
+        TableSchema tbl = SchemaConfigurationConverter.convert(getTbl().value());
 
         SortedIndex idx2 = (SortedIndex)getIdx(idx.name(), tbl.indices());
 
@@ -164,7 +164,7 @@ public class SchemaConfigurationConverterTest {
 
         getTbl().change(ch -> SchemaConfigurationConverter.addIndex(idx, ch)).get();
 
-        SchemaTable tbl = SchemaConfigurationConverter.convert(getTbl().value());
+        TableSchema tbl = SchemaConfigurationConverter.convert(getTbl().value());
 
         PrimaryIndex idx2 = (PrimaryIndex)getIdx(idx.name(), tbl.indices());
 
@@ -189,7 +189,7 @@ public class SchemaConfigurationConverterTest {
 
         getTbl().change(ch -> SchemaConfigurationConverter.addIndex(idx, ch)).get();
 
-        SchemaTable tbl = SchemaConfigurationConverter.convert(getTbl().value());
+        TableSchema tbl = SchemaConfigurationConverter.convert(getTbl().value());
 
         PartialIndex idx2 = (PartialIndex) getIdx(idx.name(), tbl.indices());
 
@@ -203,12 +203,12 @@ public class SchemaConfigurationConverterTest {
      */
     @Test
     public void testConvertTable() {
-        SchemaTable tbl = tblBuilder.build();
+        TableSchema tbl = tblBuilder.build();
 
         TableConfiguration tblCfg = confRegistry.getConfiguration(TablesConfiguration.KEY).tables()
             .get(tbl.canonicalName());
 
-        SchemaTable tbl2 = SchemaConfigurationConverter.convert(tblCfg);
+        TableSchema tbl2 = SchemaConfigurationConverter.convert(tblCfg);
 
         assertEquals(tbl.canonicalName(), tbl2.canonicalName());
         assertEquals(tbl.indices().size(), tbl2.indices().size());

@@ -21,9 +21,9 @@ import java.util.Collection;
 import org.apache.ignite.schema.modification.TableModificationBuilder;
 
 /**
- * Schema table descriptor.
+ * Table schema configuration.
  */
-public interface SchemaTable extends SchemaNamedObject {
+public interface TableSchema extends SchemaNamedObject {
     /** Default schema name. */
     String DEFAULT_SCHEMA_NAME = "PUBLIC";
 

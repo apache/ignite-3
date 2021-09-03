@@ -25,16 +25,16 @@ import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.schema.SchemaTableImpl;
-import org.apache.ignite.internal.schema.builder.SchemaTableBuilderImpl;
+import org.apache.ignite.internal.schema.TableSchemaImpl;
+import org.apache.ignite.internal.schema.builder.TableSchemaBuilderImpl;
 import org.apache.ignite.schema.Column;
 
 /**
- * SchemaTable validator implementation.
+ * Table schema configuration validator implementation.
  */
-public class SchemaTableValidatorImpl implements Validator<TableValidator, NamedListView<TableView>> {
+public class TableValidatorImpl implements Validator<TableValidator, NamedListView<TableView>> {
     /** Static instance. */
-    public static final SchemaTableValidatorImpl INSTANCE = new SchemaTableValidatorImpl();
+    public static final TableValidatorImpl INSTANCE = new TableValidatorImpl();
 
     /** {@inheritDoc} */
     @Override public void validate(TableValidator annotation, ValidationContext<NamedListView<TableView>> ctx) {
@@ -44,12 +44,12 @@ public class SchemaTableValidatorImpl implements Validator<TableValidator, Named
             TableView view = list.get(key);
             
             try {
-                SchemaTableImpl tbl = SchemaConfigurationConverter.convert(view);
+                TableSchemaImpl tbl = SchemaConfigurationConverter.convert(view);
 
                 Collection<Column> allColumns = new ArrayList<>(tbl.keyColumns());
                 allColumns.addAll(tbl.valueColumns());
 
-                SchemaTableBuilderImpl.validateIndices(tbl.indices(), allColumns);
+                TableSchemaBuilderImpl.validateIndices(tbl.indices(), allColumns);
             }
             catch (IllegalArgumentException e) {
                 ctx.addIssue(new ValidationIssue("Validator works success by key " + ctx.currentKey() + ". Found "
@@ -60,6 +60,6 @@ public class SchemaTableValidatorImpl implements Validator<TableValidator, Named
     }
 
     /** Private constructor. */
-    private SchemaTableValidatorImpl() {
+    private TableValidatorImpl() {
     }
 }

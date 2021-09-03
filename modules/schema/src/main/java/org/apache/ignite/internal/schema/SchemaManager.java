@@ -54,7 +54,7 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.schema.SchemaTable;
+import org.apache.ignite.schema.TableSchema;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -198,8 +198,8 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                 final ByteArray lastVerKey = new ByteArray(INTERNAL_PREFIX + tblId);
                 final ByteArray schemaKey = new ByteArray(INTERNAL_PREFIX + tblId + INTERNAL_VER_SUFFIX + schemaVer);
 
-                SchemaTable schemaTable = SchemaConfigurationConverter.convert(tblConfig);
-                final SchemaDescriptor desc = SchemaDescriptorConverter.convert(tblId, schemaVer, schemaTable);
+                TableSchema tableSchema = SchemaConfigurationConverter.convert(tblConfig);
+                final SchemaDescriptor desc = SchemaDescriptorConverter.convert(tblId, schemaVer, tableSchema);
 
                 return metaStorageMgr.invoke(Conditions.notExists(schemaKey),
                     Operations.put(schemaKey, ByteUtils.toBytes(desc)),

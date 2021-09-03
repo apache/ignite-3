@@ -60,7 +60,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.SchemaTable;
+import org.apache.ignite.schema.TableSchema;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
@@ -255,7 +255,7 @@ public class TableManagerTest {
     public void testCreateTable() {
         CompletableFuture<TableManager> tblManagerFut = new CompletableFuture<>();
 
-        SchemaTable scmTbl = SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_NAME).columns(
+        TableSchema scmTbl = SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_NAME).columns(
             SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
             SchemaBuilders.column("val", ColumnType.INT64).asNullable().build()
         ).withPrimaryKey("key").build();
@@ -274,7 +274,7 @@ public class TableManagerTest {
     public void testDropTable() {
         CompletableFuture<TableManager> tblManagerFut = new CompletableFuture<>();
 
-        SchemaTable scmTbl = SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_FOR_DROP_NAME).columns(
+        TableSchema scmTbl = SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_FOR_DROP_NAME).columns(
             SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
             SchemaBuilders.column("val", ColumnType.INT64).asNullable().build()
         ).withPrimaryKey("key").build();
@@ -326,7 +326,7 @@ public class TableManagerTest {
     public void testGetTableDuringCreation() throws Exception {
         CompletableFuture<TableManager> tblManagerFut = new CompletableFuture<>();
 
-        SchemaTable scmTbl = SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_FOR_DROP_NAME).columns(
+        TableSchema scmTbl = SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_FOR_DROP_NAME).columns(
             SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
             SchemaBuilders.column("val", ColumnType.INT64).asNullable().build()
         ).withPrimaryKey("key").build();
@@ -367,7 +367,7 @@ public class TableManagerTest {
     public void testDoubledCreateTable() {
         CompletableFuture<TableManager> tblManagerFut = new CompletableFuture<>();
 
-        SchemaTable scmTbl = SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_NAME)
+        TableSchema scmTbl = SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_NAME)
             .columns(
                 SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
                 SchemaBuilders.column("val", ColumnType.INT64).asNullable().build())
@@ -382,7 +382,7 @@ public class TableManagerTest {
             .changeReplicas(1)
             .changePartitions(10)));
 
-        assertSame(table, tblManagerFut.join().getOrCreateTable(scmTbl.canonicalName(), tblCh -> SchemaConfigurationConverter.convert(scmTbl, tblCh)
+        assertSame(table, tblManagerFut.join().createTableIfNotExists(scmTbl.canonicalName(), tblCh -> SchemaConfigurationConverter.convert(scmTbl, tblCh)
             .changeReplicas(1)
             .changePartitions(10)));
     }
@@ -390,27 +390,27 @@ public class TableManagerTest {
     /**
      * Instantiates Table manager and creates a table in it.
      *
-     * @param schemaTable Configuration schema for a table.
+     * @param tableSchema Configuration schema for a table.
      * @param tblManagerFut Future for table manager.
      * @return Table.
      */
     private TableImpl mockManagersAndCreateTable(
-        SchemaTable schemaTable,
+        TableSchema tableSchema,
         CompletableFuture<TableManager> tblManagerFut
     ) {
-        return mockManagersAndCreateTableWithDelay(schemaTable, tblManagerFut, null);
+        return mockManagersAndCreateTableWithDelay(tableSchema, tblManagerFut, null);
     }
 
     /**
      * Instantiates a table and prepares Table manager. When the latch would open, the method completes.
      *
-     * @param schemaTable Configuration schema for a table.
+     * @param tableSchema Configuration schema for a table.
      * @param tblManagerFut Future for table manager.
      * @param phaser Phaser for the wait.
      * @return Table manager.
      */
     @NotNull private TableImpl mockManagersAndCreateTableWithDelay(
-        SchemaTable schemaTable,
+        TableSchema tableSchema,
         CompletableFuture<TableManager> tblManagerFut,
         Phaser phaser
     ) {
@@ -420,7 +420,7 @@ public class TableManagerTest {
 
         CompletableFuture<UUID> tblIdFut = new CompletableFuture<>();
 
-        String keyForCheck = PUBLIC_PREFIX + ConfigurationUtil.escape(schemaTable.canonicalName()) + ".name";
+        String keyForCheck = PUBLIC_PREFIX + ConfigurationUtil.escape(tableSchema.canonicalName()) + ".name";
 
         AtomicBoolean tableCreatedFlag = new AtomicBoolean();
 
@@ -441,7 +441,7 @@ public class TableManagerTest {
             return CompletableFuture.completedFuture(true);
         });
 
-        when(sm.initSchemaForTable(any(), eq(schemaTable.canonicalName()))).thenReturn(CompletableFuture.completedFuture(true));
+        when(sm.initSchemaForTable(any(), eq(tableSchema.canonicalName()))).thenReturn(CompletableFuture.completedFuture(true));
 
         doAnswer(invocation -> {
             EventListener<SchemaEventParameters> schemaInitialized = invocation.getArgument(1);
@@ -457,7 +457,7 @@ public class TableManagerTest {
             return null;
         }).when(sm).listen(same(SchemaEvent.INITIALIZED), any());
 
-        when(am.calculateAssignments(any(), eq(schemaTable.canonicalName()))).thenReturn(CompletableFuture.completedFuture(true));
+        when(am.calculateAssignments(any(), eq(tableSchema.canonicalName()))).thenReturn(CompletableFuture.completedFuture(true));
 
         doAnswer(invocation -> {
             EventListener<AffinityEventParameters> affinityCalculatedDelegate = invocation.getArgument(1);
@@ -496,11 +496,11 @@ public class TableManagerTest {
             int tablesBeforeCreation = tableManager.tables().size();
 
             clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().listen(ctx -> {
-                boolean createTbl = ctx.newValue().get(schemaTable.canonicalName()) != null &&
-                    ctx.oldValue().get(schemaTable.canonicalName()) == null;
+                boolean createTbl = ctx.newValue().get(tableSchema.canonicalName()) != null &&
+                    ctx.oldValue().get(tableSchema.canonicalName()) == null;
 
-                boolean dropTbl = ctx.oldValue().get(schemaTable.canonicalName()) != null &&
-                    ctx.newValue().get(schemaTable.canonicalName()) == null;
+                boolean dropTbl = ctx.oldValue().get(tableSchema.canonicalName()) != null &&
+                    ctx.newValue().get(tableSchema.canonicalName()) == null;
 
                 if (!createTbl && !dropTbl)
                     return CompletableFuture.completedFuture(null);
@@ -519,7 +519,7 @@ public class TableManagerTest {
 
                     when(mockEntry.key()).thenReturn(new ByteArray(PUBLIC_PREFIX + "uuid." + NamedListNode.NAME));
 
-                    when(mockEntry.value()).thenReturn(ByteUtils.toBytes(schemaTable.canonicalName()));
+                    when(mockEntry.value()).thenReturn(ByteUtils.toBytes(tableSchema.canonicalName()));
 
                     when(cursor.next()).thenReturn(mockEntry);
 
@@ -532,7 +532,7 @@ public class TableManagerTest {
                 return CompletableFuture.completedFuture(null);
             });
 
-            tbl2 = (TableImpl)tableManager.createTable(schemaTable.canonicalName(), tblCh -> SchemaConfigurationConverter.convert(schemaTable, tblCh)
+            tbl2 = (TableImpl)tableManager.createTable(tableSchema.canonicalName(), tblCh -> SchemaConfigurationConverter.convert(tableSchema, tblCh)
                 .changeReplicas(1)
                 .changePartitions(10)
             );

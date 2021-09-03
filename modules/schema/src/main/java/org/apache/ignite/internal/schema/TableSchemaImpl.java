@@ -29,7 +29,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.IndexColumn;
 import org.apache.ignite.schema.PrimaryIndex;
-import org.apache.ignite.schema.SchemaTable;
+import org.apache.ignite.schema.TableSchema;
 import org.apache.ignite.schema.TableIndex;
 import org.apache.ignite.schema.modification.TableModificationBuilder;
 
@@ -37,7 +37,7 @@ import org.apache.ignite.schema.modification.TableModificationBuilder;
  * Table.
  */
 @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
-public class SchemaTableImpl extends AbstractSchemaObject implements SchemaTable {
+public class TableSchemaImpl extends AbstractSchemaObject implements TableSchema {
     /** Schema name. */
     private final String schemaName;
 
@@ -64,7 +64,7 @@ public class SchemaTableImpl extends AbstractSchemaObject implements SchemaTable
      * @param cols Columns.
      * @param indices Indices.
      */
-    public SchemaTableImpl(
+    public TableSchemaImpl(
         String schemaName,
         String tableName,
         final LinkedHashMap<String, Column> cols,
@@ -135,6 +135,6 @@ public class SchemaTableImpl extends AbstractSchemaObject implements SchemaTable
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(SchemaTableImpl.class, this);
+        return S.toString(TableSchemaImpl.class, this);
     }
 }

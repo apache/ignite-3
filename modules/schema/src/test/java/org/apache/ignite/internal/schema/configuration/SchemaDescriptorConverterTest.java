@@ -25,8 +25,8 @@ import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.SchemaTable;
-import org.apache.ignite.schema.builder.SchemaTableBuilder;
+import org.apache.ignite.schema.TableSchema;
+import org.apache.ignite.schema.builder.TableSchemaBuilder;
 import org.apache.ignite.schema.builder.TableColumnBuilder;
 import org.junit.jupiter.api.Test;
 
@@ -45,8 +45,8 @@ public class SchemaDescriptorConverterTest {
      */
     @Test
     public void testComplexPrimaryIndex() {
-        SchemaTableBuilder bldr = getBuilder(false, false);
-        SchemaTable tblSchm = bldr.withIndex(SchemaBuilders.pkIndex()
+        TableSchemaBuilder bldr = getBuilder(false, false);
+        TableSchema tblSchm = bldr.withIndex(SchemaBuilders.pkIndex()
             .addIndexColumn("INT8").done()
             .addIndexColumn("ID").done()
             .build()
@@ -64,8 +64,8 @@ public class SchemaDescriptorConverterTest {
      */
     @Test
     public void testComplexPrimaryIndexWithAffinity() {
-        SchemaTableBuilder bldr = getBuilder(false, false);
-        SchemaTable tblSchm = bldr.withIndex(SchemaBuilders.pkIndex()
+        TableSchemaBuilder bldr = getBuilder(false, false);
+        TableSchema tblSchm = bldr.withIndex(SchemaBuilders.pkIndex()
             .addIndexColumn("INT8").done()
             .addIndexColumn("ID").done()
             .withAffinityColumns("INT8")
@@ -101,7 +101,7 @@ public class SchemaDescriptorConverterTest {
      * @param nullable Nullable flag.
      */
     private void testConvert(boolean nullable) {
-        SchemaTable tblSchm = getBuilder(nullable, true).build();
+        TableSchema tblSchm = getBuilder(nullable, true).build();
 
         SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(UUID.randomUUID(), 1, tblSchm);
 
@@ -126,13 +126,13 @@ public class SchemaDescriptorConverterTest {
     }
 
     /**
-     * Get SchemaTableBuilder with default table.
+     * Get TableSchemaBuilder with default table.
      *
      * @param nullable If all columns should be nullable.
      * @param withPk If builder should contains primary key index.
-     * @return SchemaTableBuilder.
+     * @return TableSchemaBuilder.
      */
-    private SchemaTableBuilder getBuilder(boolean nullable, boolean withPk) {
+    private TableSchemaBuilder getBuilder(boolean nullable, boolean withPk) {
         Function<TableColumnBuilder, org.apache.ignite.schema.Column> postProcess = builder -> {
             if (nullable)
                 builder.asNullable();
@@ -141,7 +141,7 @@ public class SchemaDescriptorConverterTest {
             return builder.build();
         };
 
-        SchemaTableBuilder res = SchemaBuilders.tableBuilder("SCHEMA", "TABLE")
+        TableSchemaBuilder res = SchemaBuilders.tableBuilder("SCHEMA", "TABLE")
             .columns(
                 postProcess.apply(SchemaBuilders.column("ID", ColumnType.UUID)),
                 postProcess.apply(SchemaBuilders.column("INT8", ColumnType.INT8)),

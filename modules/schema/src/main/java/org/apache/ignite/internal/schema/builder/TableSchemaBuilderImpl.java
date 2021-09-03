@@ -25,23 +25,23 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.apache.ignite.internal.schema.SchemaTableImpl;
+import org.apache.ignite.internal.schema.TableSchemaImpl;
 import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.ColumnarIndex;
 import org.apache.ignite.schema.IndexColumn;
 import org.apache.ignite.schema.PrimaryIndex;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.SchemaTable;
+import org.apache.ignite.schema.TableSchema;
 import org.apache.ignite.schema.SortedIndex;
 import org.apache.ignite.schema.TableIndex;
-import org.apache.ignite.schema.builder.SchemaTableBuilder;
+import org.apache.ignite.schema.builder.TableSchemaBuilder;
 
 import static org.apache.ignite.schema.PrimaryIndex.PRIMARY_KEY_INDEX_NAME;
 
 /**
  * Table builder.
  */
-public class SchemaTableBuilderImpl implements SchemaTableBuilder {
+public class TableSchemaBuilderImpl implements TableSchemaBuilder {
     /** Schema name. */
     private final String schemaName;
 
@@ -60,13 +60,13 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
      * @param schemaName Schema name.
      * @param tableName Table name.
      */
-    public SchemaTableBuilderImpl(String schemaName, String tableName) {
+    public TableSchemaBuilderImpl(String schemaName, String tableName) {
         this.schemaName = schemaName;
         this.tableName = tableName;
     }
 
     /** {@inheritDoc} */
-    @Override public SchemaTableBuilderImpl columns(Column... columns) {
+    @Override public TableSchemaBuilderImpl columns(Column... columns) {
         for (int i = 0; i < columns.length; i++) {
             if (this.columns.put(columns[i].name(), columns[i]) != null)
                 throw new IllegalArgumentException("Column with same name already exists: columnName=" + columns[i].name());
@@ -76,7 +76,7 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public SchemaTableBuilder withIndex(TableIndex index) {
+    @Override public TableSchemaBuilder withIndex(TableIndex index) {
         if (index instanceof PrimaryIndex) {
             if (!PRIMARY_KEY_INDEX_NAME.equals(index.name()))
                 throw new IllegalArgumentException("Not valid index name for a primary index: " + index.name());
@@ -91,27 +91,27 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public SchemaTableBuilder withPrimaryKey(String colName) {
+    @Override public TableSchemaBuilder withPrimaryKey(String colName) {
         withIndex(SchemaBuilders.pkIndex().addIndexColumn(colName).done().withAffinityColumns(colName).build());
 
         return this;
     }
 
     /** {@inheritDoc} */
-    @Override public SchemaTableBuilder withHints(Map<String, String> hints) {
+    @Override public TableSchemaBuilder withHints(Map<String, String> hints) {
         // No op.
         return this;
     }
 
     /** {@inheritDoc} */
-    @Override public SchemaTable build() {
+    @Override public TableSchema build() {
         assert schemaName != null : "Table name was not specified.";
 
         validateIndices(indices.values(), columns.values());
 
         assert columns.size() > ((SortedIndex)indices.get(PRIMARY_KEY_INDEX_NAME)).columns().size() : "Key or/and value columns was not defined.";
 
-        return new SchemaTableImpl(
+        return new TableSchemaImpl(
             schemaName,
             tableName,
             columns,

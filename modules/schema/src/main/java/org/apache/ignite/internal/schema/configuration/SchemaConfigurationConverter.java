@@ -48,7 +48,7 @@ import org.apache.ignite.internal.schema.ColumnImpl;
 import org.apache.ignite.internal.schema.HashIndexImpl;
 import org.apache.ignite.internal.schema.PartialIndexImpl;
 import org.apache.ignite.internal.schema.PrimaryIndexImpl;
-import org.apache.ignite.internal.schema.SchemaTableImpl;
+import org.apache.ignite.internal.schema.TableSchemaImpl;
 import org.apache.ignite.internal.schema.SortedIndexColumnImpl;
 import org.apache.ignite.internal.schema.SortedIndexImpl;
 import org.apache.ignite.schema.Column;
@@ -57,7 +57,7 @@ import org.apache.ignite.schema.HashIndex;
 import org.apache.ignite.schema.IndexColumn;
 import org.apache.ignite.schema.PartialIndex;
 import org.apache.ignite.schema.PrimaryIndex;
-import org.apache.ignite.schema.SchemaTable;
+import org.apache.ignite.schema.TableSchema;
 import org.apache.ignite.schema.SortOrder;
 import org.apache.ignite.schema.SortedIndex;
 import org.apache.ignite.schema.SortedIndexColumn;
@@ -412,7 +412,7 @@ public class SchemaConfigurationConverter {
      * @param tblChg Change to fulfill.
      * @return TableChange to get result from.
      */
-    public static TableChange convert(SchemaTable tbl, TableChange tblChg) {
+    public static TableChange convert(TableSchema tbl, TableChange tblChg) {
         tblChg.changeName(tbl.canonicalName());
 
         tblChg.changeIndices(idxsChg -> {
@@ -436,22 +436,22 @@ public class SchemaConfigurationConverter {
     }
 
     /**
-     * Convert TableConfiguration to SchemaTable.
+     * Convert TableConfiguration to TableSchema.
      *
      * @param tblCfg TableConfiguration to convert.
-     * @return SchemaTable.
+     * @return Table schema.
      */
-    public static SchemaTable convert(TableConfiguration tblCfg) {
+    public static TableSchema convert(TableConfiguration tblCfg) {
         return convert(tblCfg.value());
     }
 
     /**
-     * Convert configuration to SchemaTable.
+     * Convert table configuration view to table schema.
      *
      * @param tblView TableView to convert.
-     * @return SchemaTable.
+     * @return Table schema.
      */
-    public static SchemaTableImpl convert(TableView tblView) {
+    public static TableSchemaImpl convert(TableView tblView) {
         String canonicalName = tblView.name();
         int sepPos = canonicalName.indexOf('.');
         String schemaName = canonicalName.substring(0, sepPos);
@@ -483,7 +483,7 @@ public class SchemaConfigurationConverter {
 
         columns.forEach((i, v) -> colsMap.put(v.name(), v));
 
-        return new SchemaTableImpl(schemaName, tableName, colsMap, indices);
+        return new TableSchemaImpl(schemaName, tableName, colsMap, indices);
     }
 
     /**
@@ -493,7 +493,7 @@ public class SchemaConfigurationConverter {
      * @param tblsChange Tables change to fulfill.
      * @return TablesChange to get result from.
      */
-    public static TablesChange createTable(SchemaTable tbl, TablesChange tblsChange) {
+    public static TablesChange createTable(TableSchema tbl, TablesChange tblsChange) {
         return tblsChange.changeTables(tblsChg -> tblsChg.create(tbl.canonicalName(), tblChg -> convert(tbl, tblChg)));
     }
 
@@ -504,7 +504,7 @@ public class SchemaConfigurationConverter {
      * @param tblsChange TablesChange change to fulfill.
      * @return TablesChange to get result from.
      */
-    public static TablesChange dropTable(SchemaTable tbl, TablesChange tblsChange) {
+    public static TablesChange dropTable(TableSchema tbl, TablesChange tblsChange) {
         return tblsChange.changeTables(schmTblChange -> schmTblChange.delete(tbl.canonicalName()));
     }
 

@@ -20,13 +20,13 @@ package org.apache.ignite.schema;
 import org.apache.ignite.internal.schema.builder.HashIndexBuilderImpl;
 import org.apache.ignite.internal.schema.builder.PartialIndexBuilderImpl;
 import org.apache.ignite.internal.schema.builder.PrimaryKeyBuilderImpl;
-import org.apache.ignite.internal.schema.builder.SchemaTableBuilderImpl;
+import org.apache.ignite.internal.schema.builder.TableSchemaBuilderImpl;
 import org.apache.ignite.internal.schema.builder.SortedIndexBuilderImpl;
 import org.apache.ignite.internal.schema.builder.TableColumnBuilderImpl;
 import org.apache.ignite.schema.builder.HashIndexBuilder;
 import org.apache.ignite.schema.builder.PartialIndexBuilder;
 import org.apache.ignite.schema.builder.PrimaryIndexBuilder;
-import org.apache.ignite.schema.builder.SchemaTableBuilder;
+import org.apache.ignite.schema.builder.TableSchemaBuilder;
 import org.apache.ignite.schema.builder.SortedIndexBuilder;
 import org.apache.ignite.schema.builder.TableColumnBuilder;
 
@@ -43,7 +43,7 @@ public final class SchemaBuilders {
      * @param valueClass Value class.
      * @return Table descriptor for given key-value pair.
      */
-    public static SchemaTable buildSchema(String schemaName, String tableName, Class<?> keyClass, Class<?> valueClass) {
+    public static TableSchema buildSchema(String schemaName, String tableName, Class<?> keyClass, Class<?> valueClass) {
         // TODO IGNITE-13749: implement schema generation from classes.
 
         return null;
@@ -56,8 +56,8 @@ public final class SchemaBuilders {
      * @param tableName Table name.
      * @return Table descriptor builder.
      */
-    public static SchemaTableBuilder tableBuilder(String schemaName, String tableName) {
-        return new SchemaTableBuilderImpl(schemaName, tableName);
+    public static TableSchemaBuilder tableBuilder(String schemaName, String tableName) {
+        return new TableSchemaBuilderImpl(schemaName, tableName);
     }
 
     /**

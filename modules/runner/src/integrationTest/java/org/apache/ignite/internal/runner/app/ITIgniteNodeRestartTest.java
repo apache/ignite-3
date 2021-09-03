@@ -25,7 +25,7 @@ import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConver
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.SchemaTable;
+import org.apache.ignite.schema.TableSchema;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Disabled;
@@ -159,7 +159,7 @@ public class ITIgniteNodeRestartTest extends IgniteAbstractTest {
             "  }\n" +
             "}", workDir.resolve(NODE_NAME));
 
-        SchemaTable scmTbl1 = SchemaBuilders.tableBuilder("PUBLIC", TABLE_NAME).columns(
+        TableSchema scmTbl1 = SchemaBuilders.tableBuilder("PUBLIC", TABLE_NAME).columns(
             SchemaBuilders.column("id", ColumnType.INT32).asNonNull().build(),
             SchemaBuilders.column("name", ColumnType.string()).asNullable().build()
         ).withIndex(
@@ -168,7 +168,7 @@ public class ITIgniteNodeRestartTest extends IgniteAbstractTest {
                 .build()
         ).build();
 
-        Table table = ignite.tables().getOrCreateTable(
+        Table table = ignite.tables().createTableIfNotExists(
             scmTbl1.canonicalName(), tbl -> SchemaConfigurationConverter.convert(scmTbl1, tbl).changePartitions(10));
 
         for (int i = 0; i < 100; i++) {

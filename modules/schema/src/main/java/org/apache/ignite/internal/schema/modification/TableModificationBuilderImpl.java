@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.schema.modification;
 
-import org.apache.ignite.internal.schema.SchemaTableImpl;
+import org.apache.ignite.internal.schema.TableSchemaImpl;
 import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.PrimaryIndex;
 import org.apache.ignite.schema.TableIndex;
@@ -29,14 +29,14 @@ import org.apache.ignite.schema.modification.TableModificationBuilder;
  */
 public class TableModificationBuilderImpl implements TableModificationBuilder {
     /** Table. */
-    private final SchemaTableImpl table;
+    private final TableSchemaImpl table;
 
     /**
      * Constructor.
      *
      * @param table Table.
      */
-    public TableModificationBuilderImpl(SchemaTableImpl table) {
+    public TableModificationBuilderImpl(TableSchemaImpl table) {
         this.table = table;
     }
 

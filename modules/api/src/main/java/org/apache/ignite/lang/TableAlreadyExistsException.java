@@ -15,22 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.table;
-
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
-
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.ElementType.PARAMETER;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
+package org.apache.ignite.lang;
 
 /**
- * Annotation to validate whole table configuration.
- *
- * Activate TableValidatorImpl in configuration engine for {@link TablesConfigurationSchema#tables}.
+ * This exception is thrown when a new table failed to be created,
+ * because a table with same name already exists.
  */
-@Target({ FIELD, PARAMETER })
-@Retention(RUNTIME)
-public @interface TableValidator {
-
+public class TableAlreadyExistsException extends IgniteException {
+    /**
+     * Create a new exception with given error message.
+     *
+     * @param msg Error message.
+     */
+    public TableAlreadyExistsException(String msg) {
+        super(msg);
+    }
 }
