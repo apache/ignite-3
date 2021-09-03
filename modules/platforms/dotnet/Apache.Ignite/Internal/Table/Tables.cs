@@ -18,8 +18,10 @@
 namespace Apache.Ignite.Internal.Table
 {
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Threading.Tasks;
     using Buffers;
+    using Common;
     using Ignite.Table;
     using MessagePack;
     using Proto;
@@ -44,6 +46,8 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<ITable?> GetTableAsync(string name)
         {
+            IgniteArgumentCheck.NotNull(name, nameof(name));
+
             using var writer = new PooledArrayBufferWriter();
             Write(writer.GetMessageWriter());
 
