@@ -722,8 +722,6 @@ public class JdbcResultSet implements ResultSet {
 
         Objects.requireNonNull(colLb);
 
-        throw new SQLFeatureNotSupportedException("FindColumn by column label are not supported.");
-
         Integer order = colOrder.get(colLb.toUpperCase());
 
         if (order == null)
