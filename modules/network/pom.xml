@@ -125,7 +125,6 @@
                             <artifactId>error_prone_core</artifactId>
                             <version>${errorprone-annotation-processor.version}</version>
                         </path>
-
                         <path>
                             <groupId>org.apache.ignite</groupId>
                             <artifactId>ignite-network-annotation-processor</artifactId>

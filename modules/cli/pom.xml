@@ -199,7 +199,6 @@
                                     <artifactId>error_prone_core</artifactId>
                                     <version>${errorprone-annotation-processor.version}</version>
                                 </path>
-
                                 <path>
                                     <groupId>io.micronaut</groupId>
                                     <artifactId>micronaut-inject-java</artifactId>
