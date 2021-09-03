@@ -31,7 +31,7 @@ namespace Apache.Ignite.Internal.Buffers
     internal sealed class PooledArrayBufferWriter : IBufferWriter<byte>, IDisposable
     {
         /** Reserved prefix size. */
-        private const int ReservedPrefixSize = 4 + 2 + 8; // Size (4 bytes) + OpCode (2 bytes) + RequestId (8 bytes)/
+        private const int ReservedPrefixSize = 4 + 4 + 9; // Size (4 bytes) + OpCode (4 bytes) + RequestId (9 bytes)/
 
         /** Underlying pooled array. */
         private byte[] _buffer;
