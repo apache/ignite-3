@@ -42,7 +42,9 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.ActionResponse;
+import org.apache.ignite.raft.jraft.rpc.CliRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
+import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.jetbrains.annotations.NotNull;
 
 import static java.lang.System.currentTimeMillis;
@@ -50,6 +52,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.ThreadLocalRandom.current;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerRequest;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerResponse;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersResponse;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderRequest;
@@ -58,6 +61,7 @@ import static org.apache.ignite.raft.jraft.rpc.CliRequests.GetPeersRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.GetPeersResponse;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.LearnersOpResponse;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.RemovePeerRequest;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.RemovePeerResponse;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.SnapshotRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
@@ -234,7 +238,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         AddPeerRequest req = factory.addPeerRequest().groupId(groupId).peerId(PeerId.fromPeer(peer).toString()).build();
 
-        CompletableFuture<ChangePeersResponse> fut = new CompletableFuture<>();
+        CompletableFuture<AddPeerResponse> fut = new CompletableFuture<>();
 
         sendWithRetry(leader, req, currentTimeMillis() + timeout, fut);
 
@@ -254,7 +258,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         RemovePeerRequest req = factory.removePeerRequest().groupId(groupId).peerId(PeerId.fromPeer(peer).toString()).build();
 
-        CompletableFuture<ChangePeersResponse> fut = new CompletableFuture<>();
+        CompletableFuture<RemovePeerResponse> fut = new CompletableFuture<>();
 
         sendWithRetry(leader, req, currentTimeMillis() + timeout, fut);
 
@@ -380,9 +384,20 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         TransferLeaderRequest req = factory.transferLeaderRequest()
             .groupId(groupId).leaderId(PeerId.fromPeer(newLeader).toString()).build();
 
-        CompletableFuture<?> fut = cluster.messagingService().invoke(newLeader.address(), req, timeout);
+        CompletableFuture<NetworkMessage> fut = cluster.messagingService().invoke(newLeader.address(), req, timeout);
 
-        return fut.thenApply(resp -> null);
+        return fut.thenApply(resp -> {
+            if (resp != null) {
+                RpcRequests.ErrorResponse resp0 = (RpcRequests.ErrorResponse) resp;
+
+                if (resp0.errorCode() != RaftError.SUCCESS.getNumber())
+                    throw new RaftException(RaftError.forNumber(resp0.errorCode()), resp0.errorMsg());
+                else
+                    this.leader = PeerId.fromPeer(newLeader);
+            }
+
+            return null;
+        });
     }
 
     /** {@inheritDoc} */
