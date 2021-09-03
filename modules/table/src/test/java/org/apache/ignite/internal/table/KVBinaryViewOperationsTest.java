@@ -32,13 +32,14 @@ import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 /**
  * Basic table operations test.
@@ -53,13 +54,15 @@ public class KVBinaryViewOperationsTest {
     /** Table ID test value. */
     public final java.util.UUID tableId = java.util.UUID.randomUUID();
 
-    @Mock
+    /** */
     private ClusterService clusterService;
 
     /**
      * @return The test table.
      */
     private InternalTable createTable() {
+        clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
+
         TxManagerImpl txManager = new TxManagerImpl(clusterService, new HeapLockManager());
 
         return new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapStorage(),

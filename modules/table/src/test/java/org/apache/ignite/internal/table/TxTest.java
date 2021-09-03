@@ -102,6 +102,9 @@ public class TxTest extends IgniteAbstractTest {
     private IgniteTransactions igniteTransactions;
 
     /** */
+    private LockManager lockManager;
+
+    /** */
     private TxManager txManager;
 
     /**
@@ -112,7 +115,7 @@ public class TxTest extends IgniteAbstractTest {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(ADDR);
 
-        LockManager lockManager = new HeapLockManager();
+        lockManager = new HeapLockManager();
 
         txManager = new TxManagerImpl(clusterService, lockManager);
 
@@ -192,8 +195,8 @@ public class TxTest extends IgniteAbstractTest {
             CompletableFuture<Tuple> read1 = txAcc.getAsync(makeKey(1));
             CompletableFuture<Tuple> read2 = txAcc.getAsync(makeKey(2));
 
-            txAcc.putAsync(makeKey(1), makeValue(1, read1.join().doubleValue("balance") - DELTA));
-            txAcc.putAsync(makeKey(2), makeValue(2, read2.join().doubleValue("balance") + DELTA));
+            txAcc.putAsync(makeKey(1), makeValue(read1.join().doubleValue("balance") - DELTA));
+            txAcc.putAsync(makeKey(2), makeValue(read2.join().doubleValue("balance") + DELTA));
         });
 
         assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
@@ -235,8 +238,8 @@ public class TxTest extends IgniteAbstractTest {
             thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
                 .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
                 .thenCompose(pair -> allOf(
-                    txAcc.putAsync(makeKey(1), makeValue(1, pair.getFirst().doubleValue("balance") - DELTA)),
-                    txAcc.putAsync(makeKey(2), makeValue(2, pair.getSecond().doubleValue("balance") + DELTA))
+                    txAcc.putAsync(makeKey(1), makeValue(pair.getFirst().doubleValue("balance") - DELTA)),
+                    txAcc.putAsync(makeKey(2), makeValue(pair.getSecond().doubleValue("balance") + DELTA))
                     )
                 )
                 .thenApply(ignored -> txAcc.transaction())
@@ -580,11 +583,64 @@ public class TxTest extends IgniteAbstractTest {
         txCust.upsert(makeValue(1, "test2"));
         txAcc.upsert(makeValue(1, 200.));
 
+        Tuple txValCust = txCust.get(makeKey(1));
+        assertEquals("test2", txValCust.stringValue("name"));
+
+        txValCust.set("accountNumber", 2L);
+        txValCust.set("name", "test3");
+
+        Tuple txValAcc = txAcc.get(makeKey(1));
+        assertEquals(200., txValAcc.doubleValue("balance"));
+
+        txValAcc.set("accountNumber", 2L);
+        txValAcc.set("balance", 300.);
+
         tx.commit();
         tx2.commit();
 
         assertEquals("test2", customers.get(makeKey(1)).stringValue("name"));
         assertEquals(200., accounts.get(makeKey(1)).doubleValue("balance"));
+
+        assertTrue(lockManager.isEmpty());
+    }
+
+    /** */
+    @Test
+    public void testCrossTableKeyValueView() throws TransactionException {
+        customers.upsert(makeValue(1L, "test"));
+        accounts.upsert(makeValue(1L, 100.));
+
+        assertEquals("test", customers.get(makeKey(1)).stringValue("name"));
+        assertEquals(100., accounts.get(makeKey(1)).doubleValue("balance"));
+
+        InternalTransaction tx = txManager.begin();
+        InternalTransaction tx2 = txManager.begin();
+
+        KeyValueBinaryView txCust = customers.withTransaction(tx).kvView();
+        KeyValueBinaryView txAcc = accounts.withTransaction(tx2).kvView();
+
+        txCust.put(makeKey(1), makeValue("test2"));
+        txAcc.put(makeKey(1), makeValue(200.));
+
+        Tuple txValCust = txCust.get(makeKey(1));
+        assertEquals("test2", txValCust.stringValue("name"));
+
+        txValCust.set("accountNumber", 2L);
+        txValCust.set("name", "test3");
+
+        Tuple txValAcc = txAcc.get(makeKey(1));
+        assertEquals(200., txValAcc.doubleValue("balance"));
+
+        txValAcc.set("accountNumber", 2L);
+        txValAcc.set("balance", 300.);
+
+        tx.commit();
+        tx2.commit();
+
+        assertEquals("test2", customers.get(makeKey(1)).stringValue("name"));
+        assertEquals(200., accounts.get(makeKey(1)).doubleValue("balance"));
+
+        assertTrue(lockManager.isEmpty());
     }
 
     /** */
@@ -748,5 +804,23 @@ public class TxTest extends IgniteAbstractTest {
      */
     private Tuple makeValue(long id, String name) {
         return Tuple.create().set("accountNumber", id).set("name", name);
+    }
+
+    /**
+     * @param id The id.
+     * @param balance The balance.
+     * @return The value tuple.
+     */
+    private Tuple makeValue(double balance) {
+        return Tuple.create().set("balance", balance);
+    }
+
+    /**
+     * @param id The id.
+     * @param name The name.
+     * @return The value tuple.
+     */
+    private Tuple makeValue(String name) {
+        return Tuple.create().set("name", name);
     }
 }
