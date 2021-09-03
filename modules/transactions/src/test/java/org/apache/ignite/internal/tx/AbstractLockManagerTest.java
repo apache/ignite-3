@@ -37,8 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
- * Tests a LockManager implementation.
- * TODO asch document deadlock prevention algorythm (wait-die)
+ * Tests a LockManager implementation. TODO asch document deadlock prevention algorythm (wait-die)
  */
 public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     private LockManager lockManager;
@@ -488,7 +487,8 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     ) throws InterruptedException {
         Object key = new String("test");
 
-        Thread[] threads = new Thread[Runtime.getRuntime().availableProcessors() * 2];;
+        Thread[] threads = new Thread[Runtime.getRuntime().availableProcessors() * 2];
+        ;
 
         CyclicBarrier startBar = new CyclicBarrier(threads.length, () -> log.info("Before test"));
 
@@ -498,9 +498,9 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         AtomicReference<Throwable> firstErr = new AtomicReference<>();
 
-        for (int i = 0; i < threads.length; i++) {
-            threads[i] = new Thread(new Runnable() {
-                @Override public void run() {
+        try {
+            for (int i = 0; i < threads.length; i++) {
+                threads[i] = new Thread(() -> {
                     try {
                         startBar.await();
                     }
@@ -552,24 +552,27 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
                             }
                         }
                     }
-                }
-            });
+                });
 
-            threads[i].setName("Worker" + i);
-            threads[i].setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-                @Override public void uncaughtException(Thread t, Throwable e) {
-                    firstErr.compareAndExchange(null, e);
-                }
-            });
-            threads[i].start();
+                threads[i].setName("Worker" + i);
+
+                threads[i].setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+                    @Override public void uncaughtException(Thread t, Throwable e) {
+                        firstErr.compareAndExchange(null, e);
+                    }
+                });
+
+                threads[i].start();
+            }
+
+            Thread.sleep(duration);
+
+            stop.set(true);
         }
-
-        Thread.sleep(duration);
-
-        stop.set(true);
-
-        for (Thread thread : threads)
-            thread.join();
+        finally {
+            for (Thread thread : threads)
+                thread.join();
+        }
 
         if (firstErr.get() != null)
             throw new IgniteException(firstErr.get());

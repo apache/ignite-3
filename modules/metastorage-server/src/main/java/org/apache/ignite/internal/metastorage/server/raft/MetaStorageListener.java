@@ -24,7 +24,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
@@ -226,7 +225,7 @@ public class MetaStorageListener implements RaftGroupListener {
             else if (clo.command() instanceof RangeCommand) {
                 RangeCommand rangeCmd = (RangeCommand) clo.command();
 
-                IgniteUuid cursorId = new IgniteUuid(UUID.randomUUID(), 0L);
+                IgniteUuid cursorId = rangeCmd.getCursorId();
 
                 Cursor<Entry> cursor = (rangeCmd.revUpperBound() != -1) ?
                     storage.range(
@@ -305,7 +304,7 @@ public class MetaStorageListener implements RaftGroupListener {
             else if (clo.command() instanceof WatchRangeKeysCommand) {
                 WatchRangeKeysCommand watchCmd = (WatchRangeKeysCommand) clo.command();
 
-                IgniteUuid cursorId = new IgniteUuid(UUID.randomUUID(), 0L);
+                IgniteUuid cursorId = watchCmd.getCursorId();
 
                 Cursor<WatchEvent> cursor =
                     storage.watch(watchCmd.keyFrom(), watchCmd.keyTo(), watchCmd.revision());
@@ -324,7 +323,7 @@ public class MetaStorageListener implements RaftGroupListener {
             else if (clo.command() instanceof WatchExactKeysCommand) {
                 WatchExactKeysCommand watchCmd = (WatchExactKeysCommand) clo.command();
 
-                IgniteUuid cursorId = new IgniteUuid(UUID.randomUUID(), 0L);
+                IgniteUuid cursorId = watchCmd.getCursorId();
 
                 Cursor<WatchEvent> cursor = storage.watch(watchCmd.keys(), watchCmd.revision());
 

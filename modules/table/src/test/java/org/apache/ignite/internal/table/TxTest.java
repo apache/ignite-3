@@ -565,10 +565,10 @@ public class TxTest extends IgniteAbstractTest {
     /** */
     @Test
     public void testCrossTable() throws TransactionException {
-//        customers.upsert(makeValue(1, "test"));
+        customers.upsert(makeValue(1, "test"));
 //        accounts.upsert(makeValue(1, 100.));
 
-//        assertEquals("test", customers.get(makeKey2(1)).stringValue("name"));
+        assertEquals("test", customers.get(makeKey(1)).stringValue("name"));
 //        assertEquals(100., accounts.get(makeKey(1)).doubleValue("balance"));
 
         InternalTransaction tx = txManager.begin();
@@ -726,15 +726,7 @@ public class TxTest extends IgniteAbstractTest {
      * @return The key tuple.
      */
     private Tuple makeKey(long id) {
-        return accounts.tupleBuilder().set("accountNumber", id).build();
-    }
-
-    /**
-     * @param id The id.
-     * @return The key tuple.
-     */
-    private Tuple makeKey2(long id) {
-        return customers.tupleBuilder().set("accountNumber", id).build();
+        return Tuple.create().set("accountNumber", id);
     }
 
     /**
@@ -743,7 +735,7 @@ public class TxTest extends IgniteAbstractTest {
      * @return The value tuple.
      */
     private Tuple makeValue(long id, double balance) {
-        return accounts.tupleBuilder().set("accountNumber", id).set("balance", balance).build();
+        return Tuple.create().set("accountNumber", id).set("balance", balance);
     }
 
     /**
@@ -752,6 +744,6 @@ public class TxTest extends IgniteAbstractTest {
      * @return The value tuple.
      */
     private Tuple makeValue(long id, String name) {
-        return customers.tupleBuilder().set("accountNumber", id).set("name", name).build();
+        return Tuple.create().set("accountNumber", id).set("name", name);
     }
 }

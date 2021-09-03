@@ -26,12 +26,10 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Queue;
 import java.util.Set;
 import java.util.Vector;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -39,15 +37,10 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NodeFinder;
@@ -79,7 +72,6 @@ import org.apache.ignite.raft.jraft.option.BootstrapOptions;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.ReadOnlyOption;
-import org.apache.ignite.raft.jraft.rpc.RpcClient;
 import org.apache.ignite.raft.jraft.rpc.RpcClientEx;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
@@ -94,7 +86,9 @@ import org.apache.ignite.raft.jraft.storage.snapshot.ThroughputSnapshotThrottle;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Bits;
 import org.apache.ignite.raft.jraft.util.Endpoint;
+import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Utils;
+import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -160,6 +154,10 @@ public class ITNodeTest {
 
     private final List<RaftGroupService> services = new ArrayList<>();
 
+    private final List<ExecutorService> executors = new ArrayList<>();
+
+    private final List<FixedThreadsExecutorGroup> appendEntriesExecutors = new ArrayList<>();
+
     @BeforeAll
     public static void setupNodeTest() {
         dumpThread = new DumpThread();
@@ -195,6 +193,10 @@ public class ITNodeTest {
                 LOG.error("Error while closing a service", e);
             }
         });
+
+        executors.forEach(ExecutorServiceHelper::shutdownAndAwaitTermination);
+
+        appendEntriesExecutors.forEach(FixedThreadsExecutorGroup::shutdownGracefully);
 
         if (cluster != null)
             cluster.stopAll();
@@ -1363,10 +1365,15 @@ public class ITNodeTest {
         assertEquals(3, leader.listPeers().size());
 
         CountDownLatch latch = new CountDownLatch(10);
+
+        ExecutorService executor = Executors.newFixedThreadPool(10);
+
+        executors.add(executor);
+
         for (int i = 0; i < 10; i++) {
-            new Thread() {
-                @Override
-                public void run() {
+            executor.submit(new Runnable() {
+                /** {@inheritDoc} */
+                @Override public void run() {
                     try {
                         for (int i = 0; i < 100; i++) {
                             try {
@@ -1406,7 +1413,7 @@ public class ITNodeTest {
                         Thread.currentThread().interrupt();
                     }
                 }
-            }.start();
+            });
         }
 
         latch.await();
@@ -3058,6 +3065,8 @@ public class ITNodeTest {
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
 
+        executors.add(executor);
+
         return Utils.runInThread(executor, () -> {
             try {
                 while (!arg.stop) {
@@ -3205,7 +3214,9 @@ public class ITNodeTest {
         List<Future<?>> futures = new ArrayList<>();
         CountDownLatch latch = new CountDownLatch(threads);
 
-        Executor executor = Executors.newFixedThreadPool(threads);
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
+
+        executors.add(executor);
 
         for (int t = 0; t < threads; t++) {
             ChangeArg arg = new ChangeArg(cluster, peers, false, true);
@@ -3374,8 +3385,12 @@ public class ITNodeTest {
     private NodeOptions createNodeOptions() {
         NodeOptions options = new NodeOptions();
 
-        options.setCommonExecutor(JRaftUtils.createCommonExecutor(options));
-        options.setStripedExecutor(JRaftUtils.createAppendEntriesExecutor(options));
+        ExecutorService executor = JRaftUtils.createCommonExecutor(options);
+        executors.add(executor);
+        options.setCommonExecutor(executor);
+        FixedThreadsExecutorGroup appendEntriesExecutor = JRaftUtils.createAppendEntriesExecutor(options);
+        appendEntriesExecutors.add(appendEntriesExecutor);
+        options.setStripedExecutor(appendEntriesExecutor);
 
         return options;
     }
@@ -3503,7 +3518,11 @@ public class ITNodeTest {
             new TestScaleCubeClusterServiceFactory()
         );
 
-        IgniteRpcServer rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions);
+        ExecutorService requestExecutor = JRaftUtils.createRequestExecutor(nodeOptions);
+
+        executors.add(requestExecutor);
+
+        IgniteRpcServer rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions, requestExecutor);
 
         nodeOptions.setRpcClient(new IgniteRpcClient(clusterService));
 
