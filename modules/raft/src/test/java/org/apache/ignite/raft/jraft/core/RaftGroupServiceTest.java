@@ -18,7 +18,6 @@
 package org.apache.ignite.raft.jraft.core;
 
 import java.net.ConnectException;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Timer;
