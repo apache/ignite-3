@@ -39,7 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Live schema tests for KV View.
  */
-//@Disabled("https://issues.apache.org/jira/browse/IGNITE-14581")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-14581")
 class LiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
     /**
      * Check exception for unknown column when STRICT_SCHEMA is enabled.
@@ -53,13 +53,6 @@ class LiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
         KeyValueBinaryView view = grid.get(1).tables().table(TABLE).kvView();
 
         assertThrows(IllegalArgumentException.class, () -> Tuple.create().set("key", 1L).set("unknownColumn", 10));
-    }
-
-    @RepeatedTest(100)
-    public void nodeRestart100Test() throws Exception {
-        List<Ignite> grid = startGrid();
-
-        IgniteUtils.closeAll(Lists.reverse(grid));
     }
 
     /**
