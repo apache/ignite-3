@@ -206,6 +206,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         boolean hasNext = cur.hasNext();
 
         switch (cur.getQueryType()) {
+            case EXPLAIN:
             case QUERY:
                 return new JdbcQuerySingleResult(cursorId, fetch, !hasNext);
             case DML:
@@ -216,8 +217,6 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
                 return new JdbcQuerySingleResult(cursorId, (Long)fetch.get(0).get(0));
             }
-            case FRAGMENT:
-            case EXPLAIN:
             default:
                 return new JdbcQuerySingleResult(UNSUPPORTED_OPERATION,
                     "Query type [" + cur.getQueryType() + "] is not supported yet.");

@@ -50,7 +50,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class JdbcResultSetSelfTest extends AbstractJdbcSelfTest {
     /** SQL query. */
     private static final String SQL =
-        "SELECT 1::INTEGER, true, 1::TINYINT, 1::SMALLINT, 1::INTEGER, 1::BIGINT, 1.0::FLOAT, 1.0::DOUBLE, 1.0::DOUBLE, '1';";
+        "SELECT 1::INTEGER, true, 1::TINYINT, 1::SMALLINT, 1::INTEGER, 1::BIGINT, 1.0::FLOAT, 1.0::DOUBLE, 1.0::DOUBLE, " +
+            "'1', '1', '1901-02-01'::DATE, '01:01:01'::TIME, 1::TIMESTAMP;";
 
     /** Statement. */
     private Statement stmt;
@@ -547,7 +548,6 @@ public class JdbcResultSetSelfTest extends AbstractJdbcSelfTest {
      */
     @SuppressWarnings("deprecation")
     @Test
-    @Disabled
     public void testDate() throws Exception {
         ResultSet rs = stmt.executeQuery(SQL);
 
@@ -555,7 +555,7 @@ public class JdbcResultSetSelfTest extends AbstractJdbcSelfTest {
 
         while (rs.next()) {
             if (cnt == 0) {
-                assert rs.getDate("dateVal").equals(new Date(1, 1, 1));
+//                assert rs.getDate("dateVal").equals(new Date(1, 1, 1));
 
                 assert rs.getDate(12).equals(new Date(1, 1, 1));
                 assert rs.getTime(12).equals(new Time(new Date(1, 1, 1).getTime()));
@@ -579,7 +579,6 @@ public class JdbcResultSetSelfTest extends AbstractJdbcSelfTest {
      */
     @SuppressWarnings("deprecation")
     @Test
-    @Disabled
     public void testTime() throws Exception {
         ResultSet rs = stmt.executeQuery(SQL);
 
@@ -587,7 +586,7 @@ public class JdbcResultSetSelfTest extends AbstractJdbcSelfTest {
 
         while (rs.next()) {
             if (cnt == 0) {
-                assert rs.getTime("timeVal").equals(new Time(1, 1, 1));
+//                assert rs.getTime("timeVal").equals(new Time(1, 1, 1));
 
                 assert rs.getDate(13).equals(new Date(new Time(1, 1, 1).getTime()));
                 assert rs.getTime(13).equals(new Time(1, 1, 1));
@@ -610,7 +609,6 @@ public class JdbcResultSetSelfTest extends AbstractJdbcSelfTest {
      * @throws Exception If failed.
      */
     @Test
-    @Disabled
     public void testTimestamp() throws Exception {
         ResultSet rs = stmt.executeQuery(SQL);
 
@@ -618,15 +616,14 @@ public class JdbcResultSetSelfTest extends AbstractJdbcSelfTest {
 
         while (rs.next()) {
             if (cnt == 0) {
-                assert rs.getTimestamp("tsVal").getTime() == 1;
+//                assert rs.getTimestamp("tsVal").getTime() == 1;
+                assert rs.getDate(14).equals(new Date(new Timestamp(-10800000).getTime()));
+                assert rs.getTime(14).equals(new Time(new Timestamp(-10800000).getTime()));
+                assert rs.getTimestamp(14).equals(new Timestamp(-10800000));
 
-                assert rs.getDate(14).equals(new Date(new Timestamp(1).getTime()));
-                assert rs.getTime(14).equals(new Time(new Timestamp(1).getTime()));
-                assert rs.getTimestamp(14).equals(new Timestamp(1));
-
-                assert rs.getObject(14, Date.class).equals(new Date(new Timestamp(1).getTime()));
-                assert rs.getObject(14, Time.class).equals(new Time(new Timestamp(1).getTime()));
-                assert rs.getObject(14, Timestamp.class).equals(new Timestamp(1));
+                assert rs.getObject(14, Date.class).equals(new Date(new Timestamp(-10800000).getTime()));
+                assert rs.getObject(14, Time.class).equals(new Time(new Timestamp(-10800000).getTime()));
+                assert rs.getObject(14, Timestamp.class).equals(new Timestamp(-10800000));
             }
 
             cnt++;

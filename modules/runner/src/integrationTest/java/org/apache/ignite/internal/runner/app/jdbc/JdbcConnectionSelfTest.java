@@ -32,7 +32,7 @@ import java.util.HashMap;
 import java.util.Properties;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import org.apache.ignite.jdbc.JdbcConnection;
+import org.apache.ignite.internal.jdbc.JdbcConnection;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -511,9 +511,8 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         try (Connection conn = DriverManager.getConnection(URL)) {
             // null query text
             assertThrows(
-                SQLException.class,
-                () -> conn.prepareStatement(null),
-                "SQL string cannot be null"
+                NullPointerException.class,
+                () -> conn.prepareStatement(null)
             );
 
             final String sqlText = "select * from test where param = ?";
@@ -708,9 +707,8 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         try (Connection conn = DriverManager.getConnection(URL)) {
             // null query text
             assertThrows(
-                SQLException.class,
-                () -> conn.nativeSQL(null),
-                "SQL string cannot be null"
+                NullPointerException.class,
+                () -> conn.nativeSQL(null)
             );
 
             final String sqlText = "select * from test";

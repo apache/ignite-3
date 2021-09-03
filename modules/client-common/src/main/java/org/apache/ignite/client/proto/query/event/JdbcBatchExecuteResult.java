@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.proto.query.event;
 
+import java.util.Objects;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
@@ -50,7 +51,11 @@ public class JdbcBatchExecuteResult extends JdbcResponse {
      * @param updateCnts Update counts for batch.
      */
     public JdbcBatchExecuteResult(int[] updateCnts) {
+        Objects.requireNonNull(updateCnts);
+
         this.updateCnts = updateCnts;
+
+        hasResults = true;
     }
 
     /**
@@ -66,7 +71,7 @@ public class JdbcBatchExecuteResult extends JdbcResponse {
     @Override public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
-        if (status() != STATUS_SUCCESS)
+        if (!hasResults)
             return;
 
         packer.packIntArray(updateCnts);
@@ -76,7 +81,7 @@ public class JdbcBatchExecuteResult extends JdbcResponse {
     @Override public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
 
-        if (status() != STATUS_SUCCESS)
+        if (!hasResults)
             return;
 
         updateCnts = unpacker.unpackIntArray();

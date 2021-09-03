@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.jdbc;
+package org.apache.ignite.internal.jdbc;
 
 import java.sql.Array;
 import java.sql.Blob;
@@ -39,6 +39,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.Executor;
@@ -205,8 +206,7 @@ public class JdbcConnection implements Connection {
 
         checkCursorOptions(resSetType, resSetConcurrency);
 
-        if (sql == null)
-            throw new SQLException("SQL string cannot be null.");
+        Objects.requireNonNull(sql);
 
         JdbcPreparedStatement stmt = new JdbcPreparedStatement(this, sql, resSetHoldability, schema);
 
@@ -221,8 +221,7 @@ public class JdbcConnection implements Connection {
     @Override public String nativeSQL(String sql) throws SQLException {
         ensureNotClosed();
 
-        if (sql == null)
-            throw new SQLException("SQL string cannot be null.");
+        Objects.requireNonNull(sql);
 
         return sql;
     }
@@ -231,11 +230,10 @@ public class JdbcConnection implements Connection {
     @Override public void setAutoCommit(boolean autoCommit) throws SQLException {
         ensureNotClosed();
 
-        // Do nothing if resulting value doesn't actually change.
         if (autoCommit != this.autoCommit) {
-            doCommit();
-
             this.autoCommit = autoCommit;
+            
+            doCommit(); // Specification requires to commit current tx if 'autoCommit' state was changed.
         }
     }
 

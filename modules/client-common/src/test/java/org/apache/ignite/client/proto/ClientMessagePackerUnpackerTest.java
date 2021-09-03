@@ -298,4 +298,26 @@ public class ClientMessagePackerUnpackerTest {
             }
         }
     }
+
+    @Test
+    public void testObjectArrayLongValue() {
+        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
+            Object[] args = new Object[] {16L};
+            packer.packObjectArray(args);
+
+            var buf = packer.getBuffer();
+
+            byte[] data = new byte[buf.readableBytes()];
+
+            buf.readBytes(data);
+
+            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
+                unpacker.skipValue(4);
+
+                Object[] res = unpacker.unpackObjectArray();
+
+                assertEquals(16L,(Long) res[0]);
+            }
+        }
+    }
 }
