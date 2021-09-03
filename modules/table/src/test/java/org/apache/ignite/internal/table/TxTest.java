@@ -77,6 +77,9 @@ public class TxTest extends IgniteAbstractTest {
     /** Table ID test value. */
     public final java.util.UUID tableId = java.util.UUID.randomUUID();
 
+    /** Table ID test value. */
+    public final java.util.UUID tableId2 = java.util.UUID.randomUUID();
+
     /** */
     private static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
@@ -129,7 +132,7 @@ public class TxTest extends IgniteAbstractTest {
         InternalTable table2 = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapStorage(), txManager), txManager);
 
         SchemaDescriptor schema2 = new SchemaDescriptor(
-            tableId,
+            tableId2,
             1,
             new Column[]{new Column("accountNumber", NativeTypes.INT64, false)},
             new Column[]{new Column("name", NativeTypes.STRING, false)}
