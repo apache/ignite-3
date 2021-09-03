@@ -42,9 +42,7 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.ActionResponse;
-import org.apache.ignite.raft.jraft.rpc.CliRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
-import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.jetbrains.annotations.NotNull;
 
 import static java.lang.System.currentTimeMillis;
