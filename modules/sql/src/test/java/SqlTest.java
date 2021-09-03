@@ -64,21 +64,25 @@ public class SqlTest {
     public void testSynchronousSql() {
         igniteTx.runInTransaction(tx -> {
             SqlSession sess = queryMgr.session();
+            SqlTx sqlTx = queryMgr.session().withTransaction(tx);
+            SqlTx sqlTx = queryMgr.session().withNewTransaction();
+//            SqlSession sess = queryMgr.txSession(tx);
+//            SqlSession sess = tx.sqlSession();
 
-//            sess.setParameter("forceJoinOrder", true);
+            sess.setParameter("queryTimeout", 10_000); // Set default timeout.
 //            sess.setParameter("useIndexHint", "idx1"); TODO: Where to move query hints?
 
 
-            SqlResultSet rs = sess.executeQuery("INSERT INTO table VALUES (?, ?)", tx, 10, "str%");
+            SqlResultSet rs = sess.executeQuery("INSERT INTO table VALUES (?, ?)", 10, "str%");
 
-            SqlResultSet rs = sess.executeQuery("SELECT id, val FROM table WHERE id < {} AND val LIKE {};", tx, 10, "str%");
+            SqlResultSet rs = sqlTx.executeQuery("SELECT id, val FROM table WHERE id < {} AND val LIKE {};", 10, "str%");
 
             for (SqlRow r : rs) {
                 assertTrue(10 > r.longValue("id"));
                 assertTrue((r.stringValue("val")).startsWith("str"));
             }
 
-            tx.commit();
+            sqlTx.commit();
         });
 
         Mockito.verify(tx).commit();
