@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.jdbc;
+package org.apache.ignite.internal.jdbc;
 
 import java.sql.BatchUpdateException;
 import java.sql.Connection;
@@ -26,6 +26,7 @@ import java.sql.SQLWarning;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import org.apache.ignite.client.proto.query.IgniteQueryErrorCode;
 import org.apache.ignite.client.proto.query.SqlStateCode;
 import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteRequest;
@@ -34,7 +35,6 @@ import org.apache.ignite.client.proto.query.event.JdbcQuery;
 import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteResult;
 import org.apache.ignite.client.proto.query.event.JdbcQuerySingleResult;
-import org.apache.ignite.client.proto.query.event.JdbcResponse;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 
@@ -105,7 +105,7 @@ public class JdbcStatement implements Statement {
 
     /** {@inheritDoc} */
     @Override public ResultSet executeQuery(String sql) throws SQLException {
-        execute0(sql, null);
+        execute0(Objects.requireNonNull(sql), null);
 
         ResultSet rs = getResultSet();
 
@@ -131,16 +131,16 @@ public class JdbcStatement implements Statement {
         if (sql == null || sql.isEmpty())
             throw new SQLException("SQL query is empty.");
 
-        JdbcQueryExecuteRequest req = new JdbcQueryExecuteRequest(schema, pageSize,
-            maxRows, conn.getAutoCommit(), false, sql, args == null ? null : ArrayUtils.OBJECT_EMPTY_ARRAY);
+        JdbcQueryExecuteRequest req = new JdbcQueryExecuteRequest(schema, pageSize, maxRows, sql,
+            args == null ? ArrayUtils.OBJECT_EMPTY_ARRAY : args.toArray());
 
         JdbcQueryExecuteResult res = conn.handler().query(req);
 
-        if (res.status() != JdbcResponse.STATUS_SUCCESS)
+        if (!res.hasResults())
             throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
 
         for (JdbcQuerySingleResult jdbcRes : res.results()) {
-            if (jdbcRes.status() != JdbcResponse.STATUS_SUCCESS)
+            if (!jdbcRes.hasResults())
                 throw IgniteQueryErrorCode.createJdbcSqlException(jdbcRes.err(), jdbcRes.status());
         }
 
@@ -157,7 +157,7 @@ public class JdbcStatement implements Statement {
 
     /** {@inheritDoc} */
     @Override public int executeUpdate(String sql) throws SQLException {
-        execute0(sql, null);
+        execute0(Objects.requireNonNull(sql), null);
 
         int res = getUpdateCount();
 
@@ -237,6 +237,8 @@ public class JdbcStatement implements Statement {
         if (timeout < 0)
             throw new SQLException("Invalid timeout value.");
 
+        //The timeout value of 0 will be converted to Integer.MAX_VALUE timeout to avoid further checks to 0.
+        //This is because zero means there is no timeout limit.
         timeout(timeout * 1000 > timeout ? timeout * 1000 : Integer.MAX_VALUE);
     }
 
@@ -270,7 +272,7 @@ public class JdbcStatement implements Statement {
     @Override public boolean execute(String sql) throws SQLException {
         ensureNotClosed();
 
-        execute0(sql, null);
+        execute0(Objects.requireNonNull(sql), null);
 
         return resSets.get(0).isQuery();
     }
@@ -391,12 +393,11 @@ public class JdbcStatement implements Statement {
         try {
             JdbcBatchExecuteResult res = conn.handler().batch(req);
 
-            if (res.status() != JdbcResponse.STATUS_SUCCESS) {
+            if (!res.hasResults())
                 throw new BatchUpdateException(res.err(),
                     IgniteQueryErrorCode.codeToSqlState(res.status()),
                     res.status(),
                     res.updateCounts());
-            }
 
             return res.updateCounts();
         }
@@ -572,7 +573,7 @@ public class JdbcStatement implements Statement {
 
     /** {@inheritDoc} */
     @Override public <T> T unwrap(Class<T> iface) throws SQLException {
-        if (!isWrapperFor(iface))
+        if (!isWrapperFor(Objects.requireNonNull(iface)))
             throw new SQLException("Statement is not a wrapper for " + iface.getName());
 
         return (T)this;
@@ -636,9 +637,11 @@ public class JdbcStatement implements Statement {
      * For test purposes.
      *
      * @param timeout Timeout.
+     * @throws SQLException If timeout condition is not satisfied.
      */
-    public final void timeout(int timeout) {
-        assert timeout >= 0;
+    public final void timeout(int timeout) throws SQLException {
+        if (timeout < 0)
+            throw new SQLException("Condition timeout >= 0 is not satisfied.");
 
         this.timeout = timeout;
 

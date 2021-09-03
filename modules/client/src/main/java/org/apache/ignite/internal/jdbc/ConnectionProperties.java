@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.jdbc;
+package org.apache.ignite.internal.jdbc;
 
 import java.sql.SQLException;
 import org.apache.ignite.internal.client.HostAndPortRange;
 import org.apache.ignite.internal.client.ProtocolBitmaskFeature;
 
+//TODO IGNITE-15428 Refactor and implement SSL connection parameters.
 /**
  * Provide access and manipulations with connection JDBC properties.
  */

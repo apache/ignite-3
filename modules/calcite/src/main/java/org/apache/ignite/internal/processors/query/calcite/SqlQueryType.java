@@ -26,9 +26,6 @@ public enum SqlQueryType {
     /** Query. */
     QUERY,
 
-    /** Fragment. */
-    FRAGMENT,
-
     /** DML. */
     DML,
 
@@ -46,8 +43,6 @@ public enum SqlQueryType {
         switch (type) {
             case QUERY:
                 return QUERY;
-            case FRAGMENT:
-                return FRAGMENT;
             case DML:
                 return DML;
             case DDL:

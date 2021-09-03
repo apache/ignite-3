@@ -42,6 +42,7 @@ import org.msgpack.core.buffer.InputStreamBufferInput;
 import org.msgpack.value.ImmutableValue;
 
 import static org.apache.ignite.client.proto.ClientDataType.BITMASK;
+import static org.apache.ignite.client.proto.ClientDataType.BOOLEAN;
 import static org.apache.ignite.client.proto.ClientDataType.BYTES;
 import static org.apache.ignite.client.proto.ClientDataType.DATE;
 import static org.apache.ignite.client.proto.ClientDataType.DATETIME;
@@ -551,6 +552,9 @@ public class ClientMessageUnpacker extends MessageUnpacker {
             return null;
 
         switch (dataType) {
+            case BOOLEAN:
+                return unpackBoolean();
+
             case INT8:
                 return unpackByte();
 
@@ -626,70 +630,12 @@ public class ClientMessageUnpacker extends MessageUnpacker {
         Object[] args = new Object[size];
 
         for (int i = 0; i < size; i++) {
-            MessageFormat format = getNextFormat();
+            if (tryUnpackNil())
+                continue;
 
-            switch (format) {
-                case NIL:
-                    unpackNil();
-
-                    break;
-                case BOOLEAN:
-                    args[i] = unpackBoolean();
-
-                    break;
-                case FLOAT32:
-                    args[i] = unpackFloat();
-
-                    break;
-                case FLOAT64:
-                    args[i] = unpackDouble();
-
-                    break;
-                case POSFIXINT:
-                    args[i] = extractExtendedValue(unpackInt());
-
-                    break;
-                case FIXSTR:
-                case STR8:
-                case STR16:
-                case STR32:
-                    args[i] = unpackString();
-
-                    break;
-                default:
-                    throw new IllegalStateException("Unexpected value type: " + format);
-            }
+            args[i] = unpackObject(unpackInt());
         }
         return args;
-    }
-
-    /**
-     * Extracts extended value value according to value type code.
-     *
-     * @param type Type code.
-     * @return Java object.
-     * @throws IllegalStateException in case of unexpected type.
-     */
-    private Object extractExtendedValue(int type) {
-        switch (type) {
-            case INT8:
-                return unpackByte();
-
-            case INT16:
-                return unpackShort();
-
-            case INT32:
-                return unpackInt();
-
-            case INT64:
-                return unpackLong();
-
-            case ClientDataType.UUID:
-                return unpackUuid();
-
-            default:
-                throw new IllegalStateException("Unexpected value type code: " + type);
-        }
     }
 
     /**

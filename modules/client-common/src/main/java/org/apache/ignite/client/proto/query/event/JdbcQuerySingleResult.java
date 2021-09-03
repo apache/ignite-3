@@ -19,7 +19,9 @@ package org.apache.ignite.client.proto.query.event;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
@@ -69,10 +71,14 @@ public class JdbcQuerySingleResult extends JdbcResponse {
     public JdbcQuerySingleResult(long cursorId, List<List<Object>> items, boolean last) {
         super();
 
+        Objects.requireNonNull(items);
+
         this.cursorId = cursorId;
         this.items = items;
         this.last = last;
-        isQuery = true;
+        this.isQuery = true;
+
+        hasResults = true;
     }
 
     /**
@@ -85,9 +91,12 @@ public class JdbcQuerySingleResult extends JdbcResponse {
         super();
 
         this.cursorId = cursorId;
-        last = true;
-        isQuery = false;
+        this.last = true;
+        this.isQuery = false;
         this.updateCnt = updateCnt;
+        this.items = Collections.emptyList();
+
+        hasResults = true;
     }
 
     /**
@@ -139,53 +148,38 @@ public class JdbcQuerySingleResult extends JdbcResponse {
     @Override public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
-        if (status() != STATUS_SUCCESS)
+        if (!hasResults)
             return;
 
         packer.packLong(cursorId);
         packer.packBoolean(isQuery);
+        packer.packLong(updateCnt);
+        packer.packBoolean(last);
 
-        if (isQuery) {
-            assert items != null;
+        packer.packArrayHeader(items.size());
 
-            packer.packBoolean(last);
-
-            packer.packInt(items.size());
-
-            for (List<Object> item : items)
-                packer.packObjectArray(item.toArray());
-        }
-        else
-            packer.packLong(updateCnt);
+        for (List<Object> item : items)
+            packer.packObjectArray(item.toArray());
     }
 
     /** {@inheritDoc} */
     @Override public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
 
-        if (status() != STATUS_SUCCESS)
+        if (!hasResults)
             return;
 
         cursorId = unpacker.unpackLong();
         isQuery = unpacker.unpackBoolean();
+        updateCnt = unpacker.unpackLong();
+        last = unpacker.unpackBoolean();
 
-        if (isQuery) {
-            last = unpacker.unpackBoolean();
+        int size = unpacker.unpackArrayHeader();
 
-            int size = unpacker.unpackInt();
+        items = new ArrayList<>(size);
 
-            if (size > 0) {
-                items = new ArrayList<>(size);
-
-                for (int i = 0; i < size; i++)
-                    items.add(Arrays.asList(unpacker.unpackObjectArray()));
-            }
-        }
-        else {
-            last = true;
-
-            updateCnt = unpacker.unpackLong();
-        }
+        for (int i = 0; i < size; i++)
+            items.add(Arrays.asList(unpacker.unpackObjectArray()));
     }
 
     /** {@inheritDoc} */

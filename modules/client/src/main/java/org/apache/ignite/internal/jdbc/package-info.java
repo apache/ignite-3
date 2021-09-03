@@ -15,33 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.proto.query.event;
-
-import org.apache.ignite.internal.tostring.S;
-
 /**
- * JDBC query fetch result.
+ * Ignite jdbc client internal classes.
  */
-public class JdbcQueryCloseResult extends JdbcResponse {
-    /**
-     * Default constructor is used for deserialization.
-     */
-    public JdbcQueryCloseResult() {
-        hasResults = true;
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param status Status code.
-     * @param err Error message.
-     */
-    public JdbcQueryCloseResult(int status, String err) {
-        super(status, err);
-    }
-
-    /** {@inheritDoc} */
-    @Override public String toString() {
-        return S.toString(JdbcQueryCloseResult.class, this);
-    }
-}
+package org.apache.ignite.internal.jdbc;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.jdbc;
+package org.apache.ignite.internal.jdbc;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -42,11 +42,15 @@ import java.sql.Timestamp;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.ParseException;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.apache.ignite.client.proto.query.IgniteQueryErrorCode;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.client.proto.query.SqlStateCode;
@@ -204,7 +208,7 @@ public class JdbcResultSet implements ResultSet {
         if ((rowsIter == null || !rowsIter.hasNext()) && !finished) {
             JdbcQueryFetchResult res = qryHandler.fetch(new JdbcQueryFetchRequest(cursorId, fetchSize));
 
-            if (res.status() != JdbcResponse.STATUS_SUCCESS)
+            if (!res.hasResults())
                 throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
 
             rows = res.items();
@@ -253,7 +257,7 @@ public class JdbcResultSet implements ResultSet {
             if (stmt != null && (!finished || (isQuery && !autoClose))) {
                 JdbcQueryCloseResult res = qryHandler.close(new JdbcQueryCloseRequest(cursorId));
 
-                if (res.status() != JdbcResponse.STATUS_SUCCESS)
+                if (!res.hasResults())
                     throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
             }
         }
@@ -503,10 +507,14 @@ public class JdbcResultSet implements ResultSet {
 
         Class<?> cls = val.getClass();
 
-        if (cls == Date.class)
-            return (Date)val;
-        else if (cls == java.util.Date.class || cls == Time.class || cls == Timestamp.class)
-            return new Date(((java.util.Date)val).getTime());
+        if (cls == LocalDate.class)
+            return Date.valueOf((LocalDate)val);
+        else if (cls == LocalTime.class)
+            return new Date(Time.valueOf((LocalTime)val).getTime());
+        else if (cls == Instant.class) {
+            var odlDate = java.util.Date.from((Instant)val);
+            return new Date(odlDate.getTime());
+        }
         else
             throw new SQLException("Cannot convert to date: " + val, SqlStateCode.CONVERSION_FAILED);
     }
@@ -520,10 +528,14 @@ public class JdbcResultSet implements ResultSet {
 
         Class<?> cls = val.getClass();
 
-        if (cls == Time.class)
-            return (Time)val;
-        else if (cls == java.util.Date.class || cls == Date.class || cls == Timestamp.class)
-            return new Time(((java.util.Date)val).getTime());
+        if (cls == LocalTime.class)
+            return Time.valueOf((LocalTime)val);
+        else if (cls == LocalDate.class)
+            return new Time(Date.valueOf((LocalDate)val).getTime());
+        else if (cls == Instant.class) {
+            var oldTs = Timestamp.from((Instant)val);
+            return new Time(oldTs.getTime());
+        }
         else
             throw new SQLException("Cannot convert to time: " + val, SqlStateCode.CONVERSION_FAILED);
     }
@@ -537,10 +549,12 @@ public class JdbcResultSet implements ResultSet {
 
         Class<?> cls = val.getClass();
 
-        if (cls == Timestamp.class)
-            return (Timestamp)val;
-        else if (cls == java.util.Date.class || cls == Date.class || cls == Time.class)
-            return new Timestamp(((java.util.Date)val).getTime());
+        if (cls == LocalTime.class)
+            return new Timestamp(Time.valueOf((LocalTime)val).getTime());
+        else if (cls == LocalDate.class)
+            return new Timestamp(Date.valueOf((LocalDate)val).getTime());
+        else if (cls == Instant.class)
+            return Timestamp.from(((Instant)val));
         else
             throw new SQLException("Cannot convert to timestamp: " + val, SqlStateCode.CONVERSION_FAILED);
     }
@@ -710,6 +724,8 @@ public class JdbcResultSet implements ResultSet {
     /** {@inheritDoc} */
     @Override public int findColumn(String colLb) throws SQLException {
         ensureNotClosed();
+
+        Objects.requireNonNull(colLb);
 
         Integer order = columnOrder().get(colLb.toUpperCase());
 
@@ -1311,19 +1327,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override public Date getDate(int colIdx, Calendar cal) throws SQLException {
-        Object val = getValue(colIdx);
-
-        if (val == null)
-            return null;
-
-        Class<?> cls = val.getClass();
-
-        if (cls == Date.class)
-            return (Date)val;
-        else if (cls == java.util.Date.class || cls == Time.class || cls == Timestamp.class)
-            return new Date(((java.util.Date)val).getTime());
-        else
-            throw new SQLException("Cannot convert to date: " + val, SqlStateCode.CONVERSION_FAILED);
+        return getDate(colIdx);
     }
 
     /** {@inheritDoc} */

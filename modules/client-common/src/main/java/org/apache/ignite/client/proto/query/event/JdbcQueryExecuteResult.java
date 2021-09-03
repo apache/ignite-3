@@ -20,6 +20,7 @@ package org.apache.ignite.client.proto.query.event;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
@@ -55,22 +56,21 @@ public class JdbcQueryExecuteResult extends JdbcResponse {
     public JdbcQueryExecuteResult(List<JdbcQuerySingleResult> results) {
         super();
 
+        Objects.requireNonNull(results);
+
         this.results = results;
+
+        this.hasResults = true;
     }
 
     /** {@inheritDoc} */
     @Override public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
-        if (status() != STATUS_SUCCESS)
+        if (!hasResults)
             return;
 
-        assert results != null;
-
-        packer.packInt(results.size());
-
-        if (results.isEmpty())
-            return;
+        packer.packArrayHeader(results.size());
 
         for (JdbcQuerySingleResult result : results)
             result.writeBinary(packer);
@@ -80,10 +80,10 @@ public class JdbcQueryExecuteResult extends JdbcResponse {
     @Override public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
 
-        if (status() != STATUS_SUCCESS)
+        if (!hasResults)
             return;
 
-        int size = unpacker.unpackInt();
+        int size = unpacker.unpackArrayHeader();
 
         if (size == 0) {
             results = Collections.emptyList();

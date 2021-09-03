@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.runner.app.jdbc;
 
 import java.sql.DriverPropertyInfo;
-import org.apache.ignite.jdbc.ConnectionPropertiesImpl;
+import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
