@@ -571,17 +571,17 @@ public class TxTest extends IgniteAbstractTest {
         assertEquals("test", customers.get(makeKey(1)).stringValue("name"));
 //        assertEquals(100., accounts.get(makeKey(1)).doubleValue("balance"));
 
-        InternalTransaction tx = txManager.begin();
-        InternalTransaction tx2 = txManager.begin();
-
-        Table txCust = customers.withTransaction(tx);
-        Table txAcc = accounts.withTransaction(tx2);
-
-        txCust.upsert(makeValue(1, "test"));
-        txAcc.upsert(makeValue(1, 100.));
-
-        tx.commit();
-        tx2.commit();
+//        InternalTransaction tx = txManager.begin();
+//        InternalTransaction tx2 = txManager.begin();
+//
+//        Table txCust = customers.withTransaction(tx);
+//        Table txAcc = accounts.withTransaction(tx2);
+//
+//        txCust.upsert(makeValue(1, "test"));
+//        txAcc.upsert(makeValue(1, 100.));
+//
+//        tx.commit();
+//        tx2.commit();
     }
 
     /** */

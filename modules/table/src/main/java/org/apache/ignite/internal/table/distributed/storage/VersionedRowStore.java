@@ -1,7 +1,6 @@
 package org.apache.ignite.internal.table.distributed.storage;
 
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
@@ -361,7 +360,11 @@ public class VersionedRowStore {
         buf.position(pos);
 
         if (l1 != 0) {
-            ByteBuffer tmp = buf.duplicate().limit(pos + l1).slice().order(ByteOrder.LITTLE_ENDIAN);
+            // TODO asch get rid of copying
+            byte[] tmp = new byte[l1];
+            //ByteBuffer tmp = buf.duplicate().limit(pos + l1).slice().order(ByteOrder.LITTLE_ENDIAN);
+
+            buf.get(tmp);
 
             newVal = new ByteBufferRow(tmp);
 
@@ -377,7 +380,12 @@ public class VersionedRowStore {
         buf.position(pos);
 
         if (l2 != 0) {
-            ByteBuffer tmp = buf.duplicate().limit(pos + l2).slice().order(ByteOrder.LITTLE_ENDIAN);
+            // TODO asch get rid of copying
+            byte[] tmp = new byte[l2];
+
+            buf.get(tmp);
+
+            //ByteBuffer tmp = buf.duplicate().limit(pos + l2).slice().limit(pos + l2).order(ByteOrder.LITTLE_ENDIAN);
 
             oldVal = new ByteBufferRow(tmp);
 
