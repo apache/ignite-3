@@ -17,16 +17,19 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import com.google.common.collect.Lists;
 import java.util.List;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.schema.SchemaMode;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -50,6 +53,13 @@ class LiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
         KeyValueBinaryView view = grid.get(1).tables().table(TABLE).kvView();
 
         assertThrows(IllegalArgumentException.class, () -> Tuple.create().set("key", 1L).set("unknownColumn", 10));
+    }
+
+    @RepeatedTest(100)
+    public void nodeRestart100Test() throws Exception {
+        List<Ignite> grid = startGrid();
+
+        IgniteUtils.closeAll(Lists.reverse(grid));
     }
 
     /**

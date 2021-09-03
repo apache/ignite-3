@@ -196,6 +196,15 @@ public class MetaStorageManager implements IgniteComponent {
     /** {@inheritDoc} */
     @Override public void stop() {
         // TODO: IGNITE-15161 Implement component's stop.
+        try {
+            metaStorageSvcFut.get().stopAllWatches();
+        }
+        catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        catch (ExecutionException e) {
+            e.printStackTrace();
+        }
     }
 
     /**

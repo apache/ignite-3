@@ -43,6 +43,8 @@ public interface MetaStorageService {
     @NotNull
     CompletableFuture<Entry> get(@NotNull ByteArray key);
 
+    void stopAllWatches();
+
     /**
      * Retrieves an entry for the given key and the revision upper bound.
      *

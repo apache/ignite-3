@@ -248,6 +248,10 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return watchRes;
     }
 
+    public void stopAllWatches() {
+        watchProcessor.stopAllWatchers();
+    }
+
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> stopWatch(@NotNull IgniteUuid id) {
         return CompletableFuture.runAsync(() -> watchProcessor.stopWatch(id));
@@ -389,6 +393,10 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             watchers.put(watchId, watcher);
 
             watcher.start();
+        }
+
+        private void stopAllWatchers() {
+            watchers.forEach((k, v) -> stopWatch(k));
         }
 
         /**
