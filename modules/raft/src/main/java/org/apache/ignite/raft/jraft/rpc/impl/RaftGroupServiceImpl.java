@@ -58,6 +58,7 @@ import static org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderResponse;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.GetPeersRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.GetPeersResponse;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.LearnersOpResponse;
+import static org.apache.ignite.raft.jraft.rpc.CliRequests.RemoveLearnersRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.RemovePeerRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.RemovePeerResponse;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
@@ -319,7 +320,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             return refreshLeader().thenCompose(res -> addLearners(learners));
 
         List<String> lrns = learners.stream().map(p -> PeerId.fromPeer(p).toString()).collect(Collectors.toList());
-        AddLearnersRequest req = factory.addLearnersRequest().groupId(groupId).learnersList(lrns).build();
+        RemoveLearnersRequest req = factory.removeLearnersRequest().groupId(groupId).learnersList(lrns).build();
 
         CompletableFuture<LearnersOpResponse> fut = new CompletableFuture<>();
 

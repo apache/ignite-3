@@ -471,10 +471,8 @@ public class RaftGroupServiceTest {
     public void testRefreshMembers() throws Exception {
         String groupId = "test";
 
-        List<String> respPeers =
-            NODES.subList(0, 2).stream().map(p -> PeerId.fromPeer(p).toString()).collect(Collectors.toList());
-        List<String> respLearners =
-            NODES.subList(2, 2).stream().map(p -> PeerId.fromPeer(p).toString()).collect(Collectors.toList());
+        List<String> respPeers = peersToIds(NODES.subList(0, 2));
+        List<String> respLearners = peersToIds(NODES.subList(2, 2));
 
         when(messagingService.invoke(any(NetworkAddress.class),
              eq(FACTORY.getPeersRequest().onlyAlive(false).groupId(groupId).build()), anyLong()))
@@ -502,8 +500,7 @@ public class RaftGroupServiceTest {
     public void testAddPeer() throws Exception {
         String groupId = "test";
 
-        List<String> respPeers =
-            NODES.stream().map(p -> PeerId.fromPeer(p).toString()).collect(Collectors.toList());
+        List<String> respPeers = peersToIds(NODES);
 
         when(messagingService.invoke(any(NetworkAddress.class),
             eq(FACTORY.addPeerRequest()
@@ -533,8 +530,7 @@ public class RaftGroupServiceTest {
     public void testRemovePeer() throws Exception {
         String groupId = "test";
 
-        List<String> respPeers =
-            NODES.subList(0, 2).stream().map(p -> PeerId.fromPeer(p).toString()).collect(Collectors.toList());
+        List<String> respPeers = peersToIds(NODES.subList(0, 2));
 
         when(messagingService.invoke(any(NetworkAddress.class),
             eq(FACTORY.removePeerRequest()
@@ -564,18 +560,16 @@ public class RaftGroupServiceTest {
     public void testChangePeers() throws Exception {
         String groupId = "test";
 
-        List<String> shrinkedPeers =
-            NODES.subList(0, 1).stream().map(p -> PeerId.fromPeer(p).toString()).collect(Collectors.toList());
+        List<String> shrunkPeers = peersToIds(NODES.subList(0, 1));
 
-        List<String> extendedPeers =
-            NODES.stream().map(p -> PeerId.fromPeer(p).toString()).collect(Collectors.toList());
+        List<String> extendedPeers = peersToIds(NODES);
 
         when(messagingService.invoke(any(NetworkAddress.class),
             eq(FACTORY.changePeersRequest()
-                .newPeersList(shrinkedPeers)
+                .newPeersList(shrunkPeers)
                 .groupId(groupId).build()), anyLong()))
             .then(invocation ->
-                completedFuture(FACTORY.changePeersResponse().newPeersList(shrinkedPeers).build()));
+                completedFuture(FACTORY.changePeersResponse().newPeersList(shrunkPeers).build()));
 
         when(messagingService.invoke(any(NetworkAddress.class),
             eq(FACTORY.changePeersRequest()
@@ -629,6 +623,110 @@ public class RaftGroupServiceTest {
         assertEquals(NODES.get(1), service.leader());
     }
 
+    /**
+     * @throws Exception
+     */
+    @Test
+    public void testAddLearners() throws Exception {
+        String groupId = "test";
+
+        List<String> addLearners = peersToIds(NODES.subList(1, 3));
+
+        when(messagingService.invoke(any(NetworkAddress.class),
+            eq(FACTORY.addLearnersRequest()
+                .learnersList(addLearners)
+                .groupId(groupId).build()), anyLong()))
+            .then(invocation ->
+                completedFuture(FACTORY.learnersOpResponse().newLearnersList(addLearners).build()));
+
+        mockLeaderRequest(false);
+
+        RaftGroupService service =
+            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES.subList(0, 1), true, DELAY).get(3, TimeUnit.SECONDS);
+
+        assertEquals(NODES.subList(0, 1), service.peers());
+        assertEquals(Collections.emptyList(), service.learners());
+
+        service.addLearners(NODES.subList(1, 3)).get();
+
+        assertEquals(NODES.subList(0, 1), service.peers());
+        assertEquals(NODES.subList(1, 3), service.learners());
+    }
+
+    /**
+     * @throws Exception
+     */
+    @Test
+    public void testResetLearners() throws Exception {
+        String groupId = "test";
+
+        List<String> addLearners = peersToIds(NODES.subList(1, 3));
+
+        List<String> resetLearners = peersToIds(NODES.subList(2, 3));
+
+        when(messagingService.invoke(any(NetworkAddress.class),
+            eq(FACTORY.resetLearnersRequest()
+                .learnersList(resetLearners)
+                .groupId(groupId).build()), anyLong()))
+            .then(invocation ->
+                completedFuture(FACTORY.learnersOpResponse().newLearnersList(resetLearners).build()));
+
+        mockAddLearners(groupId, addLearners, addLearners);
+
+        mockLeaderRequest(false);
+
+        RaftGroupService service =
+            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES.subList(0, 1), true, DELAY).get(3, TimeUnit.SECONDS);
+
+        service.addLearners(NODES.subList(1, 3)).get();
+
+        assertEquals(NODES.subList(0, 1), service.peers());
+        assertEquals(NODES.subList(1, 3), service.learners());
+
+        service.resetLearners(NODES.subList(2, 3)).get();
+
+        assertEquals(NODES.subList(0, 1), service.peers());
+        assertEquals(NODES.subList(2, 3), service.learners());
+    }
+
+    /**
+     * @throws Exception
+     */
+    @Test
+    public void testRemoveLearners() throws Exception {
+        String groupId = "test";
+
+        List<String> addLearners = peersToIds(NODES.subList(1, 3));
+
+        List<String> removeLearners = peersToIds(NODES.subList(2, 3));
+
+        List<String> resultLearners =
+            NODES.subList(1, 2).stream().map(p -> PeerId.fromPeer(p).toString()).collect(Collectors.toList());
+
+        when(messagingService.invoke(any(NetworkAddress.class),
+            eq(FACTORY.removeLearnersRequest()
+                .learnersList(removeLearners)
+                .groupId(groupId).build()), anyLong()))
+            .then(invocation ->
+                completedFuture(FACTORY.learnersOpResponse().newLearnersList(resultLearners).build()));
+
+        mockAddLearners(groupId, addLearners, addLearners);
+
+        mockLeaderRequest(false);
+
+        RaftGroupService service =
+            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES.subList(0, 1), true, DELAY).get(3, TimeUnit.SECONDS);
+
+        service.addLearners(NODES.subList(1, 3)).get();
+
+        assertEquals(NODES.subList(0, 1), service.peers());
+        assertEquals(NODES.subList(1, 3), service.learners());
+
+        service.removeLearners(NODES.subList(2, 3)).get();
+
+        assertEquals(NODES.subList(0, 1), service.peers());
+        assertEquals(NODES.subList(1, 2), service.learners());
+    }
     /**
      * @param delay {@code True} to create a delay before response.
      * @param peer Fail the request targeted to given peer.
@@ -717,6 +815,21 @@ public class RaftGroupServiceTest {
                 else
                     return failedFuture(new IgniteInternalException("Very bad"));
             });
+    }
+
+    /** */
+    private void mockAddLearners(String groupId, List<String> addLearners, List<String> resultLearners) {
+        when(messagingService.invoke(any(NetworkAddress.class),
+            eq(FACTORY.addLearnersRequest()
+                .learnersList(addLearners)
+                .groupId(groupId).build()), anyLong()))
+            .then(invocation ->
+                completedFuture(FACTORY.learnersOpResponse().newLearnersList(resultLearners).build()));
+
+    }
+
+    private List<String> peersToIds(List<Peer> peers) {
+        return peers.stream().map(p -> PeerId.fromPeer(p).toString()).collect(Collectors.toList());
     }
 
     /** */
