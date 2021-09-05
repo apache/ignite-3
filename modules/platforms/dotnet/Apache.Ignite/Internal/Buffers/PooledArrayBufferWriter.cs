@@ -24,8 +24,18 @@ namespace Apache.Ignite.Internal.Buffers
     using MessagePack;
 
     /// <summary>
-    /// Pooled buffer writer.
+    /// Pooled buffer writer: integrates <see cref="MessagePackWriter"/> with <see cref="ArrayPool{T}"/>,
+    /// and adds the logic to prepend messages with size and other data (opcode, request id).
+    /// <para />
+    /// We reserve some bytes for the prefix because message size, op code and request ID are not known initially.
+    /// <para />
+    /// There are two ways to use <see cref="MessagePackWriter"/>: with a <see cref="SequencePool"/>,
+    /// or with a <see cref="IBufferWriter{T}"/>. SequencePool approach uses buffer pooling too, but still allocates
+    /// the final array with <see cref="MessagePackWriter.FlushAndGetArray"/>. We want to avoid all array allocations,
+    /// so we implement our own <see cref="IBufferWriter{T}"/> here.
+    /// <para />
     /// Based on <see cref="ArrayBufferWriter{T}"/>, but uses <see cref="ArrayPool{T}.Shared"/> to allocate arrays.
+    /// <para />
     /// Not a struct because <see cref="GetMessageWriter"/> will cause boxing.
     /// </summary>
     internal sealed class PooledArrayBufferWriter : IBufferWriter<byte>, IDisposable
