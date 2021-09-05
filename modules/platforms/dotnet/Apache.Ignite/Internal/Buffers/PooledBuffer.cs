@@ -23,7 +23,8 @@ namespace Apache.Ignite.Internal.Buffers
     using MessagePack;
 
     /// <summary>
-    /// Pooled byte buffer.
+    /// Pooled byte buffer. Wraps a byte array rented from <see cref="ArrayPool{T}.Shared"/>,
+    /// returns it to the pool on <see cref="Dispose"/>.
     /// </summary>
     internal readonly struct PooledBuffer : IDisposable
     {
