@@ -36,7 +36,7 @@ public interface AsyncSqlSession {
      * @return Operation future.
      * @throws SQLException If failed.
      */
-    CompletableFuture<SqlResultSet> executeAsync(String query, Object... arguments);
+    CompletableFuture<AsyncResultSet> executeAsync(String query, Object... arguments);
 
     /**
      * Executes SQL statement in async way.
@@ -44,7 +44,7 @@ public interface AsyncSqlSession {
      * @return Operation future.
      * @throws SQLException If failed.
      */
-    CompletableFuture<SqlResultSet> executeAsync(SqlStatement statement);
+    CompletableFuture<AsyncResultSet> executeAsync(SqlStatement statement);
 
     /**
      * Executes multi-statement SQL query.

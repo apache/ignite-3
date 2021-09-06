@@ -17,6 +17,7 @@
 
 package org.apache.ignite.query.sql.async;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import org.apache.ignite.query.sql.SqlResultSetMeta;
 import org.apache.ignite.query.sql.SqlRow;
@@ -30,7 +31,7 @@ public interface AsyncResultSet {
      *
      * @return ResultSet metadata.
      */
-    SqlResultSetMeta metadata();
+    CompletableFuture<SqlResultSetMeta> metadata();
 
     /**
      * @return Current page rows.

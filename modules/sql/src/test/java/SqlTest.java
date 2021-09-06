@@ -18,21 +18,24 @@
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.util.Constants;
 import org.apache.ignite.query.sql.IgniteSql;
+import org.apache.ignite.query.sql.SqlMultiResultSet;
 import org.apache.ignite.query.sql.SqlResultSet;
 import org.apache.ignite.query.sql.SqlResultSetMeta;
 import org.apache.ignite.query.sql.SqlRow;
 import org.apache.ignite.query.sql.SqlSession;
 import org.apache.ignite.query.sql.SqlTx;
+import org.apache.ignite.query.sql.async.AsyncResultSet;
 import org.apache.ignite.query.sql.reactive.ReactiveSqlResultSet;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.table.Table;
@@ -119,60 +122,50 @@ public class SqlTest {
         Mockito.verify(tx, Mockito.times(1)).rollback();
     }
 
-    @NotNull private Table getTable() {
-        SchemaDescriptor schema = new SchemaDescriptor(UUID.randomUUID(), 42,
-            new Column[]{new Column("id", NativeTypes.INT64, false)},
-            new Column[]{new Column("val", NativeTypes.STRING, true)}
-        );
-
-        SchemaRegistry schemaReg = Mockito.mock(SchemaRegistry.class);
-        Mockito.when(schemaReg.schema()).thenReturn(schema);
-
-        Table tbl = Mockito.mock(Table.class);
-        Mockito.when(tbl.insertAsync(Mockito.any())).thenReturn(CompletableFuture.completedFuture(null));
-        Mockito.when(tbl.withTransaction(Mockito.any())).thenAnswer(Answers.RETURNS_SELF);
-
-        return tbl;
-    }
-
     @Disabled
     @Test
-    public void testSynchronousMiltiStatementSql() throws ExecutionException, InterruptedException {
-        SqlSession sess = queryMgr.session();
+    public void testSynchronousMultiStatementSql() {
+        SqlTx sess = queryMgr.session().withTransaction(tx);
 
-        CompletableFuture<SqlResultSet> f = sess.executeMultiAsync(
-                "CREATE TABLE tbl(id INTEGER PRIMARY KEY, val VARCHAR);" +
+        SqlMultiResultSet multiRs = sess.executeMulti(
+            "CREATE TABLE tbl(id INTEGER PRIMARY KEY, val VARCHAR);" +
                 "INSERT INTO tbl VALUES (1, 2)" +
                 "SELECT id, val FROM tbl WHERE id == {};" +
-                "DROP TABLE tbl", tx, 10)
-                                                .thenCompose(multiRs -> {
-                                                    SqlResultSet rs = multiRs.iterator().next();
+                "DROP TABLE tbl", 10);
 
-                                                    String str = rs.iterator().next().stringValue("val");
+        SqlResultSet rs = multiRs.iterator().next();
 
-                                                    return sess.executeAsync("SELECT val FROM tbl where val LIKE {};", tx, str);
-                                                });
+        String str = rs.iterator().next().stringValue("val");
 
-        SqlResultSet rs = f.get();
-
-        rs.iterator().next();
+        Mockito.verify(tx).commit();
     }
 
     @Test
-    public void testAsyncSql() {
+    public void testAsyncSql() throws ExecutionException, InterruptedException {
+        Table table = getTable();
+
         igniteTx.beginAsync().thenCompose(tx0 -> {
             SqlSession sess = queryMgr.session().withTransaction(tx0);
 
-            return sess.executeAsync("SELECT id, val FROM tbl WHERE id == {};", 10)
-                       .thenCompose(rs -> {
-                           String str = rs.iterator().next().stringValue("val");
+            class AsyncPageProcessor implements Function<AsyncResultSet, CompletionStage<AsyncResultSet>> {
+                @Override public CompletionStage<AsyncResultSet> apply(AsyncResultSet rs) {
+                    for (SqlRow row : rs.currentPage())
+                        table.getAsync(Tuple.create().set("id", row.intValue(0)));
 
-                           return sess.executeAsync("SELECT val FROM tbl where val LIKE {};", str);
-                       })
+                    if (rs.hasMorePages())
+                        return rs.fetchNextPage().thenCompose(this);
+
+                    return CompletableFuture.completedFuture(rs);
+                }
+            }
+
+            return sess.executeAsync("SELECT val FROM tbl where val LIKE {};", "val%")
+                       .thenCompose(new AsyncPageProcessor())
                        .thenApply(ignore -> tx0);
-        }).thenAccept(Transaction::commitAsync);
+        }).thenAccept(Transaction::commitAsync).get();
 
         Mockito.verify(tx).commitAsync();
+        Mockito.verify(table, Mockito.times(6)).getAsync(Mockito.any());
     }
 
     @Test
@@ -220,6 +213,23 @@ public class SqlTest {
         assertTrue(meta.column(1).nullable());
     }
 
+    @NotNull private Table getTable() {
+        SchemaDescriptor schema = new SchemaDescriptor(UUID.randomUUID(), 42,
+            new Column[]{new Column("id", NativeTypes.INT64, false)},
+            new Column[]{new Column("val", NativeTypes.STRING, true)}
+        );
+
+        SchemaRegistry schemaReg = Mockito.mock(SchemaRegistry.class);
+        Mockito.when(schemaReg.schema()).thenReturn(schema);
+
+        Table tbl = Mockito.mock(Table.class);
+        Mockito.when(tbl.insertAsync(Mockito.any())).thenReturn(CompletableFuture.completedFuture(null));
+        Mockito.when(tbl.getAsync(Mockito.any())).thenAnswer(ans -> CompletableFuture.completedFuture(ans.getArgument(0)));
+        Mockito.when(tbl.withTransaction(Mockito.any())).thenAnswer(Answers.RETURNS_SELF);
+
+        return tbl;
+    }
+
     private void initMock() {
         SqlSession session = Mockito.mock(SqlSession.class);
 
@@ -251,18 +261,23 @@ public class SqlTest {
 
         Mockito.when(session.executeAsync(Mockito.eq("SELECT id, val FROM tbl WHERE id == {};"), Mockito.any()))
             .thenAnswer(ans -> CompletableFuture.completedFuture(
-                Mockito.when(Mockito.mock(SqlResultSet.class).iterator())
-                    .thenReturn(List.of(new TestRow().set("id", 1L).set("val", "string 1").build()).iterator())
+                Mockito.when(Mockito.mock(AsyncResultSet.class).currentPage())
+                    .thenReturn(List.of(new TestRow().set("id", 1L).set("val", "string 1").build()))
                     .getMock())
             );
 
         Mockito.when(session.executeAsync(Mockito.eq("SELECT val FROM tbl where val LIKE {};"), Mockito.any()))
             .thenAnswer(ans -> {
-                Object mock = Mockito.when(Mockito.mock(SqlResultSet.class).iterator())
-                                  .thenReturn(List.of(new TestRow().set("id", 10L).set("val", "string 10").build()).iterator())
-                                  .getMock();
+                AsyncResultSet page2 = Mockito.mock(AsyncResultSet.class);
+                Mockito.when(page2.currentPage()).thenReturn(query1Resuls);
+                Mockito.when(page2.hasMorePages()).thenReturn(false);
 
-                return CompletableFuture.completedFuture(mock);
+                AsyncResultSet page1 = Mockito.mock(AsyncResultSet.class);
+                Mockito.when(page1.currentPage()).thenReturn(query1Resuls);
+                Mockito.when(page1.hasMorePages()).thenReturn(true);
+                Mockito.when(page1.fetchNextPage()).thenReturn(CompletableFuture.completedFuture(page2));
+
+                return CompletableFuture.completedFuture(page1);
             });
 
         Mockito.when(session.executeQueryReactive(Mockito.startsWith("SELECT id, val FROM tbl WHERE id < {} AND val LIKE {};"), Mockito.any(), Mockito.any()))
