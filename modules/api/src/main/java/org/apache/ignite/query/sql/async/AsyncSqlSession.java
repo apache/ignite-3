@@ -19,10 +19,10 @@ package org.apache.ignite.query.sql.async;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.query.sql.SQLException;
-import org.apache.ignite.query.sql.SqlPrepared;
+import org.apache.ignite.query.sql.SqlMultiResultSet;
+import org.apache.ignite.query.sql.SqlStatement;
 import org.apache.ignite.query.sql.SqlResultSet;
-import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Async Session provides methods for asynchronous query execution.
@@ -31,18 +31,38 @@ public interface AsyncSqlSession {
     /**
      * Executes SQL query in async way.
      *
-     * @param sql SQL query template.
-     * @param args Arguments for template (optional).
+     * @param query SQL query template.
+     * @param arguments Arguments for the template (optional).
      * @return Operation future.
      * @throws SQLException If failed.
      */
-    CompletableFuture<SqlResultSet> executeAsync(String sql, Object... args);
+    CompletableFuture<SqlResultSet> executeAsync(String query, Object... arguments);
 
     /**
-     * Executes DDL SQL query in async way.
+     * Executes SQL statement in async way.
      *
      * @return Operation future.
      * @throws SQLException If failed.
      */
-    CompletableFuture<SqlResultSet> executeAsync(SqlPrepared prep);
+    CompletableFuture<SqlResultSet> executeAsync(SqlStatement statement);
+
+    /**
+     * Executes multi-statement SQL query.
+     *
+     * @param query SQL query template.
+     * @param arguments Arguments for the template (optional).
+     * @return SQL query results set.
+     * @throws SQLException If failed.
+     */
+    SqlMultiResultSet executeMulti(@NotNull String query, Object... arguments);
+
+    /**
+     * Executes multi-statement SQL query.
+     *
+     * @param query SQL query template.
+     * @param arguments Arguments for the template (optional).
+     * @return Operation future.
+     * @throws SQLException If failed.
+     */
+    CompletableFuture<SqlMultiResultSet> executeMultiAsync(@NotNull String query, Object... arguments);
 }

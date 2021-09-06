@@ -22,5 +22,5 @@ import org.apache.ignite.table.Tuple;
 
 /**
  */
-public interface SqlPrepared  {
+public interface SqlStatement {
 }

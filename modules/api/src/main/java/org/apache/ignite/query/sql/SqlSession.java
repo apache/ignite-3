@@ -21,46 +21,69 @@ import org.apache.ignite.query.sql.async.AsyncSqlSession;
 import org.apache.ignite.query.sql.reactive.ReactiveSqlSession;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * SQL Session provides methods for query execution.
  */
 public interface SqlSession extends AsyncSqlSession, ReactiveSqlSession {
-    /** */
-    SqlSession withTransaction(@Nullable Transaction tx);
+    /**
+     * Creates transactional SQL session projection with given transaction.
+     *
+     * @param tx Transaction.
+     * @return Transactional projection for the session.
+     */
+    SqlTx withTransaction(@NotNull Transaction tx);
 
-    /** */
-    SqlSession setTimeout(@NotNull int timeout);
+    /**
+     * Creates transactional SQL session projection with a new transaction.
+     *
+     * @return Transactional projection for the session.
+     */
+    SqlTx withNewTransaction();
 
-    /** */
-    SqlSession setQuota(@NotNull Object quota);
+    /**
+     * Sets default query timeout.
+     * TODO: add getters.
+     *
+     * @return {@code this} for chaining.
+     */
+    SqlSession setTimeout(int timeout);
 
-    /** */
+    /**
+     * Sets default query schema.
+     *
+     * @param schema Default schema.
+     * @return {@code this} for chaining.
+     */
     SqlSession setSchema(@NotNull String schema);
 
     /**
-     * Executes SQL query.
+     * Executes single SQL query.
      *
-     * @param sql SQL query template.
-     * @param args Arguments for template (optional).
+     * @param query SQL query template.
+     * @param arguments Arguments for the template (optional).
      * @return SQL query results set.
      * @throws SQLException If failed.
      */
-    SqlResultSet execute(@NotNull String sql, Object... args);
-
-    /** */
-    SqlResultSet execute(@NotNull SqlPrepared prep);
+    SqlResultSet execute(@NotNull String query, Object... arguments);
 
     /**
-     * Executes SQL query.
+     * Executes single SQL statement.
      *
-     * @param sql SQL query template.
-     * @param args Arguments for template (optional).
+     * @param statement SQL statement to execute.
+     * @return SQL query results set.
+     */
+    SqlResultSet execute(@NotNull SqlStatement statement);
+
+    /**
+     * Executes multi-statement SQL query.
+     *
+     * @param query SQL query template.
+     * @param arguments Arguments for the template (optional).
      * @return SQL query results set.
      * @throws SQLException If failed.
      */
-    SqlMultiResultSet executeMulti(@NotNull String sql, Object... args);
+    SqlMultiResultSet executeMulti(@NotNull String query, Object... arguments);
 
     /**
      * Sets query session parameter.

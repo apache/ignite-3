@@ -23,7 +23,6 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Ignite SQL query facade.
  */
-// TODO: Do we wand a separate IgniteQuery facade for non-sql (index/scan/full-text) queries?
 public interface IgniteSql {
     /**
      * Creates SQL session.
@@ -33,13 +32,13 @@ public interface IgniteSql {
     SqlSession session();
 
     /**
-     * Creates prepared statement.
+     * Creates statement.
      *
      * @param sql SQL query template.
      * @return Prepared statement.
      * @throws SQLException If parsing failed.
      */
-    SqlPrepared prepare(@NotNull String sql);
+    SqlStatement prepare(@NotNull String sql);
 
     /**
      * Kills query by its' id.
@@ -55,14 +54,14 @@ public interface IgniteSql {
      *
      * @return Statistics facade.
      */
-    IgniteTableStatistics statistics();
     // TODO: Do we need this here or move to Table facade?
+    IgniteTableStatistics statistics();
 
+    //TODO: Custom function registration. Move to session?
     void registerUserFunction(Class type, String... methodNames); //TODO: Get function details from method annotations.
 
     void registerUserFunction(Class type);
 
     void unregistedUserFunction(String functionName);
-    //TODO: Custom function registration. Do we need a view and unregister functionality?
 }
 
