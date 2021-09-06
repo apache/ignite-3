@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
+import java.util.Objects;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
@@ -45,7 +46,11 @@ public class JdbcMetaColumnsResult extends JdbcResponse {
      * @param meta Columns metadata.
      */
     public JdbcMetaColumnsResult(Collection<JdbcColumnMeta> meta) {
+        Objects.requireNonNull(meta);
+
         this.meta = new ArrayList<>(meta);
+
+        this.hasResults = true;
     }
 
     /**
@@ -61,7 +66,7 @@ public class JdbcMetaColumnsResult extends JdbcResponse {
     @Override public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
-        if (status() != STATUS_SUCCESS)
+        if (!hasResults)
             return;
 
         packer.packArrayHeader(meta.size());
@@ -74,7 +79,7 @@ public class JdbcMetaColumnsResult extends JdbcResponse {
     @Override public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
 
-        if (status() != STATUS_SUCCESS)
+        if (!hasResults)
             return;
 
         int size = unpacker.unpackArrayHeader();

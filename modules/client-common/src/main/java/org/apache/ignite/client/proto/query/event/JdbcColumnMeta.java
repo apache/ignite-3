@@ -102,6 +102,8 @@ public class JdbcColumnMeta extends JdbcResponse {
 
         dataType = type(type);
         dataTypeName = typeName(type);
+
+        hasResults = true;
     }
 
     /**
@@ -189,7 +191,7 @@ public class JdbcColumnMeta extends JdbcResponse {
     @Override public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
-        if (status() != STATUS_SUCCESS)
+        if (!hasResults)
             return;
 
         packer.packString(schemaName);
@@ -205,7 +207,7 @@ public class JdbcColumnMeta extends JdbcResponse {
     @Override public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
 
-        if (status() != STATUS_SUCCESS)
+        if (!hasResults)
             return;
 
         schemaName = unpacker.unpackString();
