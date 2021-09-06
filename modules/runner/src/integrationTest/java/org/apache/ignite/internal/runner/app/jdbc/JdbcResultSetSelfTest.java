@@ -193,6 +193,7 @@ public class JdbcResultSetSelfTest extends AbstractJdbcSelfTest {
                 assert rs.getObject(3, Float.class) == 1.f;
                 assert rs.getObject(3, Double.class) == 1;
                 assert rs.getObject(3, BigDecimal.class).equals(new BigDecimal(1));
+                assert Arrays.equals(rs.getBytes(3), new byte[] {1});
                 assertEquals(rs.getObject(3, String.class), "1");
             }
 
@@ -234,6 +235,7 @@ public class JdbcResultSetSelfTest extends AbstractJdbcSelfTest {
                 assert rs.getObject(4, Float.class) == 1.f;
                 assert rs.getObject(4, Double.class) == 1;
                 assert rs.getObject(4, BigDecimal.class).equals(new BigDecimal(1));
+                assert Arrays.equals(rs.getBytes(4), new byte[] {0, 1});
                 assertEquals(rs.getObject(4, String.class), "1");
             }
 
@@ -275,6 +277,7 @@ public class JdbcResultSetSelfTest extends AbstractJdbcSelfTest {
                 assert rs.getObject(5, Float.class) == 1.f;
                 assert rs.getObject(5, Double.class) == 1;
                 assert rs.getObject(5, BigDecimal.class).equals(new BigDecimal(1));
+                assert Arrays.equals(rs.getBytes(5), new byte[] {0, 0, 0, 1});
                 assertEquals(rs.getObject(5, String.class), "1");
             }
 
@@ -316,6 +319,7 @@ public class JdbcResultSetSelfTest extends AbstractJdbcSelfTest {
                 assert rs.getObject(6, Float.class) == 1.f;
                 assert rs.getObject(6, Double.class) == 1;
                 assert rs.getObject(6, BigDecimal.class).equals(new BigDecimal(1));
+                assert Arrays.equals(rs.getBytes(6), new byte[] {0, 0, 0, 0, 0, 0, 0, 1});
                 assertEquals(rs.getObject(6, String.class), "1");
             }
 
@@ -357,6 +361,7 @@ public class JdbcResultSetSelfTest extends AbstractJdbcSelfTest {
                 assert rs.getObject(7, Float.class) == 1.f;
                 assert rs.getObject(7, Double.class) == 1;
                 assert rs.getObject(7, BigDecimal.class).equals(new BigDecimal(1));
+                assert Arrays.equals(rs.getBytes(7), new byte[] {63, -128, 0, 0});
                 assertEquals(rs.getObject(7, String.class), "1.0");
             }
 
@@ -398,6 +403,7 @@ public class JdbcResultSetSelfTest extends AbstractJdbcSelfTest {
                 assert rs.getObject(8, Float.class) == 1.f;
                 assert rs.getObject(8, Double.class) == 1;
                 assert rs.getObject(8, BigDecimal.class).equals(new BigDecimal(1));
+                assert Arrays.equals(rs.getBytes(8), new byte[] {63, -16, 0, 0, 0, 0, 0, 0});
                 assertEquals(rs.getObject(8, String.class), "1.0");
             }
 
@@ -508,6 +514,7 @@ public class JdbcResultSetSelfTest extends AbstractJdbcSelfTest {
                 assert rs.getObject(10, Float.class) == 1.f;
                 assert rs.getObject(10, Double.class) == 1;
                 assert rs.getObject(10, BigDecimal.class).equals(new BigDecimal(1));
+                assert Arrays.equals(rs.getBytes(10), new byte[] {49});
                 assertEquals(rs.getObject(10, String.class), "1");
             }
 

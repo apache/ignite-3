@@ -23,6 +23,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.ByteBuffer;
 import java.sql.Array;
 import java.sql.Blob;
 import java.sql.Clob;
@@ -50,6 +51,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import org.apache.ignite.client.proto.query.IgniteQueryErrorCode;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.client.proto.query.SqlStateCode;
@@ -454,8 +456,20 @@ public class JdbcResultSet implements ResultSet {
             return new byte[] {(byte) (x >> 56), (byte) (x >> 48), (byte) (x >> 40), (byte) (x >> 32),
                 (byte) (x >> 24), (byte) (x >> 16), (byte) (x >> 8), (byte) x};
         }
+        else if (cls == Float.class)
+            return ByteBuffer.allocate(4).putFloat(((Float)val)).array();
+        else if (cls == Double.class)
+            return ByteBuffer.allocate(8).putDouble(((Double)val)).array();
         else if (cls == String.class)
             return ((String)val).getBytes();
+        else if (cls == UUID.class) {
+            ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
+
+            bb.putLong(((UUID)val).getMostSignificantBits());
+            bb.putLong(((UUID)val).getLeastSignificantBits());
+
+            return bb.array();
+        }
         else
             throw new SQLException("Cannot convert to byte[]: " + val, SqlStateCode.CONVERSION_FAILED);
     }
