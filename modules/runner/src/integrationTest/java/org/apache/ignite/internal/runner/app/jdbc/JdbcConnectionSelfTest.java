@@ -324,7 +324,7 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
             assertEquals( "PUBLIC", conn.getSchema(), "Invalid schema");
         }
 
-        String dfltSchema = "DEFAULT" ;
+        String dfltSchema = "DEFAULT";
 
         try (Connection conn = DriverManager.getConnection(URL + "/\"" + dfltSchema + '"')) {
             assertEquals(dfltSchema, conn.getSchema(), "Invalid schema");
@@ -342,7 +342,7 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
      */
     @Test
     public void testSchemaSemicolon() throws Exception {
-        String dfltSchema = "DEFAULT" ;
+        String dfltSchema = "DEFAULT";
 
         try (Connection conn = DriverManager.getConnection(URL + ";schema=public")) {
             assertEquals("PUBLIC", conn.getSchema(), "Invalid schema");
