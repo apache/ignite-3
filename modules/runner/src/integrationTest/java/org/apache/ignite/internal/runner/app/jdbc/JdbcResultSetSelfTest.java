@@ -968,87 +968,87 @@ public class JdbcResultSetSelfTest extends AbstractJdbcSelfTest {
         // Must do nothing on closed result set
         rs.close();
 
-        checkResultSetClosed(() ->  rs.getBoolean(1));
+        checkResultSetClosed(() -> rs.getBoolean(1));
 
-        checkResultSetClosed(() ->  rs.getBoolean("id"));
+        checkResultSetClosed(() -> rs.getBoolean("id"));
 
-        checkResultSetClosed(() ->  rs.getByte(1));
+        checkResultSetClosed(() -> rs.getByte(1));
 
-        checkResultSetClosed(() ->  rs.getByte("id"));
+        checkResultSetClosed(() -> rs.getByte("id"));
 
-        checkResultSetClosed(() ->  rs.getShort(1));
+        checkResultSetClosed(() -> rs.getShort(1));
 
-        checkResultSetClosed(() ->  rs.getShort("id"));
+        checkResultSetClosed(() -> rs.getShort("id"));
 
-        checkResultSetClosed(() ->  rs.getInt(1));
+        checkResultSetClosed(() -> rs.getInt(1));
 
-        checkResultSetClosed(() ->  rs.getInt("id"));
+        checkResultSetClosed(() -> rs.getInt("id"));
 
-        checkResultSetClosed(() ->  rs.getLong(1));
+        checkResultSetClosed(() -> rs.getLong(1));
 
-        checkResultSetClosed(() ->  rs.getLong("id"));
+        checkResultSetClosed(() -> rs.getLong("id"));
 
-        checkResultSetClosed(() ->  rs.getFloat(1));
+        checkResultSetClosed(() -> rs.getFloat(1));
 
-        checkResultSetClosed(() ->  rs.getFloat("id"));
+        checkResultSetClosed(() -> rs.getFloat("id"));
 
-        checkResultSetClosed(() ->  rs.getDouble(1));
+        checkResultSetClosed(() -> rs.getDouble(1));
 
-        checkResultSetClosed(() ->  rs.getDouble("id"));
+        checkResultSetClosed(() -> rs.getDouble("id"));
 
-        checkResultSetClosed(() ->  rs.getString(1));
+        checkResultSetClosed(() -> rs.getString(1));
 
-        checkResultSetClosed(() ->  rs.getString("id"));
+        checkResultSetClosed(() -> rs.getString("id"));
 
-        checkResultSetClosed(() ->  rs.getBytes(1));
+        checkResultSetClosed(() -> rs.getBytes(1));
 
-        checkResultSetClosed(() ->  rs.getBytes("id"));
+        checkResultSetClosed(() -> rs.getBytes("id"));
 
-        checkResultSetClosed(() ->  rs.getDate(1));
+        checkResultSetClosed(() -> rs.getDate(1));
 
-        checkResultSetClosed(() ->  rs.getDate(1, new GregorianCalendar()));
+        checkResultSetClosed(() -> rs.getDate(1, new GregorianCalendar()));
 
-        checkResultSetClosed(() ->  rs.getDate("id"));
+        checkResultSetClosed(() -> rs.getDate("id"));
 
-        checkResultSetClosed(() ->  rs.getDate("id", new GregorianCalendar()));
+        checkResultSetClosed(() -> rs.getDate("id", new GregorianCalendar()));
 
-        checkResultSetClosed(() ->  rs.getTime(1));
+        checkResultSetClosed(() -> rs.getTime(1));
 
-        checkResultSetClosed(() ->  rs.getTime(1, new GregorianCalendar()));
+        checkResultSetClosed(() -> rs.getTime(1, new GregorianCalendar()));
 
-        checkResultSetClosed(() ->  rs.getTime("id"));
+        checkResultSetClosed(() -> rs.getTime("id"));
 
-        checkResultSetClosed(() ->  rs.getTime("id", new GregorianCalendar()));
+        checkResultSetClosed(() -> rs.getTime("id", new GregorianCalendar()));
 
-        checkResultSetClosed(() ->  rs.getTimestamp(1));
+        checkResultSetClosed(() -> rs.getTimestamp(1));
 
-        checkResultSetClosed(() ->  rs.getTimestamp(1, new GregorianCalendar()));
+        checkResultSetClosed(() -> rs.getTimestamp(1, new GregorianCalendar()));
 
-        checkResultSetClosed(() ->  rs.getTimestamp("id"));
+        checkResultSetClosed(() -> rs.getTimestamp("id"));
 
-        checkResultSetClosed(() ->  rs.getTimestamp("id", new GregorianCalendar()));
+        checkResultSetClosed(() -> rs.getTimestamp("id", new GregorianCalendar()));
 
-        checkResultSetClosed(() ->  rs.getObject("objVal"));
+        checkResultSetClosed(() -> rs.getObject("objVal"));
 
-        checkResultSetClosed(() ->  rs.getObject("objVal", TestObjectField.class));
+        checkResultSetClosed(() -> rs.getObject("objVal", TestObjectField.class));
 
-        checkResultSetClosed(() ->  rs.wasNull());
+        checkResultSetClosed(() -> rs.wasNull());
 
-        checkResultSetClosed(() ->  rs.getMetaData());
+        checkResultSetClosed(() -> rs.getMetaData());
 
-        checkResultSetClosed(() ->  rs.next());
+        checkResultSetClosed(() -> rs.next());
 
-        checkResultSetClosed(() ->  rs.last());
+        checkResultSetClosed(() -> rs.last());
 
-        checkResultSetClosed(() ->  rs.afterLast());
+        checkResultSetClosed(() -> rs.afterLast());
 
-        checkResultSetClosed(() ->  rs.beforeFirst());
+        checkResultSetClosed(() -> rs.beforeFirst());
 
-        checkResultSetClosed(() ->  rs.first());
+        checkResultSetClosed(() -> rs.first());
 
-        checkResultSetClosed(() ->  rs.findColumn("id"));
+        checkResultSetClosed(() -> rs.findColumn("id"));
 
-        checkResultSetClosed(() ->  rs.getRow());
+        checkResultSetClosed(() -> rs.getRow());
     }
 
     /**
