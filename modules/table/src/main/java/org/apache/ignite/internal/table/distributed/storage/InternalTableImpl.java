@@ -47,6 +47,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.schema.SchemaMode;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.TestOnly;
 
@@ -116,6 +117,15 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<BinaryRow> get(BinaryRow keyRow, InternalTransaction tx) {
+        if (tx == null) {
+            try {
+                tx = txManager.tx();
+            }
+            catch (TransactionException e) {
+                return CompletableFuture.failedFuture(e);
+            }
+        }
+
         if (tx != null)
             return enlist(keyRow, tx).<SingleRowResponse>run(new GetCommand(keyRow, tx.timestamp())).
                 thenApply(SingleRowResponse::getValue);
@@ -155,6 +165,15 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> upsert(BinaryRow row, InternalTransaction tx) {
+        if (tx == null) {
+            try {
+                tx = txManager.tx();
+            }
+            catch (TransactionException e) {
+                return CompletableFuture.failedFuture(e);
+            }
+        }
+
         if (tx != null)
             return enlist(row, tx).run(new UpsertCommand(row, tx.timestamp()));
         else {
@@ -203,6 +222,15 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Boolean> insert(BinaryRow row, InternalTransaction tx) {
+        if (tx == null) {
+            try {
+                tx = txManager.tx();
+            }
+            catch (TransactionException e) {
+                return CompletableFuture.failedFuture(e);
+            }
+        }
+
         if (tx != null) {
             return enlist(row, tx).run(new InsertCommand(row, tx.timestamp()));
         }

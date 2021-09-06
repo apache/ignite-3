@@ -76,6 +76,7 @@ public interface Table extends TableView<Tuple> {
     KeyValueBinaryView kvView();
 
     /**
+     * TODO asch remove from public API.
      * Creates a transactional view of the table.
      *
      * @param tx The transaction.

@@ -25,7 +25,9 @@ import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.Nullable;
 
 /** */
 public class TransactionImpl implements InternalTransaction {
@@ -37,6 +39,9 @@ public class TransactionImpl implements InternalTransaction {
 
     /** */
     private List<NetworkAddress> nodes = new CopyOnWriteArrayList<>();
+
+    /** */
+    private Thread t;
 
     /**
      * @param txManager The tx managert.
@@ -116,5 +121,26 @@ public class TransactionImpl implements InternalTransaction {
         }
 
         return CompletableFuture.allOf(futs);
+    }
+
+    /** {@inheritDoc} */
+    @Override public Table wrap(Table t) {
+        return t.withTransaction(this);
+    }
+
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<Table> wrapAsync(Table t) {
+        // TODO asch check if already wrapped.
+        return CompletableFuture.completedFuture(t.withTransaction(this));
+    }
+
+    /** {@inheritDoc} */
+    @Override public void thread(Thread t) {
+        this.t = t;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @Nullable Thread thread() {
+        return t;
     }
 }

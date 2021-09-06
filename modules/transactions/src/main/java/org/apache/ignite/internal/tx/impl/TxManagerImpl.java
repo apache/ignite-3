@@ -36,12 +36,12 @@ import org.apache.ignite.internal.tx.message.TxFinishResponse;
 import org.apache.ignite.internal.tx.message.TxFinishResponseBuilder;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.Nullable;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
@@ -70,6 +70,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** The storage for tx locks. Each key is mapped to lock type: true for read. TODO asch use Storage for locks */
     private final ConcurrentHashMap<Timestamp, Map<TableLockKey, Boolean>> locks = new ConcurrentHashMap<>();
+
+    /** */
+    private ThreadLocal<InternalTransaction> threadCtx = new ThreadLocal<>();
 
     /**
      * @param clusterService Cluster service.
@@ -238,6 +241,29 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** {@inheritDoc} */
     @Override public boolean isLocal(NetworkAddress node) {
         return clusterService.topologyService().localMember().address().equals(node);
+    }
+
+    @Override public void setTx(InternalTransaction tx) {
+        threadCtx.set(tx);
+    }
+
+    @Override @Nullable public InternalTransaction tx() throws TransactionException {
+        InternalTransaction tx = threadCtx.get();
+
+        if (tx != null && tx.thread() != Thread.currentThread())
+            throw new TransactionException("Transactional operation is attempted from another thread");
+
+        return tx;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void clearTx() {
+        threadCtx.remove();
+    }
+
+    /** {@inheritDoc} */
+    @Override public int finished() {
+        return states.size();
     }
 
     /** {@inheritDoc} */

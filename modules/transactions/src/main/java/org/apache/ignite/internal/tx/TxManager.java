@@ -20,8 +20,10 @@ package org.apache.ignite.internal.tx;
 import java.nio.ByteBuffer;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -100,4 +102,15 @@ public interface TxManager extends IgniteComponent {
      * @return {@code True} if a local node.
      */
     boolean isLocal(NetworkAddress addr);
+
+    void setTx(InternalTransaction tx);
+
+    InternalTransaction tx() throws TransactionException;
+
+    void clearTx();
+
+    /**
+     * @return A number of finished transactions.
+     */
+    int finished();
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.tx;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.table.Table;
 
 /**
  * The transaction.
@@ -50,4 +51,18 @@ public interface Transaction {
      * @return The future.
      */
     CompletableFuture<Void> rollbackAsync();
+
+    /**
+     * Wraps a table into a transaction.
+     * @param t The table.
+     * @return The elisted table.
+     */
+    Table wrap(Table t);
+
+    /**
+     * Wraps a table into a transaction.
+     * @param t The table.
+     * @return The future for chaining.
+     */
+    CompletableFuture<Table> wrapAsync(Table t);
 }

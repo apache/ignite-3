@@ -19,15 +19,20 @@ package org.apache.ignite.internal.tx.impl;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 
-/** */
+/**
+ *
+ */
 public class IgniteTransactionsImpl implements IgniteTransactions {
-    /** */
+    /**
+     *
+     */
     private final TxManager txManager;
 
     /**
@@ -43,28 +48,52 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
     }
 
     /** {@inheritDoc} */
+    @Override public Transaction begin() throws TransactionException {
+        return txManager.begin();
+    }
+
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Transaction> beginAsync() {
         return CompletableFuture.completedFuture(txManager.begin());
     }
 
     /** {@inheritDoc} */
     @Override public void runInTransaction(Consumer<Transaction> clo) throws TransactionException {
+        runInTransaction(tx -> {
+            clo.accept(tx);
+            return null;
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override public <T> T runInTransaction(Function<Transaction, T> clo) throws TransactionException {
         InternalTransaction tx = txManager.begin();
 
+        Thread th = Thread.currentThread();
+
+        txManager.setTx(tx);
+
+        tx.thread(th);
+
         try {
-            clo.accept(tx);
+            T ret = clo.apply(tx);
 
             tx.commit();
+
+            return ret;
         }
         catch (Throwable t) {
             try {
-                tx.rollback();
+                tx.rollback(); // Try rolling back on user exception.
             }
             catch (TransactionException e) {
                 t.addSuppressed(e);
             }
 
             throw t;
+        }
+        finally {
+            txManager.clearTx();
         }
     }
 }

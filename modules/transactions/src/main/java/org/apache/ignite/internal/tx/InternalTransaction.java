@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.tx;
 
 import java.util.List;
-import java.util.Set;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 
 public interface InternalTransaction extends Transaction {
     Timestamp timestamp();
@@ -42,4 +42,15 @@ public interface InternalTransaction extends Transaction {
      * @return {@code True} if a node is enlisted into the transaction.
      */
     boolean enlist(NetworkAddress node);
+
+    /**
+     * Sets a thread of control for a transaction.
+     * @param t The thread.
+     */
+    void thread(Thread t);
+
+    /**
+     * @return The thread of control, if presents.
+     */
+    @Nullable Thread thread();
 }

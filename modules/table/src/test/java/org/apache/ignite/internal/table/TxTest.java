@@ -51,6 +51,7 @@ import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
@@ -146,14 +147,13 @@ public class TxTest extends IgniteAbstractTest {
 
     /** */
     @Test
+    @Disabled
     public void testMixedPutGet() throws TransactionException {
         accounts.upsert(makeValue(1, BALANCE_1));
 
         igniteTransactions.runInTransaction(tx -> {
-            Table txAcc = accounts.withTransaction(tx);
-
-            txAcc.getAsync(makeKey(1)).thenCompose(r ->
-                txAcc.upsertAsync(makeValue(1, r.doubleValue("balance") + DELTA))).join();
+            accounts.getAsync(makeKey(1)).thenComposeAsync(r ->
+                accounts.upsertAsync(makeValue(1, r.doubleValue("balance") + DELTA))).join();
         });
 
         assertEquals(BALANCE_1 + DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
@@ -168,17 +168,17 @@ public class TxTest extends IgniteAbstractTest {
         accounts.upsert(makeValue(2, BALANCE_2));
 
         igniteTransactions.runInTransaction(tx -> {
-            Table txAcc = accounts.withTransaction(tx); // TODO asch Disallow implicit tx.
+            CompletableFuture<Tuple> read1 = accounts.getAsync(makeKey(1));
+            CompletableFuture<Tuple> read2 = accounts.getAsync(makeKey(2));
 
-            CompletableFuture<Tuple> read1 = txAcc.getAsync(makeKey(1));
-            CompletableFuture<Tuple> read2 = txAcc.getAsync(makeKey(2));
-
-            txAcc.upsertAsync(makeValue(1, read1.join().doubleValue("balance") - DELTA));
-            txAcc.upsertAsync(makeValue(2, read2.join().doubleValue("balance") + DELTA));
+            accounts.upsertAsync(makeValue(1, read1.join().doubleValue("balance") - DELTA));
+            accounts.upsertAsync(makeValue(2, read2.join().doubleValue("balance") + DELTA));
         });
 
         assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
         assertEquals(BALANCE_2 + DELTA, accounts.get(makeKey(2)).doubleValue("balance"));
+
+        assertEquals(5, txManager.finished());
     }
 
     /**
@@ -190,17 +190,19 @@ public class TxTest extends IgniteAbstractTest {
         accounts.upsert(makeValue(2, BALANCE_2));
 
         igniteTransactions.runInTransaction(tx -> {
-            KeyValueBinaryView txAcc = accounts.kvView().withTransaction(tx);
+            KeyValueBinaryView view = accounts.kvView();
 
-            CompletableFuture<Tuple> read1 = txAcc.getAsync(makeKey(1));
-            CompletableFuture<Tuple> read2 = txAcc.getAsync(makeKey(2));
+            CompletableFuture<Tuple> read1 = view.getAsync(makeKey(1));
+            CompletableFuture<Tuple> read2 = view.getAsync(makeKey(2));
 
-            txAcc.putAsync(makeKey(1), makeValue(read1.join().doubleValue("balance") - DELTA));
-            txAcc.putAsync(makeKey(2), makeValue(read2.join().doubleValue("balance") + DELTA));
+            view.putAsync(makeKey(1), makeValue(read1.join().doubleValue("balance") - DELTA));
+            view.putAsync(makeKey(2), makeValue(read2.join().doubleValue("balance") + DELTA));
         });
 
         assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
         assertEquals(BALANCE_2 + DELTA, accounts.get(makeKey(2)).doubleValue("balance"));
+
+        assertEquals(5, txManager.finished());
     }
 
     /**
@@ -254,11 +256,11 @@ public class TxTest extends IgniteAbstractTest {
     public void testSimpleConflict() throws Exception {
         accounts.upsert(makeValue(1, 100.));
 
-        Transaction tx = igniteTransactions.beginAsync().get();
-        Transaction tx2 = igniteTransactions.beginAsync().get();
+        Transaction tx = igniteTransactions.begin();
+        Transaction tx2 = igniteTransactions.begin();
 
-        Table table = accounts.withTransaction(tx);
-        Table table2 = accounts.withTransaction(tx2);
+        Table table = tx.wrap(accounts);
+        Table table2 = tx2.wrap(accounts);
 
         double val = table.get(makeKey(1)).doubleValue("balance");
         double val2 = table2.get(makeKey(1)).doubleValue("balance");
@@ -645,6 +647,88 @@ public class TxTest extends IgniteAbstractTest {
 
     /** */
     @Test
+    public void testCrossTableAsync() throws TransactionException {
+        customers.upsert(makeValue(1, "test"));
+        accounts.upsert(makeValue(1, 100.));
+
+        igniteTransactions.beginAsync()
+            .thenCompose(tx -> tx.wrapAsync(accounts).thenCompose(
+                txAcc -> tx.wrapAsync(customers).thenCompose(
+                    txCust -> txAcc.upsertAsync(makeValue(1, 200.)).thenCombine(txCust.upsertAsync(makeValue(1, "test2")), (v1, v2) -> null))
+            )
+                .thenApply(ignored -> tx)
+                .thenCompose(Transaction::commitAsync)).join();
+
+        assertEquals("test2", customers.get(makeKey(1)).stringValue("name"));
+        assertEquals(200., accounts.get(makeKey(1)).doubleValue("balance"));
+
+        assertTrue(lockManager.isEmpty());
+    }
+
+    /** */
+    @Test
+    public void testCrossTableAsyncRollback() throws TransactionException {
+        customers.upsert(makeValue(1, "test"));
+        accounts.upsert(makeValue(1, 100.));
+
+        igniteTransactions.beginAsync()
+            .thenCompose(tx -> tx.wrapAsync(accounts).thenCompose(
+                txAcc -> tx.wrapAsync(customers).thenCompose(
+                    txCust -> txAcc.upsertAsync(makeValue(1, 200.)).thenCombine(txCust.upsertAsync(makeValue(1, "test2")), (v1, v2) -> null))
+            )
+                .thenApply(ignored -> tx)
+                .thenCompose(Transaction::rollbackAsync)).join();
+
+        assertEquals("test", customers.get(makeKey(1)).stringValue("name"));
+        assertEquals(100., accounts.get(makeKey(1)).doubleValue("balance"));
+
+        assertTrue(lockManager.isEmpty());
+    }
+
+    /** */
+    @Test
+    public void testCrossTableAsyncKeyValueView() throws TransactionException {
+        customers.upsert(makeValue(1, "test"));
+        accounts.upsert(makeValue(1, 100.));
+
+        igniteTransactions.beginAsync()
+            .thenCompose(tx -> tx.wrapAsync(accounts).thenApply(acc -> acc.kvView()).thenCompose(
+                txAcc -> tx.wrapAsync(customers).thenApply(cust -> cust.kvView()).thenCompose(
+                    txCust -> txAcc.putAsync(makeKey(1), makeValue(200.))
+                        .thenCombine(txCust.putAsync(makeKey(1), makeValue("test2")), (v1, v2) -> null))
+            )
+                .thenApply(ignored -> tx)
+                .thenCompose(Transaction::commitAsync)).join();
+
+        assertEquals("test2", customers.get(makeKey(1)).stringValue("name"));
+        assertEquals(200., accounts.get(makeKey(1)).doubleValue("balance"));
+
+        assertTrue(lockManager.isEmpty());
+    }
+
+    /** */
+    @Test
+    public void testCrossTableAsyncKeyValueViewRollback() throws TransactionException {
+        customers.upsert(makeValue(1, "test"));
+        accounts.upsert(makeValue(1, 100.));
+
+        igniteTransactions.beginAsync()
+            .thenCompose(tx -> tx.wrapAsync(accounts).thenApply(acc -> acc.kvView()).thenCompose(
+                txAcc -> tx.wrapAsync(customers).thenApply(cust -> cust.kvView()).thenCompose(
+                    txCust -> txAcc.putAsync(makeKey(1), makeValue(200.))
+                        .thenCombine(txCust.putAsync(makeKey(1), makeValue("test2")), (v1, v2) -> null))
+            )
+                .thenApply(ignored -> tx)
+                .thenCompose(Transaction::rollbackAsync)).join();
+
+        assertEquals("test", customers.get(makeKey(1)).stringValue("name"));
+        assertEquals(100., accounts.get(makeKey(1)).doubleValue("balance"));
+
+        assertTrue(lockManager.isEmpty());
+    }
+
+    /** */
+    @Test
     public void testBalance() throws InterruptedException {
         doTestSingleKeyMultithreaded(5_000, false);
     }
@@ -700,7 +784,7 @@ public class TxTest extends IgniteAbstractTest {
                     while (!stop.get() && firstErr.get() == null) {
                         InternalTransaction tx = txManager.begin();
 
-                        Table table = accounts.withTransaction(tx);
+                        Table table = tx.wrap(accounts);
 
                         try {
                             long acc1 = finalI;

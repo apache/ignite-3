@@ -28,6 +28,7 @@ import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.schema.SchemaMode;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -78,8 +79,20 @@ public class DummyInternalTableImpl implements InternalTable {
     @Override public CompletableFuture<BinaryRow> get(@NotNull BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        if (tx != null)
-            return txManager.readLock(tableId, row.keySlice(), tx.timestamp()).thenApply(ignore -> store.get(row, tx.timestamp()));
+        // TODO asch get rid of copy paste.
+        if (tx == null) {
+            try {
+                tx = txManager.tx();
+            }
+            catch (TransactionException e) {
+                return CompletableFuture.failedFuture(e);
+            }
+        }
+
+        if (tx != null) {
+            InternalTransaction finalTx = tx;
+            return txManager.readLock(tableId, row.keySlice(), tx.timestamp()).thenApply(ignore -> store.get(row, finalTx.timestamp()));
+        }
         else {
             InternalTransaction tx0 = txManager.begin();
 
@@ -99,9 +112,20 @@ public class DummyInternalTableImpl implements InternalTable {
     private <T> CompletableFuture<T> wrapInTx(@NotNull BinaryRow row, InternalTransaction tx, Function<InternalTransaction, T> op) {
         assert row != null;
 
+        if (tx == null) {
+            try {
+                tx = txManager.tx();
+            }
+            catch (TransactionException e) {
+                return CompletableFuture.failedFuture(e);
+            }
+        }
+
         if (tx != null) {
+            InternalTransaction finalTx = tx;
+
             return txManager.writeLock(tableId, row.keySlice(), tx.timestamp()).
-                thenApply(ignore -> op.apply(tx));
+                thenApply(ignore -> op.apply(finalTx));
         }
         else {
             InternalTransaction tx0 = txManager.begin();
