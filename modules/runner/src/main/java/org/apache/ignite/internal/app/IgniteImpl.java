@@ -151,7 +151,8 @@ public class IgniteImpl implements Ignite {
                 ClientConnectorConfiguration.KEY
             ),
             Map.of(),
-            new LocalConfigurationStorage(vaultMgr)
+            new LocalConfigurationStorage(vaultMgr),
+            List.of()
         );
 
         clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(
@@ -179,7 +180,8 @@ public class IgniteImpl implements Ignite {
                 TablesConfiguration.KEY
             ),
             Map.of(),
-            new DistributedConfigurationStorage(metaStorageMgr, vaultMgr)
+            new DistributedConfigurationStorage(metaStorageMgr, vaultMgr),
+            List.of()
         );
 
         baselineMgr = new BaselineManager(
