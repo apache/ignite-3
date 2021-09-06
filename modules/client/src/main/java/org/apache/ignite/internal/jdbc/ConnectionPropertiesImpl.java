@@ -26,6 +26,7 @@ import java.util.StringTokenizer;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.proto.query.SqlStateCode;
 import org.apache.ignite.internal.client.HostAndPortRange;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -41,9 +42,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
 
     /** Prefix for property names. */
     public static final String PROP_PREFIX = "ignite.jdbc.";
-
-    /** Default socket buffer size. */
-    private static final int DFLT_SOCK_BUFFER_SIZE = 64 * 1024;
 
     /** Property: schema. */
     private static final String PROP_SCHEMA = "schema";
@@ -81,6 +79,39 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     /** {@inheritDoc} */
     @Override public void setSchema(String schema) {
         this.schema.setValue(schema);
+    }
+
+    /** {@inheritDoc} */
+    @Override public String getUrl() {
+        if (url != null)
+            return url;
+        else {
+            if (ArrayUtils.nullOrEmpty(getAddresses()))
+                return null;
+
+            StringBuilder sbUrl = new StringBuilder(URL_PREFIX);
+
+            HostAndPortRange[] addrs = getAddresses();
+
+            for (int i = 0; i < addrs.length; i++) {
+                if (i > 0)
+                    sbUrl.append(',');
+
+                sbUrl.append(addrs[i].toString());
+            }
+
+            if (!isEmpty(getSchema()))
+                sbUrl.append('/').append(getSchema());
+
+            return sbUrl.toString();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void setUrl(String url) throws SQLException {
+        this.url = url;
+
+        init(url, new Properties());
     }
 
     /** {@inheritDoc} */
@@ -516,75 +547,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
             dpi.description = desc;
 
             return dpi;
-        }
-    }
-
-    /**
-     * Boolean property.
-     */
-    private static class BooleanProperty extends ConnectionProperty {
-        /** Serial version uid. */
-        private static final long serialVersionUID = 0L;
-
-        /** Bool choices. */
-        private static final String[] boolChoices = new String[] {Boolean.TRUE.toString(), Boolean.FALSE.toString()};
-
-        /** Value. */
-        private Boolean val;
-
-        /**
-         * Constructor.
-         *
-         * @param name Name.
-         * @param desc Description.
-         * @param dfltVal Default value.
-         * @param required {@code true} if the property is required.
-         */
-        BooleanProperty(String name, String desc, @Nullable Boolean dfltVal, boolean required) {
-            super(name, desc, dfltVal, boolChoices, required);
-
-            val = dfltVal;
-        }
-
-        /**
-         * Get the property value.
-         *
-         * @return Property value.
-         */
-        @Nullable Boolean value() {
-            return val;
-        }
-
-        /** {@inheritDoc} */
-        @Override void init(String str) throws SQLException {
-            if (str == null)
-                val = (Boolean)dfltVal;
-            else {
-                if (Boolean.TRUE.toString().equalsIgnoreCase(str))
-                    val = true;
-                else if (Boolean.FALSE.toString().equalsIgnoreCase(str))
-                    val = false;
-                else
-                    throw new SQLException("Failed to parse boolean property [name=" + name +
-                        ", value=" + str + ']', SqlStateCode.CLIENT_CONNECTION_FAILED);
-            }
-        }
-
-        /** {@inheritDoc} */
-        @Override String valueObject() {
-            if (val == null)
-                return null;
-
-            return Boolean.toString(val);
-        }
-
-        /**
-         * Set the property value.
-         *
-         * @param val Property value to set.
-         */
-        void setValue(Boolean val) {
-            this.val = val;
         }
     }
 

@@ -39,6 +39,21 @@ public interface ConnectionProperties {
     void setSchema(String schema);
 
     /**
+     * Get the URL.
+     *
+     * @return The URL of the connection.
+     */
+    String getUrl();
+
+    /**
+     * Set the URL.
+     *
+     * @param url The URL of the connection.
+     * @throws SQLException On invalid URL.
+     */
+    void setUrl(String url) throws SQLException;
+
+    /**
      * Get the addresses.
      *
      * @return Ignite nodes addresses.
