@@ -18,6 +18,7 @@
 package org.apache.ignite.client.fakes;
 
 import org.apache.ignite.app.Ignite;
+import org.apache.ignite.query.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 
@@ -35,6 +36,11 @@ public class FakeIgnite implements Ignite {
 
     /** {@inheritDoc} */
     @Override public IgniteTransactions transactions() {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public IgniteSql sql() {
         return null;
     }
 

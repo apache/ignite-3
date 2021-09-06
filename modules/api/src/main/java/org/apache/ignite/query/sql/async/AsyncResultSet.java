@@ -15,21 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.query.sql;
+package org.apache.ignite.query.sql.async;
 
-import java.util.UUID;
+import java.util.concurrent.CompletionStage;
+import org.apache.ignite.query.sql.SqlResultSetMeta;
+import org.apache.ignite.query.sql.SqlRow;
 
-/** */
-public interface SqlMultiResultSet extends Iterable<SqlResultSet>, AutoCloseable {
+/**
+ * Asynchronous result set.
+ */
+public interface AsyncResultSet {
     /**
-     * Returns query uid.
+     * Returns metadata for the results.
      *
-     * @return Query id.
+     * @return ResultSet metadata.
      */
-    UUID queryId();
+    SqlResultSetMeta metadata();
 
     /**
-     * {@inheritDoc}
+     * @return Current page rows.
      */
-    void close();
+    Iterable<SqlRow> currentPage();
+
+    /**
+     * Fetch the next page of results asynchronously.
+     *
+     * @return Operation future.
+     */
+    CompletionStage<AsyncResultSet> fetchNextPage();
+
+    /**
+     * @return Whether there are more pages of results.
+     */
+    boolean hasMorePages();
 }

@@ -43,19 +43,29 @@ public interface SqlSession extends AsyncSqlSession, ReactiveSqlSession {
 
     /**
      * Sets default query timeout.
-     * TODO: add getters.
-     *
-     * @return {@code this} for chaining.
      */
-    SqlSession setTimeout(int timeout);
+    void defaultTimeout(int timeout);
+
+    /**
+     * Gets default query timeout.
+     *
+     * @return Default query timeout.
+     */
+    long defaultTimeout();
 
     /**
      * Sets default query schema.
      *
      * @param schema Default schema.
-     * @return {@code this} for chaining.
      */
-    SqlSession setSchema(@NotNull String schema);
+    void defaultSchema(@NotNull String schema);
+
+    /**
+     * Gets default query schema.
+     *
+     * @return Default query schema.
+     */
+    String defaultSchema();
 
     /**
      * Executes single SQL query.

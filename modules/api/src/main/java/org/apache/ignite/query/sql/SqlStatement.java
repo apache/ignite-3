@@ -17,10 +17,60 @@
 
 package org.apache.ignite.query.sql;
 
-import org.apache.ignite.table.Tuple;
-
+import java.sql.SQLException;
 
 /**
+ * SQL statement.
  */
 public interface SqlStatement {
+    /**
+     * @return Statement SQL query.
+     */
+    String query();
+
+    /**
+     * @return Query parameters.
+     */
+    Object[] parameters();
+
+    /**
+     * @param parameters Query parameters.
+     * @return {@code this} for chaining.
+     */
+    SqlStatement parameters(Object... parameters);
+
+    /**
+     * @param parameter Query parameter.
+     * @return {@code this} for chaining.
+     */
+    //TODO: method name???
+    SqlStatement set(int parameterIndex, Object parameter);
+
+    /**
+     * Clears query parameters.
+     *
+     * @return {@code this} for chaining.
+     */
+    SqlStatement clearParameters();
+
+    /**
+     * Adds a set of parameters to this <code>Statement</code> object's batch of commands.
+     *
+     * @return {@code this} for chaining.
+     */
+    //TODO: Multi statement?
+    SqlStatement addBatch() throws SQLException;
+
+    /**
+     * @param queryTimeout Query timeout.
+     * @return {@code this} for chaining.
+     */
+    SqlStatement queryTimeout(long queryTimeout);
+
+    /**
+     * @return Query timeout.
+     */
+    long queryTimeout();
+
+    //TODO: Do we need some additional parameters? Query memory quota?
 }

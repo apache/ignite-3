@@ -24,14 +24,14 @@ import java.util.List;
  */
 public interface SqlResultSetMeta {
     /**
-     * Returns number of column that every row in a ResulSet contains.
+     * Returns number of column that every row in a result set.
      *
      * @return Number of columns.
      */
     int columnsCount();
 
     /**
-     * Returns metadata with description for every column in resultset.
+     * Returns metadata with description for every column in result set.
      *
      * @return Columns metadata.
      */
@@ -56,8 +56,8 @@ public interface SqlResultSetMeta {
     /**
      * Returns column id in ResultSet by column name.
      *
-     * @param columnName Columns name which id is resoliving.
-     * @return Column Id for requested column.
+     * @param columnName Columns name which id is resolving.
+     * @return Column Id for the requested column.
      */
     int indexOf(String columnName);
 }

@@ -16,10 +16,16 @@
  */
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.util.Constants;
 import org.apache.ignite.query.sql.IgniteSql;
 import org.apache.ignite.query.sql.SqlResultSet;
@@ -30,12 +36,16 @@ import org.apache.ignite.query.sql.SqlTx;
 import org.apache.ignite.query.sql.reactive.ReactiveSqlResultSet;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.AdditionalAnswers;
+import org.mockito.Answers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -68,21 +78,23 @@ public class SqlTest {
         igniteTx.runInTransaction(tx -> {
             SqlSession sess = queryMgr.session();
 
-            sess.setTimeout(10_000); // Set default timeout.
+            sess.defaultTimeout(10_000); // Set default timeout.
             sess.setParameter("memoryQuota", 10 * Constants.MiB); // Set default timeout.
 
             // Execute outside TX.
-            SqlResultSet rs = sess.execute("INSERT INTO table VALUES (?, ?)", 10, "str%");
+            SqlResultSet rs = sess.execute("INSERT INTO table VALUES (?, ?)", 10, "str");
+
+            assertEquals(1, rs.updateCount());
+
+            // Execute in TX.
+            SqlTx sqlTx = queryMgr.session().withTransaction(tx);
+
+            rs = sqlTx.execute("SELECT id, val FROM table WHERE id < {};", 10);
 
             for (SqlRow r : rs) {
                 assertTrue(10 > r.longValue("id"));
                 assertTrue((r.stringValue("val")).startsWith("str"));
             }
-
-            // Execute in TX.
-            SqlTx sqlTx = queryMgr.session().withTransaction(tx);
-
-            rs = sqlTx.execute("SELECT id, val FROM table WHERE id < {} AND val LIKE {};", 10, "str%");
 
             sqlTx.commit();
         });
@@ -90,24 +102,41 @@ public class SqlTest {
         Mockito.verify(tx).commit();
     }
 
-    @Disabled
     @Test
     public void testSynchronousSql2() {
-        Table tbl = null;
+        Table tbl = getTable();
 
         // Starts new TX.
         SqlTx sqlTx = queryMgr.session().withNewTransaction();
 
-        SqlResultSet rs = sqlTx.execute("SELECT id, val FROM table WHERE id < {} AND val LIKE {};", 10, "str%");
+        SqlResultSet rs = sqlTx.execute("SELECT id, val FROM table WHERE id < {};", 10);
         SqlRow row = rs.iterator().next();
 
         tbl.withTransaction(sqlTx.transaction())
-            .insertAsync(row.set("val", "NewValue"))
+            .insertAsync(Tuple.create().set("val", "NewValue"))
             .thenAccept(r -> sqlTx.transaction().rollback());
+
+        Mockito.verify(tx, Mockito.times(1)).rollback();
+    }
+
+    @NotNull private Table getTable() {
+        SchemaDescriptor schema = new SchemaDescriptor(UUID.randomUUID(), 42,
+            new Column[]{new Column("id", NativeTypes.INT64, false)},
+            new Column[]{new Column("val", NativeTypes.STRING, true)}
+        );
+
+        SchemaRegistry schemaReg = Mockito.mock(SchemaRegistry.class);
+        Mockito.when(schemaReg.schema()).thenReturn(schema);
+
+        Table tbl = Mockito.mock(Table.class);
+        Mockito.when(tbl.insertAsync(Mockito.any())).thenReturn(CompletableFuture.completedFuture(null));
+        Mockito.when(tbl.withTransaction(Mockito.any())).thenAnswer(Answers.RETURNS_SELF);
+
+        return tbl;
     }
 
     @Test
-    public void testAsyncSql() throws ExecutionException, InterruptedException {
+    public void testSynchronousSql3() throws ExecutionException, InterruptedException {
         SqlSession sess = queryMgr.session();
 
         CompletableFuture<SqlResultSet> f = sess.executeMultiAsync(
@@ -138,25 +167,27 @@ public class SqlTest {
                                                     return sess.executeAsync("SELECT val FROM table where val LIKE {};", tx, str);
                                                 });
 
-        SqlResultSet itRes = f.get();
-        // CREATE TABLE - not planned
-        // SELECT - not planned
-        // DROP - not planned
+        SqlResultSet rs = f.get();
 
-        igniteTx.beginAsync().thenCompose(tx -> {
-            SqlSession sess0 = queryMgr.session();
+        rs.iterator().next();
+    }
 
-            return sess0.executeAsync(
+    @Test
+    public void testAsyncSql() {
+        igniteTx.beginAsync().thenCompose(tx0 -> {
+            SqlSession sess = queryMgr.session();
+
+            return sess.executeAsync(
                 "CREATE TABLE tbl(id INTEGER PRI<ARY KEY, val VARCHAR);" +
                     "SELECT id, val FROM tbl WHERE id == {};" +
-                    "DROP TABLE tbl", tx, 10)
+                    "DROP TABLE tbl", 10)
 
                        .thenCompose(rs -> {
                            String str = rs.iterator().next().stringValue("val");
 
-                           return sess0.executeAsync("SELECT val FROM table where val LIKE {};", tx, str);
+                           return sess.executeAsync("SELECT val FROM table where val LIKE {};", str);
                        })
-                       .thenApply(ignore -> tx);
+                       .thenApply(ignore -> tx0);
         }).thenAccept(Transaction::commitAsync);
 
         Mockito.verify(tx).commitAsync();
@@ -175,7 +206,8 @@ public class SqlTest {
                     .subscribe(subscriber);
 
                 return subscriber.exceptionally(th -> {
-                    return tx.rollbackAsync();
+                    tx.rollbackAsync();
+                    return null;
                 }).thenApply(ignore -> tx.commitAsync());
             });
 
@@ -211,15 +243,28 @@ public class SqlTest {
 
         Mockito.when(queryMgr.session()).thenReturn(session);
 
-        Mockito.when(session.execute(Mockito.eq("SELECT id, val FROM table WHERE id < {} AND val LIKE {};"), Mockito.any(), Mockito.any())).
-                                                                                                                                                    thenAnswer(ans -> Mockito.when(Mockito.mock(SqlResultSet.class).iterator())
-                                                                                                                                                                          .thenReturn(List.of(
-                                                                                                                                                                              new TestRow().set("id", 1L).set("val", "string 1").build(),
-                                                                                                                                                                              new TestRow().set("id", 2L).set("val", "string 2").build(),
-                                                                                                                                                                              new TestRow().set("id", 5L).set("val", "string 3").build()
-                                                                                                                                                                          ).iterator()).getMock());
+        SqlTx sqlTx = Mockito.mock(SqlTx.class);
 
-        Mockito.when(session.executeAsync(Mockito.eq("SELECT id, val FROM table WHERE id == {};"), Mockito.any(), Mockito.any()))
+        Mockito.when(sqlTx.transaction()).thenReturn(tx);
+        Mockito.when(session.withTransaction(Mockito.same(tx))).thenReturn(sqlTx);
+        Mockito.when(session.withNewTransaction()).thenReturn(sqlTx);
+        Mockito.doAnswer(ans -> AdditionalAnswers.delegatesTo(session).answer(ans)).when(sqlTx).execute(Mockito.any(), Mockito.any());
+        Mockito.doAnswer(ans -> AdditionalAnswers.delegatesTo(tx).answer(ans)).when(sqlTx).commit();
+        Mockito.doAnswer(ans -> AdditionalAnswers.delegatesTo(tx).answer(ans)).when(sqlTx).rollback();
+
+        Mockito.when(session.execute(Mockito.eq("SELECT id, val FROM table WHERE id < {};"), Mockito.any()))
+            .thenAnswer(ans -> Mockito.when(Mockito.mock(SqlResultSet.class).iterator())
+                                   .thenReturn(List.of(
+                                       new TestRow().set("id", 1L).set("val", "string 1").build(),
+                                       new TestRow().set("id", 2L).set("val", "string 2").build(),
+                                       new TestRow().set("id", 5L).set("val", "string 3").build()
+                                   ).iterator()).getMock());
+
+        Mockito.when(session.execute(Mockito.eq("INSERT INTO table VALUES (?, ?)"), Mockito.any(), Mockito.any()))
+            .thenAnswer(ans -> Mockito.when(Mockito.mock(SqlResultSet.class).updateCount())
+                                   .thenReturn(1).getMock());
+
+        Mockito.when(session.executeAsync(Mockito.eq("SELECT id, val FROM table WHERE id == {};"), Mockito.any()))
             .thenAnswer(ans -> {
                 Object mock = Mockito.when(Mockito.mock(SqlResultSet.class).iterator())
                                   .thenReturn(List.of(new TestRow().set("id", 1L).set("val", "string 1").build()).iterator())
@@ -228,7 +273,7 @@ public class SqlTest {
                 return CompletableFuture.completedFuture(mock);
             });
 
-        Mockito.when(session.executeAsync(Mockito.eq("SELECT val FROM table where val LIKE {};"), Mockito.any(), Mockito.any()))
+        Mockito.when(session.executeAsync(Mockito.eq("SELECT val FROM table where val LIKE {};"), Mockito.any()))
             .thenAnswer(ans -> {
                 Object mock = Mockito.when(Mockito.mock(SqlResultSet.class).iterator())
                                   .thenReturn(List.of(new TestRow().set("id", 10L).set("val", "string 10").build()).iterator())
@@ -274,7 +319,7 @@ public class SqlTest {
     /**
      * Dummy subsctiber for test purposes.
      */
-    static class SqlRowSubscriber extends CompletableFuture implements Flow.Subscriber<SqlRow> {
+    static class SqlRowSubscriber extends CompletableFuture<Void> implements Flow.Subscriber<SqlRow> {
         private Consumer<SqlRow> rowConsumer;
 
         SqlRowSubscriber(Consumer<SqlRow> rowConsumer) {
