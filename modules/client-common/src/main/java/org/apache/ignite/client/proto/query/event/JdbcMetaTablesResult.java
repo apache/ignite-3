@@ -20,6 +20,7 @@ package org.apache.ignite.client.proto.query.event;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
@@ -43,14 +44,18 @@ public class JdbcMetaTablesResult extends JdbcResponse {
      * @param meta Tables metadata.
      */
     public JdbcMetaTablesResult(List<JdbcTableMeta> meta) {
+        Objects.requireNonNull(meta);
+
         this.meta = meta;
+
+        this.hasResults = true;
     }
 
     /** {@inheritDoc} */
     @Override public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
-        if (status() != STATUS_SUCCESS)
+        if (!hasResults)
             return;
 
         packer.packArrayHeader(meta.size());
@@ -63,7 +68,7 @@ public class JdbcMetaTablesResult extends JdbcResponse {
     @Override public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
 
-        if (status() != STATUS_SUCCESS)
+        if (!hasResults)
             return;
 
         int size = unpacker.unpackArrayHeader();

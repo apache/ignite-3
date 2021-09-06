@@ -29,6 +29,7 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import org.apache.ignite.client.proto.ProtocolVersion;
+import org.apache.ignite.client.proto.query.IgniteQueryErrorCode;
 import org.apache.ignite.client.proto.query.event.JdbcColumnMeta;
 import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsResult;
@@ -744,6 +745,9 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
         JdbcMetaTablesResult res
             = conn.handler().tablesMeta(new JdbcMetaTablesRequest(schemaPtrn, tblNamePtrn, tblTypes));
 
+        if (!res.hasResults())
+            throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+
         List<List<Object>> rows = new LinkedList<>();
 
         for (JdbcTableMeta tblMeta : res.meta())
@@ -807,6 +811,9 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
             return new JdbcResultSet(Collections.emptyList(), meta);
 
         JdbcMetaColumnsResult res = conn.handler().columnsMeta(new JdbcMetaColumnsRequest(schemaPtrn, tblNamePtrn, colNamePtrn));
+
+        if (!res.hasResults())
+            throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
 
         List<List<Object>> rows = new LinkedList<>();
 
@@ -890,6 +897,9 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
             return new JdbcResultSet(Collections.emptyList(), meta);
 
         JdbcMetaPrimaryKeysResult res = conn.handler().primaryKeysMeta(new JdbcMetaPrimaryKeysRequest(schema, tbl));
+
+        if (!res.hasResults())
+            throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
 
         List<List<Object>> rows = new LinkedList<>();
 
@@ -1310,6 +1320,9 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
             return new JdbcResultSet(Collections.emptyList(), meta);
 
         JdbcMetaSchemasResult res = conn.handler().schemasMeta(new JdbcMetaSchemasRequest(schemaPtrn));
+
+        if (!res.hasResults())
+            throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
 
         List<List<Object>> rows = new LinkedList<>();
 

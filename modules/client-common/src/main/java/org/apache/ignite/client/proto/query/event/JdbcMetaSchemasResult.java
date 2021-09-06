@@ -19,7 +19,7 @@ package org.apache.ignite.client.proto.query.event;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.Objects;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
@@ -43,21 +43,19 @@ public class JdbcMetaSchemasResult extends JdbcResponse {
      * @param schemas Found schemas.
      */
     public JdbcMetaSchemasResult(Collection<String> schemas) {
+        Objects.requireNonNull(schemas);
+
         this.schemas = schemas;
+
+        this.hasResults = true;
     }
 
     /** {@inheritDoc} */
     @Override public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
-        if (status() != STATUS_SUCCESS)
+        if (!hasResults)
             return;
-
-        if (schemas == null) {
-            packer.packNil();
-
-            return;
-        }
 
         packer.packArrayHeader(schemas.size());
 
@@ -69,14 +67,8 @@ public class JdbcMetaSchemasResult extends JdbcResponse {
     @Override public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
 
-        if (status() != STATUS_SUCCESS)
+        if (!hasResults)
             return;
-
-        if (unpacker.tryUnpackNil()) {
-            schemas = Collections.EMPTY_LIST;
-
-            return;
-        }
 
         int size = unpacker.unpackArrayHeader();
 

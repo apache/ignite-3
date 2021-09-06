@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
@@ -44,14 +45,18 @@ public class JdbcMetaPrimaryKeysResult extends JdbcResponse {
      * @param meta Column metadata.
      */
     public JdbcMetaPrimaryKeysResult(Collection<JdbcPrimaryKeyMeta> meta) {
+        Objects.requireNonNull(meta);
+
         this.meta = new ArrayList<>(meta);
+
+        this.hasResults = true;
     }
 
     /** {@inheritDoc} */
     @Override public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
-        if (status() != STATUS_SUCCESS)
+        if (!hasResults)
             return;
 
         if (meta == null || meta.isEmpty()) {
@@ -71,7 +76,7 @@ public class JdbcMetaPrimaryKeysResult extends JdbcResponse {
     @Override public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
 
-        if (status() != STATUS_SUCCESS)
+        if (!hasResults)
             return;
 
         if (unpacker.tryUnpackNil()) {
