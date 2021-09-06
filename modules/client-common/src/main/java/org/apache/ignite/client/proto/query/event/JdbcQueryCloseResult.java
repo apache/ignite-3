@@ -27,6 +27,7 @@ public class JdbcQueryCloseResult extends JdbcResponse {
      * Default constructor is used for deserialization.
      */
     public JdbcQueryCloseResult() {
+        hasResults = true;
     }
 
     /**

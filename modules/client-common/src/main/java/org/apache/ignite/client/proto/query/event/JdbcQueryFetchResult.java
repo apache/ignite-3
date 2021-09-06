@@ -20,6 +20,7 @@ package org.apache.ignite.client.proto.query.event;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
@@ -57,8 +58,12 @@ public class JdbcQueryFetchResult extends JdbcResponse {
      * @param last Flag indicating the query has no unfetched results.
      */
     public JdbcQueryFetchResult(List<List<Object>> items, boolean last) {
+        Objects.requireNonNull(items);
+
         this.items = items;
         this.last = last;
+
+        hasResults = true;
     }
 
     /**
@@ -83,12 +88,12 @@ public class JdbcQueryFetchResult extends JdbcResponse {
     @Override public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
-        if (status() != STATUS_SUCCESS)
+        if (!hasResults)
             return;
 
         packer.packBoolean(last);
 
-        packer.packInt(items.size());
+        packer.packArrayHeader(items.size());
 
         for (List<Object> item : items)
             packer.packObjectArray(item.toArray());
@@ -98,12 +103,12 @@ public class JdbcQueryFetchResult extends JdbcResponse {
     @Override public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
 
-        if (status() != STATUS_SUCCESS)
+        if (!hasResults)
             return;
 
         last = unpacker.unpackBoolean();
 
-        int size = unpacker.unpackInt();
+        int size = unpacker.unpackArrayHeader();
 
         items = new ArrayList<>(size);
 

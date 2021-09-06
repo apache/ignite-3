@@ -22,6 +22,9 @@ import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -320,7 +323,7 @@ public class ClientMessagePacker extends MessagePacker {
         bb.putLong(val.getMostSignificantBits());
         bb.putLong(val.getLeastSignificantBits());
 
-        writePayload(bytes);
+        addPayload(bytes);
 
         return this;
     }
@@ -330,12 +333,37 @@ public class ClientMessagePacker extends MessagePacker {
      *
      * @param val Decimal value.
      * @return This instance.
-     * @throws UnsupportedOperationException Not supported.
      */
     public ClientMessagePacker packDecimal(BigDecimal val) {
         assert !closed : "Packer is closed";
 
-        throw new UnsupportedOperationException("TODO: IGNITE-15163");
+        // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
+        byte[] unscaledValue = val.unscaledValue().toByteArray();
+
+        packExtensionTypeHeader(ClientMsgPackType.DECIMAL, 4 + unscaledValue.length); // Scale length + data length
+
+        addPayload(ByteBuffer.wrap(new byte[4]).putInt(val.scale()).array());
+        addPayload(unscaledValue);
+
+        return this;
+    }
+
+    /**
+     * Writes a decimal.
+     *
+     * @param val Decimal value.
+     * @return This instance.
+     */
+    public ClientMessagePacker packNumber(BigInteger val) {
+        assert !closed : "Packer is closed";
+
+        byte[] data = val.toByteArray();
+
+        packExtensionTypeHeader(ClientMsgPackType.NUMBER, data.length);
+
+        addPayload(data);
+
+        return this;
     }
 
     /**
@@ -343,12 +371,18 @@ public class ClientMessagePacker extends MessagePacker {
      *
      * @param val Bit set value.
      * @return This instance.
-     * @throws UnsupportedOperationException Not supported.
      */
     public ClientMessagePacker packBitSet(BitSet val) {
         assert !closed : "Packer is closed";
 
-        throw new UnsupportedOperationException("TODO: IGNITE-15163");
+        // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
+        byte[] data = val.toByteArray();
+
+        packExtensionTypeHeader(ClientMsgPackType.BITMASK, data.length);
+
+        addPayload(data);
+
+        return this;
     }
 
     /**
@@ -379,12 +413,23 @@ public class ClientMessagePacker extends MessagePacker {
      *
      * @param val Date value.
      * @return This instance.
-     * @throws UnsupportedOperationException Not supported.
      */
     public ClientMessagePacker packDate(LocalDate val) {
         assert !closed : "Packer is closed";
 
-        throw new UnsupportedOperationException("TODO: IGNITE-15163");
+        byte[] data = new byte[6];
+
+        // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
+        ByteBuffer.wrap(data)
+            .putInt(val.getYear())
+            .put((byte)val.getMonthValue())
+            .put((byte)val.getDayOfMonth());
+
+        packExtensionTypeHeader(ClientMsgPackType.DATE, data.length);
+
+        addPayload(data);
+
+        return this;
     }
 
     /**
@@ -392,12 +437,24 @@ public class ClientMessagePacker extends MessagePacker {
      *
      * @param val Time value.
      * @return This instance.
-     * @throws UnsupportedOperationException Not supported.
      */
     public ClientMessagePacker packTime(LocalTime val) {
         assert !closed : "Packer is closed";
 
-        throw new UnsupportedOperationException("TODO: IGNITE-15163");
+        byte[] data = new byte[7];
+
+        // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
+        ByteBuffer.wrap(data)
+            .put((byte)val.getHour())
+            .put((byte)val.getMinute())
+            .put((byte)val.getSecond())
+            .putInt(val.getNano());
+
+        packExtensionTypeHeader(ClientMsgPackType.TIME, data.length);
+
+        addPayload(data);
+
+        return this;
     }
 
     /**
@@ -405,11 +462,25 @@ public class ClientMessagePacker extends MessagePacker {
      *
      * @param val Datetime value.
      * @return This instance.
-     * @throws UnsupportedOperationException Not supported.
      */
     public ClientMessagePacker packDateTime(LocalDateTime val) {
-        packDate(val.toLocalDate());
-        packTime(val.toLocalTime());
+        assert !closed : "Packer is closed";
+
+        byte[] data = new byte[13];
+
+        // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
+        ByteBuffer.wrap(data)
+            .putInt(val.getYear())
+            .put((byte)val.getMonthValue())
+            .put((byte)val.getDayOfMonth())
+            .put((byte)val.getHour())
+            .put((byte)val.getMinute())
+            .put((byte)val.getSecond())
+            .putInt(val.getNano());
+
+        packExtensionTypeHeader(ClientMsgPackType.DATETIME, data.length);
+
+        addPayload(data);
 
         return this;
     }
@@ -424,7 +495,18 @@ public class ClientMessagePacker extends MessagePacker {
     public ClientMessagePacker packTimestamp(Instant val) {
         assert !closed : "Packer is closed";
 
-        throw new UnsupportedOperationException("TODO: IGNITE-15163");
+        byte[] data = new byte[12];
+
+        // TODO: Pack directly to ByteBuf without allocating IGNITE-15234.
+        ByteBuffer.wrap(data)
+            .putLong(val.getEpochSecond())
+            .putInt(val.getNano());
+
+        packExtensionTypeHeader(ClientMsgPackType.TIMESTAMP, data.length);
+
+        addPayload(data);
+
+        return this;
     }
 
     /**
@@ -436,22 +518,34 @@ public class ClientMessagePacker extends MessagePacker {
      */
     public ClientMessagePacker packObject(Object val) {
         if (val == null)
-            return (ClientMessagePacker) packNil();
+            return (ClientMessagePacker)packNil();
+
+        if (val instanceof Byte)
+            return (ClientMessagePacker)packByte((byte)val);
+
+        if (val instanceof Short)
+            return (ClientMessagePacker)packShort((short)val);
 
         if (val instanceof Integer)
-            return (ClientMessagePacker) packInt((int) val);
+            return (ClientMessagePacker)packInt((int)val);
 
         if (val instanceof Long)
-            return (ClientMessagePacker) packLong((long) val);
+            return (ClientMessagePacker)packLong((long)val);
+
+        if (val instanceof Float)
+            return (ClientMessagePacker)packFloat((float)val);
+
+        if (val instanceof Double)
+            return (ClientMessagePacker)packDouble((double)val);
 
         if (val instanceof UUID)
-            return packUuid((UUID) val);
+            return packUuid((UUID)val);
 
         if (val instanceof String)
-            return (ClientMessagePacker) packString((String) val);
+            return (ClientMessagePacker)packString((String)val);
 
         if (val instanceof byte[]) {
-            byte[] bytes = (byte[]) val;
+            byte[] bytes = (byte[])val;
             packBinaryHeader(bytes.length);
             writePayload(bytes);
 
@@ -459,10 +553,13 @@ public class ClientMessagePacker extends MessagePacker {
         }
 
         if (val instanceof BigDecimal)
-            return packDecimal((BigDecimal) val);
+            return packDecimal((BigDecimal)val);
+
+        if (val instanceof BigInteger)
+            return packNumber((BigInteger)val);
 
         if (val instanceof BitSet)
-            return packBitSet((BitSet) val);
+            return packBitSet((BitSet)val);
 
         if (val instanceof LocalDate)
             return packDate((LocalDate)val);
@@ -476,7 +573,6 @@ public class ClientMessagePacker extends MessagePacker {
         if (val instanceof Instant)
             return packTimestamp((Instant)val);
 
-        // TODO: Support all basic types IGNITE-15163
         throw new UnsupportedOperationException("Unsupported type, can't serialize: " + val.getClass());
     }
 
@@ -507,8 +603,10 @@ public class ClientMessagePacker extends MessagePacker {
 
             Class<?> cls = arg.getClass();
 
-            if (cls == Boolean.class)
+            if (cls == Boolean.class) {
+                packInt(ClientDataType.BOOLEAN);
                 packBoolean((Boolean)arg);
+            }
             else if (cls == Byte.class) {
                 packInt(ClientDataType.INT8);
                 packByte((Byte)arg);
@@ -525,28 +623,61 @@ public class ClientMessagePacker extends MessagePacker {
                 packInt(ClientDataType.INT64);
                 packLong((Long)arg);
             }
-            else if (cls == Float.class)
+            else if (cls == Float.class) {
+                packInt(ClientDataType.FLOAT);
                 packFloat((Float)arg);
-            else if (cls == Double.class)
+            }
+            else if (cls == Double.class) {
+                packInt(ClientDataType.DOUBLE);
                 packDouble((Double)arg);
-            else if (cls == String.class)
+            }
+            else if (cls == String.class) {
+                packInt(ClientDataType.STRING);
                 packString((String)arg);
+            }
             else if (cls == UUID.class) {
                 packInt(ClientDataType.UUID);
                 packUuid((UUID)arg);
             }
-            else if (cls == byte[].class)
-                writeByteArray((byte[])arg);
+            else if (cls == LocalDate.class) {
+                packInt(ClientDataType.DATE);
+                packDate((LocalDate)arg);
+            }
+            else if (cls == LocalTime.class) {
+                packInt(ClientDataType.TIME);
+                packTime((LocalTime)arg);
+            }
+            else if (cls == LocalDateTime.class) {
+                packInt(ClientDataType.DATETIME);
+                packDateTime((LocalDateTime)arg);
+            }
+            else if (cls == Instant.class) {
+                packInt(ClientDataType.TIMESTAMP);
+                packTimestamp((Instant)arg);
+            }
+            else if (cls == byte[].class) {
+                packInt(ClientDataType.BYTES);
+
+                packBinaryHeader(((byte[])arg).length);
+                writePayload((byte[])arg);
+            }
+            else if (cls == Date.class) {
+                packInt(ClientDataType.DATE);
+                packDate(((Date)arg).toLocalDate());
+            }
+            else if (cls == Time.class) {
+                packInt(ClientDataType.TIME);
+                packTime(((Time)arg).toLocalTime());
+            }
+            else if (cls == Timestamp.class) {
+                packInt(ClientDataType.TIMESTAMP);
+                packTimestamp(((java.util.Date)arg).toInstant());
+            }
             else
                 throw new UnsupportedOperationException("Custom objects are not supported");
         }
 
         return this;
-    }
-
-    private void writeByteArray(byte[] arg) {
-        packBinaryHeader(arg.length);
-        writePayload(arg);
     }
 
     /** {@inheritDoc} */

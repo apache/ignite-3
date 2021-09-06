@@ -37,6 +37,9 @@ public abstract class JdbcResponse implements JdbcClientMessage {
     /** Error. */
     private String err;
 
+    /** Has results. */
+    protected boolean hasResults;
+
     /**
      * Constructs successful response.
      */
@@ -59,6 +62,7 @@ public abstract class JdbcResponse implements JdbcClientMessage {
 
     /** {@inheritDoc} */
     @Override public void writeBinary(ClientMessagePacker packer) {
+        packer.packBoolean(hasResults);
         packer.packInt(status);
 
         if (status != STATUS_SUCCESS)
@@ -67,6 +71,7 @@ public abstract class JdbcResponse implements JdbcClientMessage {
 
     /** {@inheritDoc} */
     @Override public void readBinary(ClientMessageUnpacker unpacker) {
+        hasResults = unpacker.unpackBoolean();
         status = unpacker.unpackInt();
 
         if (status != STATUS_SUCCESS)
@@ -107,6 +112,15 @@ public abstract class JdbcResponse implements JdbcClientMessage {
      */
     public void err(String err) {
         this.err = err;
+    }
+
+    /**
+     * Gets hasResults flag.
+     *
+     * @return Has results.
+     */
+    public boolean hasResults() {
+        return hasResults;
     }
 
     /** {@inheritDoc} */

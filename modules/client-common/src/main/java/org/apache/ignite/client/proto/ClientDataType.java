@@ -65,4 +65,10 @@ public class ClientDataType {
 
     /** Timestamp. */
     public static final int TIMESTAMP = 15;
+
+    /** Number. */
+    public static final int NUMBER = 16;
+
+    /** Boolean. */
+    public static final int BOOLEAN = 17;
 }
