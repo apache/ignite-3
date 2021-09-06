@@ -65,7 +65,7 @@ public class JdbcColumnMeta extends JdbcResponse {
     private String dataTypeName;
 
     /** Data type class. */
-    private String dataTypeClass;
+    private String dataTypeCls;
 
     /**
      * Default constructor is used for serialization.
@@ -106,21 +106,20 @@ public class JdbcColumnMeta extends JdbcResponse {
      * @param tblName Table.
      * @param colName Column.
      * @param sqlTypeName Sql type name.
-     * @param typeClassName Type class name.
+     * @param typeClsName Type class name.
      * @param dataType Jdbc data type index.
      * @param nullable Nullable flag.
      */
-    public JdbcColumnMeta(String schemaName, String tblName, String colName, String sqlTypeName, String typeClassName,
+    public JdbcColumnMeta(String schemaName, String tblName, String colName, String sqlTypeName, String typeClsName,
         int dataType, boolean nullable) {
         this.schemaName = schemaName;
         this.tblName = tblName;
         this.colName = colName;
         this.nullable = nullable;
 
-        String type = cls.getName();
-
-        dataType = type(type);
-        dataTypeName = typeName(type);
+        this.dataType = dataType;
+        this.dataTypeName = sqlTypeName;
+        this.dataTypeCls = typeClsName;
 
         hasResults = true;
     }
@@ -212,7 +211,7 @@ public class JdbcColumnMeta extends JdbcResponse {
      * @return Data type class.
      */
     public String dataTypeClass() {
-        return dataTypeClass;
+        return dataTypeCls;
     }
 
     /** {@inheritDoc} */
@@ -229,7 +228,7 @@ public class JdbcColumnMeta extends JdbcResponse {
         packer.packInt(dataType);
         packer.packString(dataTypeName);
         packer.packBoolean(nullable);
-        packer.packString(dataTypeClass);
+        packer.packString(dataTypeCls);
     }
 
     /** {@inheritDoc} */
@@ -246,7 +245,7 @@ public class JdbcColumnMeta extends JdbcResponse {
         dataType = unpacker.unpackInt();
         dataTypeName = unpacker.unpackString();
         nullable = unpacker.unpackBoolean();
-        dataTypeClass = unpacker.unpackString();
+        dataTypeCls = unpacker.unpackString();
     }
 
     /** {@inheritDoc} */
