@@ -267,7 +267,6 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
                 return new JdbcQuerySingleResult(cursorId, (Long)fetch.get(0).get(0));
             }
-            case FRAGMENT:
             default:
                 return new JdbcQuerySingleResult(UNSUPPORTED_OPERATION,
                     "Query type [" + cur.getQueryType() + "] is not supported yet.");

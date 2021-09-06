@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.jdbc;
+package org.apache.ignite.internal.jdbc;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -25,7 +25,7 @@ import org.apache.ignite.client.proto.query.event.JdbcColumnMeta;
 /**
  * JDBC result set metadata implementation.
  */
-public class JdbcThinResultSetMetadata implements ResultSetMetaData {
+public class JdbcResultSetMetadata implements ResultSetMetaData {
     /** Column width. */
     private static final int COL_WIDTH = 30;
 
@@ -37,7 +37,7 @@ public class JdbcThinResultSetMetadata implements ResultSetMetaData {
      *
      * @param meta Metadata.
      */
-    JdbcThinResultSetMetadata(List<JdbcColumnMeta> meta) {
+    JdbcResultSetMetadata(List<JdbcColumnMeta> meta) {
         assert meta != null;
 
         this.meta = meta;
@@ -158,6 +158,6 @@ public class JdbcThinResultSetMetadata implements ResultSetMetaData {
 
     /** {@inheritDoc} */
     @Override public boolean isWrapperFor(Class<?> iface) throws SQLException {
-        return iface != null && iface.isAssignableFrom(JdbcThinResultSetMetadata.class);
+        return iface != null && iface.isAssignableFrom(JdbcResultSetMetadata.class);
     }
 }

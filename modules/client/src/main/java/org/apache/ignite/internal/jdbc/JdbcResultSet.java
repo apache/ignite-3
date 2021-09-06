@@ -61,7 +61,6 @@ import org.apache.ignite.client.proto.query.event.JdbcQueryCloseResult;
 import org.apache.ignite.client.proto.query.event.JdbcQueryFetchRequest;
 import org.apache.ignite.client.proto.query.event.JdbcQueryFetchResult;
 import org.apache.ignite.client.proto.query.event.JdbcQueryMetaRequest;
-import org.apache.ignite.client.proto.query.event.JdbcResponse;
 
 /**
  * Jdbc result set implementation.
@@ -141,7 +140,7 @@ public class JdbcResultSet implements ResultSet {
     private JdbcQueryEventHandler qryHandler;
 
     /** Jdbc metadata. */
-    private JdbcThinResultSetMetadata jdbcMeta;
+    private JdbcResultSetMetadata jdbcMeta;
 
     /**
      * Creates new result set.
@@ -716,7 +715,7 @@ public class JdbcResultSet implements ResultSet {
         ensureNotClosed();
 
         if (jdbcMeta == null)
-            jdbcMeta = new JdbcThinResultSetMetadata(meta());
+            jdbcMeta = new JdbcResultSetMetadata(meta());
 
         return jdbcMeta;
     }
