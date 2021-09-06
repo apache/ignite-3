@@ -213,7 +213,7 @@ public class TxTest extends IgniteAbstractTest {
         accounts.upsert(makeValue(1, BALANCE_1));
         accounts.upsert(makeValue(2, BALANCE_2));
 
-        igniteTransactions.beginAsync().thenApply(tx -> accounts.withTransaction(tx)).
+        igniteTransactions.beginAsync().thenCompose(tx -> tx.wrapAsync(accounts)).
             thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
                 .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
                 .thenCompose(pair -> allOf(
@@ -236,7 +236,7 @@ public class TxTest extends IgniteAbstractTest {
         accounts.upsert(makeValue(1, BALANCE_1));
         accounts.upsert(makeValue(2, BALANCE_2));
 
-        igniteTransactions.beginAsync().thenApply(tx -> accounts.withTransaction(tx).kvView()).
+        igniteTransactions.beginAsync().thenCompose(tx -> tx.wrapAsync(accounts).thenApply(t -> t.kvView())).
             thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
                 .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
                 .thenCompose(pair -> allOf(
@@ -263,7 +263,7 @@ public class TxTest extends IgniteAbstractTest {
         Table table2 = tx2.wrap(accounts);
 
         double val = table.get(makeKey(1)).doubleValue("balance");
-        double val2 = table2.get(makeKey(1)).doubleValue("balance");
+        table2.get(makeKey(1)).doubleValue("balance");
 
         try {
             table.upsert(makeValue(1, val + 1));
@@ -297,7 +297,7 @@ public class TxTest extends IgniteAbstractTest {
 
         Tuple key = makeKey(1);
 
-        Table table = accounts.withTransaction(tx);
+        Table table = tx.wrap(accounts);
 
         table.upsert(makeValue(1, 100.));
 
@@ -321,7 +321,7 @@ public class TxTest extends IgniteAbstractTest {
 
         Tuple key = makeKey(1);
 
-        Table table = accounts.withTransaction(tx);
+        Table table = tx.wrap(accounts);
 
         table.upsert(makeValue(1, 100.));
 
@@ -361,8 +361,8 @@ public class TxTest extends IgniteAbstractTest {
 
         accounts.upsert(val);
 
-        Table table = accounts.withTransaction(tx);
-        Table table2 = accounts.withTransaction(tx2);
+        Table table = tx.wrap(accounts);
+        Table table2 = tx2.wrap(accounts);
 
         assertEquals(100., table.get(key).doubleValue("balance"));
         assertEquals(100., table2.get(key).doubleValue("balance"));
@@ -386,8 +386,8 @@ public class TxTest extends IgniteAbstractTest {
 
         accounts.upsert(val); // Creates implicit transaction.
 
-        Table table = accounts.withTransaction(tx);
-        Table table2 = accounts.withTransaction(tx2);
+        Table table = tx.wrap(accounts);
+        Table table2 = tx2.wrap(accounts);
 
         // Read in tx
         double val_tx = table.get(key).doubleValue("balance");
@@ -428,8 +428,8 @@ public class TxTest extends IgniteAbstractTest {
 
         accounts.upsert(val); // Creates implicit transaction.
 
-        Table table = accounts.withTransaction(tx);
-        Table table2 = accounts.withTransaction(tx2);
+        Table table = tx.wrap(accounts);
+        Table table2 = tx2.wrap(accounts);
 
         // Read in tx
         double val_tx = table.get(key).doubleValue("balance");
@@ -466,7 +466,7 @@ public class TxTest extends IgniteAbstractTest {
         assertEquals(100., accounts.get(makeKey(0)).doubleValue("balance"));
 
         InternalTransaction tx = txManager.begin();
-        Table table = accounts.withTransaction(tx);
+        Table table = tx.wrap(accounts);
         table.upsert(makeValue(0, 200.));
         assertEquals(200., table.get(makeKey(0)).doubleValue("balance"));
         tx.rollback();
@@ -481,7 +481,7 @@ public class TxTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.begin();
 
-        Table table = accounts.withTransaction(tx);
+        Table table = tx.wrap(accounts);
 
         assertTrue(table.insert(makeValue(1, 100.)));
         assertFalse(table.insert(makeValue(1, 200.)));
@@ -496,7 +496,7 @@ public class TxTest extends IgniteAbstractTest {
 
         InternalTransaction tx2 = txManager.begin();
 
-        table = accounts.withTransaction(tx2);
+        table = tx2.wrap(accounts);
 
         assertTrue(table.insert(makeValue(3, 100.)));
         assertFalse(table.insert(makeValue(3, 200.)));
@@ -517,9 +517,9 @@ public class TxTest extends IgniteAbstractTest {
         InternalTransaction tx2 = txManager.begin();
         InternalTransaction tx3 = txManager.begin();
 
-        Table table = accounts.withTransaction(tx);
-        Table table2 = accounts.withTransaction(tx2);
-        Table table3 = accounts.withTransaction(tx3);
+        Table table = tx.wrap(accounts);
+        Table table2 = tx2.wrap(accounts);
+        Table table3 = tx3.wrap(accounts);
 
         double v0 = table.get(makeKey(1)).doubleValue("balance");
         double v1 = table3.get(makeKey(1)).doubleValue("balance");
@@ -552,9 +552,9 @@ public class TxTest extends IgniteAbstractTest {
         InternalTransaction tx2 = txManager.begin();
         InternalTransaction tx3 = txManager.begin();
 
-        Table table = accounts.withTransaction(tx);
-        Table table2 = accounts.withTransaction(tx2);
-        Table table3 = accounts.withTransaction(tx3);
+        Table table = tx.wrap(accounts);
+        Table table2 = tx2.wrap(accounts);
+        Table table3 = tx3.wrap(accounts);
 
         double v0 = table.get(makeKey(1)).doubleValue("balance");
 
@@ -579,8 +579,8 @@ public class TxTest extends IgniteAbstractTest {
         InternalTransaction tx = txManager.begin();
         InternalTransaction tx2 = txManager.begin();
 
-        Table txCust = customers.withTransaction(tx);
-        Table txAcc = accounts.withTransaction(tx2);
+        Table txCust = tx.wrap(customers);
+        Table txAcc = tx.wrap(accounts);
 
         txCust.upsert(makeValue(1, "test2"));
         txAcc.upsert(makeValue(1, 200.));
@@ -618,8 +618,8 @@ public class TxTest extends IgniteAbstractTest {
         InternalTransaction tx = txManager.begin();
         InternalTransaction tx2 = txManager.begin();
 
-        KeyValueBinaryView txCust = customers.withTransaction(tx).kvView();
-        KeyValueBinaryView txAcc = accounts.withTransaction(tx2).kvView();
+        KeyValueBinaryView txCust = tx.wrap(customers).kvView();
+        KeyValueBinaryView txAcc = tx2.wrap(accounts).kvView();
 
         txCust.put(makeKey(1), makeValue("test2"));
         txAcc.put(makeKey(1), makeValue(200.));
@@ -654,7 +654,13 @@ public class TxTest extends IgniteAbstractTest {
         igniteTransactions.beginAsync()
             .thenCompose(tx -> tx.wrapAsync(accounts).thenCompose(
                 txAcc -> tx.wrapAsync(customers).thenCompose(
-                    txCust -> txAcc.upsertAsync(makeValue(1, 200.)).thenCombine(txCust.upsertAsync(makeValue(1, "test2")), (v1, v2) -> null))
+                    txCust -> tx.wrapAsync(accounts).thenCompose(
+                        txAcc2 -> tx.wrapAsync(customers).thenCompose(
+                            txCust2 -> txAcc.upsertAsync(makeValue(1, 200.))
+                                .thenCombine(txCust.upsertAsync(makeValue(1, "test2")), (v1, v2) -> null)
+                        )
+                    )
+                )
             )
                 .thenApply(ignored -> tx)
                 .thenCompose(Transaction::commitAsync)).join();
@@ -674,7 +680,13 @@ public class TxTest extends IgniteAbstractTest {
         igniteTransactions.beginAsync()
             .thenCompose(tx -> tx.wrapAsync(accounts).thenCompose(
                 txAcc -> tx.wrapAsync(customers).thenCompose(
-                    txCust -> txAcc.upsertAsync(makeValue(1, 200.)).thenCombine(txCust.upsertAsync(makeValue(1, "test2")), (v1, v2) -> null))
+                    txCust -> tx.wrapAsync(accounts).thenCompose(
+                        txAcc2 -> tx.wrapAsync(customers).thenCompose(
+                            txCust2 -> txAcc.upsertAsync(makeValue(1, 200.))
+                                .thenCombine(txCust.upsertAsync(makeValue(1, "test2")), (v1, v2) -> null)
+                        )
+                    )
+                )
             )
                 .thenApply(ignored -> tx)
                 .thenCompose(Transaction::rollbackAsync)).join();
@@ -695,7 +707,8 @@ public class TxTest extends IgniteAbstractTest {
             .thenCompose(tx -> tx.wrapAsync(accounts).thenApply(acc -> acc.kvView()).thenCompose(
                 txAcc -> tx.wrapAsync(customers).thenApply(cust -> cust.kvView()).thenCompose(
                     txCust -> txAcc.putAsync(makeKey(1), makeValue(200.))
-                        .thenCombine(txCust.putAsync(makeKey(1), makeValue("test2")), (v1, v2) -> null))
+                        .thenCombine(txCust.putAsync(makeKey(1), makeValue("test2")), (v1, v2) -> null)
+                )
             )
                 .thenApply(ignored -> tx)
                 .thenCompose(Transaction::commitAsync)).join();
@@ -716,7 +729,8 @@ public class TxTest extends IgniteAbstractTest {
             .thenCompose(tx -> tx.wrapAsync(accounts).thenApply(acc -> acc.kvView()).thenCompose(
                 txAcc -> tx.wrapAsync(customers).thenApply(cust -> cust.kvView()).thenCompose(
                     txCust -> txAcc.putAsync(makeKey(1), makeValue(200.))
-                        .thenCombine(txCust.putAsync(makeKey(1), makeValue("test2")), (v1, v2) -> null))
+                        .thenCombine(txCust.putAsync(makeKey(1), makeValue("test2")), (v1, v2) -> null)
+                )
             )
                 .thenApply(ignored -> tx)
                 .thenCompose(Transaction::rollbackAsync)).join();
