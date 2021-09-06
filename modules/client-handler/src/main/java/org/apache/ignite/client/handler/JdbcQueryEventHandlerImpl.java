@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -88,8 +90,10 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         try {
             cursors = processor.query(req.schemaName(), req.sqlQuery(), req.arguments() == null ? new Object[0] : req.arguments());
         } catch (Exception e) {
+            StringWriter sw = getWriterWithStackTrace(e);
+
             return new JdbcQueryExecuteResult(JdbcResponse.STATUS_FAILED,
-                "Exception while executing query " + req.sqlQuery() + ". Error message: " + e.getMessage());
+                "Exception while executing query " + req.sqlQuery() + ". Error message: " + sw);
         }
 
         if (cursors.isEmpty())
@@ -104,8 +108,10 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                 results.add(res);
             }
         } catch (Exception ex) {
+            StringWriter sw = getWriterWithStackTrace(ex);
+
             return new JdbcQueryExecuteResult(JdbcResponse.STATUS_FAILED,
-                "Failed to fetch results for query " + req.sqlQuery() + ". Error message: " + ex.getMessage());
+                "Failed to fetch results for query " + req.sqlQuery() + ". Error message: " + sw);
         }
 
         return new JdbcQueryExecuteResult(results);
@@ -130,8 +136,10 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             fetch = fetchNext(req.pageSize(), cur);
             hasNext = cur.hasNext();
         } catch (Exception ex) {
+            StringWriter sw = getWriterWithStackTrace(ex);
+
             return new JdbcQueryFetchResult(JdbcResponse.STATUS_FAILED,
-                "Failed to fetch results for cursor id " + req.cursorId() + ". Error message: " + ex.getMessage());
+                "Failed to fetch results for cursor id " + req.cursorId() + ". Error message: " + sw);
         }
 
         return new JdbcQueryFetchResult(fetch, hasNext);
@@ -155,8 +163,10 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             cur.close();
         }
         catch (Exception ex) {
+            StringWriter sw = getWriterWithStackTrace(ex);
+
             return new JdbcQueryCloseResult(JdbcResponse.STATUS_FAILED,
-                "Failed to close SQL query [curId=" + req.cursorId() + "]. Error message: " + ex.getMessage());
+                "Failed to close SQL query [curId=" + req.cursorId() + "]. Error message: " + sw);
         }
 
         return new JdbcQueryCloseResult();
@@ -188,6 +198,20 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         Collection<JdbcPrimaryKeyMeta> tblsMeta = meta.getPrimaryKeys(req.schemaName(), req.tableName());
 
         return new JdbcMetaPrimaryKeysResult(tblsMeta);
+    }
+
+    /**
+     * Serializes the stack trace of given exception for further sending to the client.
+     *
+     * @param ex Exception.
+     * @return StringWriter filled with exception.
+     */
+    private StringWriter getWriterWithStackTrace(Exception ex) {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+
+        ex.printStackTrace(pw);
+        return sw;
     }
 
     /**
