@@ -21,6 +21,7 @@ import java.sql.DriverPropertyInfo;
 import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -36,8 +37,10 @@ public class JdbcConnectionPropertiesTest {
         ConnectionPropertiesImpl connProps = new ConnectionPropertiesImpl();
         DriverPropertyInfo[] propsInfo = connProps.getDriverPropertyInfo();
 
-        String propName = propsInfo[0].name;
+        assertNotEquals(0, propsInfo.length);
 
-        assertTrue(propName.startsWith(ConnectionPropertiesImpl.PROP_PREFIX));
+        for (DriverPropertyInfo info : propsInfo) {
+            assertTrue(info.name.startsWith(ConnectionPropertiesImpl.PROP_PREFIX));
+        }
     }
 }

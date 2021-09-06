@@ -26,7 +26,6 @@ import java.util.StringTokenizer;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.proto.query.SqlStateCode;
 import org.apache.ignite.internal.client.HostAndPortRange;
-import org.apache.ignite.internal.client.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
@@ -44,9 +43,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     /** Prefix for property names. */
     public static final String PROP_PREFIX = "ignite.jdbc.";
 
-    /** Default socket buffer size. */
-    private static final int DFLT_SOCK_BUFFER_SIZE = 64 * 1024;
-
     /** Property: schema. */
     private static final String PROP_SCHEMA = "schema";
 
@@ -60,98 +56,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     private final StringProperty schema = new StringProperty(PROP_SCHEMA,
         "Schema name of the connection", "PUBLIC", null, false, null);
 
-    /** Auto close server cursor property. */
-    private final BooleanProperty autoCloseServerCursor = new BooleanProperty(
-        "autoCloseServerCursor", "Enable auto close server cursors when last piece of result set is retrieved. " +
-        "If the server-side cursor is already closed, you may get an exception when trying to call " +
-        "`ResultSet.getMetadata()` method.", false, false);
-
-    /** TCP no delay property. */
-    private final BooleanProperty tcpNoDelay = new BooleanProperty(
-        "tcpNoDelay", "TCP no delay flag", true, false);
-
-    /** Socket send buffer size property. */
-    private final IntegerProperty socketSendBuffer = new IntegerProperty(
-        "socketSendBuffer", "Socket send buffer size",
-        DFLT_SOCK_BUFFER_SIZE, false, 0, Integer.MAX_VALUE);
-
-    /** Socket receive buffer size property. */
-    private final IntegerProperty socketReceiveBuffer = new IntegerProperty(
-        "socketReceiveBuffer", "Socket send buffer size",
-        DFLT_SOCK_BUFFER_SIZE, false, 0, Integer.MAX_VALUE);
-
-    /** SSL: Use SSL connection to Ignite node. */
-    private final StringProperty sslMode = new StringProperty("sslMode",
-        "The SSL mode of the connection", SSL_MODE_DISABLE,
-        new String[] {SSL_MODE_DISABLE, SSL_MODE_REQUIRE}, false, null);
-
-    /** SSL: Client certificate key store url. */
-    private final StringProperty sslProtocol = new StringProperty("sslProtocol",
-        "SSL protocol name", null, null, false, null);
-
-    /** SSL: Supported SSL cipher suites. */
-    private final StringProperty sslCipherSuites = new StringProperty("sslCipherSuites",
-        "Supported SSL ciphers", null,
-        null, false, null);
-
-    /** SSL: Key algorithm name. */
-    private final StringProperty sslKeyAlgorithm = new StringProperty("sslKeyAlgorithm",
-        "SSL key algorithm name", null, null, false, null);
-
-    /** SSL: Client certificate key store url. */
-    private final StringProperty sslClientCertificateKeyStoreUrl =
-        new StringProperty("sslClientCertificateKeyStoreUrl",
-            "Client certificate key store URL",
-            null, null, false, null);
-
-    /** SSL: Client certificate key store password. */
-    private final StringProperty sslClientCertificateKeyStorePassword =
-        new StringProperty("sslClientCertificateKeyStorePassword",
-            "Client certificate key store password",
-            null, null, false, null);
-
-    /** SSL: Client certificate key store type. */
-    private final StringProperty sslClientCertificateKeyStoreType =
-        new StringProperty("sslClientCertificateKeyStoreType",
-            "Client certificate key store type",
-            null, null, false, null);
-
-    /** SSL: Trusted certificate key store url. */
-    private final StringProperty sslTrustCertificateKeyStoreUrl =
-        new StringProperty("sslTrustCertificateKeyStoreUrl",
-            "Trusted certificate key store URL", null, null, false, null);
-
-    /** SSL Trusted certificate key store password. */
-    private final StringProperty sslTrustCertificateKeyStorePassword =
-        new StringProperty("sslTrustCertificateKeyStorePassword",
-            "Trusted certificate key store password", null, null, false, null);
-
-    /** SSL: Trusted certificate key store type. */
-    private final StringProperty sslTrustCertificateKeyStoreType =
-        new StringProperty("sslTrustCertificateKeyStoreType",
-            "Trusted certificate key store type",
-            null, null, false, null);
-
-    /** SSL: Trust all certificates. */
-    private final BooleanProperty sslTrustAll = new BooleanProperty("sslTrustAll",
-        "Trust all certificates", false, false);
-
-    /** SSL: Custom class name that implements Factory&lt;SSLSocketFactory&gt;. */
-    private final StringProperty sslFactory = new StringProperty("sslFactory",
-        "Custom class name that implements Factory<SSLSocketFactory>", null, null, false, null);
-
-    /** Custom class name that implements Factory&lt;Map&lt;String, String&gt;&gt; which returns user attributes. */
-    private final StringProperty userAttrsFactory = new StringProperty("userAttributesFactory",
-        "Custom class name that implements Factory<Map<String, String>> (user attributes)", null, null, false, null);
-
-    /** User name to authenticate the client on the server side. */
-    private final StringProperty user = new StringProperty(
-        "user", "User name to authenticate the client on the server side", null, null, false, null);
-
-    /** User's password. */
-    private final StringProperty passwd = new StringProperty(
-        "password", "User's password", null, null, false, null);
-
     /** Query timeout. */
     private final IntegerProperty qryTimeout = new IntegerProperty("queryTimeout",
         "Sets the number of seconds the driver will wait for a <code>Statement</code> object to execute." +
@@ -164,40 +68,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
             " Zero means there is no limits.",
         0L, false, 0, Integer.MAX_VALUE);
 
-    /** Disabled features. */
-    private final StringProperty disabledFeatures = new StringProperty("disabledFeatures",
-        "Sets enumeration of features to force disable its.", null, null, false, new PropertyValidator() {
-        @Override public void validate(String val) throws SQLException {
-            if (val == null)
-                return;
-
-            String[] features = val.split("\\W+");
-
-            for (String f : features) {
-                try {
-                    ProtocolBitmaskFeature.valueOf(f.toUpperCase());
-                }
-                catch (IllegalArgumentException e) {
-                    throw new SQLException("Unknown feature: " + f);
-                }
-            }
-        }
-    });
-
     /** Properties array. */
-    private final ConnectionProperty[] propsArray = {
-        autoCloseServerCursor,
-        tcpNoDelay, socketSendBuffer, socketReceiveBuffer,
-        sslMode, sslCipherSuites, sslProtocol, sslKeyAlgorithm,
-        sslClientCertificateKeyStoreUrl, sslClientCertificateKeyStorePassword, sslClientCertificateKeyStoreType,
-        sslTrustCertificateKeyStoreUrl, sslTrustCertificateKeyStorePassword, sslTrustCertificateKeyStoreType,
-        sslTrustAll, sslFactory,
-        userAttrsFactory,
-        user, passwd,
-        qryTimeout,
-        connTimeout,
-        disabledFeatures
-    };
+    private final ConnectionProperty[] propsArray = {qryTimeout, connTimeout};
 
     /** {@inheritDoc} */
     @Override public String getSchema() {
@@ -253,186 +125,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     }
 
     /** {@inheritDoc} */
-    @Override public boolean isAutoCloseServerCursor() {
-        return autoCloseServerCursor.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setAutoCloseServerCursor(boolean val) {
-        autoCloseServerCursor.setValue(val);
-    }
-
-    /** {@inheritDoc} */
-    @Override public int getSocketSendBuffer() {
-        return socketSendBuffer.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setSocketSendBuffer(int size) throws SQLException {
-        socketSendBuffer.setValue(size);
-    }
-
-    /** {@inheritDoc} */
-    @Override public int getSocketReceiveBuffer() {
-        return socketReceiveBuffer.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setSocketReceiveBuffer(int size) throws SQLException {
-        socketReceiveBuffer.setValue(size);
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean isTcpNoDelay() {
-        return tcpNoDelay.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setTcpNoDelay(boolean val) {
-        tcpNoDelay.setValue(val);
-    }
-
-    /** {@inheritDoc} */
-    @Override public String getSslMode() {
-        return sslMode.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setSslMode(String mode) {
-        sslMode.setValue(mode);
-    }
-
-    /** {@inheritDoc} */
-    @Override public String getSslProtocol() {
-        return sslProtocol.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setSslProtocol(String sslProtocol) {
-        this.sslProtocol.setValue(sslProtocol);
-    }
-
-    /** {@inheritDoc} */
-    @Override public String getSslCipherSuites() {
-        return sslCipherSuites.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setSslCipherSuites(String sslCipherSuites) {
-        this.sslCipherSuites.setValue(sslCipherSuites);
-    }
-
-    /** {@inheritDoc} */
-    @Override public String getSslKeyAlgorithm() {
-        return sslKeyAlgorithm.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setSslKeyAlgorithm(String keyAlgorithm) {
-        sslKeyAlgorithm.setValue(keyAlgorithm);
-    }
-
-    /** {@inheritDoc} */
-    @Override public String getSslClientCertificateKeyStoreUrl() {
-        return sslClientCertificateKeyStoreUrl.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setSslClientCertificateKeyStoreUrl(String url) {
-        sslClientCertificateKeyStoreUrl.setValue(url);
-    }
-
-    /** {@inheritDoc} */
-    @Override public String getSslClientCertificateKeyStorePassword() {
-        return sslClientCertificateKeyStorePassword.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setSslClientCertificateKeyStorePassword(String passwd) {
-        sslClientCertificateKeyStorePassword.setValue(passwd);
-    }
-
-    /** {@inheritDoc} */
-    @Override public String getSslClientCertificateKeyStoreType() {
-        return sslClientCertificateKeyStoreType.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setSslClientCertificateKeyStoreType(String ksType) {
-        sslClientCertificateKeyStoreType.setValue(ksType);
-    }
-
-    /** {@inheritDoc} */
-    @Override public String getSslTrustCertificateKeyStoreUrl() {
-        return sslTrustCertificateKeyStoreUrl.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setSslTrustCertificateKeyStoreUrl(String url) {
-        sslTrustCertificateKeyStoreUrl.setValue(url);
-    }
-
-    /** {@inheritDoc} */
-    @Override public String getSslTrustCertificateKeyStorePassword() {
-        return sslTrustCertificateKeyStorePassword.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setSslTrustCertificateKeyStorePassword(String passwd) {
-        sslTrustCertificateKeyStorePassword.setValue(passwd);
-    }
-
-    /** {@inheritDoc} */
-    @Override public String getSslTrustCertificateKeyStoreType() {
-        return sslTrustCertificateKeyStoreType.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setSslTrustCertificateKeyStoreType(String ksType) {
-        sslTrustCertificateKeyStoreType.setValue(ksType);
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean isSslTrustAll() {
-        return sslTrustAll.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setSslTrustAll(boolean trustAll) {
-        this.sslTrustAll.setValue(trustAll);
-    }
-
-    /** {@inheritDoc} */
-    @Override public String getSslFactory() {
-        return sslFactory.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setSslFactory(String sslFactory) {
-        this.sslFactory.setValue(sslFactory);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setUsername(String name) {
-        user.setValue(name);
-    }
-
-    /** {@inheritDoc} */
-    @Override public String getUsername() {
-        return user.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setPassword(String passwd) {
-        this.passwd.setValue(passwd);
-    }
-
-    /** {@inheritDoc} */
-    @Override public String getPassword() {
-        return passwd.value();
-    }
-
-    /** {@inheritDoc} */
     @Override public Integer getQueryTimeout() {
         return qryTimeout.value();
     }
@@ -452,26 +144,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         connTimeout.setValue(timeout);
     }
 
-    /** {@inheritDoc} */
-    @Override public String disabledFeatures() {
-        return disabledFeatures.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void disabledFeatures(String features) {
-        disabledFeatures.setValue(features);
-    }
-
-    /** {@inheritDoc} */
-    @Override public String getUserAttributesFactory() {
-        return userAttrsFactory.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setUserAttributesFactory(String cls) {
-        userAttrsFactory.setValue(cls);
-    }
-
     /**
      * Init connection properties.
      *
@@ -487,11 +159,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
 
         for (ConnectionProperty aPropsArray : propsArray)
             aPropsArray.init(props0);
-
-        if (!isEmpty(props.getProperty("user"))) {
-            setUsername(props.getProperty("user"));
-            setPassword(props.getProperty("password"));
-        }
     }
 
     /**
@@ -880,75 +547,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
             dpi.description = desc;
 
             return dpi;
-        }
-    }
-
-    /**
-     * Boolean property.
-     */
-    private static class BooleanProperty extends ConnectionProperty {
-        /** Serial version uid. */
-        private static final long serialVersionUID = 0L;
-
-        /** Bool choices. */
-        private static final String[] boolChoices = new String[] {Boolean.TRUE.toString(), Boolean.FALSE.toString()};
-
-        /** Value. */
-        private Boolean val;
-
-        /**
-         * Constructor.
-         *
-         * @param name Name.
-         * @param desc Description.
-         * @param dfltVal Default value.
-         * @param required {@code true} if the property is required.
-         */
-        BooleanProperty(String name, String desc, @Nullable Boolean dfltVal, boolean required) {
-            super(name, desc, dfltVal, boolChoices, required);
-
-            val = dfltVal;
-        }
-
-        /**
-         * Get the property value.
-         *
-         * @return Property value.
-         */
-        @Nullable Boolean value() {
-            return val;
-        }
-
-        /** {@inheritDoc} */
-        @Override void init(String str) throws SQLException {
-            if (str == null)
-                val = (Boolean)dfltVal;
-            else {
-                if (Boolean.TRUE.toString().equalsIgnoreCase(str))
-                    val = true;
-                else if (Boolean.FALSE.toString().equalsIgnoreCase(str))
-                    val = false;
-                else
-                    throw new SQLException("Failed to parse boolean property [name=" + name +
-                        ", value=" + str + ']', SqlStateCode.CLIENT_CONNECTION_FAILED);
-            }
-        }
-
-        /** {@inheritDoc} */
-        @Override String valueObject() {
-            if (val == null)
-                return null;
-
-            return Boolean.toString(val);
-        }
-
-        /**
-         * Set the property value.
-         *
-         * @param val Property value to set.
-         */
-        void setValue(Boolean val) {
-            this.val = val;
         }
     }
 

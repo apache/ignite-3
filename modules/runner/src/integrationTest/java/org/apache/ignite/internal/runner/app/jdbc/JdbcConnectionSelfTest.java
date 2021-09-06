@@ -32,7 +32,6 @@ import java.util.HashMap;
 import java.util.Properties;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import org.apache.ignite.internal.jdbc.JdbcConnection;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -49,7 +48,6 @@ import static java.sql.Statement.NO_GENERATED_KEYS;
 import static java.sql.Statement.RETURN_GENERATED_KEYS;
 import static org.apache.ignite.client.proto.query.SqlStateCode.TRANSACTION_STATE_EXCEPTION;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -94,223 +92,6 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     }
 
     /**
-     * Test invalid socket buffer sizes.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testSocketBuffers() throws Exception {
-        final int dfltDufSize = 64 * 1024;
-
-        assertInvalid(URL + "?socketSendBuffer=-1",
-            "Property cannot be lower than 0 [name=socketSendBuffer, value=-1]");
-
-        assertInvalid(URL + "?socketReceiveBuffer=-1",
-            "Property cannot be lower than 0 [name=socketReceiveBuffer, value=-1]");
-
-        try (Connection conn = DriverManager.getConnection(URL)) {
-            assertEquals(dfltDufSize, ((JdbcConnection)conn).connectionProperties().getSocketSendBuffer());
-            assertEquals(dfltDufSize, ((JdbcConnection)conn).connectionProperties().getSocketReceiveBuffer());
-        }
-
-        // Note that SO_* options are hints, so we check that value is equals to either what we set or to default.
-        try (Connection conn = DriverManager.getConnection(URL + "?socketSendBuffer=1024")) {
-            assertEquals(1024, ((JdbcConnection)conn).connectionProperties().getSocketSendBuffer());
-            assertEquals(dfltDufSize, ((JdbcConnection)conn).connectionProperties().getSocketReceiveBuffer());
-        }
-
-        try (Connection conn = DriverManager.getConnection(URL + "?socketReceiveBuffer=1024")) {
-            assertEquals(dfltDufSize, ((JdbcConnection)conn).connectionProperties().getSocketSendBuffer());
-            assertEquals(1024, ((JdbcConnection)conn).connectionProperties().getSocketReceiveBuffer());
-        }
-
-        try (Connection conn = DriverManager.getConnection(URL + "?" +
-            "socketSendBuffer=1024&socketReceiveBuffer=2048")) {
-            assertEquals(1024, ((JdbcConnection)conn).connectionProperties().getSocketSendBuffer());
-            assertEquals(2048, ((JdbcConnection)conn).connectionProperties().getSocketReceiveBuffer());
-        }
-    }
-
-    /**
-     * Test invalid socket buffer sizes with semicolon.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testSocketBuffersSemicolon() throws Exception {
-        final int dfltDufSize = 64 * 1024;
-
-        assertInvalid(URL + ";socketSendBuffer=-1",
-            "Property cannot be lower than 0 [name=socketSendBuffer, value=-1]");
-
-        assertInvalid(URL + ";socketReceiveBuffer=-1",
-            "Property cannot be lower than 0 [name=socketReceiveBuffer, value=-1]");
-
-        // Note that SO_* options are hints, so we check that value is equals to either what we set or to default.
-        try (Connection conn = DriverManager.getConnection(URL + ";socketSendBuffer=1024")) {
-            assertEquals(1024, ((JdbcConnection)conn).connectionProperties().getSocketSendBuffer());
-            assertEquals(dfltDufSize, ((JdbcConnection)conn).connectionProperties().getSocketReceiveBuffer());
-        }
-
-        try (Connection conn = DriverManager.getConnection(URL + ";socketReceiveBuffer=1024")) {
-            assertEquals(dfltDufSize, ((JdbcConnection)conn).connectionProperties().getSocketSendBuffer());
-            assertEquals(1024, ((JdbcConnection)conn).connectionProperties().getSocketReceiveBuffer());
-        }
-
-        try (Connection conn = DriverManager.getConnection(URL + ";" +
-            "socketSendBuffer=1024;socketReceiveBuffer=2048")) {
-            assertEquals(1024, ((JdbcConnection)conn).connectionProperties().getSocketSendBuffer());
-            assertEquals(2048, ((JdbcConnection)conn).connectionProperties().getSocketReceiveBuffer());
-        }
-    }
-
-    /**
-     * Test TCP no delay property handling.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testTcpNoDelay() throws Exception {
-        assertInvalid(URL + "?tcpNoDelay=0",
-            "Invalid property value. [name=tcpNoDelay, val=0, choices=[true, false]]");
-
-        assertInvalid(URL + "?tcpNoDelay=1",
-            "Invalid property value. [name=tcpNoDelay, val=1, choices=[true, false]]");
-
-        assertInvalid(URL + "?tcpNoDelay=false1",
-            "Invalid property value. [name=tcpNoDelay, val=false1, choices=[true, false]]");
-
-        assertInvalid(URL + "?tcpNoDelay=true1",
-            "Invalid property value. [name=tcpNoDelay, val=true1, choices=[true, false]]");
-
-        try (Connection conn = DriverManager.getConnection(URL)) {
-            assertTrue(((JdbcConnection)conn).connectionProperties().isTcpNoDelay());
-        }
-
-        try (Connection conn = DriverManager.getConnection(URL + "?tcpNoDelay=true")) {
-            assertTrue(((JdbcConnection)conn).connectionProperties().isTcpNoDelay());
-        }
-
-        try (Connection conn = DriverManager.getConnection(URL + "?tcpNoDelay=True")) {
-            assertTrue(((JdbcConnection)conn).connectionProperties().isTcpNoDelay());
-        }
-
-        try (Connection conn = DriverManager.getConnection(URL + "?tcpNoDelay=false")) {
-            assertFalse(((JdbcConnection)conn).connectionProperties().isTcpNoDelay());
-        }
-
-        try (Connection conn = DriverManager.getConnection(URL + "?tcpNoDelay=False")) {
-            assertFalse(((JdbcConnection)conn).connectionProperties().isTcpNoDelay());
-        }
-    }
-
-    /**
-     * Test TCP no delay property handling with semicolon.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testTcpNoDelaySemicolon() throws Exception {
-        assertInvalid(URL + ";tcpNoDelay=0",
-            "Invalid property value. [name=tcpNoDelay, val=0, choices=[true, false]]");
-
-        assertInvalid(URL + ";tcpNoDelay=1",
-            "Invalid property value. [name=tcpNoDelay, val=1, choices=[true, false]]");
-
-        assertInvalid(URL + ";tcpNoDelay=false1",
-            "Invalid property value. [name=tcpNoDelay, val=false1, choices=[true, false]]");
-
-        assertInvalid(URL + ";tcpNoDelay=true1",
-            "Invalid property value. [name=tcpNoDelay, val=true1, choices=[true, false]]");
-
-        try (Connection conn = DriverManager.getConnection(URL + ";tcpNoDelay=true")) {
-            assertTrue(((JdbcConnection)conn).connectionProperties().isTcpNoDelay());
-        }
-
-        try (Connection conn = DriverManager.getConnection(URL + ";tcpNoDelay=True")) {
-            assertTrue(((JdbcConnection)conn).connectionProperties().isTcpNoDelay());
-        }
-
-        try (Connection conn = DriverManager.getConnection(URL + ";tcpNoDelay=false")) {
-            assertFalse(((JdbcConnection)conn).connectionProperties().isTcpNoDelay());
-        }
-
-        try (Connection conn = DriverManager.getConnection(URL + ";tcpNoDelay=False")) {
-            assertFalse(((JdbcConnection)conn).connectionProperties().isTcpNoDelay());
-        }
-    }
-
-    /**
-     * Test autoCloseServerCursor property handling.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testAutoCloseServerCursorProperty() throws Exception {
-        String url = URL + "?autoCloseServerCursor";
-
-        String err = "Invalid property value. [name=autoCloseServerCursor";
-
-        assertInvalid(url + "=0", err);
-        assertInvalid(url + "=1", err);
-        assertInvalid(url + "=false1", err);
-        assertInvalid(url + "=true1", err);
-
-        try (Connection conn = DriverManager.getConnection(URL)) {
-            assertFalse(((JdbcConnection)conn).connectionProperties().isAutoCloseServerCursor());
-        }
-
-        try (Connection conn = DriverManager.getConnection(url + "=true")) {
-            assertTrue(((JdbcConnection)conn).connectionProperties().isAutoCloseServerCursor());
-        }
-
-        try (Connection conn = DriverManager.getConnection(url + "=True")) {
-            assertTrue(((JdbcConnection)conn).connectionProperties().isAutoCloseServerCursor());
-        }
-
-        try (Connection conn = DriverManager.getConnection(url + "=false")) {
-            assertFalse(((JdbcConnection)conn).connectionProperties().isAutoCloseServerCursor());
-        }
-
-        try (Connection conn = DriverManager.getConnection(url + "=False")) {
-            assertFalse(((JdbcConnection)conn).connectionProperties().isAutoCloseServerCursor());
-        }
-    }
-
-    /**
-     * Test autoCloseServerCursor property handling with semicolon.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testAutoCloseServerCursorPropertySemicolon() throws Exception {
-        String url = URL + ";autoCloseServerCursor";
-
-        String err = "Invalid property value. [name=autoCloseServerCursor";
-
-        assertInvalid(url + "=0", err);
-        assertInvalid(url + "=1", err);
-        assertInvalid(url + "=false1", err);
-        assertInvalid(url + "=true1", err);
-
-        try (Connection conn = DriverManager.getConnection(url + "=true")) {
-            assertTrue(((JdbcConnection)conn).connectionProperties().isAutoCloseServerCursor());
-        }
-
-        try (Connection conn = DriverManager.getConnection(url + "=True")) {
-            assertTrue(((JdbcConnection)conn).connectionProperties().isAutoCloseServerCursor());
-        }
-
-        try (Connection conn = DriverManager.getConnection(url + "=false")) {
-            assertFalse(((JdbcConnection)conn).connectionProperties().isAutoCloseServerCursor());
-        }
-
-        try (Connection conn = DriverManager.getConnection(url + "=False")) {
-            assertFalse(((JdbcConnection)conn).connectionProperties().isAutoCloseServerCursor());
-        }
-    }
-
-    /**
      * Test schema property in URL.
      *
      * @throws Exception If failed.
@@ -324,7 +105,7 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
             assertEquals( "PUBLIC", conn.getSchema(), "Invalid schema");
         }
 
-        String dfltSchema = "DEFAULT" ;
+        String dfltSchema = "DEFAULT";
 
         try (Connection conn = DriverManager.getConnection(URL + "/\"" + dfltSchema + '"')) {
             assertEquals(dfltSchema, conn.getSchema(), "Invalid schema");
@@ -342,7 +123,7 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
      */
     @Test
     public void testSchemaSemicolon() throws Exception {
-        String dfltSchema = "DEFAULT" ;
+        String dfltSchema = "DEFAULT";
 
         try (Connection conn = DriverManager.getConnection(URL + ";schema=public")) {
             assertEquals("PUBLIC", conn.getSchema(), "Invalid schema");
@@ -1138,20 +919,6 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
             conn.close();
 
             checkConnectionClosed(() -> conn.rollback(savepoint));
-        }
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    @Test
-    @SuppressWarnings("EmptyTryBlock")
-    public void testDisabledFeatures() throws Exception {
-        assertInvalid(URL + "?disabledFeatures=unknownFeature",
-            "Unknown feature: unknownFeature");
-
-        try (Connection conn = DriverManager.getConnection(URL + "?disabledFeatures=user_attributes")) {
-            // No-op.
         }
     }
 

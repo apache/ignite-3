@@ -559,7 +559,7 @@ public class JdbcStatementSelfTest extends AbstractJdbcSelfTest {
     public void testGetSetMaxFieldSizeUnsupported() throws Exception {
         assertEquals(0, stmt.getMaxFieldSize());
 
-        assertThrows(SQLFeatureNotSupportedException.class, () -> stmt.setMaxFieldSize(100) , 
+        assertThrows(SQLFeatureNotSupportedException.class, () -> stmt.setMaxFieldSize(100),
             "Field size limitation is not supported");
 
         assertEquals(0, stmt.getMaxFieldSize());
@@ -786,7 +786,7 @@ public class JdbcStatementSelfTest extends AbstractJdbcSelfTest {
 
         assertThrows(
             SQLFeatureNotSupportedException.class,
-            () ->  stmt.setFetchDirection(ResultSet.FETCH_REVERSE),
+            () -> stmt.setFetchDirection(ResultSet.FETCH_REVERSE),
             "Only forward direction is supported."
         );
 

@@ -49,6 +49,7 @@ import org.apache.ignite.client.proto.query.SqlStateCode;
 import org.apache.ignite.internal.client.HostAndPortRange;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.query.JdbcClientQueryEventHandler;
+import org.apache.ignite.schema.SchemaTable;
 import org.jetbrains.annotations.Nullable;
 
 import static java.sql.ResultSet.CLOSE_CURSORS_AT_COMMIT;
@@ -61,9 +62,6 @@ import static org.apache.ignite.client.proto.query.SqlStateCode.CONNECTION_CLOSE
  * JDBC connection implementation.
  */
 public class JdbcConnection implements Connection {
-    /** Default schema. */
-    public static final String DFLT_SCHEMA = "PUBLIC";
-
     /** Network timeout permission. */
     private static final String SET_NETWORK_TIMEOUT_PERM = "setNetworkTimeout";
 
@@ -126,7 +124,7 @@ public class JdbcConnection implements Connection {
 
         holdability = HOLD_CURSORS_OVER_COMMIT;
 
-        schema = DFLT_SCHEMA;
+        schema = SchemaTable.DEFAULT_SCHEMA_NAME;
 
         client = null;
     }
@@ -734,7 +732,7 @@ public class JdbcConnection implements Connection {
      */
     public static String normalizeSchema(String schemaName) {
         if (schemaName == null || schemaName.isEmpty())
-            return DFLT_SCHEMA;
+            return SchemaTable.DEFAULT_SCHEMA_NAME;
 
         String res;
 

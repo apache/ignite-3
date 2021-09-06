@@ -64,9 +64,6 @@ public class JdbcStatement implements Statement {
     /** Query timeout. */
     private int timeout;
 
-    /** Explicit timeout ({@code true} is the timeout is set explicitly for the query. Otherwise {@code false}). */
-    boolean explicitTimeout;
-
     /** Rows limit. */
     private int maxRows;
 
@@ -644,7 +641,5 @@ public class JdbcStatement implements Statement {
             throw new SQLException("Condition timeout >= 0 is not satisfied.");
 
         this.timeout = timeout;
-
-        explicitTimeout = true;
     }
 }
