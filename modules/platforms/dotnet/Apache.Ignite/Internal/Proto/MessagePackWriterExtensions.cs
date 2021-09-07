@@ -51,7 +51,10 @@ namespace Apache.Ignite.Internal.Proto
         }
 
         /// <summary>
-        /// Writes a Guid.
+        /// Writes a <see cref="Guid"/> as UUID (RFC #4122).
+        /// <para />
+        /// <see cref="Guid"/> uses a mixed-endian format which differs from UUID,
+        /// see https://en.wikipedia.org/wiki/Universally_unique_identifier#Encoding.
         /// </summary>
         /// <param name="writer">Writer.</param>
         /// <param name="guid">Guid.</param>

@@ -82,7 +82,10 @@ namespace Apache.Ignite.Internal.Proto
         }
 
         /// <summary>
-        /// Reads a Guid value.
+        /// Reads an UUID (RFC #4122) as <see cref="Guid"/>.
+        /// <para />
+        /// <see cref="Guid"/> uses a mixed-endian format which differs from UUID,
+        /// see https://en.wikipedia.org/wiki/Universally_unique_identifier#Encoding.
         /// </summary>
         /// <param name="reader">Reader.</param>
         /// <returns>Guid.</returns>
