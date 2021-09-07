@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
-import java.util.UUID;
+import org.apache.ignite.lang.IgniteUuid;
 
 /**
  * Internal tables facade provides low-level methods for table operations.
@@ -29,5 +29,5 @@ public interface IgniteTablesInternal {
      * @param id Table ID.
      * @return Table or {@code null} when not exists.
      */
-    TableImpl table(UUID id);
+    TableImpl table(IgniteUuid id);
 }

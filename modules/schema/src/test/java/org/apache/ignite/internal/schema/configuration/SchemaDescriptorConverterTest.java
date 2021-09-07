@@ -52,7 +52,7 @@ public class SchemaDescriptorConverterTest {
             .build()
         ).build();
 
-        SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(UUID.randomUUID(), 1, tblSchm);
+        SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(1, tblSchm);
 
         assertEquals(2, tblDscr.keyColumns().length());
         assertEquals(2, tblDscr.affinityColumns().length);
@@ -72,7 +72,7 @@ public class SchemaDescriptorConverterTest {
             .build()
         ).build();
 
-        SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(UUID.randomUUID(), 1, tblSchm);
+        SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(1, tblSchm);
 
         assertEquals(2, tblDscr.keyColumns().length());
         assertEquals(1, tblDscr.affinityColumns().length);
@@ -103,7 +103,7 @@ public class SchemaDescriptorConverterTest {
     private void testConvert(boolean nullable) {
         SchemaTable tblSchm = getBuilder(nullable, true).build();
 
-        SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(UUID.randomUUID(), 1, tblSchm);
+        SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(1, tblSchm);
 
         assertEquals(1, tblDscr.keyColumns().length());
         testCol(tblDscr.keyColumns(), "ID", NativeTypeSpec.UUID, nullable);

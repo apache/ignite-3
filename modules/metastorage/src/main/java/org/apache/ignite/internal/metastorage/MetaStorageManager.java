@@ -161,7 +161,7 @@ public class MetaStorageManager implements IgniteComponent {
             this.metaStorageSvcFut = raftMgr.prepareRaftGroup(
                 METASTORAGE_RAFT_GROUP_NAME,
                 metaStorageMembers,
-                new MetaStorageListener(new SimpleInMemoryKeyValueStorage())
+                () -> new MetaStorageListener(new SimpleInMemoryKeyValueStorage())
             ).thenApply(service ->
                 new MetaStorageServiceImpl(service, clusterNetSvc.topologyService().localMember().id())
             );
