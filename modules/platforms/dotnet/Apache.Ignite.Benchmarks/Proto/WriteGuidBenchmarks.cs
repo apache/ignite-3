@@ -15,21 +15,34 @@
 
 namespace Apache.Ignite.Benchmarks.Proto
 {
+    using System;
+    using System.Diagnostics.CodeAnalysis;
     using BenchmarkDotNet.Attributes;
-    using Tests.Buffers;
+    using Internal.Buffers;
+    using Internal.Proto;
 
+    [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Benchmarks.")]
     public class WriteGuidBenchmarks
     {
+        private static readonly Guid Guid = Guid.NewGuid();
+
         [Benchmark]
         public void WriteTwoLongs()
         {
-            using var w = new PooledArrayBufferWriter();
+            using var bufferWriter = new PooledArrayBufferWriter();
+            var writer = bufferWriter.GetMessageWriter();
+            writer.Write(long.MaxValue);
+            writer.Write(long.MaxValue);
+            writer.Flush();
         }
 
         [Benchmark]
         public void WriteGuid()
         {
-
+            using var bufferWriter = new PooledArrayBufferWriter();
+            var writer = bufferWriter.GetMessageWriter();
+            writer.Write(Guid);
+            writer.Flush();
         }
     }
 }

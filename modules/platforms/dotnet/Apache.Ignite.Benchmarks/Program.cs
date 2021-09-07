@@ -16,12 +16,17 @@
 namespace Apache.Ignite.Benchmarks
 {
     using System;
+    using System.Reflection;
 
     internal static class Program
     {
         private static void Main()
         {
             Console.WriteLine("Hello World!");
+
+            var asm = Assembly.GetExecutingAssembly();
+
+            Console.WriteLine(asm);
         }
     }
 }
