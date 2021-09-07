@@ -24,6 +24,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Column mapper interface.
  */
+// TODO sanpwc: Should be removed because of index ids.
 public interface ColumnMapper extends Serializable {
     /**
      * Add new column.

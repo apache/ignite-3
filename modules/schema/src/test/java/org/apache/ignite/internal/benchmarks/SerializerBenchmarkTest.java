@@ -116,7 +116,7 @@ public class SerializerBenchmarkTest {
 
         Column[] keyCols = new Column[] {new Column("key", INT64, true)};
         Column[] valCols = mapFieldsToColumns(valClass);
-        final SchemaDescriptor schema = new SchemaDescriptor(UUID.randomUUID(), 1, keyCols, valCols);
+        final SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
 
         if ("Java".equals(serializerName))
             serializer = SerializerFactory.createJavaSerializerFactory().create(schema, Long.class, valClass);

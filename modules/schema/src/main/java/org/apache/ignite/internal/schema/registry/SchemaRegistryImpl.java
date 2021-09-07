@@ -54,6 +54,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      *
      * @param history Schema history.
      */
+    // TODO sanpwc: Consider using simplier constructor.
     public SchemaRegistryImpl(Function<Integer, SchemaDescriptor> history) {
         lastVer = INITIAL_SCHEMA_VERSION;
         this.history = history;
