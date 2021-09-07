@@ -38,4 +38,7 @@ public class ClientMsgPackType {
 
     /** DateTime. */
     public static final byte DATETIME = 6;
+
+    /** Ignite UUID. */
+    public static final byte IGNITE_UUID = 7;
 }
