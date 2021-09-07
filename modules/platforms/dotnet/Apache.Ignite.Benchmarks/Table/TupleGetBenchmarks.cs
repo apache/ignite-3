@@ -24,7 +24,7 @@ namespace Apache.Ignite.Benchmarks.Table
     /// Results on Intel Core i7-7700HQ, .NET SDK 5.0.400, Ubuntu 20.04:
     /// | Method |     Mean |   Error |  StdDev |
     /// |------- |---------:|--------:|--------:|
-    /// |    Get | 202.0 us | 3.71 us | 7.82 us |
+    /// |    Get | 202.0 us | 3.71 us | 7.82 us |.
     /// </summary>
     public class TupleGetBenchmarks
     {

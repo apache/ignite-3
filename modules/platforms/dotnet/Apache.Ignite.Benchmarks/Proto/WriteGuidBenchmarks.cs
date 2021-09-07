@@ -26,7 +26,7 @@ namespace Apache.Ignite.Benchmarks.Proto
     /// |        Method |     Mean |   Error |  StdDev |
     /// |-------------- |---------:|--------:|--------:|
     /// | WriteTwoLongs | 173.9 ns | 1.43 ns | 1.34 ns |
-    /// |     WriteGuid | 171.1 ns | 3.38 ns | 3.16 ns |
+    /// |     WriteGuid | 171.1 ns | 3.38 ns | 3.16 ns |.
     /// </summary>
     [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Benchmarks.")]
     public class WriteGuidBenchmarks

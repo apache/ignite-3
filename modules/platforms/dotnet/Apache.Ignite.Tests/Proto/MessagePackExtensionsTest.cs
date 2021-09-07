@@ -29,9 +29,11 @@ namespace Apache.Ignite.Tests.Proto
     /// </summary>
     public class MessagePackExtensionsTest
     {
-        private const string JavaGuidString = "6f24146a-244a-4018-a36c-3e9cf5b42082";
+        /** Random UUID string from Java. */
+        private const string JavaUuidString = "6f24146a-244a-4018-a36c-3e9cf5b42082";
 
-        private static readonly sbyte[] JavaGuidBytes =
+        /** Byte representation of the UUID above, serialized by Java ClientMessagePacker. */
+        private static readonly sbyte[] JavaUuidBytes =
         {
             -40, 3, 111, 36, 20, 106, 36, 74, 64, 24, -93, 108, 62, -100, -11, -76, 32, -126
         };
@@ -98,13 +100,13 @@ namespace Apache.Ignite.Tests.Proto
         [Test]
         public void TestReadJavaGuidReturnsIdenticalStringRepresentation()
         {
-            var bytes = (byte[]) (object) JavaGuidBytes;
+            var bytes = (byte[]) (object) JavaUuidBytes;
             var mem = bytes.AsMemory();
 
             var reader = new MessagePackReader(mem);
             var guid = reader.ReadGuid();
 
-            Assert.AreEqual(JavaGuidString, guid.ToString());
+            Assert.AreEqual(JavaUuidString, guid.ToString());
         }
 
         [Test]
@@ -113,11 +115,11 @@ namespace Apache.Ignite.Tests.Proto
             var bufferWriter = new PooledArrayBufferWriter();
             var writer = bufferWriter.GetMessageWriter();
 
-            writer.Write(Guid.Parse(JavaGuidString));
+            writer.Write(Guid.Parse(JavaUuidString));
             writer.Flush();
 
             var bytes = bufferWriter.GetWrittenMemory()[4..].ToArray().Select(b => (sbyte) b).ToArray();
-            CollectionAssert.AreEqual(JavaGuidBytes, bytes);
+            CollectionAssert.AreEqual(JavaUuidBytes, bytes);
         }
 
         private static T WriteRead<T>(Action<PooledArrayBufferWriter> write, Func<ReadOnlyMemory<byte>, T> read)
