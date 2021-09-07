@@ -15,18 +15,14 @@
 
 namespace Apache.Ignite.Benchmarks
 {
-    using System;
-    using System.Reflection;
+    using BenchmarkDotNet.Running;
+    using Proto;
 
     internal static class Program
     {
         private static void Main()
         {
-            Console.WriteLine("Hello World!");
-
-            var asm = Assembly.GetExecutingAssembly();
-
-            Console.WriteLine(asm);
+            BenchmarkRunner.Run<WriteGuidBenchmarks>();
         }
     }
 }
