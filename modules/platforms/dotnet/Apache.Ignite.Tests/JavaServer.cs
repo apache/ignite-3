@@ -53,7 +53,7 @@ namespace Apache.Ignite.Tests
         /// Starts a server node.
         /// </summary>
         /// <returns>Disposable object to stop the server.</returns>
-        public static async Task<JavaServer> Start()
+        public static async Task<JavaServer> StartAsync()
         {
             if (await TryConnect(DefaultClientPort))
             {

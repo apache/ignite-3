@@ -21,6 +21,12 @@ namespace Apache.Ignite.Benchmarks.Proto
     using Internal.Buffers;
     using Internal.Proto;
 
+    /// <summary>
+    /// Results on Intel Core i7-7700HQ, .NET SDK 5.0.400, Ubuntu 20.04:
+    /// | Method |     Mean |   Error |  StdDev |
+    /// |------- |---------:|--------:|--------:|
+    /// |    TODO
+    /// </summary>
     [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Benchmarks.")]
     public class WriteGuidBenchmarks
     {

@@ -32,7 +32,7 @@ namespace Apache.Ignite.Tests
         [OneTimeSetUp]
         public async Task OneTimeSetUp()
         {
-            _serverNode = await JavaServer.Start();
+            _serverNode = await JavaServer.StartAsync();
         }
 
         [OneTimeTearDown]
