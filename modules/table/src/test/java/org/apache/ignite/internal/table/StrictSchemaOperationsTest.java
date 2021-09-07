@@ -55,7 +55,6 @@ public class StrictSchemaOperationsTest {
     @Test
     public void schemaMismatch() {
         SchemaDescriptor schema = new SchemaDescriptor(
-            tableId,
             1,
             new Column[] {new Column("id", NativeTypes.INT64, false)},
             new Column[] {new Column("val", NativeTypes.INT64, true)}
