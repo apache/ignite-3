@@ -48,6 +48,11 @@ public interface AsyncSqlResultSet {
     QueryType queryType();
 
     /**
+     * @return Number of affected rows.
+     */
+    int updateCount();
+
+    /**
      * @return Current page rows.
      */
     Iterable<SqlRow> currentPage();

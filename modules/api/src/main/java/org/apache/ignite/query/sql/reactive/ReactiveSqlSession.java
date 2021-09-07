@@ -17,8 +17,10 @@
 
 package org.apache.ignite.query.sql.reactive;
 
+import java.util.UUID;
 import java.util.concurrent.Flow;
 import org.apache.ignite.query.sql.SQLException;
+import org.apache.ignite.query.sql.SqlStatement;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -30,32 +32,37 @@ public interface ReactiveSqlSession {
      * Executes SQL query in reactive way.
      *
      * @param sql SQL query template.
-     * @param tx Transaction (optional).
-     * @param args Arguments for template (optional).
+     * @param args Arguments for the template (optional).
      * @return Reactive result.
      * @throws SQLException If failed.
      */
-    ReactiveSqlResultSet executeQueryReactive(String sql, @Nullable Transaction tx, Object... args);
+    ReactiveSqlResultSet executeReactive(String sql, Object... args);
 
     /**
-     * Executes DML SQL query in reactive way.
+     * Executes SQL query in reactive way.
      *
-     * @param sql SQL query template.
-     * @param tx Transaction (optional).
-     * @param args Arguments for template (optional).
+     * @param statement SQL statement.
      * @return Reactive result.
      * @throws SQLException If failed.
      */
-    Flow.Publisher<Integer> executeUpdateReactive(String sql, @Nullable Transaction tx, Object... args);
+    ReactiveSqlResultSet executeReactive(SqlStatement statement);
 
     /**
-     * Executes DDL SQL query in reactive way.
+     * Executes multi-statement SQL query in reactive way.
      *
      * @param sql SQL query template.
-     * @param tx Transaction (optional).
-     * @param args Arguments for template (optional).
+     * @param args Arguments for the template (optional).
      * @return Reactive result.
      * @throws SQLException If failed.
      */
-    Flow.Publisher<Boolean> executeReactive(String sql, @Nullable Transaction tx, Object... args);
+    ReactiveSqlMultiResultSet executeMultiStatementReactive(String sql, Object... args);
+
+    interface ReactiveSqlMultiResultSet extends Flow.Publisher<ReactiveSqlResultSet> {
+        /**
+         * Returns query`s unique identifier.
+         *
+         * @return Query id.
+         */
+        Flow.Publisher<UUID> queryId();
+    }
 }

@@ -17,36 +17,15 @@
 
 package org.apache.ignite.query.sql.reactive;
 
-import java.sql.ResultSetMetaData;
 import java.util.concurrent.Flow;
-import org.apache.ignite.query.sql.QueryType;
 import org.apache.ignite.query.sql.SqlRow;
 
 /**
- * Reactive result set provides methods to subscribe to the query results in reactive way.
- *
- * Note: It implies to be used with the reactive framework such as ProjectReactor or R2DBC.
- *
- * @see reactor.core.publisher.Flux
- * @see r2dbc
+ * Dummy subscriber for test purposes.
  */
-public interface ReactiveSqlResultSet extends Flow.Publisher<SqlRow> {
-
+interface MultiStatementSubscriber<T> extends Flow.Subscriber<T> {
     /**
-     * Return publisher for the ResultSet's metadata.
-     *
-     * @return Metadata publisher.
+     * Method invoked with a Subscription's next result set.
      */
-    Flow.Publisher<ResultSetMetaData> metadata();
-
-    /**
-     * @return Number of affected rows.
-     */
-    Flow.Publisher<Integer> updateCount();
-
-    /**
-     * @return Query type.
-     * @see QueryType
-     */
-    Flow.Publisher<QueryType> queryType();
+    void onNextStatement();
 }

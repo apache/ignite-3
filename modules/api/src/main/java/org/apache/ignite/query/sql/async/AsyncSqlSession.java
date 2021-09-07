@@ -45,7 +45,7 @@ public interface AsyncSqlSession {
     CompletableFuture<AsyncSqlResultSet> executeAsync(SqlStatement statement);
 
     /**
-     * Executes multi-statement SQL query.
+     * Executes multi-statement SQL query in async way.
      *
      * @param query SQL query template.
      * @param arguments Arguments for the template (optional).

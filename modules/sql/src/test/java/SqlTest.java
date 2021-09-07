@@ -217,7 +217,7 @@ public class SqlTest {
 
         igniteTx.beginAsync().thenApply(tx -> queryMgr.session())
             .thenCompose(session -> {
-                session.executeQueryReactive("SELECT id, val FROM tbl WHERE id < {} AND val LIKE {};", tx, 10, "str%")
+                session.executeReactive("SELECT id, val FROM tbl WHERE id < {} AND val LIKE {};", 10, "str%")
                     .subscribe(subscriber);
 
                 return subscriber.exceptionally(th -> {
@@ -347,7 +347,7 @@ public class SqlTest {
         Mockito.when(session.executeMultiAsync(Mockito.any(), Mockito.any()))
             .thenAnswer(ans0 -> CompletableFuture.completedFuture(asyncMultiRs));
 
-        Mockito.when(session.executeQueryReactive(Mockito.startsWith("SELECT id, val FROM tbl WHERE id < {} AND val LIKE {};"), Mockito.any(), Mockito.any()))
+        Mockito.when(session.executeReactive(Mockito.startsWith("SELECT id, val FROM tbl WHERE id < {} AND val LIKE {};"), Mockito.any(), Mockito.any()))
             .thenAnswer(invocation -> {
                 ReactiveSqlResultSet mock = Mockito.mock(ReactiveSqlResultSet.class);
 
@@ -375,13 +375,6 @@ public class SqlTest {
         }).when(igniteTx).runInTransaction(Mockito.any());
 
         Mockito.when(igniteTx.beginAsync()).thenReturn(CompletableFuture.completedFuture(tx));
-    }
-
-    /**
-     * Dummy subsctiber for test purposes.
-     */
-    static interface MultiStatementRowSubscriber extends Flow.Subscriber<SqlRow> {
-        public void onNextStatement();
     }
 
     static class SqlRowSubscriber extends CompletableFuture<Void> implements Flow.Subscriber<SqlRow> {
