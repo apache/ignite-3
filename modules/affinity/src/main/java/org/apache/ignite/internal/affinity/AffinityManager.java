@@ -18,64 +18,29 @@
 package org.apache.ignite.internal.affinity;
 
 import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.affinity.event.AffinityEvent;
 import org.apache.ignite.internal.affinity.event.AffinityEventParameters;
 import org.apache.ignite.internal.baseline.BaselineManager;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.client.Conditions;
-import org.apache.ignite.internal.metastorage.client.EntryEvent;
-import org.apache.ignite.internal.metastorage.client.Operations;
-import org.apache.ignite.internal.metastorage.client.WatchEvent;
-import org.apache.ignite.internal.metastorage.client.WatchListener;
-import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Affinity manager is responsible for affinity function related logic including calculating affinity assignments.
  */
+// TODO sanpwc: Consider renaming to AffinityService or <some-better-name>
 public class AffinityManager extends Producer<AffinityEvent, AffinityEventParameters> implements IgniteComponent {
-    /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(AffinityManager.class);
-
-    /** Internal prefix for the metasorage. */
-    private static final String INTERNAL_PREFIX = "internal.tables.assignment.";
-
-    /**
-     * MetaStorage manager in order to watch private distributed affinity specific configuration, cause
-     * ConfigurationManger handles only public configuration.
-     */
-    private final MetaStorageManager metaStorageMgr;
-
-    /** Configuration manager in order to handle and listen affinity specific configuration. */
-    private final ConfigurationManager configurationMgr;
-
     /** Baseline manager. */
     private final BaselineManager baselineMgr;
 
     /**
      * Creates a new affinity manager.
      *
-     * @param configurationMgr Configuration module.
-     * @param metaStorageMgr Meta storage service.
      * @param baselineMgr Baseline manager.
      */
     public AffinityManager(
-        ConfigurationManager configurationMgr,
-        MetaStorageManager metaStorageMgr,
         BaselineManager baselineMgr
     ) {
-        this.configurationMgr = configurationMgr;
-        this.metaStorageMgr = metaStorageMgr;
         this.baselineMgr = baselineMgr;
     }
 
@@ -89,13 +54,7 @@ public class AffinityManager extends Producer<AffinityEvent, AffinityEventParame
         // TODO: IGNITE-15161 Implement component's stop.
     }
 
-    /**
-     * Calculates an assignment for a table which was specified by id.
-     *
-     * @param tblId Table identifier.
-     * @param tblName Table name.
-     * @return A future which will complete when the assignment is calculated.
-     */
+    // TODO sanpwc: javadoc
     public List<List<ClusterNode>> calculateAssignments(int partitions, int replicas) {
         return RendezvousAffinityFunction.assignPartitions(
             baselineMgr.nodes(),
