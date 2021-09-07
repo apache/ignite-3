@@ -39,10 +39,10 @@ import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.affinity.AffinityManager;
-import org.apache.ignite.internal.affinity.schema.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.processors.query.calcite.SqlQueryProcessor;
@@ -175,6 +175,7 @@ public class IgniteImpl implements Ignite {
             raftMgr
         );
 
+        // TODO: IGNITE-15414 Schema validation refactoring with configuration validators.
         clusterCfgMgr = new ConfigurationManager(
             Arrays.asList(
                 ClusterConfiguration.KEY,
@@ -191,22 +192,13 @@ public class IgniteImpl implements Ignite {
             clusterSvc
         );
 
-        affinityMgr = new AffinityManager(
-            clusterCfgMgr,
-            metaStorageMgr,
-            baselineMgr
-        );
+        affinityMgr = new AffinityManager(baselineMgr);
 
-        schemaMgr = new SchemaManager(
-            clusterCfgMgr,
-            metaStorageMgr,
-            vaultMgr
-        );
+        schemaMgr = new SchemaManager();
 
         distributedTblMgr = new TableManager(
             nodeCfgMgr,
             clusterCfgMgr,
-            metaStorageMgr,
             schemaMgr,
             affinityMgr,
             raftMgr,
