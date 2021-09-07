@@ -31,7 +31,7 @@ namespace Apache.Ignite.Internal.Buffers
     /// <para />
     /// There are two ways to use <see cref="MessagePackWriter"/>: with a <see cref="SequencePool"/>,
     /// or with a <see cref="IBufferWriter{T}"/>. SequencePool approach uses buffer pooling too, but still allocates
-    /// the final array with <see cref="MessagePackWriter.FlushAndGetArray"/>. We want to avoid all array allocations,
+    /// the final array with <c>MessagePackWriter.FlushAndGetArray</c>. We want to avoid all array allocations,
     /// so we implement our own <see cref="IBufferWriter{T}"/> here.
     /// <para />
     /// Based on <see cref="ArrayBufferWriter{T}"/>, but uses <see cref="ArrayPool{T}.Shared"/> to allocate arrays.
