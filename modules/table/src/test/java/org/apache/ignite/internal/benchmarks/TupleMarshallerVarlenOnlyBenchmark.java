@@ -113,7 +113,6 @@ public class TupleMarshallerVarlenOnlyBenchmark {
         rnd = new Random(seed);
 
         schema = new SchemaDescriptor(
-            UUID.randomUUID(),
             42,
             new Column[] {new Column("key", INT64, false, (Supplier<Object> & Serializable)() -> 0L)},
             IntStream.range(0, fieldsCount).boxed()

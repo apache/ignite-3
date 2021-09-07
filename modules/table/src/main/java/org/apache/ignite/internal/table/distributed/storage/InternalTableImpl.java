@@ -43,6 +43,7 @@ import org.apache.ignite.internal.table.distributed.command.UpsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
 import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.schema.SchemaMode;
 import org.apache.ignite.tx.Transaction;
@@ -62,7 +63,7 @@ public class InternalTableImpl implements InternalTable {
     private String tableName;
 
     /** Table identifier. */
-    private UUID tableId;
+    private IgniteUuid tableId;
 
     /** Table schema mode. */
     private volatile SchemaMode schemaMode;
@@ -75,7 +76,7 @@ public class InternalTableImpl implements InternalTable {
      */
     public InternalTableImpl(
         String tableName,
-        UUID tableId,
+        IgniteUuid tableId,
         Map<Integer, RaftGroupService> partMap,
         int partitions
     ) {
@@ -88,7 +89,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull UUID tableId() {
+    @Override public @NotNull IgniteUuid tableId() {
         return tableId;
     }
 
