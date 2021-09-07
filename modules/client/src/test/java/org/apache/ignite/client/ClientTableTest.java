@@ -18,7 +18,6 @@
 package org.apache.ignite.client;
 
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.fakes.FakeSchemaRegistry;
@@ -328,41 +327,5 @@ public class ClientTableTest extends AbstractClientTableTest {
 
         assertEquals(3L, skippedTuples[1].longValue("id"));
         assertEquals("z", skippedTuples[1].stringValue("name"));
-    }
-
-    private static Tuple[] sortedTuples(Collection<Tuple> tuples) {
-        Tuple[] res = tuples.toArray(new Tuple[0]);
-
-        Arrays.sort(res, (x, y) -> (int) (x.longValue(0) - y.longValue(0)));
-
-        return res;
-    }
-
-    private Tuple tuple() {
-        return Tuple.create()
-                .set("id", DEFAULT_ID)
-                .set("name", DEFAULT_NAME);
-    }
-
-    private Tuple tuple(Long id) {
-        return Tuple.create()
-                .set("id", id);
-    }
-
-    private Tuple tuple(Long id, String name) {
-        return Tuple.create()
-                .set("id", id)
-                .set("name", name);
-    }
-
-    private Tuple defaultTupleKey() {
-        return Tuple.create()
-                .set("id", DEFAULT_ID);
-    }
-
-    private Table defaultTable() {
-        server.tables().getOrCreateTable(DEFAULT_TABLE, tbl -> tbl.changeReplicas(1));
-
-        return client.tables().table(DEFAULT_TABLE);
     }
 }

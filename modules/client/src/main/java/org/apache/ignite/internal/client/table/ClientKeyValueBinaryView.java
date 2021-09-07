@@ -25,9 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.proto.ClientOp;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.TupleBuilder;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -48,11 +46,6 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
         assert tbl != null;
 
         this.tbl = tbl;
-    }
-
-    /** {@inheritDoc} */
-    @Override public TupleBuilder tupleBuilder() {
-        return tbl.tupleBuilder();
     }
 
     /** {@inheritDoc} */
