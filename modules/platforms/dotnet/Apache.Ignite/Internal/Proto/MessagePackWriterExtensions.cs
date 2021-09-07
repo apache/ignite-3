@@ -27,30 +27,6 @@ namespace Apache.Ignite.Internal.Proto
     internal static class MessagePackWriterExtensions
     {
         /// <summary>
-        /// Writes a string.
-        /// </summary>
-        /// <param name="writer">Writer.</param>
-        /// <param name="str">String.</param>
-        public static void Write(this ref MessagePackWriter writer, string? str)
-        {
-            if (str == null)
-            {
-                writer.WriteNil();
-                return;
-            }
-
-            var count = ProtoCommon.Encoding.GetByteCount(str);
-
-            writer.WriteStringHeader(count);
-
-            var targetSpan = writer.GetSpan(count);
-
-            ProtoCommon.Encoding.GetBytes(str, targetSpan);
-
-            writer.Advance(count);
-        }
-
-        /// <summary>
         /// Writes a <see cref="Guid"/> as UUID (RFC #4122).
         /// <para />
         /// <see cref="Guid"/> uses a mixed-endian format which differs from UUID,
