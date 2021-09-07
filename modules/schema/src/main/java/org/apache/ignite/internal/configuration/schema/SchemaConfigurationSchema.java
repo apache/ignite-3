@@ -6,5 +6,5 @@ import org.apache.ignite.configuration.annotation.Value;
 @Config
 public class SchemaConfigurationSchema {
     @Value(hasDefault = true)
-    public byte[] schema  = new byte[0];
+    public byte[] schema = new byte[0];
 }

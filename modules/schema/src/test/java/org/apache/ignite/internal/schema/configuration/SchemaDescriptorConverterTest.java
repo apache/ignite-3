@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
-import java.util.UUID;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;

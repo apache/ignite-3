@@ -139,7 +139,6 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
         );
     }
 
-
     /**
      * Gets the schema.
      * @param v Version.

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.benchmarks;
 
 import java.util.Random;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.Column;

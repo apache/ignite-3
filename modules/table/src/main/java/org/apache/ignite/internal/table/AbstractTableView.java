@@ -57,7 +57,6 @@ abstract class AbstractTableView {
         return schemaReg;
     }
 
-
     /**
      * @return Current transaction.
      */

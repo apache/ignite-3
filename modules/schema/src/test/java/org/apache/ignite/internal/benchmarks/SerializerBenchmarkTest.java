@@ -20,7 +20,6 @@ package org.apache.ignite.internal.benchmarks;
 import java.lang.reflect.Field;
 import java.util.EnumSet;
 import java.util.Random;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.processing.Generated;
 import com.facebook.presto.bytecode.Access;

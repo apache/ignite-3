@@ -43,7 +43,6 @@ import org.apache.ignite.internal.affinity.AffinityManager;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableChange;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
-import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
 import org.apache.ignite.internal.configuration.schema.SchemaView;
 import org.apache.ignite.internal.manager.EventListener;
@@ -80,7 +79,9 @@ import org.jetbrains.annotations.Nullable;
 public class TableManager extends Producer<TableEvent, TableEventParameters> implements IgniteTables, IgniteTablesInternal, IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(TableManager.class);
+
     // TODO sanpwc: Consider using list.size + 1 instead.
+    /** */
     private final int INITIAL_SCHEMA_VERSION = 1;
 
     private static final IgniteUuidGenerator TABLE_ID_GENERATOR = new IgniteUuidGenerator(UUID.randomUUID(), 0);
@@ -178,11 +179,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         }
                     });
 
-                    createTableLocally(
+                createTableLocally(
                     ctx.newValue().name(),
-                    IgniteUuid.fromString (((ExtendedTableView)ctx.newValue()).id()),
+                    IgniteUuid.fromString(((ExtendedTableView)ctx.newValue()).id()),
                     (List<List<ClusterNode>>)ByteUtils.fromBytes(((ExtendedTableView)ctx.newValue()).assignments()),
-                    (SchemaDescriptor) ByteUtils.fromBytes(((ExtendedTableView)ctx.newValue()).schemas().get( String.valueOf(INITIAL_SCHEMA_VERSION)).schema())
+                    (SchemaDescriptor)ByteUtils.fromBytes(((ExtendedTableView)ctx.newValue()).schemas().get(String.valueOf(INITIAL_SCHEMA_VERSION)).schema())
                 );
 
                 return CompletableFuture.completedFuture(null);
@@ -199,7 +200,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             public @NotNull CompletableFuture<?> onDelete(@NotNull ConfigurationNotificationEvent<TableView> ctx) {
                 dropTableLocally(
                     ctx.oldValue().name(),
-                    IgniteUuid.fromString (((ExtendedTableView)ctx.oldValue()).id()),
+                    IgniteUuid.fromString(((ExtendedTableView)ctx.oldValue()).id()),
                     (List<List<ClusterNode>>)ByteUtils.fromBytes(((ExtendedTableView)ctx.oldValue()).assignments())
                 );
 

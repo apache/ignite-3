@@ -19,7 +19,6 @@ package org.apache.ignite.internal.benchmarks;
 
 import java.io.Serializable;
 import java.util.Random;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;

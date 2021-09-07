@@ -17,13 +17,12 @@
 
 package org.apache.ignite.internal.affinity;
 
+import java.util.Arrays;
+import java.util.UUID;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
-
-import java.util.Arrays;
-import java.util.UUID;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
