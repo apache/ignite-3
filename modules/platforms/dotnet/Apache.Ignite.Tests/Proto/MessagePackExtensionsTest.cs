@@ -28,6 +28,13 @@ namespace Apache.Ignite.Tests.Proto
     /// </summary>
     public class MessagePackExtensionsTest
     {
+        private const string JavaGuidString = "6f24146a-244a-4018-a36c-3e9cf5b42082";
+
+        private static readonly sbyte[] JavaGuidBytes =
+        {
+            -40, 3, 111, 36, 20, 106, 36, 74, 64, 24, -93, 108, 62, -100, -11, -76, 32, -126
+        };
+
         private static readonly string?[] TestStrings =
         {
             "foo",
@@ -85,6 +92,18 @@ namespace Apache.Ignite.Tests.Proto
 
                 Assert.AreEqual(guid, res);
             }
+        }
+
+        [Test]
+        public void TestReadJavaGuidReturnsIdenticalStringRepresentation()
+        {
+            var bytes = (byte[]) (object) JavaGuidBytes;
+            var mem = bytes.AsMemory();
+
+            var reader = new MessagePackReader(mem);
+            var guid = reader.ReadGuid();
+
+            Assert.AreEqual(JavaGuidString, guid.ToString());
         }
 
         private static T WriteRead<T>(Action<PooledArrayBufferWriter> write, Func<ReadOnlyMemory<byte>, T> read)

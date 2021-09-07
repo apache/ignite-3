@@ -100,19 +100,18 @@ namespace Apache.Ignite.Internal.Proto
 
             Debug.Assert(jBytes.Length == guidSize, "jBytes.Length == 16");
 
-            // Hoist range checks.
-            byte d = jBytes[15];
-            byte e = jBytes[14];
-            byte f = jBytes[13];
-            byte g = jBytes[12];
-            byte h = jBytes[11];
-            byte i = jBytes[10];
-            byte j = jBytes[9];
-            byte k = jBytes[8];
-
-            int a = BinaryPrimitives.ReadInt32BigEndian(jBytes[4..]);
-            short b = BinaryPrimitives.ReadInt16BigEndian(jBytes[2..]);
-            short c = BinaryPrimitives.ReadInt16BigEndian(jBytes);
+            // Hoist bounds checks.
+            var k = jBytes[15];
+            var a = BinaryPrimitives.ReadInt32BigEndian(jBytes);
+            var b = BinaryPrimitives.ReadInt16BigEndian(jBytes[4..]);
+            var c = BinaryPrimitives.ReadInt16BigEndian(jBytes[6..]);
+            var d = jBytes[8];
+            var e = jBytes[9];
+            var f = jBytes[10];
+            var g = jBytes[11];
+            var h = jBytes[12];
+            var i = jBytes[13];
+            var j = jBytes[14];
 
             return new Guid(a, b, c, d, e, f, g, h, i, j, k);
         }

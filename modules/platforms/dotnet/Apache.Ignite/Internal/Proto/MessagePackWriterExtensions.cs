@@ -38,49 +38,33 @@ namespace Apache.Ignite.Internal.Proto
         {
             writer.WriteExtensionFormatHeader(new ExtensionHeader((sbyte)ClientMessagePackType.Uuid, 16));
 
-            Span<byte> bytes = stackalloc byte[16];
             Span<byte> jBytes = writer.GetSpan(16);
 
-            var written = guid.TryWriteBytes(bytes);
+            var written = guid.TryWriteBytes(jBytes);
             Debug.Assert(written, "written");
-
-            // Hoist range checks.
-            jBytes[8] = bytes[15]; // k
-            jBytes[15] = bytes[8]; // d
 
             if (BitConverter.IsLittleEndian)
             {
-                jBytes[0] = bytes[7]; // c1
-                jBytes[1] = bytes[6]; // c2
+                var c1 = jBytes[7];
+                var c2 = jBytes[6];
 
-                jBytes[2] = bytes[5]; // b1
-                jBytes[3] = bytes[4]; // b2
+                var b1 = jBytes[5];
+                var b2 = jBytes[4];
 
-                jBytes[4] = bytes[3]; // a1
-                jBytes[5] = bytes[2]; // a2
-                jBytes[6] = bytes[1]; // a3
-                jBytes[7] = bytes[0]; // a4
+                var a1 = jBytes[3];
+                var a2 = jBytes[2];
+                var a3 = jBytes[1];
+                var a4 = jBytes[0];
+
+                jBytes[0] = a1;
+                jBytes[1] = a2;
+                jBytes[2] = a3;
+                jBytes[3] = a4;
+                jBytes[4] = b1;
+                jBytes[5] = b2;
+                jBytes[6] = c1;
+                jBytes[7] = c2;
             }
-            else
-            {
-                jBytes[0] = bytes[6]; // c1
-                jBytes[1] = bytes[7]; // c2
-
-                jBytes[2] = bytes[4]; // b1
-                jBytes[3] = bytes[5]; // b2
-
-                jBytes[4] = bytes[0]; // a1
-                jBytes[5] = bytes[1]; // a2
-                jBytes[6] = bytes[2]; // a3
-                jBytes[7] = bytes[3]; // a4
-            }
-
-            jBytes[9] = bytes[14]; // j
-            jBytes[10] = bytes[13]; // i
-            jBytes[11] = bytes[12]; // h
-            jBytes[12] = bytes[11]; // g
-            jBytes[13] = bytes[10]; // f
-            jBytes[14] = bytes[9]; // e
 
             writer.Advance(16);
         }
