@@ -17,9 +17,14 @@
 
 package org.apache.ignite.table;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Tuple represents arbitrary set of columns whose values is accessible by column name.
@@ -27,6 +32,25 @@ import org.apache.ignite.binary.BinaryObject;
  * Provides specialized method for some value-types to avoid boxing/unboxing.
  */
 public interface Tuple extends Iterable<Object> {
+    /**
+     * Creates a tuple.
+     *
+     * @return Tuple.
+     */
+    static Tuple create() {
+        return new TupleImpl();
+    }
+
+    /**
+     * Creates a tuple with specified initial capacity.
+     *
+     * @param capacity Initial capacity.
+     * @return Tuple.
+     */
+    static Tuple create(int capacity) {
+        return new TupleImpl(capacity);
+    }
+
     /**
      * Gets the number of columns in this tuple.
      *
@@ -39,6 +63,7 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnIndex Column index.
      * @return Column name.
+     * @throws IndexOutOfBoundsException If a value for a column with given index doesn't exists.
      */
     String columnName(int columnIndex);
 
@@ -46,19 +71,28 @@ public interface Tuple extends Iterable<Object> {
      * Gets the index of the column with the specified name.
      *
      * @param columnName Column name.
-     * @return Column index, or null when a column with given name is not present.
+     * @return Column index, or {@code -1} when a column with given name is not present.
      */
-    Integer columnIndex(String columnName);
+    int columnIndex(@NotNull String columnName);
 
     /**
      * Gets column value when a column with specified name is present in this tuple; returns default value otherwise.
      *
      * @param columnName Column name.
-     * @param def Default value.
+     * @param defaultValue Default value.
      * @param <T> Column default value type.
-     * @return Column value if this tuple contains a column with the specified name. Otherwise returns {@code default}.
+     * @return Column value if this tuple contains a column with the specified name. Otherwise returns {@code defaultValue}.
      */
-    <T> T valueOrDefault(String columnName, T def);
+    <T> T valueOrDefault(@NotNull String columnName, T defaultValue);
+
+    /**
+     * Sets column value.
+     *
+     * @param columnName Column name.
+     * @param value Value to set.
+     * @return {@code this} for chaining.
+     */
+    Tuple set(@NotNull String columnName, Object value);
 
     /**
      * Gets column value for given column name.
@@ -66,8 +100,9 @@ public interface Tuple extends Iterable<Object> {
      * @param columnName Column name.
      * @param <T> Value type.
      * @return Column value.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
-    <T> T value(String columnName);
+    <T> T value(@NotNull String columnName);
 
     /**
      * Gets column value for given column index.
@@ -75,6 +110,7 @@ public interface Tuple extends Iterable<Object> {
      * @param columnIndex Column index.
      * @param <T> Value type.
      * @return Column value.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     <T> T value(int columnIndex);
 
@@ -83,14 +119,16 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
-    BinaryObject binaryObjectValue(String columnName);
+    BinaryObject binaryObjectValue(@NotNull String columnName);
 
     /**
      * Gets binary object column.
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     BinaryObject binaryObjectValue(int columnIndex);
 
@@ -99,14 +137,16 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
-    byte byteValue(String columnName);
+    byte byteValue(@NotNull String columnName);
 
     /**
      * Gets {@code byte} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     byte byteValue(int columnIndex);
 
@@ -115,14 +155,16 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
-    short shortValue(String columnName);
+    short shortValue(@NotNull String columnName);
 
     /**
      * Gets {@code short} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     short shortValue(int columnIndex);
 
@@ -131,14 +173,16 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
-    int intValue(String columnName);
+    int intValue(@NotNull String columnName);
 
     /**
      * Gets {@code int} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     int intValue(int columnIndex);
 
@@ -147,14 +191,16 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
-    long longValue(String columnName);
+    long longValue(@NotNull String columnName);
 
     /**
      * Gets {@code long} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     long longValue(int columnIndex);
 
@@ -163,14 +209,16 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
-    float floatValue(String columnName);
+    float floatValue(@NotNull String columnName);
 
     /**
      * Gets {@code float} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     float floatValue(int columnIndex);
 
@@ -179,14 +227,16 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
-    double doubleValue(String columnName);
+    double doubleValue(@NotNull String columnName);
 
     /**
      * Gets {@code double} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     double doubleValue(int columnIndex);
 
@@ -195,14 +245,16 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
-    String stringValue(String columnName);
+    String stringValue(@NotNull String columnName);
 
     /**
      * Gets {@code String} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     String stringValue(int columnIndex);
 
@@ -211,14 +263,16 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
-    UUID uuidValue(String columnName);
+    UUID uuidValue(@NotNull String columnName);
 
     /**
      * Gets {@code UUID} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     UUID uuidValue(int columnIndex);
 
@@ -227,14 +281,88 @@ public interface Tuple extends Iterable<Object> {
      *
      * @param columnName Column name.
      * @return Column value.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
      */
-    BitSet bitmaskValue(String columnName);
+    BitSet bitmaskValue(@NotNull String columnName);
 
     /**
      * Gets {@code BitSet} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     BitSet bitmaskValue(int columnIndex);
+
+    /**
+     * Gets {@code LocalDate} column value.
+     *
+     * @param columnName Column name.
+     * @return Column value.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
+     */
+    LocalDate dateValue(String columnName);
+
+    /**
+     * Gets {@code LocalDate} column value.
+     *
+     * @param columnIndex Column index.
+     * @return Column value.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     */
+    LocalDate dateValue(int columnIndex);
+
+    /**
+     * Gets {@code LocalTime} column value.
+     *
+     * @param columnName Column name.
+     * @return Column value.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
+     */
+    LocalTime timeValue(String columnName);
+
+    /**
+     * Gets {@code LocalTime} column value.
+     *
+     * @param columnIndex Column index.
+     * @return Column value.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     */
+    LocalTime timeValue(int columnIndex);
+
+    /**
+     * Gets {@code LocalDateTime} column value.
+     *
+     * @param columnName Column name.
+     * @return Column value.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
+     */
+    LocalDateTime datetimeValue(String columnName);
+
+    /**
+     * Gets {@code LocalDateTime} column value.
+     *
+     * @param columnIndex Column index.
+     * @return Column value.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     */
+    LocalDateTime datetimeValue(int columnIndex);
+
+    /**
+     * Gets {@code Instant} column value.
+     *
+     * @param columnName Column name.
+     * @return Column value.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
+     */
+    Instant timestampValue(String columnName);
+
+    /**
+     * Gets {@code Instant} column value.
+     *
+     * @param columnIndex Column index.
+     * @return Column value.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     */
+    Instant timestampValue(int columnIndex);
 }

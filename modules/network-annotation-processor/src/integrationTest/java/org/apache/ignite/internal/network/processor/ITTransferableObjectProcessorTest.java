@@ -25,8 +25,8 @@ import com.google.testing.compile.Compilation;
 import com.google.testing.compile.Compiler;
 import com.google.testing.compile.JavaFileObjects;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.network.annotations.Transferable;
 import org.junit.jupiter.api.Test;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
@@ -172,7 +172,7 @@ public class ITTransferableObjectProcessorTest {
         Compilation compilation = compiler.compile(sources("AllTypesMessage"));
 
         assertThat(compilation).hadErrorContaining(
-            "Invalid number of message groups (classes annotated with @MessageGroup): 0"
+            "No message groups (classes annotated with @MessageGroup) found"
         );
     }
 
@@ -182,11 +182,14 @@ public class ITTransferableObjectProcessorTest {
     @Test
     void testMultipleMessageGroups() {
         Compilation compilation = compiler.compile(
-            sources("AllTypesMessage", "ITTestMessageGroup", "SecondGroup")
+            sources("AllTypesMessage", "ConflictingTypeMessage", "ITTestMessageGroup", "SecondGroup")
         );
 
         assertThat(compilation).hadErrorContaining(
-            "Invalid number of message groups (classes annotated with @MessageGroup): 2"
+            "Invalid number of message groups (classes annotated with @MessageGroup), " +
+                "only one can be present in a compilation unit: " +
+                "[org.apache.ignite.internal.network.processor.ITTestMessageGroup, " +
+                "org.apache.ignite.internal.network.processor.SecondGroup]"
         );
     }
 

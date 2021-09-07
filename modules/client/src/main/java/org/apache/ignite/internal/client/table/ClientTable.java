@@ -43,7 +43,6 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.TupleBuilder;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.RecordMapper;
 import org.apache.ignite.table.mapper.ValueMapper;
@@ -128,11 +127,6 @@ public class ClientTable implements Table {
     @Override public Table withTransaction(Transaction tx) {
         // TODO: Transactions IGNITE-15240
         throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override public TupleBuilder tupleBuilder() {
-        return new ClientTupleBuilder(getLatestSchema().join(), false, false);
     }
 
     /** {@inheritDoc} */
@@ -584,14 +578,14 @@ public class ClientTable implements Table {
     }
 
     private Tuple readTuple(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
-        var builder = new ClientTupleBuilder(schema, keyOnly, false);
+        var tuple = new ClientTuple(schema);
 
         var colCnt = keyOnly ? schema.keyColumnCount() : schema.columns().length;
 
         for (var i = 0; i < colCnt; i++)
-            builder.setInternal(i, in.unpackObject(schema.columns()[i].type()));
+            tuple.setInternal(i, in.unpackObject(schema.columns()[i].type()));
 
-        return builder;
+        return tuple;
     }
 
     public IgniteBiTuple<Tuple, Tuple> readKvTuples(ClientSchema schema, ClientMessageUnpacker in) {

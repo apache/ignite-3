@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.table.impl;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -25,13 +29,12 @@ import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjects;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.TupleBuilder;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * Dummy table storage implementation.
  */
-public class TestTupleBuilder implements TupleBuilder, Tuple {
+public class TestTupleBuilder implements Tuple {
     /** Columns values. */
     private final Map<String, Object> map = new HashMap<>();
 
@@ -39,11 +42,6 @@ public class TestTupleBuilder implements TupleBuilder, Tuple {
     @Override public TestTupleBuilder set(String columnName, Object value) {
         map.put(columnName, value);
 
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override public Tuple build() {
         return this;
     }
 
@@ -73,7 +71,7 @@ public class TestTupleBuilder implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override public Integer columnIndex(String columnName) {
+    @Override public int columnIndex(String columnName) {
         throw new UnsupportedOperationException();
     }
 
@@ -176,6 +174,46 @@ public class TestTupleBuilder implements TupleBuilder, Tuple {
 
     /** {@inheritDoc} */
     @Override public BitSet bitmaskValue(int columnIndex) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public LocalDate dateValue(String columnName) {
+        return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public LocalDate dateValue(int columnIndex) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public LocalTime timeValue(String columnName) {
+        return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public LocalTime timeValue(int columnIndex) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public LocalDateTime datetimeValue(String columnName) {
+        return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public LocalDateTime datetimeValue(int columnIndex) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Instant timestampValue(String columnName) {
+        return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public Instant timestampValue(int columnIndex) {
         return null;
     }
 

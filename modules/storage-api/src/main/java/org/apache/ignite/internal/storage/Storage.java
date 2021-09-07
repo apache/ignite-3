@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.storage;
 
+import java.nio.file.Path;
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.util.Cursor;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -32,9 +35,10 @@ public interface Storage extends AutoCloseable {
      * Reads a DataRow for a given key.
      *
      * @param key Search row.
-     * @return Data row.
+     * @return Data row or {@code null} if no data has been found.
      * @throws StorageException If failed to read the data or the storage is already stopped.
      */
+    @Nullable
     public DataRow read(SearchRow key) throws StorageException;
 
     /**
@@ -117,5 +121,20 @@ public interface Storage extends AutoCloseable {
      * @throws StorageException If failed to read data or storage is already stopped.
      */
     public Cursor<DataRow> scan(Predicate<SearchRow> filter) throws StorageException;
-}
 
+    /**
+     * Creates a snapshot of the storage's current state in the specified directory.
+     *
+     * @param snapshotPath Directory to store a snapshot.
+     * @return Future representing pending completion of the operation. Can not be {@code null}.
+     */
+    @NotNull
+    CompletableFuture<Void> snapshot(Path snapshotPath);
+
+    /**
+     * Restores a state of the storage which was previously captured with a {@link #snapshot(Path)}.
+     *
+     * @param snapshotPath Path to the snapshot's directory.
+     */
+    void restoreSnapshot(Path snapshotPath);
+}

@@ -38,10 +38,9 @@
             <artifactId>ignite-storage-api</artifactId>
         </dependency>
 
-        <!-- 3rd party dependencies -->
         <dependency>
-            <groupId>org.rocksdb</groupId>
-            <artifactId>rocksdbjni</artifactId>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-rocksdb-common</artifactId>
         </dependency>
 
         <!-- Test dependencies -->
