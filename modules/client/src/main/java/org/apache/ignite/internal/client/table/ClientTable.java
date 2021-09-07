@@ -589,8 +589,9 @@ public class ClientTable implements Table {
     }
 
     public IgniteBiTuple<Tuple, Tuple> readKvTuples(ClientSchema schema, ClientMessageUnpacker in) {
-        var keyBuilder = new ClientTupleBuilder(schema, true, false);
-        var valBuilder = new ClientTupleBuilder(schema, false, true);
+        // TODO
+        var keyBuilder = new ClientTuple(schema, true, false);
+        var valBuilder = new ClientTuple(schema, false, true);
 
         var colCnt = schema.columns().length;
         var keyColCnt = schema.keyColumnCount();
