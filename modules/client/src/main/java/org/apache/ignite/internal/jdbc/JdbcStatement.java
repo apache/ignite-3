@@ -433,13 +433,8 @@ public class JdbcStatement implements Statement {
                     break;
 
                 case CLOSE_ALL_RESULTS:
-                    for (int i = 0; i < curRes; ++i)
-                        resSets.get(i).close0();
-
-                    break;
-
                 case KEEP_CURRENT_RESULT:
-                    break;
+                    throw new SQLFeatureNotSupportedException("Multiple open results is not supported.");
 
                 default:
                     throw new SQLException("Invalid 'current' parameter.");
