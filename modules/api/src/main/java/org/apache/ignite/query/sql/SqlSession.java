@@ -17,6 +17,7 @@
 
 package org.apache.ignite.query.sql;
 
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.query.sql.async.AsyncSqlSession;
 import org.apache.ignite.query.sql.reactive.ReactiveSqlSession;
 import org.apache.ignite.tx.Transaction;
@@ -43,15 +44,19 @@ public interface SqlSession extends AsyncSqlSession, ReactiveSqlSession {
 
     /**
      * Sets default query timeout.
+     *
+     * @param timeout Query timeout value.
+     * @param timeUnit Timeunit.
      */
-    void defaultTimeout(int timeout);
+    void defaultTimeout(int timeout, TimeUnit timeUnit);
 
     /**
      * Gets default query timeout.
      *
+     * @param timeUnit Timeunit.
      * @return Default query timeout.
      */
-    long defaultTimeout();
+    long defaultTimeout(TimeUnit timeUnit);
 
     /**
      * Sets default query schema.
@@ -96,13 +101,13 @@ public interface SqlSession extends AsyncSqlSession, ReactiveSqlSession {
     SqlMultiResultSet executeMulti(@NotNull String query, Object... arguments);
 
     /**
-     * Sets query session parameter.
+     * Sets query session property.
      *
-     * @param name Parameter name.
-     * @param value Parameter value.
+     * @param name Property name.
+     * @param value Property value.
      * @return {@code this} for chaining.
      */
-    SqlSession setParameter(@NotNull String name, Object value);
+    SqlSession property(@NotNull String name, Object value);
     //TODO: User can set e.g. queryTimeout or force join order or whatever.
     //TODO: This is similar to SQL "SET" operator which is used in JDBC/ODBC clients for session state manipulation.
 }

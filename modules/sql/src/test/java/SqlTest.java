@@ -15,12 +15,14 @@
  * limitations under the License.
  */
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.Column;
@@ -81,8 +83,8 @@ public class SqlTest {
         igniteTx.runInTransaction(tx -> {
             SqlSession sess = queryMgr.session();
 
-            sess.defaultTimeout(10_000); // Set default timeout.
-            sess.setParameter("memoryQuota", 10 * Constants.MiB); // Set default timeout.
+            sess.defaultTimeout(10_000, TimeUnit.MILLISECONDS); // Set default timeout.
+            sess.property("memoryQuota", 10 * Constants.MiB); // Set default quota.
 
             // Execute outside TX.
             SqlResultSet rs = sess.execute("INSERT INTO tbl VALUES (?, ?)", 10, "str");
@@ -122,20 +124,23 @@ public class SqlTest {
         Mockito.verify(tx, Mockito.times(1)).rollback();
     }
 
-    @Disabled
     @Test
     public void testSynchronousMultiStatementSql() {
         SqlTx sess = queryMgr.session().withTransaction(tx);
 
         SqlMultiResultSet multiRs = sess.executeMulti(
             "CREATE TABLE tbl(id INTEGER PRIMARY KEY, val VARCHAR);" +
-                "INSERT INTO tbl VALUES (1, 2)" +
+                "INSERT INTO tbl VALUES (1, 2);" +
                 "SELECT id, val FROM tbl WHERE id == {};" +
                 "DROP TABLE tbl", 10);
 
-        SqlResultSet rs = multiRs.iterator().next();
+        Iterator<SqlResultSet> iterator = multiRs.iterator();
+
+        SqlResultSet rs = iterator.next();
 
         String str = rs.iterator().next().stringValue("val");
+
+        sess.commit();
 
         Mockito.verify(tx).commit();
     }
@@ -144,20 +149,20 @@ public class SqlTest {
     public void testAsyncSql() throws ExecutionException, InterruptedException {
         Table table = getTable();
 
+        class AsyncPageProcessor implements Function<AsyncResultSet, CompletionStage<AsyncResultSet>> {
+            @Override public CompletionStage<AsyncResultSet> apply(AsyncResultSet rs) {
+                for (SqlRow row : rs.currentPage())
+                    table.getAsync(Tuple.create().set("id", row.intValue(0)));
+
+                if (rs.hasMorePages())
+                    return rs.fetchNextPage().thenCompose(this);
+
+                return CompletableFuture.completedFuture(rs);
+            }
+        }
+
         igniteTx.beginAsync().thenCompose(tx0 -> {
             SqlSession sess = queryMgr.session().withTransaction(tx0);
-
-            class AsyncPageProcessor implements Function<AsyncResultSet, CompletionStage<AsyncResultSet>> {
-                @Override public CompletionStage<AsyncResultSet> apply(AsyncResultSet rs) {
-                    for (SqlRow row : rs.currentPage())
-                        table.getAsync(Tuple.create().set("id", row.intValue(0)));
-
-                    if (rs.hasMorePages())
-                        return rs.fetchNextPage().thenCompose(this);
-
-                    return CompletableFuture.completedFuture(rs);
-                }
-            }
 
             return sess.executeAsync("SELECT val FROM tbl where val LIKE {};", "val%")
                        .thenCompose(new AsyncPageProcessor())
@@ -182,6 +187,7 @@ public class SqlTest {
 
                 return subscriber.exceptionally(th -> {
                     tx.rollbackAsync();
+
                     return null;
                 }).thenApply(ignore -> tx.commitAsync());
             });
@@ -242,6 +248,7 @@ public class SqlTest {
         Mockito.when(session.withNewTransaction()).thenReturn(sqlTx);
         Mockito.doAnswer(ans -> AdditionalAnswers.delegatesTo(session).answer(ans)).when(sqlTx).execute(Mockito.any(), Mockito.any());
         Mockito.doAnswer(ans -> AdditionalAnswers.delegatesTo(session).answer(ans)).when(sqlTx).executeAsync(Mockito.any(), Mockito.any());
+        Mockito.doAnswer(ans -> AdditionalAnswers.delegatesTo(session).answer(ans)).when(sqlTx).executeMulti(Mockito.any(), Mockito.any());
         Mockito.doAnswer(ans -> AdditionalAnswers.delegatesTo(tx).answer(ans)).when(sqlTx).commit();
         Mockito.doAnswer(ans -> AdditionalAnswers.delegatesTo(tx).answer(ans)).when(sqlTx).rollback();
 
@@ -280,6 +287,17 @@ public class SqlTest {
                 return CompletableFuture.completedFuture(page1);
             });
 
+        Mockito.when(session.executeMulti(Mockito.any(), Mockito.any()))
+            .thenAnswer(ans0 -> Mockito.when(Mockito.mock(SqlMultiResultSet.class).iterator())
+                    .thenAnswer(ans1 ->
+                        Mockito.when(Mockito.mock(Iterator.class).next())
+                            .thenAnswer(ans2 ->
+                                Mockito.when(Mockito.mock(SqlResultSet.class).iterator())
+                                    .thenReturn(query1Resuls.iterator()).getMock()
+                            ).getMock()
+                    ).getMock()
+            );
+
         Mockito.when(session.executeQueryReactive(Mockito.startsWith("SELECT id, val FROM tbl WHERE id < {} AND val LIKE {};"), Mockito.any(), Mockito.any()))
             .thenAnswer(invocation -> {
                 ReactiveSqlResultSet mock = Mockito.mock(ReactiveSqlResultSet.class);
@@ -313,6 +331,10 @@ public class SqlTest {
     /**
      * Dummy subsctiber for test purposes.
      */
+    static interface MultiStatementRowSubscriber extends Flow.Subscriber<SqlRow> {
+        public void onNextStatement();
+    }
+
     static class SqlRowSubscriber extends CompletableFuture<Void> implements Flow.Subscriber<SqlRow> {
         private Consumer<SqlRow> rowConsumer;
 

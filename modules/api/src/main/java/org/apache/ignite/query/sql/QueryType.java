@@ -17,37 +17,9 @@
 
 package org.apache.ignite.query.sql;
 
-import java.util.UUID;
-
-/**
- * SQL result set provides methods to access SQL query resul represented as collection of {@link SqlRow}.
- *
- * All the rows in result set have the same structure described in {@link SqlResultSetMeta}.
- * ResultSet must be closed after usage to free resources.
- */
-public interface SqlResultSet extends Iterable<SqlRow>, AutoCloseable {
-    /**
-     * Returns query`s unique identifier.
-     *
-     * @return Query id.
-     */
-    UUID queryId();
-
-    /**
-     * Returns metadata for the results.
-     *
-     * @return ResultSet metadata.
-     */
-    SqlResultSetMeta metadata();
-
-    /**
-     * @return Query type.
-     * @see QueryType
-     */
-    QueryType queryType();
-
-    /**
-     * @return Number of affected rows.
-     */
-    int updateCount();
+/** */
+public enum QueryType {
+    SELECT,
+    DML,
+    DDL
 }

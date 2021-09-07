@@ -17,8 +17,9 @@
 
 package org.apache.ignite.query.sql.async;
 
-import java.util.concurrent.CompletableFuture;
+import java.util.UUID;
 import java.util.concurrent.CompletionStage;
+import org.apache.ignite.query.sql.QueryType;
 import org.apache.ignite.query.sql.SqlResultSetMeta;
 import org.apache.ignite.query.sql.SqlRow;
 
@@ -27,11 +28,24 @@ import org.apache.ignite.query.sql.SqlRow;
  */
 public interface AsyncResultSet {
     /**
+     * Returns query`s unique identifier.
+     *
+     * @return Query id.
+     */
+    UUID queryId();
+
+    /**
      * Returns metadata for the results.
      *
      * @return ResultSet metadata.
      */
-    CompletableFuture<SqlResultSetMeta> metadata();
+    SqlResultSetMeta metadata();
+
+    /**
+     * @return Query type.
+     * @see QueryType
+     */
+    QueryType queryType();
 
     /**
      * @return Current page rows.

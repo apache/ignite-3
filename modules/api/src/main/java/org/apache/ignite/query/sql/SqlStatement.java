@@ -18,6 +18,8 @@
 package org.apache.ignite.query.sql;
 
 import java.sql.SQLException;
+import java.util.concurrent.TimeUnit;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * SQL statement.
@@ -43,8 +45,7 @@ public interface SqlStatement {
      * @param parameter Query parameter.
      * @return {@code this} for chaining.
      */
-    //TODO: method name???
-    SqlStatement set(int parameterIndex, Object parameter);
+    SqlStatement parameter(int parameterIndex, Object parameter);
 
     /**
      * Clears query parameters.
@@ -54,23 +55,34 @@ public interface SqlStatement {
     SqlStatement clearParameters();
 
     /**
-     * Adds a set of parameters to this <code>Statement</code> object's batch of commands.
+     * Adds a set of parameters to this <code>SqlStatement</code> object's batch of commands.
      *
      * @return {@code this} for chaining.
      */
-    //TODO: Multi statement?
     SqlStatement addBatch() throws SQLException;
 
     /**
-     * @param queryTimeout Query timeout.
-     * @return {@code this} for chaining.
+     * Sets query timeout.
+     *
+     * @param timeout Query timeout value.
+     * @param timeUnit Timeunit.
      */
-    SqlStatement queryTimeout(long queryTimeout);
+    void queryTimeout(int timeout, TimeUnit timeUnit);
 
     /**
+     * Gets query timeout.
+     *
+     * @param timeUnit Timeunit.
      * @return Query timeout.
      */
-    long queryTimeout();
+    long queryTimeout(TimeUnit timeUnit);
 
-    //TODO: Do we need some additional parameters? Query memory quota?
+    /**
+     * Sets statement property.
+     *
+     * @param name Property name.
+     * @param value Property value.
+     * @return {@code this} for chaining.
+     */
+    SqlStatement property(@NotNull String name, Object value);
 }

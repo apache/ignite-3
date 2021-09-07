@@ -15,39 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.query.sql;
+package org.apache.ignite.query.sql.async;
 
-import java.util.UUID;
+import java.util.concurrent.CompletionStage;
 
 /**
- * SQL result set provides methods to access SQL query resul represented as collection of {@link SqlRow}.
- *
- * All the rows in result set have the same structure described in {@link SqlResultSetMeta}.
- * ResultSet must be closed after usage to free resources.
+ * Asynchronous multi-statement result set.
  */
-public interface SqlResultSet extends Iterable<SqlRow>, AutoCloseable {
+public interface AsyncMultiResultSet extends AsyncResultSet {
     /**
-     * Returns query`s unique identifier.
+     * Returns current statement result index.
      *
-     * @return Query id.
+     * @return Statement result index.
      */
-    UUID queryId();
+    int currentResult();
 
     /**
-     * Returns metadata for the results.
+     * Skip current statement result and fetch first page of the next statement.
      *
-     * @return ResultSet metadata.
+     * @return Operation future.
      */
-    SqlResultSetMeta metadata();
+    CompletionStage<AsyncMultiResultSet> skipResult();
 
     /**
-     * @return Query type.
-     * @see QueryType
+     * @return Whether there are more statement results.
      */
-    QueryType queryType();
-
-    /**
-     * @return Number of affected rows.
-     */
-    int updateCount();
+    boolean hasMoreResults();
 }
