@@ -42,12 +42,6 @@ public final class ClientTuple implements Tuple {
     /** Schema. */
     private final ClientSchema schema;
 
-    /** Key-only tuple. */
-    private final boolean keyOnly;
-
-    /** Value-only tuple. */
-    private final boolean valOnly;
-
     /**
      * Constructor.
      *
@@ -56,12 +50,9 @@ public final class ClientTuple implements Tuple {
     public ClientTuple(ClientSchema schema) {
         assert schema != null : "Schema can't be null.";
         assert schema.columns().length > 0 : "Schema can't be empty.";
-        assert !(keyOnly && valOnly) : "keyOnly and valOnly can't be true at the same time.";
 
         this.schema = schema;
-        this.keyOnly = keyOnly;
-        this.valOnly = valOnly;
-        this.vals = new Object[columnCount()];
+        this.vals = new Object[schema.columns().length];
     }
 
     /** {@inheritDoc} */
@@ -69,7 +60,7 @@ public final class ClientTuple implements Tuple {
         // TODO: Live schema and schema evolution support IGNITE-15194
         var col = schema.column(columnName);
 
-        vals[getColumnIndex(col.schemaIndex())] = value == null ? NULL_OBJ : value;
+        vals[col.schemaIndex()] = value == null ? NULL_OBJ : value;
 
         return this;
     }
@@ -81,7 +72,7 @@ public final class ClientTuple implements Tuple {
         if (col == null)
             return def;
 
-        var val = (T)vals[getColumnIndex(col.schemaIndex())];
+        var val = (T)vals[col.schemaIndex()];
 
         return val == null ? def : convertValue(val);
     }
@@ -90,7 +81,7 @@ public final class ClientTuple implements Tuple {
     @Override public <T> T value(String columnName) {
         var col = schema.column(columnName);
 
-        return getValue(getColumnIndex(col.schemaIndex()));
+        return getValue(col.schemaIndex());
     }
 
     /** {@inheritDoc} */
@@ -102,21 +93,12 @@ public final class ClientTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override public int columnCount() {
-        if (keyOnly)
-            return schema.keyColumnCount();
-
-        if (valOnly)
-            return schema.columns().length - schema.keyColumnCount();
-
-        return schema.columns().length;
+        return vals.length;
     }
 
     /** {@inheritDoc} */
     @Override public String columnName(int columnIndex) {
         Objects.checkIndex(columnIndex, vals.length);
-
-        if (valOnly)
-            columnIndex += schema.keyColumnCount();
 
         return schema.columns()[columnIndex].name();
     }
@@ -310,7 +292,7 @@ public final class ClientTuple implements Tuple {
      */
     public void setInternal(int columnIndex, Object value) {
         // Do not validate column index for internal needs.
-        vals[getColumnIndex(columnIndex)] = value;
+        vals[columnIndex] = value;
     }
 
     /**
@@ -323,10 +305,7 @@ public final class ClientTuple implements Tuple {
     }
 
     private <T> T getValue(int columnIndex) {
-        if (columnIndex >= vals.length)
-            return null;
-
-        return convertValue((T) vals[columnIndex]);
+        return convertValue((T)vals[columnIndex]);
     }
 
     private static <T> T convertValue(T val) {
