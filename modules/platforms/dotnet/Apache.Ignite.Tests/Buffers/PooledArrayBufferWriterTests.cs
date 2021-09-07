@@ -62,7 +62,7 @@ namespace Apache.Ignite.Tests.Buffers
             prefixWriter.Write(7);
             prefixWriter.Write(8);
             prefixWriter.Write(9);
-            writer.Flush();
+            prefixWriter.Flush();
 
             var res = bufferWriter.GetWrittenMemory().ToArray();
 

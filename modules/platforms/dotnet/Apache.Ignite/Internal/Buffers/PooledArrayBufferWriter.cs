@@ -49,8 +49,8 @@ namespace Apache.Ignite.Internal.Buffers
         /** Index within the array. */
         private int _index;
 
-        /** Index within the array. */
-        private int _index2;
+        /** Index within the array: backup for prefix writer mode. */
+        private int _indexBackup;
 
         /** Start index within the array. */
         private int _startIndex;
@@ -82,9 +82,9 @@ namespace Apache.Ignite.Internal.Buffers
         /// <returns>Written array.</returns>
         public unsafe ReadOnlyMemory<byte> GetWrittenMemory()
         {
-            if (_index2 > 0)
+            if (_indexBackup > 0)
             {
-                _index = _index2;
+                _index = _indexBackup;
             }
 
             // Write big-endian message size to the start of the buffer.
@@ -147,7 +147,7 @@ namespace Apache.Ignite.Internal.Buffers
         {
             Debug.Assert(prefixSize < _startIndex, "prefixSize < _startIndex");
 
-            _index2 = _index;
+            _indexBackup = _index;
             _startIndex -= prefixSize;
             _index = _startIndex;
 
