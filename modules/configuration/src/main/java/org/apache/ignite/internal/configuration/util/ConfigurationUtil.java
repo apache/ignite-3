@@ -49,9 +49,7 @@ import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
 
 /** */
 public class ConfigurationUtil {
@@ -654,22 +652,20 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Get the merged fields of the schema and its extensions.
+     * Get merged schema extension fields.
      *
-     * @param schema Configuration schema.
      * @param extensions Configuration schema extensions ({@link InternalConfiguration}).
      * @return Unique fields of the schema and its extensions.
      * @throws IllegalArgumentException If there is a conflict in field names.
      */
-    public static Set<Field> schemaFields(Class<?> schema, Collection<Class<?>> extensions) {
+    public static Set<Field> extensionsFields(Collection<Class<?>> extensions) {
         if (extensions.isEmpty())
-            return Set.of(schema.getDeclaredFields());
+            return Set.of();
         else {
-            Map<String, Field> res = Arrays.stream(schema.getDeclaredFields())
-                .collect(toMap(Field::getName, identity()));
+            Map<String, Field> res = new HashMap<>();
 
             for (Class<?> extension : extensions) {
-                assert schema.isAssignableFrom(extension) : extension;
+                assert extension.isAnnotationPresent(InternalConfiguration.class) : extension;
 
                 for (Field field : extension.getDeclaredFields()) {
                     String fieldName = field.getName();

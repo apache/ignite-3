@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -38,7 +39,6 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.TupleBuilder;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
 import org.msgpack.core.MessageFormat;
@@ -268,7 +268,7 @@ class ClientTableCommon {
         boolean keyOnly,
         SchemaDescriptor schema
     ) {
-        var builder = table.tupleBuilder();
+        var tuple = Tuple.create();
 
         var cnt = keyOnly ? schema.keyColumns().length() : schema.length();
 
@@ -278,10 +278,10 @@ class ClientTableCommon {
                 continue;
             }
 
-            readAndSetColumnValue(unpacker, builder, schema.column(i));
+            readAndSetColumnValue(unpacker, tuple, schema.column(i));
         }
 
-        return builder.build();
+        return tuple;
     }
 
     /**
@@ -293,16 +293,16 @@ class ClientTableCommon {
      */
     public static Tuple readTupleSchemaless(ClientMessageUnpacker unpacker, TableImpl table) {
         var cnt = unpacker.unpackMapHeader();
-        var builder = table.tupleBuilder();
+        var tuple = Tuple.create();
 
         for (int i = 0; i < cnt; i++) {
             var colName = unpacker.unpackString();
 
             // TODO: Unpack value as object IGNITE-15194.
-            builder.set(colName, unpacker.unpackValue());
+            tuple.set(colName, unpacker.unpackValue());
         }
 
-        return builder.build();
+        return tuple;
     }
 
     /**
@@ -335,8 +335,8 @@ class ClientTableCommon {
         return ((IgniteTablesInternal)tables).table(tableId);
     }
 
-    private static void readAndSetColumnValue(ClientMessageUnpacker unpacker, TupleBuilder builder, Column col) {
-        builder.set(col.name(), unpacker.unpackObject(getClientDataType(col.type().spec())));
+    private static void readAndSetColumnValue(ClientMessageUnpacker unpacker, Tuple tuple, Column col) {
+        tuple.set(col.name(), unpacker.unpackObject(getClientDataType(col.type().spec())));
     }
 
     private static int getClientDataType(NativeTypeSpec spec) {
@@ -361,6 +361,9 @@ class ClientTableCommon {
 
             case DECIMAL:
                 return ClientDataType.DECIMAL;
+
+            case NUMBER:
+                return ClientDataType.NUMBER;
 
             case UUID:
                 return ClientDataType.UUID;
@@ -425,6 +428,10 @@ class ClientTableCommon {
 
             case DECIMAL:
                 packer.packDecimal((BigDecimal)val);
+                break;
+
+            case NUMBER:
+                packer.packNumber((BigInteger)val);
                 break;
 
             case UUID:

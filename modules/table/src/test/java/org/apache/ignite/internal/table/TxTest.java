@@ -78,8 +78,8 @@ public class TxTest {
         );
 
         accounts = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
-        Tuple r1 = accounts.tupleBuilder().set("accountNumber", 1L).set("balance", BALANCE_1).build();
-        Tuple r2 = accounts.tupleBuilder().set("accountNumber", 2L).set("balance", BALANCE_2).build();
+        Tuple r1 = Tuple.create().set("accountNumber", 1L).set("balance", BALANCE_1);
+        Tuple r2 = Tuple.create().set("accountNumber", 2L).set("balance", BALANCE_2);
 
         accounts.insert(r1);
         accounts.insert(r2);
@@ -106,8 +106,8 @@ public class TxTest {
             CompletableFuture<Tuple> read1 = txAcc.getAsync(makeKey(1));
             CompletableFuture<Tuple> read2 = txAcc.getAsync(makeKey(2));
 
-            txAcc.upsertAsync(makeValue(1, read1.join().doubleValue("balance") - DELTA));
-            txAcc.upsertAsync(makeValue(2, read2.join().doubleValue("balance") + DELTA));
+            txAcc.upsertAsync(makeRecord(1, read1.join().doubleValue("balance") - DELTA));
+            txAcc.upsertAsync(makeRecord(2, read2.join().doubleValue("balance") + DELTA));
 
             tx.commit(); // Not necessary to wait for async ops expicitly before the commit.
         });
@@ -129,8 +129,8 @@ public class TxTest {
             CompletableFuture<Tuple> read1 = txAcc.getAsync(makeKey(1));
             CompletableFuture<Tuple> read2 = txAcc.getAsync(makeKey(2));
 
-            txAcc.putAsync(makeKey(1), makeValue(1, read1.join().doubleValue("balance") - DELTA));
-            txAcc.putAsync(makeKey(2), makeValue(2, read2.join().doubleValue("balance") + DELTA));
+            txAcc.putAsync(makeKey(1), makeValue(read1.join().doubleValue("balance") - DELTA));
+            txAcc.putAsync(makeKey(2), makeValue(read2.join().doubleValue("balance") + DELTA));
 
             tx.commit(); // Not necessary to wait for async ops expicitly before the commit.
         });
@@ -150,8 +150,8 @@ public class TxTest {
             thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
             .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
             .thenCompose(pair -> allOf(
-                txAcc.upsertAsync(makeValue(1, pair.getFirst().doubleValue("balance") - DELTA)),
-                txAcc.upsertAsync(makeValue(2, pair.getSecond().doubleValue("balance") + DELTA))
+                txAcc.upsertAsync(makeRecord(1, pair.getFirst().doubleValue("balance") - DELTA)),
+                txAcc.upsertAsync(makeRecord(2, pair.getSecond().doubleValue("balance") + DELTA))
                 )
             )
             .thenApply(ignore -> txAcc.transaction())
@@ -172,8 +172,8 @@ public class TxTest {
             thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
             .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
             .thenCompose(pair -> allOf(
-                txAcc.putAsync(makeKey(1), makeValue(1, pair.getFirst().doubleValue("balance") - DELTA)),
-                txAcc.putAsync(makeKey(2), makeValue(2, pair.getSecond().doubleValue("balance") + DELTA))
+                txAcc.putAsync(makeKey(1), makeValue(pair.getFirst().doubleValue("balance") - DELTA)),
+                txAcc.putAsync(makeKey(2), makeValue(pair.getSecond().doubleValue("balance") + DELTA))
                 )
             )
             .thenApply(ignore -> txAcc.transaction())
@@ -190,7 +190,7 @@ public class TxTest {
      * @return The key tuple.
      */
     private Tuple makeKey(long id) {
-        return accounts.tupleBuilder().set("accountNumber", id).build();
+        return Tuple.create().set("accountNumber", id);
     }
 
     /**
@@ -198,7 +198,15 @@ public class TxTest {
      * @param balance The balance.
      * @return The value tuple.
      */
-    private Tuple makeValue(long id, double balance) {
-        return accounts.tupleBuilder().set("accountNumber", id).set("balance", balance).build();
+    private Tuple makeRecord(long id, double balance) {
+        return Tuple.create().set("accountNumber", id).set("balance", balance);
+    }
+
+    /**
+     * @param balance The balance.
+     * @return The value tuple.
+     */
+    private Tuple makeValue(double balance) {
+        return Tuple.create().set("balance", balance);
     }
 }
