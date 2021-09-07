@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Proto
 {
     using System;
+    using System.Linq;
     using Internal.Buffers;
     using Internal.Proto;
     using MessagePack;
@@ -104,6 +105,19 @@ namespace Apache.Ignite.Tests.Proto
             var guid = reader.ReadGuid();
 
             Assert.AreEqual(JavaGuidString, guid.ToString());
+        }
+
+        [Test]
+        public void TestWriteJavaGuidReturnsIdenticalByteRepresentation()
+        {
+            var bufferWriter = new PooledArrayBufferWriter();
+            var writer = bufferWriter.GetMessageWriter();
+
+            writer.Write(Guid.Parse(JavaGuidString));
+            writer.Flush();
+
+            var bytes = bufferWriter.GetWrittenMemory()[4..].ToArray().Select(b => (sbyte) b).ToArray();
+            CollectionAssert.AreEqual(JavaGuidBytes, bytes);
         }
 
         private static T WriteRead<T>(Action<PooledArrayBufferWriter> write, Func<ReadOnlyMemory<byte>, T> read)
