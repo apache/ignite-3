@@ -25,9 +25,9 @@ namespace Apache.Ignite.Tests
     /// </summary>
     public class IgniteTestsBase
     {
-        private JavaServer _serverNode = null!;
+        private JavaServer? _serverNode;
 
-        protected int ServerPort => _serverNode.Port;
+        protected int ServerPort => _serverNode?.Port ?? 0;
 
         [OneTimeSetUp]
         public async Task OneTimeSetUp()
@@ -38,12 +38,12 @@ namespace Apache.Ignite.Tests
         [OneTimeTearDown]
         public void OneTimeTearDown()
         {
-            _serverNode.Dispose();
+            _serverNode?.Dispose();
         }
 
         protected IgniteClientConfiguration GetConfig() => new()
         {
-            Endpoints = { "127.0.0.1:" + _serverNode.Port }
+            Endpoints = { "127.0.0.1:" + _serverNode?.Port }
         };
     }
 }
