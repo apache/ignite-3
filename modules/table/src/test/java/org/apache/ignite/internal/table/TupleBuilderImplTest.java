@@ -37,7 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Should be in sync with org.apache.ignite.client.ClientTupleBuilderTest.
  */
 public class TupleBuilderImplTest {
-    private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(UUID.randomUUID(), 1,
+    private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(1,
             new Column[] {new Column("id", NativeTypes.INT64, false)},
             new Column[] {new Column("name", NativeTypes.STRING, true)
     });
