@@ -17,50 +17,31 @@
 
 package org.apache.ignite.query.sql.async;
 
-import java.util.UUID;
 import java.util.concurrent.CompletionStage;
-import org.apache.ignite.query.sql.QueryType;
-import org.apache.ignite.query.sql.SqlResultSetMeta;
-import org.apache.ignite.query.sql.SqlRow;
 
 /**
- * Asynchronous result set.
+ * Asynchronous multi-statement result set.
  */
-public interface AsyncResultSet {
+public interface AsyncSqlMultiResultSet extends AsyncSqlResultSet {
     /**
-     * Returns query`s unique identifier.
+     * Returns current statement result index.
      *
-     * @return Query id.
+     * @return Statement result index.
      */
-    UUID queryId();
+    int currentResult();
 
     /**
-     * Returns metadata for the results.
-     *
-     * @return ResultSet metadata.
-     */
-    SqlResultSetMeta metadata();
-
-    /**
-     * @return Query type.
-     * @see QueryType
-     */
-    QueryType queryType();
-
-    /**
-     * @return Current page rows.
-     */
-    Iterable<SqlRow> currentPage();
-
-    /**
-     * Fetch the next page of results asynchronously.
+     * Skip current statement result and fetch first page of the next statement.
      *
      * @return Operation future.
      */
-    CompletionStage<AsyncResultSet> fetchNextPage();
+    CompletionStage<AsyncSqlMultiResultSet> skipResult();
 
     /**
-     * @return Whether there are more pages of results.
+     * @return Whether there are more statement results.
      */
-    boolean hasMorePages();
+    boolean hasMoreResults();
+
+    /** {@inheritDoc} */
+    @Override CompletionStage<AsyncSqlMultiResultSet> fetchNextPage();
 }

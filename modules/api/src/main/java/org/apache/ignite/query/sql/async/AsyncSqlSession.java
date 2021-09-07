@@ -19,9 +19,7 @@ package org.apache.ignite.query.sql.async;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.query.sql.SQLException;
-import org.apache.ignite.query.sql.SqlMultiResultSet;
 import org.apache.ignite.query.sql.SqlStatement;
-import org.apache.ignite.query.sql.SqlResultSet;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -36,7 +34,7 @@ public interface AsyncSqlSession {
      * @return Operation future.
      * @throws SQLException If failed.
      */
-    CompletableFuture<AsyncResultSet> executeAsync(String query, Object... arguments);
+    CompletableFuture<AsyncSqlResultSet> executeAsync(String query, Object... arguments);
 
     /**
      * Executes SQL statement in async way.
@@ -44,17 +42,7 @@ public interface AsyncSqlSession {
      * @return Operation future.
      * @throws SQLException If failed.
      */
-    CompletableFuture<AsyncResultSet> executeAsync(SqlStatement statement);
-
-    /**
-     * Executes multi-statement SQL query.
-     *
-     * @param query SQL query template.
-     * @param arguments Arguments for the template (optional).
-     * @return SQL query results set.
-     * @throws SQLException If failed.
-     */
-    SqlMultiResultSet executeMulti(@NotNull String query, Object... arguments);
+    CompletableFuture<AsyncSqlResultSet> executeAsync(SqlStatement statement);
 
     /**
      * Executes multi-statement SQL query.
@@ -64,5 +52,5 @@ public interface AsyncSqlSession {
      * @return Operation future.
      * @throws SQLException If failed.
      */
-    CompletableFuture<SqlMultiResultSet> executeMultiAsync(@NotNull String query, Object... arguments);
+    CompletableFuture<AsyncSqlMultiResultSet> executeMultiAsync(@NotNull String query, Object... arguments);
 }
