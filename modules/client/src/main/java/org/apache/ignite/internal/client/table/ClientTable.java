@@ -30,6 +30,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+
+import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
@@ -37,6 +39,7 @@ import org.apache.ignite.client.proto.ClientOp;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.KeyValueView;
@@ -56,7 +59,7 @@ import org.msgpack.core.MessageFormat;
  */
 public class ClientTable implements Table {
     /** */
-    private final UUID id;
+    private final IgniteUuid id;
 
     /** */
     private final String name;
@@ -80,7 +83,7 @@ public class ClientTable implements Table {
      * @param id Table id.
      * @param name Table name.
      */
-    public ClientTable(ReliableChannel ch, UUID id, String name) {
+    public ClientTable(ReliableChannel ch, IgniteUuid id, String name) {
         assert ch != null;
         assert id != null;
         assert name != null && !name.isEmpty();
@@ -95,7 +98,7 @@ public class ClientTable implements Table {
      *
      * @return Table id.
      */
-    public UUID tableId() {
+    public IgniteUuid tableId() {
         return id;
     }
 
@@ -404,7 +407,7 @@ public class ClientTable implements Table {
 
     private CompletableFuture<ClientSchema> loadSchema(Integer ver) {
         return ch.serviceAsync(ClientOp.SCHEMAS_GET, w -> {
-            w.out().packUuid(id);
+            w.out().packIgniteUuid(id);
 
             if (ver == null)
                 w.out().packNil();
@@ -507,7 +510,7 @@ public class ClientTable implements Table {
         }
 
         if (!skipHeader) {
-            out.packUuid(id);
+            out.packIgniteUuid(id);
             out.packInt(schema.version());
         }
 
@@ -521,7 +524,7 @@ public class ClientTable implements Table {
             ClientMessagePacker out,
             boolean keyOnly
     ) {
-        out.packUuid(id);
+        out.packIgniteUuid(id);
         out.packInt(schema.version());
         out.packInt(tuples.size());
 
