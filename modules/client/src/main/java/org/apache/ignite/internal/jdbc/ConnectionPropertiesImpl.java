@@ -151,7 +151,7 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
      * @param props Environment properties.
      * @throws SQLException On error.
      */
-    private void init(String url, Properties props) throws SQLException {
+    public void init(String url, Properties props) throws SQLException {
         assert props != null;
         Properties props0 = (Properties)props.clone();
 
