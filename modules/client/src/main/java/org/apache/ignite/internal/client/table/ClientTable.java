@@ -205,7 +205,7 @@ public class ClientTable implements Table {
         return doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> writeTuple(rec, s, w, false),
-                ClientTable::readTuple);
+                (schema, in) -> readValueTuple(schema, in, rec));
     }
 
     /** {@inheritDoc} */
