@@ -285,7 +285,7 @@ public class ClientTable implements Table {
         return doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> writeTuple(rec, s, w, false),
-                ClientTable::readTuple);
+                (schema, in) -> readValueTuple(schema, in, rec));
     }
 
     /** {@inheritDoc} */
@@ -330,7 +330,7 @@ public class ClientTable implements Table {
         return doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
                 (s, w) -> writeTuple(rec, s, w, false),
-                ClientTable::readTuple);
+                (schema, in) -> readValueTuple(schema, in, rec));
     }
 
     /** {@inheritDoc} */
