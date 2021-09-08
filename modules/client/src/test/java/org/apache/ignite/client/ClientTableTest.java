@@ -90,7 +90,7 @@ public class ClientTableTest extends AbstractClientTableTest {
         var table = defaultTable();
 
         var tuple = tuple(42L, "Jack");
-        var key = Tuple.create().set("id", 42);
+        var key = Tuple.create().set("id", 42L);
 
         var resTuple = table.upsertAsync(tuple).thenCompose(t -> table.getAsync(key)).join();
 

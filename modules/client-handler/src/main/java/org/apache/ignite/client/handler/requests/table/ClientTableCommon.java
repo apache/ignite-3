@@ -30,6 +30,7 @@ import java.util.UUID;
 import org.apache.ignite.client.proto.ClientDataType;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.client.proto.TuplePart;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaAware;
@@ -92,6 +93,24 @@ class ClientTableCommon {
         var schema = ((SchemaAware)tuple).schema();
 
         writeTuple(packer, tuple, schema);
+    }
+
+    /**
+     * Writes a tuple.
+     *
+     * @param packer Packer.
+     * @param tuple Tuple.
+     */
+    public static void writeTuple(ClientMessagePacker packer, Tuple tuple, TuplePart part) {
+        if (tuple == null) {
+            packer.packNil();
+
+            return;
+        }
+
+        var schema = ((SchemaAware)tuple).schema();
+
+        writeTuple(packer, tuple, schema, false, part);
     }
 
     /**

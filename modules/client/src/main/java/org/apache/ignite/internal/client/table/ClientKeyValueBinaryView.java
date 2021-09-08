@@ -57,11 +57,10 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
     @Override public @NotNull CompletableFuture<Tuple> getAsync(@NotNull Tuple key) {
         Objects.requireNonNull(key);
 
-        // TODO: Change TUPLE_GET and other ops to exclude key columns?
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (schema, out) -> tbl.writeTuple(key, schema, out, true),
-                (schema, in) -> tbl.readKvTuples(schema, in).get2());
+                ClientTable::readValueTuple);
     }
 
     /** {@inheritDoc} */

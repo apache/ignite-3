@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.handler.requests.table;
+package org.apache.ignite.client.proto;
 
 /**
  * Defines tuple part to write or read - key, value, or both.
