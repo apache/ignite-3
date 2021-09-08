@@ -23,8 +23,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.NamedListChange;
+import org.apache.ignite.configuration.schemas.table.ColumnChange;
 import org.apache.ignite.configuration.schemas.table.IndexColumnView;
+import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningContext;
 import org.apache.ignite.internal.processors.query.calcite.prepare.ddl.AbstractAlterTableCommand;
@@ -104,7 +108,15 @@ public class DdlCommandHandler {
 
             tableManager.createTable(
                 tableSchm.canonicalName(),
-                tbl -> convert(tableSchm, tbl)
+                tbl -> {
+                    TableChange converter = convert(tableSchm, tbl);
+
+                    if (cmd.replicas() != null)
+                        converter.changeReplicas(cmd.replicas());
+
+                    if (cmd.partitions() != null)
+                        converter.changePartitions(cmd.partitions());
+                }
             );
         }
     }
@@ -127,25 +139,51 @@ public class DdlCommandHandler {
         if (nullOrEmpty(cmd.columns()))
             return;
 
+        if (cmd.ifColumnNotExists())
+            throw new IllegalArgumentException("Syntax: \"ADD COLUMN IF NOT EXISTS\" is not supported.");
+
         String canonicalName = SchemaTableImpl.canonicalName(cmd.schemaName(), cmd.tableName());
 
         Table tbl = tableManager.table(canonicalName);
 
         if (tbl == null) {
-            throw new IgniteInternalCheckedException(LoggerMessageHelper.format(
-                "Table not exists, name={}", cmd.tableName()));
+            if (!cmd.ifTableExists())
+                throw new IgniteInternalCheckedException(LoggerMessageHelper.format(
+                    "Table not exists, name={}", cmd.tableName()));
+            else
+                return;
         }
 
-        try {
-            tableManager.alterTable(canonicalName, tblCh -> tblCh.changeColumns(columns -> {
+        tableManager.alterTable(canonicalName, tblCh -> tblCh.changeColumns(columns -> {
+            Set<String> existCols = columns.namedListKeys().stream().map(k -> columns.get(k).name())
+                .collect(Collectors.toUnmodifiableSet());
+
+            Collection<String> issues = null;
+
+            for (Column col : cmd.columns()) {
+                if (existCols.contains(col.name())) {
+                    issues = Objects.requireNonNullElseGet(issues, ArrayList::new);
+
+                    issues.add(col.name());
+                }
+            }
+
+            boolean skip = false;
+
+            if (issues != null) {
+                if (!cmd.ifColumnNotExists())
+                    throw new IllegalStateException(
+                        LoggerMessageHelper.format("Columns already exists, columns=[{}]",
+                            String.join(", ", issues)));
+                else
+                    skip = true;
+            }
+
+            if (!skip) {
                 for (Column col0 : cmd.columns())
                     columns.create(col0.name(), colChg -> convert(col0, colChg));
-            }));
-        }
-        catch (Throwable e) {
-            if (!cmd.ifColumnNotExists())
-                throw e;
-        }
+            }
+        }));
     }
 
     /** */
@@ -175,7 +213,7 @@ public class DdlCommandHandler {
                     });
 
                 Set<String> tblCols = chng.columns().namedListKeys().stream().map(k -> chng.columns().get(k).name())
-                    .collect(Collectors.toSet());
+                    .collect(Collectors.toUnmodifiableSet());
 
                 Collection<String> issues = null;
 
