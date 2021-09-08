@@ -51,7 +51,8 @@ import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.builder.TableColumnBuilder;
 
-import static org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlCreateTableOptionEnum.BACKUPS;
+import static org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlCreateTableOptionEnum.PARTITIONS;
+import static org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlCreateTableOptionEnum.REPLICAS;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 /** */
@@ -73,17 +74,21 @@ public class DdlSqlToCommandConverter {
         },
         null);
 
+    /** */
+    private BiFunction<IgniteSqlCreateTableOption, PlanningContext, Integer> positiveNumValidator = (opt, ctx) -> {
+        if (!(opt.value() instanceof SqlNumericLiteral)
+            || !((SqlNumericLiteral)opt.value()).isInteger()
+            || ((SqlLiteral)opt.value()).intValue(true) < 0
+        )
+            throwOptionParsingException(opt, "a non-negative integer", ctx.query());
+
+        return ((SqlLiteral)opt.value()).intValue(true);
+    };
+
     /** Map of the supported table option processors. */
     private final Map<IgniteSqlCreateTableOptionEnum, TableOptionProcessor<?>> tblOptionProcessors = Stream.of(
-        new TableOptionProcessor<>(BACKUPS, (opt, ctx) -> {
-            if (!(opt.value() instanceof SqlNumericLiteral)
-                || !((SqlNumericLiteral)opt.value()).isInteger()
-                || ((SqlLiteral)opt.value()).intValue(true) < 0
-            )
-                throwOptionParsingException(opt, "a non-negative integer", ctx.query());
-
-            return ((SqlLiteral)opt.value()).intValue(true);
-        }, CreateTableCommand::backups)
+        new TableOptionProcessor<>(REPLICAS, positiveNumValidator, CreateTableCommand::replicas),
+        new TableOptionProcessor<>(PARTITIONS, positiveNumValidator, CreateTableCommand::partitions)
     ).collect(Collectors.toMap(TableOptionProcessor::key, Function.identity()));
 
     /**

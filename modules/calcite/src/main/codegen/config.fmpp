@@ -46,7 +46,8 @@ data: {
     keywords: [
       "SEMI"
       "IF"
-      "BACKUPS"
+      "REPLICAS"
+      "PARTITIONS"
       "INDEX"
 #     "KEY_TYPE" // already presented in Calcite
     ]
@@ -55,7 +56,8 @@ data: {
     # items in this list become non-reserved
     nonReservedKeywords: [
       "SEMI"
-      "BACKUPS"
+      "REPLICAS"
+      "PARTITIONS"
 #     "KEY_TYPE" // already presented in Calcite
 
       # The following keywords are reserved in core Calcite,

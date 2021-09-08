@@ -27,7 +27,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public class CreateTableCommand extends AbstractAlterTableCommand {
     /** Backups number for new cache. */
-    private Integer backups;
+    private Integer replicas;
+
+    /** Number of partitions for the new table. */
+    private Integer partitions;
 
     /** Quietly ignore this command if table already exists. */
     private boolean ifNotExists;
@@ -39,17 +42,31 @@ public class CreateTableCommand extends AbstractAlterTableCommand {
     private List<Column> cols;
 
     /**
-     * @return Backups number for new cache.
+     * @return Number of replicas.
      */
-    @Nullable public Integer backups() {
-        return backups;
+    @Nullable public Integer replicas() {
+        return replicas;
     }
 
     /**
-     * @param backups Backups number for new cache.
+     * @return Number of partitions.
      */
-    public void backups(Integer backups) {
-        this.backups = backups;
+    @Nullable public Integer partitions() {
+        return partitions;
+    }
+
+    /**
+     * @param replicas Number of replicas for new table.
+     */
+    public void replicas(Integer replicas) {
+        this.replicas = replicas;
+    }
+
+    /**
+     * @param parts Number of partitions for the new table.
+     */
+    public void partitions(Integer parts) {
+        partitions = parts;
     }
 
     /**

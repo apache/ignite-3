@@ -43,9 +43,9 @@ SqlLiteral CreateTableOptionKey() :
 {
 }
 {
-    <BACKUPS> { return SqlLiteral.createSymbol(IgniteSqlCreateTableOptionEnum.BACKUPS, getPos()); }
+    <REPLICAS> { return SqlLiteral.createSymbol(IgniteSqlCreateTableOptionEnum.REPLICAS, getPos()); }
 |
-    <KEY_TYPE> { return SqlLiteral.createSymbol(IgniteSqlCreateTableOptionEnum.KEY_TYPE, getPos()); }
+    <PARTITIONS> { return SqlLiteral.createSymbol(IgniteSqlCreateTableOptionEnum.PARTITIONS, getPos()); }
 }
 
 void CreateTableOption(List<SqlNode> list) :

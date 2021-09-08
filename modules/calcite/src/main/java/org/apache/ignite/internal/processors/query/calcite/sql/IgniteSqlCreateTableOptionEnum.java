@@ -20,10 +20,9 @@ package org.apache.ignite.internal.processors.query.calcite.sql;
  * Enumerates the Ignite specific options for CREATE TABLE statement.
  */
 public enum IgniteSqlCreateTableOptionEnum {
-    /** A number of partition backups. */
-    BACKUPS,
+    /** A number of partition replicas. */
+    REPLICAS,
 
-    /** A name of the custom key type that is used from the key-value and other non-SQL APIs in Ignite. */
-    KEY_TYPE,
-
+    /** A number of partitions. */
+    PARTITIONS,
 }

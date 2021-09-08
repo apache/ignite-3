@@ -270,7 +270,7 @@ public class DdlWithMockedManagersTest {
 
             String curMethodName = getCurrentMethodName();
 
-            String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255))", curMethodName);
+            String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1", curMethodName);
 
             queryProc.query("PUBLIC", newTblSql);
 
