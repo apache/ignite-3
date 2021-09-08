@@ -110,7 +110,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
             batch.add(new JdbcQuery(sql, args.toArray()));
         }
         else
-            batch.add(new JdbcQuery(null, args.toArray(new Object[0])));
+            batch.add(new JdbcQuery(null, args.toArray()));
 
         args = null;
     }
