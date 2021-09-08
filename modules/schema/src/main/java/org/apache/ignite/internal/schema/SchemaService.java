@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema;
 
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
 import org.apache.ignite.schema.SchemaTable;
@@ -46,10 +47,7 @@ public class SchemaService {
     public static SchemaDescriptor prepareSchemaDescriptor(TableView tblCfg) {
         SchemaTable schemaTbl = SchemaConfigurationConverter.convert(tblCfg);
 
-        // TODO sanpwc: Not sure whether it should be 1.
-        // TODO sanpwc: Proper calculation of schema is required.
-        // TODO sanpwc: consider removing schmea vesion from schema object.
-        return SchemaDescriptorConverter.convert(1, schemaTbl);
+        return SchemaDescriptorConverter.convert(((ExtendedTableView)tblCfg).schemas().size(), schemaTbl);
     }
 
     /**

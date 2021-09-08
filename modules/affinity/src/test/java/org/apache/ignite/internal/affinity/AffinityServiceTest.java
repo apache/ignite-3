@@ -54,6 +54,9 @@ public class AffinityServiceTest {
         );
 
         assertEquals(10, assignments.size());
+
+        for (List<ClusterNode> partitionAssignment : assignments)
+            assertEquals(2, partitionAssignment.size());
     }
 
     /**
@@ -67,6 +70,9 @@ public class AffinityServiceTest {
             3
         );
 
-        assertEquals(0, assignments.size());
+        assertEquals(10, assignments.size());
+
+        for (List<ClusterNode> partitionAssignment : assignments)
+            assertEquals(0, partitionAssignment.size());
     }
 }
