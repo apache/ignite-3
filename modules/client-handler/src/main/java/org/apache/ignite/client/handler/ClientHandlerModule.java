@@ -52,7 +52,7 @@ public class ClientHandlerModule implements IgniteComponent {
     private final IgniteTables igniteTables;
 
     /** Netty channel. */
-    private Channel channel;
+    private volatile Channel channel;
 
     /** Processor. */
     private QueryProcessor processor;
