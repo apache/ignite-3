@@ -218,7 +218,7 @@ class ClientTableCommon {
     public static Tuple readTuple(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) {
         SchemaDescriptor schema = readSchema(unpacker, table);
 
-        return readTuple(unpacker, table, keyOnly, schema);
+        return readTuple(unpacker, keyOnly, schema);
     }
 
     /**
@@ -236,7 +236,7 @@ class ClientTableCommon {
         var res = new ArrayList<Tuple>(rowCnt);
 
         for (int i = 0; i < rowCnt; i++)
-            res.add(readTuple(unpacker, table, keyOnly, schema));
+            res.add(readTuple(unpacker, keyOnly, schema));
 
         return res;
     }
@@ -258,16 +258,14 @@ class ClientTableCommon {
      * Reads a tuple.
      *
      * @param unpacker Unpacker.
-     * @param table Table.
      * @param keyOnly Whether only key fields are expected.
      * @param schema Tuple schema.
      * @return Tuple.
      */
     public static Tuple readTuple(
-        ClientMessageUnpacker unpacker,
-        TableImpl table,
-        boolean keyOnly,
-        SchemaDescriptor schema
+            ClientMessageUnpacker unpacker,
+            boolean keyOnly,
+            SchemaDescriptor schema
     ) {
         var tuple = Tuple.create();
 
@@ -289,10 +287,9 @@ class ClientTableCommon {
      * Reads a tuple as a map, without schema.
      *
      * @param unpacker Unpacker.
-     * @param table Table.
      * @return Tuple.
      */
-    public static Tuple readTupleSchemaless(ClientMessageUnpacker unpacker, TableImpl table) {
+    public static Tuple readTupleSchemaless(ClientMessageUnpacker unpacker) {
         var cnt = unpacker.unpackMapHeader();
         var tuple = Tuple.create();
 
@@ -310,15 +307,14 @@ class ClientTableCommon {
      * Reads multiple tuples as a map, without schema.
      *
      * @param unpacker Unpacker.
-     * @param table Table.
      * @return Tuples.
      */
-    public static ArrayList<Tuple> readTuplesSchemaless(ClientMessageUnpacker unpacker, TableImpl table) {
+    public static ArrayList<Tuple> readTuplesSchemaless(ClientMessageUnpacker unpacker) {
         var rowCnt = unpacker.unpackArrayHeader();
         var res = new ArrayList<Tuple>(rowCnt);
 
         for (int i = 0; i < rowCnt; i++)
-            res.add(readTupleSchemaless(unpacker, table));
+            res.add(readTupleSchemaless(unpacker));
 
         return res;
     }

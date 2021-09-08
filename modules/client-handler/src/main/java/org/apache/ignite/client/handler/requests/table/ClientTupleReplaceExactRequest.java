@@ -46,8 +46,8 @@ public class ClientTupleReplaceExactRequest {
         var table = readTable(in, tables);
         var schema = readSchema(in, table);
 
-        var oldTuple = readTuple(in, table, false, schema);
-        var newTuple = readTuple(in, table, false, schema);
+        var oldTuple = readTuple(in, false, schema);
+        var newTuple = readTuple(in, false, schema);
 
         return table.replaceAsync(oldTuple, newTuple).thenAccept(out::packBoolean);
     }

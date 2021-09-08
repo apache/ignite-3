@@ -37,7 +37,7 @@ public class ClientTupleUpsertSchemalessRequest {
      */
     public static CompletableFuture<Void> process(ClientMessageUnpacker in, IgniteTables tables) {
         var table = readTable(in, tables);
-        var tuple = readTupleSchemaless(in, table);
+        var tuple = readTupleSchemaless(in);
 
         return table.upsertAsync(tuple);
     }

@@ -43,7 +43,7 @@ public class ClientTupleInsertSchemalessRequest {
             IgniteTables tables
     ) {
         var table = readTable(in, tables);
-        var tuple = readTupleSchemaless(in, table);
+        var tuple = readTupleSchemaless(in);
 
         return table.insertAsync(tuple).thenAccept(out::packBoolean);
     }

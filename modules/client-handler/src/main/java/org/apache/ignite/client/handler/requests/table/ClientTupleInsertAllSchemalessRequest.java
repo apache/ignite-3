@@ -44,7 +44,7 @@ public class ClientTupleInsertAllSchemalessRequest {
             IgniteTables tables
     ) {
         var table = readTable(in, tables);
-        var tuples = readTuplesSchemaless(in, table);
+        var tuples = readTuplesSchemaless(in);
 
         return table.insertAllAsync(tuples).thenAccept(skippedTuples -> writeTuples(out, skippedTuples));
     }

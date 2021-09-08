@@ -44,8 +44,8 @@ public class ClientTupleReplaceExactSchemalessRequest {
     ) {
         var table = readTable(in, tables);
 
-        var oldTuple = readTupleSchemaless(in, table);
-        var newTuple = readTupleSchemaless(in, table);
+        var oldTuple = readTupleSchemaless(in);
+        var newTuple = readTupleSchemaless(in);
 
         return table.replaceAsync(oldTuple, newTuple).thenAccept(out::packBoolean);
     }

@@ -44,7 +44,7 @@ public class ClientTupleGetAndReplaceSchemalessRequest {
             IgniteTables tables
     ) {
         var table = readTable(in, tables);
-        var tuple = readTupleSchemaless(in, table);
+        var tuple = readTupleSchemaless(in);
 
         return table.getAndReplaceAsync(tuple).thenAccept(resTuple -> writeTuple(out, resTuple));
     }

@@ -44,7 +44,7 @@ public class ClientTupleGetAndUpsertSchemalessRequest {
             IgniteTables tables
     ) {
         var table = readTable(in, tables);
-        var tuple = readTupleSchemaless(in, table);
+        var tuple = readTupleSchemaless(in);
 
         return table.getAndUpsertAsync(tuple).thenAccept(resTuple -> writeTuple(out, resTuple));
     }
