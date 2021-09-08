@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.schema;
 
 import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
 import org.apache.ignite.schema.SchemaTable;
@@ -41,13 +40,14 @@ public class SchemaService {
     /**
      * Creates schema descriptor for the table with specified configuration.
      *
+     * @param schemaVer Schema version.
      * @param tblCfg Table configuration.
      * @return Schema descriptor.
      */
-    public static SchemaDescriptor prepareSchemaDescriptor(TableView tblCfg) {
+    public static SchemaDescriptor prepareSchemaDescriptor(int schemaVer, TableView tblCfg) {
         SchemaTable schemaTbl = SchemaConfigurationConverter.convert(tblCfg);
 
-        return SchemaDescriptorConverter.convert(((ExtendedTableView)tblCfg).schemas().size(), schemaTbl);
+        return SchemaDescriptorConverter.convert(schemaVer, schemaTbl);
     }
 
     /**

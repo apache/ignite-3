@@ -150,7 +150,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             // TODO sanpwc: Check whether it's safe to use name.
                             // TODO sanpwc: consider adding this method to schema registry api.
                             ((SchemaRegistryImpl)tables.get(ctx.newValue().name()).schemaRegistry()).
-                                onSchemaRegistered((SchemaDescriptor) ByteUtils.fromBytes(schemasCtx.newValue().schema()));
+                                onSchemaRegistered((SchemaDescriptor)ByteUtils.fromBytes(schemasCtx.newValue().schema()));
 
                             // TODO sanpwc: Check whether tablesById is backed or we should update schema within it explictly.
                             return CompletableFuture.completedFuture(null);
@@ -416,7 +416,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                 String.valueOf(INITIAL_SCHEMA_VERSION),
                                                 schemaCh -> schemaCh.changeSchema(
                                                     ByteUtils.toBytes(
-                                                        SchemaService.prepareSchemaDescriptor(ch)
+                                                        SchemaService.prepareSchemaDescriptor(
+                                                            ((ExtendedTableView)ch).schemas().size(),
+                                                            ch
+                                                        )
                                                     )
                                                 )
                                             )
@@ -479,7 +482,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 String.valueOf(schemasCh.size() + 1),
                                 schemaCh -> schemaCh.changeSchema(
                                     ByteUtils.toBytes(
-                                        SchemaService.prepareSchemaDescriptor(tblCh)
+                                        SchemaService.prepareSchemaDescriptor(
+                                            ((ExtendedTableView)tblCh).schemas().size(),
+                                            tblCh
+                                        )
                                     )
                                 )
                             );
