@@ -592,17 +592,17 @@ public class ClientTable implements Table {
         var keyColCnt = schema.keyColumnCount();
         var colCnt = schema.columns().length;
 
-        var keyTuple = Tuple.create(keyColCnt);
-        var valTuple = Tuple.create(colCnt - keyColCnt);
+        var keyTuple = new ClientTuple(schema, 0, keyColCnt - 1);
+        var valTuple = new ClientTuple(schema, keyColCnt, schema.columns().length - 1);
 
         for (var i = 0; i < colCnt; i++) {
             ClientColumn col = schema.columns()[i];
             Object val = in.unpackObject(col.type());
 
             if (i < keyColCnt)
-                keyTuple.set(col.name(), val);
+                keyTuple.setInternal(i, val);
             else
-                valTuple.set(col.name(), val);
+                valTuple.setInternal(i - keyColCnt, val);
         }
 
         return new IgniteBiTuple<>(keyTuple, valTuple);
