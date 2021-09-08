@@ -39,7 +39,8 @@ import org.apache.ignite.configuration.notifications.ConfigurationNotificationEv
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.internal.affinity.AffinityManager;
+import org.apache.ignite.internal.affinity.AffinityService;
+import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableChange;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
@@ -50,7 +51,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaService;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorage;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
@@ -95,11 +96,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Raft manager. */
     private final Loza raftMgr;
 
-    /** Schema manager. */
-    private final SchemaManager schemaMgr;
-
-    /** Affinity manager. */
-    private final AffinityManager affMgr;
+    /** Baseline manager. */
+    private final BaselineManager baselineMgr;
 
     /** Partitions store directory. */
     private final Path partitionsStoreDir;
@@ -116,24 +114,20 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @param nodeCfgMgr Node configuration manager.
      * @param clusterCfgMgr Cluster configuration manager.
-     * @param schemaMgr Schema manager.
-     * @param affMgr Affinity manager.
      * @param raftMgr Raft manager.
      * @param partitionsStoreDir Partitions store directory.
      */
     public TableManager(
         ConfigurationManager nodeCfgMgr,
         ConfigurationManager clusterCfgMgr,
-        SchemaManager schemaMgr,
-        AffinityManager affMgr,
         Loza raftMgr,
+        BaselineManager baselineMgr,
         Path partitionsStoreDir
     ) {
         this.nodeCfgMgr = nodeCfgMgr;
         this.clusterCfgMgr = clusterCfgMgr;
-        this.affMgr = affMgr;
         this.raftMgr = raftMgr;
-        this.schemaMgr = schemaMgr;
+        this.baselineMgr = baselineMgr;
         this.partitionsStoreDir = partitionsStoreDir;
     }
 
@@ -410,7 +404,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         changeId(TABLE_ID_GENERATOR.randomUuid().toString()).
                                         changeAssignments(
                                             ByteUtils.toBytes(
-                                                affMgr.calculateAssignments(ch.partitions(), ch.replicas())
+                                                AffinityService.calculateAssignments(
+                                                    baselineMgr.nodes(),
+                                                    ch.partitions(),
+                                                    ch.replicas()
+                                                )
                                             )
                                         ).
                                         changeSchemas(
@@ -418,7 +416,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                 String.valueOf(INITIAL_SCHEMA_VERSION),
                                                 schemaCh -> schemaCh.changeSchema(
                                                     ByteUtils.toBytes(
-                                                        schemaMgr.prepareSchemaDescriptor(ch)
+                                                        SchemaService.prepareSchemaDescriptor(ch)
                                                     )
                                                 )
                                             )
@@ -481,7 +479,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 String.valueOf(schemasCh.size() + 1),
                                 schemaCh -> schemaCh.changeSchema(
                                     ByteUtils.toBytes(
-                                        schemaMgr.prepareSchemaDescriptor(tblCh)
+                                        SchemaService.prepareSchemaDescriptor(tblCh)
                                     )
                                 )
                             );

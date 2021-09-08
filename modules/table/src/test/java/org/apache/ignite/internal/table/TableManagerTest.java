@@ -27,12 +27,12 @@ import java.util.concurrent.Phaser;
 import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.internal.affinity.AffinityManager;
+import org.apache.ignite.internal.affinity.AffinityService;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaService;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -106,11 +106,11 @@ public class TableManagerTest {
 
     /** Schema manager. */
     @Mock(lenient = true)
-    private SchemaManager sm;
+    private SchemaService sm;
 
     /** Affinity manager. */
     @Mock(lenient = true)
-    private AffinityManager am;
+    private AffinityService am;
 
     /** Raft manager. */
     @Mock(lenient = true)
@@ -214,11 +214,12 @@ public class TableManagerTest {
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15255")
     @Test
     public void testStaticTableConfigured() {
-        TableManager tableManager = new TableManager(nodeCfgMgr, clusterCfgMgr, sm, am, rm, workDir);
-
-        assertEquals(1, tableManager.tables().size());
-
-        assertNotNull(tableManager.table(STATIC_TABLE_NAME));
+        // TODO sanpwc: Fix.
+//        TableManager tableManager = new TableManager(nodeCfgMgr, clusterCfgMgr, sm, am, rm, workDir);
+//
+//        assertEquals(1, tableManager.tables().size());
+//
+//        assertNotNull(tableManager.table(STATIC_TABLE_NAME));
     }
 
     /**

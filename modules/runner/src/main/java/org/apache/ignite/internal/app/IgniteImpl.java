@@ -38,7 +38,6 @@ import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.internal.affinity.AffinityManager;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -47,7 +46,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.processors.query.calcite.SqlQueryProcessor;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -108,12 +106,6 @@ public class IgniteImpl implements Ignite {
 
     /** Baseline manager. */
     private final BaselineManager baselineMgr;
-
-    /** Affinity manager. */
-    private final AffinityManager affinityMgr;
-
-    /** Schema manager. */
-    private final SchemaManager schemaMgr;
 
     /** Distributed table manager. */
     private final TableManager distributedTblMgr;
@@ -192,16 +184,11 @@ public class IgniteImpl implements Ignite {
             clusterSvc
         );
 
-        affinityMgr = new AffinityManager(baselineMgr);
-
-        schemaMgr = new SchemaManager();
-
         distributedTblMgr = new TableManager(
             nodeCfgMgr,
             clusterCfgMgr,
-            schemaMgr,
-            affinityMgr,
             raftMgr,
+            baselineMgr,
             getPartitionsStorePath(workDir)
         );
 
@@ -272,8 +259,6 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 clusterCfgMgr,
                 baselineMgr,
-                affinityMgr,
-                schemaMgr,
                 distributedTblMgr,
                 qryEngine,
                 restModule,
@@ -317,7 +302,7 @@ public class IgniteImpl implements Ignite {
 
         if (explicitStop.get()) {
             doStopNode(List.of(vaultMgr, nodeCfgMgr, clusterSvc, raftMgr, metaStorageMgr, clusterCfgMgr, baselineMgr,
-                affinityMgr, schemaMgr, distributedTblMgr, qryEngine, restModule, clientHandlerModule));
+                distributedTblMgr, qryEngine, restModule, clientHandlerModule));
         }
     }
 

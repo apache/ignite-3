@@ -15,17 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.affinity.event;
+package org.apache.ignite.internal.affinity;
 
-import org.apache.ignite.internal.manager.Event;
+import java.util.Collection;
+import java.util.List;
+import org.apache.ignite.network.ClusterNode;
 
 /**
- * Affinity management events.
+ * Stateless affinity service that produces helper methods for an affinity assignments calculation.
  */
-public enum AffinityEvent implements Event {
-    /** This event fires when affinity assignment is calculated. */
-    CALCULATED,
-
-    /** This event fires when affinity assignment is removed. */
-    REMOVED
+public class AffinityService {
+    /**
+     * Calculates affinity assignments.
+     *
+     * @param partitions Partitions count.
+     * @param replicas Replicas count.
+     * @return List nodes by partition.
+     */
+    public static List<List<ClusterNode>> calculateAssignments(
+        Collection<ClusterNode> baselineNodes,
+        int partitions,
+        int replicas
+    ) {
+        return RendezvousAffinityFunction.assignPartitions(
+            baselineNodes,
+            partitions,
+            replicas,
+            false,
+            null
+        );
+    }
 }

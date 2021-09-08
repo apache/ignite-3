@@ -18,19 +18,14 @@
 package org.apache.ignite.internal.schema;
 
 import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
-import org.apache.ignite.internal.schema.event.SchemaEvent;
-import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.schema.SchemaTable;
 
-// TODO sanpwc: rework javadoc.
 /**
- * Schema Manager.
+ * Stateless schema service that produces helper methods for schema preparation.
  * <p>
- * Schemas MUST be registered in a version ascending order incrementing by {@code 1} with NO gaps,
+ * Schemas itself MUST be registered in a version ascending order incrementing by {@code 1} with NO gaps,
  * otherwise an exception will be thrown. The version numbering starts from the {@code 1}.
  * <p>
  * After some table maintenance process some first versions may become outdated and can be safely cleaned up
@@ -41,24 +36,14 @@ import org.apache.ignite.schema.SchemaTable;
  * @implSpec Initial schema history MAY be registered without the first outdated versions
  * that could be cleaned up earlier.
  */
-public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> implements IgniteComponent {
-    /** {@inheritDoc} */
-    @Override public void start() {
-        // No-op. Schema manager is stateless helper manager.
-    }
-
-    /** {@inheritDoc} */
-    @Override public void stop() {
-        // No-op. Schema manager is stateless nothing to stop.
-    }
-
+public class SchemaService {
     /**
      * Creates schema descriptor for the table with specified configuration.
      *
      * @param tblCfg Table configuration.
      * @return Schema descriptor.
      */
-    public SchemaDescriptor prepareSchemaDescriptor(TableView tblCfg) {
+    public static SchemaDescriptor prepareSchemaDescriptor(TableView tblCfg) {
         SchemaTable schemaTbl = SchemaConfigurationConverter.convert(tblCfg);
 
         // TODO sanpwc: Not sure whether it should be 1.
@@ -70,17 +55,17 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     /**
      * Compares schemas.
      *
-     * @param expected Expected schema.
+     * @param exp Expected schema.
      * @param actual Actual schema.
      * @return {@code True} if schemas are equal, {@code false} otherwise.
      */
-    public static boolean equalSchemas(SchemaDescriptor expected, SchemaDescriptor actual) {
-        if (expected.keyColumns().length() != actual.keyColumns().length() ||
-            expected.valueColumns().length() != actual.valueColumns().length())
+    public static boolean equalSchemas(SchemaDescriptor exp, SchemaDescriptor actual) {
+        if (exp.keyColumns().length() != actual.keyColumns().length() ||
+            exp.valueColumns().length() != actual.valueColumns().length())
             return false;
 
-        for (int i = 0; i < expected.length(); i++) {
-            if (!expected.column(i).equals(actual.column(i)))
+        for (int i = 0; i < exp.length(); i++) {
+            if (!exp.column(i).equals(actual.column(i)))
                 return false;
         }
 

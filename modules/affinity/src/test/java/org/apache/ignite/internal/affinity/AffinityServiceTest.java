@@ -28,9 +28,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Tests scenarios for affinity manager.
+ * Tests scenarios for an affinity service.
  */
-public class AffinityManagerTest {
+public class AffinityServiceTest {
     // TODO sanpwc: Properly write tests for affinity manager.
     @Test
     public void testCalculatedAssignment() {
@@ -50,8 +50,20 @@ public class AffinityManagerTest {
             )
         );
 
-        AffinityManager affinityMgr = new AffinityManager(baselineMgrMock);
+        AffinityService.calculateAssignments(
+            Arrays.asList(
+                new ClusterNode(
+                    UUID.randomUUID().toString(), "node0",
+                    new NetworkAddress("localhost", 8080)
+                ),
+                new ClusterNode(
+                    UUID.randomUUID().toString(), "node1",
+                    new NetworkAddress("localhost", 8081)
+                )
 
-        affinityMgr.calculateAssignments(10, 3);
+            ),
+            10,
+            3
+        );
     }
 }
