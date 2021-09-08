@@ -17,9 +17,6 @@
   limitations under the License.
 -->
 
-<!--
-    POM file.
--->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
@@ -248,7 +245,6 @@
                     </execution>
                 </executions>
             </plugin>
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -261,11 +257,6 @@
                 </dependencies>
                 <configuration>
                     <annotationProcessorPaths>
-                        <path>
-                            <groupId>com.google.errorprone</groupId>
-                            <artifactId>error_prone_core</artifactId>
-                            <version>${errorprone-annotation-processor.version}</version>
-                        </path>
                         <path>
                             <groupId>org.apache.ignite</groupId>
                             <artifactId>ignite-network-annotation-processor</artifactId>
