@@ -18,39 +18,26 @@
 package org.apache.ignite.internal.affinity;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
-import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Tests scenarios for an affinity service.
+ * Tests scenarios for an affinity service. Please pay attention that given test doesn't check Rendezvous or any other
+ * affinity function it just checks {@link AffinityService} logic.
  */
 public class AffinityServiceTest {
-    // TODO sanpwc: Properly write tests for affinity manager.
+    /**
+     *
+     */
     @Test
-    public void testCalculatedAssignment() {
-        BaselineManager baselineMgrMock = mock(BaselineManager.class);
-
-        when(baselineMgrMock.nodes()).thenReturn(
-            Arrays.asList(
-                new ClusterNode(
-                    UUID.randomUUID().toString(), "node0",
-                    new NetworkAddress("localhost", 8080)
-                ),
-                new ClusterNode(
-                    UUID.randomUUID().toString(), "node1",
-                    new NetworkAddress("localhost", 8081)
-                )
-
-            )
-        );
-
-        AffinityService.calculateAssignments(
+    public void testCalculatedAssignmentHappyPath() {
+        List<List<ClusterNode>> assignments = AffinityService.calculateAssignments(
             Arrays.asList(
                 new ClusterNode(
                     UUID.randomUUID().toString(), "node0",
@@ -65,5 +52,21 @@ public class AffinityServiceTest {
             10,
             3
         );
+
+        assertEquals(10, assignments.size());
+    }
+
+    /**
+     *
+     */
+    @Test
+    public void testEmptyBaselineAssignmentsCalculation() {
+        List<List<ClusterNode>> assignments = AffinityService.calculateAssignments(
+            Collections.emptyList(),
+            10,
+            3
+        );
+
+        assertEquals(0, assignments.size());
     }
 }

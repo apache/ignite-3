@@ -20,6 +20,7 @@ package org.apache.ignite.internal.affinity;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Stateless affinity service that produces helper methods for an affinity assignments calculation.
@@ -33,7 +34,7 @@ public class AffinityService {
      * @return List nodes by partition.
      */
     public static List<List<ClusterNode>> calculateAssignments(
-        Collection<ClusterNode> baselineNodes,
+        @NotNull Collection<ClusterNode> baselineNodes,
         int partitions,
         int replicas
     ) {
