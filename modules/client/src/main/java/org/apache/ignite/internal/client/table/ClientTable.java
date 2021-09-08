@@ -43,6 +43,7 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.TupleImpl;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.RecordMapper;
 import org.apache.ignite.table.mapper.ValueMapper;
@@ -589,23 +590,23 @@ public class ClientTable implements Table {
     }
 
     public IgniteBiTuple<Tuple, Tuple> readKvTuples(ClientSchema schema, ClientMessageUnpacker in) {
-        // TODO
-        var keyBuilder = new ClientTuple(schema, true, false);
-        var valBuilder = new ClientTuple(schema, false, true);
-
-        var colCnt = schema.columns().length;
         var keyColCnt = schema.keyColumnCount();
+        var colCnt = schema.columns().length;
+
+        var keyTuple = Tuple.create(keyColCnt);
+        var valTuple = Tuple.create(colCnt - keyColCnt);
 
         for (var i = 0; i < colCnt; i++) {
-            Object val = in.unpackObject(schema.columns()[i].type());
+            ClientColumn col = schema.columns()[i];
+            Object val = in.unpackObject(col.type());
 
             if (i < keyColCnt)
-                keyBuilder.setInternal(i, val);
+                keyTuple.set(col.name(), val);
             else
-                valBuilder.setInternal(i, val);
+                valTuple.set(col.name(), val);
         }
 
-        return new IgniteBiTuple<>(keyBuilder, valBuilder);
+        return new IgniteBiTuple<>(keyTuple, valTuple);
     }
 
     private Collection<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in) {
