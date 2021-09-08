@@ -44,12 +44,14 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.server.persistence.RocksDBKeyValueStorage;
 import org.apache.ignite.internal.processors.query.calcite.SqlQueryProcessor;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -74,9 +76,14 @@ public class IgniteImpl implements Ignite {
     private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteImpl.class);
 
     /**
-     * Path to the persistent storage used by the {@link org.apache.ignite.internal.vault.VaultService} component.
+     * Path to the persistent storage used by the {@link VaultService} component.
      */
     private static final Path VAULT_DB_PATH = Paths.get("vault");
+
+    /**
+     * Path to the persistent storage used by the {@link MetaStorageManager} component.
+     */
+    private static final Path METASTORAGE_DB_PATH = Paths.get("metastorage");
 
     /**
      * Path for the partitions persistent storage.
@@ -164,7 +171,8 @@ public class IgniteImpl implements Ignite {
             vaultMgr,
             nodeCfgMgr,
             clusterSvc,
-            raftMgr
+            raftMgr,
+            new RocksDBKeyValueStorage(workDir.resolve(METASTORAGE_DB_PATH))
         );
 
         // TODO: IGNITE-15414 Schema validation refactoring with configuration validators.
