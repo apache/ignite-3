@@ -21,9 +21,9 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.function.Supplier;
 import org.apache.ignite.app.Ignite;
-import org.apache.ignite.schema.Column;
-import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.schema.definition.table.Column;
+import org.apache.ignite.schema.definition.table.ColumnType;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Disabled;
@@ -102,7 +102,7 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             );
         }
 
-        addColumn(grid, SchemaBuilders.column("valStrNew", ColumnType.string()).asNullable().withDefaultValue("default").build());
+        addColumn(grid, SchemaBuilders.column("valStrNew", ColumnType.string()).asNullable().withDefaultValueExpression("default").build());
 
         {
             // Check old row conversion.
@@ -182,7 +182,7 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        final Column column = SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValue("default").build();
+        final Column column = SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValueExpression("default").build();
 
         KeyValueBinaryView kvView = grid.get(1).tables().table(TABLE).kvView();
 
@@ -220,7 +220,7 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             );
         }
 
-        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValue("default").build());
+        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValueExpression("default").build());
 
         {
             kvView.put(Tuple.create().set("key", 5L), Tuple.create().set("valInt", 555));
@@ -272,7 +272,7 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
         }
 
         changeDefault(grid, colName, (Supplier<Object> & Serializable)() -> "newDefault");
-        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).withDefaultValue("newDefault").build());
+        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).withDefaultValueExpression("newDefault").build());
 
         {
             kvView.put(Tuple.create().set("key", 2L), Tuple.create().set("valInt", 222));

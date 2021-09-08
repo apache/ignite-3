@@ -18,10 +18,11 @@
 package org.apache.ignite.internal.schema;
 
 import java.util.Map;
-import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.TableSchema;
-import org.apache.ignite.schema.builder.TableSchemaBuilder;
+import org.apache.ignite.schema.definition.SchemaObject;
+import org.apache.ignite.schema.definition.table.ColumnType;
+import org.apache.ignite.schema.definition.table.TableSchema;
+import org.apache.ignite.schema.definition.table.TableSchemaBuilder;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -33,13 +34,13 @@ public class SchemaConfigurationTest {
      */
     @Test
     public void testInitialSchema() {
-        final TableSchemaBuilder builder = SchemaBuilders.tableBuilder(TableSchema.DEFAULT_SCHEMA_NAME, "table1");
+        final TableSchemaBuilder builder = SchemaBuilders.tableBuilder(SchemaObject.DEFAULT_DATABASE_SCHEMA_NAME, "table1");
 
         builder
             .columns(
                 // Declaring columns in user order.
                 SchemaBuilders.column("id", ColumnType.INT64).build(),
-                SchemaBuilders.column("label", ColumnType.stringOf(2)).withDefaultValue("AI").build(),
+                SchemaBuilders.column("label", ColumnType.stringOf(2)).withDefaultValueExpression("AI").build(),
                 SchemaBuilders.column("name", ColumnType.string()).asNonNull().build(),
                 SchemaBuilders.column("data", ColumnType.blobOf(255)).asNullable().build(),
                 SchemaBuilders.column("affId", ColumnType.INT32).build()
@@ -47,9 +48,7 @@ public class SchemaConfigurationTest {
 
             .withIndex(
                 SchemaBuilders.pkIndex()  // Declare index column in order.
-                    .addIndexColumn("id").desc().done()
-                    .addIndexColumn("affId").asc().done()
-                    .addIndexColumn("name").asc().done()
+                    .withColumns("id", "affId", "name")
                     .withAffinityColumns("affId") // Optional affinity declaration. If not set, all columns will be affinity cols.
                     .build()
             )

@@ -17,20 +17,20 @@
 
 package org.apache.ignite.internal.schema.builder;
 
-import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.TableSchema;
-import org.apache.ignite.schema.builder.TableSchemaBuilder;
+import org.apache.ignite.schema.definition.table.ColumnType;
+import org.apache.ignite.schema.definition.table.TableSchema;
+import org.apache.ignite.schema.definition.table.TableSchemaBuilder;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Tests for schema table builder.
+ * Tests for table schema builder.
  */
 public class TableSchemaBuilderTest {
     /**
-     * Create schema table and check its parameters.
+     * Create table schema and check its parameters.
      */
     @Test
     public void testBuild() {

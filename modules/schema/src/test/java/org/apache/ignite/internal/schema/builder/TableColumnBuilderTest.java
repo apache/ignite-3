@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.schema.builder;
 
-import org.apache.ignite.schema.Column;
-import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.builder.TableColumnBuilder;
+import org.apache.ignite.schema.definition.table.Column;
+import org.apache.ignite.schema.definition.table.ColumnBuilder;
+import org.apache.ignite.schema.definition.table.ColumnType;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,13 +35,13 @@ public class TableColumnBuilderTest {
      */
     @Test
     public void testCreateColumn() {
-        TableColumnBuilder builder = SchemaBuilders.column("TEST", ColumnType.DOUBLE);
+        ColumnBuilder builder = SchemaBuilders.column("TEST", ColumnType.DOUBLE);
 
-        Column col = builder.asNonNull().withDefaultValue(1.).build();
+        Column col = builder.asNonNull().withDefaultValueExpression("NOW()").build();
 
         assertEquals("TEST", col.name());
         assertEquals(ColumnType.DOUBLE, col.type());
-        assertEquals(1., col.defaultValue());
+        assertEquals("NOW()", col.defaultValue());
         assertFalse(col.nullable());
     }
 }

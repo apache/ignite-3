@@ -33,9 +33,9 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.SchemaMode;
+import org.apache.ignite.schema.definition.SchemaManagementMode;
+import org.apache.ignite.schema.definition.table.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 
@@ -82,7 +82,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             if (valTuple0.knownColumns + keyTuple0.knownColumns == tuple.columnCount())
                 break; // Nothing to do.
 
-            if (tbl.schemaMode() == SchemaMode.STRICT_SCHEMA)
+            if (tbl.schemaMode() == SchemaManagementMode.STRICT)
                 throw new SchemaMismatchException("Value doesn't match schema.");
 
             createColumns(extractColumnsType(tuple, extraColumnNames(tuple, schema)));
@@ -112,7 +112,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             if (!valTuple0.hasExtraColumns())
                 break; // Nothing to do.
 
-            if (tbl.schemaMode() == SchemaMode.STRICT_SCHEMA)
+            if (tbl.schemaMode() == SchemaManagementMode.STRICT)
                 throw new SchemaMismatchException("Value doesn't match schema.");
 
             createColumns(extractColumnsType(valTuple, extraColumnNames(valTuple, false, schema)));
@@ -285,8 +285,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @param colNames Column names that type info to be extracted.
      * @return Column types.
      */
-    private Set<org.apache.ignite.schema.Column> extractColumnsType(Tuple tuple, Set<String> colNames) {
-        Set<org.apache.ignite.schema.Column> extraColumns = new HashSet<>();
+    private Set<org.apache.ignite.schema.definition.table.Column> extractColumnsType(Tuple tuple, Set<String> colNames) {
+        Set<org.apache.ignite.schema.definition.table.Column> extraColumns = new HashSet<>();
 
         for (String colName : colNames) {
             Object colValue = tuple.value(colName);
@@ -336,13 +336,13 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      *
      * @param extraCols Columns to add.
      */
-    private void createColumns(Set<org.apache.ignite.schema.Column> newCols) {
+    private void createColumns(Set<org.apache.ignite.schema.definition.table.Column> newCols) {
         //TODO: Introduce internal TableManager and use UUID instead of names ???
         tblMgr.alterTable(tbl.tableName(), chng -> chng.changeColumns(cols -> {
             int colIdx = chng.columns().size();
             //TODO: avoid 'colIdx' or replace with correct last colIdx.
 
-            for (org.apache.ignite.schema.Column column : newCols) {
+            for (org.apache.ignite.schema.definition.table.Column column : newCols) {
                 cols.create(String.valueOf(colIdx), colChg -> convert(column, colChg));
                 colIdx++;
             }

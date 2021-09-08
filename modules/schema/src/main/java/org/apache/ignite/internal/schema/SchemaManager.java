@@ -54,7 +54,7 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.schema.TableSchema;
+import org.apache.ignite.schema.definition.table.TableSchema;
 import org.jetbrains.annotations.NotNull;
 
 /**

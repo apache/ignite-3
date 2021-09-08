@@ -23,11 +23,11 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.TableSchema;
-import org.apache.ignite.schema.builder.TableSchemaBuilder;
-import org.apache.ignite.schema.builder.TableColumnBuilder;
+import org.apache.ignite.schema.definition.table.ColumnBuilder;
+import org.apache.ignite.schema.definition.table.ColumnType;
+import org.apache.ignite.schema.definition.table.TableSchema;
+import org.apache.ignite.schema.definition.table.TableSchemaBuilder;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -46,10 +46,10 @@ public class SchemaDescriptorConverterTest {
     @Test
     public void testComplexPrimaryIndex() {
         TableSchemaBuilder bldr = getBuilder(false, false);
-        TableSchema tblSchm = bldr.withIndex(SchemaBuilders.pkIndex()
-            .addIndexColumn("INT8").done()
-            .addIndexColumn("ID").done()
-            .build()
+        TableSchema tblSchm = bldr.withIndex(
+            SchemaBuilders.pkIndex()
+                .withColumns("INT8", "ID")
+                .build()
         ).build();
 
         SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(UUID.randomUUID(), 1, tblSchm);
@@ -65,11 +65,11 @@ public class SchemaDescriptorConverterTest {
     @Test
     public void testComplexPrimaryIndexWithAffinity() {
         TableSchemaBuilder bldr = getBuilder(false, false);
-        TableSchema tblSchm = bldr.withIndex(SchemaBuilders.pkIndex()
-            .addIndexColumn("INT8").done()
-            .addIndexColumn("ID").done()
-            .withAffinityColumns("INT8")
-            .build()
+        TableSchema tblSchm = bldr.withIndex(
+            SchemaBuilders.pkIndex()
+                .withColumns("INT8", "ID")
+                .withAffinityColumns("INT8")
+                .build()
         ).build();
 
         SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(UUID.randomUUID(), 1, tblSchm);
@@ -133,7 +133,7 @@ public class SchemaDescriptorConverterTest {
      * @return TableSchemaBuilder.
      */
     private TableSchemaBuilder getBuilder(boolean nullable, boolean withPk) {
-        Function<TableColumnBuilder, org.apache.ignite.schema.Column> postProcess = builder -> {
+        Function<ColumnBuilder, org.apache.ignite.schema.definition.table.Column> postProcess = builder -> {
             if (nullable)
                 builder.asNullable();
             else

@@ -30,10 +30,10 @@ import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.schema.Column;
-import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.TableSchema;
+import org.apache.ignite.schema.definition.table.Column;
+import org.apache.ignite.schema.definition.table.ColumnType;
+import org.apache.ignite.schema.definition.table.TableSchema;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -202,7 +202,7 @@ abstract class AbstractSchemaChangeTest {
         TableSchema schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
             SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
             SchemaBuilders.column("valInt", ColumnType.INT32).asNullable().build(),
-            SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build()
+            SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValueExpression("default").build()
         ).withPrimaryKey("key").build();
 
         nodes.get(0).tables().createTable(

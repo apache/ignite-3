@@ -22,7 +22,7 @@ import org.apache.ignite.app.Ignite;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.schema.SchemaMode;
+import org.apache.ignite.schema.definition.SchemaManagementMode;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -63,7 +63,7 @@ class ITLiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(1).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaType(SchemaManagementMode.LIVE);
 
         KeyValueBinaryView kvBinaryView = tbl.kvView();
 
@@ -88,7 +88,7 @@ class ITLiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(1).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaType(SchemaManagementMode.LIVE);
 
         KeyValueBinaryView kvBinaryView = tbl.kvView();
 
@@ -101,7 +101,7 @@ class ITLiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
         assertEquals("111", res.value("valStrNew"));
         assertEquals(Integer.valueOf(333), res.value("valIntNew"));
 
-        ((TableImpl)tbl).schemaType(SchemaMode.STRICT_SCHEMA);
+        ((TableImpl)tbl).schemaType(SchemaManagementMode.STRICT);
 
         Tuple anotherKey = Tuple.create().set("key", 2L);
         Tuple anotherVal = Tuple.create().set("valStrNew", "111").set("valIntNew", 333);
@@ -127,7 +127,7 @@ class ITLiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(1).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaType(SchemaManagementMode.LIVE);
 
         KeyValueBinaryView view = tbl.kvView();
 
@@ -157,7 +157,7 @@ class ITLiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(1).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaType(SchemaManagementMode.LIVE);
 
         KeyValueBinaryView view = tbl.kvView();
 
@@ -189,7 +189,7 @@ class ITLiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(1).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaType(SchemaManagementMode.LIVE);
 
         KeyValueBinaryView view = tbl.kvView();
 

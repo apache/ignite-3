@@ -29,20 +29,20 @@ import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
-import org.apache.ignite.schema.ColumnType;
-import org.apache.ignite.schema.HashIndex;
-import org.apache.ignite.schema.PartialIndex;
-import org.apache.ignite.schema.PrimaryIndex;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.TableSchema;
-import org.apache.ignite.schema.SortedIndex;
-import org.apache.ignite.schema.SortedIndexColumn;
-import org.apache.ignite.schema.TableIndex;
-import org.apache.ignite.schema.builder.HashIndexBuilder;
-import org.apache.ignite.schema.builder.PartialIndexBuilder;
-import org.apache.ignite.schema.builder.PrimaryIndexBuilder;
-import org.apache.ignite.schema.builder.TableSchemaBuilder;
-import org.apache.ignite.schema.builder.SortedIndexBuilder;
+import org.apache.ignite.schema.definition.index.HashIndex;
+import org.apache.ignite.schema.definition.index.HashIndexBuilder;
+import org.apache.ignite.schema.definition.index.Index;
+import org.apache.ignite.schema.definition.index.IndexColumn;
+import org.apache.ignite.schema.definition.index.PartialIndex;
+import org.apache.ignite.schema.definition.index.PartialIndexBuilder;
+import org.apache.ignite.schema.definition.index.PrimaryIndex;
+import org.apache.ignite.schema.definition.index.PrimaryKeyBuilder;
+import org.apache.ignite.schema.definition.index.SortedIndex;
+import org.apache.ignite.schema.definition.index.SortedIndexBuilder;
+import org.apache.ignite.schema.definition.table.ColumnType;
+import org.apache.ignite.schema.definition.table.TableSchema;
+import org.apache.ignite.schema.definition.table.TableSchemaBuilder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -65,7 +65,7 @@ public class SchemaConfigurationConverterTest {
     /**
      * Prepare configuration registry for test.
      *
-     * @throws ExecutionException If failed.
+     * @throws ExecutionException   If failed.
      * @throws InterruptedException If failed.
      */
     @BeforeEach
@@ -91,11 +91,11 @@ public class SchemaConfigurationConverterTest {
         TableSchema tbl = tblBuilder.build();
 
         confRegistry.getConfiguration(TablesConfiguration.KEY).change(
-            ch -> {
-                SchemaConfigurationConverter.createTable(tbl, ch)
-                    .changeTables(tblsCh -> tblsCh.createOrUpdate(tbl.canonicalName(),
-                        tblCh -> tblCh.changeReplicas(1)));
-            }).get();
+            ch -> SchemaConfigurationConverter.createTable(tbl, ch)
+                      .changeTables(
+                          tblsCh -> tblsCh.createOrUpdate(tbl.canonicalName(), tblCh -> tblCh.changeReplicas(1))
+                      )
+        ).get();
     }
 
     @AfterEach
@@ -134,8 +134,6 @@ public class SchemaConfigurationConverterTest {
         builder.addIndexColumn("A").asc().done();
         builder.addIndexColumn("B").desc().done();
 
-        builder.unique();
-
         SortedIndex idx = builder.build();
 
         getTbl().change(ch -> SchemaConfigurationConverter.addIndex(idx, ch)).get();
@@ -154,11 +152,9 @@ public class SchemaConfigurationConverterTest {
      */
     @Test
     public void testPKIndex() throws ExecutionException, InterruptedException {
-        PrimaryIndexBuilder builder = SchemaBuilders.pkIndex();
-        builder.addIndexColumn("COL1").desc().done();
-        builder.addIndexColumn("A").desc().done();
-        builder.addIndexColumn("B").asc().done();
-        builder.withAffinityColumns("COL1");
+        PrimaryKeyBuilder builder = SchemaBuilders.pkIndex()
+                                        .withColumns("A", "COL1", "A", "B")
+                                        .withAffinityColumns("COL1");
 
         PrimaryIndex idx = builder.build();
 
@@ -170,8 +166,8 @@ public class SchemaConfigurationConverterTest {
 
         assertNotNull(idx2);
         assertEquals("PK", idx2.type());
-        assertEquals(idx.columns().stream().map(SortedIndexColumn::name).collect(Collectors.toList()),
-            idx2.columns().stream().map(SortedIndexColumn::name).collect(Collectors.toList()));
+        assertEquals(idx.columns().stream().map(IndexColumn::name).collect(Collectors.toList()),
+            idx2.columns().stream().map(IndexColumn::name).collect(Collectors.toList()));
         assertEquals(idx.affinityColumns(), idx2.affinityColumns());
     }
 
@@ -191,7 +187,7 @@ public class SchemaConfigurationConverterTest {
 
         TableSchema tbl = SchemaConfigurationConverter.convert(getTbl().value());
 
-        PartialIndex idx2 = (PartialIndex) getIdx(idx.name(), tbl.indices());
+        PartialIndex idx2 = (PartialIndex)getIdx(idx.name(), tbl.indices());
 
         assertNotNull(idx2);
         assertEquals("PARTIAL", idx2.type());
@@ -233,7 +229,7 @@ public class SchemaConfigurationConverterTest {
      * @param idxs Table indexes.
      * @return Index or {@code null} if there are no index with such name.
      */
-    private TableIndex getIdx(String name, Collection<TableIndex> idxs) {
+    private Index getIdx(String name, Collection<Index> idxs) {
         return idxs.stream().filter(idx -> name.equals(idx.name())).findAny().orElse(null);
     }
 }

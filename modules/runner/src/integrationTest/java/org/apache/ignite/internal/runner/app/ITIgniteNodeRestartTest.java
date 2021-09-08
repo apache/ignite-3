@@ -23,9 +23,9 @@ import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.TableSchema;
+import org.apache.ignite.schema.definition.table.ColumnType;
+import org.apache.ignite.schema.definition.table.TableSchema;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Disabled;
@@ -164,7 +164,7 @@ public class ITIgniteNodeRestartTest extends IgniteAbstractTest {
             SchemaBuilders.column("name", ColumnType.string()).asNullable().build()
         ).withIndex(
             SchemaBuilders.pkIndex()
-                .addIndexColumn("id").done()
+                .withColumns("id")
                 .build()
         ).build();
 

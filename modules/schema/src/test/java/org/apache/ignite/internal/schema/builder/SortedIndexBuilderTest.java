@@ -18,12 +18,13 @@
 package org.apache.ignite.internal.schema.builder;
 
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.SortedIndex;
-import org.apache.ignite.schema.builder.SortedIndexBuilder;
+import org.apache.ignite.schema.definition.index.SortOrder;
+import org.apache.ignite.schema.definition.index.SortedIndex;
+import org.apache.ignite.schema.definition.index.SortedIndexBuilder;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
  * Tests for sorted index builder.
@@ -39,11 +40,11 @@ public class SortedIndexBuilderTest {
         builder.addIndexColumn("A").asc().done();
         builder.addIndexColumn("B").desc().done();
 
-        builder.unique();
-
         SortedIndex idx = builder.build();
 
-        assertTrue(idx.unique());
+        assertFalse(idx.unique());
         assertEquals(2, idx.indexedColumns().size());
+        assertEquals(SortOrder.ASC, idx.columns().get(0).sortOrder());
+        assertEquals(SortOrder.DESC, idx.columns().get(1).sortOrder());
     }
 }

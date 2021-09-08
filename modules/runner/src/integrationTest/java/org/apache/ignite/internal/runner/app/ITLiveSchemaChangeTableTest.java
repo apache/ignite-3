@@ -23,7 +23,7 @@ import org.apache.ignite.app.Ignite;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.schema.SchemaMode;
+import org.apache.ignite.schema.definition.SchemaManagementMode;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Disabled;
@@ -65,7 +65,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(1).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaType(SchemaManagementMode.LIVE);
 
         Tuple row = Tuple.create().set("key", 1L).set("valStrNew", "111").set("valIntNew", 333);
 
@@ -92,7 +92,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         tbl.insert(oldSchemaTuple);
 
-        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaType(SchemaManagementMode.LIVE);
 
         Tuple upsertOldSchemaTuple = Tuple.create().set("key", 32L).set("valStrNew", "111").set("valIntNew", 333);
 
@@ -117,7 +117,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         Tuple oldSchemaTuple = Tuple.create().set("key", 32L).set("valInt", 111).set("valStr", "str");
 
-        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaType(SchemaManagementMode.LIVE);
 
         Tuple row = Tuple.create().set("key", 1L).set("valStrNew", "111").set("valIntNew", 333);
 
@@ -148,7 +148,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(1).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaType(SchemaManagementMode.LIVE);
 
         Tuple val = Tuple.create().set("key", 1L).set("valStrNew", "111").set("valIntNew", 333);
 
@@ -158,7 +158,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
         assertEquals("111", res.value("valStrNew"));
         assertEquals(Integer.valueOf(333), res.value("valIntNew"));
 
-        ((TableImpl)tbl).schemaType(SchemaMode.STRICT_SCHEMA);
+        ((TableImpl)tbl).schemaType(SchemaManagementMode.STRICT);
 
         Tuple anotherKey = Tuple.create().set("key", 2L).set("valStrNew", "111").set("valIntNew", 333);
 
@@ -183,7 +183,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(1).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaType(SchemaManagementMode.LIVE);
 
         Tuple oldSchemaVal = Tuple.create().set("key", 32L).set("valInt", 111).set("valStr", "str");
         Tuple upsertOldSchemaVal = Tuple.create().set("key", 32L).set("valStrNew", "111").set("valIntNew", 333);
@@ -211,7 +211,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(1).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaType(SchemaManagementMode.LIVE);
 
         UUID uuid = UUID.randomUUID();
 
@@ -268,7 +268,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(1).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaType(SchemaManagementMode.LIVE);
 
         UUID uuid = UUID.randomUUID();
 
@@ -303,7 +303,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(1).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaType(SchemaManagementMode.LIVE);
 
         assertDoesNotThrow(() -> Tuple.create().set("newBrokenColumn", new Object()));
         assertThrows(UnsupportedOperationException.class, () -> Tuple.create().set("newBrokenColumn", new Object()));

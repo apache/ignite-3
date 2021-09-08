@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.schema.modification;
 
-import org.apache.ignite.internal.schema.TableSchemaImpl;
-import org.apache.ignite.schema.Column;
-import org.apache.ignite.schema.PrimaryIndex;
-import org.apache.ignite.schema.TableIndex;
+import org.apache.ignite.internal.schema.definition.table.TableSchemaImpl;
+import org.apache.ignite.schema.definition.index.Index;
+import org.apache.ignite.schema.definition.index.PrimaryIndex;
+import org.apache.ignite.schema.definition.table.Column;
 import org.apache.ignite.schema.modification.AlterColumnBuilder;
 import org.apache.ignite.schema.modification.TableModificationBuilder;
 
@@ -70,7 +70,7 @@ public class TableModificationBuilderImpl implements TableModificationBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public TableModificationBuilder addIndex(TableIndex index) {
+    @Override public TableModificationBuilder addIndex(Index index) {
         assert !PrimaryIndex.PRIMARY_KEY_INDEX_NAME.equals(index.name());
 
         if (table.indices().stream().anyMatch(i -> i.name().equals(index.name())))

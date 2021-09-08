@@ -17,8 +17,8 @@
 
 package org.apache.ignite.schema.modification;
 
-import org.apache.ignite.schema.Column;
-import org.apache.ignite.schema.TableIndex;
+import org.apache.ignite.schema.definition.index.Index;
+import org.apache.ignite.schema.definition.table.Column;
 
 /**
  * Collect schema modification commands and pass them to manager to create a schema upgrade script.
@@ -64,7 +64,7 @@ public interface TableModificationBuilder {
      * @param index Table index.
      * @return {@code this} for chaining.
      */
-    TableModificationBuilder addIndex(TableIndex index);
+    TableModificationBuilder addIndex(Index index);
 
     /**
      * Drops table index.

@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.schema.builder;
 
-import org.apache.ignite.schema.PrimaryIndex;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.SortOrder;
-import org.apache.ignite.schema.builder.PrimaryIndexBuilder;
+import org.apache.ignite.schema.definition.index.PrimaryIndex;
+import org.apache.ignite.schema.definition.index.PrimaryKeyBuilder;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Primary key builder test.
@@ -32,15 +32,18 @@ public class PrimaryKeyBuilderTest {
     /** Test primary index parameters. */
     @Test
     public void testPrimaryKey() {
-        PrimaryIndexBuilder builder = SchemaBuilders.pkIndex();
+        PrimaryKeyBuilder builder = SchemaBuilders.pkIndex();
 
-        builder.addIndexColumn("A").desc().done();
-        builder.addIndexColumn("B").asc().done();
+        builder.withColumns("A", "B", "C").withAffinityColumns("B").build();
 
         PrimaryIndex idx = builder.build();
 
-        assertEquals(2, idx.columns().size());
-        assertEquals(SortOrder.DESC, idx.columns().get(0).sortOrder());
-        assertEquals(SortOrder.ASC, idx.columns().get(1).sortOrder());
+        assertEquals(3, idx.columns().size());
+        assertEquals(3, idx.affinityColumns().size());
+        assertTrue(idx.unique());
+        assertEquals("A", idx.columns().get(0).name());
+        assertEquals("B", idx.columns().get(1).name());
+        assertEquals("C", idx.columns().get(2).name());
+        assertEquals("B", idx.affinityColumns().get(0));
     }
 }

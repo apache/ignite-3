@@ -79,7 +79,7 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.schema.PrimaryIndex;
+import org.apache.ignite.schema.definition.index.PrimaryIndex;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;

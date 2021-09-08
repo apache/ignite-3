@@ -17,18 +17,20 @@
 
 package org.apache.ignite.schema;
 
-import org.apache.ignite.internal.schema.builder.HashIndexBuilderImpl;
-import org.apache.ignite.internal.schema.builder.PartialIndexBuilderImpl;
-import org.apache.ignite.internal.schema.builder.PrimaryKeyBuilderImpl;
-import org.apache.ignite.internal.schema.builder.TableSchemaBuilderImpl;
-import org.apache.ignite.internal.schema.builder.SortedIndexBuilderImpl;
-import org.apache.ignite.internal.schema.builder.TableColumnBuilderImpl;
-import org.apache.ignite.schema.builder.HashIndexBuilder;
-import org.apache.ignite.schema.builder.PartialIndexBuilder;
-import org.apache.ignite.schema.builder.PrimaryIndexBuilder;
-import org.apache.ignite.schema.builder.TableSchemaBuilder;
-import org.apache.ignite.schema.builder.SortedIndexBuilder;
-import org.apache.ignite.schema.builder.TableColumnBuilder;
+import org.apache.ignite.internal.schema.definition.index.HashIndexBuilderImpl;
+import org.apache.ignite.internal.schema.definition.index.PartialIndexBuilderImpl;
+import org.apache.ignite.internal.schema.definition.index.PrimaryKeyBuilderImpl;
+import org.apache.ignite.internal.schema.definition.index.SortedIndexBuilderImpl;
+import org.apache.ignite.internal.schema.definition.table.TableColumnBuilderImpl;
+import org.apache.ignite.internal.schema.definition.table.TableSchemaBuilderImpl;
+import org.apache.ignite.schema.definition.index.HashIndexBuilder;
+import org.apache.ignite.schema.definition.index.PartialIndexBuilder;
+import org.apache.ignite.schema.definition.index.PrimaryKeyBuilder;
+import org.apache.ignite.schema.definition.index.SortedIndexBuilder;
+import org.apache.ignite.schema.definition.table.ColumnBuilder;
+import org.apache.ignite.schema.definition.table.ColumnType;
+import org.apache.ignite.schema.definition.table.TableSchema;
+import org.apache.ignite.schema.definition.table.TableSchemaBuilder;
 
 /**
  * Schema builder helper.
@@ -67,7 +69,7 @@ public final class SchemaBuilders {
      * @param type Column type.
      * @return Column builder.
      */
-    public static TableColumnBuilder column(String name, ColumnType type) {
+    public static ColumnBuilder column(String name, ColumnType type) {
         return new TableColumnBuilderImpl(name, type);
     }
 
@@ -76,7 +78,7 @@ public final class SchemaBuilders {
      *
      * @return Primary index builder.
      */
-    public static PrimaryIndexBuilder pkIndex() {
+    public static PrimaryKeyBuilder pkIndex() {
         return new PrimaryKeyBuilderImpl();
     }
 

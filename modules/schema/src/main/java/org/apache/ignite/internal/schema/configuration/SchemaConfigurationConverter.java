@@ -44,24 +44,24 @@ import org.apache.ignite.configuration.schemas.table.TableIndexChange;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesChange;
-import org.apache.ignite.internal.schema.ColumnImpl;
-import org.apache.ignite.internal.schema.HashIndexImpl;
-import org.apache.ignite.internal.schema.PartialIndexImpl;
-import org.apache.ignite.internal.schema.PrimaryIndexImpl;
-import org.apache.ignite.internal.schema.TableSchemaImpl;
-import org.apache.ignite.internal.schema.SortedIndexColumnImpl;
-import org.apache.ignite.internal.schema.SortedIndexImpl;
-import org.apache.ignite.schema.Column;
-import org.apache.ignite.schema.ColumnType;
-import org.apache.ignite.schema.HashIndex;
-import org.apache.ignite.schema.IndexColumn;
-import org.apache.ignite.schema.PartialIndex;
-import org.apache.ignite.schema.PrimaryIndex;
-import org.apache.ignite.schema.TableSchema;
-import org.apache.ignite.schema.SortOrder;
-import org.apache.ignite.schema.SortedIndex;
-import org.apache.ignite.schema.SortedIndexColumn;
-import org.apache.ignite.schema.TableIndex;
+import org.apache.ignite.internal.schema.definition.index.HashIndexImpl;
+import org.apache.ignite.internal.schema.definition.index.PartialIndexImpl;
+import org.apache.ignite.internal.schema.definition.index.PrimaryKeyImpl;
+import org.apache.ignite.internal.schema.definition.index.SortedIndexColumnImpl;
+import org.apache.ignite.internal.schema.definition.index.SortedIndexImpl;
+import org.apache.ignite.internal.schema.definition.table.ColumnImpl;
+import org.apache.ignite.internal.schema.definition.table.TableSchemaImpl;
+import org.apache.ignite.schema.definition.index.HashIndex;
+import org.apache.ignite.schema.definition.index.Index;
+import org.apache.ignite.schema.definition.index.IndexColumn;
+import org.apache.ignite.schema.definition.index.PartialIndex;
+import org.apache.ignite.schema.definition.index.PrimaryIndex;
+import org.apache.ignite.schema.definition.index.SortOrder;
+import org.apache.ignite.schema.definition.index.SortedIndex;
+import org.apache.ignite.schema.definition.index.SortedIndexColumn;
+import org.apache.ignite.schema.definition.table.Column;
+import org.apache.ignite.schema.definition.table.ColumnType;
+import org.apache.ignite.schema.definition.table.TableSchema;
 
 /**
  * Configuration to schema and vice versa converter.
@@ -136,7 +136,7 @@ public class SchemaConfigurationConverter {
      * @param idxChg TableIndexChange to fulfill.
      * @return TableIndexChange to get result from.
      */
-    public static TableIndexChange convert(TableIndex idx, TableIndexChange idxChg) {
+    public static TableIndexChange convert(Index idx, TableIndexChange idxChg) {
         idxChg.changeName(idx.name());
         idxChg.changeType(idx.type());
 
@@ -181,15 +181,11 @@ public class SchemaConfigurationConverter {
             case PK_TYPE:
                 PrimaryIndex primIdx = (PrimaryIndex)idx;
 
-                idxChg.changeColumns(colsInit -> {
-                    int colIdx = 0;
+                String[] pkColNames = primIdx.columns().stream().map(IndexColumn::name).toArray(String[]::new);
+                String[] affcols = primIdx.affinityColumns().toArray(new String[primIdx.affinityColumns().size()]);
 
-                    for (SortedIndexColumn col : primIdx.columns())
-                        colsInit.create(String.valueOf(colIdx++), colInit -> convert(col, colInit));
-                });
-
-                idxChg.changeAffinityColumns(primIdx.affinityColumns().toArray(
-                    new String[primIdx.affinityColumns().size()]));
+                idxChg.changeColNames(pkColNames);
+                idxChg.changeAffinityColumns(affcols);
 
                 break;
 
@@ -206,7 +202,7 @@ public class SchemaConfigurationConverter {
      * @param idxView TableIndexView.
      * @return TableIndex.
      */
-    public static TableIndex convert(TableIndexView idxView) {
+    public static Index convert(TableIndexView idxView) {
         String name = idxView.name();
         String type = idxView.type();
 
@@ -217,8 +213,6 @@ public class SchemaConfigurationConverter {
                 return new HashIndexImpl(name, hashCols);
 
             case SORTED_TYPE:
-                boolean sortedUniq = idxView.uniq();
-
                 SortedMap<Integer, SortedIndexColumn> sortedCols = new TreeMap<>();
 
                 for (String key : idxView.columns().namedListKeys()) {
@@ -227,10 +221,9 @@ public class SchemaConfigurationConverter {
                     sortedCols.put(Integer.valueOf(key), col);
                 }
 
-                return new SortedIndexImpl(name, new ArrayList<>(sortedCols.values()), sortedUniq);
+                return new SortedIndexImpl(name, new ArrayList<>(sortedCols.values()));
 
             case PARTIAL_TYPE:
-                boolean partialUniq = idxView.uniq();
                 String expr = idxView.expr();
 
                 NamedListView<? extends IndexColumnView> colsView = idxView.columns();
@@ -242,7 +235,7 @@ public class SchemaConfigurationConverter {
                     partialCols.put(Integer.valueOf(key), col);
                 }
 
-                return new PartialIndexImpl(name, new ArrayList<>(partialCols.values()), partialUniq, expr);
+                return new PartialIndexImpl(name, new ArrayList<>(partialCols.values()), expr);
 
             case PK_TYPE:
                 SortedMap<Integer, SortedIndexColumn> cols = new TreeMap<>();
@@ -255,7 +248,7 @@ public class SchemaConfigurationConverter {
 
                 String[] affCols = idxView.affinityColumns();
 
-                return new PrimaryIndexImpl(new ArrayList<>(cols.values()), List.of(affCols));
+                return new PrimaryKeyImpl(new ArrayList<>(cols.values()), List.of(affCols));
 
             default:
                 throw new IllegalArgumentException("Unknown type " + type);
@@ -406,9 +399,9 @@ public class SchemaConfigurationConverter {
     }
 
     /**
-     * Convert schema table to schema table change.
+     * Convert table schema to table changer.
      *
-     * @param tbl Schema table to convert.
+     * @param tbl Table schema to convert.
      * @param tblChg Change to fulfill.
      * @return TableChange to get result from.
      */
@@ -418,7 +411,7 @@ public class SchemaConfigurationConverter {
         tblChg.changeIndices(idxsChg -> {
             int idxIdx = 0;
 
-            for (TableIndex idx : tbl.indices())
+            for (Index idx : tbl.indices())
                 idxsChg.create(String.valueOf(idxIdx++), idxInit -> convert(idx, idxInit));
         });
 
@@ -470,11 +463,11 @@ public class SchemaConfigurationConverter {
 
         NamedListView<? extends TableIndexView> idxsView = tblView.indices();
 
-        Map<String, TableIndex> indices = new HashMap<>(idxsView.size());
+        Map<String, Index> indices = new HashMap<>(idxsView.size());
 
         for (String key : idxsView.namedListKeys()) {
             TableIndexView idxView = idxsView.get(key);
-            TableIndex idx = convert(idxView);
+            Index idx = convert(idxView);
 
             indices.put(idx.name(), idx);
         }
@@ -515,7 +508,7 @@ public class SchemaConfigurationConverter {
      * @param tblChange TableChange to fulfill.
      * @return TableChange to get result from.
      */
-    public static TableChange addIndex(TableIndex idx, TableChange tblChange) {
+    public static TableChange addIndex(Index idx, TableChange tblChange) {
         return tblChange.changeIndices(idxsChg -> idxsChg.create(idx.name(), idxChg -> convert(idx, idxChg)));
     }
 
