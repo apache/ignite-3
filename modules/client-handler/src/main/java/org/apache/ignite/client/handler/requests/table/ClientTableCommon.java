@@ -143,7 +143,7 @@ class ClientTableCommon {
         Tuple tuple,
         SchemaDescriptor schema,
         boolean skipHeader,
-        boolean keyOnly
+        TuplePart part
     ) {
         if (tuple == null) {
             packer.packNil();
@@ -154,10 +154,12 @@ class ClientTableCommon {
         if (!skipHeader)
             packer.packInt(schema.version());
 
-        for (var col : schema.keyColumns().columns())
-            writeColumnValue(packer, tuple, col);
+        if (part != TuplePart.VAL) {
+            for (var col : schema.keyColumns().columns())
+                writeColumnValue(packer, tuple, col);
+        }
 
-        if (!keyOnly) {
+        if (part != TuplePart.KEY) {
             for (var col : schema.valueColumns().columns())
                 writeColumnValue(packer, tuple, col);
         }
