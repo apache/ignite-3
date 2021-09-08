@@ -48,6 +48,7 @@ import static java.sql.Statement.NO_GENERATED_KEYS;
 import static java.sql.Statement.RETURN_GENERATED_KEYS;
 import static org.apache.ignite.client.proto.query.SqlStateCode.TRANSACTION_STATE_EXCEPTION;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -159,13 +160,13 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         try (Connection conn0 = DriverManager.getConnection(URL)) {
             conn = conn0;
 
-            assert conn != null;
-            assert !conn.isClosed();
+            assertNotNull(conn);
+            assertFalse(conn.isClosed());
         }
 
-        assert conn.isClosed();
+        assertTrue(conn.isClosed());
 
-        assert !conn.isValid(2) : "Connection must be closed";
+        assertFalse(conn.isValid(2), "Connection must be closed");
 
         assertThrows(SQLException.class, () -> conn.isValid(-2), "Invalid timeout");
     }
@@ -209,8 +210,8 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
             for (final int type : rsTypes) {
                 for (final int concur : rsConcurs) {
                     if (meta.supportsResultSetConcurrency(type, concur)) {
-                        assert type == TYPE_FORWARD_ONLY;
-                        assert concur == CONCUR_READ_ONLY;
+                        assertEquals(TYPE_FORWARD_ONLY, type);
+                        assertEquals(CONCUR_READ_ONLY, concur);
 
                         try (Statement stmt = conn.createStatement(type, concur)) {
                             assertNotNull(stmt);
@@ -257,8 +258,8 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
                 for (final int concur : rsConcurs) {
                     for (final int holdabililty : rsHoldabilities) {
                         if (meta.supportsResultSetConcurrency(type, concur)) {
-                            assert type == TYPE_FORWARD_ONLY;
-                            assert concur == CONCUR_READ_ONLY;
+                            assertEquals(TYPE_FORWARD_ONLY, type);
+                            assertEquals(CONCUR_READ_ONLY, concur);
 
                             try (Statement stmt = conn.createStatement(type, concur, holdabililty)) {
                                 assertNotNull(stmt);
@@ -331,8 +332,8 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
             for (final int type : rsTypes) {
                 for (final int concur : rsConcurs) {
                     if (meta.supportsResultSetConcurrency(type, concur)) {
-                        assert type == TYPE_FORWARD_ONLY;
-                        assert concur == CONCUR_READ_ONLY;
+                        assertEquals(TYPE_FORWARD_ONLY, type);
+                        assertEquals(CONCUR_READ_ONLY, concur);
 
                         // null query text
                         assertThrows(
@@ -386,8 +387,8 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
                 for (final int concur : rsConcurs) {
                     for (final int holdabililty : rsHoldabilities) {
                         if (meta.supportsResultSetConcurrency(type, concur)) {
-                            assert type == TYPE_FORWARD_ONLY;
-                            assert concur == CONCUR_READ_ONLY;
+                            assertEquals(TYPE_FORWARD_ONLY, type);
+                            assertEquals(CONCUR_READ_ONLY, concur);
 
                             // null query text
                             assertThrows(
@@ -674,13 +675,13 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     @Disabled
     public void testGetSetCatalog() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
-            assert !conn.getMetaData().supportsCatalogsInDataManipulation();
+            assertFalse(conn.getMetaData().supportsCatalogsInDataManipulation());
 
             assertNull(conn.getCatalog());
 
             conn.setCatalog("catalog");
 
-            assertEquals(null, conn.getCatalog());
+            assertNull(conn.getCatalog());
 
             conn.close();
 
@@ -841,7 +842,7 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     @Disabled
     public void testSetSavepoint() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
-            assert !conn.getMetaData().supportsSavepoints();
+            assertFalse(conn.getMetaData().supportsSavepoints());
 
             // Disallowed in auto-commit mode
             assertThrows(
@@ -865,7 +866,7 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     @Disabled
     public void testSetSavepointName() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
-            assert !conn.getMetaData().supportsSavepoints();
+            assertFalse(conn.getMetaData().supportsSavepoints());
 
             // Invalid arg
             assertThrows(
@@ -898,7 +899,7 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     @Disabled
     public void testRollbackSavePoint() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
-            assert !conn.getMetaData().supportsSavepoints();
+            assertFalse(conn.getMetaData().supportsSavepoints());
 
             // Invalid arg
             assertThrows(
@@ -931,7 +932,7 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     @Disabled
     public void testReleaseSavepoint() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
-            assert !conn.getMetaData().supportsSavepoints();
+            assertFalse(conn.getMetaData().supportsSavepoints());
 
             // Invalid arg
             assertThrows(

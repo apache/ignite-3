@@ -62,8 +62,8 @@ public class JdbcStatementSelfTest extends AbstractJdbcSelfTest {
         
         stmt = conn.createStatement();
 
-        assert stmt != null;
-        assert !stmt.isClosed();
+        assertNotNull(stmt);
+        assertFalse(stmt.isClosed());
     }
 
     /**
@@ -76,13 +76,13 @@ public class JdbcStatementSelfTest extends AbstractJdbcSelfTest {
         if (stmt != null && !stmt.isClosed()) {
             stmt.close();
 
-            assert stmt.isClosed();
+            assertTrue(stmt.isClosed());
         }
 
         conn.close();
 
-        assert stmt.isClosed();
-        assert conn.isClosed();
+        assertTrue(stmt.isClosed());
+        assertTrue(conn.isClosed());
     }
 
     /**
