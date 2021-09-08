@@ -107,7 +107,7 @@ class ClientTableCommon {
         Tuple tuple,
         SchemaDescriptor schema
     ) {
-        writeTuple(packer, tuple, schema, false, false);
+        writeTuple(packer, tuple, schema, false, TuplePart.KEY_AND_VAL);
     }
 
     /**
@@ -125,7 +125,7 @@ class ClientTableCommon {
         SchemaDescriptor schema,
         boolean skipHeader
     ) {
-        writeTuple(packer, tuple, schema, skipHeader, false);
+        writeTuple(packer, tuple, schema, skipHeader, TuplePart.KEY_AND_VAL);
     }
 
     /**
@@ -135,7 +135,7 @@ class ClientTableCommon {
      * @param tuple Tuple.
      * @param schema Tuple schema.
      * @param skipHeader Whether to skip the tuple header.
-     * @param keyOnly Whether to write key fields only.
+     * @param part Which part of tuple to write.
      * @throws IgniteException on failed serialization.
      */
     public static void writeTuple(
@@ -173,7 +173,7 @@ class ClientTableCommon {
      * @throws IgniteException on failed serialization.
      */
     public static void writeTuples(ClientMessagePacker packer, Collection<Tuple> tuples) {
-        writeTuples(packer, tuples, false);
+        writeTuples(packer, tuples, TuplePart.KEY_AND_VAL);
     }
 
     /**
@@ -181,10 +181,10 @@ class ClientTableCommon {
      *
      * @param packer Packer.
      * @param tuples Tuples.
-     * @param keyOnly Whether to write key fields only.
+     * @param part Which part of tuple to write.
      * @throws IgniteException on failed serialization.
      */
-    public static void writeTuples(ClientMessagePacker packer, Collection<Tuple> tuples, boolean keyOnly) {
+    public static void writeTuples(ClientMessagePacker packer, Collection<Tuple> tuples, TuplePart part) {
         if (tuples == null || tuples.isEmpty()) {
             packer.packNil();
 
@@ -203,7 +203,7 @@ class ClientTableCommon {
             else
                 assert schema.version() == ((SchemaAware)tuple).schema().version();
 
-            writeTuple(packer, tuple, schema, true, keyOnly);
+            writeTuple(packer, tuple, schema, true, part);
         }
     }
 
