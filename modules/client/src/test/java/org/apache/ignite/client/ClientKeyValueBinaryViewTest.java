@@ -34,7 +34,7 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         Table table = defaultTable();
         KeyValueBinaryView kvView = table.kvView();
 
-        assertNull(kvView.get(defaultTupleKey(table)));
+        assertNull(kvView.get(defaultTupleKey()));
     }
 
     @Test
@@ -44,7 +44,7 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
 
         KeyValueBinaryView kvView = table.kvView();
 
-        Tuple key = defaultTupleKey(table);
+        Tuple key = defaultTupleKey();
         Tuple val = kvView.get(key);
 
         assertEquals(DEFAULT_NAME, val.value("name"));
@@ -57,8 +57,8 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         Table table = defaultTable();
         KeyValueBinaryView kvView = table.kvView();
 
-        Tuple key = defaultTupleKey(table);
-        Tuple val = kvView.tupleBuilder().set("name", DEFAULT_NAME).build();
+        Tuple key = defaultTupleKey();
+        Tuple val = Tuple.create().set("name", DEFAULT_NAME);
 
         kvView.put(key, val);
 

@@ -43,7 +43,6 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.TupleImpl;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.RecordMapper;
 import org.apache.ignite.table.mapper.ValueMapper;
@@ -623,7 +622,7 @@ public class ClientTable implements Table {
         return res;
     }
 
-    public  <T> CompletableFuture<T> doSchemaOutInOpAsync(
+    public <T> CompletableFuture<T> doSchemaOutInOpAsync(
             int opCode,
             BiConsumer<ClientSchema, ClientMessagePacker> writer,
             BiFunction<ClientSchema, ClientMessageUnpacker, T> reader
@@ -645,7 +644,7 @@ public class ClientTable implements Table {
                 .thenCompose(t -> loadSchemaAndReadData(t, reader));
     }
 
-    protected  <T> CompletableFuture<T> doSchemaOutOpAsync(
+    protected <T> CompletableFuture<T> doSchemaOutOpAsync(
             int opCode,
             BiConsumer<ClientSchema, ClientMessagePacker> writer,
             Function<ClientMessageUnpacker, T> reader) {
