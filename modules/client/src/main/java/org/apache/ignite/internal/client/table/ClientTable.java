@@ -21,6 +21,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -560,7 +561,7 @@ public class ClientTable implements Table {
             out.packObject(v);
     }
 
-    private void writeTuples(
+    public void writeTuples(
             @NotNull Collection<Tuple> tuples,
             ClientSchema schema,
             ClientMessagePacker out,
@@ -621,7 +622,7 @@ public class ClientTable implements Table {
         return valTuple;
     }
 
-    public static IgniteBiTuple<Tuple, Tuple> readKvTuples(ClientSchema schema, ClientMessageUnpacker in) {
+    public static IgniteBiTuple<Tuple, Tuple> readKvTuple(ClientSchema schema, ClientMessageUnpacker in) {
         var keyColCnt = schema.keyColumnCount();
         var colCnt = schema.columns().length;
 
@@ -641,7 +642,19 @@ public class ClientTable implements Table {
         return new IgniteBiTuple<>(keyTuple, valTuple);
     }
 
-    private Collection<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in) {
+    public Map<Tuple, Tuple> readKvTuples(ClientSchema schema, ClientMessageUnpacker in) {
+        var cnt = in.unpackInt();
+        Map<Tuple, Tuple> res = new HashMap<>(cnt);
+
+        for (int i = 0; i < cnt; i++) {
+            var pair = readKvTuple(schema, in);
+            res.put(pair.get1(), pair.get2());
+        }
+
+        return res;
+    }
+
+    public Collection<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in) {
         return readTuples(schema, in, false);
     }
 
@@ -663,7 +676,7 @@ public class ClientTable implements Table {
         return doSchemaOutInOpAsync(opCode, writer, reader, null);
     }
 
-    private <T> CompletableFuture<T> doSchemaOutInOpAsync(
+    public <T> CompletableFuture<T> doSchemaOutInOpAsync(
             int opCode,
             BiConsumer<ClientSchema, ClientMessagePacker> writer,
             BiFunction<ClientSchema, ClientMessageUnpacker, T> reader,

@@ -19,9 +19,11 @@ package org.apache.ignite.internal.client.table;
 
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.client.proto.ClientOp;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
@@ -70,8 +72,13 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Map<Tuple, Tuple>> getAllAsync(@NotNull Collection<Tuple> keys) {
-        // TODO: Split records into key and value.
-        return tbl.getAllAsync(keys).thenApply(x -> null);
+        Objects.requireNonNull(keys);
+
+        return tbl.doSchemaOutInOpAsync(
+                ClientOp.TUPLE_GET_ALL,
+                (s, w) -> tbl.writeTuples(keys, s, w, true),
+                tbl::readKvTuples,
+                Collections.emptyMap());
     }
 
     /** {@inheritDoc} */
