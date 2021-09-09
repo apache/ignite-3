@@ -98,6 +98,15 @@ public class JdbcConnection implements Connection {
     /** Network timeout. */
     private int netTimeout;
 
+    /** Retry limit. */
+    private final int retryLimit;
+
+    /** Reconnect throttling period. */
+    private final long reconnectThrottlingPeriod;
+
+    /** Reconnect throttling retries. */
+    private final int reconnectThrottlingRetries;
+
     /** Query timeout. */
     private final @Nullable Integer qryTimeout;
 
@@ -118,6 +127,9 @@ public class JdbcConnection implements Connection {
 
         netTimeout = connProps.getConnectionTimeout();
         qryTimeout = connProps.getQueryTimeout();
+        retryLimit = connProps.getRetryLimit();
+        reconnectThrottlingPeriod = connProps.getReconnectThrottlingPeriod();
+        reconnectThrottlingRetries = connProps.getReconnectThrottlingRetries();
 
         holdability = HOLD_CURSORS_OVER_COMMIT;
 
@@ -140,11 +152,17 @@ public class JdbcConnection implements Connection {
 
         netTimeout = connProps.getConnectionTimeout();
         qryTimeout = connProps.getQueryTimeout();
+        retryLimit = connProps.getRetryLimit();
+        reconnectThrottlingPeriod = connProps.getReconnectThrottlingPeriod();
+        reconnectThrottlingRetries = connProps.getReconnectThrottlingRetries();
 
         client = ((TcpIgniteClient)IgniteClient
             .builder()
             .addresses(addrs)
             .connectTimeout(netTimeout)
+            .retryLimit(retryLimit)
+            .reconnectThrottlingPeriod(reconnectThrottlingPeriod)
+            .reconnectThrottlingRetries(reconnectThrottlingRetries)
             .build());
 
         this.handler = new JdbcClientQueryEventHandler(client);
