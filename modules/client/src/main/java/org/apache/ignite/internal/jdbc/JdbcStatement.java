@@ -73,9 +73,6 @@ public class JdbcStatement implements Statement {
     /** Result sets. */
     private volatile List<JdbcResultSet> resSets;
 
-    /** Batch size to keep track of number of items to return as fake update counters for executeBatch. */
-    private int batchSize;
-
     /** Batch. */
     private List<JdbcQuery> batch;
 
@@ -359,8 +356,6 @@ public class JdbcStatement implements Statement {
     @Override public void addBatch(String sql) throws SQLException {
         ensureNotClosed();
 
-        batchSize++;
-
         if (batch == null)
             batch = new ArrayList<>();
 
@@ -370,8 +365,6 @@ public class JdbcStatement implements Statement {
     /** {@inheritDoc} */
     @Override public void clearBatch() throws SQLException {
         ensureNotClosed();
-
-        batchSize = 0;
 
         batch = null;
     }
@@ -399,8 +392,6 @@ public class JdbcStatement implements Statement {
             return res.updateCounts();
         }
         finally {
-            batchSize = 0;
-
             batch = null;
         }
     }
@@ -583,8 +574,6 @@ public class JdbcStatement implements Statement {
      */
     protected void addBatch(String sql, ArrayList<Object> args) throws SQLException {
         ensureNotClosed();
-
-        batchSize++;
 
         if (batch == null) {
             batch = new ArrayList<>();
