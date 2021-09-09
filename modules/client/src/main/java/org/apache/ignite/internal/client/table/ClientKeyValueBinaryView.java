@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.client.proto.ClientOp;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
@@ -139,7 +140,10 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> putIfAbsentAsync(@NotNull Tuple key, Tuple val) {
-        return null;
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_INSERT,
+                (s, w) -> tbl.writeKvTuple(key, val, s, w, false),
+                ClientMessageUnpacker::unpackBoolean);
     }
 
     /** {@inheritDoc} */
