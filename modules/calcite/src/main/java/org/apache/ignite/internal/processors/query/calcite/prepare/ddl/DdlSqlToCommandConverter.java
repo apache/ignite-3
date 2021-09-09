@@ -57,15 +57,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 /** */
 public class DdlSqlToCommandConverter {
-    /** Processor that validates a value is a Sql Identifier. */
-    private static final BiFunction<IgniteSqlCreateTableOption, PlanningContext, String> VALUE_IS_IDENTIFIER_VALIDATOR =
-        (opt, ctx) -> {
-            if (!(opt.value() instanceof SqlIdentifier) || !((SqlIdentifier)opt.value()).isSimple())
-                throwOptionParsingException(opt, "a simple identifier", ctx.query());
-
-            return ((SqlIdentifier)opt.value()).getSimple();
-        };
-
     /** Processor that unconditionally throws an AssertionException. */
     private static final TableOptionProcessor<Void> UNSUPPORTED_OPTION_PROCESSOR = new TableOptionProcessor<>(
         null,
