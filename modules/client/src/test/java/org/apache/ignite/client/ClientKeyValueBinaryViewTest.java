@@ -180,4 +180,16 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         assertFalse(kvView.putIfAbsent(tupleKey(1L), tupleVal("2")));
         assertTrue(kvView.putIfAbsent(tupleKey(2L), tupleVal("1")));
     }
+
+    @Test
+    public void testRemove() {
+        KeyValueBinaryView kvView = defaultTable().kvView();
+
+        kvView.put(tupleKey(1L), tupleVal("1"));
+
+        assertFalse(kvView.remove(tupleKey(2L)));
+        assertTrue(kvView.remove(tupleKey(1L)));
+        assertFalse(kvView.remove(tupleKey(1L)));
+        assertFalse(kvView.contains(tupleKey(1L)));
+    }
 }
