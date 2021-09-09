@@ -44,16 +44,6 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
         super(name);
     }
 
-    /**
-     * Constructor.
-     *
-     * @param name Index name.
-     * @param unique Uniq flag.
-     */
-    public SortedIndexBuilderImpl(String name, boolean unique) {
-        super(name, unique);
-    }
-
     /** {@inheritDoc} */
     @Override public SortedIndexBuilderImpl withHints(Map<String, String> hints) {
         super.withHints(hints);
@@ -85,7 +75,7 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
     @Override public SortedIndex build() {
         assert !cols.isEmpty();
 
-        return new SortedIndexImpl(name, columns());
+        return new SortedIndexImpl(name, columns(), unique());
     }
 
     /**

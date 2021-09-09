@@ -34,7 +34,7 @@ public class SortedIndexImpl extends AbstractSchemaObject implements SortedIndex
     private final List<SortedIndexColumn> cols;
 
     /** Unique flag. */
-    private final boolean uniq;
+    private final boolean unique;
 
     /**
      * Constructor.
@@ -51,13 +51,18 @@ public class SortedIndexImpl extends AbstractSchemaObject implements SortedIndex
      *
      * @param name Index name.
      * @param cols Index columns.
-     * @param uniq Unique flag.
+     * @param unique Unique flag.
      */
-    public SortedIndexImpl(String name, List<SortedIndexColumn> cols, boolean uniq) {
+    public SortedIndexImpl(String name, List<SortedIndexColumn> cols, boolean unique) {
         super(name);
 
         this.cols = Collections.unmodifiableList(cols);
-        this.uniq = uniq;
+        this.unique = unique;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean unique() {
+        return unique;
     }
 
     /** {@inheritDoc} */

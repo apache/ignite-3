@@ -96,6 +96,11 @@ public class TableSchemaImpl extends AbstractSchemaObject implements TableSchema
     }
 
     /** {@inheritDoc} */
+    @Override public String schemaName() {
+        return schemaName;
+    }
+
+    /** {@inheritDoc} */
     @Override public Collection<Column> keyColumns() {
         return keyCols;
     }
