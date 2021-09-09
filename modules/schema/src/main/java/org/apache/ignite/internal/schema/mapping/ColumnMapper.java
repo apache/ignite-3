@@ -24,7 +24,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Column mapper interface.
  */
-// TODO sanpwc: Should be removed because of index ids.
+// TODO: IGNITE-15480 Probably should be removed after index column mapping refactoring.
 public interface ColumnMapper extends Serializable {
     /**
      * Add new column.
