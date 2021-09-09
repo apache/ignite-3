@@ -135,11 +135,16 @@ public class JdbcConnection implements Connection {
         this.connProps = props;
         autoCommit = true;
 
-        var objects = Arrays.stream(props.getAddresses()).map(HostAndPortRange::toString).toArray(String[]::new);
+        String[] addrs = Arrays.stream(props.getAddresses()).map(HostAndPortRange::toString)
+            .toArray(String[]::new);
+
+        netTimeout = connProps.getConnectionTimeout();
+        qryTimeout = connProps.getQueryTimeout();
 
         client = ((TcpIgniteClient)IgniteClient
             .builder()
-            .addresses(objects)
+            .addresses(addrs)
+            .connectTimeout(netTimeout)
             .build());
 
         this.handler = new JdbcClientQueryEventHandler(client);
@@ -147,9 +152,6 @@ public class JdbcConnection implements Connection {
         txIsolation = Connection.TRANSACTION_NONE;
 
         schema = normalizeSchema(connProps.getSchema());
-
-        netTimeout = connProps.getConnectionTimeout();
-        qryTimeout = connProps.getQueryTimeout();
 
         holdability = HOLD_CURSORS_OVER_COMMIT;
     }
