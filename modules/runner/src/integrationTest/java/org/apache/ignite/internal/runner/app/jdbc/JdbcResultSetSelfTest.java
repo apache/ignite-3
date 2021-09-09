@@ -49,7 +49,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Result set test.
  */
-@SuppressWarnings({"FloatingPointEquality", "AssertWithSideEffects"})
 public class JdbcResultSetSelfTest extends AbstractJdbcSelfTest {
     /** SQL query. */
     private static final String SQL =
