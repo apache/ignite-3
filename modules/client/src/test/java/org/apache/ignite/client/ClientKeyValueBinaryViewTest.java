@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.table.KeyValueBinaryView;
@@ -113,7 +114,13 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         Map<Tuple, Tuple> res = kvView.getAll(List.of(tupleKey(1L), tupleKey(3L)));
 
         assertEquals(2, res.size());
-        assertEquals("1", res.get(tupleKey(1L)).stringValue("name"));
-        assertEquals("3", res.get(tupleKey(3L)).stringValue("name"));
+
+        var keys = sortedTuples(res.keySet());
+
+        assertEquals(1L, keys[0].longValue(0));
+        assertEquals(3L, keys[1].longValue(0));
+
+        assertEquals("1", res.get(keys[0]).stringValue("name"));
+        assertEquals("3", res.get(keys[1]).stringValue("name"));
     }
 }
