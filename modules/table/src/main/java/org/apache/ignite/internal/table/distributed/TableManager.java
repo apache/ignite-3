@@ -31,7 +31,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
@@ -61,6 +60,7 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -104,6 +104,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** Tables. */
     private final Map<IgniteUuid, TableImpl> tablesById = new ConcurrentHashMap<>();
+
+    // TODO sanpwc: Consider using optional here.
+    private final Map<IgniteUuid, CompletableFuture<Table>> createTableIntention = new ConcurrentHashMap<>();
+
+    private final Map<IgniteUuid, CompletableFuture<Void>> alterTableIntention = new ConcurrentHashMap<>();
+
+    private final Map<IgniteUuid, CompletableFuture<Void>> dropTableIntention = new ConcurrentHashMap<>();
 
     /**
      * Creates a new table manager.
@@ -178,7 +185,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             @Override public @NotNull CompletableFuture<?> onRename(@NotNull String oldName, @NotNull String newName,
                 @NotNull ConfigurationNotificationEvent<TableView> ctx) {
-                // No-op.
+                // TODO: IGNITE-15485 Support table rename operation.
 
                 return CompletableFuture.completedFuture(null);
             }
@@ -217,7 +224,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         String name,
         IgniteUuid tblId,
         List<List<ClusterNode>> assignment,
-        SchemaDescriptor schemaDescriptor
+        SchemaDescriptor schemaDesc
     ) {
         int partitions = assignment.size();
 
@@ -229,7 +236,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     raftGroupName(tblId, p),
                     assignment.get(p),
                     () -> {
-                        // TODO sanpwc: Use table id instead.
                         Path storageDir = partitionsStoreDir.resolve(name);
 
                         try {
@@ -254,36 +260,48 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         );
 
         CompletableFuture.allOf(partitionsGroupsFutures.toArray(CompletableFuture[]::new)).thenRun(() -> {
-            HashMap<Integer, RaftGroupService> partitionMap = new HashMap<>(partitions);
+            try {
+                HashMap<Integer, RaftGroupService> partitionMap = new HashMap<>(partitions);
 
-            for (int p = 0; p < partitions; p++) {
-                CompletableFuture<RaftGroupService> future = partitionsGroupsFutures.get(p);
+                for (int p = 0; p < partitions; p++) {
+                    CompletableFuture<RaftGroupService> future = partitionsGroupsFutures.get(p);
 
-                assert future.isDone();
+                    assert future.isDone();
 
-                RaftGroupService service = future.join();
+                    RaftGroupService service = future.join();
 
-                partitionMap.put(p, service);
+                    partitionMap.put(p, service);
+                }
+
+                InternalTableImpl internalTable = new InternalTableImpl(name, tblId, partitionMap, partitions);
+
+                var schemaRegistry = new SchemaRegistryImpl(v -> schemaDesc);
+
+                schemaRegistry.onSchemaRegistered(schemaDesc);
+
+                var table = new TableImpl(
+                    internalTable,
+                    schemaRegistry,
+                    TableManager.this,
+                    null
+                );
+
+                tables.put(name, table);
+                tablesById.put(tblId, table);
+
+                fireEvent(TableEvent.CREATE, new TableEventParameters(table), null);
+
+                CompletableFuture<Table> createTblIntentionFut = createTableIntention.get(tblId);
+
+                if (createTblIntentionFut != null)
+                    createTblIntentionFut.complete(table);
             }
+            catch (Exception e) {
+                CompletableFuture<Table> createTblIntentionFut = createTableIntention.get(tblId);
 
-            InternalTableImpl internalTable = new InternalTableImpl(name, tblId, partitionMap, partitions);
-
-            var schemaRegistry = new SchemaRegistryImpl(v -> schemaDescriptor);
-
-            // TODO sapwc: wrap with try catch that will triger listener with exectpion.
-            schemaRegistry.onSchemaRegistered(schemaDescriptor);
-
-            var table = new TableImpl(
-                internalTable,
-                schemaRegistry,
-                TableManager.this,
-                null
-            );
-
-            tables.put(name, table);
-            tablesById.put(tblId, table);
-
-            onEvent(TableEvent.CREATE, new TableEventParameters(table), null);
+                if (createTblIntentionFut != null)
+                    createTblIntentionFut.completeExceptionally(e);
+            }
         });
     }
 
@@ -295,16 +313,29 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param assignment Affinity assignment.
      */
     private void dropTableLocally(String name, IgniteUuid tblId, List<List<ClusterNode>> assignment) {
-        int partitions = assignment.size();
+        try {
+            int partitions = assignment.size();
 
-        for (int p = 0; p < partitions; p++)
-            raftMgr.stopRaftGroup(raftGroupName(tblId, p), assignment.get(p));
+            for (int p = 0; p < partitions; p++)
+                raftMgr.stopRaftGroup(raftGroupName(tblId, p), assignment.get(p));
 
-        TableImpl table = tables.get(name);
+            TableImpl table = tables.get(name);
 
-        assert table != null : "There is no table with the name specified [name=" + name + ']';
+            assert table != null : "There is no table with the name specified [name=" + name + ']';
 
-        onEvent(TableEvent.DROP, new TableEventParameters(table), null);
+            fireEvent(TableEvent.DROP, new TableEventParameters(table), null);
+
+            CompletableFuture<Void> dropTblIntentionFut = dropTableIntention.get(tblId);
+
+            if (dropTblIntentionFut != null)
+                dropTblIntentionFut.complete(null);
+        }
+        catch (Exception e) {
+            CompletableFuture<Void> dropTblIntentionFut = dropTableIntention.get(tblId);
+
+            if (dropTblIntentionFut != null)
+                dropTblIntentionFut.completeExceptionally(e);
+        }
     }
 
     /**
@@ -348,42 +379,26 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return A table instance.
      */
     private CompletableFuture<Table> createTableAsync(
-        String name, Consumer<TableChange> tableInitChange,
+        String name,
+        Consumer<TableChange> tableInitChange,
         boolean exceptionWhenExist
     ) {
         CompletableFuture<Table> tblFut = new CompletableFuture<>();
 
-        EventListener<TableEventParameters> clo = new EventListener<>() {
-            @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
-                String tableName = parameters.tableName();
-
-                if (!name.equals(tableName))
-                    return false;
-
-                if (e == null)
-                    tblFut.complete(parameters.table());
-                else
-                    tblFut.completeExceptionally(e);
-
-                return true;
-            }
-
-            @Override public void remove(@NotNull Throwable e) {
-                tblFut.completeExceptionally(e);
-            }
-        };
-
-        listen(TableEvent.CREATE, clo);
-
         tableAsync(name, true).thenAccept(tbl -> {
             if (tbl != null) {
                 if (exceptionWhenExist) {
-                    removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(
-                            LoggerMessageHelper.format("Table already exists [name={}]", name)));
-                } else if (tblFut.complete(tbl))
-                    removeListener(TableEvent.CREATE, clo);
+                    tblFut.completeExceptionally(new IgniteInternalCheckedException(
+                        LoggerMessageHelper.format("Table already exists [name={}]", name)));
+                }
+                else
+                    tblFut.complete(tbl);
             }
             else {
+                IgniteUuid tblId = TABLE_ID_GENERATOR.randomUuid();
+
+                createTableIntention.put(tblId, new CompletableFuture<>());
+
                 clusterCfgMgr
                     .configurationRegistry()
                     .getConfiguration(TablesConfiguration.KEY)
@@ -394,7 +409,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             (ch) -> {
                                 tableInitChange.accept(ch);
                                 ((ExtendedTableChange)ch).
-                                    changeId(TABLE_ID_GENERATOR.randomUuid().toString()).
+                                    changeId(tblId.toString()).
                                     changeAssignments(
                                         ByteUtils.toBytes(
                                             AffinityService.calculateAssignments(
@@ -420,10 +435,24 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             }
                         )
                     )
+                    // TODO sanpwc: Here and within remove and alter consider common exceptionally.
+                    .thenRun(() -> createTableIntention.get(tblId).thenApply(tblFut::complete)
+                        .thenRun(() -> createTableIntention.remove(tblId))
+                        .exceptionally(throwable -> {
+                            LOG.error("Table wasn't created [name=" + name + ']', throwable);
+
+                            createTableIntention.remove(tblId);
+
+                            tblFut.completeExceptionally(new IgniteException(throwable));
+
+                            return null;
+                        }))
                     .exceptionally(throwable -> {
                         LOG.error("Table wasn't created [name=" + name + ']', throwable);
 
-                        removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(throwable));
+                        createTableIntention.remove(tblId);
+
+                        tblFut.completeExceptionally(new IgniteException(throwable));
 
                         return null;
                     });
@@ -502,53 +531,51 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     @Override public CompletableFuture<Void> dropTableAsync(String name) {
         CompletableFuture<Void> dropTblFut = new CompletableFuture<>();
 
-        EventListener<TableEventParameters> clo = new EventListener<>() {
-            @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
-                String tableName = parameters.tableName();
+        tableAsync(name, true).thenAccept(tbl -> {
+            // In case of drop it's an optimization that allows not to fire drop-change-closure if there's no such
+            // distributed table and the local config has lagged behind.
+            if (tbl == null)
+                dropTblFut.complete(null);
+            else {
+                IgniteUuid tblId = ((TableImpl) tbl).tableId();
 
-                if (!name.equals(tableName))
-                    return false;
+                dropTableIntention.putIfAbsent(tblId, new CompletableFuture<>());
 
-                if (e == null) {
-                    TableImpl droppedTable = tables.remove(tableName);
+                clusterCfgMgr
+                    .configurationRegistry()
+                    .getConfiguration(TablesConfiguration.KEY)
+                    .tables()
+                    .change(change -> change.delete(name))
+                    .thenRun(() -> {
+                        CompletableFuture<Void> dropTblIntentionFut = dropTableIntention.get(tblId);
 
-                    assert droppedTable != null;
+                        if (dropTblIntentionFut != null)
+                            dropTblIntentionFut.thenRun(() -> dropTblFut.complete(null))
+                                .thenRun(() -> createTableIntention.remove(tblId))
+                                .exceptionally(throwable -> {
+                                    LOG.error("Table wasn't dropped [name=" + name + ']', throwable);
 
-                    tablesById.remove(droppedTable.tableId());
+                                    createTableIntention.remove(tblId);
 
-                    dropTblFut.complete(null);
-                }
-                else
-                    dropTblFut.completeExceptionally(e);
+                                    dropTblFut.completeExceptionally(new IgniteException(throwable));
 
-                return true;
+                                    return null;
+                                });
+                        else
+                            dropTblFut.complete(null);
+                        // TODO sanpwc: Seems that we might loose exception cause here.
+                    })
+                    .exceptionally(throwable -> {
+                        LOG.error("Table wasn't dropped [name=" + name + ']', throwable);
+
+                        createTableIntention.remove(tblId);
+
+                        dropTblFut.completeExceptionally(new IgniteException(throwable));
+
+                        return null;
+                    });
             }
-
-            @Override public void remove(@NotNull Throwable e) {
-                dropTblFut.completeExceptionally(e);
-            }
-        };
-
-        listen(TableEvent.DROP, clo);
-
-        if (!isTableConfigured(name)) {
-            if (dropTblFut.complete(null))
-                removeListener(TableEvent.DROP, clo, null);
-        }
-        else {
-            clusterCfgMgr
-                .configurationRegistry()
-                .getConfiguration(TablesConfiguration.KEY)
-                .tables()
-                .change(change -> change.delete(name))
-                .exceptionally(throwable -> {
-                    LOG.error("Table wasn't dropped [name=" + name + ']', throwable);
-
-                    removeListener(TableEvent.DROP, clo, new IgniteInternalCheckedException(throwable));
-
-                    return null;
-                });
-        }
+        });
 
         return dropTblFut;
     }
