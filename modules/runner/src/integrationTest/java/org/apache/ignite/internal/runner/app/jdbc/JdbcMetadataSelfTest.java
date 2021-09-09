@@ -107,27 +107,27 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         ResultSet rs = stmt.executeQuery(
             "select p.name, o.id as orgId, p.age from PERSON p, ORGANIZATION o where p.orgId = o.id");
 
-        assert rs != null;
+        assertNotNull(rs);
 
         ResultSetMetaData meta = rs.getMetaData();
 
-        assert meta != null;
+        assertNotNull(meta);
 
-        assert meta.getColumnCount() == 3;
+        assertEquals(3, meta.getColumnCount());
 
-        assert "Person".equalsIgnoreCase(meta.getTableName(1));
-        assert "name".equalsIgnoreCase(meta.getColumnName(1));
-        assert "name".equalsIgnoreCase(meta.getColumnLabel(1));
-        assert meta.getColumnType(1) == VARCHAR;
-        assert "VARCHAR".equals(meta.getColumnTypeName(1));
-        assert "java.lang.String".equals(meta.getColumnClassName(1));
+        assertEquals("Person".toUpperCase(), meta.getTableName(1).toUpperCase());
+        assertEquals("name".toUpperCase(), meta.getColumnName(1).toUpperCase());
+        assertEquals("name".toUpperCase(), meta.getColumnLabel(1).toUpperCase());
+        assertEquals(VARCHAR, meta.getColumnType(1));
+        assertEquals(meta.getColumnTypeName(1), "VARCHAR");
+        assertEquals(meta.getColumnClassName(1), "java.lang.String");
 
-        assert "Organization".equalsIgnoreCase(meta.getTableName(2));
-        assert "orgId".equalsIgnoreCase(meta.getColumnName(2));
-        assert "orgId".equalsIgnoreCase(meta.getColumnLabel(2));
-        assert meta.getColumnType(2) == INTEGER;
-        assert "INTEGER".equals(meta.getColumnTypeName(2));
-        assert "java.lang.Integer".equals(meta.getColumnClassName(2));
+        assertEquals("Organization".toUpperCase(), meta.getTableName(2).toUpperCase());
+        assertEquals("orgId".toUpperCase(), meta.getColumnName(2).toUpperCase());
+        assertEquals("orgId".toUpperCase(), meta.getColumnLabel(2).toUpperCase());
+        assertEquals(INTEGER, meta.getColumnType(2));
+        assertEquals(meta.getColumnTypeName(2), "INTEGER");
+        assertEquals(meta.getColumnClassName(2), "java.lang.Integer");
     }
 
     /**
@@ -142,27 +142,27 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             ResultSet rs = stmt.executeQuery(
                     "select t.decimal, t.date from \"metaTest\".MetaTest as t");
 
-            assert rs != null;
+            assertNotNull(rs);
 
             ResultSetMetaData meta = rs.getMetaData();
 
-            assert meta != null;
+            assertNotNull(meta);
 
-            assert meta.getColumnCount() == 2;
+            assertEquals(2, meta.getColumnCount());
 
-            assert "METATEST".equalsIgnoreCase(meta.getTableName(1));
-            assert "DECIMAL".equalsIgnoreCase(meta.getColumnName(1));
-            assert "DECIMAL".equalsIgnoreCase(meta.getColumnLabel(1));
-            assert meta.getColumnType(1) == DECIMAL;
-            assert "DECIMAL".equals(meta.getColumnTypeName(1));
-            assert "java.math.BigDecimal".equals(meta.getColumnClassName(1));
+            assertEquals("METATEST", meta.getTableName(1).toUpperCase());
+            assertEquals("DECIMAL", meta.getColumnName(1).toUpperCase());
+            assertEquals("DECIMAL", meta.getColumnLabel(1).toUpperCase());
+            assertEquals(DECIMAL, meta.getColumnType(1));
+            assertEquals(meta.getColumnTypeName(1), "DECIMAL");
+            assertEquals(meta.getColumnClassName(1), "java.math.BigDecimal");
 
-            assert "METATEST".equalsIgnoreCase(meta.getTableName(2));
-            assert "DATE".equalsIgnoreCase(meta.getColumnName(2));
-            assert "DATE".equalsIgnoreCase(meta.getColumnLabel(2));
-            assert meta.getColumnType(2) == DATE;
-            assert "DATE".equals(meta.getColumnTypeName(2));
-            assert "java.sql.Date".equals(meta.getColumnClassName(2));
+            assertEquals("METATEST", meta.getTableName(2).toUpperCase());
+            assertEquals("DATE", meta.getColumnName(2).toUpperCase());
+            assertEquals("DATE", meta.getColumnLabel(2).toUpperCase());
+            assertEquals(DATE, meta.getColumnType(2));
+            assertEquals(meta.getColumnTypeName(2), "DATE");
+            assertEquals(meta.getColumnClassName(2), "java.sql.Date");
         }
     }
 
@@ -204,7 +204,7 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
             ResultSet rs = meta.getColumns("IGNITE", "PUBLIC", "PERSON", "%");
 
-            assert rs != null;
+            assertNotNull(rs);
 
             Collection<String> names = new ArrayList<>(2);
 
@@ -217,30 +217,31 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             while (rs.next()) {
                 String name = rs.getString("COLUMN_NAME");
 
-                assert names.remove(name);
+                assertTrue(names.remove(name));
 
                 if ("NAME".equals(name)) {
-                    assert rs.getInt("DATA_TYPE") == VARCHAR;
-                    assert "VARCHAR".equals(rs.getString("TYPE_NAME"));
-                    assert rs.getInt("NULLABLE") == 1;
+                    assertEquals(VARCHAR, rs.getInt("DATA_TYPE"));
+                    assertEquals(rs.getString("TYPE_NAME"), "VARCHAR");
+                    assertEquals(1, rs.getInt("NULLABLE"));
                 } else if ("AGE".equals(name)) {
-                    assert rs.getInt("DATA_TYPE") == INTEGER;
-                    assert "INTEGER".equals(rs.getString("TYPE_NAME"));
-                    assert rs.getInt("NULLABLE") == 1;
+                    assertEquals(INTEGER, rs.getInt("DATA_TYPE"));
+                    assertEquals(rs.getString("TYPE_NAME"), "INTEGER");
+                    assertEquals(1, rs.getInt("NULLABLE"));
                 } else if ("ORGID".equals(name)) {
-                    assert rs.getInt("DATA_TYPE") == INTEGER;
-                    assert "INTEGER".equals(rs.getString("TYPE_NAME"));
-                    assert rs.getInt("NULLABLE") == 0;
+                    assertEquals(INTEGER, rs.getInt("DATA_TYPE"));
+                    assertEquals(rs.getString("TYPE_NAME"), "INTEGER");
+                    assertEquals(0, rs.getInt("NULLABLE"));
+
                 }
                 cnt++;
             }
 
-            assert names.isEmpty();
-            assert cnt == 3;
+            assertTrue(names.isEmpty());
+            assertEquals(3, cnt);
 
             rs = meta.getColumns("IGNITE", "PUBLIC", "ORGANIZATION", "%");
 
-            assert rs != null;
+            assertNotNull(rs);
 
             names.add("ID");
             names.add("NAME");
@@ -250,23 +251,23 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             while (rs.next()) {
                 String name = rs.getString("COLUMN_NAME");
 
-                assert names.remove(name);
+                assertTrue(names.remove(name));
 
                 if ("ID".equals(name)) {
-                    assert rs.getInt("DATA_TYPE") == INTEGER;
-                    assert "INTEGER".equals(rs.getString("TYPE_NAME"));
-                    assert rs.getInt("NULLABLE") == 0;
+                    assertEquals(INTEGER, rs.getInt("DATA_TYPE"));
+                    assertEquals(rs.getString("TYPE_NAME"), "INTEGER");
+                    assertEquals(0, rs.getInt("NULLABLE"));
                 } else if ("NAME".equals(name)) {
-                    assert rs.getInt("DATA_TYPE") == VARCHAR;
-                    assert "VARCHAR".equals(rs.getString("TYPE_NAME"));
-                    assert rs.getInt("NULLABLE") == 1;
+                    assertEquals(VARCHAR, rs.getInt("DATA_TYPE"));
+                    assertEquals(rs.getString("TYPE_NAME"), "VARCHAR");
+                    assertEquals(1, rs.getInt("NULLABLE"));
                 }
 
                 cnt++;
             }
 
-            assert names.isEmpty();
-            assert cnt == 2;
+            assertTrue(names.isEmpty());
+            assertEquals(2, cnt);
         }
     }
 
@@ -313,8 +314,7 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             while (rs.next())
                 schemas.add(rs.getString(1));
 
-            assert expectedSchemas.equals(schemas) : "Unexpected schemas: " + schemas +
-                ". Expected schemas: " + expectedSchemas;
+            assertEquals(schemas, expectedSchemas);
         }
     }
 
@@ -326,7 +326,7 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         try (Connection conn = DriverManager.getConnection(URL)) {
             ResultSet rs = conn.getMetaData().getSchemas(null, "qqq");
 
-            assert !rs.next() : "Empty result set is expected";
+            assertFalse(rs.next(), "Empty result set is expected");
         }
     }
 
@@ -341,12 +341,12 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             int cnt = 0;
 
             while (rs.next()) {
-                assert "ORGID".equals(rs.getString("COLUMN_NAME"));
+                assertEquals(rs.getString("COLUMN_NAME"), "ORGID");
 
                 cnt++;
             }
 
-            assert cnt == 1;
+            assertEquals(1, cnt);
         }
     }
 
@@ -385,23 +385,23 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
             ResultSet rs = meta.getSchemas("q", null);
 
-            assert !rs.next() : "Results must be empty";
+            assertFalse(rs.next(), "Results must be empty");
 
             rs = meta.getTables("q", null, null, null);
 
-            assert !rs.next() : "Results must be empty";
+            assertFalse(rs.next(), "Results must be empty");
 
             rs = meta.getColumns("q", null, null, null);
 
-            assert !rs.next() : "Results must be empty";
+            assertFalse(rs.next(), "Results must be empty");
 
             rs = meta.getIndexInfo("q", null, null, false, false);
 
-            assert !rs.next() : "Results must be empty";
+            assertFalse(rs.next(), "Results must be empty");
 
             rs = meta.getPrimaryKeys("q", null, null);
 
-            assert !rs.next() : "Results must be empty";
+            assertFalse(rs.next(), "Results must be empty");
         }
     }
 
