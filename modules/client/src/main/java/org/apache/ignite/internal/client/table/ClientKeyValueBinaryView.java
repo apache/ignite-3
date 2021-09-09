@@ -114,7 +114,12 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> putAllAsync(@NotNull Map<Tuple, Tuple> pairs) {
-        return null;
+        Objects.requireNonNull(pairs);
+
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_UPSERT_ALL,
+                (s, w) -> tbl.writeKvTuples(pairs, s, w),
+                r -> null);
     }
 
     /** {@inheritDoc} */

@@ -561,6 +561,15 @@ public class ClientTable implements Table {
             out.packObject(v);
     }
 
+    public void writeKvTuples(Map<Tuple, Tuple> pairs, ClientSchema schema, ClientMessagePacker out) {
+        out.packUuid(id);
+        out.packInt(schema.version());
+        out.packInt(pairs.size());
+
+        for (Map.Entry<Tuple, Tuple> pair : pairs.entrySet())
+            writeKvTuple(pair.getKey(), pair.getValue(), schema, out, true);
+    }
+
     public void writeTuples(
             @NotNull Collection<Tuple> tuples,
             ClientSchema schema,
