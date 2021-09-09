@@ -41,7 +41,6 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Objects;
 import org.apache.ignite.client.proto.query.SqlStateCode;
-import org.apache.ignite.client.proto.query.event.JdbcQuery;
 
 /**
  * Jdbc prepared statement implementation.
@@ -51,7 +50,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     private final String sql;
 
     /** Query arguments. */
-    protected ArrayList<Object> args;
+    private ArrayList<Object> args;
 
     /**
      * Creates new prepared statement.
@@ -95,22 +94,14 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     @Override public boolean execute() throws SQLException {
         executeWithArguments();
 
-        return resSets.get(0).isQuery();
+        return isQuery();
     }
 
     /** {@inheritDoc} */
     @Override public void addBatch() throws SQLException {
         ensureNotClosed();
 
-        batchSize++;
-
-        if (batch == null) {
-            batch = new ArrayList<>();
-
-            batch.add(new JdbcQuery(sql, args.toArray(new Object[0])));
-        }
-        else
-            batch.add(new JdbcQuery(null, args.toArray(new Object[0])));
+        addBatch(sql, args);
 
         args = null;
     }

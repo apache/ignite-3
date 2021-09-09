@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.proto.query.event;
 
+import io.netty.util.internal.StringUtil;
 import org.apache.ignite.client.proto.ClientMessagePacker;
 import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
@@ -65,7 +66,9 @@ public abstract class JdbcResponse implements JdbcClientMessage {
         packer.packBoolean(hasResults);
         packer.packInt(status);
 
-        if (status != STATUS_SUCCESS)
+        if (StringUtil.isNullOrEmpty(err))
+            packer.packNil();
+        else
             packer.packString(err);
     }
 
@@ -74,7 +77,7 @@ public abstract class JdbcResponse implements JdbcClientMessage {
         hasResults = unpacker.unpackBoolean();
         status = unpacker.unpackInt();
 
-        if (status != STATUS_SUCCESS)
+        if (!unpacker.tryUnpackNil())
             err = unpacker.unpackString();
     }
 

@@ -77,9 +77,7 @@ public class JdbcResultSet implements ResultSet {
             symbols.setGroupingSeparator(',');
             symbols.setDecimalSeparator('.');
 
-            String ptrn = "#,##0.0#";
-
-            DecimalFormat decimalFormat = new DecimalFormat(ptrn, symbols);
+            DecimalFormat decimalFormat = new DecimalFormat("", symbols);
 
             decimalFormat.setParseBigDecimal(true);
 

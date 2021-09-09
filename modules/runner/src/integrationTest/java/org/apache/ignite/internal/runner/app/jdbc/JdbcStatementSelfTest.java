@@ -62,8 +62,8 @@ public class JdbcStatementSelfTest extends AbstractJdbcSelfTest {
         
         stmt = conn.createStatement();
 
-        assert stmt != null;
-        assert !stmt.isClosed();
+        assertNotNull(stmt);
+        assertFalse(stmt.isClosed());
     }
 
     /**
@@ -76,13 +76,13 @@ public class JdbcStatementSelfTest extends AbstractJdbcSelfTest {
         if (stmt != null && !stmt.isClosed()) {
             stmt.close();
 
-            assert stmt.isClosed();
+            assertTrue(stmt.isClosed());
         }
 
         conn.close();
 
-        assert stmt.isClosed();
-        assert conn.isClosed();
+        assertTrue(stmt.isClosed());
+        assertTrue(conn.isClosed());
     }
 
     /**
@@ -729,9 +729,7 @@ public class JdbcStatementSelfTest extends AbstractJdbcSelfTest {
 
         ResultSet rs = stmt.getResultSet();
 
-        assertFalse(stmt.getMoreResults(Statement.KEEP_CURRENT_RESULT));
-
-        assertFalse(rs.isClosed());
+        assertThrows(SQLFeatureNotSupportedException.class, () -> stmt.getMoreResults(Statement.KEEP_CURRENT_RESULT));
 
         stmt.close();
 
@@ -749,9 +747,7 @@ public class JdbcStatementSelfTest extends AbstractJdbcSelfTest {
 
         stmt.execute("select 1; ");
 
-        ResultSet rs = stmt.getResultSet();
-
-        assertFalse(stmt.getMoreResults(Statement.CLOSE_ALL_RESULTS));
+        assertThrows(SQLFeatureNotSupportedException.class, () -> stmt.getMoreResults(Statement.KEEP_CURRENT_RESULT));
 
         stmt.close();
 

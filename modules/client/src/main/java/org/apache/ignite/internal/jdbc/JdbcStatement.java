@@ -71,19 +71,16 @@ public class JdbcStatement implements Statement {
     private int pageSize = DFLT_PAGE_SIZE;
 
     /** Result sets. */
-    protected volatile List<JdbcResultSet> resSets;
-
-    /** Batch size to keep track of number of items to return as fake update counters for executeBatch. */
-    protected int batchSize;
+    private volatile List<JdbcResultSet> resSets;
 
     /** Batch. */
-    protected List<JdbcQuery> batch;
+    private List<JdbcQuery> batch;
 
     /** Close on completion. */
     private boolean closeOnCompletion;
 
     /** Current result index. */
-    protected int curRes;
+    private int curRes;
 
     /**
      * Creates new statement.
@@ -271,7 +268,7 @@ public class JdbcStatement implements Statement {
 
         execute0(Objects.requireNonNull(sql), null);
 
-        return resSets.get(0).isQuery();
+        return isQuery();
     }
 
     /** {@inheritDoc} */
@@ -359,8 +356,6 @@ public class JdbcStatement implements Statement {
     @Override public void addBatch(String sql) throws SQLException {
         ensureNotClosed();
 
-        batchSize++;
-
         if (batch == null)
             batch = new ArrayList<>();
 
@@ -370,8 +365,6 @@ public class JdbcStatement implements Statement {
     /** {@inheritDoc} */
     @Override public void clearBatch() throws SQLException {
         ensureNotClosed();
-
-        batchSize = 0;
 
         batch = null;
     }
@@ -399,8 +392,6 @@ public class JdbcStatement implements Statement {
             return res.updateCounts();
         }
         finally {
-            batchSize = 0;
-
             batch = null;
         }
     }
@@ -433,13 +424,8 @@ public class JdbcStatement implements Statement {
                     break;
 
                 case CLOSE_ALL_RESULTS:
-                    for (int i = 0; i < curRes; ++i)
-                        resSets.get(i).close0();
-
-                    break;
-
                 case KEEP_CURRENT_RESULT:
-                    break;
+                    throw new SQLFeatureNotSupportedException("Multiple open results is not supported.");
 
                 default:
                     throw new SQLException("Invalid 'current' parameter.");
@@ -579,6 +565,32 @@ public class JdbcStatement implements Statement {
     /** {@inheritDoc} */
     @Override public boolean isWrapperFor(Class<?> iface) throws SQLException {
         return iface != null && iface.isAssignableFrom(JdbcStatement.class);
+    }
+
+    /**
+     * Adds a set of parameters to batch of commands.
+     *
+     * @throws SQLException If statement is closed.
+     */
+    protected void addBatch(String sql, ArrayList<Object> args) throws SQLException {
+        ensureNotClosed();
+
+        if (batch == null) {
+            batch = new ArrayList<>();
+
+            batch.add(new JdbcQuery(sql, args.toArray()));
+        }
+        else
+            batch.add(new JdbcQuery(null, args.toArray()));
+    }
+
+    /**
+     * Gets the isQuery flag from the first result.
+     *
+     * @return isQuery flag.
+     */
+    protected boolean isQuery() {
+        return resSets.get(0).isQuery();
     }
 
     /**
