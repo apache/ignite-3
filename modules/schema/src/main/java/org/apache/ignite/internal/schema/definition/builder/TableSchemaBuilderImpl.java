@@ -33,9 +33,6 @@ import org.apache.ignite.schema.definition.builder.TableSchemaBuilder;
 import org.apache.ignite.schema.definition.index.ColumnarIndex;
 import org.apache.ignite.schema.definition.index.Index;
 import org.apache.ignite.schema.definition.index.IndexColumn;
-import org.apache.ignite.schema.definition.index.SortedIndex;
-
-import static org.apache.ignite.schema.definition.PrimaryKey.PRIMARY_KEY_NAME;
 
 /**
  * Table builder.
@@ -107,11 +104,12 @@ public class TableSchemaBuilderImpl implements TableSchemaBuilder {
 
     /** {@inheritDoc} */
     @Override public TableSchema build() {
-        assert schemaName != null : "Table name was not specified.";
+        assert schemaName != null : "Database schema name must be specified.";
 
-        validateIndices(indices.values(), columns.values());
+        assert columns.size() > primaryKey.columns().size() : "Key or/and value columns must be defined.";
+        assert primaryKey != null : "Primary key index must be configured.";
 
-        assert columns.size() > ((SortedIndex)indices.get(PRIMARY_KEY_NAME)).columns().size() : "Key or/and value columns was not defined.";
+        validateIndices(indices.values(), columns.values(), primaryKey.affinityColumns());
 
         return new TableSchemaImpl(
             schemaName,
@@ -126,24 +124,24 @@ public class TableSchemaBuilderImpl implements TableSchemaBuilder {
      * Validate indices.
      *
      * @param indices Table indices.
-     * @param columns Table columns.
+     * @param cols Table columns.
+     * @param affColNames Affinity columns names.
      */
-    public static void validateIndices(Collection<Index> indices, Collection<Column> columns) {
-        Set<String> colNames = columns.stream().map(Column::name).collect(Collectors.toSet());
+    public static void validateIndices(Collection<Index> indices, Collection<Column> cols, Set<String> affColNames) {
+        Set<String> colNames = cols.stream().map(Column::name).collect(Collectors.toSet());
 
-        assert indices.stream()
-                   .filter(ColumnarIndex.class::isInstance)
-                   .map(ColumnarIndex.class::cast)
-                   .flatMap(idx -> idx.columns().stream())
-                   .map(IndexColumn::name)
-                   .allMatch(colNames::contains) : "Index column doesn't exists in schema.";
+        for (Index idx : indices) {
+            assert idx instanceof ColumnarIndex : "Only columnar indices are supported.";
+            // Note: E.g. functional index is not columnar index as it index an expression result only.
 
-        Index pkIdx = indices.stream().filter(idx -> PRIMARY_KEY_NAME.equals(idx.name())).findAny().orElse(null);
+            ColumnarIndex idx0 = (ColumnarIndex)idx;
 
-        assert pkIdx != null : "Primary key index is not configured.";
-        assert !((PrimaryKey)pkIdx).affinityColumns().isEmpty() : "Primary key must have one affinity column at least.";
+            if (!idx0.columns().stream().map(IndexColumn::name).allMatch(colNames::contains))
+                throw new IllegalStateException("Index column must exist in the schema.");
 
-        // Note: E.g. functional index is not columnar index as it index an expression result only.
-        assert indices.stream().allMatch(ColumnarIndex.class::isInstance) : "Columnar indices are supported only.";
+            if (idx0.unique() &&
+                    !(idx0.columns().stream().map(IndexColumn::name).allMatch(affColNames::contains)))
+                throw new IllegalStateException("Unique index must contains all affinity columns.");
+        }
     }
 }

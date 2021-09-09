@@ -40,9 +40,11 @@ import org.apache.ignite.schema.definition.index.HashIndex;
 import org.apache.ignite.schema.definition.index.Index;
 import org.apache.ignite.schema.definition.index.IndexColumn;
 import org.apache.ignite.schema.definition.index.PartialIndex;
+import org.apache.ignite.schema.definition.index.SortOrder;
 import org.apache.ignite.schema.definition.index.SortedIndex;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
@@ -144,14 +146,23 @@ public class SchemaConfigurationConverterTest {
         assertNotNull(idx2);
         assertEquals("SORTED", idx2.type());
         assertEquals(2, idx2.columns().size());
+        assertEquals("A", idx2.columns().get(0).name());
+        assertEquals("B", idx2.columns().get(1).name());
+        assertEquals(SortOrder.ASC, idx2.columns().get(0).sortOrder());
+        assertEquals(SortOrder.DESC, idx2.columns().get(1).sortOrder());
     }
 
     /**
      * Add/remove PrimaryIndex into configuration and read it back.
      */
     @Test
-    public void testPKIndex() throws ExecutionException, InterruptedException {
-        SortedIndex idx = SchemaBuilders.sortedIndex("pk_sorted").addIndexColumn("COL1").desc().done().build();
+    public void testUniqIndex() throws ExecutionException, InterruptedException {
+        SortedIndex idx = SchemaBuilders.sortedIndex("pk_sorted")
+                              .addIndexColumn("COL1").desc().done()
+                              .unique(true)
+                              .build();
+
+        getTbl().change(ch -> SchemaConfigurationConverter.addIndex(idx, ch)).get();
 
         TableSchema tbl = SchemaConfigurationConverter.convert(getTbl().value());
 
@@ -168,23 +179,31 @@ public class SchemaConfigurationConverterTest {
     /**
      * Add/remove PrimaryIndex into configuration and read it back.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15483")
     @Test
-    public void testUniqueIndex() throws ExecutionException, InterruptedException {
+    public void testUniqueIndexDetection() throws ExecutionException, InterruptedException {
         SortedIndex idx = SchemaBuilders.sortedIndex("uniq_sorted")
                               .addIndexColumn("A").done()
                               .addIndexColumn("COL1").desc().done()
                               .build();
 
+        getTbl().change(ch -> SchemaConfigurationConverter.addIndex(idx, ch)).get();
+
         TableSchema tbl = SchemaConfigurationConverter.convert(getTbl().value());
 
         SortedIndex idx2 = (SortedIndex)getIdx(idx.name(), tbl.indices());
 
         assertNotNull(idx2);
-        assertEquals("pk_sorted", idx2.name());
+        assertEquals("uniq_sorted", idx2.name());
         assertEquals("SORTED", idx2.type());
-        assertEquals(idx.columns().stream().map(IndexColumn::name).collect(Collectors.toList()),
-            idx2.columns().stream().map(IndexColumn::name).collect(Collectors.toList()));
+
         assertTrue(idx2.unique());
+
+        assertEquals(2, idx2.columns().size());
+        assertEquals("A", idx2.columns().get(0).name());
+        assertEquals("COL1", idx2.columns().get(1).name());
+        assertEquals(SortOrder.ASC, idx2.columns().get(0).sortOrder());
+        assertEquals(SortOrder.DESC, idx2.columns().get(1).sortOrder());
     }
 
     /**

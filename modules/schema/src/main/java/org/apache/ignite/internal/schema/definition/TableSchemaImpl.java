@@ -88,7 +88,7 @@ public class TableSchemaImpl extends AbstractSchemaObject implements TableSchema
             if (pkCols.contains(e.getKey())) {
                 keyCols.add(e.getValue());
 
-                if (affCols.contains(e.getValue()))
+                if (pkAffCols.contains(e.getValue().name()))
                     affCols.add(e.getValue());
             } else
                 valCols.add(e.getValue());

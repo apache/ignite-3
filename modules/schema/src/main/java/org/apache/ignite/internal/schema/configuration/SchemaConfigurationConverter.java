@@ -208,7 +208,7 @@ public class SchemaConfigurationConverter {
                     sortedCols.put(Integer.valueOf(key), col);
                 }
 
-                return new SortedIndexImpl(name, new ArrayList<>(sortedCols.values()));
+                return new SortedIndexImpl(name, new ArrayList<>(sortedCols.values()), idxView.uniq());
 
             case PARTIAL_TYPE:
                 String expr = idxView.expr();
@@ -222,7 +222,7 @@ public class SchemaConfigurationConverter {
                     partialCols.put(Integer.valueOf(key), col);
                 }
 
-                return new PartialIndexImpl(name, new ArrayList<>(partialCols.values()), expr);
+                return new PartialIndexImpl(name, new ArrayList<>(partialCols.values()), expr, idxView.uniq());
 
             default:
                 throw new IllegalArgumentException("Unknown type " + type);
@@ -236,7 +236,7 @@ public class SchemaConfigurationConverter {
      * @return TableIn.
      */
     public static PrimaryKey convert(PrimaryKeyView primaryKey) {
-        return new PrimaryKeyImpl(Set.of(primaryKey.colNames()), Set.of(primaryKey.affColNames()));
+        return new PrimaryKeyImpl(Set.of(primaryKey.columns()), Set.of(primaryKey.affinityColumns()));
     }
 
     /**
@@ -407,6 +407,11 @@ public class SchemaConfigurationConverter {
 
             for (Column col : tbl.valueColumns())
                 colsChg.create(String.valueOf(colIdx++), colChg -> convert(col, colChg));
+        });
+
+        tblChg.changePrimaryKey(pkCng -> {
+            pkCng.changeColumns(tbl.keyColumns().stream().map(Column::name).toArray(String[]::new))
+                .changeAffinityColumns(tbl.affinityColumns().stream().map(Column::name).toArray(String[]::new));
         });
 
         return tblChg;

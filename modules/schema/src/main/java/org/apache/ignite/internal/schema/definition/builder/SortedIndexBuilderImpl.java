@@ -56,6 +56,13 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
         return new SortedIndexColumnBuilderImpl(this).withName(name);
     }
 
+    /** {@inheritDoc} */
+    public SortedIndexBuilderImpl unique(boolean unique) {
+        super.unique(unique);
+
+        return this;
+    }
+
     /**
      * @param idxBuilder Index builder.
      */

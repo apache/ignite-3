@@ -52,7 +52,6 @@ public class TableConfigurationSchema {
 
     /** Primary key configuration. */
     @ConfigValue
-    @Immutable
     public PrimaryKeyConfigurationSchema primaryKey;
 
     /** Indices configuration. */

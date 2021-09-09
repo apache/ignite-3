@@ -35,9 +35,10 @@ public class PartialIndexImpl extends SortedIndexImpl implements PartialIndex {
      * @param name Index name.
      * @param columns Index columns.
      * @param expr Partial index expression.
+     * @param unique Unique flag.
      */
-    public PartialIndexImpl(String name, List<SortedIndexColumn> columns, String expr) {
-        super(name, columns);
+    public PartialIndexImpl(String name, List<SortedIndexColumn> columns, String expr, boolean unique) {
+        super(name, columns, unique);
 
         this.expr = expr;
     }

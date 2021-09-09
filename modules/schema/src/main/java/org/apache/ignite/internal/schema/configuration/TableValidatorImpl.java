@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema.configuration;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TableView;
@@ -49,7 +50,7 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
                 Collection<Column> allColumns = new ArrayList<>(tbl.keyColumns());
                 allColumns.addAll(tbl.valueColumns());
 
-                TableSchemaBuilderImpl.validateIndices(tbl.indices(), allColumns);
+                TableSchemaBuilderImpl.validateIndices(tbl.indices(), allColumns, tbl.affinityColumns().stream().map(Column::name).collect(Collectors.toSet()));
             }
             catch (IllegalArgumentException e) {
                 ctx.addIssue(new ValidationIssue("Validator works success by key " + ctx.currentKey() + ". Found "

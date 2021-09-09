@@ -23,13 +23,12 @@ import org.apache.ignite.internal.schema.definition.index.PrimaryKeyImpl;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.schema.definition.PrimaryKey;
 import org.apache.ignite.schema.definition.builder.PrimaryKeyBuilder;
-
-import static org.apache.ignite.schema.definition.PrimaryKey.PRIMARY_KEY_NAME;
+import org.apache.ignite.schema.definition.builder.SchemaObjectBuilder;
 
 /**
- * Primary index builder.
+ * Primary key builder.
  */
-public class PrimaryKeyBuilderImpl extends AbstractIndexBuilder implements PrimaryKeyBuilder {
+public class PrimaryKeyBuilderImpl implements SchemaObjectBuilder, PrimaryKeyBuilder {
     /** Index columns. */
     @IgniteToStringInclude
     private String[] columns;
@@ -38,12 +37,8 @@ public class PrimaryKeyBuilderImpl extends AbstractIndexBuilder implements Prima
     @IgniteToStringInclude
     private String[] affinityColumns;
 
-    /**
-     * Constructor.
-     */
-    public PrimaryKeyBuilderImpl() {
-        super(PRIMARY_KEY_NAME, true);
-    }
+    /** Builder hints. */
+    protected Map<String, String> hints;
 
     /** {@inheritDoc} */
     @Override public PrimaryKeyBuilderImpl withColumns(String... columns) {
@@ -61,13 +56,16 @@ public class PrimaryKeyBuilderImpl extends AbstractIndexBuilder implements Prima
 
     /** {@inheritDoc} */
     @Override public PrimaryKeyBuilderImpl withHints(Map<String, String> hints) {
-        super.withHints(hints);
+        this.hints = hints;
 
         return this;
     }
 
     /** {@inheritDoc} */
     @Override public PrimaryKey build() {
+        if (columns == null)
+            throw new IllegalStateException("Primary key column(s) must be configured.");
+
         Set<String> cols = Set.of(columns);
 
         Set<String> affCols;

@@ -36,6 +36,13 @@ public interface SortedIndexBuilder extends SchemaObjectBuilder {
     @Override SortedIndexBuilder withHints(Map<String, String> hints);
 
     /**
+     * Unique index flag.
+     *
+     * @return {@code This} for chaining.
+     */
+    SortedIndexBuilder unique(boolean b);
+
+    /**
      * Builds sorted index.
      *
      * @return Sorted index.

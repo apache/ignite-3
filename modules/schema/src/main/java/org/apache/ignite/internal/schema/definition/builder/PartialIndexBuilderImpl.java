@@ -54,7 +54,8 @@ public class PartialIndexBuilderImpl extends SortedIndexBuilderImpl implements P
         return new PartialIndexImpl(
             name,
             cols.values().stream().map(c -> new SortedIndexColumnImpl(c.name, c.asc)).collect(Collectors.toList()),
-            expr
+            expr,
+            unique()
         );
     }
 

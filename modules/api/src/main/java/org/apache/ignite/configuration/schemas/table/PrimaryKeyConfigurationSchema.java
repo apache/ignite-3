@@ -29,10 +29,10 @@ public class PrimaryKeyConfigurationSchema {
     /** Primary key columns names. */
     @Value
     @Immutable
-    public String[] colNames = new String[0];
+    public String[] columns;
 
     /** Primary key affinity columns names. */
     @Value
     @Immutable
-    public String[] affColNames = new String[0];
+    public String[] affinityColumns;
 }

@@ -29,7 +29,7 @@ public abstract class AbstractIndexBuilder implements SchemaObjectBuilder {
     protected final String name;
 
     /** Unique flag. */
-    private final boolean unique;
+    private boolean unique;
 
     /** Builder hints. */
     protected Map<String, String> hints;
@@ -61,6 +61,17 @@ public abstract class AbstractIndexBuilder implements SchemaObjectBuilder {
      */
     public boolean unique() {
         return unique;
+    }
+
+    /**
+     * Sets unique index flag.
+     *
+     * @return {@code This} for chaining.
+     */
+    public AbstractIndexBuilder unique(boolean unique) {
+        this.unique = unique;
+
+        return this;
     }
 
     /** {@inheritDoc} */

@@ -41,16 +41,6 @@ public class SortedIndexImpl extends AbstractSchemaObject implements SortedIndex
      *
      * @param name Index name.
      * @param cols Index columns.
-     */
-    public SortedIndexImpl(String name, List<SortedIndexColumn> cols) {
-        this(name, cols, false);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param name Index name.
-     * @param cols Index columns.
      * @param unique Unique flag.
      */
     public SortedIndexImpl(String name, List<SortedIndexColumn> cols, boolean unique) {
