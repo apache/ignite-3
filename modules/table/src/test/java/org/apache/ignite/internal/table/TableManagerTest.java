@@ -203,18 +203,10 @@ public class TableManagerTest {
                 "                  \"nullable\":false\n" +
                 "               }\n" +
                 "            },\n" +
-                "            \"indices\":{\n" +
-                "               \"pk\":{\n" +
-                "                  \"name\":\"pk\",\n" +
-                "                  \"type\":\"primary\",\n" +
-                "                  \"uniq\":true,\n" +
-                "                  \"columns\":{\n" +
-                "                     \"id\":{\n" +
-                "                        \"name\":\"id\",\n" +
-                "                        \"asc\":true\n" +
-                "                     }\n" +
-                "                  }\n" +
-                "               }\n" +
+                "            \"primaryKey\":{\n" +
+                "                  \"columns\": [" +
+                "                     \"id\"" +
+                "                   ]\n" +
                 "            }\n" +
                 "         }\n" +
                 "      }\n" +

@@ -47,6 +47,9 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
             try {
                 TableSchemaImpl tbl = SchemaConfigurationConverter.convert(view);
 
+                assert !tbl.keyColumns().isEmpty();
+                assert !tbl.affinityColumns().isEmpty();
+
                 Collection<Column> allColumns = new ArrayList<>(tbl.keyColumns());
                 allColumns.addAll(tbl.valueColumns());
 

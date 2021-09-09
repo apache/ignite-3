@@ -32,7 +32,7 @@ public class PrimaryKeyConfigurationSchema {
     public String[] columns;
 
     /** Primary key affinity columns names. */
-    @Value
+    @Value(hasDefault = true)
     @Immutable
-    public String[] affinityColumns;
+    public String[] affinityColumns = new String[0];
 }
