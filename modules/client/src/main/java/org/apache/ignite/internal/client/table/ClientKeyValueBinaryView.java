@@ -23,7 +23,6 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.client.proto.ClientOp;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
@@ -110,7 +109,7 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public void putAll(@NotNull Map<Tuple, Tuple> pairs) {
-
+        putAllAsync(pairs).join();
     }
 
     /** {@inheritDoc} */
@@ -120,7 +119,7 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public Tuple getAndPut(@NotNull Tuple key, Tuple val) {
-        return null;
+        return getAndPutAsync(key, val).join();
     }
 
     /** {@inheritDoc} */
@@ -130,7 +129,7 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public boolean putIfAbsent(@NotNull Tuple key, @NotNull Tuple val) {
-        return false;
+        return putIfAbsentAsync(key, val).join();
     }
 
     /** {@inheritDoc} */
@@ -140,17 +139,17 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public boolean remove(@NotNull Tuple key) {
-        return false;
+        return removeAsync(key).join();
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> removeAsync(@NotNull Tuple key) {
-        return null;
+        return tbl.deleteAsync(key);
     }
 
     /** {@inheritDoc} */
     @Override public boolean remove(@NotNull Tuple key, @NotNull Tuple val) {
-        return false;
+        return removeAsync(key, val).join();
     }
 
     /** {@inheritDoc} */
@@ -160,17 +159,17 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public Collection<Tuple> removeAll(@NotNull Collection<Tuple> keys) {
-        return null;
+        return removeAllAsync(keys).join();
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<Tuple>> removeAllAsync(@NotNull Collection<Tuple> keys) {
-        return null;
+        return tbl.deleteAllAsync(keys);
     }
 
     /** {@inheritDoc} */
     @Override public Tuple getAndRemove(@NotNull Tuple key) {
-        return null;
+        return getAndRemoveAsync(key).join();
     }
 
     /** {@inheritDoc} */
@@ -180,7 +179,7 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public boolean replace(@NotNull Tuple key, Tuple val) {
-        return false;
+        return replaceAsync(key, val).join();
     }
 
     /** {@inheritDoc} */
@@ -190,7 +189,7 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public boolean replace(@NotNull Tuple key, Tuple oldVal, Tuple newVal) {
-        return false;
+        return replaceAsync(key, oldVal, newVal).join();
     }
 
     /** {@inheritDoc} */
@@ -200,7 +199,7 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public Tuple getAndReplace(@NotNull Tuple key, Tuple val) {
-        return null;
+        return getAndReplaceAsync(key, val).join();
     }
 
     /** {@inheritDoc} */
