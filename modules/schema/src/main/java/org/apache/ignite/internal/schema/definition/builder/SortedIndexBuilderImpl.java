@@ -57,7 +57,7 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
     }
 
     /** {@inheritDoc} */
-    public SortedIndexBuilderImpl unique(boolean unique) {
+    @Override public SortedIndexBuilderImpl unique(boolean unique) {
         super.unique(unique);
 
         return this;
