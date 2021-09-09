@@ -17,24 +17,26 @@
 
 package org.apache.ignite.schema.definition;
 
-import java.util.Map;
+import java.util.Set;
 
 /**
- * Builder base interface.
+ * Primary key constraint.
  */
-public interface SchemaObjectBuilder {
-    /**
-     * Provide hints to a builder.
-     *
-     * @param hints Hints.
-     * @return {@code This} for chaining.
-     */
-    SchemaObjectBuilder withHints(Map<String, String> hints);
+public interface PrimaryKey extends SchemaObject {
+    /** Default primary key name. */
+    String PRIMARY_KEY_NAME = "PK";
 
     /**
-     * Builds schema object.
+     * Configured index columns.
      *
-     * @return Built object.
+     * @return Index columns.
      */
-    Object build();
+    Set<String> columns();
+
+    /**
+     * Returns affinity columns.
+     *
+     * @return Columns list.
+     */
+    Set<String> affinityColumns();
 }

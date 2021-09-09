@@ -17,24 +17,23 @@
 
 package org.apache.ignite.internal.schema.definition.index;
 
-import java.util.List;
+import java.util.Set;
 import org.apache.ignite.internal.schema.definition.AbstractSchemaObject;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.schema.definition.index.IndexColumn;
-import org.apache.ignite.schema.definition.index.PrimaryIndex;
+import org.apache.ignite.schema.definition.PrimaryKey;
 
 /**
  * Primary key index.
  */
-public class PrimaryKeyImpl extends AbstractSchemaObject implements PrimaryIndex {
+public class PrimaryKeyImpl extends AbstractSchemaObject implements PrimaryKey {
     /** Index columns. */
     @IgniteToStringInclude
-    private final List<IndexColumn> columns;
+    private final Set<String> columns;
 
     /** Affinity columns. */
     @IgniteToStringInclude
-    private final List<String> affCols;
+    private final Set<String> affCols;
 
     /**
      * Constructor.
@@ -42,42 +41,28 @@ public class PrimaryKeyImpl extends AbstractSchemaObject implements PrimaryIndex
      * @param columns Index columns.
      * @param affinityColumns Affinity columns.
      */
-    public PrimaryKeyImpl(List<IndexColumn> columns, List<String> affinityColumns) {
-        super(PrimaryIndex.PRIMARY_KEY_INDEX_NAME);
+    public PrimaryKeyImpl(Set<String> columns, Set<String> affinityColumns) {
+        super(PrimaryKey.PRIMARY_KEY_NAME);
 
         this.columns = columns;
         this.affCols = affinityColumns;
     }
 
-    @Override public List<IndexColumn> columns() {
-        return columns;
-    }
-
-    @Override public List<IndexColumn> indexedColumns() {
+    /** {@inheritDoc} */
+    @Override public Set<String> columns() {
         return columns;
     }
 
     /** {@inheritDoc} */
-    @Override public List<String> affinityColumns() {
+    @Override public Set<String> affinityColumns() {
         return affCols;
-    }
-
-    /** {@inheritDoc} */
-    @Override public String type() {
-        return "PK";
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean unique() {
-        return true;
     }
 
     /** {@inheritDoc} */
     @Override public String toString() {
         return S.toString(PrimaryKeyImpl.class, this,
-            "type", type(),
             "name", name(),
-            "uniq", unique(),
-            "cols", columns());
+            "cols", columns(),
+            "affCols", affinityColumns());
     }
 }

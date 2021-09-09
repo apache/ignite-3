@@ -24,10 +24,10 @@ import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.table.ColumnBuilder;
-import org.apache.ignite.schema.definition.table.ColumnType;
-import org.apache.ignite.schema.definition.table.TableSchema;
-import org.apache.ignite.schema.definition.table.TableSchemaBuilder;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.TableSchema;
+import org.apache.ignite.schema.definition.builder.ColumnBuilder;
+import org.apache.ignite.schema.definition.builder.TableSchemaBuilder;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -46,8 +46,8 @@ public class SchemaDescriptorConverterTest {
     @Test
     public void testComplexPrimaryIndex() {
         TableSchemaBuilder bldr = getBuilder(false, false);
-        TableSchema tblSchm = bldr.withIndex(
-            SchemaBuilders.pkIndex()
+        TableSchema tblSchm = bldr.withPrimaryKey(
+            SchemaBuilders.primaryKey()
                 .withColumns("INT8", "ID")
                 .build()
         ).build();
@@ -65,8 +65,8 @@ public class SchemaDescriptorConverterTest {
     @Test
     public void testComplexPrimaryIndexWithAffinity() {
         TableSchemaBuilder bldr = getBuilder(false, false);
-        TableSchema tblSchm = bldr.withIndex(
-            SchemaBuilders.pkIndex()
+        TableSchema tblSchm = bldr.withPrimaryKey(
+            SchemaBuilders.primaryKey()
                 .withColumns("INT8", "ID")
                 .withAffinityColumns("INT8")
                 .build()
@@ -133,7 +133,7 @@ public class SchemaDescriptorConverterTest {
      * @return TableSchemaBuilder.
      */
     private TableSchemaBuilder getBuilder(boolean nullable, boolean withPk) {
-        Function<ColumnBuilder, org.apache.ignite.schema.definition.table.Column> postProcess = builder -> {
+        Function<ColumnBuilder, org.apache.ignite.schema.definition.Column> postProcess = builder -> {
             if (nullable)
                 builder.asNullable();
             else

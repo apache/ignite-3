@@ -15,34 +15,45 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.index;
+package org.apache.ignite.schema.definition.builder;
 
-import org.apache.ignite.schema.definition.SchemaObjectBuilder;
+import java.util.Map;
+import org.apache.ignite.schema.definition.Column;
 
 /**
- * Hash index descriptor builder.
+ * Table column builder.
  */
-public interface PrimaryKeyBuilder extends SchemaObjectBuilder {
+public interface ColumnBuilder extends SchemaObjectBuilder {
     /**
-     * Sets affinity columns.
+     * Mark column as nullable.
      *
-     * @param cols Affinity columns. Must be a valid subset of ley columns.
-     * @return Primary index builder.
-     */
-    PrimaryKeyBuilder withAffinityColumns(String... cols);
-
-    /**
-     * Sets primary key columns.
-     *
-     * @param columns Indexed columns.
      * @return {@code this} for chaining.
      */
-    PrimaryKeyBuilder withColumns(String... columns);
+    ColumnBuilder asNullable();
 
     /**
-     * Builds primary index.
+     * Mark column as non-nullable.
      *
-     * @return Primary index.
+     * @return {@code this} for chaining.
      */
-    PrimaryIndex build();
+    ColumnBuilder asNonNull();
+
+    /**
+     * Sets column default value expression.
+     *
+     * @param defValExpr Default value expression.
+     * @return {@code this} for chaining.
+     */
+    ColumnBuilder withDefaultValueExpression(Object defValExpr);
+
+    /** {@inheritDoc} */
+    @Override ColumnBuilder withHints(Map<String, String> hints);
+
+    /**
+     * Builds column.
+     *
+     * @return Built column.
+     */
+    @Override Column build();
 }
+

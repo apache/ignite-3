@@ -17,8 +17,8 @@
 
 package org.apache.ignite.schema.modification;
 
+import org.apache.ignite.schema.definition.Column;
 import org.apache.ignite.schema.definition.index.Index;
-import org.apache.ignite.schema.definition.table.Column;
 
 /**
  * Collect schema modification commands and pass them to manager to create a schema upgrade script.

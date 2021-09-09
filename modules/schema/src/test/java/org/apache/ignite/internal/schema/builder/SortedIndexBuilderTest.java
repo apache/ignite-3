@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.schema.builder;
 
 import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.schema.definition.builder.SortedIndexBuilder;
 import org.apache.ignite.schema.definition.index.SortOrder;
 import org.apache.ignite.schema.definition.index.SortedIndex;
-import org.apache.ignite.schema.definition.index.SortedIndexBuilder;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

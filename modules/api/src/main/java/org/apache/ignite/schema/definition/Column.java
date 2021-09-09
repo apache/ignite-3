@@ -15,32 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.builder;
-
-import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.builder.PartialIndexBuilder;
-import org.apache.ignite.schema.definition.index.PartialIndex;
-import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+package org.apache.ignite.schema.definition;
 
 /**
- * Tests for partial index builder.
+ * Table column descriptor.
  */
-public class PartialIndexBuilderTest {
+public interface Column {
     /**
-     * Test partial index parameters.
+     * Returns column name.
+     *
+     * @return Column name.
      */
-    @Test
-    public void testPartialIndexCreate() {
-        PartialIndexBuilder builder = SchemaBuilders.partialIndex("TEST");
+    String name();
 
-        builder.addIndexColumn("A").done();
-        builder.withExpression("WHERE A > 0");
+    /**
+     * Returns column type.
+     *
+     * @return Column type.
+     */
+    ColumnType type();
 
-        PartialIndex idx = builder.build();
+    /**
+     * Returns {@code Nullable} flag value.
+     *
+     * @return {@code True} if null-values is allowed, {@code false} otherwise.
+     */
+    boolean nullable();
 
-        assertEquals(1, idx.columns().size());
-        assertEquals("WHERE A > 0", idx.expr());
-    }
+    /**
+     * Returns column default value expression.
+     *
+     * @return Default column value expression.
+     */
+    //TODO: IGNITE-15341 Rename to defaultValueExpr or allow constants? How to distinct expression from string constant???
+    Object defaultValue();
 }

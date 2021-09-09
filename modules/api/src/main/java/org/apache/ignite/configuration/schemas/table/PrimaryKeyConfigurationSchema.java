@@ -15,30 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.index;
+package org.apache.ignite.configuration.schemas.table;
 
-import java.util.Map;
-import org.apache.ignite.schema.definition.SchemaObjectBuilder;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Immutable;
 
 /**
- * Hash index descriptor builder.
+ * Configuration for primary key constraint in SQL table.
  */
-public interface HashIndexBuilder extends SchemaObjectBuilder {
-    /**
-     * Sets indexed columns.
-     *
-     * @param columns Indexed columns.
-     * @return {@code this} for chaining.
-     */
-    HashIndexBuilder withColumns(String... columns);
+@Config
+public class PrimaryKeyConfigurationSchema {
+    /** Primary key columns names. */
+    @Value
+    @Immutable
+    public String[] colNames = new String[0];
 
-    /** {@inheritDoc} */
-    @Override HashIndexBuilder withHints(Map<String, String> hints);
-
-    /**
-     * Builds hash index.
-     *
-     * @return Hash index.
-     */
-    @Override HashIndex build();
+    /** Primary key affinity columns names. */
+    @Value
+    @Immutable
+    public String[] affColNames = new String[0];
 }

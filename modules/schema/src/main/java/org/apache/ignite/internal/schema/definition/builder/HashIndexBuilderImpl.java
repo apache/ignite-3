@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.definition.index;
+package org.apache.ignite.internal.schema.definition.builder;
 
 import java.util.Map;
+import org.apache.ignite.internal.schema.definition.index.HashIndexImpl;
+import org.apache.ignite.schema.definition.builder.HashIndexBuilder;
 import org.apache.ignite.schema.definition.index.HashIndex;
-import org.apache.ignite.schema.definition.index.HashIndexBuilder;
 
 /**
  * Hash index builder.

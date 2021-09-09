@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.definition.table;
+package org.apache.ignite.internal.schema.definition.builder;
 
 import java.util.Map;
-import org.apache.ignite.schema.definition.table.Column;
-import org.apache.ignite.schema.definition.table.ColumnBuilder;
-import org.apache.ignite.schema.definition.table.ColumnType;
+import org.apache.ignite.internal.schema.definition.ColumnImpl;
+import org.apache.ignite.schema.definition.Column;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.builder.ColumnBuilder;
 
 /**
  * Column builder.

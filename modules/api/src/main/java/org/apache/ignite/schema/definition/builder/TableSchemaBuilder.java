@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.table;
+package org.apache.ignite.schema.definition.builder;
 
 import java.util.Map;
-import org.apache.ignite.schema.definition.SchemaObjectBuilder;
+import org.apache.ignite.schema.definition.Column;
+import org.apache.ignite.schema.definition.PrimaryKey;
+import org.apache.ignite.schema.definition.TableSchema;
 import org.apache.ignite.schema.definition.index.Index;
-import org.apache.ignite.schema.definition.index.PrimaryIndex;
 
 /**
  * Table descriptor builder.
@@ -43,12 +44,20 @@ public interface TableSchemaBuilder extends SchemaObjectBuilder {
     TableSchemaBuilder withIndex(Index index);
 
     /**
-     * Shortcut method for adding {@link PrimaryIndex} via {@link #withIndex(Index)}.
+     * Shortcut method for adding {@link PrimaryKey} of single column.
      *
      * @param colName Key column name.
      * @return {@code This} for chaining.
      */
     TableSchemaBuilder withPrimaryKey(String colName);
+
+    /**
+     * Adds primary key constraint to the table.
+     *
+     * @param primaryKey Primary key.
+     * @return {@code This} for chaining.
+     */
+    TableSchemaBuilder withPrimaryKey(PrimaryKey primaryKey);
 
     /** {@inheritDoc} */
     @Override TableSchemaBuilder withHints(Map<String, String> hints);

@@ -15,38 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.table;
+package org.apache.ignite.schema.definition.builder;
+
+import java.util.Map;
+import org.apache.ignite.schema.definition.index.HashIndex;
 
 /**
- * Table column descriptor.
+ * Hash index descriptor builder.
  */
-public interface Column {
+public interface HashIndexBuilder extends SchemaObjectBuilder {
     /**
-     * Returns column name.
+     * Sets indexed columns.
      *
-     * @return Column name.
+     * @param columns Indexed columns.
+     * @return {@code this} for chaining.
      */
-    String name();
+    HashIndexBuilder withColumns(String... columns);
+
+    /** {@inheritDoc} */
+    @Override HashIndexBuilder withHints(Map<String, String> hints);
 
     /**
-     * Returns column type.
+     * Builds hash index.
      *
-     * @return Column type.
+     * @return Hash index.
      */
-    ColumnType type();
-
-    /**
-     * Returns {@code Nullable} flag value.
-     *
-     * @return {@code True} if null-values is allowed, {@code false} otherwise.
-     */
-    boolean nullable();
-
-    /**
-     * Returns column default value expression.
-     *
-     * @return Default column value expression.
-     */
-    //TODO: IGNITE-15341 Rename to defaultValueExpr or allow constants? How to distinct expression from string constant???
-    Object defaultValue();
+    @Override HashIndex build();
 }

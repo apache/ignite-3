@@ -26,8 +26,8 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -38,30 +38,31 @@ import org.apache.ignite.configuration.schemas.table.ColumnTypeView;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.IndexColumnChange;
 import org.apache.ignite.configuration.schemas.table.IndexColumnView;
+import org.apache.ignite.configuration.schemas.table.PrimaryKeyView;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexChange;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesChange;
+import org.apache.ignite.internal.schema.definition.ColumnImpl;
+import org.apache.ignite.internal.schema.definition.TableSchemaImpl;
 import org.apache.ignite.internal.schema.definition.index.HashIndexImpl;
 import org.apache.ignite.internal.schema.definition.index.PartialIndexImpl;
 import org.apache.ignite.internal.schema.definition.index.PrimaryKeyImpl;
 import org.apache.ignite.internal.schema.definition.index.SortedIndexColumnImpl;
 import org.apache.ignite.internal.schema.definition.index.SortedIndexImpl;
-import org.apache.ignite.internal.schema.definition.table.ColumnImpl;
-import org.apache.ignite.internal.schema.definition.table.TableSchemaImpl;
+import org.apache.ignite.schema.definition.Column;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.PrimaryKey;
+import org.apache.ignite.schema.definition.TableSchema;
 import org.apache.ignite.schema.definition.index.HashIndex;
 import org.apache.ignite.schema.definition.index.Index;
 import org.apache.ignite.schema.definition.index.IndexColumn;
 import org.apache.ignite.schema.definition.index.PartialIndex;
-import org.apache.ignite.schema.definition.index.PrimaryIndex;
 import org.apache.ignite.schema.definition.index.SortOrder;
 import org.apache.ignite.schema.definition.index.SortedIndex;
 import org.apache.ignite.schema.definition.index.SortedIndexColumn;
-import org.apache.ignite.schema.definition.table.Column;
-import org.apache.ignite.schema.definition.table.ColumnType;
-import org.apache.ignite.schema.definition.table.TableSchema;
 
 /**
  * Configuration to schema and vice versa converter.
@@ -75,9 +76,6 @@ public class SchemaConfigurationConverter {
 
     /** Partial index type. */
     private static final String PARTIAL_TYPE = "PARTIAL";
-
-    /** Primary key index type. */
-    private static final String PK_TYPE = "PK";
 
     /** Types map. */
     private static final Map<String, ColumnType> types = new HashMap<>();
@@ -178,17 +176,6 @@ public class SchemaConfigurationConverter {
 
                 break;
 
-            case PK_TYPE:
-                PrimaryIndex primIdx = (PrimaryIndex)idx;
-
-                String[] pkColNames = primIdx.columns().stream().map(IndexColumn::name).toArray(String[]::new);
-                String[] affcols = primIdx.affinityColumns().toArray(new String[primIdx.affinityColumns().size()]);
-
-                idxChg.changeColNames(pkColNames);
-                idxChg.changeAffinityColumns(affcols);
-
-                break;
-
             default:
                 throw new IllegalArgumentException("Unknown index type " + idx.type());
         }
@@ -237,22 +224,19 @@ public class SchemaConfigurationConverter {
 
                 return new PartialIndexImpl(name, new ArrayList<>(partialCols.values()), expr);
 
-            case PK_TYPE:
-                SortedMap<Integer, SortedIndexColumn> cols = new TreeMap<>();
-
-                for (String key : idxView.columns().namedListKeys()) {
-                    SortedIndexColumn col = convert(idxView.columns().get(key));
-
-                    cols.put(Integer.valueOf(key), col);
-                }
-
-                String[] affCols = idxView.affinityColumns();
-
-                return new PrimaryKeyImpl(new ArrayList<>(cols.values()), List.of(affCols));
-
             default:
                 throw new IllegalArgumentException("Unknown type " + type);
         }
+    }
+
+    /**
+     * Convert PrimaryKeyView into PrimaryKey.
+     *
+     * @param primaryKey PrimaryKeyView.
+     * @return TableIn.
+     */
+    public static PrimaryKey convert(PrimaryKeyView primaryKey) {
+        return new PrimaryKeyImpl(Set.of(primaryKey.colNames()), Set.of(primaryKey.affColNames()));
     }
 
     /**
@@ -476,7 +460,9 @@ public class SchemaConfigurationConverter {
 
         columns.forEach((i, v) -> colsMap.put(v.name(), v));
 
-        return new TableSchemaImpl(schemaName, tableName, colsMap, indices);
+        PrimaryKey primaryKey = convert(tblView.primaryKey());
+
+        return new TableSchemaImpl(schemaName, tableName, colsMap, primaryKey, indices);
     }
 
     /**
@@ -568,7 +554,7 @@ public class SchemaConfigurationConverter {
         else if (cls == double.class)
             return ColumnType.DOUBLE;
 
-        // Boxed primitives.
+            // Boxed primitives.
         else if (cls == Byte.class)
             return ColumnType.INT8;
         else if (cls == Short.class)
@@ -582,7 +568,7 @@ public class SchemaConfigurationConverter {
         else if (cls == Double.class)
             return ColumnType.DOUBLE;
 
-        // Temporal types.
+            // Temporal types.
         else if (cls == LocalDate.class)
             return ColumnType.DATE;
         else if (cls == LocalTime.class)
@@ -592,7 +578,7 @@ public class SchemaConfigurationConverter {
         else if (cls == Instant.class)
             return ColumnType.timestamp(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
 
-        // Other types
+            // Other types
         else if (cls == String.class)
             return ColumnType.string();
         else if (cls == UUID.class)

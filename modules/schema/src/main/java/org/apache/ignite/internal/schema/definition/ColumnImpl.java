@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.definition.table;
+package org.apache.ignite.internal.schema.definition;
 
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.schema.definition.table.Column;
-import org.apache.ignite.schema.definition.table.ColumnType;
+import org.apache.ignite.schema.definition.Column;
+import org.apache.ignite.schema.definition.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**

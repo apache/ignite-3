@@ -31,8 +31,8 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.table.ColumnType;
-import org.apache.ignite.schema.definition.table.TableSchema;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.TableSchema;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -164,8 +164,8 @@ class ITDynamicTableCreationTest {
             SchemaBuilders.column("valStr", ColumnType.string()).asNullable().build(),
             SchemaBuilders.column("valInt", ColumnType.INT32).asNullable().build(),
             SchemaBuilders.column("valNull", ColumnType.INT16).asNullable().build()
-        ).withIndex(
-            SchemaBuilders.pkIndex()
+        ).withPrimaryKey(
+            SchemaBuilders.primaryKey()
                 .withColumns("key", "affKey")
                 .withAffinityColumns("affKey")
                 .build()

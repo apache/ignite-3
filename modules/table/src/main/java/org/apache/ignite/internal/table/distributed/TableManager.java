@@ -79,7 +79,7 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.schema.definition.index.PrimaryIndex;
+import org.apache.ignite.schema.definition.PrimaryKey;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
@@ -315,7 +315,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             if (!Objects.equals(newCol.name(), oldCol.name()) &&
                                 oldTbl.indices().namedListKeys().stream()
                                     .map(n -> oldTbl.indices().get(n))
-                                    .filter(idx -> PrimaryIndex.PRIMARY_KEY_INDEX_NAME.equals(idx.name()))
+                                    .filter(idx -> PrimaryKey.PRIMARY_KEY_NAME.equals(idx.name()))
                                     .anyMatch(idx -> idx.columns().namedListKeys().stream()
                                         .anyMatch(c -> idx.columns().get(c).name().equals(oldCol.name()))
                                     ))

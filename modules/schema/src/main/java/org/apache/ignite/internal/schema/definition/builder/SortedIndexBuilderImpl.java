@@ -15,15 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.definition.index;
+package org.apache.ignite.internal.schema.definition.builder;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.schema.definition.index.SortedIndexColumnImpl;
+import org.apache.ignite.internal.schema.definition.index.SortedIndexImpl;
+import org.apache.ignite.schema.definition.builder.SortedIndexBuilder;
 import org.apache.ignite.schema.definition.index.SortOrder;
 import org.apache.ignite.schema.definition.index.SortedIndex;
-import org.apache.ignite.schema.definition.index.SortedIndexBuilder;
 import org.apache.ignite.schema.definition.index.SortedIndexColumn;
 
 /**

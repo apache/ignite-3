@@ -15,21 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.index;
+package org.apache.ignite.schema.definition.builder;
 
-import java.util.List;
+import org.apache.ignite.schema.definition.PrimaryKey;
 
 /**
- * Primary key index.
+ * Hash index descriptor builder.
  */
-public interface PrimaryIndex extends ColumnarIndex {
-    /** Primary key index name. */
-    String PRIMARY_KEY_INDEX_NAME = "PK";
+public interface PrimaryKeyBuilder extends SchemaObjectBuilder {
+    /**
+     * Sets affinity columns.
+     *
+     * @param cols Affinity columns. Must be a valid subset of ley columns.
+     * @return Primary index builder.
+     */
+    PrimaryKeyBuilder withAffinityColumns(String... cols);
 
     /**
-     * Returns affinity columns.
+     * Sets primary key columns.
      *
-     * @return Columns list.
+     * @param columns Indexed columns.
+     * @return {@code this} for chaining.
      */
-    List<String> affinityColumns();
+    PrimaryKeyBuilder withColumns(String... columns);
+
+    /**
+     * Builds primary key.
+     *
+     * @return Primary key.
+     */
+    @Override PrimaryKey build();
 }

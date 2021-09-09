@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.schema.modification;
 
-import org.apache.ignite.internal.schema.definition.table.TableSchemaImpl;
+import org.apache.ignite.internal.schema.definition.TableSchemaImpl;
+import org.apache.ignite.schema.definition.Column;
+import org.apache.ignite.schema.definition.PrimaryKey;
 import org.apache.ignite.schema.definition.index.Index;
-import org.apache.ignite.schema.definition.index.PrimaryIndex;
-import org.apache.ignite.schema.definition.table.Column;
 import org.apache.ignite.schema.modification.AlterColumnBuilder;
 import org.apache.ignite.schema.modification.TableModificationBuilder;
 
@@ -71,7 +71,7 @@ public class TableModificationBuilderImpl implements TableModificationBuilder {
 
     /** {@inheritDoc} */
     @Override public TableModificationBuilder addIndex(Index index) {
-        assert !PrimaryIndex.PRIMARY_KEY_INDEX_NAME.equals(index.name());
+        assert !PrimaryKey.PRIMARY_KEY_NAME.equals(index.name());
 
         if (table.indices().stream().anyMatch(i -> i.name().equals(index.name())))
             throw new IllegalArgumentException("Index already exists: name=" + index.name() + '\'');
@@ -81,7 +81,7 @@ public class TableModificationBuilderImpl implements TableModificationBuilder {
 
     /** {@inheritDoc} */
     @Override public TableModificationBuilder dropIndex(String indexName) {
-        if (PrimaryIndex.PRIMARY_KEY_INDEX_NAME.equals(indexName))
+        if (PrimaryKey.PRIMARY_KEY_NAME.equals(indexName))
             throw new IllegalArgumentException("Can't drop primary key index: name=" + indexName);
 
         return this;

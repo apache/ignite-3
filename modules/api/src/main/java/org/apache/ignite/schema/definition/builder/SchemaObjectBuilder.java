@@ -15,45 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.table;
+package org.apache.ignite.schema.definition.builder;
 
 import java.util.Map;
-import org.apache.ignite.schema.definition.SchemaObjectBuilder;
 
 /**
- * Table column builder.
+ * Builder base interface.
  */
-public interface ColumnBuilder extends SchemaObjectBuilder {
+public interface SchemaObjectBuilder {
     /**
-     * Mark column as nullable.
+     * Provide hints to a builder.
      *
-     * @return {@code this} for chaining.
+     * @param hints Hints.
+     * @return {@code This} for chaining.
      */
-    ColumnBuilder asNullable();
+    SchemaObjectBuilder withHints(Map<String, String> hints);
 
     /**
-     * Mark column as non-nullable.
+     * Builds schema object.
      *
-     * @return {@code this} for chaining.
+     * @return Built object.
      */
-    ColumnBuilder asNonNull();
-
-    /**
-     * Sets column default value expression.
-     *
-     * @param defValExpr Default value expression.
-     * @return {@code this} for chaining.
-     */
-    ColumnBuilder withDefaultValueExpression(Object defValExpr);
-
-    /** {@inheritDoc} */
-    @Override ColumnBuilder withHints(Map<String, String> hints);
-
-    /**
-     * Builds column.
-     *
-     * @return Built column.
-     */
-    @Override Column build();
+    Object build();
 }
-

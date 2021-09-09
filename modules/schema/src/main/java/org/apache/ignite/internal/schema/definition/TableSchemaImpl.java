@@ -15,23 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.definition.table;
+package org.apache.ignite.internal.schema.definition;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
-import org.apache.ignite.internal.schema.definition.AbstractSchemaObject;
 import org.apache.ignite.internal.schema.modification.TableModificationBuilderImpl;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.schema.definition.Column;
+import org.apache.ignite.schema.definition.PrimaryKey;
+import org.apache.ignite.schema.definition.TableSchema;
 import org.apache.ignite.schema.definition.index.Index;
-import org.apache.ignite.schema.definition.index.IndexColumn;
-import org.apache.ignite.schema.definition.index.PrimaryIndex;
-import org.apache.ignite.schema.definition.table.Column;
-import org.apache.ignite.schema.definition.table.TableSchema;
 import org.apache.ignite.schema.modification.TableModificationBuilder;
 
 /**
@@ -63,13 +61,15 @@ public class TableSchemaImpl extends AbstractSchemaObject implements TableSchema
      * @param schemaName Schema name.
      * @param tableName Table name.
      * @param cols Columns.
+     * @param primaryKey Primary key.
      * @param indices Indices.
      */
     public TableSchemaImpl(
         String schemaName,
         String tableName,
-        final LinkedHashMap<String, Column> cols,
-        final Map<String, Index> indices
+        LinkedHashMap<String, Column> cols,
+        PrimaryKey primaryKey,
+        Map<String, Index> indices
     ) {
         super(tableName);
 
@@ -77,15 +77,22 @@ public class TableSchemaImpl extends AbstractSchemaObject implements TableSchema
         this.cols = cols;
         this.indices = indices;
 
-        final PrimaryIndex pkIndex = (PrimaryIndex)indices.get(PrimaryIndex.PRIMARY_KEY_INDEX_NAME);
-        final Set<String> pkColNames = pkIndex.columns().stream().map(IndexColumn::name).collect(Collectors.toSet());
+        Set<String> pkCols = primaryKey.columns();
+        Set<String> pkAffCols = primaryKey.affinityColumns();
 
-        assert pkIndex != null;
+        keyCols = new ArrayList<>(pkCols.size());
+        affCols = new ArrayList<>(pkAffCols.size());
+        valCols = new ArrayList<>(cols.size() - pkCols.size());
 
-        keyCols = pkIndex.columns().stream().map(c -> cols.get(c.name())).collect(Collectors.toUnmodifiableList());
-        affCols = pkIndex.affinityColumns().stream().map(cols::get).collect(Collectors.toUnmodifiableList());
-        valCols = cols.values().stream().filter(c -> !pkColNames.contains(c.name())).collect(Collectors.toUnmodifiableList());
+        for (Map.Entry<String, Column> e : cols.entrySet()) {
+            if (pkCols.contains(e.getKey())) {
+                keyCols.add(e.getValue());
 
+                if (affCols.contains(e.getValue()))
+                    affCols.add(e.getValue());
+            } else
+                valCols.add(e.getValue());
+        }
     }
 
     /** {@inheritDoc} */

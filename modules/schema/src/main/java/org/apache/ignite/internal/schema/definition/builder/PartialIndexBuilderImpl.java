@@ -15,12 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.definition.index;
+package org.apache.ignite.internal.schema.definition.builder;
 
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.schema.definition.index.PartialIndexImpl;
+import org.apache.ignite.internal.schema.definition.index.SortedIndexColumnImpl;
+import org.apache.ignite.schema.definition.builder.PartialIndexBuilder;
 import org.apache.ignite.schema.definition.index.PartialIndex;
-import org.apache.ignite.schema.definition.index.PartialIndexBuilder;
 
 /**
  * Partial index builder.

@@ -19,8 +19,8 @@ package org.apache.ignite.internal.schema.builder;
 
 import java.util.Collections;
 import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.schema.definition.builder.HashIndexBuilder;
 import org.apache.ignite.schema.definition.index.HashIndex;
-import org.apache.ignite.schema.definition.index.HashIndexBuilder;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

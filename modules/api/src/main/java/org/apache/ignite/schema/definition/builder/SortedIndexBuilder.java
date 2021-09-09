@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.index;
+package org.apache.ignite.schema.definition.builder;
 
 import java.util.Map;
-import org.apache.ignite.schema.definition.SchemaObjectBuilder;
+import org.apache.ignite.schema.definition.index.SortedIndex;
 
 /**
  * Sorted index descriptor builder.

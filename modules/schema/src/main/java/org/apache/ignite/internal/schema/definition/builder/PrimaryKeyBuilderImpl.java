@@ -15,20 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.definition.index;
+package org.apache.ignite.internal.schema.definition.builder;
 
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
+import org.apache.ignite.internal.schema.definition.index.PrimaryKeyImpl;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
-import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.schema.definition.index.IndexColumn;
-import org.apache.ignite.schema.definition.index.PrimaryIndex;
-import org.apache.ignite.schema.definition.index.PrimaryKeyBuilder;
+import org.apache.ignite.schema.definition.PrimaryKey;
+import org.apache.ignite.schema.definition.builder.PrimaryKeyBuilder;
 
-import static org.apache.ignite.schema.definition.index.PrimaryIndex.PRIMARY_KEY_INDEX_NAME;
+import static org.apache.ignite.schema.definition.PrimaryKey.PRIMARY_KEY_NAME;
 
 /**
  * Primary index builder.
@@ -40,25 +36,25 @@ public class PrimaryKeyBuilderImpl extends AbstractIndexBuilder implements Prima
 
     /** Affinity columns, */
     @IgniteToStringInclude
-    private String[] affCols;
+    private String[] affinityColumns;
 
     /**
      * Constructor.
      */
     public PrimaryKeyBuilderImpl() {
-        super(PRIMARY_KEY_INDEX_NAME, true);
+        super(PRIMARY_KEY_NAME, true);
     }
 
     /** {@inheritDoc} */
     @Override public PrimaryKeyBuilderImpl withColumns(String... columns) {
-        this.columns = columns.clone();
+        this.columns = columns;
 
         return this;
     }
 
     /** {@inheritDoc} */
-    @Override public PrimaryKeyBuilderImpl withAffinityColumns(String... affCols) {
-        this.affCols = affCols;
+    @Override public PrimaryKeyBuilderImpl withAffinityColumns(String... affinityColumns) {
+        this.affinityColumns = affinityColumns;
 
         return this;
     }
@@ -71,15 +67,18 @@ public class PrimaryKeyBuilderImpl extends AbstractIndexBuilder implements Prima
     }
 
     /** {@inheritDoc} */
-    @Override public PrimaryIndex build() {
-        if (affCols == null)
-            affCols = columns;
+    @Override public PrimaryKey build() {
+        Set<String> cols = Set.of(columns);
 
-        List<IndexColumn> cols = Arrays.stream(columns).map(IndexColumnImpl::new).collect(Collectors.toList());
-        List<String> affCols = Arrays.asList(this.affCols);
+        Set<String> affCols;
 
-        if (!Set.of(cols).containsAll(affCols))
-            throw new IgniteException("Schema definition error: All affinity columns must be part of key.");
+        if (affinityColumns != null) {
+            affCols = Set.of(affinityColumns);
+
+            if (!cols.containsAll(affCols))
+                throw new IllegalStateException("Schema definition error: All affinity columns must be part of key.");
+        } else
+            affCols = cols;
 
         return new PrimaryKeyImpl(cols, affCols);
     }

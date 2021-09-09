@@ -37,8 +37,8 @@ import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaException;
-import org.apache.ignite.schema.definition.table.ColumnType;
-import org.apache.ignite.schema.definition.table.TableSchema;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.TableSchema;
 
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
 import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
@@ -149,7 +149,7 @@ public class SchemaDescriptorConverter {
      * @param colCfg Column to confvert.
      * @return Internal Column.
      */
-    private static Column convert(org.apache.ignite.schema.definition.table.Column colCfg) {
+    private static Column convert(org.apache.ignite.schema.definition.Column colCfg) {
         NativeType type = convert(colCfg.type());
 
         return new Column(colCfg.name(), type, colCfg.nullable(), new ConstantSupplier(convertDefault(type, (String)colCfg.defaultValue())));
@@ -211,17 +211,17 @@ public class SchemaDescriptorConverter {
      * @return SchemaDescriptor.
      */
     public static SchemaDescriptor convert(UUID tblId, int schemaVer, TableSchema tblCfg) {
-        List<org.apache.ignite.schema.definition.table.Column> keyColsCfg = new ArrayList<>(tblCfg.keyColumns());
+        List<org.apache.ignite.schema.definition.Column> keyColsCfg = new ArrayList<>(tblCfg.keyColumns());
 
         Column[] keyCols = new Column[keyColsCfg.size()];
 
         for (int i = 0; i < keyCols.length; i++)
             keyCols[i] = convert(keyColsCfg.get(i));
 
-        String[] affCols = tblCfg.affinityColumns().stream().map(org.apache.ignite.schema.definition.table.Column::name)
+        String[] affCols = tblCfg.affinityColumns().stream().map(org.apache.ignite.schema.definition.Column::name)
             .toArray(String[]::new);
 
-        List<org.apache.ignite.schema.definition.table.Column> valColsCfg = new ArrayList<>(tblCfg.valueColumns());
+        List<org.apache.ignite.schema.definition.Column> valColsCfg = new ArrayList<>(tblCfg.valueColumns());
 
         Column[] valCols = new Column[valColsCfg.size()];
 

@@ -17,20 +17,20 @@
 
 package org.apache.ignite.schema;
 
-import org.apache.ignite.internal.schema.definition.index.HashIndexBuilderImpl;
-import org.apache.ignite.internal.schema.definition.index.PartialIndexBuilderImpl;
-import org.apache.ignite.internal.schema.definition.index.PrimaryKeyBuilderImpl;
-import org.apache.ignite.internal.schema.definition.index.SortedIndexBuilderImpl;
-import org.apache.ignite.internal.schema.definition.table.TableColumnBuilderImpl;
-import org.apache.ignite.internal.schema.definition.table.TableSchemaBuilderImpl;
-import org.apache.ignite.schema.definition.index.HashIndexBuilder;
-import org.apache.ignite.schema.definition.index.PartialIndexBuilder;
-import org.apache.ignite.schema.definition.index.PrimaryKeyBuilder;
-import org.apache.ignite.schema.definition.index.SortedIndexBuilder;
-import org.apache.ignite.schema.definition.table.ColumnBuilder;
-import org.apache.ignite.schema.definition.table.ColumnType;
-import org.apache.ignite.schema.definition.table.TableSchema;
-import org.apache.ignite.schema.definition.table.TableSchemaBuilder;
+import org.apache.ignite.internal.schema.definition.builder.HashIndexBuilderImpl;
+import org.apache.ignite.internal.schema.definition.builder.PartialIndexBuilderImpl;
+import org.apache.ignite.internal.schema.definition.builder.PrimaryKeyBuilderImpl;
+import org.apache.ignite.internal.schema.definition.builder.SortedIndexBuilderImpl;
+import org.apache.ignite.internal.schema.definition.builder.TableColumnBuilderImpl;
+import org.apache.ignite.internal.schema.definition.builder.TableSchemaBuilderImpl;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.TableSchema;
+import org.apache.ignite.schema.definition.builder.ColumnBuilder;
+import org.apache.ignite.schema.definition.builder.HashIndexBuilder;
+import org.apache.ignite.schema.definition.builder.PartialIndexBuilder;
+import org.apache.ignite.schema.definition.builder.PrimaryKeyBuilder;
+import org.apache.ignite.schema.definition.builder.SortedIndexBuilder;
+import org.apache.ignite.schema.definition.builder.TableSchemaBuilder;
 
 /**
  * Schema builder helper.
@@ -74,11 +74,11 @@ public final class SchemaBuilders {
     }
 
     /**
-     * Creates primary index builder.
+     * Creates primary key builder.
      *
-     * @return Primary index builder.
+     * @return Primary key builder.
      */
-    public static PrimaryKeyBuilder pkIndex() {
+    public static PrimaryKeyBuilder primaryKey() {
         return new PrimaryKeyBuilderImpl();
     }
 

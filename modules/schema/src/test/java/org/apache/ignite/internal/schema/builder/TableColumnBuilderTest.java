@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.schema.builder;
 
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.table.Column;
-import org.apache.ignite.schema.definition.table.ColumnBuilder;
-import org.apache.ignite.schema.definition.table.ColumnType;
+import org.apache.ignite.schema.definition.Column;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.builder.ColumnBuilder;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

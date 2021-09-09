@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.table;
+package org.apache.ignite.schema.definition;
 
 import java.util.Objects;
 

@@ -19,10 +19,10 @@ package org.apache.ignite.internal.schema;
 
 import java.util.Map;
 import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.SchemaObject;
-import org.apache.ignite.schema.definition.table.ColumnType;
-import org.apache.ignite.schema.definition.table.TableSchema;
-import org.apache.ignite.schema.definition.table.TableSchemaBuilder;
+import org.apache.ignite.schema.definition.TableSchema;
+import org.apache.ignite.schema.definition.builder.TableSchemaBuilder;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -46,8 +46,8 @@ public class SchemaConfigurationTest {
                 SchemaBuilders.column("affId", ColumnType.INT32).build()
             )
 
-            .withIndex(
-                SchemaBuilders.pkIndex()  // Declare index column in order.
+            .withPrimaryKey(
+                SchemaBuilders.primaryKey()  // Declare index column in order.
                     .withColumns("id", "affId", "name")
                     .withAffinityColumns("affId") // Optional affinity declaration. If not set, all columns will be affinity cols.
                     .build()

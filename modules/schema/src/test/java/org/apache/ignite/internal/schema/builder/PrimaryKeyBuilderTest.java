@@ -17,33 +17,63 @@
 
 package org.apache.ignite.internal.schema.builder;
 
+import java.util.List;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.index.PrimaryIndex;
-import org.apache.ignite.schema.definition.index.PrimaryKeyBuilder;
+import org.apache.ignite.schema.definition.PrimaryKey;
+import org.apache.ignite.schema.definition.builder.PrimaryKeyBuilder;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Primary key builder test.
  */
 public class PrimaryKeyBuilderTest {
-    /** Test primary index parameters. */
+    /** Test primary key parameters. */
     @Test
-    public void testPrimaryKey() {
-        PrimaryKeyBuilder builder = SchemaBuilders.pkIndex();
+    public void testPrimaryKeyWithAffinityColumns() {
+        PrimaryKeyBuilder builder = SchemaBuilders.primaryKey();
 
         builder.withColumns("A", "B", "C").withAffinityColumns("B").build();
 
-        PrimaryIndex idx = builder.build();
+        PrimaryKey idx = builder.build();
+
+        assertEquals(3, idx.columns().size());
+        assertEquals(1, idx.affinityColumns().size());
+
+        assertTrue(idx.columns().containsAll(List.of("A", "B", "C")));
+        assertTrue(idx.affinityColumns().contains("B"));
+
+        assertFalse(idx.affinityColumns().contains("A"));
+        assertFalse(idx.affinityColumns().contains("C"));
+    }
+
+    /** Test primary key parameters. */
+    @Test
+    public void testPrimaryKey() {
+        PrimaryKeyBuilder builder = SchemaBuilders.primaryKey();
+
+        builder.withColumns("A", "B", "C").build();
+
+        PrimaryKey idx = builder.build();
 
         assertEquals(3, idx.columns().size());
         assertEquals(3, idx.affinityColumns().size());
-        assertTrue(idx.unique());
-        assertEquals("A", idx.columns().get(0).name());
-        assertEquals("B", idx.columns().get(1).name());
-        assertEquals("C", idx.columns().get(2).name());
-        assertEquals("B", idx.affinityColumns().get(0));
+
+        assertTrue(idx.columns().containsAll(List.of("A", "B", "C")));
+        assertTrue(idx.affinityColumns().containsAll(List.of("A", "B", "C")));
+    }
+
+    /** Test primary key parameters. */
+    @Test
+    public void testPrimaryKeyWrongAffinityColumn() {
+        PrimaryKeyBuilder builder = SchemaBuilders.primaryKey()
+                                        .withColumns("A", "B")
+                                        .withAffinityColumns("C");
+
+        assertThrows(IllegalStateException.class, builder::build);
     }
 }

@@ -25,9 +25,9 @@ import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.schema.definition.table.TableSchemaBuilderImpl;
-import org.apache.ignite.internal.schema.definition.table.TableSchemaImpl;
-import org.apache.ignite.schema.definition.table.Column;
+import org.apache.ignite.internal.schema.definition.TableSchemaImpl;
+import org.apache.ignite.internal.schema.definition.builder.TableSchemaBuilderImpl;
+import org.apache.ignite.schema.definition.Column;
 
 /**
  * Table schema configuration validator implementation.

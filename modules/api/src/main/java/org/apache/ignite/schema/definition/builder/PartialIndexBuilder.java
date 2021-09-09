@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.index;
+package org.apache.ignite.schema.definition.builder;
 
 import java.util.Map;
+import org.apache.ignite.schema.definition.index.PartialIndex;
 
 /**
  * Partial index descriptor builder.
