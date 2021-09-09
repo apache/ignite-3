@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
@@ -205,5 +206,20 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
 
         assertTrue(kvView.remove(tupleKey(1L), tupleVal("1")));
         assertFalse(kvView.contains(tupleKey(1L)));
+    }
+
+    @Test
+    public void testRemoveAll() {
+        KeyValueBinaryView kvView = defaultTable().kvView();
+
+        kvView.putAll(Map.of(tupleKey(1L), tupleVal("1"), tupleKey(2L), tupleVal("2")));
+
+        Collection<Tuple> res = kvView.removeAll(List.of(tupleKey(2L), tupleKey(3L)));
+
+        assertTrue(kvView.contains(tupleKey(1L)));
+        assertFalse(kvView.contains(tupleKey(2L)));
+
+        assertEquals(1, res.size());
+        assertEquals(3L, res.iterator().next().longValue(0));
     }
 }
