@@ -19,13 +19,17 @@ package org.apache.ignite.client;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletionException;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * KeyValueBinaryView tests.
@@ -138,5 +142,22 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
 
         Map<Tuple, Tuple> res = kvView.getAll(List.of(tupleKey(-1L)));
         assertEquals(0, res.size());
+    }
+
+    @Test
+    public void testContains() {
+        KeyValueBinaryView kvView = defaultTable().kvView();
+        kvView.put(tupleKey(1L), tupleVal("1"));
+
+        assertTrue(kvView.contains(tupleKey(1L)));
+        assertFalse(kvView.contains(tupleKey(2L)));
+    }
+
+    @Test
+    public void testContainsThrowsOnEmptyKey() {
+        KeyValueBinaryView kvView = defaultTable().kvView();
+
+        var ex = assertThrows(CompletionException.class, () -> kvView.contains(Tuple.create()));
+        assertTrue(ex.getMessage().contains("Failed to set column"), ex.getMessage());
     }
 }
