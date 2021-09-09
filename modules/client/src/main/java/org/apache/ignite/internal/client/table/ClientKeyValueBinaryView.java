@@ -200,7 +200,6 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple key, Tuple val) {
         Objects.requireNonNull(key);
-        Objects.requireNonNull(val);
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
@@ -215,7 +214,15 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple key, Tuple oldVal, Tuple newVal) {
-        return null;
+        Objects.requireNonNull(key);
+
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_REPLACE_EXACT,
+                (s, w) -> {
+                    tbl.writeKvTuple(key, oldVal, s, w, false);
+                    tbl.writeKvTuple(key, newVal, s, w, true);
+                },
+                ClientMessageUnpacker::unpackBoolean);
     }
 
     /** {@inheritDoc} */

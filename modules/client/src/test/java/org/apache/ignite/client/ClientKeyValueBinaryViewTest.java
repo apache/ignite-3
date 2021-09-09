@@ -227,10 +227,21 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
     public void testReplace() {
         KeyValueBinaryView kvView = defaultTable().kvView();
 
-        kvView.putAll(Map.of(tupleKey(1L), tupleVal("1"), tupleKey(2L), tupleVal("2")));
+        kvView.put(tupleKey(1L), tupleVal("1"));
 
         assertFalse(kvView.replace(tupleKey(3L), tupleVal("3")));
         assertTrue(kvView.replace(tupleKey(1L), tupleVal("2")));
         assertEquals("2", kvView.get(tupleKey(1L)).stringValue(0));
+    }
+
+    @Test
+    public void testReplaceExact() {
+        KeyValueBinaryView kvView = defaultTable().kvView();
+
+        kvView.put(tupleKey(1L), tupleVal("1"));
+
+        assertFalse(kvView.replace(tupleKey(1L), tupleVal("2"), tupleVal("3")));
+        assertTrue(kvView.replace(tupleKey(1L), tupleVal("1"), tupleVal("3")));
+        assertEquals("3", kvView.get(tupleKey(1L)).stringValue(0));
     }
 }
