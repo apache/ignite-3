@@ -193,7 +193,6 @@ public class IgniteImpl implements Ignite {
         );
 
         distributedTblMgr = new TableManager(
-            nodeCfgMgr,
             clusterCfgMgr,
             raftMgr,
             baselineMgr,

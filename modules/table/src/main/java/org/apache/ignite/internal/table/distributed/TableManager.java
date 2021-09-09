@@ -81,14 +81,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(TableManager.class);
 
-    // TODO sanpwc: Consider using list.size + 1 instead.
     /** */
     private final int INITIAL_SCHEMA_VERSION = 1;
 
+    /** */
     private static final IgniteUuidGenerator TABLE_ID_GENERATOR = new IgniteUuidGenerator(UUID.randomUUID(), 0);
-
-    /** Node configuration manager. */
-    private final ConfigurationManager nodeCfgMgr;
 
     /** Cluster configuration manager. */
     private final ConfigurationManager clusterCfgMgr;
@@ -102,7 +99,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Partitions store directory. */
     private final Path partitionsStoreDir;
 
-    // TODO sanpwc: Consider combinig tables and tablesById.
     /** Tables. */
     private final Map<String, TableImpl> tables = new ConcurrentHashMap<>();
 
@@ -112,19 +108,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * Creates a new table manager.
      *
-     * @param nodeCfgMgr Node configuration manager.
      * @param clusterCfgMgr Cluster configuration manager.
      * @param raftMgr Raft manager.
+     * @param baselineMgr Baseline manager.
      * @param partitionsStoreDir Partitions store directory.
      */
     public TableManager(
-        ConfigurationManager nodeCfgMgr,
         ConfigurationManager clusterCfgMgr,
         Loza raftMgr,
         BaselineManager baselineMgr,
         Path partitionsStoreDir
     ) {
-        this.nodeCfgMgr = nodeCfgMgr;
         this.clusterCfgMgr = clusterCfgMgr;
         this.raftMgr = raftMgr;
         this.baselineMgr = baselineMgr;
@@ -133,7 +127,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override public void start() {
-        clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().listenElements(new ConfigurationNamedListListener<TableView>() {
+        clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().
+            listenElements(new ConfigurationNamedListListener<TableView>() {
             @Override
             public @NotNull CompletableFuture<?> onCreate(@NotNull ConfigurationNotificationEvent<TableView> ctx) {
                 // Empty assignments might be a valid case if tables are created from within cluster init HOCON
@@ -147,12 +142,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     listenElements(new ConfigurationNamedListListener<>() {
                         @Override public @NotNull CompletableFuture<?> onCreate(
                             @NotNull ConfigurationNotificationEvent<SchemaView> schemasCtx) {
-                            // TODO sanpwc: Check whether it's safe to use name.
-                            // TODO sanpwc: consider adding this method to schema registry api.
                             ((SchemaRegistryImpl)tables.get(ctx.newValue().name()).schemaRegistry()).
                                 onSchemaRegistered((SchemaDescriptor)ByteUtils.fromBytes(schemasCtx.newValue().schema()));
 
-                            // TODO sanpwc: Check whether tablesById is backed or we should update schema within it explictly.
                             return CompletableFuture.completedFuture(null);
                         }
 
@@ -177,7 +169,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     ctx.newValue().name(),
                     IgniteUuid.fromString(((ExtendedTableView)ctx.newValue()).id()),
                     (List<List<ClusterNode>>)ByteUtils.fromBytes(((ExtendedTableView)ctx.newValue()).assignments()),
-                    (SchemaDescriptor)ByteUtils.fromBytes(((ExtendedTableView)ctx.newValue()).schemas().get(String.valueOf(INITIAL_SCHEMA_VERSION)).schema())
+                    (SchemaDescriptor)ByteUtils.fromBytes(((ExtendedTableView)ctx.newValue()).schemas().
+                        get(String.valueOf(INITIAL_SCHEMA_VERSION)).schema())
                 );
 
                 return CompletableFuture.completedFuture(null);
@@ -389,52 +382,51 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             LoggerMessageHelper.format("Table already exists [name={}]", name)));
                 } else if (tblFut.complete(tbl))
                     removeListener(TableEvent.CREATE, clo);
-            } else {
-                try {
-                    clusterCfgMgr
-                        .configurationRegistry()
-                        .getConfiguration(TablesConfiguration.KEY)
-                        .tables()
-                        .change(
-                            change -> change.create(
-                                name,
-                                (ch) -> {
-                                    tableInitChange.accept(ch);
-                                    ((ExtendedTableChange)ch).
-                                        changeId(TABLE_ID_GENERATOR.randomUuid().toString()).
-                                        changeAssignments(
-                                            ByteUtils.toBytes(
-                                                AffinityService.calculateAssignments(
-                                                    baselineMgr.nodes(),
-                                                    ch.partitions(),
-                                                    ch.replicas()
-                                                )
+            }
+            else {
+                clusterCfgMgr
+                    .configurationRegistry()
+                    .getConfiguration(TablesConfiguration.KEY)
+                    .tables()
+                    .change(
+                        change -> change.create(
+                            name,
+                            (ch) -> {
+                                tableInitChange.accept(ch);
+                                ((ExtendedTableChange)ch).
+                                    changeId(TABLE_ID_GENERATOR.randomUuid().toString()).
+                                    changeAssignments(
+                                        ByteUtils.toBytes(
+                                            AffinityService.calculateAssignments(
+                                                baselineMgr.nodes(),
+                                                ch.partitions(),
+                                                ch.replicas()
                                             )
-                                        ).
-                                        changeSchemas(
-                                            schemasCh -> schemasCh.create(
-                                                String.valueOf(INITIAL_SCHEMA_VERSION),
-                                                schemaCh -> schemaCh.changeSchema(
-                                                    ByteUtils.toBytes(
-                                                        SchemaService.prepareSchemaDescriptor(
-                                                            ((ExtendedTableView)ch).schemas().size(),
-                                                            ch
-                                                        )
+                                        )
+                                    ).
+                                    changeSchemas(
+                                        schemasCh -> schemasCh.create(
+                                            String.valueOf(INITIAL_SCHEMA_VERSION),
+                                            schemaCh -> schemaCh.changeSchema(
+                                                ByteUtils.toBytes(
+                                                    SchemaService.prepareSchemaDescriptor(
+                                                        ((ExtendedTableView)ch).schemas().size(),
+                                                        ch
                                                     )
                                                 )
                                             )
-                                        );
-                                }
-                            )
+                                        )
+                                    );
+                            }
                         )
-                        .get();
-                    // TODO sanpwc: Consider using exceptionally here instead of synchronous waite.
-                }
-                catch (InterruptedException | ExecutionException e) {
-                    LOG.error("Table wasn't created [name=" + name + ']', e);
+                    )
+                    .exceptionally(throwable -> {
+                        LOG.error("Table wasn't created [name=" + name + ']', throwable);
 
-                    removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(e));
-                }
+                        removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(throwable));
+
+                        return null;
+                    });
             }
         });
 
@@ -470,14 +462,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
         });
 
-        try {
-            clusterCfgMgr.configurationRegistry()
-                .getConfiguration(TablesConfiguration.KEY).tables().change(ch -> {
+        clusterCfgMgr.configurationRegistry()
+            .getConfiguration(TablesConfiguration.KEY).tables()
+            .change(ch -> {
                 ch.createOrUpdate(name, tableChange);
-
-                ch.createOrUpdate(name, tblCh -> {
+                ch.createOrUpdate(name, tblCh ->
                     ((ExtendedTableChange)tblCh).changeSchemas(
-                        schemasCh -> {
+                        schemasCh ->
                             schemasCh.createOrUpdate(
                                 String.valueOf(schemasCh.size() + 1),
                                 schemaCh -> schemaCh.changeSchema(
@@ -488,18 +479,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         )
                                     )
                                 )
-                            );
-                        }
-                    );
-                });
-            }).get();
+                            )
+                    ));
+            })
+            .exceptionally(throwable -> {
+                LOG.error("Table wasn't updated [name=" + name + ']', throwable);
 
-        }
-        catch (InterruptedException | ExecutionException e) {
-            LOG.error("Table wasn't created [name=" + name + ']', e);
+                tblFut.completeExceptionally(throwable);
 
-            tblFut.completeExceptionally(e);
-        }
+                return null;
+            });
 
         return tblFut;
     }
@@ -511,7 +500,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> dropTableAsync(String name) {
-        // TODO sanpwc: review and refactor if necessary.
         CompletableFuture<Void> dropTblFut = new CompletableFuture<>();
 
         EventListener<TableEventParameters> clo = new EventListener<>() {
@@ -548,19 +536,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 removeListener(TableEvent.DROP, clo, null);
         }
         else {
-            try {
-                clusterCfgMgr
-                    .configurationRegistry()
-                    .getConfiguration(TablesConfiguration.KEY)
-                    .tables()
-                    .change(change -> change.delete(name))
-                    .get();
-            }
-            catch (InterruptedException | ExecutionException e) {
-                LOG.error("Table wasn't dropped [name=" + name + ']', e);
+            clusterCfgMgr
+                .configurationRegistry()
+                .getConfiguration(TablesConfiguration.KEY)
+                .tables()
+                .change(change -> change.delete(name))
+                .exceptionally(throwable -> {
+                    LOG.error("Table wasn't dropped [name=" + name + ']', throwable);
 
-                removeListener(TableEvent.DROP, clo, new IgniteInternalCheckedException(e));
-            }
+                    removeListener(TableEvent.DROP, clo, new IgniteInternalCheckedException(throwable));
+
+                    return null;
+                });
         }
 
         return dropTblFut;
