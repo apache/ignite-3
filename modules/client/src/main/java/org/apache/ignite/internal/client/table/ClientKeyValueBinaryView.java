@@ -163,7 +163,13 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> removeAsync(@NotNull Tuple key, @NotNull Tuple val) {
-        return null;
+        Objects.requireNonNull(key);
+        Objects.requireNonNull(val);
+
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_DELETE_EXACT,
+                (s, w) -> tbl.writeKvTuple(key, val, s, w, false),
+                ClientMessageUnpacker::unpackBoolean);
     }
 
     /** {@inheritDoc} */
