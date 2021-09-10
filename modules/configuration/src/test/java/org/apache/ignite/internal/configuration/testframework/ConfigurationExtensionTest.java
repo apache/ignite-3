@@ -25,7 +25,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Test basic scenarios of {@link ConfigurationExtension}
+ * Test basic scenarios of {@link ConfigurationExtension}.
  */
 @ExtendWith(ConfigurationExtension.class)
 class ConfigurationExtensionTest {
