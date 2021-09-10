@@ -196,6 +196,7 @@ public class IgniteImpl implements Ignite {
             clusterCfgMgr,
             raftMgr,
             baselineMgr,
+            metaStorageMgr,
             getPartitionsStorePath(workDir)
         );
 

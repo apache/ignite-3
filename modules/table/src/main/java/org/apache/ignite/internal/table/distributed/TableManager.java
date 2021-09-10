@@ -22,6 +22,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -46,9 +47,13 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableChange;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
 import org.apache.ignite.internal.configuration.schema.SchemaView;
+import org.apache.ignite.internal.configuration.tree.NamedListNode;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaService;
@@ -62,6 +67,9 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -86,6 +94,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** */
     private final int INITIAL_SCHEMA_VERSION = 1;
 
+    /** Public prefix for metastorage. */
+    // TODO: IGNITE-15412 Remove after implementation. Configuration manager will be used to retrieve distributed values
+    // TODO: instead of metastorage manager.
+    private static final String PUBLIC_PREFIX = "dst-cfg.table.tables.";
+
     /** */
     private static final IgniteUuidGenerator TABLE_ID_GENERATOR = new IgniteUuidGenerator(UUID.randomUUID(), 0);
 
@@ -97,6 +110,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** Baseline manager. */
     private final BaselineManager baselineMgr;
+
+    // TODO: IGNITE-15412 Remove after implementation. Configuration manager will be used to retrieve distributed values
+    // TODO: instead of metastorage manager.
+    /** Meta storage service. */
+    private final MetaStorageManager metaStorageMgr;
 
     /** Partitions store directory. */
     private final Path partitionsStoreDir;
@@ -140,17 +158,20 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param clusterCfgMgr Cluster configuration manager.
      * @param raftMgr Raft manager.
      * @param baselineMgr Baseline manager.
+     * @param metaStorageMgr Meta storage manager.
      * @param partitionsStoreDir Partitions store directory.
      */
     public TableManager(
         ConfigurationManager clusterCfgMgr,
         Loza raftMgr,
         BaselineManager baselineMgr,
+        MetaStorageManager metaStorageMgr,
         Path partitionsStoreDir
     ) {
         this.clusterCfgMgr = clusterCfgMgr;
         this.raftMgr = raftMgr;
         this.baselineMgr = baselineMgr;
+        this.metaStorageMgr = metaStorageMgr;
         this.partitionsStoreDir = partitionsStoreDir;
     }
 
@@ -626,13 +647,52 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @return A set of table names.
      */
+    // TODO: IGNITE-15412 Configuration manager will be used to retrieve distributed values
+    // TODO: instead of metastorage manager. That will automatically resolve several bugs of current implementation.
     private Set<String> tableNamesConfigured() {
-        // TODO: 01.09.21 Uncomment, properly implement.
-//        return new HashSet<>(clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().
-//            distirbuteValue().namedListKeys());
+        IgniteBiTuple<ByteArray, ByteArray> range = toRange(new ByteArray(PUBLIC_PREFIX));
 
-        return new HashSet<>(clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().
-            value().namedListKeys());
+        Set<String> tableNames = new HashSet<>();
+
+        try (Cursor<Entry> cursor = metaStorageMgr.range(range.get1(), range.get2())) {
+            while (cursor.hasNext()) {
+                Entry entry = cursor.next();
+
+                List<String> keySplit = ConfigurationUtil.split(entry.key().toString());
+
+                if (keySplit.size() == 5 && NamedListNode.NAME.equals(keySplit.get(4))) {
+                    @Nullable byte[] value = entry.value();
+                    if (value != null)
+                        tableNames.add(ByteUtils.fromBytes(value).toString());
+                }
+            }
+        }
+        catch (Exception e) {
+            LOG.error("Can't get table names.", e);
+        }
+
+        return tableNames;
+    }
+
+    /**
+     * Transforms a prefix bytes to range.
+     * This method should be replaced to direct call of range by prefix
+     * in Meta storage manager when it will be implemented.
+     *
+     * @param prefixKey Prefix bytes.
+     * @return Tuple with left and right borders for range.
+     */
+    // TODO: IGNITE-15412 Remove after implementation. Configuration manager will be used to retrieve distributed values
+    // TODO: instead of metastorage manager.
+    private IgniteBiTuple<ByteArray, ByteArray> toRange(ByteArray prefixKey) {
+        var bytes = Arrays.copyOf(prefixKey.bytes(), prefixKey.bytes().length);
+
+        if (bytes[bytes.length - 1] != Byte.MAX_VALUE)
+            bytes[bytes.length - 1]++;
+        else
+            bytes = Arrays.copyOf(bytes, bytes.length + 1);
+
+        return new IgniteBiTuple<>(prefixKey, new ByteArray(bytes));
     }
 
     /** {@inheritDoc} */
