@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -54,6 +55,7 @@ import org.apache.ignite.internal.schema.SchemaService;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorage;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -105,12 +107,32 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Tables. */
     private final Map<IgniteUuid, TableImpl> tablesById = new ConcurrentHashMap<>();
 
-    // TODO sanpwc: Consider using optional here.
-    private final Map<IgniteUuid, CompletableFuture<Table>> createTableIntention = new ConcurrentHashMap<>();
+    /**
+     * tableId -> future that adds an ability to await distributed table creation on local node from within the context
+     * of user's table creation intention.
+     *
+     * In other words, awaiting local {@link TableManager#createTableLocally(String, IgniteUuid, List, SchemaDescriptor)}
+     * from within {@link TableManager#createTableAsync(String, Consumer, boolean)}
+     */
+    private final Map<IgniteUuid, CompletableFuture<Table>> createTblIntention = new ConcurrentHashMap<>();
 
-    private final Map<IgniteUuid, CompletableFuture<Void>> alterTableIntention = new ConcurrentHashMap<>();
+    /**
+     * tableId -> future that adds an ability to await distributed table alter on local node from within the context
+     * of user's table alter intention.
+     *
+     * In other words, awaiting local alter table as a reaction on distributed event
+     * from within {@link TableManager#createTableAsync(String, Consumer, boolean)}
+     */
+    private final Map<IgniteUuid, CompletableFuture<Void>> alterTblIntention = new ConcurrentHashMap<>();
 
-    private final Map<IgniteUuid, CompletableFuture<Void>> dropTableIntention = new ConcurrentHashMap<>();
+    /**
+     * tableId -> future that adds an ability to await distributed table drop on local node from within the context
+     * of user's table drop intention.
+     *
+     * In other words, awaiting local {@link TableManager#dropTableLocally(String, IgniteUuid, List)}
+     * from within {@link TableManager#dropTableAsync(String)}
+     */
+    private final Map<IgniteUuid, CompletableFuture<Void>> dropTblIntention = new ConcurrentHashMap<>();
 
     /**
      * Creates a new table manager.
@@ -291,16 +313,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 fireEvent(TableEvent.CREATE, new TableEventParameters(table), null);
 
-                CompletableFuture<Table> createTblIntentionFut = createTableIntention.get(tblId);
-
-                if (createTblIntentionFut != null)
-                    createTblIntentionFut.complete(table);
+                Optional.ofNullable(createTblIntention.get(tblId)).ifPresent(f -> f.complete(null));
             }
             catch (Exception e) {
-                CompletableFuture<Table> createTblIntentionFut = createTableIntention.get(tblId);
-
-                if (createTblIntentionFut != null)
-                    createTblIntentionFut.completeExceptionally(e);
+                Optional.ofNullable(createTblIntention.get(tblId)).ifPresent(f -> f.completeExceptionally(e));
             }
         });
     }
@@ -325,16 +341,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             fireEvent(TableEvent.DROP, new TableEventParameters(table), null);
 
-            CompletableFuture<Void> dropTblIntentionFut = dropTableIntention.get(tblId);
-
-            if (dropTblIntentionFut != null)
-                dropTblIntentionFut.complete(null);
+            Optional.ofNullable(dropTblIntention.get(tblId)).ifPresent(f -> f.complete(null));
         }
         catch (Exception e) {
-            CompletableFuture<Void> dropTblIntentionFut = dropTableIntention.get(tblId);
-
-            if (dropTblIntentionFut != null)
-                dropTblIntentionFut.completeExceptionally(e);
+            Optional.ofNullable(dropTblIntention.get(tblId)).ifPresent(f -> f.completeExceptionally(e));
         }
     }
 
@@ -397,7 +407,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             else {
                 IgniteUuid tblId = TABLE_ID_GENERATOR.randomUuid();
 
-                createTableIntention.put(tblId, new CompletableFuture<>());
+                createTblIntention.put(tblId, new CompletableFuture<>());
 
                 clusterCfgMgr
                     .configurationRegistry()
@@ -435,13 +445,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             }
                         )
                     )
-                    // TODO sanpwc: Here and within remove and alter consider common exceptionally.
-                    .thenRun(() -> createTableIntention.get(tblId).thenApply(tblFut::complete)
-                        .thenRun(() -> createTableIntention.remove(tblId))
+                    .thenRun(() -> createTblIntention.get(tblId).thenApply(tblFut::complete)
+                        .thenRun(() -> createTblIntention.remove(tblId))
                         .exceptionally(throwable -> {
-                            LOG.error("Table wasn't created [name=" + name + ']', throwable);
-
-                            createTableIntention.remove(tblId);
+                            createTblIntention.remove(tblId);
 
                             tblFut.completeExceptionally(new IgniteException(throwable));
 
@@ -450,7 +457,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     .exceptionally(throwable -> {
                         LOG.error("Table wasn't created [name=" + name + ']', throwable);
 
-                        createTableIntention.remove(tblId);
+                        createTblIntention.remove(tblId);
 
                         tblFut.completeExceptionally(new IgniteException(throwable));
 
@@ -471,53 +478,56 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     @Override public CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange) {
         CompletableFuture<Void> tblFut = new CompletableFuture<>();
 
-        listen(TableEvent.ALTER, new EventListener<>() {
-            @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
-                String tableName = parameters.tableName();
-
-                if (!name.equals(tableName))
-                    return false;
-
-                if (e == null)
-                    tblFut.complete(null);
-                else
-                    tblFut.completeExceptionally(e);
-
-                return true;
+        tableAsync(name, true).thenAccept(tbl -> {
+            if (tbl == null) {
+                tblFut.completeExceptionally(new IgniteException(
+                    LoggerMessageHelper.format("Table already exists [name={}]", name)));
             }
+            else {
+                IgniteUuid tblId = ((InternalTable) tbl).tableId();
 
-            @Override public void remove(@NotNull Throwable e) {
-                tblFut.completeExceptionally(e);
-            }
-        });
+                alterTblIntention.put(tblId, new CompletableFuture<>());
 
-        clusterCfgMgr.configurationRegistry()
-            .getConfiguration(TablesConfiguration.KEY).tables()
-            .change(ch -> {
-                ch.createOrUpdate(name, tableChange);
-                ch.createOrUpdate(name, tblCh ->
-                    ((ExtendedTableChange)tblCh).changeSchemas(
-                        schemasCh ->
-                            schemasCh.createOrUpdate(
-                                String.valueOf(schemasCh.size() + 1),
-                                schemaCh -> schemaCh.changeSchema(
-                                    ByteUtils.toBytes(
-                                        SchemaService.prepareSchemaDescriptor(
-                                            ((ExtendedTableView)tblCh).schemas().size(),
-                                            tblCh
+                clusterCfgMgr.configurationRegistry()
+                    .getConfiguration(TablesConfiguration.KEY).tables()
+                    .change(ch -> {
+                        ch.createOrUpdate(name, tableChange);
+                        ch.createOrUpdate(name, tblCh ->
+                            ((ExtendedTableChange)tblCh).changeSchemas(
+                                schemasCh ->
+                                    schemasCh.createOrUpdate(
+                                        String.valueOf(schemasCh.size() + 1),
+                                        schemaCh -> schemaCh.changeSchema(
+                                            ByteUtils.toBytes(
+                                                SchemaService.prepareSchemaDescriptor(
+                                                    ((ExtendedTableView)tblCh).schemas().size(),
+                                                    tblCh
+                                                )
+                                            )
                                         )
                                     )
-                                )
-                            )
-                    ));
-            })
-            .exceptionally(throwable -> {
-                LOG.error("Table wasn't updated [name=" + name + ']', throwable);
+                            ));
+                    })
+                    .thenRun(() -> alterTblIntention.get(tblId).thenApply(tblFut::complete)
+                        .thenRun(() -> alterTblIntention.remove(tblId))
+                        .exceptionally(throwable -> {
+                            alterTblIntention.remove(tblId);
 
-                tblFut.completeExceptionally(throwable);
+                            tblFut.completeExceptionally(new IgniteException(throwable));
 
-                return null;
-            });
+                            return null;
+                        }))
+                    .exceptionally(throwable -> {
+                        LOG.error("Table wasn't altered [name=" + name + ']', throwable);
+
+                        alterTblIntention.remove(tblId);
+
+                        tblFut.completeExceptionally(new IgniteException(throwable));
+
+                        return null;
+                    });
+            }
+        });
 
         return tblFut;
     }
@@ -539,7 +549,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             else {
                 IgniteUuid tblId = ((TableImpl) tbl).tableId();
 
-                dropTableIntention.putIfAbsent(tblId, new CompletableFuture<>());
+                dropTblIntention.putIfAbsent(tblId, new CompletableFuture<>());
 
                 clusterCfgMgr
                     .configurationRegistry()
@@ -547,15 +557,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     .tables()
                     .change(change -> change.delete(name))
                     .thenRun(() -> {
-                        CompletableFuture<Void> dropTblIntentionFut = dropTableIntention.get(tblId);
+                        // TODO sanpwc: Refactor.
+                        CompletableFuture<Void> dropTblIntentionFut = dropTblIntention.get(tblId);
 
                         if (dropTblIntentionFut != null)
                             dropTblIntentionFut.thenRun(() -> dropTblFut.complete(null))
-                                .thenRun(() -> createTableIntention.remove(tblId))
+                                .thenRun(() -> createTblIntention.remove(tblId))
                                 .exceptionally(throwable -> {
-                                    LOG.error("Table wasn't dropped [name=" + name + ']', throwable);
-
-                                    createTableIntention.remove(tblId);
+                                    createTblIntention.remove(tblId);
 
                                     dropTblFut.completeExceptionally(new IgniteException(throwable));
 
@@ -568,7 +577,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     .exceptionally(throwable -> {
                         LOG.error("Table wasn't dropped [name=" + name + ']', throwable);
 
-                        createTableIntention.remove(tblId);
+                        createTblIntention.remove(tblId);
 
                         dropTblFut.completeExceptionally(new IgniteException(throwable));
 
