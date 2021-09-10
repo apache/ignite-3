@@ -17,19 +17,19 @@
 
 package org.apache.ignite.schema;
 
-import org.apache.ignite.internal.schema.definition.builder.HashIndexBuilderImpl;
-import org.apache.ignite.internal.schema.definition.builder.PartialIndexBuilderImpl;
-import org.apache.ignite.internal.schema.definition.builder.PrimaryKeyBuilderImpl;
-import org.apache.ignite.internal.schema.definition.builder.SortedIndexBuilderImpl;
-import org.apache.ignite.internal.schema.definition.builder.TableColumnBuilderImpl;
+import org.apache.ignite.internal.schema.definition.builder.ColumnDefinitionBuilderImpl;
+import org.apache.ignite.internal.schema.definition.builder.HashIndexDefinitionBuilderImpl;
+import org.apache.ignite.internal.schema.definition.builder.PartialIndexDefinitionBuilderImpl;
+import org.apache.ignite.internal.schema.definition.builder.PrimaryKeyDefinitionBuilderImpl;
+import org.apache.ignite.internal.schema.definition.builder.SortedIndexDefinitionBuilderImpl;
 import org.apache.ignite.internal.schema.definition.builder.TableSchemaBuilderImpl;
 import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableSchema;
-import org.apache.ignite.schema.definition.builder.ColumnBuilder;
-import org.apache.ignite.schema.definition.builder.HashIndexBuilder;
-import org.apache.ignite.schema.definition.builder.PartialIndexBuilder;
-import org.apache.ignite.schema.definition.builder.PrimaryKeyBuilder;
-import org.apache.ignite.schema.definition.builder.SortedIndexBuilder;
+import org.apache.ignite.schema.definition.TableDefinition;
+import org.apache.ignite.schema.definition.builder.ColumnDefinitionBuilder;
+import org.apache.ignite.schema.definition.builder.HashIndexDefinitionBuilder;
+import org.apache.ignite.schema.definition.builder.PartialIndexDefinitionBuilder;
+import org.apache.ignite.schema.definition.builder.PrimaryKeyDefinitionBuilder;
+import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.TableSchemaBuilder;
 
 /**
@@ -45,7 +45,7 @@ public final class SchemaBuilders {
      * @param valueClass Value class.
      * @return Table descriptor for given key-value pair.
      */
-    public static TableSchema buildSchema(String schemaName, String tableName, Class<?> keyClass, Class<?> valueClass) {
+    public static TableDefinition buildSchema(String schemaName, String tableName, Class<?> keyClass, Class<?> valueClass) {
         // TODO IGNITE-13749: implement schema generation from classes.
 
         return null;
@@ -69,8 +69,8 @@ public final class SchemaBuilders {
      * @param type Column type.
      * @return Column builder.
      */
-    public static ColumnBuilder column(String name, ColumnType type) {
-        return new TableColumnBuilderImpl(name, type);
+    public static ColumnDefinitionBuilder column(String name, ColumnType type) {
+        return new ColumnDefinitionBuilderImpl(name, type);
     }
 
     /**
@@ -78,8 +78,8 @@ public final class SchemaBuilders {
      *
      * @return Primary key builder.
      */
-    public static PrimaryKeyBuilder primaryKey() {
-        return new PrimaryKeyBuilderImpl();
+    public static PrimaryKeyDefinitionBuilder primaryKey() {
+        return new PrimaryKeyDefinitionBuilderImpl();
     }
 
     /**
@@ -88,8 +88,8 @@ public final class SchemaBuilders {
      * @param name Index name.
      * @return Sorted index builder.
      */
-    public static SortedIndexBuilder sortedIndex(String name) {
-        return new SortedIndexBuilderImpl(name);
+    public static SortedIndexDefinitionBuilder sortedIndex(String name) {
+        return new SortedIndexDefinitionBuilderImpl(name);
     }
 
     /**
@@ -98,8 +98,8 @@ public final class SchemaBuilders {
      * @param name Index name.
      * @return Partial index builder.
      */
-    public static PartialIndexBuilder partialIndex(String name) {
-        return new PartialIndexBuilderImpl(name);
+    public static PartialIndexDefinitionBuilder partialIndex(String name) {
+        return new PartialIndexDefinitionBuilderImpl(name);
     }
 
     /**
@@ -108,8 +108,8 @@ public final class SchemaBuilders {
      * @param name Index name.
      * @return Hash index builder.
      */
-    public static HashIndexBuilder hashIndex(String name) {
-        return new HashIndexBuilderImpl(name);
+    public static HashIndexDefinitionBuilder hashIndex(String name) {
+        return new HashIndexDefinitionBuilderImpl(name);
     }
 
     // Stub.

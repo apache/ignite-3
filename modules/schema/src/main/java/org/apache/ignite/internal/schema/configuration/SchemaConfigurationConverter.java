@@ -45,24 +45,24 @@ import org.apache.ignite.configuration.schemas.table.TableIndexChange;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesChange;
-import org.apache.ignite.internal.schema.definition.ColumnImpl;
-import org.apache.ignite.internal.schema.definition.TableSchemaImpl;
-import org.apache.ignite.internal.schema.definition.index.HashIndexImpl;
-import org.apache.ignite.internal.schema.definition.index.PartialIndexImpl;
-import org.apache.ignite.internal.schema.definition.index.PrimaryKeyImpl;
-import org.apache.ignite.internal.schema.definition.index.SortedIndexColumnImpl;
-import org.apache.ignite.internal.schema.definition.index.SortedIndexImpl;
-import org.apache.ignite.schema.definition.Column;
+import org.apache.ignite.internal.schema.definition.ColumnDefinitionImpl;
+import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
+import org.apache.ignite.internal.schema.definition.index.HashIndexDefinitionImpl;
+import org.apache.ignite.internal.schema.definition.index.PartialIndexDefinitionImpl;
+import org.apache.ignite.internal.schema.definition.index.PrimaryKeyDefinitionImpl;
+import org.apache.ignite.internal.schema.definition.index.SortedIndexColumnDefinitionImpl;
+import org.apache.ignite.internal.schema.definition.index.SortedIndexDefinitionImpl;
+import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.PrimaryKey;
-import org.apache.ignite.schema.definition.TableSchema;
-import org.apache.ignite.schema.definition.index.HashIndex;
-import org.apache.ignite.schema.definition.index.Index;
-import org.apache.ignite.schema.definition.index.IndexColumn;
-import org.apache.ignite.schema.definition.index.PartialIndex;
+import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
+import org.apache.ignite.schema.definition.TableDefinition;
+import org.apache.ignite.schema.definition.index.HashIndexDefinition;
+import org.apache.ignite.schema.definition.index.IndexColumnDefinition;
+import org.apache.ignite.schema.definition.index.IndexDefinition;
+import org.apache.ignite.schema.definition.index.PartialIndexDefinition;
 import org.apache.ignite.schema.definition.index.SortOrder;
-import org.apache.ignite.schema.definition.index.SortedIndex;
-import org.apache.ignite.schema.definition.index.SortedIndexColumn;
+import org.apache.ignite.schema.definition.index.SortedIndexColumnDefinition;
+import org.apache.ignite.schema.definition.index.SortedIndexDefinition;
 
 /**
  * Configuration to schema and vice versa converter.
@@ -109,7 +109,7 @@ public class SchemaConfigurationConverter {
      * @param colInit IndexColumnChange to fulfill.
      * @return IndexColumnChange to get result from.
      */
-    public static IndexColumnChange convert(SortedIndexColumn col, IndexColumnChange colInit) {
+    public static IndexColumnChange convert(SortedIndexColumnDefinition col, IndexColumnChange colInit) {
         colInit.changeName(col.name());
 
         colInit.changeAsc(col.sortOrder() == SortOrder.ASC);
@@ -123,8 +123,8 @@ public class SchemaConfigurationConverter {
      * @param colCfg IndexColumnView.
      * @return SortedIndexColumn.
      */
-    public static SortedIndexColumn convert(IndexColumnView colCfg) {
-        return new SortedIndexColumnImpl(colCfg.name(), colCfg.asc() ? SortOrder.ASC : SortOrder.DESC);
+    public static SortedIndexColumnDefinition convert(IndexColumnView colCfg) {
+        return new SortedIndexColumnDefinitionImpl(colCfg.name(), colCfg.asc() ? SortOrder.ASC : SortOrder.DESC);
     }
 
     /**
@@ -134,22 +134,22 @@ public class SchemaConfigurationConverter {
      * @param idxChg TableIndexChange to fulfill.
      * @return TableIndexChange to get result from.
      */
-    public static TableIndexChange convert(Index idx, TableIndexChange idxChg) {
+    public static TableIndexChange convert(IndexDefinition idx, TableIndexChange idxChg) {
         idxChg.changeName(idx.name());
         idxChg.changeType(idx.type());
 
         switch (idx.type().toUpperCase()) {
             case HASH_TYPE:
-                HashIndex hashIdx = (HashIndex)idx;
+                HashIndexDefinition hashIdx = (HashIndexDefinition)idx;
 
-                String[] colNames = hashIdx.columns().stream().map(IndexColumn::name).toArray(String[]::new);
+                String[] colNames = hashIdx.columns().stream().map(IndexColumnDefinition::name).toArray(String[]::new);
 
                 idxChg.changeColNames(colNames);
 
                 break;
 
             case PARTIAL_TYPE:
-                PartialIndex partIdx = (PartialIndex)idx;
+                PartialIndexDefinition partIdx = (PartialIndexDefinition)idx;
 
                 idxChg.changeUniq(partIdx.unique());
                 idxChg.changeExpr(partIdx.expr());
@@ -157,20 +157,20 @@ public class SchemaConfigurationConverter {
                 idxChg.changeColumns(colsChg -> {
                     int colIdx = 0;
 
-                    for (SortedIndexColumn col : partIdx.columns())
+                    for (SortedIndexColumnDefinition col : partIdx.columns())
                         colsChg.create(String.valueOf(colIdx++), colInit -> convert(col, colInit));
                 });
 
                 break;
 
             case SORTED_TYPE:
-                SortedIndex sortIdx = (SortedIndex)idx;
+                SortedIndexDefinition sortIdx = (SortedIndexDefinition)idx;
                 idxChg.changeUniq(sortIdx.unique());
 
                 idxChg.changeColumns(colsInit -> {
                     int colIdx = 0;
 
-                    for (SortedIndexColumn col : sortIdx.columns())
+                    for (SortedIndexColumnDefinition col : sortIdx.columns())
                         colsInit.create(String.valueOf(colIdx++), colInit -> convert(col, colInit));
                 });
 
@@ -189,7 +189,7 @@ public class SchemaConfigurationConverter {
      * @param idxView TableIndexView.
      * @return TableIndex.
      */
-    public static Index convert(TableIndexView idxView) {
+    public static IndexDefinition convert(TableIndexView idxView) {
         String name = idxView.name();
         String type = idxView.type();
 
@@ -197,32 +197,32 @@ public class SchemaConfigurationConverter {
             case HASH_TYPE:
                 String[] hashCols = idxView.colNames();
 
-                return new HashIndexImpl(name, hashCols);
+                return new HashIndexDefinitionImpl(name, hashCols);
 
             case SORTED_TYPE:
-                SortedMap<Integer, SortedIndexColumn> sortedCols = new TreeMap<>();
+                SortedMap<Integer, SortedIndexColumnDefinition> sortedCols = new TreeMap<>();
 
                 for (String key : idxView.columns().namedListKeys()) {
-                    SortedIndexColumn col = convert(idxView.columns().get(key));
+                    SortedIndexColumnDefinition col = convert(idxView.columns().get(key));
 
                     sortedCols.put(Integer.valueOf(key), col);
                 }
 
-                return new SortedIndexImpl(name, new ArrayList<>(sortedCols.values()), idxView.uniq());
+                return new SortedIndexDefinitionImpl(name, new ArrayList<>(sortedCols.values()), idxView.uniq());
 
             case PARTIAL_TYPE:
                 String expr = idxView.expr();
 
                 NamedListView<? extends IndexColumnView> colsView = idxView.columns();
-                SortedMap<Integer, SortedIndexColumn> partialCols = new TreeMap<>();
+                SortedMap<Integer, SortedIndexColumnDefinition> partialCols = new TreeMap<>();
 
                 for (String key : idxView.columns().namedListKeys()) {
-                    SortedIndexColumn col = convert(colsView.get(key));
+                    SortedIndexColumnDefinition col = convert(colsView.get(key));
 
                     partialCols.put(Integer.valueOf(key), col);
                 }
 
-                return new PartialIndexImpl(name, new ArrayList<>(partialCols.values()), expr, idxView.uniq());
+                return new PartialIndexDefinitionImpl(name, new ArrayList<>(partialCols.values()), expr, idxView.uniq());
 
             default:
                 throw new IllegalArgumentException("Unknown type " + type);
@@ -235,8 +235,8 @@ public class SchemaConfigurationConverter {
      * @param primaryKey PrimaryKeyView.
      * @return TableIn.
      */
-    public static PrimaryKey convert(PrimaryKeyView primaryKey) {
-        return new PrimaryKeyImpl(Set.of(primaryKey.columns()), Set.of(primaryKey.affinityColumns()));
+    public static PrimaryKeyDefinition convert(PrimaryKeyView primaryKey) {
+        return new PrimaryKeyDefinitionImpl(Set.of(primaryKey.columns()), Set.of(primaryKey.affinityColumns()));
     }
 
     /**
@@ -356,7 +356,7 @@ public class SchemaConfigurationConverter {
      * @param colChg Column
      * @return ColumnChange to get result from.
      */
-    public static ColumnChange convert(Column col, ColumnChange colChg) {
+    public static ColumnChange convert(ColumnDefinition col, ColumnChange colChg) {
         colChg.changeName(col.name());
         colChg.changeType(colTypeInit -> convert(col.type(), colTypeInit));
 
@@ -374,8 +374,8 @@ public class SchemaConfigurationConverter {
      * @param colView Column view.
      * @return Column.
      */
-    public static Column convert(ColumnView colView) {
-        return new ColumnImpl(
+    public static ColumnDefinition convert(ColumnView colView) {
+        return new ColumnDefinitionImpl(
             colView.name(),
             convert(colView.type()),
             colView.nullable(),
@@ -389,29 +389,29 @@ public class SchemaConfigurationConverter {
      * @param tblChg Change to fulfill.
      * @return TableChange to get result from.
      */
-    public static TableChange convert(TableSchema tbl, TableChange tblChg) {
+    public static TableChange convert(TableDefinition tbl, TableChange tblChg) {
         tblChg.changeName(tbl.canonicalName());
 
         tblChg.changeIndices(idxsChg -> {
             int idxIdx = 0;
 
-            for (Index idx : tbl.indices())
+            for (IndexDefinition idx : tbl.indices())
                 idxsChg.create(String.valueOf(idxIdx++), idxInit -> convert(idx, idxInit));
         });
 
         tblChg.changeColumns(colsChg -> {
             int colIdx = 0;
 
-            for (Column col : tbl.keyColumns())
+            for (ColumnDefinition col : tbl.keyColumns())
                 colsChg.create(String.valueOf(colIdx++), colChg -> convert(col, colChg));
 
-            for (Column col : tbl.valueColumns())
+            for (ColumnDefinition col : tbl.valueColumns())
                 colsChg.create(String.valueOf(colIdx++), colChg -> convert(col, colChg));
         });
 
         tblChg.changePrimaryKey(pkCng -> {
-            pkCng.changeColumns(tbl.keyColumns().stream().map(Column::name).toArray(String[]::new))
-                .changeAffinityColumns(tbl.affinityColumns().stream().map(Column::name).toArray(String[]::new));
+            pkCng.changeColumns(tbl.keyColumns().stream().map(ColumnDefinition::name).toArray(String[]::new))
+                .changeAffinityColumns(tbl.affinityColumns().stream().map(ColumnDefinition::name).toArray(String[]::new));
         });
 
         return tblChg;
@@ -423,7 +423,7 @@ public class SchemaConfigurationConverter {
      * @param tblCfg TableConfiguration to convert.
      * @return Table schema.
      */
-    public static TableSchema convert(TableConfiguration tblCfg) {
+    public static TableDefinition convert(TableConfiguration tblCfg) {
         return convert(tblCfg.value());
     }
 
@@ -433,7 +433,7 @@ public class SchemaConfigurationConverter {
      * @param tblView TableView to convert.
      * @return Table schema.
      */
-    public static TableSchemaImpl convert(TableView tblView) {
+    public static TableDefinitionImpl convert(TableView tblView) {
         String canonicalName = tblView.name();
         int sepPos = canonicalName.indexOf('.');
         String schemaName = canonicalName.substring(0, sepPos);
@@ -441,33 +441,33 @@ public class SchemaConfigurationConverter {
 
         NamedListView<? extends ColumnView> colsView = tblView.columns();
 
-        SortedMap<Integer, Column> columns = new TreeMap<>();
+        SortedMap<Integer, ColumnDefinition> columns = new TreeMap<>();
 
         for (String key : colsView.namedListKeys()) {
             ColumnView colView = colsView.get(key);
-            Column col = convert(colView);
+            ColumnDefinition col = convert(colView);
 
             columns.put(Integer.valueOf(key), col);
         }
 
         NamedListView<? extends TableIndexView> idxsView = tblView.indices();
 
-        Map<String, Index> indices = new HashMap<>(idxsView.size());
+        Map<String, IndexDefinition> indices = new HashMap<>(idxsView.size());
 
         for (String key : idxsView.namedListKeys()) {
             TableIndexView idxView = idxsView.get(key);
-            Index idx = convert(idxView);
+            IndexDefinition idx = convert(idxView);
 
             indices.put(idx.name(), idx);
         }
 
-        LinkedHashMap<String, Column> colsMap = new LinkedHashMap<>(colsView.size());
+        LinkedHashMap<String, ColumnDefinition> colsMap = new LinkedHashMap<>(colsView.size());
 
         columns.forEach((i, v) -> colsMap.put(v.name(), v));
 
-        PrimaryKey primaryKey = convert(tblView.primaryKey());
+        PrimaryKeyDefinition primaryKey = convert(tblView.primaryKey());
 
-        return new TableSchemaImpl(schemaName, tableName, colsMap, primaryKey, indices);
+        return new TableDefinitionImpl(schemaName, tableName, colsMap, primaryKey, indices);
     }
 
     /**
@@ -477,7 +477,7 @@ public class SchemaConfigurationConverter {
      * @param tblsChange Tables change to fulfill.
      * @return TablesChange to get result from.
      */
-    public static TablesChange createTable(TableSchema tbl, TablesChange tblsChange) {
+    public static TablesChange createTable(TableDefinition tbl, TablesChange tblsChange) {
         return tblsChange.changeTables(tblsChg -> tblsChg.create(tbl.canonicalName(), tblChg -> convert(tbl, tblChg)));
     }
 
@@ -488,7 +488,7 @@ public class SchemaConfigurationConverter {
      * @param tblsChange TablesChange change to fulfill.
      * @return TablesChange to get result from.
      */
-    public static TablesChange dropTable(TableSchema tbl, TablesChange tblsChange) {
+    public static TablesChange dropTable(TableDefinition tbl, TablesChange tblsChange) {
         return tblsChange.changeTables(schmTblChange -> schmTblChange.delete(tbl.canonicalName()));
     }
 
@@ -499,7 +499,7 @@ public class SchemaConfigurationConverter {
      * @param tblChange TableChange to fulfill.
      * @return TableChange to get result from.
      */
-    public static TableChange addIndex(Index idx, TableChange tblChange) {
+    public static TableChange addIndex(IndexDefinition idx, TableChange tblChange) {
         return tblChange.changeIndices(idxsChg -> idxsChg.create(idx.name(), idxChg -> convert(idx, idxChg)));
     }
 
@@ -521,7 +521,7 @@ public class SchemaConfigurationConverter {
      * @param tblChange TableChange to fulfill.
      * @return TableChange to get result from.
      */
-    public static TableChange addColumn(Column column, TableChange tblChange) {
+    public static TableChange addColumn(ColumnDefinition column, TableChange tblChange) {
         return tblChange.changeColumns(colsChg -> colsChg.create(column.name(), colChg -> convert(column, colChg)));
     }
 

@@ -21,7 +21,7 @@ import java.util.Map;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.SchemaObject;
-import org.apache.ignite.schema.definition.TableSchema;
+import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.schema.definition.builder.TableSchemaBuilder;
 import org.junit.jupiter.api.Test;
 
@@ -86,7 +86,7 @@ public class SchemaConfigurationTest {
      */
     @Test
     public void testSchemaModification() {
-        final TableSchema table = SchemaBuilders.tableBuilder("PUBLIC", "table1")
+        final TableDefinition table = SchemaBuilders.tableBuilder("PUBLIC", "table1")
             .columns(
                 // Declaring columns in user order.
                 SchemaBuilders.column("id", ColumnType.INT64).build(),

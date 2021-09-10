@@ -18,10 +18,10 @@
 package org.apache.ignite.schema.definition.builder;
 
 import java.util.Map;
-import org.apache.ignite.schema.definition.Column;
-import org.apache.ignite.schema.definition.PrimaryKey;
-import org.apache.ignite.schema.definition.TableSchema;
-import org.apache.ignite.schema.definition.index.Index;
+import org.apache.ignite.schema.definition.ColumnDefinition;
+import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
+import org.apache.ignite.schema.definition.TableDefinition;
+import org.apache.ignite.schema.definition.index.IndexDefinition;
 
 /**
  * Table descriptor builder.
@@ -33,18 +33,18 @@ public interface TableSchemaBuilder extends SchemaObjectBuilder {
      * @param columns Table columns.
      * @return {@code This} for chaining.
      */
-    TableSchemaBuilder columns(Column... columns);
+    TableSchemaBuilder columns(ColumnDefinition... columns);
 
     /**
      * Adds an index.
      *
-     * @param index Table index.
+     * @param indexDefinition Table index.
      * @return {@code This} for chaining.
      */
-    TableSchemaBuilder withIndex(Index index);
+    TableSchemaBuilder withIndex(IndexDefinition indexDefinition);
 
     /**
-     * Shortcut method for adding {@link PrimaryKey} of single column.
+     * Shortcut method for adding {@link PrimaryKeyDefinition} of single column.
      *
      * @param colName Key column name.
      * @return {@code This} for chaining.
@@ -54,10 +54,10 @@ public interface TableSchemaBuilder extends SchemaObjectBuilder {
     /**
      * Adds primary key constraint to the table.
      *
-     * @param primaryKey Primary key.
+     * @param primaryKeyDefinition Primary key.
      * @return {@code This} for chaining.
      */
-    TableSchemaBuilder withPrimaryKey(PrimaryKey primaryKey);
+    TableSchemaBuilder withPrimaryKey(PrimaryKeyDefinition primaryKeyDefinition);
 
     /** {@inheritDoc} */
     @Override TableSchemaBuilder withHints(Map<String, String> hints);
@@ -67,6 +67,6 @@ public interface TableSchemaBuilder extends SchemaObjectBuilder {
      *
      * @return Table.
      */
-    @Override TableSchema build();
+    @Override TableDefinition build();
 
 }

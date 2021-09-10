@@ -24,15 +24,15 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.schema.definition.TableSchemaImpl;
+import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.Column;
-import org.apache.ignite.schema.definition.PrimaryKey;
-import org.apache.ignite.schema.definition.TableSchema;
+import org.apache.ignite.schema.definition.ColumnDefinition;
+import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
+import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.schema.definition.builder.TableSchemaBuilder;
-import org.apache.ignite.schema.definition.index.ColumnarIndex;
-import org.apache.ignite.schema.definition.index.Index;
-import org.apache.ignite.schema.definition.index.IndexColumn;
+import org.apache.ignite.schema.definition.index.ColumnarIndexDefinition;
+import org.apache.ignite.schema.definition.index.IndexColumnDefinition;
+import org.apache.ignite.schema.definition.index.IndexDefinition;
 
 /**
  * Table builder.
@@ -45,13 +45,13 @@ public class TableSchemaBuilderImpl implements TableSchemaBuilder {
     private final String tableName;
 
     /** Columns. */
-    private final LinkedHashMap<String, Column> columns = new LinkedHashMap<>();
+    private final LinkedHashMap<String, ColumnDefinition> columns = new LinkedHashMap<>();
 
     /** Indices. */
-    private final Map<String, Index> indices = new HashMap<>();
+    private final Map<String, IndexDefinition> indices = new HashMap<>();
 
     /** Table primary key. */
-    private PrimaryKey primaryKey;
+    private PrimaryKeyDefinition primaryKeyDefinition;
 
     /**
      * Constructor.
@@ -65,8 +65,8 @@ public class TableSchemaBuilderImpl implements TableSchemaBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public TableSchemaBuilderImpl columns(Column... columns) {
-        for (Column column : columns) {
+    @Override public TableSchemaBuilderImpl columns(ColumnDefinition... columns) {
+        for (ColumnDefinition column : columns) {
             if (this.columns.put(column.name(), column) != null)
                 throw new IllegalArgumentException("Column with same name already exists: columnName=" + column.name());
         }
@@ -75,23 +75,23 @@ public class TableSchemaBuilderImpl implements TableSchemaBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public TableSchemaBuilder withIndex(Index index) {
-        if (indices.put(index.name(), index) != null)
-            throw new IllegalArgumentException("Index with same name already exists: " + index.name());
+    @Override public TableSchemaBuilder withIndex(IndexDefinition indexDefinition) {
+        if (indices.put(indexDefinition.name(), indexDefinition) != null)
+            throw new IllegalArgumentException("Index with same name already exists: " + indexDefinition.name());
 
         return this;
     }
 
     /** {@inheritDoc} */
     @Override public TableSchemaBuilder withPrimaryKey(String colName) {
-        primaryKey = SchemaBuilders.primaryKey().withColumns(colName).build();
+        primaryKeyDefinition = SchemaBuilders.primaryKey().withColumns(colName).build();
 
         return this;
     }
 
     /** {@inheritDoc} */
-    @Override public TableSchemaBuilder withPrimaryKey(PrimaryKey primaryKey) {
-        this.primaryKey = primaryKey;
+    @Override public TableSchemaBuilder withPrimaryKey(PrimaryKeyDefinition primaryKeyDefinition) {
+        this.primaryKeyDefinition = primaryKeyDefinition;
 
         return this;
     }
@@ -103,19 +103,19 @@ public class TableSchemaBuilderImpl implements TableSchemaBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public TableSchema build() {
+    @Override public TableDefinition build() {
         assert schemaName != null : "Database schema name must be specified.";
 
-        assert columns.size() > primaryKey.columns().size() : "Key or/and value columns must be defined.";
-        assert primaryKey != null : "Primary key index must be configured.";
+        assert columns.size() > primaryKeyDefinition.columns().size() : "Key or/and value columns must be defined.";
+        assert primaryKeyDefinition != null : "Primary key index must be configured.";
 
-        validateIndices(indices.values(), columns.values(), primaryKey.affinityColumns());
+        validateIndices(indices.values(), columns.values(), primaryKeyDefinition.affinityColumns());
 
-        return new TableSchemaImpl(
+        return new TableDefinitionImpl(
             schemaName,
             tableName,
             columns,
-            primaryKey,
+            primaryKeyDefinition,
             Collections.unmodifiableMap(indices)
         );
     }
@@ -127,20 +127,20 @@ public class TableSchemaBuilderImpl implements TableSchemaBuilder {
      * @param cols Table columns.
      * @param affColNames Affinity columns names.
      */
-    public static void validateIndices(Collection<Index> indices, Collection<Column> cols, Set<String> affColNames) {
-        Set<String> colNames = cols.stream().map(Column::name).collect(Collectors.toSet());
+    public static void validateIndices(Collection<IndexDefinition> indices, Collection<ColumnDefinition> cols, Set<String> affColNames) {
+        Set<String> colNames = cols.stream().map(ColumnDefinition::name).collect(Collectors.toSet());
 
-        for (Index idx : indices) {
-            assert idx instanceof ColumnarIndex : "Only columnar indices are supported.";
+        for (IndexDefinition idx : indices) {
+            assert idx instanceof ColumnarIndexDefinition : "Only columnar indices are supported.";
             // Note: E.g. functional index is not columnar index as it index an expression result only.
 
-            ColumnarIndex idx0 = (ColumnarIndex)idx;
+            ColumnarIndexDefinition idx0 = (ColumnarIndexDefinition)idx;
 
-            if (!idx0.columns().stream().map(IndexColumn::name).allMatch(colNames::contains))
+            if (!idx0.columns().stream().map(IndexColumnDefinition::name).allMatch(colNames::contains))
                 throw new IllegalStateException("Index column must exist in the schema.");
 
             if (idx0.unique() &&
-                    !(idx0.columns().stream().map(IndexColumn::name).allMatch(affColNames::contains)))
+                    !(idx0.columns().stream().map(IndexColumnDefinition::name).allMatch(affColNames::contains)))
                 throw new IllegalStateException("Unique index must contains all affinity columns.");
         }
     }

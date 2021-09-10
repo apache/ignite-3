@@ -24,9 +24,10 @@ import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableSchema;
-import org.apache.ignite.schema.definition.builder.ColumnBuilder;
+import org.apache.ignite.schema.definition.TableDefinition;
+import org.apache.ignite.schema.definition.builder.ColumnDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.TableSchemaBuilder;
 import org.junit.jupiter.api.Test;
 
@@ -46,7 +47,7 @@ public class SchemaDescriptorConverterTest {
     @Test
     public void testComplexPrimaryIndex() {
         TableSchemaBuilder bldr = getBuilder(false, false);
-        TableSchema tblSchm = bldr.withPrimaryKey(
+        TableDefinition tblSchm = bldr.withPrimaryKey(
             SchemaBuilders.primaryKey()
                 .withColumns("INT8", "ID")
                 .build()
@@ -65,7 +66,7 @@ public class SchemaDescriptorConverterTest {
     @Test
     public void testComplexPrimaryIndexWithAffinity() {
         TableSchemaBuilder bldr = getBuilder(false, false);
-        TableSchema tblSchm = bldr.withPrimaryKey(
+        TableDefinition tblSchm = bldr.withPrimaryKey(
             SchemaBuilders.primaryKey()
                 .withColumns("INT8", "ID")
                 .withAffinityColumns("INT8")
@@ -101,7 +102,7 @@ public class SchemaDescriptorConverterTest {
      * @param nullable Nullable flag.
      */
     private void testConvert(boolean nullable) {
-        TableSchema tblSchm = getBuilder(nullable, true).build();
+        TableDefinition tblSchm = getBuilder(nullable, true).build();
 
         SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(UUID.randomUUID(), 1, tblSchm);
 
@@ -133,7 +134,7 @@ public class SchemaDescriptorConverterTest {
      * @return TableSchemaBuilder.
      */
     private TableSchemaBuilder getBuilder(boolean nullable, boolean withPk) {
-        Function<ColumnBuilder, org.apache.ignite.schema.definition.Column> postProcess = builder -> {
+        Function<ColumnDefinitionBuilder, ColumnDefinition> postProcess = builder -> {
             if (nullable)
                 builder.asNullable();
             else

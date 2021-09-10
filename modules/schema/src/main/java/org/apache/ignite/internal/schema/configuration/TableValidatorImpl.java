@@ -26,9 +26,9 @@ import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.schema.definition.TableSchemaImpl;
+import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
 import org.apache.ignite.internal.schema.definition.builder.TableSchemaBuilderImpl;
-import org.apache.ignite.schema.definition.Column;
+import org.apache.ignite.schema.definition.ColumnDefinition;
 
 /**
  * Table schema configuration validator implementation.
@@ -45,15 +45,15 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
             TableView view = list.get(key);
             
             try {
-                TableSchemaImpl tbl = SchemaConfigurationConverter.convert(view);
+                TableDefinitionImpl tbl = SchemaConfigurationConverter.convert(view);
 
                 assert !tbl.keyColumns().isEmpty();
                 assert !tbl.affinityColumns().isEmpty();
 
-                Collection<Column> allColumns = new ArrayList<>(tbl.keyColumns());
+                Collection<ColumnDefinition> allColumns = new ArrayList<>(tbl.keyColumns());
                 allColumns.addAll(tbl.valueColumns());
 
-                TableSchemaBuilderImpl.validateIndices(tbl.indices(), allColumns, tbl.affinityColumns().stream().map(Column::name).collect(Collectors.toSet()));
+                TableSchemaBuilderImpl.validateIndices(tbl.indices(), allColumns, tbl.affinityColumns().stream().map(ColumnDefinition::name).collect(Collectors.toSet()));
             }
             catch (IllegalArgumentException e) {
                 ctx.addIssue(new ValidationIssue("Validator works success by key " + ctx.currentKey() + ". Found "

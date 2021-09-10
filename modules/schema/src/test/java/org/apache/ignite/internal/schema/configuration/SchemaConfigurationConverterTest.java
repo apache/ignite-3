@@ -31,17 +31,17 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableSchema;
-import org.apache.ignite.schema.definition.builder.HashIndexBuilder;
-import org.apache.ignite.schema.definition.builder.PartialIndexBuilder;
-import org.apache.ignite.schema.definition.builder.SortedIndexBuilder;
+import org.apache.ignite.schema.definition.TableDefinition;
+import org.apache.ignite.schema.definition.builder.HashIndexDefinitionBuilder;
+import org.apache.ignite.schema.definition.builder.PartialIndexDefinitionBuilder;
+import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.TableSchemaBuilder;
-import org.apache.ignite.schema.definition.index.HashIndex;
-import org.apache.ignite.schema.definition.index.Index;
-import org.apache.ignite.schema.definition.index.IndexColumn;
-import org.apache.ignite.schema.definition.index.PartialIndex;
+import org.apache.ignite.schema.definition.index.HashIndexDefinition;
+import org.apache.ignite.schema.definition.index.IndexColumnDefinition;
+import org.apache.ignite.schema.definition.index.IndexDefinition;
+import org.apache.ignite.schema.definition.index.PartialIndexDefinition;
 import org.apache.ignite.schema.definition.index.SortOrder;
-import org.apache.ignite.schema.definition.index.SortedIndex;
+import org.apache.ignite.schema.definition.index.SortedIndexDefinition;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -89,7 +89,7 @@ public class SchemaConfigurationConverterTest {
                              SchemaBuilders.column("C", ColumnType.INT8).build()
                          ).withPrimaryKey("COL1");
 
-        TableSchema tbl = tblBuilder.build();
+        TableDefinition tbl = tblBuilder.build();
 
         confRegistry.getConfiguration(TablesConfiguration.KEY).change(
             ch -> SchemaConfigurationConverter.createTable(tbl, ch)
@@ -109,16 +109,16 @@ public class SchemaConfigurationConverterTest {
      */
     @Test
     public void testConvertHashIndex() throws ExecutionException, InterruptedException {
-        HashIndexBuilder builder = SchemaBuilders.hashIndex("testHI")
+        HashIndexDefinitionBuilder builder = SchemaBuilders.hashIndex("testHI")
                                        .withColumns("A", "B", "C")
                                        .withHints(Collections.singletonMap("param", "value"));
-        HashIndex idx = builder.build();
+        HashIndexDefinition idx = builder.build();
 
         getTbl().change(ch -> SchemaConfigurationConverter.addIndex(idx, ch)).get();
 
-        TableSchema tbl = SchemaConfigurationConverter.convert(getTbl().value());
+        TableDefinition tbl = SchemaConfigurationConverter.convert(getTbl().value());
 
-        HashIndex idx2 = (HashIndex)getIdx(idx.name(), tbl.indices());
+        HashIndexDefinition idx2 = (HashIndexDefinition)getIdx(idx.name(), tbl.indices());
 
         assertNotNull(idx2);
         assertEquals("HASH", idx2.type());
@@ -130,18 +130,18 @@ public class SchemaConfigurationConverterTest {
      */
     @Test
     public void testConvertSortedIndex() throws ExecutionException, InterruptedException {
-        SortedIndexBuilder builder = SchemaBuilders.sortedIndex("SIDX");
+        SortedIndexDefinitionBuilder builder = SchemaBuilders.sortedIndex("SIDX");
 
         builder.addIndexColumn("A").asc().done();
         builder.addIndexColumn("B").desc().done();
 
-        SortedIndex idx = builder.build();
+        SortedIndexDefinition idx = builder.build();
 
         getTbl().change(ch -> SchemaConfigurationConverter.addIndex(idx, ch)).get();
 
-        TableSchema tbl = SchemaConfigurationConverter.convert(getTbl().value());
+        TableDefinition tbl = SchemaConfigurationConverter.convert(getTbl().value());
 
-        SortedIndex idx2 = (SortedIndex)getIdx(idx.name(), tbl.indices());
+        SortedIndexDefinition idx2 = (SortedIndexDefinition)getIdx(idx.name(), tbl.indices());
 
         assertNotNull(idx2);
         assertEquals("SORTED", idx2.type());
@@ -157,22 +157,22 @@ public class SchemaConfigurationConverterTest {
      */
     @Test
     public void testUniqIndex() throws ExecutionException, InterruptedException {
-        SortedIndex idx = SchemaBuilders.sortedIndex("pk_sorted")
+        SortedIndexDefinition idx = SchemaBuilders.sortedIndex("pk_sorted")
                               .addIndexColumn("COL1").desc().done()
                               .unique(true)
                               .build();
 
         getTbl().change(ch -> SchemaConfigurationConverter.addIndex(idx, ch)).get();
 
-        TableSchema tbl = SchemaConfigurationConverter.convert(getTbl().value());
+        TableDefinition tbl = SchemaConfigurationConverter.convert(getTbl().value());
 
-        SortedIndex idx2 = (SortedIndex)getIdx(idx.name(), tbl.indices());
+        SortedIndexDefinition idx2 = (SortedIndexDefinition)getIdx(idx.name(), tbl.indices());
 
         assertNotNull(idx2);
         assertEquals("pk_sorted", idx2.name());
         assertEquals("SORTED", idx2.type());
-        assertEquals(idx.columns().stream().map(IndexColumn::name).collect(Collectors.toList()),
-            idx2.columns().stream().map(IndexColumn::name).collect(Collectors.toList()));
+        assertEquals(idx.columns().stream().map(IndexColumnDefinition::name).collect(Collectors.toList()),
+            idx2.columns().stream().map(IndexColumnDefinition::name).collect(Collectors.toList()));
         assertTrue(idx2.unique());
     }
 
@@ -182,16 +182,16 @@ public class SchemaConfigurationConverterTest {
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15483")
     @Test
     public void testUniqueIndexDetection() throws ExecutionException, InterruptedException {
-        SortedIndex idx = SchemaBuilders.sortedIndex("uniq_sorted")
+        SortedIndexDefinition idx = SchemaBuilders.sortedIndex("uniq_sorted")
                               .addIndexColumn("A").done()
                               .addIndexColumn("COL1").desc().done()
                               .build();
 
         getTbl().change(ch -> SchemaConfigurationConverter.addIndex(idx, ch)).get();
 
-        TableSchema tbl = SchemaConfigurationConverter.convert(getTbl().value());
+        TableDefinition tbl = SchemaConfigurationConverter.convert(getTbl().value());
 
-        SortedIndex idx2 = (SortedIndex)getIdx(idx.name(), tbl.indices());
+        SortedIndexDefinition idx2 = (SortedIndexDefinition)getIdx(idx.name(), tbl.indices());
 
         assertNotNull(idx2);
         assertEquals("uniq_sorted", idx2.name());
@@ -211,18 +211,18 @@ public class SchemaConfigurationConverterTest {
      */
     @Test
     public void testPartialIndex() throws ExecutionException, InterruptedException {
-        PartialIndexBuilder builder = SchemaBuilders.partialIndex("TEST");
+        PartialIndexDefinitionBuilder builder = SchemaBuilders.partialIndex("TEST");
 
         builder.addIndexColumn("A").done();
         builder.withExpression("WHERE A > 0");
 
-        PartialIndex idx = builder.build();
+        PartialIndexDefinition idx = builder.build();
 
         getTbl().change(ch -> SchemaConfigurationConverter.addIndex(idx, ch)).get();
 
-        TableSchema tbl = SchemaConfigurationConverter.convert(getTbl().value());
+        TableDefinition tbl = SchemaConfigurationConverter.convert(getTbl().value());
 
-        PartialIndex idx2 = (PartialIndex)getIdx(idx.name(), tbl.indices());
+        PartialIndexDefinition idx2 = (PartialIndexDefinition)getIdx(idx.name(), tbl.indices());
 
         assertNotNull(idx2);
         assertEquals("PARTIAL", idx2.type());
@@ -234,12 +234,12 @@ public class SchemaConfigurationConverterTest {
      */
     @Test
     public void testConvertTable() {
-        TableSchema tbl = tblBuilder.build();
+        TableDefinition tbl = tblBuilder.build();
 
         TableConfiguration tblCfg = confRegistry.getConfiguration(TablesConfiguration.KEY).tables()
                                         .get(tbl.canonicalName());
 
-        TableSchema tbl2 = SchemaConfigurationConverter.convert(tblCfg);
+        TableDefinition tbl2 = SchemaConfigurationConverter.convert(tblCfg);
 
         assertEquals(tbl.canonicalName(), tbl2.canonicalName());
         assertEquals(tbl.indices().size(), tbl2.indices().size());
@@ -264,7 +264,7 @@ public class SchemaConfigurationConverterTest {
      * @param idxs Table indexes.
      * @return Index or {@code null} if there are no index with such name.
      */
-    private Index getIdx(String name, Collection<Index> idxs) {
+    private IndexDefinition getIdx(String name, Collection<IndexDefinition> idxs) {
         return idxs.stream().filter(idx -> name.equals(idx.name())).findAny().orElse(null);
     }
 }

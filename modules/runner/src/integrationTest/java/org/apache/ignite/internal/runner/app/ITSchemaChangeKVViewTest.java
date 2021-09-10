@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.function.Supplier;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.Column;
+import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Tuple;
@@ -182,7 +182,7 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        final Column column = SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValueExpression("default").build();
+        final ColumnDefinition column = SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValueExpression("default").build();
 
         KeyValueBinaryView kvView = grid.get(1).tables().table(TABLE).kvView();
 
