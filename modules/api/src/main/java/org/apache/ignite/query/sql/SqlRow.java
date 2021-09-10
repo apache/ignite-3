@@ -22,8 +22,8 @@ import org.apache.ignite.table.Tuple;
 /**
  * SQL row provides methods to access row data by column name or id.
  *
- * Column description can be retrived from {@link SqlResultSet#metadata()}.
- * @see SqlColumnMeta
+ * Column description can be retrived from {@link ResultSet#metadata()}.
+ * @see ColumnMetadata
  */
 public interface SqlRow extends Tuple {
 //TODO: We extends Tuple here just for short. Do we need smth else?

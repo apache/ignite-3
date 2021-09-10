@@ -19,13 +19,13 @@ package org.apache.ignite.query.sql.async;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.query.sql.SQLException;
-import org.apache.ignite.query.sql.SqlStatement;
+import org.apache.ignite.query.sql.Statement;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * Async Session provides methods for asynchronous query execution.
  */
-public interface AsyncSqlSession {
+public interface AsyncSession {
     /**
      * Executes SQL query in async way.
      *
@@ -34,7 +34,7 @@ public interface AsyncSqlSession {
      * @return Operation future.
      * @throws SQLException If failed.
      */
-    CompletableFuture<AsyncSqlResultSet> executeAsync(String query, Object... arguments);
+    CompletableFuture<AsyncResultSet> executeAsync(String query, Object... arguments);
 
     /**
      * Executes SQL statement in async way.
@@ -42,7 +42,7 @@ public interface AsyncSqlSession {
      * @return Operation future.
      * @throws SQLException If failed.
      */
-    CompletableFuture<AsyncSqlResultSet> executeAsync(SqlStatement statement);
+    CompletableFuture<AsyncResultSet> executeAsync(Statement statement);
 
     /**
      * Executes multi-statement SQL query in async way.
@@ -52,5 +52,6 @@ public interface AsyncSqlSession {
      * @return Operation future.
      * @throws SQLException If failed.
      */
-    CompletableFuture<AsyncSqlMultiResultSet> executeMultiAsync(@NotNull String query, Object... arguments);
+    //TODO: Do we want to support multi-statements in async way?
+    CompletableFuture<AsyncMultiResultSet> executeMultiAsync(@NotNull String query, Object... arguments);
 }

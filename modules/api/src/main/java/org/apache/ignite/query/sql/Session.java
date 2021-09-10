@@ -18,21 +18,22 @@
 package org.apache.ignite.query.sql;
 
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.query.sql.async.AsyncSqlSession;
-import org.apache.ignite.query.sql.reactive.ReactiveSqlSession;
+import org.apache.ignite.query.sql.async.AsyncSession;
+import org.apache.ignite.query.sql.reactive.ReactiveSession;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * SQL Session provides methods for query execution.
  */
-public interface SqlSession extends AsyncSqlSession, ReactiveSqlSession {
+public interface Session extends AsyncSession, ReactiveSession {
     /**
      * Creates transactional SQL session projection with given transaction.
      *
      * @param tx Transaction.
      * @return Transactional projection for the session.
      */
+//TODO: Drop this and add "Session Transaction.wrap(Session)" method.
     SqlTx withTransaction(@NotNull Transaction tx);
 
     /**
@@ -40,6 +41,7 @@ public interface SqlSession extends AsyncSqlSession, ReactiveSqlSession {
      *
      * @return Transactional projection for the session.
      */
+//TODO: Drop this and add "Session Transaction.wrap(Session)" method.
     SqlTx withNewTransaction();
 
     /**
@@ -80,7 +82,7 @@ public interface SqlSession extends AsyncSqlSession, ReactiveSqlSession {
      * @return SQL query results set.
      * @throws SQLException If failed.
      */
-    SqlResultSet execute(@NotNull String query, Object... arguments);
+    ResultSet execute(@NotNull String query, Object... arguments);
 
     /**
      * Executes single SQL statement.
@@ -88,7 +90,7 @@ public interface SqlSession extends AsyncSqlSession, ReactiveSqlSession {
      * @param statement SQL statement to execute.
      * @return SQL query results set.
      */
-    SqlResultSet execute(@NotNull SqlStatement statement);
+    ResultSet execute(@NotNull Statement statement);
 
     /**
      * Executes multi-statement SQL query.
@@ -98,7 +100,7 @@ public interface SqlSession extends AsyncSqlSession, ReactiveSqlSession {
      * @return SQL query results set.
      * @throws SQLException If failed.
      */
-    SqlMultiResultSet executeMulti(@NotNull String query, Object... arguments);
+    MultiResultSet executeMulti(@NotNull String query, Object... arguments);
 
     /**
      * Sets query session property.
@@ -107,7 +109,7 @@ public interface SqlSession extends AsyncSqlSession, ReactiveSqlSession {
      * @param value Property value.
      * @return {@code this} for chaining.
      */
-    SqlSession property(@NotNull String name, Object value);
+    Session property(@NotNull String name, Object value);
     //TODO: User can set e.g. queryTimeout or force join order or whatever.
     //TODO: This is similar to SQL "SET" operator which is used in JDBC/ODBC clients for session state manipulation.
 }

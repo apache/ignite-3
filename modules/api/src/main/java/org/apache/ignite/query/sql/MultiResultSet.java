@@ -15,33 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.query.sql.async;
+package org.apache.ignite.query.sql;
 
-import java.util.concurrent.CompletionStage;
+import java.util.UUID;
 
-/**
- * Asynchronous multi-statement result set.
- */
-public interface AsyncSqlMultiResultSet extends AsyncSqlResultSet {
+/** */
+public interface MultiResultSet extends Iterable<ResultSet>, AutoCloseable {
     /**
-     * Returns current statement result index.
+     * Returns query uid.
      *
-     * @return Statement result index.
+     * @return Query id.
      */
-    int currentResult();
+    UUID queryId();
 
     /**
-     * Skip current statement result and fetch first page of the next statement.
-     *
-     * @return Operation future.
+     * {@inheritDoc}
      */
-    CompletionStage<AsyncSqlMultiResultSet> skipResult();
-
-    /**
-     * @return Whether there are more statement results.
-     */
-    boolean hasMoreResults();
-
-    /** {@inheritDoc} */
-    @Override CompletionStage<AsyncSqlMultiResultSet> fetchNextPage();
+    void close();
 }

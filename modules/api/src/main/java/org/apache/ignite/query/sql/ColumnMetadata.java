@@ -17,37 +17,39 @@
 
 package org.apache.ignite.query.sql;
 
-import java.util.UUID;
+import org.apache.ignite.schema.ColumnType;
 
 /**
- * SQL result set provides methods to access SQL query resul represented as collection of {@link SqlRow}.
- *
- * All the rows in result set have the same structure described in {@link SqlResultSetMeta}.
- * ResultSet must be closed after usage to free resources.
+ * Column metadata.
  */
-public interface SqlResultSet extends Iterable<SqlRow>, AutoCloseable {
+public interface ColumnMetadata {
     /**
-     * Returns query`s unique identifier.
+     * Return column name in resultset.
      *
-     * @return Query id.
-     */
-    UUID queryId();
-
-    /**
-     * Returns metadata for the results.
+     * Note: If row column doess not represents any table column, then generated name will be used.
      *
-     * @return ResultSet metadata.
+     * @return Column name.
      */
-    SqlResultSetMeta metadata();
+    String name();
 
     /**
-     * @return Query type.
-     * @see QueryType
+     * Returns column type.
+     *
+     * @return Column type.
      */
-    QueryType queryType();
+    ColumnType columnType();
 
     /**
-     * @return Number of affected rows.
+     * Returns column value type.
+     *
+     * @return Value type.
      */
-    int updateCount();
+    Class<?> valueClass();
+
+    /**
+     * Row column nullability.
+     *
+     * @return {@code true} if column is nullable, {@code false} otherwise.
+     */
+    boolean nullable();
 }

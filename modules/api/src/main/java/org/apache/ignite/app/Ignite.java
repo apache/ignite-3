@@ -17,7 +17,7 @@
 
 package org.apache.ignite.app;
 
-import org.apache.ignite.query.sql.IgniteSql;
+import org.apache.ignite.query.sql.IgniteSQL;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 
@@ -51,5 +51,5 @@ public interface Ignite extends AutoCloseable {
      *
      * @return Ignite SQL facade.
      */
-    IgniteSql sql();
+    IgniteSQL sql();
 }

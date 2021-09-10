@@ -22,17 +22,8 @@ import org.apache.ignite.tx.Transaction;
 /**
  * Transactional SQL session projection.
  */
-public interface SqlTx extends SqlSession {
-    /**
-     * Commits current transaction.
-     */
-    void commit();
-
-    /**
-     * Rollbacks current transaction.
-     */
-    void rollback();
-
+//TODO: Drop this and add "Session Transaction.wrap(Session)" method.
+public interface SqlTx extends Session, Transaction {
     /**
      * Returns current transaction.
      *

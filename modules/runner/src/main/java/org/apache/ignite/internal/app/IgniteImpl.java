@@ -60,8 +60,8 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
+import org.apache.ignite.query.sql.IgniteSQL;
 import org.apache.ignite.rest.RestModule;
-import org.apache.ignite.query.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.NotNull;
@@ -344,7 +344,7 @@ public class IgniteImpl implements Ignite {
     }
 
     /** {@inheritDoc} */
-    @Override public IgniteSql sql() {
+    @Override public IgniteSQL sql() {
         return null;
     }
 

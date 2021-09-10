@@ -17,17 +17,13 @@
 
 package org.apache.ignite.query.sql.reactive;
 
-import java.util.UUID;
-import java.util.concurrent.Flow;
 import org.apache.ignite.query.sql.SQLException;
-import org.apache.ignite.query.sql.SqlStatement;
-import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.query.sql.Statement;
 
 /**
  * Reactive Session provides methods for reactive query execution.
  */
-public interface ReactiveSqlSession {
+public interface ReactiveSession {
     /**
      * Executes SQL query in reactive way.
      *
@@ -36,7 +32,7 @@ public interface ReactiveSqlSession {
      * @return Reactive result.
      * @throws SQLException If failed.
      */
-    ReactiveSqlResultSet executeReactive(String sql, Object... args);
+    ReactiveResultSet executeReactive(String sql, Object... args);
 
     /**
      * Executes SQL query in reactive way.
@@ -45,7 +41,7 @@ public interface ReactiveSqlSession {
      * @return Reactive result.
      * @throws SQLException If failed.
      */
-    ReactiveSqlResultSet executeReactive(SqlStatement statement);
+    ReactiveResultSet executeReactive(Statement statement);
 
     /**
      * Executes multi-statement SQL query in reactive way.
@@ -55,14 +51,7 @@ public interface ReactiveSqlSession {
      * @return Reactive result.
      * @throws SQLException If failed.
      */
-    ReactiveSqlMultiResultSet executeMultiStatementReactive(String sql, Object... args);
+    //TODO: Do we want to support multi-statements in reactive way?
+    ReactiveMultiResultSet executeMultiStatementReactive(String sql, Object... args);
 
-    interface ReactiveSqlMultiResultSet extends Flow.Publisher<ReactiveSqlResultSet> {
-        /**
-         * Returns query`s unique identifier.
-         *
-         * @return Query id.
-         */
-        Flow.Publisher<UUID> queryId();
-    }
 }

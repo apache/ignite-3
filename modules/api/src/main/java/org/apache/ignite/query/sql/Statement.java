@@ -24,7 +24,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * SQL statement.
  */
-public interface SqlStatement {
+public interface Statement {
     /**
      * @return Statement SQL query.
      */
@@ -39,27 +39,27 @@ public interface SqlStatement {
      * @param parameters Query parameters.
      * @return {@code this} for chaining.
      */
-    SqlStatement parameters(Object... parameters);
+    Statement parameters(Object... parameters);
 
     /**
      * @param parameter Query parameter.
      * @return {@code this} for chaining.
      */
-    SqlStatement parameter(int parameterIndex, Object parameter);
+    Statement parameter(int parameterIndex, Object parameter);
 
     /**
      * Clears query parameters.
      *
      * @return {@code this} for chaining.
      */
-    SqlStatement clearParameters();
+    Statement clearParameters();
 
     /**
      * Adds a set of parameters to this <code>SqlStatement</code> object's batch of commands.
      *
      * @return {@code this} for chaining.
      */
-    SqlStatement addBatch() throws SQLException;
+    Statement addBatch() throws SQLException;
 
     /**
      * Sets query timeout.
@@ -84,5 +84,5 @@ public interface SqlStatement {
      * @param value Property value.
      * @return {@code this} for chaining.
      */
-    SqlStatement property(@NotNull String name, Object value);
+    Statement property(@NotNull String name, Object value);
 }

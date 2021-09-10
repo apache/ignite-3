@@ -108,4 +108,13 @@ public interface Table extends TableView<Tuple> {
     default <K, V> KeyValueView<K, V> kvView(Class<K> keyCls, Class<V> valCls) {
         return kvView(Mappers.ofKeyClass(keyCls), Mappers.ofValueClass(valCls));
     }
+
+    /**
+     * Returns statistics facade for table statistics management.
+     * <p>
+     * Table statistics are used by SQL engine for SQL queries planning.
+     *
+     * @return Statistics facade.
+     */
+    IgniteTableStatistics statistics();
 }

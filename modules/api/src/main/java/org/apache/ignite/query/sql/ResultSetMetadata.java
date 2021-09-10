@@ -22,7 +22,7 @@ import java.util.List;
 /**
  * ResultSet metadata.
  */
-public interface SqlResultSetMeta {
+public interface ResultSetMetadata {
     /**
      * Returns number of column that every row in a result set.
      *
@@ -35,7 +35,7 @@ public interface SqlResultSetMeta {
      *
      * @return Columns metadata.
      */
-    List<SqlColumnMeta> columns();
+    List<ColumnMetadata> columns();
 
     /**
      * Returns metadata for the requested column.
@@ -43,7 +43,7 @@ public interface SqlResultSetMeta {
      * @param columnId Column Id.
      * @return Column metadata.
      */
-    SqlColumnMeta column(int columnId);
+    ColumnMetadata column(int columnId);
 
     /**
      * Returns metadata for the requested column.
@@ -51,7 +51,7 @@ public interface SqlResultSetMeta {
      * @param columnName Column name.
      * @return Column metadata.
      */
-    SqlColumnMeta column(String columnName);
+    ColumnMetadata column(String columnName);
 
     /**
      * Returns column id in ResultSet by column name.

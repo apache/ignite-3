@@ -15,57 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.query.sql.async;
+package org.apache.ignite.query.sql.reactive;
 
-import java.util.UUID;
-import java.util.concurrent.CompletionStage;
+import java.sql.ResultSetMetaData;
+import java.util.concurrent.Flow;
 import org.apache.ignite.query.sql.QueryType;
-import org.apache.ignite.query.sql.SqlResultSetMeta;
 import org.apache.ignite.query.sql.SqlRow;
 
 /**
- * Asynchronous result set.
+ * Reactive result set provides methods to subscribe to the query results in reactive way.
+ *
+ * Note: It implies to be used with the reactive framework such as ProjectReactor or R2DBC.
+ *
+ * @see reactor.core.publisher.Flux
+ * @see r2dbc
  */
-public interface AsyncSqlResultSet {
-    /**
-     * Returns query`s unique identifier.
-     *
-     * @return Query id.
-     */
-    UUID queryId();
+public interface ReactiveResultSet extends Flow.Publisher<SqlRow> {
 
     /**
-     * Returns metadata for the results.
+     * Return publisher for the ResultSet's metadata.
      *
-     * @return ResultSet metadata.
+     * @return Metadata publisher.
      */
-    SqlResultSetMeta metadata();
+    Flow.Publisher<ResultSetMetaData> metadata();
+
+    /**
+     * @return Number of affected rows.
+     */
+    Flow.Publisher<Integer> updateCount();
 
     /**
      * @return Query type.
      * @see QueryType
      */
-    QueryType queryType();
-
-    /**
-     * @return Number of affected rows.
-     */
-    int updateCount();
-
-    /**
-     * @return Current page rows.
-     */
-    Iterable<SqlRow> currentPage();
-
-    /**
-     * Fetch the next page of results asynchronously.
-     *
-     * @return Operation future.
-     */
-    CompletionStage<? extends AsyncSqlResultSet> fetchNextPage();
-
-    /**
-     * @return Whether there are more pages of results.
-     */
-    boolean hasMorePages();
+    Flow.Publisher<QueryType> queryType();
 }

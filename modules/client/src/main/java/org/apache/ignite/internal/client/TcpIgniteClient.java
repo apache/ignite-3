@@ -19,13 +19,12 @@ package org.apache.ignite.internal.client;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
-
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.table.ClientTables;
-import org.apache.ignite.query.sql.IgniteSql;
+import org.apache.ignite.query.sql.IgniteSQL;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 
@@ -102,7 +101,7 @@ public class TcpIgniteClient implements IgniteClient {
     }
 
     /** {@inheritDoc} */
-    @Override public IgniteSql sql() {
+    @Override public IgniteSQL sql() {
         return null;
     }
 

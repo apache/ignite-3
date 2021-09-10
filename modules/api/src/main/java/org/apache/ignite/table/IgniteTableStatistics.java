@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.query.sql;
+package org.apache.ignite.table;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
  * <p>
  * Table statistics are used by SQL engine for SQL queries planning.
  */
+// TODO: drop this class and move all the methods to Table interface?
 public interface IgniteTableStatistics {
     /**
      * Get statistics info for table.
