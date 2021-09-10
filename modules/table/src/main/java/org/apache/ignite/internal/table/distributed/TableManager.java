@@ -517,7 +517,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     LoggerMessageHelper.format("Table already exists [name={}]", name)));
             }
             else {
-                IgniteUuid tblId = ((InternalTable) tbl).tableId();
+                IgniteUuid tblId = ((TableImpl) tbl).tableId();
 
                 alterTblIntention.put(tblId, new CompletableFuture<>());
 
