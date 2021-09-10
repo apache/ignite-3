@@ -38,7 +38,7 @@ public interface IgniteSQL {
      * @return Prepared statement.
      * @throws SQLException If parsing failed.
      */
-    Statement prepare(@NotNull String sql);
+    Statement newStatement(@NotNull String sql);
 
     /**
      * Kills query by its' id.
@@ -48,9 +48,7 @@ public interface IgniteSQL {
     void killQuery(UUID queryID);
 
     //TODO: Custom function registration. Move to session?
-    void registerUserFunction(Class type, String... methodNames); //TODO: Get function details from method annotations.
-
-    void registerUserFunction(Class type);
+    void registerUserFunction(Class type); //TODO: Get function details from method annotations.
 
     void unregisterUserFunction(String functionName);
 }
