@@ -23,8 +23,8 @@ import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 
 /**
- *  Interface to provide configuration access to {@link DynamicConfiguration}, {@link NamedListConfiguration} and
- * {@link DynamicProperty}
+ * Interface to provide configuration access to {@link DynamicConfiguration}, {@link NamedListConfiguration} and
+ * {@link DynamicProperty}.
  */
 public interface DynamicConfigurationChanger {
     /**
