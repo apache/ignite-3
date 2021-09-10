@@ -182,7 +182,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
     }
 
     /**
-     * Checks that instance of the gicen class can be injected by the extension.
+     * Checks that instance of the given class can be injected by the extension.
      *
      * @param type Field or parameter type.
      * @return {@code true} if value of the given class can be injected.
