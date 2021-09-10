@@ -130,7 +130,10 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Tuple> getAndPutAsync(@NotNull Tuple key, Tuple val) {
-        return null;
+        return tbl.doSchemaOutInOpAsync(
+                ClientOp.TUPLE_GET_AND_UPSERT,
+                (s, w) -> tbl.writeKvTuple(key, val, s, w, false),
+                ClientTable::readValueTuple);
     }
 
     /** {@inheritDoc} */
@@ -189,7 +192,10 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Tuple> getAndRemoveAsync(@NotNull Tuple key) {
-        return null;
+        return tbl.doSchemaOutInOpAsync(
+                ClientOp.TUPLE_GET_AND_DELETE,
+                (s, w) -> tbl.writeTuple(key, s, w, true),
+                ClientTable::readValueTuple);
     }
 
     /** {@inheritDoc} */
