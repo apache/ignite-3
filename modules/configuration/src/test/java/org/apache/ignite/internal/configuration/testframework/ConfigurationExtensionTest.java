@@ -30,7 +30,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @ExtendWith(ConfigurationExtension.class)
 class ConfigurationExtensionTest {
     /** Injected field. */
-    private @InjectConfiguration DiscoveryConfiguration fieldCfg;
+    @InjectConfiguration
+    private DiscoveryConfiguration fieldCfg;
 
     /** Test that contains injected parameter. */
     @Test
