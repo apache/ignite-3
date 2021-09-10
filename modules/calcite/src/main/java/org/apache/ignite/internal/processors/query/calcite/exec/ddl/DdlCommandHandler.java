@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.processors.query.calcite.exec.ddl;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.table.IndexColumnView;
 import org.apache.ignite.configuration.schemas.table.TableChange;
@@ -36,14 +36,14 @@ import org.apache.ignite.internal.processors.query.calcite.prepare.ddl.DdlComman
 import org.apache.ignite.internal.processors.query.calcite.prepare.ddl.DropTableCommand;
 import org.apache.ignite.internal.schema.SchemaTableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.schema.builder.PrimaryIndexBuilder;
-import org.apache.ignite.table.Table;
 
+import static java.util.function.Predicate.not;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.IgniteUtils.isNullOrEmpty;
@@ -60,7 +60,7 @@ public class DdlCommandHandler {
     }
 
     /** */
-    public void handle(DdlCommand cmd, PlanningContext pctx) throws IgniteInternalCheckedException {
+    public void handle(DdlCommand cmd, PlanningContext pctx) throws IgniteCheckedException {
         validateCommand(cmd);
 
         if (cmd instanceof CreateTableCommand)
@@ -72,7 +72,7 @@ public class DdlCommandHandler {
         else if (cmd instanceof AlterTableDropCommand)
             handleAlterDropColumn((AlterTableDropCommand)cmd);
         else {
-            throw new IgniteInternalCheckedException("Unsupported DDL operation [" +
+            throw new IgniteCheckedException("Unsupported DDL operation [" +
                 "cmdName=" + (cmd == null ? null : cmd.getClass().getSimpleName()) + "; " +
                 "querySql=\"" + pctx.query() + "\"]");
         }
@@ -89,10 +89,10 @@ public class DdlCommandHandler {
     }
 
     /** */
-    private void handleCreateTable(CreateTableCommand cmd) throws IgniteInternalCheckedException {
+    private void handleCreateTable(CreateTableCommand cmd) throws IgniteCheckedException {
         if (tableManager.table(SchemaTableImpl.canonicalName(cmd.schemaName(), cmd.tableName())) != null) {
             if (!cmd.ifNotExists())
-                throw new IgniteInternalCheckedException(LoggerMessageHelper.format(
+                throw new IgniteCheckedException(LoggerMessageHelper.format(
                     "Table already exists [name={}]", cmd.tableName()));
         }
         else {
@@ -119,12 +119,12 @@ public class DdlCommandHandler {
     }
 
     /** */
-    private void handleDropTable(DropTableCommand cmd) throws IgniteInternalCheckedException {
+    private void handleDropTable(DropTableCommand cmd) throws IgniteCheckedException {
         String canonicalName = SchemaTableImpl.canonicalName(cmd.schemaName(), cmd.tableName());
 
         if (tableManager.table(canonicalName) == null) {
             if (!cmd.ifExists())
-                throw new IgniteInternalCheckedException(LoggerMessageHelper.format(
+                throw new IgniteCheckedException(LoggerMessageHelper.format(
                     "Table not exists [name={}]", cmd.tableName()));
         }
 
@@ -132,75 +132,64 @@ public class DdlCommandHandler {
     }
 
     /** */
-    private void handleAlterAddColumn(AlterTableAddCommand cmd) throws IgniteInternalCheckedException {
+    private void handleAlterAddColumn(AlterTableAddCommand cmd) throws IgniteCheckedException {
         if (nullOrEmpty(cmd.columns()))
             return;
 
-        if (cmd.ifColumnNotExists())
-            throw new IllegalArgumentException("Syntax: \"ADD COLUMN IF NOT EXISTS\" is not supported.");
-
         String canonicalName = SchemaTableImpl.canonicalName(cmd.schemaName(), cmd.tableName());
 
-        Table tbl = tableManager.table(canonicalName);
+        List<String> issues = new ArrayList<>();
 
-        if (tbl == null) {
-            if (!cmd.ifTableExists())
-                throw new IgniteInternalCheckedException(LoggerMessageHelper.format(
-                    "Table not exists, name={}", cmd.tableName()));
-            else
-                return;
-        }
+        CompletableFuture<Void> fut = tableManager.alterTableAsync(canonicalName, tblCh -> {
+            tblCh.changeColumns(
+                columns -> {
+                    Set<String> existCols = columns.namedListKeys().stream().map(k -> columns.get(k).name())
+                        .collect(Collectors.toUnmodifiableSet());
 
-        tableManager.alterTable(canonicalName, tblCh -> tblCh.changeColumns(columns -> {
-            Set<String> existCols = columns.namedListKeys().stream().map(k -> columns.get(k).name())
-                .collect(Collectors.toUnmodifiableSet());
+                    cmd.columns().stream().map(Column::name).filter(existCols::contains)
+                        .collect(Collectors.toCollection(() -> issues));
 
-            Collection<String> issues = null;
-
-            for (Column col : cmd.columns()) {
-                if (existCols.contains(col.name())) {
-                    issues = Objects.requireNonNullElseGet(issues, ArrayList::new);
-
-                    issues.add(col.name());
+                    if (issues.isEmpty()) {
+                        for (Column col0 : cmd.columns())
+                            columns.create(col0.name(), colChg -> convert(col0, colChg));
+                    }
                 }
-            }
+            );
 
-            boolean skip = false;
+            return issues.isEmpty();
+        });
 
-            if (issues != null) {
-                if (!cmd.ifColumnNotExists())
-                    throw new IllegalStateException(
-                        LoggerMessageHelper.format("Columns already exists, columns=[{}]",
-                            String.join(", ", issues)));
-                else
-                    skip = true;
+        try {
+            fut.get();
+        }
+        catch (ExecutionException | InterruptedException e) {
+            if (!issues.isEmpty() && !cmd.ifColumnNotExists()) {
+                throw new IgniteCheckedException(
+                    LoggerMessageHelper.format("Columns already exists, columns=[{}]",
+                        String.join(", ", issues)));
             }
-
-            if (!skip) {
-                for (Column col0 : cmd.columns())
-                    columns.create(col0.name(), colChg -> convert(col0, colChg));
-            }
-        }));
+            else if (issues.isEmpty() && !cmd.ifTableExists())
+                throw new IgniteCheckedException(e);
+        }
     }
 
     /** */
-    private void handleAlterDropColumn(AlterTableDropCommand cmd) throws IgniteInternalCheckedException {
+    private void handleAlterDropColumn(AlterTableDropCommand cmd) throws IgniteCheckedException {
         if (nullOrEmpty(cmd.columns()))
             return;
 
         String canonicalName = SchemaTableImpl.canonicalName(cmd.schemaName(), cmd.tableName());
-
-        if (tableManager.table(canonicalName) == null) {
-            throw new IgniteInternalCheckedException(LoggerMessageHelper.format(
-                "Table not exists [name={}]", cmd.tableName()));
-        }
 
         Set<String> dropCols = new HashSet<>(cmd.columns().size());
 
         dropCols.addAll(cmd.columns());
 
-        try {
-            tableManager.alterTable(canonicalName, chng -> chng.changeColumns(cols -> {
+        List<String> issues = new ArrayList<>();
+
+        List<String> dropColsIntersect = new ArrayList<>();
+
+        CompletableFuture<Void> fut = tableManager.alterTableAsync(canonicalName, chng -> {
+            chng.changeColumns(cols -> {
                 TableIndexView pkIdx = chng.indices().namedListKeys().stream()
                     .filter(k -> chng.indices().get(k).name().equals(PRIMARY_KEY_INDEX_NAME))
                     .map(k -> chng.indices().get(k))
@@ -209,41 +198,45 @@ public class DdlCommandHandler {
                         throw new IllegalStateException("Primary key index not found.");
                     });
 
-                Set<String> tblCols = chng.columns().namedListKeys().stream().map(k -> chng.columns().get(k).name())
+                Set<String> tblCols = chng.columns().namedListKeys().stream().map(k -> cols.get(k).name())
                     .collect(Collectors.toUnmodifiableSet());
 
-                Collection<String> issues = null;
+                dropCols.stream().filter(not(tblCols::contains)).collect(Collectors.toCollection(() -> issues));
 
-                for (String colName : dropCols) {
-                    if (!tblCols.contains(colName)) {
-                        issues = Objects.requireNonNullElseGet(issues, ArrayList::new);
+                if (!issues.isEmpty())
+                    return;
 
-                        issues.add(colName);
-                    }
-                }
-
-                if (issues != null)
-                    throw new IllegalStateException(
-                        LoggerMessageHelper.format("Columns not found, columns=[{}]",
-                            String.join(", ", issues)));
-
-                List<String> dropColsIntersect = pkIdx.columns().namedListKeys().stream()
+                pkIdx.columns().namedListKeys().stream()
                     .map(k -> pkIdx.columns().get(k))
                     .filter(k -> dropCols.contains(k.name()))
                     .map(IndexColumnView::name)
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toCollection(() -> dropColsIntersect));
 
-                if (!nullOrEmpty(dropColsIntersect))
-                    throw new IllegalStateException(
-                        LoggerMessageHelper.format("Can`t drop columns from pk index, columns=[{}]",
-                            String.join(", ", dropColsIntersect)));
-                else
-                    dropCols.forEach(cols::delete);
-            }));
+                if (!dropColsIntersect.isEmpty())
+                    return;
+
+                dropCols.forEach(cols::delete);
+            });
+
+            return issues.isEmpty() && dropColsIntersect.isEmpty();
+        });
+
+        try {
+            fut.get();
         }
-        catch (Exception e) {
-            if (!cmd.ifColumnExists())
-                throw e;
+        catch (ExecutionException | InterruptedException e) {
+            if (!issues.isEmpty() && !cmd.ifColumnExists()) {
+                throw new IgniteCheckedException(
+                    LoggerMessageHelper.format("Columns not found, columns=[{}]",
+                        String.join(", ", issues)));
+            }
+            else if (!dropColsIntersect.isEmpty()) {
+                throw new IgniteCheckedException(
+                    LoggerMessageHelper.format("Can`t drop columns from pk index, columns=[{}]",
+                        String.join(", ", dropColsIntersect)));
+            }
+            else if (issues.isEmpty() && !cmd.ifTableExists())
+                throw new IgniteCheckedException(e);
         }
     }
 }

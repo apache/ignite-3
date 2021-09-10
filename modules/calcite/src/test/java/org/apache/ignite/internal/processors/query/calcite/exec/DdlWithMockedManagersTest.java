@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -64,7 +63,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
@@ -279,7 +278,7 @@ public class DdlWithMockedManagersTest {
 
             String finalNewTblSql1 = newTblSql;
 
-            assertThrows(Exception.class, () -> finalQueryProc.query("PUBLIC", finalNewTblSql1));
+            assertThrows(IgniteException.class, () -> finalQueryProc.query("PUBLIC", finalNewTblSql1));
 
             newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))",
                 " IF NOT EXISTS " + curMethodName);
@@ -352,15 +351,15 @@ public class DdlWithMockedManagersTest {
 
             queryProc.query("PUBLIC", newTblSql);
 
-            assertThrows(IgniteInternalException.class, () -> finalQueryProc.query("PUBLIC",
+            assertThrows(IgniteException.class, () -> finalQueryProc.query("PUBLIC",
                 "DROP TABLE " + curMethodName + "_not_exist"));
 
             queryProc.query("PUBLIC", "DROP TABLE PUBLIC." + curMethodName);
 
-            assertThrows(IgniteInternalException.class, () -> finalQueryProc.query("PUBLIC",
+            assertThrows(IgniteException.class, () -> finalQueryProc.query("PUBLIC",
                 "DROP TABLE " + curMethodName));
 
-            assertThrows(IgniteInternalException.class, () -> finalQueryProc.query("PUBLIC",
+            assertThrows(IgniteException.class, () -> finalQueryProc.query("PUBLIC",
                 "DROP TABLE PUBLIC." + curMethodName));
 
             queryProc.query("PUBLIC", "DROP TABLE IF EXISTS PUBLIC." + curMethodName);
@@ -405,17 +404,20 @@ public class DdlWithMockedManagersTest {
 
             queryProc.query("PUBLIC", alterCmd);
 
-            String alterIfExistsCmd = String.format("ALTER TABLE IF EXISTS %s ADD COLUMN (c3 varchar, c4 int)", curMethodName + "NotExist");
+            String alterIfExistsCmd = String.format("ALTER TABLE IF EXISTS %s ADD COLUMN (c3 varchar, c4 int)", curMethodName + "_NotExist");
 
             queryProc.query("PUBLIC", alterIfExistsCmd);
+
+            String alterWithoutIfExistsCmd = String.format("ALTER TABLE %s ADD COLUMN (c3 varchar, c4 int)", curMethodName + "_NotExist");
+
+            assertThrows(IgniteException.class, () -> finalQueryProc.query("PUBLIC", alterWithoutIfExistsCmd));
 
             assertTrue(Arrays.stream(schemaDesc.get().valueColumns().columns()).anyMatch(c -> "c3"
                 .equalsIgnoreCase(c.name())));
 
-            assertThrows(CompletionException.class, () -> finalQueryProc.query("PUBLIC", alterCmd));
+            assertThrows(IgniteException.class, () -> finalQueryProc.query("PUBLIC", alterCmd));
 
-            // todo: uncomment after TableManager.alterTable changes
-            //queryProc.query("PUBLIC", String.format("ALTER TABLE %s ADD COLUMN IF NOT EXISTS c3 varchar", curMethodName));
+            queryProc.query("PUBLIC", String.format("ALTER TABLE %s ADD COLUMN IF NOT EXISTS c3 varchar", curMethodName));
 
             queryProc.query("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c3", curMethodName));
 
@@ -429,9 +431,11 @@ public class DdlWithMockedManagersTest {
             assertFalse(Arrays.stream(schemaDesc.get().valueColumns().columns()).anyMatch(c -> "c4"
                 .equalsIgnoreCase(c.name())));
 
-            assertThrows(CompletionException.class, () -> finalQueryProc.query("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN (c3, c4)", curMethodName)));
+            assertThrows(IgniteException.class, () -> finalQueryProc
+                .query("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN (c3, c4)", curMethodName)));
 
-            assertThrows(CompletionException.class, () -> finalQueryProc.query("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c1", curMethodName)));
+            assertThrows(IgniteException.class, () -> finalQueryProc
+                .query("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c1", curMethodName)));
         }
         finally {
             Objects.requireNonNull(tblManager).stop();

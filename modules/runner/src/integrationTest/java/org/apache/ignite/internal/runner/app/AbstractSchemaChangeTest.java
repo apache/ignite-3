@@ -111,18 +111,22 @@ abstract class AbstractSchemaChangeTest {
 
         Assertions.assertThrows(InvalidTypeException.class, () -> {
             grid.get(0).tables().alterTable(TABLE,
-                tblChanger -> tblChanger.changeColumns(cols -> {
-                    final String colKey = tblChanger.columns().namedListKeys().stream()
-                        .filter(c -> "valInt".equals(tblChanger.columns().get(c).name()))
-                        .findFirst()
-                        .orElseThrow(() -> {
-                            throw new IllegalStateException("Column not found.");
-                        });
+                tblChanger -> {
+                    tblChanger.changeColumns(cols -> {
+                        final String colKey = tblChanger.columns().namedListKeys().stream()
+                            .filter(c -> "valInt".equals(tblChanger.columns().get(c).name()))
+                            .findFirst()
+                            .orElseThrow(() -> {
+                                throw new IllegalStateException("Column not found.");
+                            });
 
-                    tblChanger.changeColumns(listChanger ->
-                        listChanger.createOrUpdate(colKey, colChanger -> colChanger.changeType(c -> c.changeType("STRING")))
-                    );
-                })
+                        tblChanger.changeColumns(listChanger ->
+                            listChanger.createOrUpdate(colKey, colChanger -> colChanger.changeType(c -> c.changeType("STRING")))
+                        );
+                    });
+
+                    return true;
+                }
             );
         });
     }
@@ -139,18 +143,22 @@ abstract class AbstractSchemaChangeTest {
 
         Assertions.assertThrows(InvalidTypeException.class, () -> {
             grid.get(0).tables().alterTable(TABLE,
-                tblChanger -> tblChanger.changeColumns(cols -> {
-                    final String colKey = tblChanger.columns().namedListKeys().stream()
-                        .filter(c -> "valInt".equals(tblChanger.columns().get(c).name()))
-                        .findFirst()
-                        .orElseThrow(() -> {
-                            throw new IllegalStateException("Column not found.");
-                        });
+                tblChanger -> {
+                    tblChanger.changeColumns(cols -> {
+                        final String colKey = tblChanger.columns().namedListKeys().stream()
+                            .filter(c -> "valInt".equals(tblChanger.columns().get(c).name()))
+                            .findFirst()
+                            .orElseThrow(() -> {
+                                throw new IllegalStateException("Column not found.");
+                            });
 
-                    tblChanger.changeColumns(listChanger ->
-                        listChanger.createOrUpdate(colKey, colChanger -> colChanger.changeNullable(false))
-                    );
-                })
+                        tblChanger.changeColumns(listChanger ->
+                            listChanger.createOrUpdate(colKey, colChanger -> colChanger.changeNullable(false))
+                        );
+                    });
+
+                    return true;
+                }
             );
         });
     }
@@ -167,18 +175,22 @@ abstract class AbstractSchemaChangeTest {
 
         Assertions.assertThrows(InvalidTypeException.class, () -> {
             grid.get(0).tables().alterTable(TABLE,
-                tblChanger -> tblChanger.changeColumns(cols -> {
-                    final String colKey = tblChanger.columns().namedListKeys().stream()
-                        .filter(c -> "valStr".equals(tblChanger.columns().get(c).name()))
-                        .findFirst()
-                        .orElseThrow(() -> {
-                            throw new IllegalStateException("Column not found.");
-                        });
+                tblChanger -> {
+                    tblChanger.changeColumns(cols -> {
+                        final String colKey = tblChanger.columns().namedListKeys().stream()
+                            .filter(c -> "valStr".equals(tblChanger.columns().get(c).name()))
+                            .findFirst()
+                            .orElseThrow(() -> {
+                                throw new IllegalStateException("Column not found.");
+                            });
 
-                    tblChanger.changeColumns(listChanger ->
-                        listChanger.createOrUpdate(colKey, colChanger -> colChanger.changeNullable(true))
-                    );
-                })
+                        tblChanger.changeColumns(listChanger ->
+                            listChanger.createOrUpdate(colKey, colChanger -> colChanger.changeNullable(true))
+                        );
+                    });
+
+                    return true;
+                }
             );
         });
     }
@@ -217,11 +229,15 @@ abstract class AbstractSchemaChangeTest {
      */
     protected void addColumn(List<Ignite> nodes, Column columnToAdd) {
         nodes.get(0).tables().alterTable(TABLE,
-            chng -> chng.changeColumns(cols -> {
-                int colIdx = chng.columns().namedListKeys().stream().mapToInt(Integer::parseInt).max().getAsInt() + 1;
+            chng -> {
+                chng.changeColumns(cols -> {
+                    int colIdx = chng.columns().namedListKeys().stream().mapToInt(Integer::parseInt).max().getAsInt() + 1;
 
-                cols.create(String.valueOf(colIdx), colChg -> convert(columnToAdd, colChg));
-            })
+                    cols.create(String.valueOf(colIdx), colChg -> convert(columnToAdd, colChg));
+                });
+
+                return true;
+            }
         );
     }
 
@@ -231,15 +247,19 @@ abstract class AbstractSchemaChangeTest {
      */
     protected void dropColumn(List<Ignite> nodes, String colName) {
         nodes.get(0).tables().alterTable(TABLE,
-            chng -> chng.changeColumns(cols -> {
-                cols.delete(chng.columns().namedListKeys().stream()
-                    .filter(key -> colName.equals(chng.columns().get(key).name()))
-                    .findAny()
-                    .orElseThrow(() -> {
-                        throw new IllegalStateException("Column not found.");
-                    })
-                );
-            })
+            chng -> {
+                chng.changeColumns(cols -> {
+                    cols.delete(chng.columns().namedListKeys().stream()
+                        .filter(key -> colName.equals(chng.columns().get(key).name()))
+                        .findAny()
+                        .orElseThrow(() -> {
+                            throw new IllegalStateException("Column not found.");
+                        })
+                    );
+                });
+
+                return true;
+            }
         );
     }
 
@@ -250,18 +270,22 @@ abstract class AbstractSchemaChangeTest {
      */
     protected void renameColumn(List<Ignite> nodes, String oldName, String newName) {
         nodes.get(0).tables().alterTable(TABLE,
-            tblChanger -> tblChanger.changeColumns(cols -> {
-                final String colKey = tblChanger.columns().namedListKeys().stream()
-                    .filter(c -> oldName.equals(tblChanger.columns().get(c).name()))
-                    .findFirst()
-                    .orElseThrow(() -> {
-                        throw new IllegalStateException("Column not found.");
-                    });
+            tblChanger -> {
+                tblChanger.changeColumns(cols -> {
+                    final String colKey = tblChanger.columns().namedListKeys().stream()
+                        .filter(c -> oldName.equals(tblChanger.columns().get(c).name()))
+                        .findFirst()
+                        .orElseThrow(() -> {
+                            throw new IllegalStateException("Column not found.");
+                        });
 
-                tblChanger.changeColumns(listChanger ->
-                    listChanger.createOrUpdate(colKey, colChanger -> colChanger.changeName(newName))
-                );
-            })
+                    tblChanger.changeColumns(listChanger ->
+                        listChanger.createOrUpdate(colKey, colChanger -> colChanger.changeName(newName))
+                    );
+                });
+
+                return true;
+            }
         );
     }
 
@@ -272,18 +296,22 @@ abstract class AbstractSchemaChangeTest {
      */
     protected void changeDefault(List<Ignite> nodes, String colName, Supplier<Object> defSup) {
         nodes.get(0).tables().alterTable(TABLE,
-            tblChanger -> tblChanger.changeColumns(cols -> {
-                final String colKey = tblChanger.columns().namedListKeys().stream()
-                    .filter(c -> colName.equals(tblChanger.columns().get(c).name()))
-                    .findFirst()
-                    .orElseThrow(() -> {
-                        throw new IllegalStateException("Column not found.");
-                    });
+            tblChanger -> {
+                tblChanger.changeColumns(cols -> {
+                    final String colKey = tblChanger.columns().namedListKeys().stream()
+                        .filter(c -> colName.equals(tblChanger.columns().get(c).name()))
+                        .findFirst()
+                        .orElseThrow(() -> {
+                            throw new IllegalStateException("Column not found.");
+                        });
 
-                tblChanger.changeColumns(listChanger ->
-                    listChanger.createOrUpdate(colKey, colChanger -> colChanger.changeDefaultValue(defSup.get().toString()))
-                );
-            })
+                    tblChanger.changeColumns(listChanger ->
+                        listChanger.createOrUpdate(colKey, colChanger -> colChanger.changeDefaultValue(defSup.get().toString()))
+                    );
+                });
+
+                return true;
+            }
         );
     }
 }

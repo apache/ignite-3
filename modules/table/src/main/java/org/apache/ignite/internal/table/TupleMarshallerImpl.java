@@ -338,15 +338,17 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      */
     private void createColumns(Set<org.apache.ignite.schema.Column> newCols) {
         //TODO: Introduce internal TableManager and use UUID instead of names ???
-        tblMgr.alterTable(tbl.tableName(), chng -> chng.changeColumns(cols -> {
-            int colIdx = chng.columns().size();
-            //TODO: avoid 'colIdx' or replace with correct last colIdx.
+        tblMgr.alterTable(tbl.tableName(), chng -> {
+            chng.changeColumns(cols -> {
+                int colIdx = chng.columns().size();
+                //TODO: avoid 'colIdx' or replace with correct last colIdx.
 
-            for (org.apache.ignite.schema.Column column : newCols) {
-                cols.create(String.valueOf(colIdx), colChg -> convert(column, colChg));
-                colIdx++;
-            }
-        }));
+                for (org.apache.ignite.schema.Column column : newCols)
+                    cols.create(String.valueOf(colIdx++), colChg -> convert(column, colChg));
+            });
+
+            return true;
+        });
     }
 
     /**

@@ -96,6 +96,8 @@ import org.apache.ignite.internal.util.Cancellable;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteCheckedException;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -454,8 +456,8 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
         try {
             ddlCmdHnd.handle(plan.command(), pctx);
         }
-        catch (IgniteInternalCheckedException e) {
-            throw new IgniteInternalException("Failed to execute DDL statement [stmt=" + pctx.query() +
+        catch (IgniteCheckedException e) {
+            throw new IgniteException("Failed to execute DDL statement [stmt=" + pctx.query() +
                 ", err=" + e.getMessage() + ']', e);
         }
 

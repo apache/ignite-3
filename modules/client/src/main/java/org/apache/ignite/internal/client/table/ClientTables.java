@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import org.apache.ignite.client.proto.ClientOp;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.client.ReliableChannel;
@@ -58,12 +59,12 @@ public class ClientTables implements IgniteTables {
     }
 
     /** {@inheritDoc} */
-    @Override public void alterTable(String name, Consumer<TableChange> tableChange) {
+    @Override public void alterTable(String name, Predicate<TableChange> tableChange) {
         alterTableAsync(name, tableChange).join();
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange) {
+    @Override public CompletableFuture<Void> alterTableAsync(String name, Predicate<TableChange> tableChange) {
         Objects.requireNonNull(name);
         Objects.requireNonNull(tableChange);
 

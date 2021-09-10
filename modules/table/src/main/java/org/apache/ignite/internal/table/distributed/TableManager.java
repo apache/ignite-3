@@ -37,6 +37,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
@@ -489,7 +490,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     ) {
         boolean hasMetastorageLocally = metaStorageMgr.hasMetastorageLocally(nodeCfgMgr);
 
-        List<CompletableFuture<Boolean>> futs = new ArrayList<>();
+        List<CompletableFuture<Boolean>> futs = hasMetastorageLocally ?
+            new ArrayList<>(tbls.size()) : Collections.emptyList();
 
         for (String tblName : tbls) {
             TableImpl tbl = tables.get(tblName);
@@ -619,15 +621,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /** {@inheritDoc} */
-    @Override public void alterTable(String name, Consumer<TableChange> tableChange) {
+    @Override public void alterTable(String name, @NotNull Predicate<TableChange> tableChange) {
         alterTableAsync(name, tableChange).join();
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange) {
+    @Override public CompletableFuture<Void> alterTableAsync(String name, @NotNull Predicate<TableChange> tableChange) {
         CompletableFuture<Void> tblFut = new CompletableFuture<>();
 
-        listen(TableEvent.ALTER, new EventListener<>() {
+        EventListener<TableEventParameters> clo = new EventListener<>() {
             @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
                 String tableName = parameters.tableName();
 
@@ -645,18 +647,37 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             @Override public void remove(@NotNull Throwable e) {
                 tblFut.completeExceptionally(e);
             }
+        };
+
+        listen(TableEvent.ALTER, clo);
+
+        tableAsync(name, true).thenAccept(tbl -> {
+            if (tbl == null) {
+                    removeListener(TableEvent.ALTER, clo, new IgniteInternalCheckedException(
+                        LoggerMessageHelper.format("Table not found, name={}", name)));
+            }
+            else {
+                try {
+                    clusterCfgMgr
+                        .configurationRegistry()
+                        .getConfiguration(TablesConfiguration.KEY)
+                        .tables()
+                        .change(chng ->
+                            chng.createOrUpdate(name, chng0 ->
+                                {
+                                    if (!tableChange.test(chng0))
+                                        removeListener(TableEvent.ALTER, clo);
+                                }
+                            )
+                        ).get();
+                }
+                catch (InterruptedException | ExecutionException e) {
+                    LOG.error(LoggerMessageHelper.format("Table wasn't altered [name={}]", name), e);
+
+                    tblFut.completeExceptionally(e);
+                }
+            }
         });
-
-        try {
-            clusterCfgMgr.configurationRegistry()
-                .getConfiguration(TablesConfiguration.KEY).tables().change(change ->
-                change.createOrUpdate(name, tableChange)).get();
-        }
-        catch (InterruptedException | ExecutionException e) {
-            LOG.error(LoggerMessageHelper.format("Table wasn't altered [name={}]", name), e);
-
-            tblFut.completeExceptionally(e);
-        }
 
         return tblFut;
     }
