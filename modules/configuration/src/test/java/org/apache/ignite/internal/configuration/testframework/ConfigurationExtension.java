@@ -114,9 +114,11 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
      * @throws ClassNotFoundException If corresponding configuration schema class is not found.
      * @see #supportType(Class)
      */
-    private static Object cfgValue(Class<?> type, InjectConfiguration annotation, ConfigurationAsmGenerator cgen)
-        throws ClassNotFoundException
-    {
+    private static Object cfgValue(
+        Class<?> type,
+        InjectConfiguration annotation,
+        ConfigurationAsmGenerator cgen
+    ) throws ClassNotFoundException {
         // Trying to find a schema class using configuration naming convention. This code won't work for inner Java
         // classes, extension is designed to mock actual configurations from public API to configure Ignite components.
         Class<?> schemaClass = Class.forName(type.getCanonicalName() + "Schema");
