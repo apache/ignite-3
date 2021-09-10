@@ -186,14 +186,26 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 assert ((ExtendedTableView)ctx.newValue()).assignments() != null :
                     "Table =[" + ctx.newValue().name() + "] has empty assignments.";
 
+                final IgniteUuid tblId = IgniteUuid.fromString(((ExtendedTableView)ctx.newValue()).id());
+
                 // TODO: IGNITE-15409 Listener with any placeholder should be used instead.
                 ((ExtendedTableConfiguration) clusterCfgMgr.configurationRegistry().
                     getConfiguration(TablesConfiguration.KEY).tables().get(ctx.newValue().name())).schemas().
                     listenElements(new ConfigurationNamedListListener<>() {
                         @Override public @NotNull CompletableFuture<?> onCreate(
                             @NotNull ConfigurationNotificationEvent<SchemaView> schemasCtx) {
-                            ((SchemaRegistryImpl)tables.get(ctx.newValue().name()).schemaRegistry()).
-                                onSchemaRegistered((SchemaDescriptor)ByteUtils.fromBytes(schemasCtx.newValue().schema()));
+                            try {
+                                ((SchemaRegistryImpl)tables.get(ctx.newValue().name()).schemaRegistry()).
+                                    onSchemaRegistered((SchemaDescriptor)ByteUtils.
+                                        fromBytes(schemasCtx.newValue().schema()));
+
+                                fireEvent(TableEvent.ALTER, new TableEventParameters(tablesById.get(tblId)), null);
+
+                                Optional.ofNullable(alterTblIntention.get(tblId)).ifPresent(f -> f.complete(null));
+                            }
+                            catch (Exception e) {
+                                Optional.ofNullable(alterTblIntention.get(tblId)).ifPresent(f -> f.completeExceptionally(e));
+                            }
 
                             return CompletableFuture.completedFuture(null);
                         }
