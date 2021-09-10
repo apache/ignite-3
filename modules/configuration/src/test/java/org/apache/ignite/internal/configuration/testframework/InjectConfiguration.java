@@ -32,7 +32,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
  * Injected instance is initialized with values passed in {@link #value()}, with schema defaults where explicit initial
  * values are not found.
  * <p/>
- * Althoug configuration instance is mutable, there's no {@link ConfigurationRegistry} and {@link ConfigurationChanger}
+ * Although configuration instance is mutable, there's no {@link ConfigurationRegistry} and {@link ConfigurationChanger}
  * underneath. Listeners don't work either, be aware of that. Main point of the extension is to provide mocks.
  *
  * @see ConfigurationExtension
@@ -41,7 +41,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 @Target({ElementType.FIELD, ElementType.PARAMETER})
 public @interface InjectConfiguration {
     /**
-     * Configuration values to initialize the instance. Has HOCON syntaxis. Must have a root value {@code mock}.
+     * Configuration values to initialize the instance. Has HOCON syntax. Must have a root value {@code mock}.
      * <p/>
      * Examples:
      * <ul>
