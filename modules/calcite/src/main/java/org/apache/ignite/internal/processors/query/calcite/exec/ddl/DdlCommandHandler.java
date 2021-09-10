@@ -89,44 +89,31 @@ public class DdlCommandHandler {
     }
 
     /** */
-    private void handleCreateTable(CreateTableCommand cmd) throws IgniteCheckedException {
-        if (tableManager.table(SchemaTableImpl.canonicalName(cmd.schemaName(), cmd.tableName())) != null) {
-            if (!cmd.ifNotExists())
-                throw new IgniteCheckedException(LoggerMessageHelper.format(
-                    "Table already exists [name={}]", cmd.tableName()));
-        }
-        else {
-            PrimaryIndexBuilder pkIdx = SchemaBuilders.pkIndex();
+    private void handleCreateTable(CreateTableCommand cmd) {
+        PrimaryIndexBuilder pkIdx = SchemaBuilders.pkIndex();
 
-            cmd.primaryKeyColumns().forEach(k -> pkIdx.addIndexColumn(k).done());
+        cmd.primaryKeyColumns().forEach(k -> pkIdx.addIndexColumn(k).done());
 
-            SchemaTable tableSchm = SchemaBuilders.tableBuilder(cmd.schemaName(), cmd.tableName())
-                .columns(cmd.columns()).withIndex(pkIdx.build()).build();
+        SchemaTable tableSchm = SchemaBuilders.tableBuilder(cmd.schemaName(), cmd.tableName())
+            .columns(cmd.columns()).withIndex(pkIdx.build()).build();
 
-            tableManager.createTable(
-                tableSchm.canonicalName(),
-                tbl -> {
-                    TableChange converter = convert(tableSchm, tbl);
+        tableManager.createTable(
+            tableSchm.canonicalName(),
+            tbl -> {
+                TableChange converter = convert(tableSchm, tbl);
 
-                    if (cmd.replicas() != null)
-                        converter.changeReplicas(cmd.replicas());
+                if (cmd.replicas() != null)
+                    converter.changeReplicas(cmd.replicas());
 
-                    if (cmd.partitions() != null)
-                        converter.changePartitions(cmd.partitions());
-                }
-            );
-        }
+                if (cmd.partitions() != null)
+                    converter.changePartitions(cmd.partitions());
+            }
+        );
     }
 
     /** */
-    private void handleDropTable(DropTableCommand cmd) throws IgniteCheckedException {
+    private void handleDropTable(DropTableCommand cmd) {
         String canonicalName = SchemaTableImpl.canonicalName(cmd.schemaName(), cmd.tableName());
-
-        if (tableManager.table(canonicalName) == null) {
-            if (!cmd.ifExists())
-                throw new IgniteCheckedException(LoggerMessageHelper.format(
-                    "Table not exists [name={}]", cmd.tableName()));
-        }
 
         tableManager.dropTable(canonicalName);
     }
