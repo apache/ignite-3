@@ -17,7 +17,6 @@
 
 package org.apache.ignite.query.sql;
 
-import java.sql.SQLException;
 import java.util.concurrent.TimeUnit;
 import org.jetbrains.annotations.NotNull;
 
@@ -49,11 +48,11 @@ public interface Statement {
     Statement parameter(int parameterIndex, Object parameterValue);
 
     /**
-     * Clears query parameters.
+     * Clears batch and query parameters.
      *
      * @return {@code this} for chaining.
      */
-    Statement clearParameters();
+    Statement resetState();
 
     /**
      * Adds a set of parameters to this statement object's batch of commands.

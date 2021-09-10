@@ -17,17 +17,11 @@
 
 package org.apache.ignite.query.sql.reactive;
 
-import java.util.UUID;
 import java.util.concurrent.Flow;
 
 /**
  * Reactive result set for multi-statement queries.
  */
 public interface ReactiveMultiResultSet extends Flow.Publisher<ReactiveResultSet> {
-    /**
-     * Returns query`s unique identifier.
-     *
-     * @return Query id.
-     */
-    Flow.Publisher<UUID> queryId();
+
 }

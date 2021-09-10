@@ -17,22 +17,13 @@
 
 package org.apache.ignite.query.sql;
 
-import java.util.UUID;
-
 /**
- * SQL result set provides methods to access SQL query resul represented as collection of {@link SqlRow}.
+ * SQL result set provides methods to access SQL query result represented as collection of {@link SqlRow}.
  *
  * All the rows in result set have the same structure described in {@link ResultSetMetadata}.
  * ResultSet must be closed after usage to free resources.
  */
 public interface ResultSet extends Iterable<SqlRow>, AutoCloseable {
-    /**
-     * Returns query`s unique identifier.
-     *
-     * @return Query id.
-     */
-    UUID queryId();
-
     /**
      * Returns metadata for the results.
      *
@@ -41,13 +32,21 @@ public interface ResultSet extends Iterable<SqlRow>, AutoCloseable {
     ResultSetMetadata metadata();
 
     /**
-     * @return Query type.
-     * @see QueryType
+     * @return {@code True} if result set contains rows, {@code false} otherwise.
      */
-    QueryType queryType();
+    boolean hasRowSet();
 
     /**
-     * @return Number of affected rows.
+     * Returns number of row affected by DML query.
+     *
+     * @return Number of rows.
      */
-    int updateCount();
+    int updateCount(); //TODO: return '-1' if unapplicable?
+
+    /**
+     * Returns result for the conditional query.
+     *
+     * @return {@code True} if conditional query applied, {@code false} otherwise.
+     */
+    boolean wasApplied();
 }

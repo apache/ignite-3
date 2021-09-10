@@ -17,19 +17,10 @@
 
 package org.apache.ignite.query.sql;
 
-import java.util.UUID;
-
 /**
  * Result set for multi-statement query.
  */
 public interface MultiResultSet extends Iterable<ResultSet>, AutoCloseable {
-    /**
-     * Returns query uid.
-     *
-     * @return Query id.
-     */
-    UUID queryId();
-
     /** {@inheritDoc} */
     @Override void close();
 }

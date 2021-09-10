@@ -17,17 +17,26 @@
 
 package org.apache.ignite.query.sql;
 
-import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Transactional SQL session projection.
+ * Ignite SQL query facade.
  */
-//TODO: Drop this and add "Session Transaction.wrap(Session)" method.
-public interface SqlTx extends Session, Transaction {
+public interface IgniteSql {
     /**
-     * Returns current transaction.
+     * Creates SQL session.
      *
-     * @return Transaction;
+     * @return Session.
      */
-    Transaction transaction();
+    Session newSession();
+
+    /**
+     * Creates statement.
+     *
+     * @param sql SQL query template.
+     * @return Prepared statement.
+     * @throws SQLException If parsing failed.
+     */
+    Statement newStatement(@NotNull String sql);
 }
+

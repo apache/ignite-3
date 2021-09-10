@@ -34,7 +34,7 @@ public interface Session extends AsyncSession, ReactiveSession {
      * @return Transactional projection for the session.
      */
 //TODO: Drop this and add "Session Transaction.wrap(Session)" method.
-    SqlTx withTransaction(@NotNull Transaction tx);
+    TxSession withTransaction(@NotNull Transaction tx);
 
     /**
      * Creates transactional SQL session projection with a new transaction.
@@ -42,7 +42,7 @@ public interface Session extends AsyncSession, ReactiveSession {
      * @return Transactional projection for the session.
      */
 //TODO: Drop this and add "Session Transaction.wrap(Session)" method.
-    SqlTx withNewTransaction();
+    TxSession withNewTransaction();
 
     /**
      * Sets default query timeout.
@@ -103,13 +103,11 @@ public interface Session extends AsyncSession, ReactiveSession {
     MultiResultSet executeMulti(@NotNull String query, Object... arguments);
 
     /**
-     * Sets query session property.
+     * Sets session property.
      *
      * @param name Property name.
      * @param value Property value.
      * @return {@code this} for chaining.
      */
     Session property(@NotNull String name, Object value);
-    //TODO: User can set e.g. queryTimeout or force join order or whatever.
-    //TODO: This is similar to SQL "SET" operator which is used in JDBC/ODBC clients for session state manipulation.
 }

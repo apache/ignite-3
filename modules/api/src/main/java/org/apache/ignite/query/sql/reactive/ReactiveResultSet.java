@@ -17,9 +17,8 @@
 
 package org.apache.ignite.query.sql.reactive;
 
-import java.sql.ResultSetMetaData;
 import java.util.concurrent.Flow;
-import org.apache.ignite.query.sql.QueryType;
+import org.apache.ignite.query.sql.ResultSetMetadata;
 import org.apache.ignite.query.sql.SqlRow;
 
 /**
@@ -34,16 +33,24 @@ public interface ReactiveResultSet extends Flow.Publisher<SqlRow> {
      *
      * @return Metadata publisher.
      */
-    Flow.Publisher<ResultSetMetaData> metadata();
+    Flow.Publisher<ResultSetMetadata> metadata();
 
     /**
-     * @return Number of affected rows.
+     * @return {@code True} if result set contains rows, {@code false} otherwise.
+     */
+    Flow.Publisher<Boolean> hasRowSet();
+
+    /**
+     * Returns number of row affected by DML query.
+     *
+     * @return Number of rows.
      */
     Flow.Publisher<Integer> updateCount();
 
     /**
-     * @return Query type.
-     * @see QueryType
+     * Returns result for the conditional query.
+     *
+     * @return {@code True} if conditional query applied, {@code false} otherwise.
      */
-    Flow.Publisher<QueryType> queryType();
+    Flow.Publisher<Boolean>  wasApplied();
 }

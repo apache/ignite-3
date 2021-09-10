@@ -30,13 +30,13 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.util.Constants;
-import org.apache.ignite.query.sql.IgniteSQL;
+import org.apache.ignite.query.sql.IgniteSql;
 import org.apache.ignite.query.sql.MultiResultSet;
 import org.apache.ignite.query.sql.ResultSet;
 import org.apache.ignite.query.sql.ResultSetMetadata;
 import org.apache.ignite.query.sql.Session;
 import org.apache.ignite.query.sql.SqlRow;
-import org.apache.ignite.query.sql.SqlTx;
+import org.apache.ignite.query.sql.TxSession;
 import org.apache.ignite.query.sql.async.AsyncMultiResultSet;
 import org.apache.ignite.query.sql.async.AsyncResultSet;
 import org.apache.ignite.query.sql.reactive.ReactiveResultSet;
@@ -67,9 +67,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-public class IgniteSQLTest {
+public class IgniteSqlTest {
     @Mock
-    IgniteSQL queryMgr;
+    IgniteSql queryMgr;
 
     @Mock
     private IgniteTransactions igniteTx;
@@ -96,16 +96,16 @@ public class IgniteSQLTest {
             assertEquals(1, rs.updateCount());
 
             // Execute in TX.
-            SqlTx sqlTx = queryMgr.newSession().withTransaction(tx);
+            TxSession txSession = queryMgr.newSession().withTransaction(tx);
 
-            rs = sqlTx.execute("SELECT id, val FROM tbl WHERE id < {};", 10);
+            rs = txSession.execute("SELECT id, val FROM tbl WHERE id < {};", 10);
 
             for (SqlRow r : rs) {
                 assertTrue(10 > r.longValue("id"));
                 assertTrue((r.stringValue("val")).startsWith("str"));
             }
 
-            sqlTx.commit();
+            txSession.commit();
         });
 
         Mockito.verify(tx).commit();
@@ -116,21 +116,21 @@ public class IgniteSQLTest {
         Table tbl = getTable();
 
         // Starts new TX.
-        SqlTx sqlTx = queryMgr.newSession().withNewTransaction();
+        TxSession txSession = queryMgr.newSession().withNewTransaction();
 
-        ResultSet rs = sqlTx.execute("SELECT id, val FROM tbl WHERE id < {};", 10);
+        ResultSet rs = txSession.execute("SELECT id, val FROM tbl WHERE id < {};", 10);
         SqlRow row = rs.iterator().next();
 
-        tbl.withTransaction(sqlTx.transaction())
+        tbl.withTransaction(txSession.transaction())
             .insertAsync(Tuple.create().set("val", "NewValue"))
-            .thenAccept(r -> sqlTx.transaction().rollback());
+            .thenAccept(r -> txSession.transaction().rollback());
 
         Mockito.verify(tx, Mockito.times(1)).rollback();
     }
 
     @Test
     public void testSyncMultiStatementSql() {
-        SqlTx sess = queryMgr.newSession().withTransaction(tx);
+        TxSession sess = queryMgr.newSession().withTransaction(tx);
 
         MultiResultSet multiRs = sess.executeMulti(
             "CREATE TABLE tbl(id INTEGER PRIMARY KEY, val VARCHAR);" +
@@ -139,6 +139,8 @@ public class IgniteSQLTest {
                 "DROP TABLE tbl", 10);
 
         Iterator<ResultSet> iterator = multiRs.iterator();
+        //TODO: Can iterator return null??
+        //TODO: Closable iterator.
 
         ResultSet rs = iterator.next();
 
@@ -220,7 +222,8 @@ public class IgniteSQLTest {
 
         igniteTx.beginAsync().thenApply(tx -> queryMgr.newSession())
             .thenCompose(session -> {
-                session.executeReactive("SELECT id, val FROM tbl WHERE id < {} AND val LIKE {};", 10, "str%")
+                session
+                    .executeReactive("SELECT id, val FROM tbl WHERE id < {} AND val LIKE {};", 10, "str%")
                     .subscribe(subscriber);
 
                 return subscriber.exceptionally(th -> {
@@ -279,17 +282,17 @@ public class IgniteSQLTest {
 
         Mockito.when(queryMgr.newSession()).thenReturn(session);
 
-        SqlTx sqlTx = Mockito.mock(SqlTx.class);
+        TxSession txSession = Mockito.mock(TxSession.class);
 
-        Mockito.when(sqlTx.transaction()).thenReturn(tx);
-        Mockito.when(session.withTransaction(Mockito.same(tx))).thenReturn(sqlTx);
-        Mockito.when(session.withNewTransaction()).thenReturn(sqlTx);
-        Mockito.doAnswer(ans -> AdditionalAnswers.delegatesTo(session).answer(ans)).when(sqlTx).execute(Mockito.any(), Mockito.any());
-        Mockito.doAnswer(ans -> AdditionalAnswers.delegatesTo(session).answer(ans)).when(sqlTx).executeAsync(Mockito.any(), Mockito.any());
-        Mockito.doAnswer(ans -> AdditionalAnswers.delegatesTo(session).answer(ans)).when(sqlTx).executeMulti(Mockito.any(), Mockito.any());
-        Mockito.doAnswer(ans -> AdditionalAnswers.delegatesTo(session).answer(ans)).when(sqlTx).executeMultiAsync(Mockito.any(), Mockito.any());
-        Mockito.doAnswer(ans -> AdditionalAnswers.delegatesTo(tx).answer(ans)).when(sqlTx).commit();
-        Mockito.doAnswer(ans -> AdditionalAnswers.delegatesTo(tx).answer(ans)).when(sqlTx).rollback();
+        Mockito.when(txSession.transaction()).thenReturn(tx);
+        Mockito.when(session.withTransaction(Mockito.same(tx))).thenReturn(txSession);
+        Mockito.when(session.withNewTransaction()).thenReturn(txSession);
+        Mockito.doAnswer(ans -> AdditionalAnswers.delegatesTo(session).answer(ans)).when(txSession).execute(Mockito.any(), Mockito.any());
+        Mockito.doAnswer(ans -> AdditionalAnswers.delegatesTo(session).answer(ans)).when(txSession).executeAsync(Mockito.any(), Mockito.any());
+        Mockito.doAnswer(ans -> AdditionalAnswers.delegatesTo(session).answer(ans)).when(txSession).executeMulti(Mockito.any(), Mockito.any());
+        Mockito.doAnswer(ans -> AdditionalAnswers.delegatesTo(session).answer(ans)).when(txSession).executeMultiAsync(Mockito.any(), Mockito.any());
+        Mockito.doAnswer(ans -> AdditionalAnswers.delegatesTo(tx).answer(ans)).when(txSession).commit();
+        Mockito.doAnswer(ans -> AdditionalAnswers.delegatesTo(tx).answer(ans)).when(txSession).rollback();
 
         List<SqlRow> query1Resuls = List.of(
             new TestRow().set("id", 1L).set("val", "string 1").build(),

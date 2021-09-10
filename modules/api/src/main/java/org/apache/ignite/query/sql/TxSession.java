@@ -17,9 +17,17 @@
 
 package org.apache.ignite.query.sql;
 
-/** */
-public enum QueryType {
-    SELECT,
-    DML,
-    DDL
+import org.apache.ignite.tx.Transaction;
+
+/**
+ * Transactional SQL session projection.
+ */
+//TODO: Drop this and add "Session Transaction.wrap(Session)" method.
+public interface TxSession extends Session, Transaction {
+    /**
+     * Returns current transaction.
+     *
+     * @return Transaction;
+     */
+    Transaction transaction();
 }

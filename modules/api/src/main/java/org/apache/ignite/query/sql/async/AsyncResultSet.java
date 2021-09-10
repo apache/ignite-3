@@ -17,9 +17,7 @@
 
 package org.apache.ignite.query.sql.async;
 
-import java.util.UUID;
 import java.util.concurrent.CompletionStage;
-import org.apache.ignite.query.sql.QueryType;
 import org.apache.ignite.query.sql.ResultSetMetadata;
 import org.apache.ignite.query.sql.SqlRow;
 
@@ -28,13 +26,6 @@ import org.apache.ignite.query.sql.SqlRow;
  */
 public interface AsyncResultSet {
     /**
-     * Returns query`s unique identifier.
-     *
-     * @return Query id.
-     */
-    UUID queryId();
-
-    /**
      * Returns metadata for the results.
      *
      * @return ResultSet metadata.
@@ -42,15 +33,23 @@ public interface AsyncResultSet {
     ResultSetMetadata metadata();
 
     /**
-     * @return Query type.
-     * @see QueryType
+     * @return {@code True} if result set contains rows, {@code false} otherwise.
      */
-    QueryType queryType();
+    boolean hasRowSet();
 
     /**
-     * @return Number of affected rows.
+     * Returns number of row affected by DML query.
+     *
+     * @return Number of rows.
      */
     int updateCount();
+
+    /**
+     * Returns result for the conditional query.
+     *
+     * @return {@code True} if conditional query applied, {@code false} otherwise.
+     */
+    boolean wasApplied();
 
     /**
      * @return Current page rows.

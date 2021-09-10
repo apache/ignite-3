@@ -53,6 +53,5 @@ public interface AsyncSession {
      * @return Operation future.
      * @throws SQLException If failed.
      */
-    //TODO: Do we want to support multi-statements in async way?
     CompletableFuture<AsyncMultiResultSet> executeMultiAsync(@NotNull String query, Object... arguments);
 }
