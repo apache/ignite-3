@@ -37,6 +37,7 @@ import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.ExtensionContext.Namespace;
 import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.api.extension.ParameterResolutionException;
 import org.junit.jupiter.api.extension.ParameterResolver;
@@ -54,6 +55,9 @@ import static org.mockito.Mockito.when;
  * @see InjectConfiguration
  */
 public class ConfigurationExtension implements BeforeEachCallback, AfterEachCallback, ParameterResolver {
+    /** JUnit namespace for the extension. */
+    private static final Namespace namespace = Namespace.create(ConfigurationExtension.class);
+
     /** Key to store {@link ConfigurationAsmGenerator} in {@link ExtensionContext.Store}. */
     private static final Object CGEN_KEY = new Object();
 
@@ -61,7 +65,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
     @Override public void beforeEach(ExtensionContext context) throws Exception {
         ConfigurationAsmGenerator cgen = new ConfigurationAsmGenerator();
 
-        context.getStore(ExtensionContext.Namespace.GLOBAL).put(CGEN_KEY, cgen);
+        context.getStore(namespace).put(CGEN_KEY, cgen);
 
         Object testInstance = context.getRequiredTestInstance();
 
@@ -74,7 +78,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
 
     /** {@inheritDoc} */
     @Override public void afterEach(ExtensionContext context) throws Exception {
-        context.getStore(ExtensionContext.Namespace.GLOBAL).remove(CGEN_KEY);
+        context.getStore(namespace).remove(CGEN_KEY);
     }
 
     /** {@inheritDoc} */
@@ -91,7 +95,8 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
     ) throws ParameterResolutionException {
         Parameter parameter = parameterContext.getParameter();
 
-        var cgen = (ConfigurationAsmGenerator)extensionContext.getStore(ExtensionContext.Namespace.GLOBAL).get(CGEN_KEY);
+        ConfigurationAsmGenerator cgen =
+            extensionContext.getStore(namespace).get(CGEN_KEY, ConfigurationAsmGenerator.class);
 
         try {
             return cfgValue(parameter.getType(), parameter.getAnnotation(InjectConfiguration.class), cgen);
@@ -105,7 +110,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
     }
 
     /**
-     * Instantiates configuration instance for injection.
+     * Instantiates a configuration instance for injection.
      *
      * @param type Type of the field or parameter. Class name must end with {@code Configuration}.
      * @param annotation Annotation present on the field or parameter.
@@ -173,14 +178,12 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
      * @return Annotated fields.
      */
     private static List<Field> getMatchingFields(Class<?> testClass) {
-        List<Field> fields = AnnotationSupport.findAnnotatedFields(
+        return AnnotationSupport.findAnnotatedFields(
             testClass,
             InjectConfiguration.class,
             field -> supportType(field.getType()),
             HierarchyTraversalMode.TOP_DOWN
         );
-
-        return fields;
     }
 
     /**

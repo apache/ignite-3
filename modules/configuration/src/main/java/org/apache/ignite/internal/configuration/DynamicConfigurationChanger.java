@@ -23,8 +23,8 @@ import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 
 /**
- * Interface to provide configuration access to {@link DynamicConfiguration}, {@link NamedListConfiguration} and
- * {@link DynamicProperty}.
+ * Interface to provide configuration access to up-to-date configuration trees in {@link DynamicConfiguration},
+ * {@link NamedListConfiguration} and {@link DynamicProperty}.
  */
 public interface DynamicConfigurationChanger {
     /**
@@ -36,7 +36,7 @@ public interface DynamicConfigurationChanger {
     CompletableFuture<Void> change(ConfigurationSource source);
 
     /**
-     * Get root node by root key. Subject to revisiting.
+     * Get root node by root key.
      *
      * @param rootKey Root key.
      * @return Root node.
