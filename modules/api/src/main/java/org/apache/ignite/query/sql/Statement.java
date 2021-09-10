@@ -42,10 +42,11 @@ public interface Statement {
     Statement parameters(Object... parameters);
 
     /**
-     * @param parameter Query parameter.
+     * @param parameterIndex Query parameter index.
+     * @param parameterValue Query parameter value.
      * @return {@code this} for chaining.
      */
-    Statement parameter(int parameterIndex, Object parameter);
+    Statement parameter(int parameterIndex, Object parameterValue);
 
     /**
      * Clears query parameters.
@@ -55,7 +56,7 @@ public interface Statement {
     Statement clearParameters();
 
     /**
-     * Adds a set of parameters to this <code>SqlStatement</code> object's batch of commands.
+     * Adds a set of parameters to this statement object's batch of commands.
      *
      * @return {@code this} for chaining.
      */

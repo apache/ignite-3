@@ -41,7 +41,7 @@ public interface IgniteSQL {
     Statement newStatement(@NotNull String sql);
 
     /**
-     * Kills query by its' id.
+     * Kills query by query id.
      *
      * @param queryID Query id.
      */

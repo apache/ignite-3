@@ -39,6 +39,7 @@ public interface AsyncSession {
     /**
      * Executes SQL statement in async way.
      *
+     * @param statement SQL statement to execute.
      * @return Operation future.
      * @throws SQLException If failed.
      */
