@@ -124,7 +124,7 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         assertEquals(3L, keys[1].longValue(0));
 
         assertEquals("1", res.get(keys[0]).stringValue("name"));
-        assertEquals("3", res.get(keys[1]).stringValue("name"));
+        assertEquals("3", res.get(keys[1]).stringValue(0));
     }
 
     @Test
