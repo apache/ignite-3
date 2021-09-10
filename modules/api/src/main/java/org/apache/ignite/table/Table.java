@@ -112,11 +112,11 @@ public interface Table extends TableView<Tuple> {
     /**
      * Returns statistics facade for table statistics management.
      * <p>
-     * Table statistics are used by SQL engine for SQL queries planning.
+     * Note: SQL engine uses table statistics for SQL queries planning.
      *
      * @return Statistics facade.
      */
     default IgniteTableStatistics statistics() {
         throw new UnsupportedOperationException("Not implemented yet.");
-    };
+    }
 }

@@ -62,9 +62,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Tests IgniteSQL facade API.
+ */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-public class SqlTest {
+public class IgniteSQLTest {
     @Mock
     IgniteSQL queryMgr;
 
@@ -334,7 +337,6 @@ public class SqlTest {
                                             ).getMock()
                             ).getMock()
             );
-
 
         AsyncMultiResultSet asyncMultiRs = Mockito.mock(AsyncMultiResultSet.class);
         Mockito.when(asyncMultiRs.currentResultAsync()).thenReturn(1, 2, 3);

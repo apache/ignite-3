@@ -42,6 +42,9 @@ public class TestRow implements SqlRow {
         return this;
     }
 
+    /**
+     * @return Row.
+     */
     public SqlRow build() {
         return this;
     }
@@ -176,6 +179,7 @@ public class TestRow implements SqlRow {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public LocalDate dateValue(String columnName) {
         return null;
     }

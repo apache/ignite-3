@@ -28,21 +28,27 @@ import java.util.concurrent.CompletableFuture;
 // TODO: drop this class and move all the methods to Table interface?
 public interface IgniteTableStatistics {
     /**
-     * Get statistics info for table.
+     * Returns all the statistics names for the table.
      *
-     * @param tableName Table name.
-     * @return Statistics info collection.
+     * @return Statistics names for the table.
      */
-    Collection<StatisticInfo> statistics(String tableName); //TODO: Local or global? Ready or in-progress? TBD.
+    Collection<String> statisticNames();
 
     /**
-     * Creates statistics for a table and initiate it gathering on the nodes.
+     * Get statistics info for the table.
      *
-     * @param tableName Table name.
+     * @param statisticName Statistic name.
+     * @return Statistics info.
+     */
+    StatisticInfo statistic(String statisticName); //TODO: Local or global? Ready or in-progress? TBD.
+
+    /**
+     * Creates statistics for the table and initiate it gathering on the nodes.
+     *
      * @param statisticsConfiguration Statistic configuration.
      * @return Operation future.
      */
-    CompletableFuture<Void> gather(String tableName, Object statisticsConfiguration);
+    CompletableFuture<StatisticInfo> gather(StatisticConfiguration statisticsConfiguration);
     //TODO: Creates new statistics in addition, or drop old and replaces with new?
     //TODO: Should the existed one be refreshed? or fail with exception?
     //TODO: What if existed statistics has different configuration?
@@ -51,32 +57,51 @@ public interface IgniteTableStatistics {
     /**
      * Refresh a global statistic by given name or all existed statistics if no statistic name specified.
      *
-     * @param tableName Table name.
      * @param statisticNames Statistic names (optional).
      * @return Operation future.
      */
-    CompletableFuture<Void> refresh(String tableName, String... statisticNames);
+    CompletableFuture<StatisticInfo> refresh(String... statisticNames);
     //TODO: What if statistics with name is not exists? one of names?
 
     /**
      * Drop table statistic.
      *
-     * @param tableName Table name.
-     * @param statisticNames Statistic names.     //TODO: Can be empty?
-     */
-    void drop(String tableName, String... statisticNames);
-
-    /**
-     * Refresh local statistic.
-     *
-     * @param tableName Table name.
      * @param statisticNames Statistic names.
      */
-    void refreshLocal(String tableName, String... statisticNames); //TODO: Actually, drops local statistics to be automatically refreshed.
+    void drop(String... statisticNames);
 
+    /**
+     * Refresh local statistics.
+     *
+     * @param statisticNames Statistic names.
+     * @return Operation future.
+     */
+    CompletableFuture<StatisticInfo> refreshLocal(String... statisticNames); //TODO: Actually, drops local statistics to be automatically refreshed.
+
+    /**
+     * Statistic info.
+     */
     //TODO TBD.
     interface StatisticInfo {
+        /**
+         * @return Statistic name.
+         */
         String name();
-        Object config();
+
+        /**
+         * @return Statistic configuration.
+         */
+        StatisticConfiguration config();
+    }
+
+    /**
+     * Statistic configuration.
+     */
+    //TODO TBD.
+    interface StatisticConfiguration {
+        /**
+         * @return Statistic name.
+         */
+        String name();
     }
 }
