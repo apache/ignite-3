@@ -116,5 +116,7 @@ public interface Table extends TableView<Tuple> {
      *
      * @return Statistics facade.
      */
-    IgniteTableStatistics statistics();
+    default IgniteTableStatistics statistics() {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    };
 }

@@ -25,7 +25,6 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
-import org.apache.ignite.binary.BinaryObjects;
 import org.apache.ignite.query.sql.SqlRow;
 import org.jetbrains.annotations.NotNull;
 
