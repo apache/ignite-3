@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -249,5 +250,37 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         Tuple res = kvView.getAndReplace(tupleKey(1L), tupleVal("2"));
         assertEquals("1", res.stringValue(0));
         assertEquals("2", kvView.get(tupleKey(1L)).stringValue(0));
+    }
+
+    @Test
+    public void testGetAndRemove() {
+        KeyValueBinaryView kvView = defaultTable().kvView();
+        kvView.put(tupleKey(1L), tupleVal("1"));
+
+        Tuple removed = kvView.getAndRemove(tupleKey(1L));
+
+        assertNotNull(removed);
+        assertEquals(1, removed.columnCount());
+        assertEquals("1", removed.stringValue(0));
+        assertEquals("1", removed.stringValue("name"));
+
+        assertFalse(kvView.contains(tupleKey(1L)));
+        assertNull(kvView.getAndRemove(tupleKey(1L)));
+    }
+
+    @Test
+    public void testGetAndPut() {
+        KeyValueBinaryView kvView = defaultTable().kvView();
+        kvView.put(tupleKey(1L), tupleVal("1"));
+
+        Tuple res1 = kvView.getAndPut(tupleKey(2L), tupleVal("2"));
+        Tuple res2 = kvView.getAndPut(tupleKey(1L), tupleVal("3"));
+
+        assertNull(res1);
+        assertEquals("2", kvView.get(tupleKey(2L)).stringValue(0));
+
+        assertNotNull(res2);
+        assertEquals("1", res2.stringValue(0));
+        assertEquals("3", kvView.get(tupleKey(1L)).stringValue(0));
     }
 }
