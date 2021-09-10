@@ -145,6 +145,13 @@
             <artifactId>ignite-client</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-metastorage-server</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -154,5 +161,23 @@
                 <filtering>true</filtering>
             </resource>
         </resources>
+
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>platform-test-node-runner</id>
+                        <phase>none</phase>
+                    </execution>
+                </executions>
+                <configuration>
+                    <mainClass>org.apache.ignite.internal.runner.app.PlatformTestNodeRunner</mainClass>
+                    <arguments>...</arguments>
+                    <classpathScope>test</classpathScope>
+                </configuration>
+            </plugin>
+        </plugins>
     </build>
 </project>
