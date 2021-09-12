@@ -15,15 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.proto;
+package org.apache.ignite.internal.client.proto;
 
 /**
- * Server to client message types.
+ * Client error codes.
  */
-public class ServerMessageType {
-    /** Response to a request (initiated by the client). */
-    public static final int RESPONSE = 0;
+public class ClientErrorCode {
+    /** Operation succeeded (no error). */
+    public static final int SUCCESS = 0;
 
-    /** Notification (initiated by the server). */
-    public static final int NOTIFICATION = 1;
+    /** General error (uncategorized). */
+    public static final int FAILED = 1;
+
+    /** Authentication or authorization failure. */
+    public static final int AUTH_FAILED = 2;
 }

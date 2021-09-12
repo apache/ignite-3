@@ -15,15 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.proto;
+package org.apache.ignite.internal.client.proto;
 
 /**
- * Common client message constants.
+ * Defines tuple part to write or read - key, value, or both.
  */
-public class ClientMessageCommon {
-    /** Message header size. */
-    public static final int HEADER_SIZE = 4;
+public enum TuplePart {
+    /**
+     * Key columns.
+     */
+    KEY,
 
-    /** Magic bytes before handshake. */
-    public static final byte[] MAGIC_BYTES = new byte[]{0x49, 0x47, 0x4E, 0x49}; // IGNI
+    /**
+     * Value columns.
+     */
+    VAL,
+
+    /**
+     * Key and value columns.
+     */
+    KEY_AND_VAL
 }

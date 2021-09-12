@@ -15,18 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.proto;
+package org.apache.ignite.internal.client.proto;
 
 /**
- * Client error codes.
+ * Common client message constants.
  */
-public class ClientErrorCode {
-    /** Operation succeeded (no error). */
-    public static final int SUCCESS = 0;
+public class ClientMessageCommon {
+    /** Message header size. */
+    public static final int HEADER_SIZE = 4;
 
-    /** General error (uncategorized). */
-    public static final int FAILED = 1;
-
-    /** Authentication or authorization failure. */
-    public static final int AUTH_FAILED = 2;
+    /** Magic bytes before handshake. */
+    public static final byte[] MAGIC_BYTES = new byte[]{0x49, 0x47, 0x4E, 0x49}; // IGNI
 }
