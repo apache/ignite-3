@@ -20,12 +20,10 @@ package org.apache.ignite.client.handler.requests.table;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.table.manager.IgniteTables;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTuple;
 
 /**
  * Client tuple contains key request.
