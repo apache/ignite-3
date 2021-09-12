@@ -88,7 +88,12 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Boolean> containsAsync(@NotNull Tuple key) {
-        return getAsync(key).thenApply(Objects::nonNull);
+        Objects.requireNonNull(key);
+
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_CONTAINS_KEY,
+                (schema, out) -> tbl.writeTuple(key, schema, out, true),
+                ClientMessageUnpacker::unpackBoolean);
     }
 
     /** {@inheritDoc} */

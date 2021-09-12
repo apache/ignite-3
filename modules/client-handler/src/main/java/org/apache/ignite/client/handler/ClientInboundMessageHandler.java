@@ -28,6 +28,7 @@ import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableDropRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTupleContainsKeyRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleDeleteAllExactRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleDeleteAllRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleDeleteExactRequest;
@@ -321,6 +322,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             case ClientOp.TUPLE_GET_AND_DELETE:
                 return ClientTupleGetAndDeleteRequest.process(in, out, igniteTables);
+
+            case ClientOp.TUPLE_CONTAINS_KEY:
+                return ClientTupleContainsKeyRequest.process(in, out, igniteTables);
 
             default:
                 throw new IgniteException("Unexpected operation code: " + opCode);
