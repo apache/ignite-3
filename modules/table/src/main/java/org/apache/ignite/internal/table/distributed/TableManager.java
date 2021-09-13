@@ -371,6 +371,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             assert table != null : "There is no table with the name specified [name=" + name + ']';
 
+            tables.remove(name);
+            tablesById.remove(table.tableId());
+
             fireEvent(TableEvent.DROP, new TableEventParameters(table), null);
 
             Optional.ofNullable(dropTblIntention.get(tblId)).ifPresent(f -> f.complete(null));
