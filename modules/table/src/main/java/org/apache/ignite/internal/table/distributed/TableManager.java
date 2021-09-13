@@ -454,7 +454,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             (ch) -> {
                                 tableInitChange.accept(ch);
                                 ((ExtendedTableChange)ch).
+                                    // Table id specification.
                                     changeId(tblId.toString()).
+                                    // Affinity assignments calculation.
                                     changeAssignments(
                                         ByteUtils.toBytes(
                                             AffinityService.calculateAssignments(
@@ -464,6 +466,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             )
                                         )
                                     ).
+                                    // Table schema preparation.
                                     changeSchemas(
                                         schemasCh -> schemasCh.create(
                                             String.valueOf(INITIAL_SCHEMA_VERSION),
@@ -592,7 +595,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     .tables()
                     .change(change -> change.delete(name))
                     .thenRun(() -> {
-                        // TODO sanpwc: Refactor.
                         CompletableFuture<Void> dropTblIntentionFut = dropTblIntention.get(tblId);
 
                         if (dropTblIntentionFut != null)
@@ -607,7 +609,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 });
                         else
                             dropTblFut.complete(null);
-                        // TODO sanpwc: Seems that we might loose exception cause here.
                     })
                     .exceptionally(throwable -> {
                         LOG.error("Table wasn't dropped [name=" + name + ']', throwable);
