@@ -553,7 +553,7 @@ public class ClientTable implements Table {
         }
 
         if (!skipHeader) {
-            out.packUuid(id);
+            out.packIgniteUuid(id);
             out.packInt(schema.version());
         }
 
@@ -562,7 +562,7 @@ public class ClientTable implements Table {
     }
 
     public void writeKvTuples(Map<Tuple, Tuple> pairs, ClientSchema schema, ClientMessagePacker out) {
-        out.packUuid(id);
+        out.packIgniteUuid(id);
         out.packInt(schema.version());
         out.packInt(pairs.size());
 
