@@ -172,6 +172,71 @@ public class NativeTypes {
     }
 
     /**
+     * Return the native type for specified name and parameters.
+     *
+     * @param name NativeTypeSpec name.
+     * @return {@code null} for {@code null} value. Otherwise returns NativeType according to the value's type.
+     */
+    public static NativeType fromName(String name, int len, int precision, int scale) {
+        NativeTypeSpec spec = NativeTypeSpec.valueOf(name);
+
+        switch (spec) {
+            case INT8:
+                return INT8;
+
+            case INT16:
+                return INT16;
+
+            case INT32:
+                return INT32;
+
+            case INT64:
+                return INT64;
+
+            case FLOAT:
+                return FLOAT;
+
+            case DOUBLE:
+                return DOUBLE;
+
+            case UUID:
+                return UUID;
+
+            case DATE:
+                return DATE;
+
+            case TIME:
+                return time();
+
+            case DATETIME:
+                return datetime();
+
+            case TIMESTAMP:
+                return timestamp();
+
+            case STRING:
+                return stringOf(len);
+
+            case BYTES:
+                return blobOf(len);
+
+            case BITMASK:
+                return bitmaskOf(len);
+
+            case NUMBER:
+                return numberOf(precision);
+
+            case DECIMAL:
+                return decimalOf(precision, scale);
+
+            default:
+                assert false : "Unexpected type: " + spec;
+
+                return null;
+        }
+    }
+
+    /**
      * Return the native type for specified object.
      *
      * @param val Object to map to native type.

@@ -46,6 +46,8 @@ import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
+import org.apache.ignite.internal.schema.marshaller.schema.AbstractSchemaAssembler;
+import org.apache.ignite.internal.schema.marshaller.schema.SchemaAssemblerImpl;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -92,6 +94,9 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
     /** Schema registries (tableId -> SchemaRegistry). */
     private final Map<UUID, SchemaRegistryImpl> schemaRegs = new ConcurrentHashMap<>();
+
+    /** Schema assembler. */
+    private final AbstractSchemaAssembler assembler = SchemaAssemblerImpl.INSTANCE;
 
     /**
      * The constructor.
@@ -152,7 +157,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                             schemaRegs.put(tblId, (reg = new SchemaRegistryImpl(v -> tableSchema(tblId, v))));
 
                         if (evt.oldEntry().empty() || evt.oldEntry().tombstone())
-                            reg.onSchemaRegistered((SchemaDescriptor)ByteUtils.fromBytes(evt.newEntry().value()));
+                            reg.onSchemaRegistered(assembler.deserialize(evt.newEntry().value()));
                         else if (evt.newEntry().empty() || evt.newEntry().tombstone()) {
                             int ver = Integer.parseInt(keyTail.substring(verPos + INTERNAL_VER_SUFFIX.length()));
 
@@ -202,9 +207,8 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                 final SchemaDescriptor desc = SchemaDescriptorConverter.convert(tblId, schemaVer, schemaTable);
 
                 return metaStorageMgr.invoke(Conditions.notExists(schemaKey),
-                    Operations.put(schemaKey, ByteUtils.toBytes(desc)),
+                    Operations.put(schemaKey, assembler.serialize(desc)),
                     Operations.noop())
-                    //TODO: IGNITE-14679 Serialize schema.
                     .thenCompose(res -> metaStorageMgr.invoke(Conditions.notExists(lastVerKey),
                         Operations.put(lastVerKey, ByteUtils.longToBytes(schemaVer)),
                         Operations.noop()));
@@ -244,9 +248,8 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                     newTbl));
 
                 return metaStorageMgr.invoke(Conditions.notExists(schemaKey),
-                    Operations.put(schemaKey, ByteUtils.toBytes(desc)),
+                    Operations.put(schemaKey, assembler.serialize(desc)),
                     Operations.noop())
-                    //TODO: IGNITE-14679 Serialize schema.
                     .thenCompose(res -> metaStorageMgr.invoke(
                         Conditions.value(lastVerKey).eq(ByteUtils.longToBytes(oldVer)),
                         Operations.put(lastVerKey, ByteUtils.longToBytes(newVer)),
@@ -321,7 +324,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     private SchemaDescriptor tableSchema(UUID tblId, int schemaVer) {
         try {
             return vaultMgr.get(ByteArray.fromString(INTERNAL_PREFIX + tblId + INTERNAL_VER_SUFFIX + schemaVer))
-                .thenApply(e -> e.empty() ? null : (SchemaDescriptor)ByteUtils.fromBytes(e.value())).get();
+                .thenApply(e -> e.empty() ? null : assembler.deserialize(e.value())).get();
         }
         catch (InterruptedException | ExecutionException e) {
             throw new SchemaException("Can't read schema from vault: ver=" + schemaVer, e);
