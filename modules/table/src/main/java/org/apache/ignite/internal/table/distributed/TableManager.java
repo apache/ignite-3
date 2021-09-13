@@ -345,7 +345,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 fireEvent(TableEvent.CREATE, new TableEventParameters(table), null);
 
-                Optional.ofNullable(createTblIntention.get(tblId)).ifPresent(f -> f.complete(null));
+                Optional.ofNullable(createTblIntention.get(tblId)).ifPresent(f -> f.complete(table));
             }
             catch (Exception e) {
                 Optional.ofNullable(createTblIntention.get(tblId)).ifPresent(f -> f.completeExceptionally(e));
