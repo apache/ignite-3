@@ -168,7 +168,7 @@ namespace Apache.Ignite.Internal.Table
             return reader.ReadInt32Nullable();
         }
 
-        private async Task<Schema?> ReadSchemaAsync(PooledBuffer buf, Schema currentSchema)
+        private async ValueTask<Schema?> ReadSchemaAsync(PooledBuffer buf, Schema currentSchema)
         {
             var ver = ReadSchemaVersion(buf);
 
@@ -190,7 +190,7 @@ namespace Apache.Ignite.Internal.Table
             return await LoadSchemaAsync(ver).ConfigureAwait(false);
         }
 
-        private async Task<Schema> GetLatestSchemaAsync()
+        private async ValueTask<Schema> GetLatestSchemaAsync()
         {
             var latestSchemaVersion = _latestSchemaVersion;
 
