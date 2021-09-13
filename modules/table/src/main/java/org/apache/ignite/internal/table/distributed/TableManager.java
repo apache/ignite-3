@@ -91,7 +91,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private static final IgniteLogger LOG = IgniteLogger.forClass(TableManager.class);
 
     /** */
-    private final int INITIAL_SCHEMA_VERSION = 1;
+    private static final int INITIAL_SCHEMA_VERSION = 1;
 
     /** Public prefix for metastorage. */
     // TODO: IGNITE-15412 Remove after implementation. Configuration manager will be used to retrieve distributed values
