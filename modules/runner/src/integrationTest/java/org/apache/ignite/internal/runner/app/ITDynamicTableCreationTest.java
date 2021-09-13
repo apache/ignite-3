@@ -146,62 +146,6 @@ class ITDynamicTableCreationTest {
         assertThrows(IllegalArgumentException.class, () -> kvView1.get(keyTuple2).value("key"));
     }
 
-    @Test
-        // TODO: 06.09.21 sanpwc remove it
-    void testFooBarDropDynamicSimpleTableCreation() {
-        nodesBootstrapCfg.forEach((nodeName, configStr) ->
-            clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
-        );
-
-        assertEquals(3, clusterNodes.size());
-
-        // Create table on node 0.
-        SchemaTable schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
-            SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
-            SchemaBuilders.column("val", ColumnType.INT32).asNullable().build()
-        ).withPrimaryKey("key").build();
-
-        clusterNodes.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
-            SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                .changeReplicas(1)
-                .changePartitions(10)
-        );
-
-        // Put data on node 1.
-        Table tbl1 = clusterNodes.get(1).tables().table(schTbl1.canonicalName());
-        KeyValueBinaryView kvView1 = tbl1.kvView();
-
-        clusterNodes.get(0).tables().dropTable("PUBLIC.tbl1");
-
-        assertEquals(0, clusterNodes.get(0).tables().tables().size());
-//
-//        tbl1.insert(tbl1.tupleBuilder().set("key", 1L).set("val", 111).build());
-//        kvView1.put(tbl1.tupleBuilder().set("key", 2L).build(), tbl1.tupleBuilder().set("val", 222).build());
-//
-//        // Get data on node 2.
-//        Table tbl2 = clusterNodes.get(2).tables().table(schTbl1.canonicalName());
-//        KeyValueBinaryView kvView2 = tbl2.kvView();
-//
-//        final Tuple keyTuple1 = tbl2.tupleBuilder().set("key", 1L).build();
-//        final Tuple keyTuple2 = kvView2.tupleBuilder().set("key", 2L).build();
-//
-//        assertThrows(SchemaMismatchException.class, () -> kvView2.get(keyTuple1).value("key"));
-//        assertThrows(SchemaMismatchException.class, () -> kvView2.get(keyTuple1).value("key"));
-//        assertEquals(1, (Long)tbl2.get(keyTuple1).value("key"));
-//        assertEquals(2, (Long)tbl2.get(keyTuple2).value("key"));
-//
-//        assertEquals(111, (Integer)tbl2.get(keyTuple1).value("val"));
-//        assertEquals(111, (Integer)kvView2.get(keyTuple1).value("val"));
-//        assertEquals(222, (Integer)tbl2.get(keyTuple2).value("val"));
-//        assertEquals(222, (Integer)kvView2.get(keyTuple2).value("val"));
-//
-//        assertThrows(SchemaMismatchException.class, () -> tbl1.get(keyTuple1).value("key"));
-//        assertThrows(SchemaMismatchException.class, () -> kvView1.get(keyTuple1).value("key"));
-//        assertThrows(SchemaMismatchException.class, () -> tbl1.get(keyTuple1).value("val"));
-//        assertThrows(SchemaMismatchException.class, () -> kvView1.get(keyTuple1).value("val"));
-    }
-
-
     /**
      * Check dynamic table creation.
      */
