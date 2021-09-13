@@ -177,45 +177,6 @@ public class TableManagerTest {
                 "      ]\n" +
                 "   }\n" +
                 "}");
-
-//            clusterCfgMgr.bootstrap("{\n" +
-//                "   \"cluster\":{\n" +
-//                "   \"metastorageNodes\":[\n" +
-//                "      \"" + NODE_NAME + "\"\n" +
-//                "   ]\n" +
-//                "},\n" +
-//                "   \"table\":{\n" +
-//                "      \"tables\":{\n" +
-//                "         \"" + STATIC_TABLE_NAME + "\":{\n" +
-//                "            \"name\":\"TestTable\",\n" +
-//                "            \"partitions\":16,\n" +
-//                "            \"replicas\":1,\n" +
-//                "            \"columns\":{\n" +
-//                "               \"id\":{\n" +
-//                "                  \"name\":\"id\",\n" +
-//                "                  \"type\":{\n" +
-//                "                     \"type\":\"Int64\"\n" +
-//                "                  },\n" +
-//                "                  \"nullable\":false\n" +
-//                "               }\n" +
-//                "            },\n" +
-//                "            \"indices\":{\n" +
-//                "               \"pk\":{\n" +
-//                "                  \"name\":\"pk\",\n" +
-//                "                  \"type\":\"primary\",\n" +
-//                "                  \"uniq\":true,\n" +
-//                "                  \"columns\":{\n" +
-//                "                     \"id\":{\n" +
-//                "                        \"name\":\"id\",\n" +
-//                "                        \"asc\":true\n" +
-//                "                     }\n" +
-//                "                  }\n" +
-//                "               }\n" +
-//                "            }\n" +
-//                "         }\n" +
-//                "      }\n" +
-//                "   }\n" +
-//                "}");
         }
         catch (Exception e) {
             LOG.error("Failed to bootstrap the test configuration manager.", e);
