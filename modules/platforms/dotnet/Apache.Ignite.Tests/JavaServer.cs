@@ -55,7 +55,7 @@ namespace Apache.Ignite.Tests
         /// <returns>Disposable object to stop the server.</returns>
         public static async Task<JavaServer> StartAsync()
         {
-            if (await TryConnect(DefaultClientPort))
+            if (await TryConnect(DefaultClientPort) == null)
             {
                 // Server started from outside.
                 return new JavaServer(DefaultClientPort, null);
@@ -92,11 +92,7 @@ namespace Apache.Ignite.Tests
                     return;
                 }
 
-                // For IDE
-                Console.WriteLine(line);
-
-                // For `dotnet test`
-                TestContext.Progress.WriteLine(line);
+                Log(line);
 
                 if (line.StartsWith("THIN_CLIENT_PORTS", StringComparison.Ordinal))
                 {
@@ -117,7 +113,7 @@ namespace Apache.Ignite.Tests
             {
                 process.Kill(true);
 
-                throw new InvalidOperationException("Failed to wait for the server to start.");
+                throw new InvalidOperationException("Failed to wait for the server to start. Check logs for details.");
             }
 
             return new JavaServer(ports?.FirstOrDefault() ?? DefaultClientPort, process);
@@ -127,6 +123,15 @@ namespace Apache.Ignite.Tests
         {
             _process?.Kill();
             _process?.Dispose();
+        }
+
+        private static void Log(string? line)
+        {
+            // For IDE.
+            Console.WriteLine(line);
+
+            // For `dotnet test`.
+            TestContext.Progress.WriteLine(line);
         }
 
         private static bool WaitForServer(int port)
@@ -145,24 +150,27 @@ namespace Apache.Ignite.Tests
 
         private static async Task TryConnectForever(int port, CancellationToken ct)
         {
-            while (!await TryConnect(port))
+            while (await TryConnect(port) != null)
             {
                 ct.ThrowIfCancellationRequested();
             }
         }
 
-        private static async Task<bool> TryConnect(int port)
+        private static async Task<Exception?> TryConnect(int port)
         {
             try
             {
                 var cfg = new IgniteClientConfiguration("127.0.0.1:" + port);
                 using var client = await IgniteClient.StartAsync(cfg);
 
-                return (await client.Tables.GetTablesAsync()).Count > 0;
+                var tables = await client.Tables.GetTablesAsync();
+                return tables.Count > 0 ? null : new InvalidOperationException("No tables found on server");
             }
-            catch
+            catch (Exception e)
             {
-                return false;
+                Log(e.ToString());
+
+                return e;
             }
         }
 
