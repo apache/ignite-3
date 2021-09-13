@@ -77,6 +77,7 @@ namespace Apache.Ignite.Internal.Table
             Write(writer.GetMessageWriter());
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGet, writer).ConfigureAwait(false);
+            var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
             return Read(resBuf.GetReader());
 
             void Write(MessagePackWriter w)
@@ -96,21 +97,15 @@ namespace Apache.Ignite.Internal.Table
 
             IIgniteTuple? Read(MessagePackReader r)
             {
-                if (r.NextMessagePackType == MessagePackType.Nil)
+                if (resSchema == null)
                 {
                     return null;
                 }
 
-                var schemaVersion = r.ReadInt32();
+                // Skip schema version.
+                r.Skip();
 
-                if (schemaVersion != schema.Version)
-                {
-                    // TODO: Load schema (IGNITE-15430).
-                    throw new NotSupportedException();
-                }
-
-                var columns = schema.Columns;
-
+                var columns = resSchema.Columns;
                 var tuple = new IgniteTuple(columns.Count);
 
                 for (var i = 0; i < columns.Count; i++)
@@ -164,6 +159,35 @@ namespace Apache.Ignite.Internal.Table
 
                 w.Flush();
             }
+        }
+
+        private static int? ReadSchemaVersion(PooledBuffer buf)
+        {
+            var reader = buf.GetReader();
+
+            return reader.ReadInt32Nullable();
+        }
+
+        private async Task<Schema?> ReadSchemaAsync(PooledBuffer buf, Schema currentSchema)
+        {
+            var ver = ReadSchemaVersion(buf);
+
+            if (ver == null)
+            {
+                return null;
+            }
+
+            if (currentSchema.Version == ver.Value)
+            {
+                return currentSchema;
+            }
+
+            if (_schemas.TryGetValue(ver.Value, out var res))
+            {
+                return res;
+            }
+
+            return await LoadSchemaAsync(ver).ConfigureAwait(false);
         }
 
         private async Task<Schema> GetLatestSchemaAsync()
