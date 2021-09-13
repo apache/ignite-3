@@ -34,7 +34,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
  * values are not found.
  * <p/>
  * Although configuration instance is mutable, there's no {@link ConfigurationRegistry} and {@link ConfigurationChanger}
- * underneath. Listeners don't work either, be aware of that. Main point of the extension is to provide mocks.
+ * underneath. Main point of the extension is to provide mocks.
  *
  * @see ConfigurationExtension
  */
