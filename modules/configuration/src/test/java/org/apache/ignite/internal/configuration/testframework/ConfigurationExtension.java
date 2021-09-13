@@ -19,13 +19,14 @@ package org.apache.ignite.internal.configuration.testframework;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Parameter;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigObject;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.DynamicConfigurationChanger;
 import org.apache.ignite.internal.configuration.RootInnerNode;
 import org.apache.ignite.internal.configuration.SuperRoot;
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
+import org.apache.ignite.internal.configuration.util.ConfigurationNotificationsUtil;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -44,8 +46,8 @@ import org.junit.jupiter.api.extension.ParameterResolver;
 import org.junit.platform.commons.support.AnnotationSupport;
 import org.junit.platform.commons.support.HierarchyTraversalMode;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -129,7 +131,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         Class<?> schemaClass = Class.forName(type.getCanonicalName() + "Schema");
 
         // Internal configuration extensions are not yet supported. This will probably be changed in the future.
-        cgen.compileRootSchema(schemaClass, Map.of());
+        cgen.compileRootSchema(schemaClass, internalSchemaExtensions(List.of(annotation.extensions())));
 
         // RootKey must be mocked, there's no way to instantiate it using a public constructor.
         RootKey rootKey = mock(RootKey.class);
@@ -150,7 +152,12 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         // Reference to the super root is required to make DynamicConfigurationChanger#change method atomic.
         var superRootRef = new AtomicReference<>(superRoot);
 
-        return cgen.instantiateCfg(rootKey, new DynamicConfigurationChanger() {
+        // Reference that's required for notificator.
+        AtomicReference<DynamicConfiguration<?, ?>> cfgRef = new AtomicReference();
+
+        cfgRef.set(cgen.instantiateCfg(rootKey, new DynamicConfigurationChanger() {
+            private int storageRev;
+
             /** {@inheritDoc} */
             @Override public CompletableFuture<Void> change(ConfigurationSource change) {
                 while (true) {
@@ -160,8 +167,19 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
 
                     change.descend(copy);
 
-                    if (superRootRef.compareAndSet(sr, copy))
-                        return completedFuture(null);
+                    if (superRootRef.compareAndSet(sr, copy)) {
+                        List<CompletableFuture<?>> futures = new ArrayList<>();
+
+                        ConfigurationNotificationsUtil.notifyListeners(
+                            sr.getRoot(rootKey),
+                            copy.getRoot(rootKey),
+                            ((DynamicConfiguration<InnerNode, ?>)cfgRef.get()),
+                            ++storageRev,
+                            futures
+                        );
+
+                        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+                    }
                 }
             }
 
@@ -169,7 +187,11 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
             @Override public InnerNode getRootNode(RootKey<?, ?> rk) {
                 return superRootRef.get().getRoot(rk);
             }
-        });
+        }));
+
+        ConfigurationNotificationsUtil.touch(cfgRef.get());
+
+        return cfgRef.get();
     }
 
     /**

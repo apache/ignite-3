@@ -17,11 +17,17 @@
 
 package org.apache.ignite.internal.configuration.testframework;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.configuration.sample.DiscoveryConfiguration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -49,5 +55,63 @@ class ConfigurationExtensionTest {
         paramCfg.joinTimeout().update(300);
 
         assertEquals(300, paramCfg.joinTimeout().value());
+    }
+
+    /** Tests that notifications work on injected configuration instance. */
+    @Test
+    public void notifications() {
+        List<String> log = new ArrayList<>();
+
+        fieldCfg.listen(ctx -> {
+            log.add("update");
+
+            return completedFuture(null);
+        });
+
+        fieldCfg.joinTimeout().listen(ctx -> {
+            log.add("join");
+
+            return completedFuture(null);
+        });
+
+        fieldCfg.failureDetectionTimeout().listen(ctx -> {
+            log.add("failure");
+
+            return completedFuture(null);
+        });
+
+        fieldCfg.change(change -> change.changeJoinTimeout(1000_000));
+
+        assertEquals(List.of("update", "join"), log);
+
+        log.clear();
+
+        fieldCfg.failureDetectionTimeout().update(2000_000);
+
+        assertEquals(List.of("update", "failure"), log);
+    }
+
+    /** Tests that internal configuration extensions work properly on injected configuration instance. */
+    @Test
+    public void internalConfiguration(
+        @InjectConfiguration(extensions = {ExtendedConfigurationSchema.class}) BasicConfiguration cfg
+    ) {
+        assertThat(cfg, is(instanceOf(ExtendedConfiguration.class)));
+
+        assertEquals(1, cfg.visible().value());
+
+        assertEquals(2, ((ExtendedConfiguration)cfg).invisible().value());
+
+        cfg.change(change -> {
+            assertThat(change, is(instanceOf(ExtendedChange.class)));
+
+            change.changeVisible(3);
+
+            ((ExtendedChange)change).changeInvisible(4);
+        });
+
+        assertEquals(3, cfg.visible().value());
+
+        assertEquals(4, ((ExtendedConfiguration)cfg).invisible().value());
     }
 }
