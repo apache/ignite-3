@@ -58,8 +58,12 @@ namespace Apache.Ignite.Tests
             if (await TryConnect(DefaultClientPort) == null)
             {
                 // Server started from outside.
+                Log(">>> Java server is already started.");
+
                 return new JavaServer(DefaultClientPort, null);
             }
+
+            Log(">>> Java server is not detected, starting...");
 
             var file = TestUtils.IsWindows ? "cmd.exe" : "/bin/bash";
 
@@ -109,14 +113,18 @@ namespace Apache.Ignite.Tests
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
 
-            if (!evt.Wait(TimeSpan.FromSeconds(15)) || !WaitForServer(ports?.FirstOrDefault() ?? DefaultClientPort))
+            var port = ports?.FirstOrDefault() ?? DefaultClientPort;
+
+            if (!evt.Wait(TimeSpan.FromSeconds(15)) || !WaitForServer(port))
             {
                 process.Kill(true);
 
                 throw new InvalidOperationException("Failed to wait for the server to start. Check logs for details.");
             }
 
-            return new JavaServer(ports?.FirstOrDefault() ?? DefaultClientPort, process);
+            Log($">>> Java server started on port {port}.");
+
+            return new JavaServer(port, process);
         }
 
         public void Dispose()
