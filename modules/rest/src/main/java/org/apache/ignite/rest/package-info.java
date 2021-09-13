@@ -16,6 +16,6 @@
  */
 
 /**
- * Ignite thin client shared logic (client and server: serialization, op codes, etc).
+ * This package contains an implementation of Ignite component related to REST interface.
  */
-package org.apache.ignite.client.proto;
+package org.apache.ignite.rest;

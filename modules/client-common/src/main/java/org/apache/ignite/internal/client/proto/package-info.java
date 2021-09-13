@@ -15,15 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.proto;
-
 /**
- * Common client message constants.
+ * Ignite thin client shared logic (client and server: serialization, op codes, etc).
  */
-public class ClientMessageCommon {
-    /** Message header size. */
-    public static final int HEADER_SIZE = 4;
-
-    /** Magic bytes before handshake. */
-    public static final byte[] MAGIC_BYTES = new byte[]{0x49, 0x47, 0x4E, 0x49}; // IGNI
-}
+package org.apache.ignite.internal.client.proto;

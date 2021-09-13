@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.proto;
+package org.apache.ignite.internal.client.proto;
 
 /**
  * Server to client message types.

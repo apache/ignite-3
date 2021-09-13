@@ -15,26 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.handler.requests.table;
-
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.table.manager.IgniteTables;
-
 /**
- * Client table drop request.
+ * This package contains classes that represent inbound requests, outbound responses and main REST handler.
  */
-public class ClientTableDropRequest {
-    /**
-     * Processes the request.
-     *
-     * @param in Unpacker.
-     * @param tables Ignite tables.
-     * @return Future.
-     */
-    public static CompletableFuture<Void> process(ClientMessageUnpacker in, IgniteTables tables) {
-        var tableName = in.unpackString();
-
-        return tables.dropTableAsync(tableName);
-    }
-}
+package org.apache.ignite.rest.netty;

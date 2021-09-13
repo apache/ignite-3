@@ -15,26 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.handler.requests.table;
-
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.table.manager.IgniteTables;
+package org.apache.ignite.internal.client.proto;
 
 /**
- * Client table drop request.
+ * Defines tuple part to write or read - key, value, or both.
  */
-public class ClientTableDropRequest {
+public enum TuplePart {
     /**
-     * Processes the request.
-     *
-     * @param in Unpacker.
-     * @param tables Ignite tables.
-     * @return Future.
+     * Key columns.
      */
-    public static CompletableFuture<Void> process(ClientMessageUnpacker in, IgniteTables tables) {
-        var tableName = in.unpackString();
+    KEY,
 
-        return tables.dropTableAsync(tableName);
-    }
+    /**
+     * Value columns.
+     */
+    VAL,
+
+    /**
+     * Key and value columns.
+     */
+    KEY_AND_VAL
 }

@@ -15,26 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.handler.requests.table;
-
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.table.manager.IgniteTables;
+package org.apache.ignite.internal.client.proto;
 
 /**
- * Client table drop request.
+ * Common client message constants.
  */
-public class ClientTableDropRequest {
-    /**
-     * Processes the request.
-     *
-     * @param in Unpacker.
-     * @param tables Ignite tables.
-     * @return Future.
-     */
-    public static CompletableFuture<Void> process(ClientMessageUnpacker in, IgniteTables tables) {
-        var tableName = in.unpackString();
+public class ClientMessageCommon {
+    /** Message header size. */
+    public static final int HEADER_SIZE = 4;
 
-        return tables.dropTableAsync(tableName);
-    }
+    /** Magic bytes before handshake. */
+    public static final byte[] MAGIC_BYTES = new byte[]{0x49, 0x47, 0x4E, 0x49}; // IGNI
 }

@@ -27,9 +27,10 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.UUID;
-import org.apache.ignite.client.proto.ClientDataType;
-import org.apache.ignite.client.proto.ClientMessagePacker;
-import org.apache.ignite.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.ClientDataType;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaAware;
@@ -100,6 +101,24 @@ class ClientTableCommon {
      *
      * @param packer Packer.
      * @param tuple Tuple.
+     */
+    public static void writeTuple(ClientMessagePacker packer, Tuple tuple, TuplePart part) {
+        if (tuple == null) {
+            packer.packNil();
+
+            return;
+        }
+
+        var schema = ((SchemaAware)tuple).schema();
+
+        writeTuple(packer, tuple, schema, false, part);
+    }
+
+    /**
+     * Writes a tuple.
+     *
+     * @param packer Packer.
+     * @param tuple Tuple.
      * @param schema Tuple schema.
      * @throws IgniteException on failed serialization.
      */
@@ -108,7 +127,7 @@ class ClientTableCommon {
         Tuple tuple,
         SchemaDescriptor schema
     ) {
-        writeTuple(packer, tuple, schema, false, false);
+        writeTuple(packer, tuple, schema, false, TuplePart.KEY_AND_VAL);
     }
 
     /**
@@ -126,7 +145,7 @@ class ClientTableCommon {
         SchemaDescriptor schema,
         boolean skipHeader
     ) {
-        writeTuple(packer, tuple, schema, skipHeader, false);
+        writeTuple(packer, tuple, schema, skipHeader, TuplePart.KEY_AND_VAL);
     }
 
     /**
@@ -136,7 +155,7 @@ class ClientTableCommon {
      * @param tuple Tuple.
      * @param schema Tuple schema.
      * @param skipHeader Whether to skip the tuple header.
-     * @param keyOnly Whether to write key fields only.
+     * @param part Which part of tuple to write.
      * @throws IgniteException on failed serialization.
      */
     public static void writeTuple(
@@ -144,7 +163,7 @@ class ClientTableCommon {
         Tuple tuple,
         SchemaDescriptor schema,
         boolean skipHeader,
-        boolean keyOnly
+        TuplePart part
     ) {
         if (tuple == null) {
             packer.packNil();
@@ -155,10 +174,12 @@ class ClientTableCommon {
         if (!skipHeader)
             packer.packInt(schema.version());
 
-        for (var col : schema.keyColumns().columns())
-            writeColumnValue(packer, tuple, col);
+        if (part != TuplePart.VAL) {
+            for (var col : schema.keyColumns().columns())
+                writeColumnValue(packer, tuple, col);
+        }
 
-        if (!keyOnly) {
+        if (part != TuplePart.KEY) {
             for (var col : schema.valueColumns().columns())
                 writeColumnValue(packer, tuple, col);
         }
@@ -172,7 +193,7 @@ class ClientTableCommon {
      * @throws IgniteException on failed serialization.
      */
     public static void writeTuples(ClientMessagePacker packer, Collection<Tuple> tuples) {
-        writeTuples(packer, tuples, false);
+        writeTuples(packer, tuples, TuplePart.KEY_AND_VAL);
     }
 
     /**
@@ -180,10 +201,10 @@ class ClientTableCommon {
      *
      * @param packer Packer.
      * @param tuples Tuples.
-     * @param keyOnly Whether to write key fields only.
+     * @param part Which part of tuple to write.
      * @throws IgniteException on failed serialization.
      */
-    public static void writeTuples(ClientMessagePacker packer, Collection<Tuple> tuples, boolean keyOnly) {
+    public static void writeTuples(ClientMessagePacker packer, Collection<Tuple> tuples, TuplePart part) {
         if (tuples == null || tuples.isEmpty()) {
             packer.packNil();
 
@@ -202,7 +223,7 @@ class ClientTableCommon {
             else
                 assert schema.version() == ((SchemaAware)tuple).schema().version();
 
-            writeTuple(packer, tuple, schema, true, keyOnly);
+            writeTuple(packer, tuple, schema, true, part);
         }
     }
 
@@ -217,7 +238,7 @@ class ClientTableCommon {
     public static Tuple readTuple(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) {
         SchemaDescriptor schema = readSchema(unpacker, table);
 
-        return readTuple(unpacker, table, keyOnly, schema);
+        return readTuple(unpacker, keyOnly, schema);
     }
 
     /**
@@ -235,7 +256,7 @@ class ClientTableCommon {
         var res = new ArrayList<Tuple>(rowCnt);
 
         for (int i = 0; i < rowCnt; i++)
-            res.add(readTuple(unpacker, table, keyOnly, schema));
+            res.add(readTuple(unpacker, keyOnly, schema));
 
         return res;
     }
@@ -257,16 +278,14 @@ class ClientTableCommon {
      * Reads a tuple.
      *
      * @param unpacker Unpacker.
-     * @param table Table.
      * @param keyOnly Whether only key fields are expected.
      * @param schema Tuple schema.
      * @return Tuple.
      */
     public static Tuple readTuple(
-        ClientMessageUnpacker unpacker,
-        TableImpl table,
-        boolean keyOnly,
-        SchemaDescriptor schema
+            ClientMessageUnpacker unpacker,
+            boolean keyOnly,
+            SchemaDescriptor schema
     ) {
         var tuple = Tuple.create();
 
@@ -288,10 +307,9 @@ class ClientTableCommon {
      * Reads a tuple as a map, without schema.
      *
      * @param unpacker Unpacker.
-     * @param table Table.
      * @return Tuple.
      */
-    public static Tuple readTupleSchemaless(ClientMessageUnpacker unpacker, TableImpl table) {
+    public static Tuple readTupleSchemaless(ClientMessageUnpacker unpacker) {
         var cnt = unpacker.unpackMapHeader();
         var tuple = Tuple.create();
 
@@ -309,15 +327,14 @@ class ClientTableCommon {
      * Reads multiple tuples as a map, without schema.
      *
      * @param unpacker Unpacker.
-     * @param table Table.
      * @return Tuples.
      */
-    public static ArrayList<Tuple> readTuplesSchemaless(ClientMessageUnpacker unpacker, TableImpl table) {
+    public static ArrayList<Tuple> readTuplesSchemaless(ClientMessageUnpacker unpacker) {
         var rowCnt = unpacker.unpackArrayHeader();
         var res = new ArrayList<Tuple>(rowCnt);
 
         for (int i = 0; i < rowCnt; i++)
-            res.add(readTupleSchemaless(unpacker, table));
+            res.add(readTupleSchemaless(unpacker));
 
         return res;
     }
