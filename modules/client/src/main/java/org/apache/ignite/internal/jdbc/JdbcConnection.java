@@ -135,7 +135,7 @@ public class JdbcConnection implements Connection {
         this.connProps = props;
         autoCommit = true;
 
-        String[] addrs = Arrays.stream(props.getAddresses()).map(HostAndPortRange::toString)
+        String[] addrs = Arrays.stream(props.getAddresses()).map(this::createStrAddress)
             .toArray(String[]::new);
 
         netTimeout = connProps.getConnectionTimeout();
@@ -725,6 +725,25 @@ public class JdbcConnection implements Connection {
 
         if (resSetConcurrency != CONCUR_READ_ONLY)
             throw new SQLFeatureNotSupportedException("Invalid concurrency (updates are not supported).");
+    }
+
+    /**
+     * Creates address string from HostAndPortRange object.
+     *
+     * @param range HostAndPortRange.
+     * @return Address string with host and port range.
+     */
+    private String createStrAddress(HostAndPortRange range) {
+        String host = range.host();
+        int portFrom = range.portFrom();
+        int portTo = range.portTo();
+
+        boolean ipV6 = host.contains(":");
+
+        if (ipV6)
+            host = "[" + host + "]";
+
+        return host + ":" + (portFrom == portTo ? portFrom : portFrom + ".." + portTo);
     }
 
     /**

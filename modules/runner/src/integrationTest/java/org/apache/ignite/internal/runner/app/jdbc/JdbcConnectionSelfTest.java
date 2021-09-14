@@ -78,6 +78,23 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     }
 
     /**
+     * @throws Exception If failed.
+     */
+    @SuppressWarnings({"EmptyTryBlock", "unused"})
+    @Test
+    public void testDefaultsIPv6() throws Exception {
+        var url = "jdbc:ignite:thin://[::1]:10800";
+
+        try (Connection conn = DriverManager.getConnection(url)) {
+            // No-op.
+        }
+
+        try (Connection conn = DriverManager.getConnection(url + "/")) {
+            // No-op.
+        }
+    }
+
+    /**
      * Test invalid endpoint.
      */
     @Test
@@ -89,6 +106,11 @@ public class JdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         assertInvalid("jdbc:ignite:thin://127.0.0.1:-1", "port range contains invalid port -1");
         assertInvalid("jdbc:ignite:thin://127.0.0.1:0", "port range contains invalid port 0");
         assertInvalid("jdbc:ignite:thin://127.0.0.1:100000",
+            "port range contains invalid port 100000");
+
+        assertInvalid("jdbc:ignite:thin://[::1]:-1", "port range contains invalid port -1");
+        assertInvalid("jdbc:ignite:thin://[::1]:0", "port range contains invalid port 0");
+        assertInvalid("jdbc:ignite:thin://[::1]:100000",
             "port range contains invalid port 100000");
     }
 
