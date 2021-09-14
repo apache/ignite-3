@@ -85,8 +85,17 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<IList<IIgniteTuple>> GetAllAsync(IEnumerable<IIgniteTuple> keys)
         {
-            await Task.Yield();
-            throw new NotImplementedException();
+            IgniteArgumentCheck.NotNull(keys, nameof(keys));
+
+            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+
+            using var writer = new PooledArrayBufferWriter();
+            WriteTuples(writer, schema, keys, keyOnly: true);
+
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGetAll, writer).ConfigureAwait(false);
+            var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
+
+            return ReadTuples(resBuf, resSchema);
         }
 
         /// <inheritdoc/>
@@ -275,7 +284,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = new PooledArrayBufferWriter();
             WriteTuples(writer, schema, records);
 
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleDeleteAll, writer).ConfigureAwait(false);
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleDeleteAllExact, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
 
             return ReadTuples(resBuf, resSchema);
