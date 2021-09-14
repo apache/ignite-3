@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Table
 {
+    using System;
     using System.Globalization;
     using System.Linq;
     using System.Threading.Tasks;
@@ -103,17 +104,12 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
-        public async Task TestUpsertAllLazyCollection()
+        public void TestUpsertAllThrowsArgumentExceptionOnNullCollectionElement()
         {
-            // TODO
-            await Task.Yield();
-        }
+            var ex = Assert.ThrowsAsync<ArgumentException>(
+                async () => await Table.UpsertAllAsync(new[] { GetTuple(1, "1"), null! }));
 
-        [Test]
-        public async Task TestUpsertAllThrowsOnNullCollectionElement()
-        {
-            // TODO
-            await Task.Yield();
+            Assert.AreEqual("Tuple collection can't contain null elements.", ex!.Message);
         }
 
         private static IIgniteTuple GetTuple(int id, string? val = null) =>

@@ -479,6 +479,11 @@ namespace Apache.Ignite.Internal.Table
 
             foreach (var tuple in tuples)
             {
+                if (tuple == null)
+                {
+                    throw new ArgumentException("Tuple collection can't contain null elements.");
+                }
+
                 WriteTuple(ref w, schema, tuple, keyOnly);
                 count++;
             }
