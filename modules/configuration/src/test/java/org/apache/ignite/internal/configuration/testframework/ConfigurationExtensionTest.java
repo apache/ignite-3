@@ -19,7 +19,7 @@ package org.apache.ignite.internal.configuration.testframework;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.sample.DiscoveryConfiguration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,23 +43,23 @@ class ConfigurationExtensionTest {
     @Test
     public void injectConfiguration(
         @InjectConfiguration("mock.joinTimeout=100") DiscoveryConfiguration paramCfg
-    ) throws ExecutionException, InterruptedException {
+    ) throws Exception {
         assertEquals(5000, fieldCfg.joinTimeout().value());
 
         assertEquals(100, paramCfg.joinTimeout().value());
 
-        paramCfg.change(d -> d.changeJoinTimeout(200));
+        paramCfg.change(d -> d.changeJoinTimeout(200)).get(1, TimeUnit.SECONDS);
 
         assertEquals(200, paramCfg.joinTimeout().value());
 
-        paramCfg.joinTimeout().update(300);
+        paramCfg.joinTimeout().update(300).get(1, TimeUnit.SECONDS);
 
         assertEquals(300, paramCfg.joinTimeout().value());
     }
 
     /** Tests that notifications work on injected configuration instance. */
     @Test
-    public void notifications() {
+    public void notifications() throws Exception {
         List<String> log = new ArrayList<>();
 
         fieldCfg.listen(ctx -> {
@@ -80,13 +80,13 @@ class ConfigurationExtensionTest {
             return completedFuture(null);
         });
 
-        fieldCfg.change(change -> change.changeJoinTimeout(1000_000));
+        fieldCfg.change(change -> change.changeJoinTimeout(1000_000)).get(1, TimeUnit.SECONDS);
 
         assertEquals(List.of("update", "join"), log);
 
         log.clear();
 
-        fieldCfg.failureDetectionTimeout().update(2000_000);
+        fieldCfg.failureDetectionTimeout().update(2000_000).get(1, TimeUnit.SECONDS);
 
         assertEquals(List.of("update", "failure"), log);
     }
@@ -95,7 +95,7 @@ class ConfigurationExtensionTest {
     @Test
     public void internalConfiguration(
         @InjectConfiguration(extensions = {ExtendedConfigurationSchema.class}) BasicConfiguration cfg
-    ) {
+    ) throws Exception {
         assertThat(cfg, is(instanceOf(ExtendedConfiguration.class)));
 
         assertEquals(1, cfg.visible().value());
@@ -108,7 +108,7 @@ class ConfigurationExtensionTest {
             change.changeVisible(3);
 
             ((ExtendedChange)change).changeInvisible(4);
-        });
+        }).get(1, TimeUnit.SECONDS);
 
         assertEquals(3, cfg.visible().value());
 

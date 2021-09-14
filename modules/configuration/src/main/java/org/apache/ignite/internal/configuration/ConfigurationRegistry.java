@@ -241,7 +241,7 @@ public class ConfigurationRegistry implements IgniteComponent {
                 LOG.error("Failed to notify configuration listener.", throwable);
         });
 
-        CompletableFuture<?>[] resultFutures = futures.stream().map(mapping).toArray(CompletableFuture[]::new);
+        CompletableFuture<?>[] resultFutures = futures.toArray(CompletableFuture[]::new);
 
         return CompletableFuture.allOf(resultFutures);
     }
