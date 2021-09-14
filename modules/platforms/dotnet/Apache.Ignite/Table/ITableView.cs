@@ -145,5 +145,25 @@ namespace Apache.Ignite.Table
         /// The task result contains a value indicating whether a record was deleted.
         /// </returns>
         Task<bool> DeleteExactAsync(T record);
+
+        /// <summary>
+        /// Gets and deletes a record with the specified key.
+        /// </summary>
+        /// <param name="key">A record with key columns set.</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result contains deleted record or <c>null</c> if it did not exist.
+        /// </returns>
+        Task<T?> GetAndDeleteAsync(T key);
+
+        /// <summary>
+        /// Deletes multiple records.
+        /// </summary>
+        /// <param name="keys">Record keys to delete.</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result contains records from <see cref="keys"/> that did not exist.
+        /// </returns>
+        Task<IList<T>> DeleteAllAsync(IEnumerable<T> keys);
     }
 }
