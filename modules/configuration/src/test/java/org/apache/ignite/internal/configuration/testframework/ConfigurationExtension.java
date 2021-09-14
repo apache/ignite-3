@@ -70,7 +70,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
     /** Key to store {@link ConfigurationAsmGenerator} in {@link ExtensionContext.Store}. */
     private static final Object CGEN_KEY = new Object();
 
-
+    /** Key to store {@link ExecutorService} in {@link ExtensionContext.Store}. */
     private static final Object POOL_KEY = new Object();
 
     /** {@inheritDoc} */
