@@ -16,6 +16,6 @@
  */
 
 /**
- * Ignite thin client shared logic (client and server: serialization, op codes, etc).
+ * Contains a base interface that provides the ability to convert representation to other formats.
  */
-package org.apache.ignite.client.proto;
+package org.apache.ignite.rest.presentation;
