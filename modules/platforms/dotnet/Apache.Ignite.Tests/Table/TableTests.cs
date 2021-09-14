@@ -49,10 +49,15 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
-        public async Task TestUpsertEmptyTupleThrowsException()
+        public void TestUpsertEmptyTupleThrowsException()
         {
-            await Task.Yield();
-            throw new NotImplementedException();
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await Table.UpsertAsync(new IgniteTuple()));
+
+            Assert.AreEqual(
+                "Failed to set column (null was passed, but column is not nullable):" +
+                " [col=Column [schemaIndex=0, name=key, type=NativeType [name=INT32, sizeInBytes=4, fixed=true]," +
+                " nullable=false]]",
+                ex!.Message);
         }
 
         private static IIgniteTuple GetTuple(int id, string? val = null) =>
