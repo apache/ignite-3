@@ -127,9 +127,9 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task UpsertAsync(IIgniteTuple rec)
+        public async Task UpsertAsync(IIgniteTuple record)
         {
-            IgniteArgumentCheck.NotNull(rec, nameof(rec));
+            IgniteArgumentCheck.NotNull(record, nameof(record));
 
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
 
@@ -145,7 +145,7 @@ namespace Apache.Ignite.Internal.Table
 
                 foreach (var col in schema.Columns)
                 {
-                    var colIdx = rec.GetOrdinal(col.Name);
+                    var colIdx = record.GetOrdinal(col.Name);
 
                     if (colIdx < 0)
                     {
@@ -153,7 +153,7 @@ namespace Apache.Ignite.Internal.Table
                     }
                     else
                     {
-                        w.WriteObject(rec[colIdx]);
+                        w.WriteObject(record[colIdx]);
                     }
                 }
 

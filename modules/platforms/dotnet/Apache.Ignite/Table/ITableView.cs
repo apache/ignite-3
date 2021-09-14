@@ -52,8 +52,25 @@ namespace Apache.Ignite.Table
         /// <summary>
         /// Inserts a record into the table if it does not exist or replaces the existing one.
         /// </summary>
-        /// <param name="rec">Record to upsert.</param>
+        /// <param name="record">Record to upsert.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task UpsertAsync(T rec);
+        Task UpsertAsync(T record);
+
+        /// <summary>
+        /// Inserts multiple records into the table, replacing existing ones.
+        /// </summary>
+        /// <param name="records">Records to upsert.</param>
+        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+        Task UpsertAllAsync(IEnumerable<T> records);
+
+        /// <summary>
+        /// Inserts a record into the table if it does not exist or replaces the existing one.
+        /// </summary>
+        /// <param name="record">Record to upsert.</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result contains replaced record or null if it did not exist.
+        /// </returns>
+        Task<T?> GetAndUpsertAsync(T record);
     }
 }
