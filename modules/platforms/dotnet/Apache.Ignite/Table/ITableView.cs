@@ -165,5 +165,15 @@ namespace Apache.Ignite.Table
         /// The task result contains records from <see cref="keys"/> that did not exist.
         /// </returns>
         Task<IList<T>> DeleteAllAsync(IEnumerable<T> keys);
+
+        /// <summary>
+        /// Deletes multiple exactly matching records.
+        /// </summary>
+        /// <param name="records">Records to delete.</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result contains records from <see cref="records"/> that did not exist.
+        /// </returns>
+        Task<IList<T>> DeleteAllExactAsync(IEnumerable<T> records);
     }
 }
