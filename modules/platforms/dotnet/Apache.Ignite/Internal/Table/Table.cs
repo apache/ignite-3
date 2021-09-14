@@ -262,9 +262,7 @@ namespace Apache.Ignite.Internal.Table
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleDeleteAll, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
 
-            // TODO: Read key only tuples.
-            // TODO: Why can't we return indexes from the server? No ordering guarantees?
-            return ReadTuples(resBuf, resSchema);
+            return ReadTuples(resBuf, resSchema, keyOnly: true);
         }
 
         /// <inheritdoc/>
@@ -320,20 +318,22 @@ namespace Apache.Ignite.Internal.Table
             return ReadTuple(ref r, schema);
         }
 
-        private static IIgniteTuple ReadTuple(ref MessagePackReader r, Schema schema)
+        private static IIgniteTuple ReadTuple(ref MessagePackReader r, Schema schema, bool keyOnly = false)
         {
             var columns = schema.Columns;
-            var tuple = new IgniteTuple(columns.Count);
+            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
+            var tuple = new IgniteTuple(count);
 
-            foreach (var column in columns)
+            for (var index = 0; index < count; index++)
             {
+                var column = columns[index];
                 tuple[column.Name] = r.ReadObject(column.Type);
             }
 
             return tuple;
         }
 
-        private static IList<IIgniteTuple> ReadTuples(PooledBuffer buf, Schema? schema)
+        private static IList<IIgniteTuple> ReadTuples(PooledBuffer buf, Schema? schema, bool keyOnly = false)
         {
             if (schema == null)
             {
@@ -349,7 +349,7 @@ namespace Apache.Ignite.Internal.Table
 
             for (var i = 0; i < count; i++)
             {
-                res.Add(ReadTuple(ref r, schema));
+                res.Add(ReadTuple(ref r, schema, keyOnly));
             }
 
             return res;
