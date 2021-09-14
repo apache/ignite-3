@@ -97,12 +97,24 @@ namespace Apache.Ignite.Table
         /// <summary>
         /// Replaces a record with the same key columns if it exists.
         /// </summary>
-        /// <param name="record">Record to insert.</param>
+        /// <param name="oldRecord">Record to insert.</param>
         /// <returns>
         /// A <see cref="Task"/> representing the asynchronous operation.
         /// The task result contains a value indicating whether a record with the specified key was replaced.
         /// </returns>
-        Task<bool> ReplaceAsync(T record);
+        Task<bool> ReplaceAsync(T oldRecord);
+
+        /// <summary>
+        /// Replaces a record with a new one only if all existing columns have the same values
+        /// as the specified <see cref="oldRecord"/>.
+        /// </summary>
+        /// <param name="oldRecord">Record to replace.</param>
+        /// <param name="newRecord">Record to replace with.</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result contains a value indicating whether a record was replaced.
+        /// </returns>
+        Task<bool> ReplaceAsync(T oldRecord, T newRecord);
 
         /// <summary>
         /// Replaces a record with the same key columns if it exists.
@@ -123,5 +135,15 @@ namespace Apache.Ignite.Table
         /// The task result contains a value indicating whether a record with the specified key was deleted.
         /// </returns>
         Task<bool> DeleteAsync(T key);
+
+        /// <summary>
+        /// Deletes a record only if all existing columns have the same values as the specified <see cref="record"/>.
+        /// </summary>
+        /// <param name="record">A record with all columns set.</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result contains a value indicating whether a record was deleted.
+        /// </returns>
+        Task<bool> DeleteExactAsync(T record);
     }
 }
