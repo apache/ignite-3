@@ -82,6 +82,36 @@ namespace Apache.Ignite.Table
         /// The task result contains a value indicating whether the record was inserted. Returns <c>false</c> if a
         /// record with the same key already exists.
         /// </returns>
-        Task InsertAsync(T record);
+        Task<bool> InsertAsync(T record);
+
+        /// <summary>
+        /// Inserts multiple records into the table, skipping existing ones.
+        /// </summary>
+        /// <param name="records">Records to insert.</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result contains skipped records.
+        /// </returns>
+        Task<IList<T>> InsertAllAsync(IEnumerable<T> records);
+
+        /// <summary>
+        /// Replaces a record with the same key columns if it exists.
+        /// </summary>
+        /// <param name="record">Record to insert.</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result contains a value indicating whether a record with the specified key was replaced.
+        /// </returns>
+        Task<bool> ReplaceAsync(T record);
+
+        /// <summary>
+        /// Replaces a record with the same key columns if it exists.
+        /// </summary>
+        /// <param name="record">Record to insert.</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result contains the previous value for the given key, or <c>null</c> if it did not exist.
+        /// </returns>
+        Task<T?> GetAndReplaceAsync(T record);
     }
 }
