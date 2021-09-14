@@ -130,7 +130,6 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         // classes, extension is designed to mock actual configurations from public API to configure Ignite components.
         Class<?> schemaClass = Class.forName(type.getCanonicalName() + "Schema");
 
-        // Internal configuration extensions are not yet supported. This will probably be changed in the future.
         cgen.compileRootSchema(schemaClass, internalSchemaExtensions(List.of(annotation.extensions())));
 
         // RootKey must be mocked, there's no way to instantiate it using a public constructor.
