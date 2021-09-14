@@ -97,24 +97,24 @@ namespace Apache.Ignite.Table
         /// <summary>
         /// Replaces a record with the same key columns if it exists.
         /// </summary>
-        /// <param name="oldRecord">Record to insert.</param>
+        /// <param name="record">Record to insert.</param>
         /// <returns>
         /// A <see cref="Task"/> representing the asynchronous operation.
         /// The task result contains a value indicating whether a record with the specified key was replaced.
         /// </returns>
-        Task<bool> ReplaceAsync(T oldRecord);
+        Task<bool> ReplaceAsync(T record);
 
         /// <summary>
         /// Replaces a record with a new one only if all existing columns have the same values
-        /// as the specified <paramref name="oldRecord"/>.
+        /// as the specified <paramref name="record"/>.
         /// </summary>
-        /// <param name="oldRecord">Record to replace.</param>
+        /// <param name="record">Record to replace.</param>
         /// <param name="newRecord">Record to replace with.</param>
         /// <returns>
         /// A <see cref="Task"/> representing the asynchronous operation.
         /// The task result contains a value indicating whether a record was replaced.
         /// </returns>
-        Task<bool> ReplaceAsync(T oldRecord, T newRecord);
+        Task<bool> ReplaceAsync(T record, T newRecord);
 
         /// <summary>
         /// Replaces a record with the same key columns if it exists.

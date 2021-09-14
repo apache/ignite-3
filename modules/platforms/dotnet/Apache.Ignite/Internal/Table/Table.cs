@@ -74,7 +74,7 @@ namespace Apache.Ignite.Internal.Table
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
 
             using var writer = new PooledArrayBufferWriter();
-            WriteTuple(writer.GetMessageWriter(), schema, key, keyOnly: true);
+            WriteTuple(writer, schema, key, keyOnly: true);
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGet, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
@@ -82,8 +82,9 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public Task<IList<IIgniteTuple>> GetAllAsync(IEnumerable<IIgniteTuple> keys)
+        public async Task<IList<IIgniteTuple>> GetAllAsync(IEnumerable<IIgniteTuple> keys)
         {
+            await Task.Yield();
             throw new NotImplementedException();
         }
 
@@ -95,14 +96,15 @@ namespace Apache.Ignite.Internal.Table
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
 
             using var writer = new PooledArrayBufferWriter();
-            WriteTuple(writer.GetMessageWriter(), schema, record);
+            WriteTuple(writer, schema, record);
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleUpsert, writer).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
-        public Task UpsertAllAsync(IEnumerable<IIgniteTuple> records)
+        public async Task UpsertAllAsync(IEnumerable<IIgniteTuple> records)
         {
+            await Task.Yield();
             throw new NotImplementedException();
         }
 
@@ -114,7 +116,7 @@ namespace Apache.Ignite.Internal.Table
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
 
             using var writer = new PooledArrayBufferWriter();
-            WriteTuple(writer.GetMessageWriter(), schema, record);
+            WriteTuple(writer, schema, record);
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleUpsert, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
@@ -122,32 +124,58 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public Task<bool> InsertAsync(IIgniteTuple record)
+        public async Task<bool> InsertAsync(IIgniteTuple record)
         {
+            IgniteArgumentCheck.NotNull(record, nameof(record));
+
+            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+
+            using var writer = new PooledArrayBufferWriter();
+            WriteTuple(writer, schema, record);
+
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleInsert, writer).ConfigureAwait(false);
+            return resBuf.GetReader().ReadBoolean();
+        }
+
+        /// <inheritdoc/>
+        public async Task<IList<IIgniteTuple>> InsertAllAsync(IEnumerable<IIgniteTuple> records)
+        {
+            await Task.Yield();
             throw new NotImplementedException();
         }
 
         /// <inheritdoc/>
-        public Task<IList<IIgniteTuple>> InsertAllAsync(IEnumerable<IIgniteTuple> records)
+        public async Task<bool> ReplaceAsync(IIgniteTuple record)
         {
-            throw new NotImplementedException();
+            IgniteArgumentCheck.NotNull(record, nameof(record));
+
+            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+
+            using var writer = new PooledArrayBufferWriter();
+            WriteTuple(writer, schema, record);
+
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleReplace, writer).ConfigureAwait(false);
+            return resBuf.GetReader().ReadBoolean();
         }
 
         /// <inheritdoc/>
-        public Task<bool> ReplaceAsync(IIgniteTuple oldRecord)
+        public async Task<bool> ReplaceAsync(IIgniteTuple record, IIgniteTuple newRecord)
         {
-            throw new NotImplementedException();
+            IgniteArgumentCheck.NotNull(record, nameof(record));
+
+            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+
+            using var writer = new PooledArrayBufferWriter();
+            WriteTuples(writer, schema, record, newRecord);
+
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleReplaceExact, writer).ConfigureAwait(false);
+            return resBuf.GetReader().ReadBoolean();
         }
 
         /// <inheritdoc/>
-        public Task<bool> ReplaceAsync(IIgniteTuple oldRecord, IIgniteTuple newRecord)
+        public async Task<IIgniteTuple?> GetAndReplaceAsync(IIgniteTuple record)
         {
-            throw new NotImplementedException();
-        }
-
-        /// <inheritdoc/>
-        public Task<IIgniteTuple?> GetAndReplaceAsync(IIgniteTuple record)
-        {
+            await Task.Yield();
             throw new NotImplementedException();
         }
 
@@ -159,33 +187,37 @@ namespace Apache.Ignite.Internal.Table
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
 
             using var writer = new PooledArrayBufferWriter();
-            WriteTuple(writer.GetMessageWriter(), schema, key, keyOnly: true);
+            WriteTuple(writer, schema, key, keyOnly: true);
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleDelete, writer).ConfigureAwait(false);
             return resBuf.GetReader().ReadBoolean();
         }
 
         /// <inheritdoc/>
-        public Task<bool> DeleteExactAsync(IIgniteTuple record)
+        public async Task<bool> DeleteExactAsync(IIgniteTuple record)
         {
+            await Task.Yield();
             throw new NotImplementedException();
         }
 
         /// <inheritdoc/>
-        public Task<IIgniteTuple?> GetAndDeleteAsync(IIgniteTuple key)
+        public async Task<IIgniteTuple?> GetAndDeleteAsync(IIgniteTuple key)
         {
+            await Task.Yield();
             throw new NotImplementedException();
         }
 
         /// <inheritdoc/>
-        public Task<IList<IIgniteTuple>> DeleteAllAsync(IEnumerable<IIgniteTuple> keys)
+        public async Task<IList<IIgniteTuple>> DeleteAllAsync(IEnumerable<IIgniteTuple> keys)
         {
+            await Task.Yield();
             throw new NotImplementedException();
         }
 
         /// <inheritdoc/>
-        public Task<IList<IIgniteTuple>> DeleteAllExactAsync(IEnumerable<IIgniteTuple> records)
+        public async Task<IList<IIgniteTuple>> DeleteAllExactAsync(IEnumerable<IIgniteTuple> records)
         {
+            await Task.Yield();
             throw new NotImplementedException();
         }
 
@@ -375,7 +407,31 @@ namespace Apache.Ignite.Internal.Table
             return schema;
         }
 
-        private void WriteTuple(MessagePackWriter w, Schema schema, IIgniteTuple record, bool keyOnly = false)
+        private void WriteTuple(PooledArrayBufferWriter buf, Schema schema, IIgniteTuple t, bool keyOnly = false)
+        {
+            var w = buf.GetMessageWriter();
+
+            WriteTuple(ref w, schema, t, keyOnly);
+
+            w.Flush();
+        }
+
+        private void WriteTuples(
+            PooledArrayBufferWriter buf,
+            Schema schema,
+            IIgniteTuple t,
+            IIgniteTuple t2,
+            bool keyOnly = false)
+        {
+            var w = buf.GetMessageWriter();
+
+            WriteTuple(ref w, schema, t, keyOnly);
+            WriteTuple(ref w, schema, t2, keyOnly);
+
+            w.Flush();
+        }
+
+        private void WriteTuple(ref MessagePackWriter w, Schema schema, IIgniteTuple t, bool keyOnly = false)
         {
             w.Write(Id);
             w.Write(schema.Version);
@@ -386,7 +442,7 @@ namespace Apache.Ignite.Internal.Table
             for (var index = 0; index < count; index++)
             {
                 var col = columns[index];
-                var colIdx = record.GetOrdinal(col.Name);
+                var colIdx = t.GetOrdinal(col.Name);
 
                 if (colIdx < 0)
                 {
@@ -394,7 +450,7 @@ namespace Apache.Ignite.Internal.Table
                 }
                 else
                 {
-                    w.WriteObject(record[colIdx]);
+                    w.WriteObject(t[colIdx]);
                 }
             }
 
