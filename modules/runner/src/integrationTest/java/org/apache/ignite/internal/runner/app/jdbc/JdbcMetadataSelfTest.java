@@ -419,9 +419,7 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
             assertEquals("TABLE", rs.getString("TABLE_TYPE"));
 
-            assertTrue(rs.next());
-
-            assertEquals("VIEW", rs.getString("TABLE_TYPE"));
+            assertFalse(rs.next());
         }
     }
 
