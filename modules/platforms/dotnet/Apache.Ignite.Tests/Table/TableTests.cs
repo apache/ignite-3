@@ -85,6 +85,27 @@ namespace Apache.Ignite.Tests.Table
             Assert.IsNull(await Table.GetAsync(GetTuple(1)));
         }
 
+        [Test]
+        public async Task TestUpsertAll()
+        {
+            // TODO
+            await Task.Yield();
+        }
+
+        [Test]
+        public async Task TestUpsertAllLazyCollection()
+        {
+            // TODO
+            await Task.Yield();
+        }
+
+        [Test]
+        public async Task TestUpsertAllThrowsOnNullCollectionElement()
+        {
+            // TODO
+            await Task.Yield();
+        }
+
         private static IIgniteTuple GetTuple(int id, string? val = null) =>
             new IgniteTuple { [KeyCol] = id, [ValCol] = val };
     }
