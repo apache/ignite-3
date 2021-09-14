@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Tests.Table
 {
-    using System;
     using System.Threading.Tasks;
     using Ignite.Table;
     using NUnit.Framework;
@@ -39,6 +38,18 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(2, resTuple.FieldCount);
             Assert.AreEqual(1L, resTuple["key"]);
             Assert.AreEqual("foo", resTuple["val"]);
+        }
+
+        [Test]
+        public async Task TestUpsertOverridesPreviousValue()
+        {
+            var key = GetTuple(1);
+
+            await Table.UpsertAsync(GetTuple(1, "foo"));
+            Assert.AreEqual("foo", (await Table.GetAsync(key))![1]);
+
+            await Table.UpsertAsync(GetTuple(1, "bar"));
+            Assert.AreEqual("bar", (await Table.GetAsync(key))![1]);
         }
 
         [Test]
