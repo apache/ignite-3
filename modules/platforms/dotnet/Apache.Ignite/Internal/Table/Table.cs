@@ -188,7 +188,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = new PooledArrayBufferWriter();
             WriteTuple(writer, schema, record);
 
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleReplaceExact, writer).ConfigureAwait(false);
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGetAndReplace, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
             return ReadTuple(resBuf.GetReader(), resSchema);
         }
@@ -210,15 +210,30 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<bool> DeleteExactAsync(IIgniteTuple record)
         {
-            await Task.Yield();
-            throw new NotImplementedException();
+            IgniteArgumentCheck.NotNull(record, nameof(record));
+
+            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+
+            using var writer = new PooledArrayBufferWriter();
+            WriteTuple(writer, schema, record);
+
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleDelete, writer).ConfigureAwait(false);
+            return resBuf.GetReader().ReadBoolean();
         }
 
         /// <inheritdoc/>
         public async Task<IIgniteTuple?> GetAndDeleteAsync(IIgniteTuple key)
         {
-            await Task.Yield();
-            throw new NotImplementedException();
+            IgniteArgumentCheck.NotNull(key, nameof(key));
+
+            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+
+            using var writer = new PooledArrayBufferWriter();
+            WriteTuple(writer, schema, key, keyOnly: true);
+
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGetAndDelete, writer).ConfigureAwait(false);
+            var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
+            return ReadTuple(resBuf.GetReader(), resSchema);
         }
 
         /// <inheritdoc/>
