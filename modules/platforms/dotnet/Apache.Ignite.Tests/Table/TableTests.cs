@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Table
 {
+    using System;
     using System.Threading.Tasks;
     using Ignite.Table;
     using NUnit.Framework;
@@ -26,27 +27,32 @@ namespace Apache.Ignite.Tests.Table
     /// </summary>
     public class TableTests : IgniteTestsBase
     {
-        private const string TableName = "PUB.tbl1";
-
-        private const string KeyCol = "key";
-
-        private const string ValCol = "val";
-
         [Test]
         public async Task TestUpsertGet()
         {
-            using var client = await IgniteClient.StartAsync(GetConfig());
-            var table = (await client.Tables.GetTableAsync(TableName))!;
+            await Table.UpsertAsync(GetTuple(1, "foo"));
 
-            await table.UpsertAsync(GetTuple(1, "foo"));
-
-            var keyTuple = new IgniteTuple { ["key"] = 1 };
-            var resTuple = (await table.GetAsync(keyTuple))!;
+            var keyTuple = GetTuple(1);
+            var resTuple = (await Table.GetAsync(keyTuple))!;
 
             Assert.IsNotNull(resTuple);
             Assert.AreEqual(2, resTuple.FieldCount);
             Assert.AreEqual(1L, resTuple["key"]);
             Assert.AreEqual("foo", resTuple["val"]);
+        }
+
+        [Test]
+        public async Task TestUpsertCustomTuple()
+        {
+            await Task.Yield();
+            throw new NotImplementedException();
+        }
+
+        [Test]
+        public async Task TestUpsertEmptyTupleThrowsException()
+        {
+            await Task.Yield();
+            throw new NotImplementedException();
         }
 
         private static IIgniteTuple GetTuple(int id, string? val = null) =>
