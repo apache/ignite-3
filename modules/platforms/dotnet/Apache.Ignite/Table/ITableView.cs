@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Table
 {
+    using System.Collections.Generic;
     using System.Threading.Tasks;
 
     /// <summary>
@@ -31,9 +32,22 @@ namespace Apache.Ignite.Table
         /// <summary>
         /// Gets a record by key.
         /// </summary>
-        /// <param name="keyRec">A record with key columns set.</param>
-        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task<T?> GetAsync(T keyRec);
+        /// <param name="key">A record with key columns set.</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result contains a record with all columns.
+        /// </returns>
+        Task<T?> GetAsync(T key);
+
+        /// <summary>
+        /// Gets multiple records by keys.
+        /// </summary>
+        /// <param name="keys">Collection of records with key columns set.</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result contains matching records with all columns.
+        /// </returns>
+        Task<IList<T>> GetAllAsync(IEnumerable<T> keys);
 
         /// <summary>
         /// Inserts a record into the table if it does not exist or replaces the existing one.

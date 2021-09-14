@@ -67,9 +67,9 @@ namespace Apache.Ignite.Internal.Table
         public Guid Id { get; }
 
         /// <inheritdoc/>
-        public async Task<IIgniteTuple?> GetAsync(IIgniteTuple keyRec)
+        public async Task<IIgniteTuple?> GetAsync(IIgniteTuple key)
         {
-            IgniteArgumentCheck.NotNull(keyRec, nameof(keyRec));
+            IgniteArgumentCheck.NotNull(key, nameof(key));
 
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
 
@@ -89,7 +89,7 @@ namespace Apache.Ignite.Internal.Table
                 {
                     var col = schema.Columns[i];
 
-                    w.WriteObject(keyRec[col.Name]);
+                    w.WriteObject(key[col.Name]);
                 }
 
                 w.Flush();
@@ -114,7 +114,7 @@ namespace Apache.Ignite.Internal.Table
 
                     if (i < schema.KeyColumnCount)
                     {
-                        tuple[column.Name] = keyRec[column.Name];
+                        tuple[column.Name] = key[column.Name];
                     }
                     else
                     {
