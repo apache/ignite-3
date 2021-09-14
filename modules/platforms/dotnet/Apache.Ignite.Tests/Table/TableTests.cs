@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite.Tests.Table
 {
+    using System.Globalization;
+    using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Table;
     using NUnit.Framework;
@@ -88,8 +90,16 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestUpsertAll()
         {
-            // TODO
-            await Task.Yield();
+            var ids = Enumerable.Range(1, 10).ToList();
+            var records = ids.Select(x => GetTuple(x, x.ToString(CultureInfo.InvariantCulture)));
+
+            await Table.UpsertAllAsync(records);
+
+            foreach (var id in ids)
+            {
+                var res = await Table.GetAsync(GetTuple(id));
+                Assert.AreEqual(id.ToString(CultureInfo.InvariantCulture), res![1]);
+            }
         }
 
         [Test]
