@@ -539,7 +539,7 @@ namespace Apache.Ignite.Internal.Table
         {
             var w = buf.GetMessageWriter();
 
-            WriteTupleWithSchema(ref w, schema, tuple, keyOnly);
+            WriteTupleWithHeader(ref w, schema, tuple, keyOnly);
 
             w.Flush();
         }
@@ -553,8 +553,8 @@ namespace Apache.Ignite.Internal.Table
         {
             var w = buf.GetMessageWriter();
 
-            WriteTupleWithSchema(ref w, schema, t, keyOnly);
-            WriteTupleWithSchema(ref w, schema, t2, keyOnly);
+            WriteTupleWithHeader(ref w, schema, t, keyOnly);
+            WriteTupleWithHeader(ref w, schema, t2, keyOnly);
 
             w.Flush();
         }
@@ -590,7 +590,7 @@ namespace Apache.Ignite.Internal.Table
             w.Flush();
         }
 
-        private void WriteTupleWithSchema(
+        private void WriteTupleWithHeader(
             ref MessagePackWriter w,
             Schema schema,
             IIgniteTuple tuple,
