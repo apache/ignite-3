@@ -415,7 +415,7 @@ public class TableManagerTest {
                     });
                 }
                 catch (NodeStoppingException e) {
-                    e.printStackTrace();
+                    LOG.error("Node was stopped during table creation.", e);
                 }
 
                 if (phaser != null)
@@ -434,7 +434,7 @@ public class TableManagerTest {
             assertEquals(tablesBeforeCreation + 1, tableManager.tables().size());
         }
         catch (NodeStoppingException e) {
-            e.printStackTrace();
+            LOG.error("Node was stopped during table creation.", e);
         }
         finally {
             tableManager.stop();
