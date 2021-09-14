@@ -111,7 +111,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = new PooledArrayBufferWriter();
             WriteTuples(writer, schema, records);
 
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleUpsert, writer).ConfigureAwait(false);
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleUpsertAll, writer).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
@@ -285,6 +285,31 @@ namespace Apache.Ignite.Internal.Table
             return reader.ReadInt32Nullable();
         }
 
+        private static void WriteTuple(
+            ref MessagePackWriter w,
+            Schema schema,
+            IIgniteTuple tuple,
+            bool keyOnly = false)
+        {
+            var columns = schema.Columns;
+            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
+
+            for (var index = 0; index < count; index++)
+            {
+                var col = columns[index];
+                var colIdx = tuple.GetOrdinal(col.Name);
+
+                if (colIdx < 0)
+                {
+                    w.WriteNil();
+                }
+                else
+                {
+                    w.WriteObject(tuple[colIdx]);
+                }
+            }
+        }
+
         private async ValueTask<Schema?> ReadSchemaAsync(PooledBuffer buf, Schema currentSchema)
         {
             var ver = ReadSchemaVersion(buf);
@@ -413,11 +438,11 @@ namespace Apache.Ignite.Internal.Table
             return schema;
         }
 
-        private void WriteTuple(PooledArrayBufferWriter buf, Schema schema, IIgniteTuple t, bool keyOnly = false)
+        private void WriteTuple(PooledArrayBufferWriter buf, Schema schema, IIgniteTuple tuple, bool keyOnly = false)
         {
             var w = buf.GetMessageWriter();
 
-            WriteTuple(ref w, schema, t, keyOnly);
+            WriteTupleWithSchema(ref w, schema, tuple, keyOnly);
 
             w.Flush();
         }
@@ -431,8 +456,8 @@ namespace Apache.Ignite.Internal.Table
         {
             var w = buf.GetMessageWriter();
 
-            WriteTuple(ref w, schema, t, keyOnly);
-            WriteTuple(ref w, schema, t2, keyOnly);
+            WriteTupleWithSchema(ref w, schema, t, keyOnly);
+            WriteTupleWithSchema(ref w, schema, t2, keyOnly);
 
             w.Flush();
         }
@@ -444,48 +469,35 @@ namespace Apache.Ignite.Internal.Table
             bool keyOnly = false)
         {
             var w = buf.GetMessageWriter();
-            var count = 0;
 
-            // TODO: Reserve bytes for length and always write length as int32 - does MsgPack permit this? Can we trick it?
+            w.Write(Id);
+            w.Write(schema.Version);
+            w.Flush();
+
+            var count = 0;
+            var countPos = buf.ReserveInt32();
+
             foreach (var tuple in tuples)
             {
-                WriteTuple(ref w, schema, tuple, keyOnly, skipHeader: count != 0);
+                WriteTuple(ref w, schema, tuple, keyOnly);
                 count++;
             }
+
+            buf.WriteInt32(countPos, count);
 
             w.Flush();
         }
 
-        private void WriteTuple(
+        private void WriteTupleWithSchema(
             ref MessagePackWriter w,
             Schema schema,
-            IIgniteTuple t,
-            bool keyOnly = false,
-            bool skipHeader = false)
+            IIgniteTuple tuple,
+            bool keyOnly = false)
         {
-            if (!skipHeader)
-            {
-                w.Write(Id);
-                w.Write(schema.Version);
-            }
+            w.Write(Id);
+            w.Write(schema.Version);
 
-            var columns = schema.Columns;
-            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
-
-            for (var index = 0; index < count; index++)
-            {
-                var col = columns[index];
-                var colIdx = t.GetOrdinal(col.Name);
-
-                if (colIdx < 0)
-                {
-                    w.WriteNil();
-                }
-                else
-                {
-                    w.WriteObject(t[colIdx]);
-                }
-            }
+            WriteTuple(ref w, schema, tuple, keyOnly);
         }
     }
 }
