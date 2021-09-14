@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client.query;
 
-import org.apache.ignite.client.proto.ClientOp;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteResult;
@@ -37,6 +36,7 @@ import org.apache.ignite.client.proto.query.event.JdbcQueryFetchRequest;
 import org.apache.ignite.client.proto.query.event.JdbcQueryFetchResult;
 import org.apache.ignite.client.proto.query.event.JdbcQueryMetaRequest;
 import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.client.proto.ClientOp;
 
 /**
  *  Jdbc query network event handler implementation.

@@ -68,6 +68,25 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
             " Zero means there is no limits.",
         0L, false, 0, Integer.MAX_VALUE);
 
+    /** JDBC retry limit. */
+    private final IntegerProperty retryLimit = new IntegerProperty("retryLimit",
+        "Sets the retry limit. When a request fails due to a connection error, and multiple server connections " +
+            "are available, Ignite will retry the request on every connection. When this property is greater than " +
+            "zero, Ignite will limit the number of retries.",
+        IgniteClientConfiguration.DFLT_RETRY_LIMIT, false, 0, Integer.MAX_VALUE);
+
+    /** JDBC reconnect throttling period. */
+    private final LongProperty reconnectThrottlingPeriod = new LongProperty("reconnectThrottlingPeriod",
+        "Sets the reconnect throttling period, in milliseconds." +
+            " Zero means there is no limits.",
+        IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_PERIOD, false, 0, Long.MAX_VALUE);
+
+    /** JDBC reconnect throttling retries. */
+    private final IntegerProperty reconnectThrottlingRetries = new IntegerProperty("reconnectThrottlingRetries",
+        "Sets the reconnect throttling retries." +
+            " Zero means there is no limits.",
+        IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_RETRIES, false, 0, Integer.MAX_VALUE);
+
     /** Properties array. */
     private final ConnectionProperty[] propsArray = {qryTimeout, connTimeout};
 
@@ -132,6 +151,36 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     /** {@inheritDoc} */
     @Override public void setQueryTimeout(@Nullable Integer timeout) throws SQLException {
         qryTimeout.setValue(timeout);
+    }
+
+    /** {@inheritDoc} */
+    @Override public Integer getRetryLimit() {
+        return retryLimit.value();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void setRetryLimit(Integer limit) throws SQLException {
+        retryLimit.setValue(limit);
+    }
+
+    /** {@inheritDoc} */
+    @Override public Long getReconnectThrottlingPeriod() {
+        return reconnectThrottlingPeriod.value();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void setReconnectThrottlingPeriod(Long period) throws SQLException {
+        reconnectThrottlingPeriod.setValue(period);
+    }
+
+    /** {@inheritDoc} */
+    @Override public Integer getReconnectThrottlingRetries() {
+        return reconnectThrottlingRetries.value();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void setReconnectThrottlingRetries(Integer retries) throws SQLException {
+        reconnectThrottlingRetries.setValue(retries);
     }
 
     /** {@inheritDoc} */
@@ -667,6 +716,42 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
          */
         Integer value() {
             return val != null ? val.intValue() : null;
+        }
+    }
+
+    /**
+     * Long property.
+     */
+    private static class LongProperty extends NumberProperty {
+        /** Serial version uid. */
+        private static final long serialVersionUID = 0L;
+
+        /**
+         * Constructor.
+         *
+         * @param name Name.
+         * @param desc Description.
+         * @param dfltVal Default value.
+         * @param required {@code true} if the property is required.
+         * @param min Lower bound of allowed range.
+         * @param max Upper bound of allowed range.
+         */
+        LongProperty(String name, String desc, Number dfltVal, boolean required, long min, long max) {
+            super(name, desc, dfltVal, required, min, max);
+        }
+
+        /** {@inheritDoc} */
+        @Override protected Number parse(String str) throws NumberFormatException {
+            return Long.parseLong(str);
+        }
+
+        /**
+         * Get the property value.
+         *
+         * @return Property value.
+         */
+        Long value() {
+            return val != null ? val.longValue() : null;
         }
     }
 

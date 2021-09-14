@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.proto;
+package org.apache.ignite.internal.client.proto;
 
 /**
  * Client operation codes.
@@ -105,30 +105,32 @@ public class ClientOp {
     /** Get and delete tuple. */
     public static final int TUPLE_GET_AND_DELETE = 32;
 
+    /** Check if the tuple with the given key exists. */
+    public static final int TUPLE_CONTAINS_KEY = 33;
+
     /** Execute sql query. */
-    public static final int SQL_EXEC = 33;
+    public static final int SQL_EXEC = 34;
 
     /** Get next batch by query cursor. */
-    public static final int SQL_NEXT = 34;
+    public static final int SQL_NEXT = 35;
 
     /** Execute batch query. */
-    public static final int SQL_EXEC_BATCH = 35;
+    public static final int SQL_EXEC_BATCH = 36;
 
     /** Close query cursor. */
-    public static final int SQL_CURSOR_CLOSE = 36;
+    public static final int SQL_CURSOR_CLOSE = 37;
+    /** Close query cursor. */
+    public static final int SQL_TABLE_META = 38;
 
     /** Close query cursor. */
-    public static final int SQL_TABLE_META = 37;
+    public static final int SQL_COLUMN_META = 39;
 
     /** Close query cursor. */
-    public static final int SQL_COLUMN_META = 38;
+    public static final int SQL_SCHEMAS_META = 40;
 
     /** Close query cursor. */
-    public static final int SQL_SCHEMAS_META = 39;
+    public static final int SQL_PK_META = 41;
 
     /** Close query cursor. */
-    public static final int SQL_PK_META = 40;
-
-    /** Close query cursor. */
-    public static final int SQL_QUERY_META = 41;
+    public static final int SQL_QUERY_META = 42;
 }

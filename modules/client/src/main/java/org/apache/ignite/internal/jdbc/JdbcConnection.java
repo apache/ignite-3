@@ -138,11 +138,23 @@ public class JdbcConnection implements Connection {
         this.connProps = props;
         autoCommit = true;
 
-        var objects = Arrays.stream(props.getAddresses()).map(HostAndPortRange::toString).toArray(String[]::new);
+        String[] addrs = Arrays.stream(props.getAddresses()).map(this::createStrAddress)
+            .toArray(String[]::new);
+
+        netTimeout = connProps.getConnectionTimeout();
+        qryTimeout = connProps.getQueryTimeout();
+
+        int retryLimit = connProps.getRetryLimit();
+        long reconnectThrottlingPeriod = connProps.getReconnectThrottlingPeriod();
+        int reconnectThrottlingRetries = connProps.getReconnectThrottlingRetries();
 
         client = ((TcpIgniteClient)IgniteClient
             .builder()
-            .addresses(objects)
+            .addresses(addrs)
+            .connectTimeout(netTimeout)
+            .retryLimit(retryLimit)
+            .reconnectThrottlingPeriod(reconnectThrottlingPeriod)
+            .reconnectThrottlingRetries(reconnectThrottlingRetries)
             .build());
 
         this.handler = new JdbcClientQueryEventHandler(client);
@@ -150,9 +162,6 @@ public class JdbcConnection implements Connection {
         txIsolation = Connection.TRANSACTION_NONE;
 
         schema = normalizeSchema(connProps.getSchema());
-
-        netTimeout = connProps.getConnectionTimeout();
-        qryTimeout = connProps.getQueryTimeout();
 
         holdability = HOLD_CURSORS_OVER_COMMIT;
     }
@@ -722,6 +731,25 @@ public class JdbcConnection implements Connection {
 
         if (resSetConcurrency != CONCUR_READ_ONLY)
             throw new SQLFeatureNotSupportedException("Invalid concurrency (updates are not supported).");
+    }
+
+    /**
+     * Creates address string from HostAndPortRange object.
+     *
+     * @param range HostAndPortRange.
+     * @return Address string with host and port range.
+     */
+    private String createStrAddress(HostAndPortRange range) {
+        String host = range.host();
+        int portFrom = range.portFrom();
+        int portTo = range.portTo();
+
+        boolean ipV6 = host.contains(":");
+
+        if (ipV6)
+            host = "[" + host + "]";
+
+        return host + ":" + (portFrom == portTo ? portFrom : portFrom + ".." + portTo);
     }
 
     /**

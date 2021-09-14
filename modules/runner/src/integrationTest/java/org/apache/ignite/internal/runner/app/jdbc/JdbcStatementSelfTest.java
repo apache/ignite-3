@@ -86,12 +86,10 @@ public class JdbcStatementSelfTest extends AbstractJdbcSelfTest {
     }
 
     /**
-     * TODO IGNITE-15187 + IGNITE-15108
-     *
      * @throws Exception If failed.
      */
     @Test
-    @Disabled
+    @Disabled("IGNITE-15187 + IGNITE-15108")
     public void testExecuteQuery0() throws Exception {
         ResultSet rs = stmt.executeQuery(SQL);
 
@@ -145,12 +143,10 @@ public class JdbcStatementSelfTest extends AbstractJdbcSelfTest {
     }
 
     /**
-     * TODO IGNITE-15187 + IGNITE-15108
-     *
      * @throws Exception If failed.
      */
     @Test
-    @Disabled
+    @Disabled("IGNITE-15187 + IGNITE-15108")
     public void testExecute() throws Exception {
         assertTrue(stmt.execute(SQL));
 
@@ -187,11 +183,10 @@ public class JdbcStatementSelfTest extends AbstractJdbcSelfTest {
     }
 
     /**
-     * TODO IGNITE-15187 + IGNITE-15108
      * @throws Exception If failed.
      */
     @Test
-    @Disabled
+    @Disabled("IGNITE-15187 + IGNITE-15108")
     public void testMaxRows() throws Exception {
         stmt.setMaxRows(1);
 
@@ -396,11 +391,10 @@ public class JdbcStatementSelfTest extends AbstractJdbcSelfTest {
     }
 
     /**
-     * TODO IGNITE-15108
      * @throws Exception If failed.
      */
     @Test
-    @Disabled
+    @Disabled("IGNITE-15108")
     public void testExecuteQueryMultipleOnlyDml() throws Exception {
         conn.setSchema(null);
 
@@ -436,11 +430,10 @@ public class JdbcStatementSelfTest extends AbstractJdbcSelfTest {
     }
 
     /**
-     * TODO IGNITE-15108
      * @throws Exception If failed.
      */
     @Test
-    @Disabled
+    @Disabled("IGNITE-15108")
     public void testExecuteQueryMultipleMixed() throws Exception {
         conn.setSchema(null);
 
@@ -501,12 +494,10 @@ public class JdbcStatementSelfTest extends AbstractJdbcSelfTest {
     }
 
     /**
-     * TODO IGNITE-15108
-     *
      * @throws Exception If failed.
      */
     @Test
-    @Disabled
+    @Disabled("IGNITE-15108")
     public void testExecuteUpdate() throws Exception {
         final String sqlText = "update test set val=1 where _key=1";
 
@@ -845,11 +836,10 @@ public class JdbcStatementSelfTest extends AbstractJdbcSelfTest {
     }
 
     /**
-     * TODO IGNITE-15108
      * @throws Exception If failed.
      */
     @Test
-    @Disabled
+    @Disabled("IGNITE-15108")
     public void testStatementTypeMismatchUpdate() throws Exception {
         assertThrows(
             SQLException.class,
