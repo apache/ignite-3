@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import com.typesafe.config.ConfigFactory;
@@ -185,7 +186,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         AtomicReference<DynamicConfiguration<?, ?>> cfgRef = new AtomicReference();
 
         cfgRef.set(cgen.instantiateCfg(rootKey, new DynamicConfigurationChanger() {
-            private int storageRev;
+            private AtomicInteger storageRev = new AtomicInteger();
 
             /** {@inheritDoc} */
             @Override public CompletableFuture<Void> change(ConfigurationSource change) {
@@ -203,7 +204,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
                             sr.getRoot(rootKey),
                             copy.getRoot(rootKey),
                             ((DynamicConfiguration<InnerNode, ?>)cfgRef.get()),
-                            ++storageRev,
+                            storageRev.incrementAndGet(),
                             futures
                         );
 
