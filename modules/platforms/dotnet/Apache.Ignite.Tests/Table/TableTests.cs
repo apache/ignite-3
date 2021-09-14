@@ -26,6 +26,14 @@ namespace Apache.Ignite.Tests.Table
     /// </summary>
     public class TableTests : IgniteTestsBase
     {
+        // [SetUp]
+        // public async Task SetUp()
+        // {
+        //     for (var i = 0; i < 10; i++)
+        //     {
+        //         await Table.DeleteAsync(GetTuple(i));
+        //     }
+        // }
         [Test]
         public async Task TestUpsertGet()
         {
@@ -73,6 +81,16 @@ namespace Apache.Ignite.Tests.Table
                 " [col=Column [schemaIndex=0, name=key, type=NativeType [name=INT32, sizeInBytes=4, fixed=true]," +
                 " nullable=false]]",
                 ex!.Message);
+        }
+
+        [Test]
+        public async Task TestDelete()
+        {
+            await Table.UpsertAsync(GetTuple(1, "1"));
+
+            Assert.IsFalse(await Table.DeleteAsync(GetTuple(-1)));
+            Assert.IsTrue(await Table.DeleteAsync(GetTuple(1)));
+            Assert.IsNull(await Table.GetAsync(GetTuple(1)));
         }
 
         private static IIgniteTuple GetTuple(int id, string? val = null) =>

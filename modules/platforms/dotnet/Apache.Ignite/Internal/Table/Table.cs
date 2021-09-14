@@ -152,9 +152,17 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public Task<bool> DeleteAsync(IIgniteTuple key)
+        public async Task<bool> DeleteAsync(IIgniteTuple key)
         {
-            throw new NotImplementedException();
+            IgniteArgumentCheck.NotNull(key, nameof(key));
+
+            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+
+            using var writer = new PooledArrayBufferWriter();
+            WriteTuple(writer.GetMessageWriter(), schema, key, keyOnly: true);
+
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleDelete, writer).ConfigureAwait(false);
+            return resBuf.GetReader().ReadBoolean();
         }
 
         /// <inheritdoc/>
