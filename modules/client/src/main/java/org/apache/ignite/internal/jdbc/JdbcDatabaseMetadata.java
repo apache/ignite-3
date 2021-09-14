@@ -28,7 +28,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
-import org.apache.ignite.client.proto.ProtocolVersion;
 import org.apache.ignite.client.proto.query.IgniteQueryErrorCode;
 import org.apache.ignite.client.proto.query.event.JdbcColumnMeta;
 import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsRequest;
@@ -41,6 +40,7 @@ import org.apache.ignite.client.proto.query.event.JdbcMetaTablesRequest;
 import org.apache.ignite.client.proto.query.event.JdbcMetaTablesResult;
 import org.apache.ignite.client.proto.query.event.JdbcPrimaryKeyMeta;
 import org.apache.ignite.client.proto.query.event.JdbcTableMeta;
+import org.apache.ignite.internal.client.proto.ProtocolVersion;
 
 import static java.sql.Connection.TRANSACTION_NONE;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
@@ -62,9 +62,6 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
 
     /** Name of TABLE type. */
     public static final String TYPE_TABLE = "TABLE";
-
-    /** Name of VIEW type. */
-    public static final String TYPE_VIEW = "VIEW";
 
     /** Connection. */
     private final JdbcConnection conn;
@@ -731,7 +728,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
             tblTypeMatch = true;
         else {
             for (String type : tblTypes) {
-                if (TYPE_TABLE.equals(type) || TYPE_VIEW.equals(type)) {
+                if (TYPE_TABLE.equals(type)) {
                     tblTypeMatch = true;
 
                     break;
@@ -772,7 +769,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @SuppressWarnings("ArraysAsListWithZeroOrOneArgument")
     @Override public ResultSet getTableTypes() {
         return new JdbcResultSet(
-            asList(singletonList(TYPE_TABLE), singletonList(TYPE_VIEW) ),
+            asList(singletonList(TYPE_TABLE)),
             asList(new JdbcColumnMeta(null, null, "TABLE_TYPE", String.class)));
     }
 

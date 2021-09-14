@@ -20,8 +20,8 @@ package org.apache.ignite.client.proto.query.event;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Objects;
-import org.apache.ignite.client.proto.ClientMessagePacker;
-import org.apache.ignite.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
 
 /**
