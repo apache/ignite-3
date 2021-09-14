@@ -104,8 +104,14 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task UpsertAllAsync(IEnumerable<IIgniteTuple> records)
         {
-            await Task.Yield();
-            throw new NotImplementedException();
+            IgniteArgumentCheck.NotNull(records, nameof(records));
+
+            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+
+            using var writer = new PooledArrayBufferWriter();
+            WriteTuples(writer, schema, records);
+
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleUpsert, writer).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
