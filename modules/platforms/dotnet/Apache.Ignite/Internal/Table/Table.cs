@@ -127,6 +127,12 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
+        public Task<IList<IIgniteTuple>> GetAllAsync(IEnumerable<IIgniteTuple> keys)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
         public async Task UpsertAsync(IIgniteTuple record)
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
@@ -159,6 +165,78 @@ namespace Apache.Ignite.Internal.Table
 
                 w.Flush();
             }
+        }
+
+        /// <inheritdoc/>
+        public Task UpsertAllAsync(IEnumerable<IIgniteTuple> records)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public Task<IIgniteTuple?> GetAndUpsertAsync(IIgniteTuple record)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public Task<bool> InsertAsync(IIgniteTuple record)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public Task<IList<IIgniteTuple>> InsertAllAsync(IEnumerable<IIgniteTuple> records)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public Task<bool> ReplaceAsync(IIgniteTuple oldRecord)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public Task<bool> ReplaceAsync(IIgniteTuple oldRecord, IIgniteTuple newRecord)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public Task<IIgniteTuple?> GetAndReplaceAsync(IIgniteTuple record)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public Task<bool> DeleteAsync(IIgniteTuple key)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public Task<bool> DeleteExactAsync(IIgniteTuple record)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public Task<IIgniteTuple?> GetAndDeleteAsync(IIgniteTuple key)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public Task<IList<IIgniteTuple>> DeleteAllAsync(IEnumerable<IIgniteTuple> keys)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public Task<IList<IIgniteTuple>> DeleteAllExactAsync(IEnumerable<IIgniteTuple> records)
+        {
+            throw new NotImplementedException();
         }
 
         private static int? ReadSchemaVersion(PooledBuffer buf)
