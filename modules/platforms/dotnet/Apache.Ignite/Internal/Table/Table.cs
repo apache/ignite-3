@@ -78,6 +78,7 @@ namespace Apache.Ignite.Internal.Table
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGet, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
+
             return ReadValueTuple(resBuf, resSchema, key);
         }
 
@@ -126,6 +127,7 @@ namespace Apache.Ignite.Internal.Table
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleUpsert, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
+
             return ReadValueTuple(resBuf, resSchema, record);
         }
 
@@ -155,6 +157,7 @@ namespace Apache.Ignite.Internal.Table
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleInsertAll, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
+
             return ReadTuples(resBuf, resSchema);
         }
 
@@ -198,6 +201,7 @@ namespace Apache.Ignite.Internal.Table
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGetAndReplace, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
+
             return ReadTuple(resBuf, resSchema);
         }
 
@@ -241,14 +245,26 @@ namespace Apache.Ignite.Internal.Table
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGetAndDelete, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
+
             return ReadTuple(resBuf, resSchema);
         }
 
         /// <inheritdoc/>
         public async Task<IList<IIgniteTuple>> DeleteAllAsync(IEnumerable<IIgniteTuple> keys)
         {
-            await Task.Yield();
-            throw new NotImplementedException();
+            IgniteArgumentCheck.NotNull(keys, nameof(keys));
+
+            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+
+            using var writer = new PooledArrayBufferWriter();
+            WriteTuples(writer, schema, keys, keyOnly: true);
+
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleDeleteAll, writer).ConfigureAwait(false);
+            var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
+
+            // TODO: Read key only tuples.
+            // TODO: Why can't we return indexes from the server? No ordering guarantees?
+            return ReadTuples(resBuf, resSchema);
         }
 
         /// <inheritdoc/>
