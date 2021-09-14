@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.proto;
+package org.apache.ignite.internal.client.proto;
 
 /**
- * Common client message constants.
+ * Server to client message types.
  */
-public class ClientMessageCommon {
-    /** Message header size. */
-    public static final int HEADER_SIZE = 4;
+public class ServerMessageType {
+    /** Response to a request (initiated by the client). */
+    public static final int RESPONSE = 0;
 
-    /** Magic bytes before handshake. */
-    public static final byte[] MAGIC_BYTES = new byte[]{0x49, 0x47, 0x4E, 0x49}; // IGNI
+    /** Notification (initiated by the server). */
+    public static final int NOTIFICATION = 1;
 }

@@ -15,18 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.proto;
-
 /**
- * Client error codes.
+ * Ignite thin client shared logic (client and server: serialization, op codes, etc).
  */
-public class ClientErrorCode {
-    /** Operation succeeded (no error). */
-    public static final int SUCCESS = 0;
-
-    /** General error (uncategorized). */
-    public static final int FAILED = 1;
-
-    /** Authentication or authorization failure. */
-    public static final int AUTH_FAILED = 2;
-}
+package org.apache.ignite.internal.client.proto;
