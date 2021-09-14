@@ -26,14 +26,6 @@ namespace Apache.Ignite.Tests.Table
     /// </summary>
     public class TableTests : IgniteTestsBase
     {
-        // [SetUp]
-        // public async Task SetUp()
-        // {
-        //     for (var i = 0; i < 10; i++)
-        //     {
-        //         await Table.DeleteAsync(GetTuple(i));
-        //     }
-        // }
         [Test]
         public async Task TestUpsertGet()
         {
