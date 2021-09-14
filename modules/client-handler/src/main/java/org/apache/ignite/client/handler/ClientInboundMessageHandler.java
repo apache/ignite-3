@@ -56,6 +56,7 @@ import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertAllReque
 import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertAllSchemalessRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertSchemalessRequest;
+import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.internal.client.proto.ClientErrorCode;
 import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -63,6 +64,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
+import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.table.manager.IgniteTables;

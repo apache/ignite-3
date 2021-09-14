@@ -25,7 +25,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 import java.util.logging.Logger;
-import org.apache.ignite.client.proto.ProtocolVersion;
+import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
 import org.apache.ignite.internal.jdbc.JdbcConnection;
 

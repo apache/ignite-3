@@ -42,6 +42,7 @@ import org.msgpack.core.buffer.InputStreamBufferInput;
 import org.msgpack.value.ImmutableValue;
 
 import static org.apache.ignite.internal.client.proto.ClientDataType.BITMASK;
+import static org.apache.ignite.internal.client.proto.ClientDataType.BOOLEAN;
 import static org.apache.ignite.internal.client.proto.ClientDataType.BYTES;
 import static org.apache.ignite.internal.client.proto.ClientDataType.DATE;
 import static org.apache.ignite.internal.client.proto.ClientDataType.DATETIME;
