@@ -181,8 +181,16 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<IIgniteTuple?> GetAndReplaceAsync(IIgniteTuple record)
         {
-            await Task.Yield();
-            throw new NotImplementedException();
+            IgniteArgumentCheck.NotNull(record, nameof(record));
+
+            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+
+            using var writer = new PooledArrayBufferWriter();
+            WriteTuple(writer, schema, record);
+
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleReplaceExact, writer).ConfigureAwait(false);
+            var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
+            return ReadTuple(resBuf.GetReader(), resSchema);
         }
 
         /// <inheritdoc/>
