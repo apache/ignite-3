@@ -113,5 +113,15 @@ namespace Apache.Ignite.Table
         /// The task result contains the previous value for the given key, or <c>null</c> if it did not exist.
         /// </returns>
         Task<T?> GetAndReplaceAsync(T record);
+
+        /// <summary>
+        /// Deletes a record with the specified key.
+        /// </summary>
+        /// <param name="key">A record with key columns set.</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result contains a value indicating whether a record with the specified key was deleted.
+        /// </returns>
+        Task<bool> DeleteAsync(T key);
     }
 }
