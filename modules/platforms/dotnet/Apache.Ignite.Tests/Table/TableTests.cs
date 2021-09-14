@@ -44,8 +44,12 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestUpsertCustomTuple()
         {
-            await Task.Yield();
-            throw new NotImplementedException();
+            await Table.UpsertAsync(new CustomTestIgniteTuple());
+
+            var res = await Table.GetAsync(GetTuple(CustomTestIgniteTuple.Key));
+
+            Assert.IsNotNull(res);
+            Assert.AreEqual(CustomTestIgniteTuple.Value, res![1]);
         }
 
         [Test]
