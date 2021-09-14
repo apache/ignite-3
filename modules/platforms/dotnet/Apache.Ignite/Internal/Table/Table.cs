@@ -78,7 +78,7 @@ namespace Apache.Ignite.Internal.Table
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGet, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
-            return ReadValueTuple(resBuf.GetReader(), resSchema, key);
+            return ReadValueTuple(resBuf, resSchema, key);
         }
 
         /// <inheritdoc/>
@@ -126,7 +126,7 @@ namespace Apache.Ignite.Internal.Table
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleUpsert, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
-            return ReadValueTuple(resBuf.GetReader(), resSchema, record);
+            return ReadValueTuple(resBuf, resSchema, record);
         }
 
         /// <inheritdoc/>
@@ -146,8 +146,16 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<IList<IIgniteTuple>> InsertAllAsync(IEnumerable<IIgniteTuple> records)
         {
-            await Task.Yield();
-            throw new NotImplementedException();
+            IgniteArgumentCheck.NotNull(records, nameof(records));
+
+            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+
+            using var writer = new PooledArrayBufferWriter();
+            WriteTuples(writer, schema, records);
+
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleInsertAll, writer).ConfigureAwait(false);
+            var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
+            return ReadTuples(resBuf, resSchema);
         }
 
         /// <inheritdoc/>
@@ -190,7 +198,7 @@ namespace Apache.Ignite.Internal.Table
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGetAndReplace, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
-            return ReadTuple(resBuf.GetReader(), resSchema);
+            return ReadTuple(resBuf, resSchema);
         }
 
         /// <inheritdoc/>
@@ -217,7 +225,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = new PooledArrayBufferWriter();
             WriteTuple(writer, schema, record);
 
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleDelete, writer).ConfigureAwait(false);
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleDeleteExact, writer).ConfigureAwait(false);
             return resBuf.GetReader().ReadBoolean();
         }
 
@@ -233,7 +241,7 @@ namespace Apache.Ignite.Internal.Table
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGetAndDelete, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
-            return ReadTuple(resBuf.GetReader(), resSchema);
+            return ReadTuple(resBuf, resSchema);
         }
 
         /// <inheritdoc/>
@@ -250,7 +258,7 @@ namespace Apache.Ignite.Internal.Table
             throw new NotImplementedException();
         }
 
-        private static IIgniteTuple? ReadValueTuple(MessagePackReader r, Schema? schema, IIgniteTuple key)
+        private static IIgniteTuple? ReadValueTuple(PooledBuffer buf, Schema? schema, IIgniteTuple key)
         {
             if (schema == null)
             {
@@ -258,6 +266,7 @@ namespace Apache.Ignite.Internal.Table
             }
 
             // Skip schema version.
+            var r = buf.GetReader();
             r.Skip();
 
             var columns = schema.Columns;
@@ -280,16 +289,23 @@ namespace Apache.Ignite.Internal.Table
             return tuple;
         }
 
-        private static IIgniteTuple? ReadTuple(MessagePackReader r, Schema? schema)
+        private static IIgniteTuple? ReadTuple(PooledBuffer buf, Schema? schema)
         {
             if (schema == null)
             {
                 return null;
             }
 
+            var r = buf.GetReader();
+
             // Skip schema version.
             r.Skip();
 
+            return ReadTuple(ref r, schema);
+        }
+
+        private static IIgniteTuple ReadTuple(ref MessagePackReader r, Schema schema)
+        {
             var columns = schema.Columns;
             var tuple = new IgniteTuple(columns.Count);
 
@@ -299,6 +315,28 @@ namespace Apache.Ignite.Internal.Table
             }
 
             return tuple;
+        }
+
+        private static IList<IIgniteTuple> ReadTuples(PooledBuffer buf, Schema? schema)
+        {
+            if (schema == null)
+            {
+                return Array.Empty<IIgniteTuple>();
+            }
+
+            // Skip schema version.
+            var r = buf.GetReader();
+            r.Skip();
+
+            var count = r.ReadInt32();
+            var res = new List<IIgniteTuple>(count);
+
+            for (var i = 0; i < count; i++)
+            {
+                res.Add(ReadTuple(ref r, schema));
+            }
+
+            return res;
         }
 
         private static int? ReadSchemaVersion(PooledBuffer buf)
@@ -370,13 +408,14 @@ namespace Apache.Ignite.Internal.Table
         private async Task<Schema> LoadSchemaAsync(int? version)
         {
             using var writer = new PooledArrayBufferWriter();
-            Write(writer.GetMessageWriter());
+            Write();
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.SchemasGet, writer).ConfigureAwait(false);
-            return Read(resBuf.GetReader());
+            return Read();
 
-            void Write(MessagePackWriter w)
+            void Write()
             {
+                var w = writer.GetMessageWriter();
                 w.Write(Id);
 
                 if (version == null)
@@ -392,8 +431,9 @@ namespace Apache.Ignite.Internal.Table
                 w.Flush();
             }
 
-            Schema Read(MessagePackReader r)
+            Schema Read()
             {
+                var r = resBuf.GetReader();
                 var schemaCount = r.ReadMapHeader();
 
                 if (schemaCount == 0)
