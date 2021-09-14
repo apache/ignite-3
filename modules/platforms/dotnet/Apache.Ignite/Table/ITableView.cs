@@ -72,5 +72,16 @@ namespace Apache.Ignite.Table
         /// The task result contains replaced record or null if it did not exist.
         /// </returns>
         Task<T?> GetAndUpsertAsync(T record);
+
+        /// <summary>
+        /// Inserts a record into the table if it does not exist.
+        /// </summary>
+        /// <param name="record">Record to insert.</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result contains a value indicating whether the record was inserted. Returns <c>false</c> if a
+        /// record with the same key already exists.
+        /// </returns>
+        Task InsertAsync(T record);
     }
 }
