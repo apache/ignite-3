@@ -106,7 +106,7 @@ namespace Apache.Ignite.Table
 
         /// <summary>
         /// Replaces a record with a new one only if all existing columns have the same values
-        /// as the specified <see cref="oldRecord"/>.
+        /// as the specified <paramref name="oldRecord"/>.
         /// </summary>
         /// <param name="oldRecord">Record to replace.</param>
         /// <param name="newRecord">Record to replace with.</param>
@@ -137,7 +137,7 @@ namespace Apache.Ignite.Table
         Task<bool> DeleteAsync(T key);
 
         /// <summary>
-        /// Deletes a record only if all existing columns have the same values as the specified <see cref="record"/>.
+        /// Deletes a record only if all existing columns have the same values as the specified <paramref name="record"/>.
         /// </summary>
         /// <param name="record">A record with all columns set.</param>
         /// <returns>
@@ -162,7 +162,7 @@ namespace Apache.Ignite.Table
         /// <param name="keys">Record keys to delete.</param>
         /// <returns>
         /// A <see cref="Task"/> representing the asynchronous operation.
-        /// The task result contains records from <see cref="keys"/> that did not exist.
+        /// The task result contains records from <paramref name="keys"/> that did not exist.
         /// </returns>
         Task<IList<T>> DeleteAllAsync(IEnumerable<T> keys);
 
@@ -172,7 +172,7 @@ namespace Apache.Ignite.Table
         /// <param name="records">Records to delete.</param>
         /// <returns>
         /// A <see cref="Task"/> representing the asynchronous operation.
-        /// The task result contains records from <see cref="records"/> that did not exist.
+        /// The task result contains records from <paramref name="records"/> that did not exist.
         /// </returns>
         Task<IList<T>> DeleteAllExactAsync(IEnumerable<T> records);
     }

@@ -74,56 +74,11 @@ namespace Apache.Ignite.Internal.Table
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
 
             using var writer = new PooledArrayBufferWriter();
-            Write(writer.GetMessageWriter());
+            WriteTuple(writer.GetMessageWriter(), schema, key, keyOnly: true);
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGet, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
-            return Read(resBuf.GetReader());
-
-            void Write(MessagePackWriter w)
-            {
-                w.Write(Id);
-                w.Write(schema.Version);
-
-                for (var i = 0; i < schema.KeyColumnCount; i++)
-                {
-                    var col = schema.Columns[i];
-
-                    w.WriteObject(key[col.Name]);
-                }
-
-                w.Flush();
-            }
-
-            IIgniteTuple? Read(MessagePackReader r)
-            {
-                if (resSchema == null)
-                {
-                    return null;
-                }
-
-                // Skip schema version.
-                r.Skip();
-
-                var columns = resSchema.Columns;
-                var tuple = new IgniteTuple(columns.Count);
-
-                for (var i = 0; i < columns.Count; i++)
-                {
-                    var column = columns[i];
-
-                    if (i < schema.KeyColumnCount)
-                    {
-                        tuple[column.Name] = key[column.Name];
-                    }
-                    else
-                    {
-                        tuple[column.Name] = r.ReadObject(column.Type);
-                    }
-                }
-
-                return tuple;
-            }
+            return ReadValueTuple(resBuf.GetReader(), resSchema, key);
         }
 
         /// <inheritdoc/>
@@ -140,31 +95,9 @@ namespace Apache.Ignite.Internal.Table
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
 
             using var writer = new PooledArrayBufferWriter();
-            Write(writer.GetMessageWriter());
+            WriteTuple(writer.GetMessageWriter(), schema, record);
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleUpsert, writer).ConfigureAwait(false);
-
-            void Write(MessagePackWriter w)
-            {
-                w.Write(Id);
-                w.Write(schema.Version);
-
-                foreach (var col in schema.Columns)
-                {
-                    var colIdx = record.GetOrdinal(col.Name);
-
-                    if (colIdx < 0)
-                    {
-                        w.WriteNil();
-                    }
-                    else
-                    {
-                        w.WriteObject(record[colIdx]);
-                    }
-                }
-
-                w.Flush();
-            }
         }
 
         /// <inheritdoc/>
@@ -174,9 +107,18 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public Task<IIgniteTuple?> GetAndUpsertAsync(IIgniteTuple record)
+        public async Task<IIgniteTuple?> GetAndUpsertAsync(IIgniteTuple record)
         {
-            throw new NotImplementedException();
+            IgniteArgumentCheck.NotNull(record, nameof(record));
+
+            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+
+            using var writer = new PooledArrayBufferWriter();
+            WriteTuple(writer.GetMessageWriter(), schema, record);
+
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleUpsert, writer).ConfigureAwait(false);
+            var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
+            return ReadValueTuple(resBuf.GetReader(), resSchema, record);
         }
 
         /// <inheritdoc/>
@@ -237,6 +179,57 @@ namespace Apache.Ignite.Internal.Table
         public Task<IList<IIgniteTuple>> DeleteAllExactAsync(IEnumerable<IIgniteTuple> records)
         {
             throw new NotImplementedException();
+        }
+
+        private static IIgniteTuple? ReadValueTuple(MessagePackReader r, Schema? schema, IIgniteTuple key)
+        {
+            if (schema == null)
+            {
+                return null;
+            }
+
+            // Skip schema version.
+            r.Skip();
+
+            var columns = schema.Columns;
+            var tuple = new IgniteTuple(columns.Count);
+
+            for (var i = 0; i < columns.Count; i++)
+            {
+                var column = columns[i];
+
+                if (i < schema.KeyColumnCount)
+                {
+                    tuple[column.Name] = key[column.Name];
+                }
+                else
+                {
+                    tuple[column.Name] = r.ReadObject(column.Type);
+                }
+            }
+
+            return tuple;
+        }
+
+        private static IIgniteTuple? ReadTuple(MessagePackReader r, Schema? schema)
+        {
+            if (schema == null)
+            {
+                return null;
+            }
+
+            // Skip schema version.
+            r.Skip();
+
+            var columns = schema.Columns;
+            var tuple = new IgniteTuple(columns.Count);
+
+            foreach (var column in columns)
+            {
+                tuple[column.Name] = r.ReadObject(column.Type);
+            }
+
+            return tuple;
         }
 
         private static int? ReadSchemaVersion(PooledBuffer buf)
@@ -372,6 +365,32 @@ namespace Apache.Ignite.Internal.Table
             }
 
             return schema;
+        }
+
+        private void WriteTuple(MessagePackWriter w, Schema schema, IIgniteTuple record, bool keyOnly = false)
+        {
+            w.Write(Id);
+            w.Write(schema.Version);
+
+            var columns = schema.Columns;
+            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
+
+            for (var index = 0; index < count; index++)
+            {
+                var col = columns[index];
+                var colIdx = record.GetOrdinal(col.Name);
+
+                if (colIdx < 0)
+                {
+                    w.WriteNil();
+                }
+                else
+                {
+                    w.WriteObject(record[colIdx]);
+                }
+            }
+
+            w.Flush();
         }
     }
 }
