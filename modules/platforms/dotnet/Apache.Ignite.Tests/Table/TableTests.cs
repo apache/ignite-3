@@ -26,25 +26,21 @@ namespace Apache.Ignite.Tests.Table
     /// </summary>
     public class TableTests : IgniteTestsBase
     {
+        private const string TableName = "PUB.tbl1";
+
+        private const string KeyCol = "key";
+
+        private const string ValCol = "val";
+
         [Test]
         public async Task TestUpsertGet()
         {
             using var client = await IgniteClient.StartAsync(GetConfig());
-            var table = (await client.Tables.GetTableAsync("PUB.tbl1"))!;
+            var table = (await client.Tables.GetTableAsync(TableName))!;
 
-            var tuple = new IgniteTuple
-            {
-                ["key"] = 1,
-                ["val"] = "foo"
-            };
+            await table.UpsertAsync(GetTuple(1, "foo"));
 
-            await table.UpsertAsync(tuple);
-
-            var keyTuple = new IgniteTuple
-            {
-                ["key"] = 1
-            };
-
+            var keyTuple = new IgniteTuple { ["key"] = 1 };
             var resTuple = (await table.GetAsync(keyTuple))!;
 
             Assert.IsNotNull(resTuple);
@@ -52,5 +48,8 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(1L, resTuple["key"]);
             Assert.AreEqual("foo", resTuple["val"]);
         }
+
+        private static IIgniteTuple GetTuple(int id, string? val = null) =>
+            new IgniteTuple { [KeyCol] = id, [ValCol] = val };
     }
 }
