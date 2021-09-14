@@ -187,11 +187,10 @@ public class JdbcStatementSelfTest extends AbstractJdbcSelfTest {
     }
 
     /**
-     * TODO IGNITE-15187 + IGNITE-15108
      * @throws Exception If failed.
      */
     @Test
-    @Disabled
+    @Disabled("IGNITE-15187 + IGNITE-15108")
     public void testMaxRows() throws Exception {
         stmt.setMaxRows(1);
 
