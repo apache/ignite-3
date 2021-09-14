@@ -431,10 +431,37 @@ namespace Apache.Ignite.Internal.Table
             w.Flush();
         }
 
-        private void WriteTuple(ref MessagePackWriter w, Schema schema, IIgniteTuple t, bool keyOnly = false)
+        private void WriteTuples(
+            PooledArrayBufferWriter buf,
+            Schema schema,
+            IEnumerable<IIgniteTuple> tuples,
+            bool keyOnly = false)
         {
-            w.Write(Id);
-            w.Write(schema.Version);
+            var w = buf.GetMessageWriter();
+            var count = 0;
+
+            // TODO: Reserve bytes for length and always write length as int32 - does MsgPack permit this? Can we trick it?
+            foreach (var tuple in tuples)
+            {
+                WriteTuple(ref w, schema, tuple, keyOnly, skipHeader: count != 0);
+                count++;
+            }
+
+            w.Flush();
+        }
+
+        private void WriteTuple(
+            ref MessagePackWriter w,
+            Schema schema,
+            IIgniteTuple t,
+            bool keyOnly = false,
+            bool skipHeader = false)
+        {
+            if (!skipHeader)
+            {
+                w.Write(Id);
+                w.Write(schema.Version);
+            }
 
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
@@ -453,8 +480,6 @@ namespace Apache.Ignite.Internal.Table
                     w.WriteObject(t[colIdx]);
                 }
             }
-
-            w.Flush();
         }
     }
 }
