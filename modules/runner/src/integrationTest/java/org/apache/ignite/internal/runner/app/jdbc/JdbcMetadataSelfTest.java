@@ -638,5 +638,4 @@ public class JdbcMetadataSelfTest {
             rs.close();
         }
     }
-
 }
