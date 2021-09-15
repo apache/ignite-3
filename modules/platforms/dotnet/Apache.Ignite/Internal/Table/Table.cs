@@ -554,7 +554,7 @@ namespace Apache.Ignite.Internal.Table
             var w = buf.GetMessageWriter();
 
             WriteTupleWithHeader(ref w, schema, t, keyOnly);
-            WriteTupleWithHeader(ref w, schema, t2, keyOnly);
+            WriteTuple(ref w, schema, t2, keyOnly);
 
             w.Flush();
         }
