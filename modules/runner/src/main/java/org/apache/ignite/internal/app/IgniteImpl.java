@@ -45,6 +45,7 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguratio
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDBKeyValueStorage;
+import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
 import org.apache.ignite.internal.processors.query.calcite.SqlQueryProcessor;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.storage.DistributedConfigurationStorage;
@@ -207,7 +208,7 @@ public class IgniteImpl implements Ignite {
 
         restModule = new RestModule(nodeCfgMgr, clusterCfgMgr);
 
-        clientHandlerModule = new ClientHandlerModule(distributedTblMgr, nodeCfgMgr.configurationRegistry());
+        clientHandlerModule = new ClientHandlerModule(qryEngine, distributedTblMgr, nodeCfgMgr.configurationRegistry());
     }
 
     /**
@@ -319,7 +320,7 @@ public class IgniteImpl implements Ignite {
         return distributedTblMgr;
     }
 
-    public SqlQueryProcessor queryEngine() {
+    public QueryProcessor queryEngine() {
         return qryEngine;
     }
 

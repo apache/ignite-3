@@ -30,6 +30,7 @@ import java.util.BitSet;
 import java.util.UUID;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.msgpack.core.ExtensionTypeHeader;
@@ -42,6 +43,7 @@ import org.msgpack.core.buffer.InputStreamBufferInput;
 import org.msgpack.value.ImmutableValue;
 
 import static org.apache.ignite.internal.client.proto.ClientDataType.BITMASK;
+import static org.apache.ignite.internal.client.proto.ClientDataType.BOOLEAN;
 import static org.apache.ignite.internal.client.proto.ClientDataType.BYTES;
 import static org.apache.ignite.internal.client.proto.ClientDataType.DATE;
 import static org.apache.ignite.internal.client.proto.ClientDataType.DATETIME;
@@ -442,6 +444,27 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     /**
+     * Reads an integer array.
+     *
+     * @return Integer array.
+     */
+    public int[] unpackIntArray() {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        int size = unpackArrayHeader();
+
+        if (size == 0)
+            return ArrayUtils.INT_EMPTY_ARRAY;
+
+        int[] res = new int[size];
+
+        for (int i = 0; i < size; i++)
+            res[i] = unpackInt();
+
+        return res;
+    }
+
+    /**
      * Reads a date.
      *
      * @return Date value.
@@ -557,6 +580,9 @@ public class ClientMessageUnpacker extends MessageUnpacker {
             return null;
 
         switch (dataType) {
+            case BOOLEAN:
+                return unpackBoolean();
+
             case INT8:
                 return unpackByte();
 
@@ -610,6 +636,34 @@ public class ClientMessageUnpacker extends MessageUnpacker {
         }
 
         throw new IgniteException("Unknown client data type: " + dataType);
+    }
+
+    /**
+     * Packs an object.
+     *
+     * @return Object array.
+     * @throws IllegalStateException in case of unexpected value type.
+     */
+    public Object[] unpackObjectArray() {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        if (tryUnpackNil())
+            return null;
+
+        int size = unpackArrayHeader();
+
+        if (size == 0)
+            return ArrayUtils.OBJECT_EMPTY_ARRAY;
+
+        Object[] args = new Object[size];
+
+        for (int i = 0; i < size; i++) {
+            if (tryUnpackNil())
+                continue;
+
+            args[i] = unpackObject(unpackInt());
+        }
+        return args;
     }
 
     /**
