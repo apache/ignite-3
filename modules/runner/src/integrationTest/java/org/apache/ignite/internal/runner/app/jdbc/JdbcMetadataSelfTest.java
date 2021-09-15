@@ -16,6 +16,7 @@
 
 package org.apache.ignite.internal.runner.app.jdbc;
 
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -25,27 +26,35 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.app.Ignite;
+import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.jdbc.IgniteJdbcDriver;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import static java.sql.Types.DATE;
+import static java.sql.Types.DECIMAL;
 import static java.sql.Types.INTEGER;
 import static java.sql.Types.VARCHAR;
-import static java.sql.Types.DECIMAL;
-import static java.sql.Types.DATE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -55,7 +64,48 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Metadata tests.
  */
-public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
+public class JdbcMetadataSelfTest {
+    /** URL. */
+    protected static final String URL = "jdbc:ignite:thin://127.0.1.1:10800";
+
+    /** Nodes bootstrap configuration. */
+    private static final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {{
+        put("node2", "{\n" +
+            "  \"node\": {\n" +
+            "    \"metastorageNodes\":[ \"node2\" ]\n" +
+            "  }\n" +
+            "}");
+    }};
+
+    /** Cluster nodes. */
+    protected static final List<Ignite> clusterNodes = new ArrayList<>();
+
+    /**
+     * Creates a cluster of three nodes.
+     *
+     * @param temp Temporal directory.
+     */
+    @BeforeAll
+    public static void beforeAll(@TempDir Path temp) {
+        IgniteJdbcDriver.register();
+
+        nodesBootstrapCfg.forEach((nodeName, configStr) ->
+            clusterNodes.add(IgnitionManager.start(nodeName, configStr, temp.resolve(nodeName)))
+        );
+    }
+
+    /**
+     * Close all cluster nodes.
+     *
+     * @throws Exception if failed.
+     */
+    @AfterAll
+    public static void afterAll() throws Exception {
+        for (Ignite clusterNode : clusterNodes) {
+            clusterNode.close();
+        }
+    }
+
     /**
      * Create the connection ant statement.
      *
@@ -453,11 +503,11 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
                 assertEquals(2, meta.getParameterCount());
 
-                assertEquals(Types.VARCHAR, meta.getParameterType(1));
+                assertEquals(VARCHAR, meta.getParameterType(1));
                 assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(1));
                 assertEquals(Integer.MAX_VALUE, meta.getPrecision(1));
 
-                assertEquals(Types.INTEGER, meta.getParameterType(2));
+                assertEquals(INTEGER, meta.getParameterType(2));
                 assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(2));
             }
 
@@ -473,11 +523,11 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
                 assertEquals(2, meta.getParameterCount());
 
-                assertEquals(Types.VARCHAR, meta.getParameterType(1));
+                assertEquals(VARCHAR, meta.getParameterType(1));
                 assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(1));
                 assertEquals(Integer.MAX_VALUE, meta.getPrecision(1));
 
-                assertEquals(Types.INTEGER, meta.getParameterType(2));
+                assertEquals(INTEGER, meta.getParameterType(2));
                 assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(2));
             }
 
@@ -495,18 +545,18 @@ public class JdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
                 assertEquals(4, meta.getParameterCount());
 
-                assertEquals(Types.VARCHAR, meta.getParameterType(1));
+                assertEquals(VARCHAR, meta.getParameterType(1));
                 assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(1));
                 assertEquals(Integer.MAX_VALUE, meta.getPrecision(1));
 
-                assertEquals(Types.INTEGER, meta.getParameterType(2));
+                assertEquals(INTEGER, meta.getParameterType(2));
                 assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(2));
 
-                assertEquals(Types.VARCHAR, meta.getParameterType(3));
+                assertEquals(VARCHAR, meta.getParameterType(3));
                 assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(3));
                 assertEquals(Integer.MAX_VALUE, meta.getPrecision(3));
 
-                assertEquals(Types.INTEGER, meta.getParameterType(4));
+                assertEquals(INTEGER, meta.getParameterType(4));
                 assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(4));
             }
         }

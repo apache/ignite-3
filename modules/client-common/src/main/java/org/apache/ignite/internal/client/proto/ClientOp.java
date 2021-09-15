@@ -119,6 +119,7 @@ public class ClientOp {
 
     /** Close query cursor. */
     public static final int SQL_CURSOR_CLOSE = 37;
+
     /** Close query cursor. */
     public static final int SQL_TABLE_META = 38;
 
