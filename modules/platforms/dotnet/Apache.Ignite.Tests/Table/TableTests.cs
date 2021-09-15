@@ -116,6 +116,19 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
+        public async Task TestDeleteExact()
+        {
+            await Table.UpsertAsync(GetTuple(1, "1"));
+
+            Assert.IsFalse(await Table.DeleteExactAsync(GetTuple(-1)));
+            Assert.IsFalse(await Table.DeleteExactAsync(GetTuple(1)));
+            Assert.IsNotNull(await Table.GetAsync(GetTuple(1)));
+
+            Assert.IsTrue(await Table.DeleteExactAsync(GetTuple(1, "1")));
+            Assert.IsNull(await Table.GetAsync(GetTuple(1)));
+        }
+
+        [Test]
         public async Task TestUpsertAll()
         {
             var ids = Enumerable.Range(1, 10).ToList();
