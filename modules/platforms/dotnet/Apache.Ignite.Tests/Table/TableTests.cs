@@ -114,8 +114,15 @@ namespace Apache.Ignite.Tests.Table
             await Table.UpsertAllAsync(records);
 
             var res = await Table.GetAllAsync(Enumerable.Range(9, 4).Select(x => GetTuple(x)));
+            var resArr = res.OrderBy(x => x[0]).ToArray();
 
             Assert.AreEqual(2, res.Count);
+
+            Assert.AreEqual(9, resArr[0][0]);
+            Assert.AreEqual("9", resArr[0][1]);
+
+            Assert.AreEqual(10, resArr[1][0]);
+            Assert.AreEqual("10", resArr[1][1]);
         }
 
         [Test]
