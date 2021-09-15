@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.proto.query.event;
 
+import org.apache.ignite.client.proto.query.ClientMessage;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
@@ -24,7 +25,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * JDBC query fetch request.
  */
-public class JdbcQueryFetchRequest implements JdbcClientMessage {
+public class QueryFetchRequest implements ClientMessage {
     /** Cursor ID. */
     private long cursorId;
 
@@ -34,7 +35,7 @@ public class JdbcQueryFetchRequest implements JdbcClientMessage {
     /**
      * Constructor.
      */
-    public JdbcQueryFetchRequest() {
+    public QueryFetchRequest() {
     }
 
     /**
@@ -43,7 +44,7 @@ public class JdbcQueryFetchRequest implements JdbcClientMessage {
      * @param cursorId Cursor ID.
      * @param pageSize Fetch size.
      */
-    public JdbcQueryFetchRequest(long cursorId, int pageSize) {
+    public QueryFetchRequest(long cursorId, int pageSize) {
         this.cursorId = cursorId;
         this.pageSize = pageSize;
     }
@@ -80,6 +81,6 @@ public class JdbcQueryFetchRequest implements JdbcClientMessage {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(JdbcQueryFetchRequest.class, this);
+        return S.toString(QueryFetchRequest.class, this);
     }
 }

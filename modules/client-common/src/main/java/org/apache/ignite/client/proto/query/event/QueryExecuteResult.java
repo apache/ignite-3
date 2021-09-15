@@ -17,22 +17,25 @@
 
 package org.apache.ignite.client.proto.query.event;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * JDBC batch execute result.
+ * JDBC query execute result.
  */
-public class JdbcBatchExecuteResult extends JdbcResponse {
-    /** Update counts. */
-    private int[] updateCnts;
+public class QueryExecuteResult extends Response {
+    /** Query result rows. */
+    private List<QuerySingleResult> results;
 
     /**
-     * Constructor.
+     * Constructor. For deserialization purposes only.
      */
-    public JdbcBatchExecuteResult() {
+    public QueryExecuteResult() {
     }
 
     /**
@@ -41,30 +44,23 @@ public class JdbcBatchExecuteResult extends JdbcResponse {
      * @param status Status code.
      * @param err Error message.
      */
-    public JdbcBatchExecuteResult(int status, String err) {
+    public QueryExecuteResult(int status, String err) {
         super(status, err);
     }
 
     /**
      * Constructor.
      *
-     * @param updateCnts Update counts for batch.
+     * @param results Results.
      */
-    public JdbcBatchExecuteResult(int[] updateCnts) {
-        Objects.requireNonNull(updateCnts);
+    public QueryExecuteResult(List<QuerySingleResult> results) {
+        super();
 
-        this.updateCnts = updateCnts;
+        Objects.requireNonNull(results);
 
-        hasResults = true;
-    }
+        this.results = results;
 
-    /**
-     * Get the update count for DML queries.
-     *
-     * @return Update count for DML queries.
-     */
-    public int[] updateCounts() {
-        return updateCnts;
+        this.hasResults = true;
     }
 
     /** {@inheritDoc} */
@@ -74,7 +70,10 @@ public class JdbcBatchExecuteResult extends JdbcResponse {
         if (!hasResults)
             return;
 
-        packer.packIntArray(updateCnts);
+        packer.packArrayHeader(results.size());
+
+        for (QuerySingleResult result : results)
+            result.writeBinary(packer);
     }
 
     /** {@inheritDoc} */
@@ -84,11 +83,35 @@ public class JdbcBatchExecuteResult extends JdbcResponse {
         if (!hasResults)
             return;
 
-        updateCnts = unpacker.unpackIntArray();
+        int size = unpacker.unpackArrayHeader();
+
+        if (size == 0) {
+            results = Collections.emptyList();
+
+            return;
+        }
+
+        results = new ArrayList<>(size);
+
+        for (int i = 0; i < size; i++) {
+            var res = new QuerySingleResult();
+            res.readBinary(unpacker);
+
+            results.add(res);
+        }
+    }
+
+    /**
+     * Get the query results.
+     *
+     * @return Query result rows.
+     */
+    public List<QuerySingleResult> results() {
+        return results;
     }
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(JdbcBatchExecuteResult.class, this);
+        return S.toString(QueryExecuteResult.class, this);
     }
 }

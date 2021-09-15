@@ -29,12 +29,12 @@ import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.client.proto.query.IgniteQueryErrorCode;
 import org.apache.ignite.client.proto.query.SqlStateCode;
-import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteRequest;
-import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteResult;
-import org.apache.ignite.client.proto.query.event.JdbcQuery;
-import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteRequest;
-import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteResult;
-import org.apache.ignite.client.proto.query.event.JdbcQuerySingleResult;
+import org.apache.ignite.client.proto.query.event.BatchExecuteRequest;
+import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
+import org.apache.ignite.client.proto.query.event.Query;
+import org.apache.ignite.client.proto.query.event.QueryExecuteRequest;
+import org.apache.ignite.client.proto.query.event.QueryExecuteResult;
+import org.apache.ignite.client.proto.query.event.QuerySingleResult;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 
@@ -74,7 +74,7 @@ public class JdbcStatement implements Statement {
     private volatile List<JdbcResultSet> resSets;
 
     /** Batch. */
-    private List<JdbcQuery> batch;
+    private List<Query> batch;
 
     /** Close on completion. */
     private boolean closeOnCompletion;
@@ -125,22 +125,22 @@ public class JdbcStatement implements Statement {
         if (sql == null || sql.isEmpty())
             throw new SQLException("SQL query is empty.");
 
-        JdbcQueryExecuteRequest req = new JdbcQueryExecuteRequest(schema, pageSize, maxRows, sql,
+        QueryExecuteRequest req = new QueryExecuteRequest(schema, pageSize, maxRows, sql,
             args == null ? ArrayUtils.OBJECT_EMPTY_ARRAY : args.toArray());
 
-        JdbcQueryExecuteResult res = conn.handler().query(req);
+        QueryExecuteResult res = conn.handler().query(req);
 
         if (!res.hasResults())
             throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
 
-        for (JdbcQuerySingleResult jdbcRes : res.results()) {
+        for (QuerySingleResult jdbcRes : res.results()) {
             if (!jdbcRes.hasResults())
                 throw IgniteQueryErrorCode.createJdbcSqlException(jdbcRes.err(), jdbcRes.status());
         }
 
         resSets = new ArrayList<>(res.results().size());
 
-        for (JdbcQuerySingleResult jdbcRes : res.results()) {
+        for (QuerySingleResult jdbcRes : res.results()) {
             resSets.add(new JdbcResultSet(this, jdbcRes.cursorId(), pageSize,
                 jdbcRes.last(), jdbcRes.items(), jdbcRes.isQuery(), false, jdbcRes.updateCount(),
                 closeOnCompletion, conn.handler()));
@@ -359,7 +359,7 @@ public class JdbcStatement implements Statement {
         if (batch == null)
             batch = new ArrayList<>();
 
-        batch.add(new JdbcQuery(sql, null));
+        batch.add(new Query(sql, null));
     }
 
     /** {@inheritDoc} */
@@ -378,10 +378,10 @@ public class JdbcStatement implements Statement {
         if (CollectionUtils.nullOrEmpty(batch))
             return new int[0];
 
-        JdbcBatchExecuteRequest req = new JdbcBatchExecuteRequest(conn.getSchema(), batch, conn.getAutoCommit());
+        BatchExecuteRequest req = new BatchExecuteRequest(conn.getSchema(), batch, conn.getAutoCommit());
 
         try {
-            JdbcBatchExecuteResult res = conn.handler().batch(req);
+            BatchExecuteResult res = conn.handler().batch(req);
 
             if (!res.hasResults())
                 throw new BatchUpdateException(res.err(),
@@ -578,10 +578,10 @@ public class JdbcStatement implements Statement {
         if (batch == null) {
             batch = new ArrayList<>();
 
-            batch.add(new JdbcQuery(sql, args.toArray()));
+            batch.add(new Query(sql, args.toArray()));
         }
         else
-            batch.add(new JdbcQuery(null, args.toArray()));
+            batch.add(new Query(null, args.toArray()));
     }
 
     /**

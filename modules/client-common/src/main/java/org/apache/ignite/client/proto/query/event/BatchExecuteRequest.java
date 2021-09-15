@@ -19,6 +19,7 @@ package org.apache.ignite.client.proto.query.event;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.client.proto.query.ClientMessage;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
@@ -26,12 +27,12 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * JDBC batch execute request.
  */
-public class JdbcBatchExecuteRequest implements JdbcClientMessage {
+public class BatchExecuteRequest implements ClientMessage {
     /** Schema name. */
     private String schemaName;
 
     /** Sql query. */
-    private List<JdbcQuery> queries;
+    private List<Query> queries;
 
     /** Client auto commit flag state. */
     private boolean autoCommit;
@@ -39,7 +40,7 @@ public class JdbcBatchExecuteRequest implements JdbcClientMessage {
     /**
      * Default constructor.
      */
-    public JdbcBatchExecuteRequest() {
+    public BatchExecuteRequest() {
     }
 
     /**
@@ -49,7 +50,7 @@ public class JdbcBatchExecuteRequest implements JdbcClientMessage {
      * @param queries Queries.
      * @param autoCommit Client auto commit flag state.
      */
-    public JdbcBatchExecuteRequest(String schemaName, List<JdbcQuery> queries, boolean autoCommit) {
+    public BatchExecuteRequest(String schemaName, List<Query> queries, boolean autoCommit) {
 
         assert queries != null || !queries.isEmpty();
 
@@ -72,7 +73,7 @@ public class JdbcBatchExecuteRequest implements JdbcClientMessage {
      *
      * @return Queries.
      */
-    public List<JdbcQuery> queries() {
+    public List<Query> queries() {
         return queries;
     }
 
@@ -91,7 +92,7 @@ public class JdbcBatchExecuteRequest implements JdbcClientMessage {
 
         packer.packArrayHeader(queries.size());
 
-        for (JdbcQuery q : queries)
+        for (Query q : queries)
             q.writeBinary(packer);
     }
 
@@ -104,7 +105,7 @@ public class JdbcBatchExecuteRequest implements JdbcClientMessage {
         queries = new ArrayList<>(n);
 
         for (int i = 0; i < n; ++i) {
-            JdbcQuery qry = new JdbcQuery();
+            Query qry = new Query();
 
             qry.readBinary(unpacker);
 
@@ -114,6 +115,6 @@ public class JdbcBatchExecuteRequest implements JdbcClientMessage {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(JdbcBatchExecuteRequest.class, this);
+        return S.toString(BatchExecuteRequest.class, this);
     }
 }

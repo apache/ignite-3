@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.proto.query.event;
 
+import org.apache.ignite.client.proto.query.ClientMessage;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
@@ -24,7 +25,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * JDBC SQL query with parameters.
  */
-public class JdbcQuery implements JdbcClientMessage {
+public class Query implements ClientMessage {
     /** Query SQL. */
     private String sql;
 
@@ -34,7 +35,7 @@ public class JdbcQuery implements JdbcClientMessage {
     /**
      * Default constructor is used for serialization.
      */
-    public JdbcQuery() {
+    public Query() {
         // No-op.
     }
 
@@ -44,7 +45,7 @@ public class JdbcQuery implements JdbcClientMessage {
      * @param sql Query SQL.
      * @param args Arguments.
      */
-    public JdbcQuery(String sql, Object[] args) {
+    public Query(String sql, Object[] args) {
         this.sql = sql;
         this.args = args;
     }
@@ -81,6 +82,6 @@ public class JdbcQuery implements JdbcClientMessage {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(JdbcQuery.class, this);
+        return S.toString(Query.class, this);
     }
 }

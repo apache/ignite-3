@@ -17,31 +17,54 @@
 
 package org.apache.ignite.client.proto.query.event;
 
+import org.apache.ignite.client.proto.query.ClientMessage;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * JDBC query fetch result.
+ * JDBC query close request.
  */
-public class JdbcQueryCloseResult extends JdbcResponse {
+public class QueryCloseRequest implements ClientMessage {
+    /** Cursor ID. */
+    private long cursorId;
+
     /**
-     * Default constructor is used for deserialization.
+     * Default constructor.
      */
-    public JdbcQueryCloseResult() {
-        hasResults = true;
+    public QueryCloseRequest() {
     }
 
     /**
      * Constructor.
      *
-     * @param status Status code.
-     * @param err Error message.
+     * @param cursorId Cursor ID.
      */
-    public JdbcQueryCloseResult(int status, String err) {
-        super(status, err);
+    public QueryCloseRequest(long cursorId) {
+        this.cursorId = cursorId;
+    }
+
+    /**
+     * Get the cursor id.
+     *
+     * @return Cursor ID.
+     */
+    public long cursorId() {
+        return cursorId;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void writeBinary(ClientMessagePacker packer) {
+        packer.packLong(cursorId);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void readBinary(ClientMessageUnpacker unpacker) {
+        cursorId = unpacker.unpackLong();
     }
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(JdbcQueryCloseResult.class, this);
+        return S.toString(QueryCloseRequest.class, this);
     }
 }

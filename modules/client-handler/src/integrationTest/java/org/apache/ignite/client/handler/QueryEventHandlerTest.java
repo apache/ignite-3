@@ -21,16 +21,16 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
-import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteRequest;
-import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteResult;
-import org.apache.ignite.client.proto.query.event.JdbcQuery;
-import org.apache.ignite.client.proto.query.event.JdbcQueryCloseRequest;
-import org.apache.ignite.client.proto.query.event.JdbcQueryCloseResult;
-import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteRequest;
-import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteResult;
-import org.apache.ignite.client.proto.query.event.JdbcQueryFetchRequest;
-import org.apache.ignite.client.proto.query.event.JdbcQueryFetchResult;
-import org.apache.ignite.client.proto.query.event.JdbcQuerySingleResult;
+import org.apache.ignite.client.proto.query.event.BatchExecuteRequest;
+import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
+import org.apache.ignite.client.proto.query.event.Query;
+import org.apache.ignite.client.proto.query.event.QueryCloseRequest;
+import org.apache.ignite.client.proto.query.event.QueryCloseResult;
+import org.apache.ignite.client.proto.query.event.QueryExecuteRequest;
+import org.apache.ignite.client.proto.query.event.QueryExecuteResult;
+import org.apache.ignite.client.proto.query.event.QueryFetchRequest;
+import org.apache.ignite.client.proto.query.event.QueryFetchResult;
+import org.apache.ignite.client.proto.query.event.QuerySingleResult;
 import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
 import org.apache.ignite.internal.processors.query.calcite.SqlCursor;
 import org.apache.ignite.internal.processors.query.calcite.SqlQueryType;
@@ -40,8 +40,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.apache.ignite.client.proto.query.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
-import static org.apache.ignite.client.proto.query.event.JdbcResponse.STATUS_FAILED;
-import static org.apache.ignite.client.proto.query.event.JdbcResponse.STATUS_SUCCESS;
+import static org.apache.ignite.client.proto.query.event.Response.STATUS_FAILED;
+import static org.apache.ignite.client.proto.query.event.Response.STATUS_SUCCESS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -78,9 +78,9 @@ public class QueryEventHandlerTest {
 
         JdbcQueryEventHandler hnd = prepareHandlerForMultiState(cursorSize);
 
-        JdbcQueryExecuteRequest qryReq = getJdbcQueryExecuteRequest(10);
+        QueryExecuteRequest qryReq = getJdbcQueryExecuteRequest(10);
 
-        JdbcQueryExecuteResult res = hnd.query(qryReq);
+        QueryExecuteResult res = hnd.query(qryReq);
 
         assertEquals(res.status(), STATUS_SUCCESS);
         assertNull(res.err());
@@ -88,7 +88,7 @@ public class QueryEventHandlerTest {
         assertEquals(res.results().size(), cursorSize);
 
         for (int i = 0; i < res.results().size(); i++) {
-            JdbcQuerySingleResult singleRes = res.results().get(i);
+            QuerySingleResult singleRes = res.results().get(i);
             assertTrue(singleRes.isQuery());
             assertFalse(singleRes.last());
             assertEquals(singleRes.cursorId(), i);
@@ -129,13 +129,13 @@ public class QueryEventHandlerTest {
     public void testFetchQueryRequest() {
         JdbcQueryEventHandler hnd = getHandler(SqlQueryType.QUERY, "42");
 
-        JdbcQueryExecuteRequest qryReq = getJdbcQueryExecuteRequest(10);
+        QueryExecuteRequest qryReq = getJdbcQueryExecuteRequest(10);
 
-        JdbcQueryExecuteResult qryRes = hnd.query(qryReq);
+        QueryExecuteResult qryRes = hnd.query(qryReq);
 
-        var fetchReq = new JdbcQueryFetchRequest(qryRes.results().get(0).cursorId(), 10);
+        var fetchReq = new QueryFetchRequest(qryRes.results().get(0).cursorId(), 10);
 
-        JdbcQueryFetchResult fetchRes = hnd.fetch(fetchReq);
+        QueryFetchResult fetchRes = hnd.fetch(fetchReq);
 
         assertEquals(fetchRes.status(), STATUS_SUCCESS);
         assertNull(fetchRes.err());
@@ -154,16 +154,16 @@ public class QueryEventHandlerTest {
 
         when(cursor.hasNext()).thenReturn(true).thenReturn(false);
 
-        JdbcQueryExecuteRequest qryReq = getJdbcQueryExecuteRequest(10);
+        QueryExecuteRequest qryReq = getJdbcQueryExecuteRequest(10);
 
-        JdbcQueryExecuteResult res = hnd.query(qryReq);
+        QueryExecuteResult res = hnd.query(qryReq);
 
         assertEquals(res.status(), STATUS_SUCCESS);
         assertNull(res.err());
 
         assertEquals(res.results().size(), 1);
 
-        JdbcQuerySingleResult singleRes = res.results().get(0);
+        QuerySingleResult singleRes = res.results().get(0);
 
         assertEquals(singleRes.updateCount(), 1L);
         assertFalse(singleRes.isQuery());
@@ -177,12 +177,12 @@ public class QueryEventHandlerTest {
     public void testBatchQuery() {
         JdbcQueryEventHandler hnd = new JdbcQueryEventHandlerImpl(processor, null);
 
-        var req = new JdbcBatchExecuteRequest(
+        var req = new BatchExecuteRequest(
             "PUBLIC",
-            Collections.singletonList(new JdbcQuery("INSERT INTRO test VALUES (1);", null)),
+            Collections.singletonList(new Query("INSERT INTRO test VALUES (1);", null)),
             false);
 
-        JdbcBatchExecuteResult batch = hnd.batch(req);
+        BatchExecuteResult batch = hnd.batch(req);
 
         assertEquals(batch.status(), UNSUPPORTED_OPERATION);
         assertNotNull(batch.err());
@@ -195,18 +195,18 @@ public class QueryEventHandlerTest {
     public void testSelectQueryBadRequest() {
         JdbcQueryEventHandler hnd = new JdbcQueryEventHandlerImpl(processor, null);
 
-        JdbcQueryExecuteRequest qryReq = getJdbcQueryExecuteRequest(10);
+        QueryExecuteRequest qryReq = getJdbcQueryExecuteRequest(10);
 
-        JdbcQueryExecuteResult res1 = hnd.query(qryReq);
+        QueryExecuteResult res1 = hnd.query(qryReq);
 
         assertEquals(res1.status(), STATUS_FAILED);
         assertNotNull(res1.err());
 
-        JdbcQueryExecuteRequest req2 = getJdbcQueryExecuteRequest(10);
+        QueryExecuteRequest req2 = getJdbcQueryExecuteRequest(10);
 
         when(processor.query(anyString(), anyString(), any())).thenReturn(Collections.emptyList());
 
-        JdbcQueryExecuteResult res2 = hnd.query(req2);
+        QueryExecuteResult res2 = hnd.query(req2);
 
         assertEquals(res2.status(), STATUS_FAILED);
         assertNotNull(res2.err());
@@ -215,7 +215,7 @@ public class QueryEventHandlerTest {
         when(cursor.next()).thenThrow(RuntimeException.class);
         when(processor.query(anyString(), anyString(), any())).thenReturn(Collections.singletonList(cursor));
 
-        JdbcQueryExecuteResult res3 = hnd.query(req2);
+        QueryExecuteResult res3 = hnd.query(req2);
 
         assertEquals(res3.status(), STATUS_FAILED);
         assertNotNull(res3.err());
@@ -228,18 +228,18 @@ public class QueryEventHandlerTest {
     public void testFetchQueryBadRequests() {
         JdbcQueryEventHandler hnd = getHandler(SqlQueryType.QUERY, "42");
 
-        JdbcQueryExecuteRequest qryReq = getJdbcQueryExecuteRequest(1);
+        QueryExecuteRequest qryReq = getJdbcQueryExecuteRequest(1);
 
-        JdbcQueryExecuteResult qryRes = hnd.query(qryReq);
+        QueryExecuteResult qryRes = hnd.query(qryReq);
 
-        var fetchReq = new JdbcQueryFetchRequest(qryRes.results().get(0).cursorId(), -1);
+        var fetchReq = new QueryFetchRequest(qryRes.results().get(0).cursorId(), -1);
 
-        JdbcQueryFetchResult fetchRes = hnd.fetch(fetchReq);
+        QueryFetchResult fetchRes = hnd.fetch(fetchReq);
 
         assertEquals(fetchRes.status(), STATUS_FAILED);
         assertNotNull(fetchRes.err());
 
-        fetchReq = new JdbcQueryFetchRequest(Integer.MAX_VALUE, 1);
+        fetchReq = new QueryFetchRequest(Integer.MAX_VALUE, 1);
 
         fetchRes = hnd.fetch(fetchReq);
 
@@ -254,13 +254,13 @@ public class QueryEventHandlerTest {
     public void testCloseRequest() {
         JdbcQueryEventHandler hnd = getHandler(SqlQueryType.QUERY, "42");
 
-        JdbcQueryExecuteRequest qryReq = getJdbcQueryExecuteRequest(1);
+        QueryExecuteRequest qryReq = getJdbcQueryExecuteRequest(1);
 
-        JdbcQueryExecuteResult qryRes = hnd.query(qryReq);
+        QueryExecuteResult qryRes = hnd.query(qryReq);
 
-        var closeReq = new JdbcQueryCloseRequest(qryRes.results().get(0).cursorId());
+        var closeReq = new QueryCloseRequest(qryRes.results().get(0).cursorId());
 
-        JdbcQueryCloseResult closeRes = hnd.close(closeReq);
+        QueryCloseResult closeRes = hnd.close(closeReq);
 
         assertEquals(closeRes.status(), STATUS_SUCCESS);
 
@@ -276,8 +276,8 @@ public class QueryEventHandlerTest {
      * @param pageSize Size of result set in response.
      * @return JdbcQueryExecuteRequest.
      */
-    private JdbcQueryExecuteRequest getJdbcQueryExecuteRequest(int pageSize) {
-        return new JdbcQueryExecuteRequest("PUBLIC", pageSize, 3, "SELECT * FROM Test;", null);
+    private QueryExecuteRequest getJdbcQueryExecuteRequest(int pageSize) {
+        return new QueryExecuteRequest("PUBLIC", pageSize, 3, "SELECT * FROM Test;", null);
     }
 
     /**

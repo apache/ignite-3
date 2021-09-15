@@ -63,6 +63,10 @@ import org.apache.ignite.client.proto.query.event.JdbcQueryCloseResult;
 import org.apache.ignite.client.proto.query.event.JdbcQueryFetchRequest;
 import org.apache.ignite.client.proto.query.event.JdbcQueryFetchResult;
 import org.apache.ignite.client.proto.query.event.JdbcQueryMetaRequest;
+import org.apache.ignite.client.proto.query.event.QueryCloseRequest;
+import org.apache.ignite.client.proto.query.event.QueryCloseResult;
+import org.apache.ignite.client.proto.query.event.QueryFetchRequest;
+import org.apache.ignite.client.proto.query.event.QueryFetchResult;
 
 /**
  * Jdbc result set implementation.
@@ -205,7 +209,7 @@ public class JdbcResultSet implements ResultSet {
         ensureNotClosed();
 
         if ((rowsIter == null || !rowsIter.hasNext()) && !finished) {
-            JdbcQueryFetchResult res = qryHandler.fetch(new JdbcQueryFetchRequest(cursorId, fetchSize));
+            QueryFetchResult res = qryHandler.fetch(new QueryFetchRequest(cursorId, fetchSize));
 
             if (!res.hasResults())
                 throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
@@ -254,7 +258,7 @@ public class JdbcResultSet implements ResultSet {
 
         try {
             if (stmt != null && (!finished || (isQuery && !autoClose))) {
-                JdbcQueryCloseResult res = qryHandler.close(new JdbcQueryCloseRequest(cursorId));
+                QueryCloseResult res = qryHandler.close(new QueryCloseRequest(cursorId));
 
                 if (!res.hasResults())
                     throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());

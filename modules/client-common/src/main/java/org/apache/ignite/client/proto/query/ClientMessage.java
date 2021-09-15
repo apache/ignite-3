@@ -15,16 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.proto.query.event;
+package org.apache.ignite.client.proto.query;
 
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 
 /**
- * Interface that allows to implement custom serialization
- * logic to Jdbc client events.
+ * Interface that allows to implement custom serialization logic to client events.
  */
-public interface JdbcClientMessage {
+public interface ClientMessage {
     /**
      * Writes fields to provided packer.
      *

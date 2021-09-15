@@ -18,6 +18,7 @@
 package org.apache.ignite.client.proto.query.event;
 
 import io.netty.util.internal.StringUtil;
+import org.apache.ignite.client.proto.query.ClientMessage;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
@@ -25,7 +26,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * SQL listener response.
  */
-public abstract class JdbcResponse implements JdbcClientMessage {
+public abstract class Response implements ClientMessage {
     /** Command succeeded. */
     public static final int STATUS_SUCCESS = 0;
 
@@ -44,7 +45,7 @@ public abstract class JdbcResponse implements JdbcClientMessage {
     /**
      * Constructs successful response.
      */
-    protected JdbcResponse() {
+    protected Response() {
         status = STATUS_SUCCESS;
     }
 
@@ -54,7 +55,7 @@ public abstract class JdbcResponse implements JdbcClientMessage {
      * @param status Response status.
      * @param err Error, {@code null} if success is {@code true}.
      */
-    protected JdbcResponse(int status, String err) {
+    protected Response(int status, String err) {
         assert status != STATUS_SUCCESS;
 
         this.status = status;
@@ -128,6 +129,6 @@ public abstract class JdbcResponse implements JdbcClientMessage {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(JdbcResponse.class, this);
+        return S.toString(Response.class, this);
     }
 }
