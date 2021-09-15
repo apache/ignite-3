@@ -211,7 +211,7 @@ namespace Apache.Ignite.Internal.Table
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGetAndReplace, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
 
-            return ReadTuple(resBuf, resSchema);
+            return ReadValueTuple(resBuf, resSchema, record);
         }
 
         /// <inheritdoc/>
@@ -319,21 +319,6 @@ namespace Apache.Ignite.Internal.Table
             }
 
             return tuple;
-        }
-
-        private static IIgniteTuple? ReadTuple(PooledBuffer buf, Schema? schema)
-        {
-            if (schema == null)
-            {
-                return null;
-            }
-
-            var r = buf.GetReader();
-
-            // Skip schema version.
-            r.Skip();
-
-            return ReadTuple(ref r, schema);
         }
 
         private static IIgniteTuple ReadTuple(ref MessagePackReader r, Schema schema, bool keyOnly = false)
