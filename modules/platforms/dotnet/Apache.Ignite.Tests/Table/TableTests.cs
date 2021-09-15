@@ -127,23 +127,40 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
-        public async Task TestDelete()
+        public async Task TestDeleteNonExistentRecordReturnFalse()
+        {
+            Assert.IsFalse(await Table.DeleteAsync(GetTuple(-1)));
+        }
+
+        [Test]
+        public async Task TestDeleteExistingRecordReturnsTrue()
         {
             await Table.UpsertAsync(GetTuple(1, "1"));
 
-            Assert.IsFalse(await Table.DeleteAsync(GetTuple(-1)));
             Assert.IsTrue(await Table.DeleteAsync(GetTuple(1)));
             Assert.IsNull(await Table.GetAsync(GetTuple(1)));
         }
 
         [Test]
-        public async Task TestDeleteExact()
+        public async Task TestDeleteExactNonExistentRecordReturnsFalse()
+        {
+            Assert.IsFalse(await Table.DeleteExactAsync(GetTuple(-1)));
+        }
+
+        [Test]
+        public async Task TestDeleteExactExistingKeyDifferentValueReturnsFalseDoesNotDelete()
         {
             await Table.UpsertAsync(GetTuple(1, "1"));
 
-            Assert.IsFalse(await Table.DeleteExactAsync(GetTuple(-1)));
             Assert.IsFalse(await Table.DeleteExactAsync(GetTuple(1)));
+            Assert.IsFalse(await Table.DeleteExactAsync(GetTuple(1, "2")));
             Assert.IsNotNull(await Table.GetAsync(GetTuple(1)));
+        }
+
+        [Test]
+        public async Task TestDeleteExactSameKeyAndValueReturnsTrueDeletesRecord()
+        {
+            await Table.UpsertAsync(GetTuple(1, "1"));
 
             Assert.IsTrue(await Table.DeleteExactAsync(GetTuple(1, "1")));
             Assert.IsNull(await Table.GetAsync(GetTuple(1)));
