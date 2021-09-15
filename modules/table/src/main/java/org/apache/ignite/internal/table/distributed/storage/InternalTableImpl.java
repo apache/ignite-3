@@ -34,6 +34,7 @@ import org.apache.ignite.internal.table.distributed.command.DeleteExactAllComman
 import org.apache.ignite.internal.table.distributed.command.DeleteExactCommand;
 import org.apache.ignite.internal.table.distributed.command.GetAllCommand;
 import org.apache.ignite.internal.table.distributed.command.GetAndDeleteCommand;
+import org.apache.ignite.internal.table.distributed.command.GetAndReplaceCommand;
 import org.apache.ignite.internal.table.distributed.command.GetAndUpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertAllCommand;
@@ -210,7 +211,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<BinaryRow> getAndReplace(BinaryRow row, Transaction tx) {
-        return partitionMap.get(partId(row)).<SingleRowResponse>run(new ReplaceIfExistCommand(row))
+        return partitionMap.get(partId(row)).<SingleRowResponse>run(new GetAndReplaceCommand(row))
             .thenApply(SingleRowResponse::getValue);
     }
 
