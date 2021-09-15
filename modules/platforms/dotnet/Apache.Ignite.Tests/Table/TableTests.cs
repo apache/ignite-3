@@ -176,6 +176,35 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
+        public async Task TestReplaceExactNonExistentRecordReturnsFalseDoesNotCreateRecord()
+        {
+            bool res = await Table.ReplaceAsync(GetTuple(1, "1"), GetTuple(1, "2"));
+
+            Assert.IsFalse(res);
+            Assert.IsNull(await Table.GetAsync(GetTuple(1)));
+        }
+
+        [Test]
+        public async Task TestReplaceExactExistingRecordWithDifferentValueReturnsFalseDoesNotReplace()
+        {
+            await Table.UpsertAsync(GetTuple(1, "1"));
+            bool res = await Table.ReplaceAsync(GetTuple(1, "11"), GetTuple(1, "22"));
+
+            Assert.IsFalse(res);
+            Assert.AreEqual("1", (await Table.GetAsync(GetTuple(1)))![1]);
+        }
+
+        [Test]
+        public async Task TestReplaceExactExistingRecordWithSameValueReturnsTrueReplacesOld()
+        {
+            await Table.UpsertAsync(GetTuple(1, "1"));
+            bool res = await Table.ReplaceAsync(GetTuple(1, "1"), GetTuple(1, "22"));
+
+            Assert.IsTrue(res);
+            Assert.AreEqual("22", (await Table.GetAsync(GetTuple(1)))![1]);
+        }
+
+        [Test]
         public async Task TestReplaceExistingRecordReturnsTrueOverwrites()
         {
             await Table.UpsertAsync(GetTuple(1, "1"));
