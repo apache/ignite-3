@@ -87,7 +87,7 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
-        public async Task TestGetAndUpsertReturnsNullForNonExistingRecord()
+        public async Task TestGetAndUpsertReturnsNullForNonExistentRecord()
         {
             IIgniteTuple? res = await Table.GetAndUpsertAsync(GetTuple(2, "2"));
 
@@ -108,7 +108,7 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
-        public async Task TestInsertNonExistingKeyCreatesRecordReturnsTrue()
+        public async Task TestInsertNonExistentKeyCreatesRecordReturnsTrue()
         {
             var res = await Table.InsertAsync(GetTuple(1, "1"));
 
@@ -150,7 +150,7 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
-        public async Task TestReplaceNonExistingRecordReturnsFalseDoesNotCreateRecord()
+        public async Task TestReplaceNonExistentRecordReturnsFalseDoesNotCreateRecord()
         {
             bool res = await Table.ReplaceAsync(GetTuple(1, "1"));
 
