@@ -255,7 +255,7 @@ namespace Apache.Ignite.Internal.Table
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGetAndDelete, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
 
-            return ReadTuple(resBuf, resSchema);
+            return ReadValueTuple(resBuf, resSchema, key);
         }
 
         /// <inheritdoc/>
