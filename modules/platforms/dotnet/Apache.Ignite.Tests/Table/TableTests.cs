@@ -87,7 +87,7 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
-        public async Task TestGetAndUpsertReturnsNullForNonExistentRecord()
+        public async Task TestGetAndUpsertNonExistentRecordReturnsNull()
         {
             IIgniteTuple? res = await Table.GetAndUpsertAsync(GetTuple(2, "2"));
 
@@ -96,7 +96,7 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
-        public async Task TestGetAndUpsertOverwritesAndReturnsExistingRecord()
+        public async Task TestGetAndUpsertExistingRecordOverwritesAndReturns()
         {
             await Table.UpsertAsync(GetTuple(2, "2"));
             IIgniteTuple? res = await Table.GetAndUpsertAsync(GetTuple(2, "22"));
@@ -105,6 +105,27 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(2, res![0]);
             Assert.AreEqual("2", res[1]);
             Assert.AreEqual("22", (await Table.GetAsync(GetTuple(2)))![1]);
+        }
+
+        [Test]
+        public async Task TestGetAndDeleteNonExistentRecordReturnsNull()
+        {
+            IIgniteTuple? res = await Table.GetAndDeleteAsync(GetTuple(2, "2"));
+
+            Assert.IsNull(res);
+            Assert.IsNull(await Table.GetAsync(GetTuple(2)));
+        }
+
+        [Test]
+        public async Task TestGetAndDeleteExistingRecordRemovesAndReturns()
+        {
+            await Table.UpsertAsync(GetTuple(2, "2"));
+            IIgniteTuple? res = await Table.GetAndDeleteAsync(GetTuple(2));
+
+            Assert.IsNotNull(res);
+            Assert.AreEqual(2, res![0]);
+            Assert.AreEqual("2", res[1]);
+            Assert.IsNull(await Table.GetAsync(GetTuple(2)));
         }
 
         [Test]
