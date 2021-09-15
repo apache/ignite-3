@@ -65,7 +65,7 @@ public class JdbcMetadataInfo {
     /** Table type. */
     private static final String TBL_TYPE = "TABLE";
 
-    /** Root context. Used to get all the database metadata. */
+    /** Ignite tables interface. Used to get all the database metadata. */
     private final IgniteTables tables;
 
     /** Comparator for {@link Column} by schema then table name then column order. */
@@ -90,8 +90,8 @@ public class JdbcMetadataInfo {
      *
      * Ignite has only one possible CATALOG_NAME, it is handled on the client (driver) side.
      *
-     * @param schemaNamePtrn sql pattern for schema name.
-     * @param tblNamePtrn sql pattern for table name.
+     * @param schemaNamePtrn Sql pattern for schema name.
+     * @param tblNamePtrn Sql pattern for table name.
      * @return Collection of primary keys information for tables that matches specified schema and table name patterns.
      */
     public Collection<JdbcPrimaryKeyMeta> getPrimaryKeys(String schemaNamePtrn, String tblNamePtrn) {
@@ -120,8 +120,8 @@ public class JdbcMetadataInfo {
      *
      * Result is ordered by (schema name, table name).
      *
-     * @param schemaNamePtrn sql pattern for schema name.
-     * @param tblNamePtrn sql pattern for table name.
+     * @param schemaNamePtrn Sql pattern for schema name.
+     * @param tblNamePtrn Sql pattern for table name.
      * @param tblTypes Requested table types.
      * @return List of metadatas of tables that matches.
      */
@@ -191,7 +191,7 @@ public class JdbcMetadataInfo {
      *
      * Ignite has only one possible CATALOG_NAME, it is handled on the client (driver) side.
      *
-     * @param schemaNamePtrn sql pattern for schema name filter.
+     * @param schemaNamePtrn Sql pattern for schema name filter.
      * @return schema names that matches provided pattern.
      */
     public Collection<String> getSchemasMeta(String schemaNamePtrn) {
@@ -311,7 +311,7 @@ public class JdbcMetadataInfo {
      * </pre>
      *
      * @param sqlPtrn Sql pattern.
-     * @return Java regex pattern,
+     * @return Java regex pattern.
      */
     private static String translateSqlWildcardsToRegex(String sqlPtrn) {
         if (sqlPtrn == null || sqlPtrn.isEmpty())

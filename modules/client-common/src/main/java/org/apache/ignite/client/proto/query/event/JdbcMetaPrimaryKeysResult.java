@@ -30,7 +30,7 @@ import org.apache.ignite.internal.tostring.S;
  * JDBC primary keys metadata result.
  */
 public class JdbcMetaPrimaryKeysResult extends Response {
-    /** Query result rows. */
+    /** Primary keys meta. */
     private List<JdbcPrimaryKeyMeta> meta;
 
     /**

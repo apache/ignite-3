@@ -66,7 +66,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** Sql query processor. */
     private final QueryProcessor processor;
 
-    /** Sql query processor. */
+    /** Jdbc metadata info. */
     private final JdbcMetadataInfo meta;
 
     /**

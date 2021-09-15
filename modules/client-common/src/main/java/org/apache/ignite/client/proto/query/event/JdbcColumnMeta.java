@@ -49,7 +49,7 @@ public class JdbcColumnMeta extends Response {
     /** Nullable. */
     private boolean nullable;
 
-    /** Cache name. */
+    /** Schema name. */
     private String schemaName;
 
     /** Table name. */
@@ -61,13 +61,13 @@ public class JdbcColumnMeta extends Response {
     /** Data type. */
     private int dataType;
 
-    /** Data type. */
+    /** Data type name. */
     private String dataTypeName;
 
-    /** Data type. */
+    /** Precision. */
     private int precision;
 
-    /** Data type. */
+    /** Scale. */
     private int scale;
 
     /**

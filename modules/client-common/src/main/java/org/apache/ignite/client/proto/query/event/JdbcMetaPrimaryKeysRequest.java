@@ -41,7 +41,7 @@ public class JdbcMetaPrimaryKeysRequest implements ClientMessage {
     /**
      * Constructor.
      *
-     * @param schemaName Cache name.
+     * @param schemaName Schema name.
      * @param tblName Table name.
      */
     public JdbcMetaPrimaryKeysRequest(String schemaName, String tblName) {

@@ -29,7 +29,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
  */
 public class ClientSqlPrimaryKeyMetadataRequest {
     /**
-     * Processes remote {@code JdbcQueryCloseRequest}.
+     * Processes remote {@code JdbcMetaPrimaryKeysRequest}.
      *
      * @param in Client message unpacker.
      * @param out Client message packer.
