@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaService;
+import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.junit.jupiter.api.Test;
 
@@ -589,6 +589,6 @@ public class SchemaRegistryImplTest {
     private void assertSameSchema(SchemaDescriptor schemaDesc1, SchemaDescriptor schemaDesc2) {
         assertEquals(schemaDesc1.version(), schemaDesc2.version(), "Descriptors of different versions.");
 
-        assertTrue(SchemaService.equalSchemas(schemaDesc1, schemaDesc2), "Schemas are not equals.");
+        assertTrue(SchemaUtils.equalSchemas(schemaDesc1, schemaDesc2), "Schemas are not equals.");
     }
 }

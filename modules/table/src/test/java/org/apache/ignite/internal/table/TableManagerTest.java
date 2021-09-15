@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.internal.affinity.AffinityService;
+import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
@@ -40,7 +40,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaService;
+import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -125,7 +125,7 @@ public class TableManagerTest {
 
     /** Schema manager. */
     @Mock(lenient = true)
-    private SchemaService sm;
+    private SchemaUtils sm;
 
     /** Schema manager. */
     @Mock(lenient = true)
@@ -133,7 +133,7 @@ public class TableManagerTest {
 
     /** Affinity manager. */
     @Mock(lenient = true)
-    private AffinityService am;
+    private AffinityUtils am;
 
     /** Raft manager. */
     @Mock(lenient = true)
@@ -346,18 +346,18 @@ public class TableManagerTest {
 
         AtomicBoolean tableCreatedFlag = new AtomicBoolean();
 
-        try (MockedStatic<SchemaService> schemaServiceMock = mockStatic(SchemaService.class)) {
-            schemaServiceMock.when(() -> SchemaService.prepareSchemaDescriptor(anyInt(), any())).
+        try (MockedStatic<SchemaUtils> schemaServiceMock = mockStatic(SchemaUtils.class)) {
+            schemaServiceMock.when(() -> SchemaUtils.prepareSchemaDescriptor(anyInt(), any())).
                 thenReturn(mock(SchemaDescriptor.class));
         }
 
-        try (MockedStatic<AffinityService> affinityServiceMock = mockStatic(AffinityService.class)) {
+        try (MockedStatic<AffinityUtils> affinityServiceMock = mockStatic(AffinityUtils.class)) {
             ArrayList<List<ClusterNode>> assignment = new ArrayList<>(PARTITIONS);
 
             for (int part = 0; part < PARTITIONS; part++)
                 assignment.add(new ArrayList<>(Collections.singleton(node)));
 
-            affinityServiceMock.when(() -> AffinityService.calculateAssignments(any(), anyInt(), anyInt())).
+            affinityServiceMock.when(() -> AffinityUtils.calculateAssignments(any(), anyInt(), anyInt())).
                 thenReturn(assignment);
         }
 

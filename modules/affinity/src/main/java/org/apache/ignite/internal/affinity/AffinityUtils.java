@@ -23,9 +23,9 @@ import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Stateless affinity service that produces helper methods for an affinity assignments calculation.
+ * Stateless affinity utils that produces helper methods for an affinity assignments calculation.
  */
-public class AffinityService {
+public class AffinityUtils {
     /**
      * Calculates affinity assignments.
      *

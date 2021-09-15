@@ -40,7 +40,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationNotificationEv
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.internal.affinity.AffinityService;
+import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableChange;
@@ -56,7 +56,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaService;
+import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorage;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
@@ -244,8 +244,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return CompletableFuture.completedFuture(null);
             }
 
-            @Override
-            public @NotNull CompletableFuture<?> onDelete(@NotNull ConfigurationNotificationEvent<TableView> ctx) {
+            @Override public @NotNull CompletableFuture<?> onDelete(
+                @NotNull ConfigurationNotificationEvent<TableView> ctx
+            ) {
                 dropTableLocally(
                     ctx.oldValue().name(),
                     IgniteUuid.fromString(((ExtendedTableView)ctx.oldValue()).id()),
@@ -459,7 +460,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     // Affinity assignments calculation.
                                     changeAssignments(
                                         ByteUtils.toBytes(
-                                            AffinityService.calculateAssignments(
+                                            AffinityUtils.calculateAssignments(
                                                 baselineMgr.nodes(),
                                                 ch.partitions(),
                                                 ch.replicas()
@@ -472,7 +473,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             String.valueOf(INITIAL_SCHEMA_VERSION),
                                             schemaCh -> schemaCh.changeSchema(
                                                 ByteUtils.toBytes(
-                                                    SchemaService.prepareSchemaDescriptor(
+                                                    SchemaUtils.prepareSchemaDescriptor(
                                                         ((ExtendedTableView)ch).schemas().size(),
                                                         ch
                                                     )
@@ -492,12 +493,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             return null;
                         }))
-                    .exceptionally(throwable -> {
-                        LOG.error("Table wasn't created [name=" + name + ']', throwable);
+                    .exceptionally(t -> {
+                        LOG.error(LoggerMessageHelper.format("Table wasn't created [name={}]", name), t);
 
                         createTblIntention.remove(tblId);
 
-                        tblFut.completeExceptionally(new IgniteException(throwable));
+                        tblFut.completeExceptionally(new IgniteException(t));
 
                         return null;
                     });
@@ -519,7 +520,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         tableAsync(name, true).thenAccept(tbl -> {
             if (tbl == null) {
                 tblFut.completeExceptionally(new IgniteException(
-                    LoggerMessageHelper.format("Table already exists [name={}]", name)));
+                    LoggerMessageHelper.format("Table [name={}] does not exist and cannot be altered", name)));
             }
             else {
                 IgniteUuid tblId = ((TableImpl) tbl).tableId();
@@ -537,7 +538,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         String.valueOf(schemasCh.size() + 1),
                                         schemaCh -> schemaCh.changeSchema(
                                             ByteUtils.toBytes(
-                                                SchemaService.prepareSchemaDescriptor(
+                                                SchemaUtils.prepareSchemaDescriptor(
                                                     ((ExtendedTableView)tblCh).schemas().size(),
                                                     tblCh
                                                 )
@@ -555,12 +556,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             return null;
                         }))
-                    .exceptionally(throwable -> {
-                        LOG.error("Table wasn't altered [name=" + name + ']', throwable);
+                    .exceptionally(t -> {
+                        LOG.error(LoggerMessageHelper.format("Table wasn't altered [name={}]", name), t);
 
                         alterTblIntention.remove(tblId);
 
-                        tblFut.completeExceptionally(new IgniteException(throwable));
+                        tblFut.completeExceptionally(new IgniteException(t));
 
                         return null;
                     });
@@ -610,12 +611,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         else
                             dropTblFut.complete(null);
                     })
-                    .exceptionally(throwable -> {
-                        LOG.error("Table wasn't dropped [name=" + name + ']', throwable);
+                    .exceptionally(t -> {
+                        LOG.error(LoggerMessageHelper.format("Table wasn't dropped [name={}]", name), t);
 
                         createTblIntention.remove(tblId);
 
-                        dropTblFut.completeExceptionally(new IgniteException(throwable));
+                        dropTblFut.completeExceptionally(new IgniteException(t));
 
                         return null;
                     });

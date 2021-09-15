@@ -23,7 +23,7 @@ import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter
 import org.apache.ignite.schema.SchemaTable;
 
 /**
- * Stateless schema service that produces helper methods for schema preparation.
+ * Stateless schema utils that produces helper methods for schema preparation.
  * <p>
  * Schemas itself MUST be registered in a version ascending order incrementing by {@code 1} with NO gaps,
  * otherwise an exception will be thrown. The version numbering starts from the {@code 1}.
@@ -36,7 +36,7 @@ import org.apache.ignite.schema.SchemaTable;
  * @implSpec Initial schema history MAY be registered without the first outdated versions
  * that could be cleaned up earlier.
  */
-public class SchemaService {
+public class SchemaUtils {
     /**
      * Creates schema descriptor for the table with specified configuration.
      *

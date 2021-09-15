@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Tests scenarios for an affinity service. Please pay attention that given test doesn't check Rendezvous or any other
- * affinity function it just checks {@link AffinityService} logic.
+ * affinity function it just checks {@link AffinityUtils} logic.
  */
 public class AffinityServiceTest {
     /**
@@ -37,7 +37,7 @@ public class AffinityServiceTest {
      */
     @Test
     public void testCalculatedAssignmentHappyPath() {
-        List<List<ClusterNode>> assignments = AffinityService.calculateAssignments(
+        List<List<ClusterNode>> assignments = AffinityUtils.calculateAssignments(
             Arrays.asList(
                 new ClusterNode(
                     UUID.randomUUID().toString(), "node0",
@@ -47,7 +47,6 @@ public class AffinityServiceTest {
                     UUID.randomUUID().toString(), "node1",
                     new NetworkAddress("localhost", 8081)
                 )
-
             ),
             10,
             3
@@ -64,7 +63,7 @@ public class AffinityServiceTest {
      */
     @Test
     public void testEmptyBaselineAssignmentsCalculation() {
-        List<List<ClusterNode>> assignments = AffinityService.calculateAssignments(
+        List<List<ClusterNode>> assignments = AffinityUtils.calculateAssignments(
             Collections.emptyList(),
             10,
             3

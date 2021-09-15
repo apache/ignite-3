@@ -80,7 +80,7 @@ public class Loza implements IgniteComponent {
      *
      * @param groupId Raft group id.
      * @param nodes Raft group nodes.
-     * @param lsnr Raft group listener.
+     * @param lsnrSupplier Raft group listener supplier.
      * @return Future representing pending completion of the operation.
      */
     public CompletableFuture<RaftGroupService> prepareRaftGroup(
