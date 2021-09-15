@@ -27,7 +27,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * JDBC tables metadata result.
  */
-public class JdbcMetaSchemasResult extends JdbcResponse {
+public class JdbcMetaSchemasResult extends Response {
     /** Found schemas. */
     private Collection<String> schemas;
 

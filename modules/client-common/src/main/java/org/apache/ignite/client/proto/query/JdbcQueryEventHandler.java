@@ -17,8 +17,23 @@
 
 package org.apache.ignite.client.proto.query;
 
-import org.apache.ignite.client.proto.query.event.JdbcQueryCloseRequest;
-import org.apache.ignite.client.proto.query.event.JdbcQueryCloseResult;
+import org.apache.ignite.client.proto.query.event.BatchExecuteRequest;
+import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
+import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsRequest;
+import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsResult;
+import org.apache.ignite.client.proto.query.event.JdbcMetaPrimaryKeysRequest;
+import org.apache.ignite.client.proto.query.event.JdbcMetaPrimaryKeysResult;
+import org.apache.ignite.client.proto.query.event.JdbcMetaSchemasRequest;
+import org.apache.ignite.client.proto.query.event.JdbcMetaSchemasResult;
+import org.apache.ignite.client.proto.query.event.JdbcMetaTablesRequest;
+import org.apache.ignite.client.proto.query.event.JdbcMetaTablesResult;
+import org.apache.ignite.client.proto.query.event.JdbcQueryMetaRequest;
+import org.apache.ignite.client.proto.query.event.QueryCloseRequest;
+import org.apache.ignite.client.proto.query.event.QueryCloseResult;
+import org.apache.ignite.client.proto.query.event.QueryExecuteRequest;
+import org.apache.ignite.client.proto.query.event.QueryExecuteResult;
+import org.apache.ignite.client.proto.query.event.QueryFetchRequest;
+import org.apache.ignite.client.proto.query.event.QueryFetchResult;
 
 /**
  * Jdbc client request handler.
@@ -54,7 +69,7 @@ public interface JdbcQueryEventHandler {
      * @param req Close query request.
      * @return Result.
      */
-    JdbcQueryCloseResult close(JdbcQueryCloseRequest req);
+    QueryCloseResult close(QueryCloseRequest req);
 
     /**
      * {@link JdbcQueryExecuteRequest} command handler.
@@ -96,5 +111,4 @@ public interface JdbcQueryEventHandler {
      * @return Result.
      */
     JdbcMetaColumnsResult fieldMetadata(JdbcQueryMetaRequest req);
-    QueryCloseResult close(QueryCloseRequest req);
 }

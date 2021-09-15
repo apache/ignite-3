@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.proto.query.event;
 
+import org.apache.ignite.client.proto.query.ClientMessage;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
@@ -24,7 +25,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * JDBC get primary keys metadata request.
  */
-public class JdbcMetaPrimaryKeysRequest implements JdbcClientMessage {
+public class JdbcMetaPrimaryKeysRequest implements ClientMessage {
     /** Schema name pattern. */
     private String schemaName;
 

@@ -28,7 +28,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * JDBC tables metadata result.
  */
-public class JdbcMetaTablesResult extends JdbcResponse {
+public class JdbcMetaTablesResult extends Response {
     /** Tables metadata. */
     private List<JdbcTableMeta> meta;
 

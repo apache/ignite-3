@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.proto.query.event;
 
+import org.apache.ignite.client.proto.query.ClientMessage;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
@@ -25,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * JDBC get columns metadata request.
  */
-public class JdbcMetaColumnsRequest implements JdbcClientMessage {
+public class JdbcMetaColumnsRequest implements ClientMessage {
     /** Schema name pattern. */
     private String schemaName;
 

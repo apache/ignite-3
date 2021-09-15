@@ -26,7 +26,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * JDBC table metadata.
  */
-public class JdbcTableMeta extends JdbcResponse {
+public class JdbcTableMeta extends Response {
     /** Schema name. */
     private String schemaName;
 

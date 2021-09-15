@@ -21,13 +21,14 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import org.apache.ignite.client.proto.query.ClientMessage;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 
 /**
  * JDBC primary key metadata.
  */
-public class JdbcPrimaryKeyMeta implements JdbcClientMessage {
+public class JdbcPrimaryKeyMeta implements ClientMessage {
     /** Schema name. */
     private String schemaName;
 

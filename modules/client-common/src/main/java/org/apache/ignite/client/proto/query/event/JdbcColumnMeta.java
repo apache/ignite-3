@@ -45,7 +45,7 @@ import static java.sql.Types.VARCHAR;
 /**
  * JDBC column metadata.
  */
-public class JdbcColumnMeta extends JdbcResponse {
+public class JdbcColumnMeta extends Response {
     /** Nullable. */
     private boolean nullable;
 

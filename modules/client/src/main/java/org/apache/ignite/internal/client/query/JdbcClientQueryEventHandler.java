@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.client.query;
 
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
+import org.apache.ignite.client.proto.query.event.BatchExecuteRequest;
+import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
 import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsResult;
 import org.apache.ignite.client.proto.query.event.JdbcMetaPrimaryKeysRequest;
@@ -27,6 +29,12 @@ import org.apache.ignite.client.proto.query.event.JdbcMetaSchemasResult;
 import org.apache.ignite.client.proto.query.event.JdbcMetaTablesRequest;
 import org.apache.ignite.client.proto.query.event.JdbcMetaTablesResult;
 import org.apache.ignite.client.proto.query.event.JdbcQueryMetaRequest;
+import org.apache.ignite.client.proto.query.event.QueryCloseRequest;
+import org.apache.ignite.client.proto.query.event.QueryCloseResult;
+import org.apache.ignite.client.proto.query.event.QueryExecuteRequest;
+import org.apache.ignite.client.proto.query.event.QueryExecuteResult;
+import org.apache.ignite.client.proto.query.event.QueryFetchRequest;
+import org.apache.ignite.client.proto.query.event.QueryFetchResult;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.proto.ClientOp;
 

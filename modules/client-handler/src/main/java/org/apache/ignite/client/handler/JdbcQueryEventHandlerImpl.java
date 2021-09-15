@@ -28,8 +28,8 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.ignite.client.handler.requests.sql.JdbcMetadataInfo;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
-import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteRequest;
-import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteResult;
+import org.apache.ignite.client.proto.query.event.BatchExecuteRequest;
+import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
 import org.apache.ignite.client.proto.query.event.JdbcColumnMeta;
 import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsResult;
@@ -40,18 +40,8 @@ import org.apache.ignite.client.proto.query.event.JdbcMetaSchemasResult;
 import org.apache.ignite.client.proto.query.event.JdbcMetaTablesRequest;
 import org.apache.ignite.client.proto.query.event.JdbcMetaTablesResult;
 import org.apache.ignite.client.proto.query.event.JdbcPrimaryKeyMeta;
-import org.apache.ignite.client.proto.query.event.JdbcQueryCloseRequest;
-import org.apache.ignite.client.proto.query.event.JdbcQueryCloseResult;
-import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteRequest;
-import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteResult;
-import org.apache.ignite.client.proto.query.event.JdbcQueryFetchRequest;
-import org.apache.ignite.client.proto.query.event.JdbcQueryFetchResult;
 import org.apache.ignite.client.proto.query.event.JdbcQueryMetaRequest;
-import org.apache.ignite.client.proto.query.event.JdbcQuerySingleResult;
-import org.apache.ignite.client.proto.query.event.JdbcResponse;
 import org.apache.ignite.client.proto.query.event.JdbcTableMeta;
-import org.apache.ignite.client.proto.query.event.BatchExecuteRequest;
-import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
 import org.apache.ignite.client.proto.query.event.QueryCloseRequest;
 import org.apache.ignite.client.proto.query.event.QueryCloseResult;
 import org.apache.ignite.client.proto.query.event.QueryExecuteRequest;
@@ -192,7 +182,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         SqlCursor<List<?>> cur = openCursors.remove(req.cursorId());
 
         if (cur == null)
-            return new JdbcMetaColumnsResult(JdbcResponse.STATUS_FAILED,
+            return new JdbcMetaColumnsResult(Response.STATUS_FAILED,
                 "Failed to find query cursor with ID: " + req.cursorId());
 
         FieldsMetadata metadata = cur.getColumnMetadata();

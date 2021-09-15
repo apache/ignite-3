@@ -30,7 +30,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * JDBC columns metadata result.
  */
-public class JdbcMetaColumnsResult extends JdbcResponse {
+public class JdbcMetaColumnsResult extends Response {
     /** Columns metadata. */
     private List<JdbcColumnMeta> meta;
 
