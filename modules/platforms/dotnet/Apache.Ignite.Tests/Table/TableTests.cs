@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Table
 {
     using System;
+    using System.Collections.Generic;
     using System.Globalization;
     using System.Linq;
     using System.Threading.Tasks;
@@ -101,6 +102,36 @@ namespace Apache.Ignite.Tests.Table
                 var res = await Table.GetAsync(GetTuple(id));
                 Assert.AreEqual(id.ToString(CultureInfo.InvariantCulture), res![1]);
             }
+        }
+
+        [Test]
+        public async Task TestGetAll()
+        {
+            var records = Enumerable
+                .Range(1, 10)
+                .Select(x => GetTuple(x, x.ToString(CultureInfo.InvariantCulture)));
+
+            await Table.UpsertAllAsync(records);
+
+            var res = await Table.GetAllAsync(Enumerable.Range(9, 4).Select(x => GetTuple(x)));
+
+            Assert.AreEqual(2, res.Count);
+        }
+
+        [Test]
+        public async Task TestGetAllNonExistentKeysReturnsEmptyList()
+        {
+            var res = await Table.GetAllAsync(new[] { GetTuple(-100) });
+
+            Assert.AreEqual(0, res.Count);
+        }
+
+        [Test]
+        public async Task TestGetAllEmptyKeysReturnsEmptyList()
+        {
+            var res = await Table.GetAllAsync(Array.Empty<IIgniteTuple>());
+
+            Assert.AreEqual(0, res.Count);
         }
 
         [Test]

@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.table.distributed.storage;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -134,11 +136,18 @@ public class InternalTableImpl implements InternalTable {
         }
 
         return CompletableFuture.allOf(futures)
-            .thenApply(response -> Arrays.stream(futures)
-                .map(CompletableFuture::join)
-                .map(MultiRowsResponse::getValues)
-                .flatMap(Collection::stream)
-                .collect(Collectors.toList()));
+            .thenApply(response -> {
+                List<BinaryRow> list = new ArrayList<>(futures.length);
+
+                for (CompletableFuture<MultiRowsResponse> future : futures) {
+                    Collection<BinaryRow> values = future.join().getValues();
+
+                    if (values != null)
+                        list.addAll(values);
+                }
+
+                return list;
+            });
     }
 
     /** {@inheritDoc} */
