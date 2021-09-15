@@ -385,6 +385,24 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual("Tuple collection can't contain null elements.", ex!.Message);
         }
 
+        [Test]
+        public void TestGetAllThrowsArgumentExceptionOnNullCollectionElement()
+        {
+            var ex = Assert.ThrowsAsync<ArgumentException>(
+                async () => await Table.GetAllAsync(new[] { GetTuple(1, "1"), null! }));
+
+            Assert.AreEqual("Tuple collection can't contain null elements.", ex!.Message);
+        }
+
+        [Test]
+        public void TestDeleteAllThrowsArgumentExceptionOnNullCollectionElement()
+        {
+            var ex = Assert.ThrowsAsync<ArgumentException>(
+                async () => await Table.DeleteAllAsync(new[] { GetTuple(1, "1"), null! }));
+
+            Assert.AreEqual("Tuple collection can't contain null elements.", ex!.Message);
+        }
+
         private static IIgniteTuple GetTuple(int id, string? val = null) =>
             new IgniteTuple { [KeyCol] = id, [ValCol] = val };
     }
