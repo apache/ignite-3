@@ -86,6 +86,25 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
+        public async Task TestInsertNonExistingKeyCreatesRecordReturnsTrue()
+        {
+            var res = await Table.InsertAsync(GetTuple(1, "1"));
+
+            Assert.IsTrue(res);
+            Assert.IsTrue(await Table.GetAsync(GetTuple(1)) != null);
+        }
+
+        [Test]
+        public async Task TestInsertExistingKeyDoesNotOverwriteReturnsFalse()
+        {
+            await Table.UpsertAsync(GetTuple(1, "1"));
+            var res = await Table.InsertAsync(GetTuple(1, "2"));
+
+            Assert.IsFalse(res);
+            Assert.AreEqual("1", (await Table.GetAsync(GetTuple(1)))![1]);
+        }
+
+        [Test]
         public async Task TestDelete()
         {
             await Table.UpsertAsync(GetTuple(1, "1"));
