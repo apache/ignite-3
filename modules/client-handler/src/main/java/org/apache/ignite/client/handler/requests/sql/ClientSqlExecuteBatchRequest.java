@@ -19,8 +19,8 @@ package org.apache.ignite.client.handler.requests.sql;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
-import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteRequest;
-import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteResult;
+import org.apache.ignite.client.proto.query.event.BatchExecuteRequest;
+import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 
@@ -41,11 +41,11 @@ public class ClientSqlExecuteBatchRequest {
         ClientMessagePacker out,
         JdbcQueryEventHandler handler
     ) {
-        var req = new JdbcBatchExecuteRequest();
+        var req = new BatchExecuteRequest();
 
         req.readBinary(in);
 
-        JdbcBatchExecuteResult res = handler.batch(req);
+        BatchExecuteResult res = handler.batch(req);
 
         res.writeBinary(out);
 

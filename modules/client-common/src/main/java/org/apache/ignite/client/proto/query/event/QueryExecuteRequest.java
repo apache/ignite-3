@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.proto.query.event;
 
+import org.apache.ignite.client.proto.query.ClientMessage;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
@@ -24,7 +25,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * JDBC query execute request.
  */
-public class JdbcQueryExecuteRequest implements JdbcClientMessage {
+public class QueryExecuteRequest implements ClientMessage {
     /** Schema name. */
     private String schemaName;
 
@@ -43,7 +44,7 @@ public class JdbcQueryExecuteRequest implements JdbcClientMessage {
     /**
      * Default constructor. For deserialization purposes.
      */
-    public JdbcQueryExecuteRequest() {
+    public QueryExecuteRequest() {
     }
 
     /**
@@ -55,7 +56,7 @@ public class JdbcQueryExecuteRequest implements JdbcClientMessage {
      * @param sqlQry SQL query.
      * @param args Arguments list.
      */
-    public JdbcQueryExecuteRequest(String schemaName, int pageSize, int maxRows, String sqlQry, Object[] args) {
+    public QueryExecuteRequest(String schemaName, int pageSize, int maxRows, String sqlQry, Object[] args) {
 
         this.schemaName = schemaName == null || schemaName.isEmpty() ? null : schemaName;
         this.pageSize = pageSize;
@@ -131,6 +132,6 @@ public class JdbcQueryExecuteRequest implements JdbcClientMessage {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(JdbcQueryExecuteRequest.class, this);
+        return S.toString(QueryExecuteRequest.class, this);
     }
 }

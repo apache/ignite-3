@@ -19,8 +19,8 @@ package org.apache.ignite.client.handler.requests.sql;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
-import org.apache.ignite.client.proto.query.event.JdbcQueryCloseRequest;
-import org.apache.ignite.client.proto.query.event.JdbcQueryCloseResult;
+import org.apache.ignite.client.proto.query.event.QueryCloseRequest;
+import org.apache.ignite.client.proto.query.event.QueryCloseResult;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 
@@ -41,11 +41,11 @@ public class ClientSqlCloseRequest {
         ClientMessagePacker out,
         JdbcQueryEventHandler handler
     ) {
-        var req = new JdbcQueryCloseRequest();
+        var req = new QueryCloseRequest();
 
         req.readBinary(in);
 
-        JdbcQueryCloseResult res = handler.close(req);
+        QueryCloseResult res = handler.close(req);
 
         res.writeBinary(out);
 

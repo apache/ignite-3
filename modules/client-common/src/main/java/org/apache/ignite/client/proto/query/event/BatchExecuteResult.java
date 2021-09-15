@@ -17,53 +17,78 @@
 
 package org.apache.ignite.client.proto.query.event;
 
+import java.util.Objects;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * JDBC query close request.
+ * JDBC batch execute result.
  */
-public class JdbcQueryCloseRequest implements JdbcClientMessage {
-    /** Cursor ID. */
-    private long cursorId;
+public class BatchExecuteResult extends Response {
+    /** Update counts. */
+    private int[] updateCnts;
 
     /**
-     * Default constructor.
+     * Constructor.
      */
-    public JdbcQueryCloseRequest() {
+    public BatchExecuteResult() {
     }
 
     /**
      * Constructor.
      *
-     * @param cursorId Cursor ID.
+     * @param status Status code.
+     * @param err Error message.
      */
-    public JdbcQueryCloseRequest(long cursorId) {
-        this.cursorId = cursorId;
+    public BatchExecuteResult(int status, String err) {
+        super(status, err);
     }
 
     /**
-     * Get the cursor id.
+     * Constructor.
      *
-     * @return Cursor ID.
+     * @param updateCnts Update counts for batch.
      */
-    public long cursorId() {
-        return cursorId;
+    public BatchExecuteResult(int[] updateCnts) {
+        Objects.requireNonNull(updateCnts);
+
+        this.updateCnts = updateCnts;
+
+        hasResults = true;
+    }
+
+    /**
+     * Get the update count for DML queries.
+     *
+     * @return Update count for DML queries.
+     */
+    public int[] updateCounts() {
+        return updateCnts;
     }
 
     /** {@inheritDoc} */
     @Override public void writeBinary(ClientMessagePacker packer) {
-        packer.packLong(cursorId);
+        super.writeBinary(packer);
+
+        if (!hasResults)
+            return;
+
+        packer.packIntArray(updateCnts);
     }
 
     /** {@inheritDoc} */
     @Override public void readBinary(ClientMessageUnpacker unpacker) {
-        cursorId = unpacker.unpackLong();
+        super.readBinary(unpacker);
+
+        if (!hasResults)
+            return;
+
+        updateCnts = unpacker.unpackIntArray();
     }
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(JdbcQueryCloseRequest.class, this);
+        return S.toString(BatchExecuteResult.class, this);
     }
 }

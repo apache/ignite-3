@@ -18,14 +18,14 @@
 package org.apache.ignite.internal.client.query;
 
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
-import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteRequest;
-import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteResult;
-import org.apache.ignite.client.proto.query.event.JdbcQueryCloseRequest;
-import org.apache.ignite.client.proto.query.event.JdbcQueryCloseResult;
-import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteRequest;
-import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteResult;
-import org.apache.ignite.client.proto.query.event.JdbcQueryFetchRequest;
-import org.apache.ignite.client.proto.query.event.JdbcQueryFetchResult;
+import org.apache.ignite.client.proto.query.event.BatchExecuteRequest;
+import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
+import org.apache.ignite.client.proto.query.event.QueryCloseRequest;
+import org.apache.ignite.client.proto.query.event.QueryCloseResult;
+import org.apache.ignite.client.proto.query.event.QueryExecuteRequest;
+import org.apache.ignite.client.proto.query.event.QueryExecuteResult;
+import org.apache.ignite.client.proto.query.event.QueryFetchRequest;
+import org.apache.ignite.client.proto.query.event.QueryFetchResult;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.proto.ClientOp;
 
@@ -44,8 +44,8 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     }
 
     /** {@inheritDoc} */
-    @Override public JdbcQueryExecuteResult query(JdbcQueryExecuteRequest req) {
-        JdbcQueryExecuteResult res = new JdbcQueryExecuteResult();
+    @Override public QueryExecuteResult query(QueryExecuteRequest req) {
+        QueryExecuteResult res = new QueryExecuteResult();
 
         client.sendRequest(ClientOp.SQL_EXEC, req, res);
 
@@ -53,8 +53,8 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     }
 
     /** {@inheritDoc} */
-    @Override public JdbcQueryFetchResult fetch(JdbcQueryFetchRequest req) {
-        JdbcQueryFetchResult res = new JdbcQueryFetchResult();
+    @Override public QueryFetchResult fetch(QueryFetchRequest req) {
+        QueryFetchResult res = new QueryFetchResult();
 
         client.sendRequest(ClientOp.SQL_NEXT, req, res);
 
@@ -62,8 +62,8 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     }
 
     /** {@inheritDoc} */
-    @Override public JdbcBatchExecuteResult batch(JdbcBatchExecuteRequest req) {
-        JdbcBatchExecuteResult res = new JdbcBatchExecuteResult();
+    @Override public BatchExecuteResult batch(BatchExecuteRequest req) {
+        BatchExecuteResult res = new BatchExecuteResult();
 
         client.sendRequest(ClientOp.SQL_EXEC_BATCH, req, res);
 
@@ -71,8 +71,8 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     }
 
     /** {@inheritDoc} */
-    @Override public JdbcQueryCloseResult close(JdbcQueryCloseRequest req) {
-        JdbcQueryCloseResult res = new JdbcQueryCloseResult();
+    @Override public QueryCloseResult close(QueryCloseRequest req) {
+        QueryCloseResult res = new QueryCloseResult();
 
         client.sendRequest(ClientOp.SQL_CURSOR_CLOSE, req, res);
 

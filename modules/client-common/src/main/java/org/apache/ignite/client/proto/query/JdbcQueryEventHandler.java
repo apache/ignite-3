@@ -17,48 +17,48 @@
 
 package org.apache.ignite.client.proto.query;
 
-import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteRequest;
-import org.apache.ignite.client.proto.query.event.JdbcBatchExecuteResult;
-import org.apache.ignite.client.proto.query.event.JdbcQueryCloseRequest;
-import org.apache.ignite.client.proto.query.event.JdbcQueryCloseResult;
-import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteRequest;
-import org.apache.ignite.client.proto.query.event.JdbcQueryExecuteResult;
-import org.apache.ignite.client.proto.query.event.JdbcQueryFetchRequest;
-import org.apache.ignite.client.proto.query.event.JdbcQueryFetchResult;
+import org.apache.ignite.client.proto.query.event.BatchExecuteRequest;
+import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
+import org.apache.ignite.client.proto.query.event.QueryCloseRequest;
+import org.apache.ignite.client.proto.query.event.QueryCloseResult;
+import org.apache.ignite.client.proto.query.event.QueryExecuteRequest;
+import org.apache.ignite.client.proto.query.event.QueryExecuteResult;
+import org.apache.ignite.client.proto.query.event.QueryFetchRequest;
+import org.apache.ignite.client.proto.query.event.QueryFetchResult;
 
 /**
  * Jdbc client request handler.
  */
 public interface JdbcQueryEventHandler {
     /**
-     * {@link JdbcQueryExecuteRequest} command handler.
+     * {@link QueryExecuteRequest} command handler.
      *
      * @param req Execute query request.
      * @return Result.
      */
-    JdbcQueryExecuteResult query(JdbcQueryExecuteRequest req);
+    QueryExecuteResult query(QueryExecuteRequest req);
 
     /**
-     * {@link JdbcQueryFetchRequest} command handler.
+     * {@link QueryFetchRequest} command handler.
      *
      * @param req Fetch query request.
      * @return Result.
      */
-    JdbcQueryFetchResult fetch(JdbcQueryFetchRequest req);
+    QueryFetchResult fetch(QueryFetchRequest req);
 
     /**
-     * {@link JdbcBatchExecuteRequest} command handler.
+     * {@link BatchExecuteRequest} command handler.
      *
      * @param req Batch query request.
      * @return Result.
      */
-    JdbcBatchExecuteResult batch(JdbcBatchExecuteRequest req);
+    BatchExecuteResult batch(BatchExecuteRequest req);
 
     /**
-     * {@link JdbcQueryCloseRequest} command handler.
+     * {@link QueryCloseRequest} command handler.
      *
      * @param req Close query request.
      * @return Result.
      */
-    JdbcQueryCloseResult close(JdbcQueryCloseRequest req);
+    QueryCloseResult close(QueryCloseRequest req);
 }
