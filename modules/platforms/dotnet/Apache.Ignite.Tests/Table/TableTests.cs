@@ -64,7 +64,7 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
-        public async Task TestUpsertCustomTuple()
+        public async Task TestUpsertAllowsCustomTupleImplementation()
         {
             await Table.UpsertAsync(new CustomTestIgniteTuple());
 
@@ -186,7 +186,7 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
-        public async Task TestUpsertAll()
+        public async Task TestUpsertAllCreatesRecords()
         {
             var ids = Enumerable.Range(1, 10).ToList();
             var records = ids.Select(x => GetTuple(x, x.ToString(CultureInfo.InvariantCulture)));
@@ -219,7 +219,7 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
-        public async Task TestInsertAll()
+        public async Task TestInsertAllCreatesRecords()
         {
             var ids = Enumerable.Range(1, 10).ToList();
             var records = ids.Select(x => GetTuple(x, x.ToString(CultureInfo.InvariantCulture)));
@@ -270,7 +270,7 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
-        public async Task TestGetAll()
+        public async Task TestGetAllReturnsRecordsForExistingKeys()
         {
             var records = Enumerable
                 .Range(1, 10)
