@@ -130,6 +130,24 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
+        public async Task TestUpsertAllOverwritesExistingData()
+        {
+            await Table.InsertAsync(GetTuple(2, "x"));
+            await Table.InsertAsync(GetTuple(4, "y"));
+
+            var ids = Enumerable.Range(1, 10).ToList();
+            var records = ids.Select(x => GetTuple(x, x.ToString(CultureInfo.InvariantCulture)));
+
+            await Table.UpsertAllAsync(records);
+
+            foreach (var id in ids)
+            {
+                var res = await Table.GetAsync(GetTuple(id));
+                Assert.AreEqual(id.ToString(CultureInfo.InvariantCulture), res![1]);
+            }
+        }
+
+        [Test]
         public async Task TestGetAll()
         {
             var records = Enumerable
