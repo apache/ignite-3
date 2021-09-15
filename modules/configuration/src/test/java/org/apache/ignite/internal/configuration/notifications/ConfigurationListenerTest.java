@@ -23,6 +23,8 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
+import java.util.function.Consumer;
+import org.apache.ignite.configuration.ConfigurationException;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -43,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /** */
@@ -65,6 +68,22 @@ public class ConfigurationListenerTest {
         /** */
         @Value(hasDefault = true)
         public String str = "default";
+
+        /** Nested child configuration. */
+        @ConfigValue
+        public Child2ConfigurationSchema child2;
+
+        /** Nested named child configuration. */
+        @NamedConfigValue
+        public Child2ConfigurationSchema elements2;
+    }
+
+    /** Scheme of the second child configuration. */
+    @Config
+    public static class Child2ConfigurationSchema {
+        /** Integer value. */
+        @Value(hasDefault = true)
+        public int i = 10;
     }
 
     /** */
@@ -643,5 +662,53 @@ public class ConfigurationListenerTest {
         fut.get(1, SECONDS);
 
         assertEquals(List.of("deleted"), log);
+    }
+
+    /** */
+    @Test
+    void testNoGetOrUpdateConfigValueForAny() throws Exception {
+        ChildConfiguration any0 = configuration.elements().any();
+
+        assertThrows(ConfigurationException.class, () -> any0.value());
+        assertThrows(ConfigurationException.class, () -> any0.change(doNothingConsumer()));
+
+        assertThrows(ConfigurationException.class, () -> any0.str().value());
+        assertThrows(ConfigurationException.class, () -> any0.str().update(""));
+
+        assertThrows(ConfigurationException.class, () -> any0.child2().value());
+        assertThrows(ConfigurationException.class, () -> any0.child2().change(doNothingConsumer()));
+
+        assertThrows(ConfigurationException.class, () -> any0.child2().i().value());
+        assertThrows(ConfigurationException.class, () -> any0.child2().i().update(100));
+
+        assertThrows(ConfigurationException.class, () -> any0.elements2().value());
+        assertThrows(ConfigurationException.class, () -> any0.elements2().change(doNothingConsumer()));
+        assertThrows(ConfigurationException.class, () -> any0.elements2().get("test"));
+
+        Child2Configuration any1 = any0.elements2().any();
+
+        assertThrows(ConfigurationException.class, () -> any1.value());
+        assertThrows(ConfigurationException.class, () -> any1.change(doNothingConsumer()));
+
+        assertThrows(ConfigurationException.class, () -> any1.i().value());
+        assertThrows(ConfigurationException.class, () -> any1.i().update(200));
+
+        configuration.elements().change(c0 -> c0.create("test", c1 -> c1.changeStr("foo"))).get(1, SECONDS);
+
+        Child2Configuration any2 = configuration.elements().get("test").elements2().any();
+
+        assertThrows(ConfigurationException.class, () -> any2.value());
+        assertThrows(ConfigurationException.class, () -> any2.change(doNothingConsumer()));
+
+        assertThrows(ConfigurationException.class, () -> any2.i().value());
+        assertThrows(ConfigurationException.class, () -> any2.i().update(300));
+    }
+
+    /**
+     * @return Consumer who does nothing.
+     */
+    private static <T> Consumer<T> doNothingConsumer() {
+        return t -> {
+        };
     }
 }

@@ -17,21 +17,16 @@
 
 package org.apache.ignite.configuration;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.configuration.validation.ConfigurationValidationException;
-
 /**
- * Configuration value.
- *
- * @param <VIEW> Type of the value.
+ * This exception is used to indicate any error condition in the configuration.
  */
-public interface ConfigurationValue<VIEW> extends ConfigurationProperty<VIEW, VIEW> {
+public class ConfigurationException extends RuntimeException {
     /**
-     * Update this configuration node value.
+     * Constructor.
      *
-     * @param change New value for the configuration. Must not be null.
-     * @return Future that signifies end of the update operation. Can also be completed with
-     *      {@link ConfigurationValidationException} and {@link ConfigurationChangeException}.
+     * @param message Error message.
      */
-    CompletableFuture<Void> update(VIEW change);
+    public ConfigurationException(String message) {
+        super(message);
+    }
 }

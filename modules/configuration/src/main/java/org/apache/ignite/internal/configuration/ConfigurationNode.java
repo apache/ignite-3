@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.apache.ignite.configuration.ConfigurationException;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
@@ -48,6 +49,9 @@ public abstract class ConfigurationNode<VIEW, CHANGE> implements ConfigurationPr
     /** Configuration changer instance to get latest value of the root. */
     protected final DynamicConfigurationChanger changer;
 
+    /** Only adding listeners mode, without the ability to get or update the property value. */
+    protected final boolean listenOnly;
+
     /**
      * Cached value of current trees root. Useful to determine whether you have the latest configuration value or not.
      */
@@ -69,12 +73,20 @@ public abstract class ConfigurationNode<VIEW, CHANGE> implements ConfigurationPr
      * @param key Configuration key.
      * @param rootKey Root key.
      * @param changer Configuration changer.
+     * @param listenOnly Only adding listeners mode, without the ability to get or update the property value.
      */
-    protected ConfigurationNode(List<String> prefix, String key, RootKey<?, ?> rootKey, DynamicConfigurationChanger changer) {
+    protected ConfigurationNode(
+        List<String> prefix,
+        String key,
+        RootKey<?, ?> rootKey,
+        DynamicConfigurationChanger changer,
+        boolean listenOnly
+    ) {
         this.keys = ConfigurationUtil.appendKey(prefix, key);
         this.key = key;
         this.rootKey = rootKey;
         this.changer = changer;
+        this.listenOnly = listenOnly;
 
         assert Objects.equals(rootKey.key(), keys.get(0));
     }
@@ -94,10 +106,14 @@ public abstract class ConfigurationNode<VIEW, CHANGE> implements ConfigurationPr
      *
      * @return Latest configuration value.
      * @throws NoSuchElementException If configuration is a part of already deleted named list configuration entry.
+     * @throws ConfigurationException If there was an attempt to get or update a property value in
+     *      {@link #listenOnly listen-only} mode.
      */
     protected final VIEW refreshValue() throws NoSuchElementException {
         if (invalid)
             throw noSuchElementException();
+        else if (listenOnly)
+            throw listenOnlyException();
 
         TraversableTreeNode newRootNode = changer.getRootNode(rootKey);
         TraversableTreeNode oldRootNode = cachedRootNode;
@@ -151,5 +167,13 @@ public abstract class ConfigurationNode<VIEW, CHANGE> implements ConfigurationPr
      */
     protected void beforeRefreshValue(VIEW newValue) {
         // No-op.
+    }
+
+    /**
+     * @return Exception if there was an attempt to get or update a property value in
+     *      {@link #listenOnly listen-only} mode.
+     */
+    protected ConfigurationException listenOnlyException() {
+        throw new ConfigurationException("Adding only listeners mode: " + keys);
     }
 }
