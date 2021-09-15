@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Table
 {
     using System;
+    using System.Collections.Generic;
     using System.Globalization;
     using System.Linq;
     using System.Threading.Tasks;
@@ -144,6 +145,57 @@ namespace Apache.Ignite.Tests.Table
             {
                 var res = await Table.GetAsync(GetTuple(id));
                 Assert.AreEqual(id.ToString(CultureInfo.InvariantCulture), res![1]);
+            }
+        }
+
+        [Test]
+        public async Task TestInsertAll()
+        {
+            var ids = Enumerable.Range(1, 10).ToList();
+            var records = ids.Select(x => GetTuple(x, x.ToString(CultureInfo.InvariantCulture)));
+
+            IList<IIgniteTuple> skipped = await Table.InsertAllAsync(records);
+
+            CollectionAssert.IsEmpty(skipped);
+
+            foreach (var id in ids)
+            {
+                var res = await Table.GetAsync(GetTuple(id));
+                Assert.AreEqual(id.ToString(CultureInfo.InvariantCulture), res![1]);
+            }
+        }
+
+        [Test]
+        public async Task TestInsertAllDoesNotOverwriteExistingDataReturnsSkippedTuples()
+        {
+            var existing = new[] { GetTuple(2, "x"), GetTuple(4, "y") }.ToDictionary(x => x[0]);
+            await Table.InsertAllAsync(existing.Values);
+
+            var ids = Enumerable.Range(1, 10).ToList();
+            var records = ids.Select(x => GetTuple(x, x.ToString(CultureInfo.InvariantCulture)));
+
+            IList<IIgniteTuple> skipped = await Table.InsertAllAsync(records);
+            var skippedArr = skipped.OrderBy(x => x[0]).ToArray();
+
+            Assert.AreEqual(2, skippedArr.Length);
+            Assert.AreEqual(2, skippedArr[0][0]);
+            Assert.AreEqual("2", skippedArr[0][1]);
+
+            Assert.AreEqual(4, skippedArr[1][0]);
+            Assert.AreEqual("4", skippedArr[1][1]);
+
+            foreach (var id in ids)
+            {
+                var res = await Table.GetAsync(GetTuple(id));
+
+                if (existing.TryGetValue(res![0], out var old))
+                {
+                    Assert.AreEqual(old[1], res[1]);
+                }
+                else
+                {
+                    Assert.AreEqual(id.ToString(CultureInfo.InvariantCulture), res[1]);
+                }
             }
         }
 
