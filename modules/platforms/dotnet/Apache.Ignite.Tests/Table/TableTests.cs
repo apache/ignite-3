@@ -197,6 +197,36 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
+        public async Task TestReplaceExistingRecordReturnsTrueOverwrites()
+        {
+            await Table.UpsertAsync(GetTuple(1, "1"));
+            bool res = await Table.ReplaceAsync(GetTuple(1, "2"));
+
+            Assert.IsTrue(res);
+            Assert.AreEqual("2", (await Table.GetAsync(GetTuple(1)))![1]);
+        }
+
+        [Test]
+        public async Task TestGetAndReplaceNonExistentRecordReturnsNullDoesNotCreateRecord()
+        {
+            IIgniteTuple? res = await Table.GetAndReplaceAsync(GetTuple(1, "1"));
+
+            Assert.IsNull(res);
+            Assert.IsNull(await Table.GetAsync(GetTuple(1)));
+        }
+
+        [Test]
+        public async Task TestGetAndReplaceExistingRecordReturnsOldOverwrites()
+        {
+            await Table.UpsertAsync(GetTuple(1, "1"));
+            IIgniteTuple? res = await Table.GetAndReplaceAsync(GetTuple(1, "2"));
+
+            Assert.IsNotNull(res);
+            Assert.AreEqual("1", res![1]);
+            Assert.AreEqual("2", (await Table.GetAsync(GetTuple(1)))![1]);
+        }
+
+        [Test]
         public async Task TestReplaceExactNonExistentRecordReturnsFalseDoesNotCreateRecord()
         {
             bool res = await Table.ReplaceAsync(GetTuple(1, "1"), GetTuple(1, "2"));
@@ -223,16 +253,6 @@ namespace Apache.Ignite.Tests.Table
 
             Assert.IsTrue(res);
             Assert.AreEqual("22", (await Table.GetAsync(GetTuple(1)))![1]);
-        }
-
-        [Test]
-        public async Task TestReplaceExistingRecordReturnsTrueOverwrites()
-        {
-            await Table.UpsertAsync(GetTuple(1, "1"));
-            bool res = await Table.ReplaceAsync(GetTuple(1, "2"));
-
-            Assert.IsTrue(res);
-            Assert.AreEqual("2", (await Table.GetAsync(GetTuple(1)))![1]);
         }
 
         [Test]
