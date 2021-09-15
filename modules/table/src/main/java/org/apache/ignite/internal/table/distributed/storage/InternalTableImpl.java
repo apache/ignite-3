@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.storage;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -26,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
+
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
@@ -135,19 +134,7 @@ public class InternalTableImpl implements InternalTable {
             batchNum++;
         }
 
-        return CompletableFuture.allOf(futures)
-            .thenApply(response -> {
-                List<BinaryRow> list = new ArrayList<>(futures.length);
-
-                for (CompletableFuture<MultiRowsResponse> future : futures) {
-                    Collection<BinaryRow> values = future.join().getValues();
-
-                    if (values != null)
-                        list.addAll(values);
-                }
-
-                return list;
-            });
+        return collectMultiRowsResponses(futures);
     }
 
     /** {@inheritDoc} */
@@ -207,12 +194,7 @@ public class InternalTableImpl implements InternalTable {
             batchNum++;
         }
 
-        return CompletableFuture.allOf(futures)
-            .thenApply(response -> Arrays.stream(futures)
-                .map(CompletableFuture::join)
-                .map(MultiRowsResponse::getValues)
-                .flatMap(Collection::stream)
-                .collect(Collectors.toList()));
+        return collectMultiRowsResponses(futures);
     }
 
     /** {@inheritDoc} */
@@ -268,12 +250,7 @@ public class InternalTableImpl implements InternalTable {
             batchNum++;
         }
 
-        return CompletableFuture.allOf(futures)
-            .thenApply(response -> Arrays.stream(futures)
-                .map(CompletableFuture::join)
-                .map(MultiRowsResponse::getValues)
-                .flatMap(Collection::stream)
-                .collect(Collectors.toList()));
+        return collectMultiRowsResponses(futures);
     }
 
     /** {@inheritDoc} */
@@ -296,12 +273,7 @@ public class InternalTableImpl implements InternalTable {
             batchNum++;
         }
 
-        return CompletableFuture.allOf(futures)
-            .thenApply(response -> Arrays.stream(futures)
-                .map(CompletableFuture::join)
-                .map(MultiRowsResponse::getValues)
-                .flatMap(Collection::stream)
-                .collect(Collectors.toList()));
+        return collectMultiRowsResponses(futures);
     }
 
     /**
@@ -314,5 +286,27 @@ public class InternalTableImpl implements InternalTable {
         int partId = row.hash() % partitions;
 
         return (partId < 0) ? -partId : partId;
+    }
+
+    /**
+     * Collects multirow responses from multiple futures into a single collection.
+     * @param futures Futures.
+     * @return Row collection.
+     */
+    private CompletableFuture<Collection<BinaryRow>> collectMultiRowsResponses(
+            CompletableFuture<MultiRowsResponse>[] futures) {
+        return CompletableFuture.allOf(futures)
+                .thenApply(response -> {
+                    List<BinaryRow> list = new ArrayList<>(futures.length);
+
+                    for (CompletableFuture<MultiRowsResponse> future : futures) {
+                        Collection<BinaryRow> values = future.join().getValues();
+
+                        if (values != null)
+                            list.addAll(values);
+                    }
+
+                    return list;
+                });
     }
 }
