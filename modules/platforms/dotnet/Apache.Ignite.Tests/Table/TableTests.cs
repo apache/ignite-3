@@ -377,6 +377,22 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
+        public async Task TestDeleteAllEmptyKeysReturnsEmptyList()
+        {
+            var skipped = await Table.DeleteAllAsync(Array.Empty<IIgniteTuple>());
+
+            Assert.AreEqual(0, skipped.Count);
+        }
+
+        [Test]
+        public async Task TestDeleteAllNonExistentKeysReturnsAllKeys()
+        {
+            var skipped = await Table.DeleteAllAsync(new[] { GetTuple(1), GetTuple(2) });
+
+            Assert.AreEqual(2, skipped.Count);
+        }
+
+        [Test]
         public void TestUpsertAllThrowsArgumentExceptionOnNullCollectionElement()
         {
             var ex = Assert.ThrowsAsync<ArgumentException>(
