@@ -64,8 +64,11 @@ public class JdbcColumnMeta extends Response {
     /** Data type. */
     private String dataTypeName;
 
-    /** Data type class. */
-    private String dataTypeCls;
+    /** Data type. */
+    private int precision;
+
+    /** Data type. */
+    private int scale;
 
     /**
      * Default constructor is used for serialization.
@@ -83,7 +86,7 @@ public class JdbcColumnMeta extends Response {
      * @param cls Type.
      */
     public JdbcColumnMeta(String schemaName, String tblName, String colName, Class<?> cls) {
-        this(schemaName, tblName, colName, cls, true);
+        this(schemaName, tblName, colName, cls, -1, -1, true);
     }
 
     /**
@@ -94,32 +97,20 @@ public class JdbcColumnMeta extends Response {
      * @param colName Column.
      * @param cls Type.
      * @param nullable Nullable flag.
+     * @param precision Column precision.
+     * @param scale Column scale.
      */
-    public JdbcColumnMeta(String schemaName, String tblName, String colName, Class<?> cls, boolean nullable) {
-        this(schemaName, tblName, colName, typeName(cls.getName()), cls.getName(), type(cls.getName()), nullable);
-    }
-
-    /**
-     * Constructor with nullable flag.
-     *
-     * @param schemaName Schema.
-     * @param tblName Table.
-     * @param colName Column.
-     * @param sqlTypeName Sql type name.
-     * @param typeClsName Type class name.
-     * @param dataType Jdbc data type index.
-     * @param nullable Nullable flag.
-     */
-    public JdbcColumnMeta(String schemaName, String tblName, String colName, String sqlTypeName, String typeClsName,
-        int dataType, boolean nullable) {
+    public JdbcColumnMeta(String schemaName, String tblName, String colName, Class<?> cls, int precision, int scale,
+        boolean nullable) {
         this.schemaName = schemaName;
         this.tblName = tblName;
         this.colName = colName;
         this.nullable = nullable;
 
-        this.dataType = dataType;
-        this.dataTypeName = sqlTypeName;
-        this.dataTypeCls = typeClsName;
+        this.dataType = type(cls.getName());
+        this.dataTypeName = typeName(cls.getName());
+        this.precision = precision;
+        this.scale = scale;
 
         hasResults = true;
     }
@@ -184,7 +175,7 @@ public class JdbcColumnMeta extends Response {
      * @return Column's precision.
      */
     public int precision() {
-        return -1;
+        return precision;
     }
 
     /**
@@ -193,7 +184,7 @@ public class JdbcColumnMeta extends Response {
      * @return Column's scale.
      */
     public int scale() {
-        return -1;
+        return scale;
     }
 
     /**
@@ -203,15 +194,6 @@ public class JdbcColumnMeta extends Response {
      */
     public boolean isNullable() {
         return nullable;
-    }
-
-    /**
-     * Gets data type class.
-     *
-     * @return Data type class.
-     */
-    public String dataTypeClass() {
-        return dataTypeCls;
     }
 
     /** {@inheritDoc} */
@@ -228,7 +210,8 @@ public class JdbcColumnMeta extends Response {
         packer.packInt(dataType);
         packer.packString(dataTypeName);
         packer.packBoolean(nullable);
-        packer.packString(dataTypeCls);
+        packer.packInt(precision);
+        packer.packInt(scale);
     }
 
     /** {@inheritDoc} */
@@ -245,7 +228,8 @@ public class JdbcColumnMeta extends Response {
         dataType = unpacker.unpackInt();
         dataTypeName = unpacker.unpackString();
         nullable = unpacker.unpackBoolean();
-        dataTypeCls = unpacker.unpackString();
+        precision = unpacker.unpackInt();
+        scale = unpacker.unpackInt();
     }
 
     /** {@inheritDoc} */

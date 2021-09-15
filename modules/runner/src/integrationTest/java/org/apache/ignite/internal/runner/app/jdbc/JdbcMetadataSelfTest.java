@@ -16,6 +16,7 @@
 
 package org.apache.ignite.internal.runner.app.jdbc;
 
+import java.math.BigDecimal;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -122,7 +123,8 @@ public class JdbcMetadataSelfTest {
 
         SchemaTable orgTbl = SchemaBuilders.tableBuilder("PUBLIC", "ORGANIZATION").columns(
             SchemaBuilders.column("ID", ColumnType.INT32).asNonNull().build(),
-            SchemaBuilders.column("NAME", ColumnType.string()).asNullable().build()
+            SchemaBuilders.column("NAME", ColumnType.string()).asNullable().build(),
+            SchemaBuilders.column("BIGDATA", ColumnType.decimalOf(20, 10)).asNullable().build()
         ).withPrimaryKey("ID").build();
 
         if (clusterNodes.get(0).tables().table(perTbl.canonicalName()) != null)
@@ -144,7 +146,7 @@ public class JdbcMetadataSelfTest {
         Table tbl2 = clusterNodes.get(0).tables().table(orgTbl.canonicalName());
 
         tbl1.insert(Tuple.create().set("ORGID", 1).set("NAME", "111").set("AGE", 111));
-        tbl2.insert(Tuple.create().set("ID", 1).set("NAME", "AAA"));
+        tbl2.insert(Tuple.create().set("ID", 1).set("NAME", "AAA").set("BIGDATA", BigDecimal.valueOf(10)));
     }
 
     /**
@@ -296,6 +298,7 @@ public class JdbcMetadataSelfTest {
 
             names.add("ID");
             names.add("NAME");
+            names.add("BIGDATA");
 
             cnt = 0;
 
@@ -312,13 +315,19 @@ public class JdbcMetadataSelfTest {
                     assertEquals(VARCHAR, rs.getInt("DATA_TYPE"));
                     assertEquals(rs.getString("TYPE_NAME"), "VARCHAR");
                     assertEquals(1, rs.getInt("NULLABLE"));
+                } else if ("BIGDATA".equals(name)) {
+                    assertEquals(DECIMAL, rs.getInt("DATA_TYPE"));
+                    assertEquals(rs.getString("TYPE_NAME"), "DECIMAL");
+                    assertEquals(1, rs.getInt("NULLABLE"));
+                    assertEquals(10, rs.getInt("DECIMAL_DIGITS"));
+                    assertEquals(20, rs.getInt("COLUMN_SIZE"));
                 }
 
                 cnt++;
             }
 
             assertTrue(names.isEmpty());
-            assertEquals(2, cnt);
+            assertEquals(3, cnt);
         }
     }
 

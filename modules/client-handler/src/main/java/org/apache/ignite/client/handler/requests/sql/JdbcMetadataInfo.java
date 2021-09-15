@@ -34,6 +34,10 @@ import org.apache.ignite.client.proto.query.event.JdbcPrimaryKeyMeta;
 import org.apache.ignite.client.proto.query.event.JdbcTableMeta;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.DecimalNativeType;
+import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypeSpec;
+import org.apache.ignite.internal.schema.NumberNativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.TableImpl;
@@ -41,6 +45,7 @@ import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 
+//TODO Filter by table type must be added after 'view' type will appear.
 /**
  * Facade over {@link IgniteTables} to get information about database entities in terms of JDBC.
  */
@@ -48,11 +53,11 @@ public class JdbcMetadataInfo {
     /** Table name separator. */
     private static final String TABLE_NAME_SEPARATOR = "\\.";
 
-    /** Table name. */
-    private static final int TABLE_NAME = 1;
-
     /** Table schema. */
     private static final int TABLE_SCHEMA = 0;
+
+    /** Table name. */
+    private static final int TABLE_NAME = 1;
 
     /** Primary key identifier. */
     private static final String PK = "PK_";
@@ -99,18 +104,7 @@ public class JdbcMetadataInfo {
             .filter(t -> matches(getTblSchema(t.tableName()), schemaNameRegex))
             .filter(t -> matches(getTblName(t.tableName()), tlbNameRegex))
             .forEach(tbl -> {
-                String schemaName = getTblSchema(tbl.tableName());
-                String tblName = getTblName(tbl.tableName());
-
-                final String keyName = PK + tblName;
-
-                SchemaRegistry registry = ((TableImpl)tbl).schemaView();
-
-                List<String> keyColNames = Arrays.stream(registry.schema().keyColumns().columns())
-                    .map(Column::name)
-                    .collect(Collectors.toList());
-
-                JdbcPrimaryKeyMeta meta = new JdbcPrimaryKeyMeta(schemaName, tblName, keyName, keyColNames);
+                JdbcPrimaryKeyMeta meta = createPrimaryKeyMeta(tbl);
 
                 metaSet.add(meta);
             });
@@ -140,7 +134,6 @@ public class JdbcMetadataInfo {
             .filter(t -> matches(getTblName(t.tableName()), tlbNameRegex))
             .collect(Collectors.toList());
 
-        //TODO Should be refactored after 'view' and/or other types will appear.
         return tblsMeta.stream()
             .sorted(byTblTypeThenSchemaThenTblName)
             .map(t -> new JdbcTableMeta(getTblSchema(t.tableName()), getTblName(t.tableName()), TBL_TYPE))
@@ -184,16 +177,7 @@ public class JdbcMetadataInfo {
             .filter(e -> matches(e.getSecond().name(), colNameRegex))
             .sorted(bySchemaThenTabNameThenColOrder)
             .forEachOrdered(pair -> {
-                String tblName = pair.getFirst();
-                Column col = pair.getSecond();
-
-                var colMeta = new JdbcColumnMeta(
-                    getTblSchema(tblName),
-                    getTblName(tblName),
-                    col.name(),
-                    Commons.nativeTypeToClass(col.type()),
-                    col.nullable()
-                );
+                JdbcColumnMeta colMeta = createColumnMeta(pair.getFirst(), pair.getSecond());
 
                 if (!metas.contains(colMeta))
                     metas.add(colMeta);
@@ -221,6 +205,58 @@ public class JdbcMetadataInfo {
             .forEach(schemas::add);
 
         return schemas;
+    }
+
+    /**
+     * Creates primary key metadata from table object.
+     *
+     * @param tbl Table.
+     * @return Jdbc primary key metadata.
+     */
+    private JdbcPrimaryKeyMeta createPrimaryKeyMeta(Table tbl) {
+        String schemaName = getTblSchema(tbl.tableName());
+        String tblName = getTblName(tbl.tableName());
+
+        final String keyName = PK + tblName;
+
+        SchemaRegistry registry = ((TableImpl)tbl).schemaView();
+
+        List<String> keyColNames = Arrays.stream(registry.schema().keyColumns().columns())
+            .map(Column::name)
+            .collect(Collectors.toList());
+
+        return new JdbcPrimaryKeyMeta(schemaName, tblName, keyName, keyColNames);
+    }
+
+    /**
+     * Creates column metadata from column and table name.
+     *
+     * @param tblName Table name.
+     * @param col Column.
+     * @return Column metadata.
+     */
+    private JdbcColumnMeta createColumnMeta(String tblName, Column col) {
+        NativeType type = col.type();
+
+        int precision = -1;
+        int scale = -1;
+
+        if (type.spec() == NativeTypeSpec.NUMBER)
+            precision = ((NumberNativeType)type).precision();
+        else if (type.spec() == NativeTypeSpec.DECIMAL) {
+            precision = ((DecimalNativeType)type).precision();
+            scale = ((DecimalNativeType)type).scale();
+        }
+
+        return new JdbcColumnMeta(
+            getTblSchema(tblName),
+            getTblName(tblName),
+            col.name(),
+            Commons.nativeTypeToClass(col.type()),
+            precision,
+            scale,
+            col.nullable()
+        );
     }
 
     /**
