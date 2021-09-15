@@ -203,7 +203,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
                         ConfigurationNotificationsUtil.notifyListeners(
                             sr.getRoot(rootKey),
                             copy.getRoot(rootKey),
-                            ((DynamicConfiguration<InnerNode, ?>)cfgRef.get()),
+                            (DynamicConfiguration<InnerNode, ?>)cfgRef.get(),
                             storageRev.incrementAndGet(),
                             futures
                         );
