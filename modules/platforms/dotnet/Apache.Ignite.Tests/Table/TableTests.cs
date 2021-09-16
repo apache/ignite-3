@@ -418,10 +418,10 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestDeleteAllExactNonExistentKeysReturnsAllKeys()
         {
-            var skipped = await Table.DeleteAllExactAsync(new[] { GetTuple(1), GetTuple(2) });
+            var skipped = await Table.DeleteAllExactAsync(new[] { GetTuple(1, "1"), GetTuple(2, "2") });
 
             Assert.AreEqual(2, skipped.Count);
-            CollectionAssert.AreEquivalent(new[] { 1, 2 }, skipped.Select(x => (int)x[1]!).ToArray());
+            CollectionAssert.AreEquivalent(new[] { 1, 2 }, skipped.Select(x => (int)x[0]!).ToArray());
         }
 
         [Test]
@@ -437,7 +437,7 @@ namespace Apache.Ignite.Tests.Table
         public async Task TestDeleteAllExactExistingKeysReturnsEmptyListRemovesRecords()
         {
             await Table.UpsertAllAsync(new[] { GetTuple(1, "1"), GetTuple(2, "2") });
-            var skipped = await Table.DeleteAllExactAsync(new[] { GetTuple(1), GetTuple(2) });
+            var skipped = await Table.DeleteAllExactAsync(new[] { GetTuple(1, "1"), GetTuple(2, "2") });
 
             Assert.AreEqual(0, skipped.Count);
             Assert.IsNull(await Table.GetAsync(GetTuple(1)));
@@ -448,7 +448,7 @@ namespace Apache.Ignite.Tests.Table
         public async Task TestDeleteAllExactRemovesExistingRecordsReturnsNonExistentKeys()
         {
             await Table.UpsertAllAsync(new[] { GetTuple(1, "1"), GetTuple(2, "2"), GetTuple(3, "3") });
-            var skipped = await Table.DeleteAllExactAsync(new[] { GetTuple(1), GetTuple(2) });
+            var skipped = await Table.DeleteAllExactAsync(new[] { GetTuple(1, "1"), GetTuple(2, "22") });
 
             Assert.AreEqual(1, skipped.Count);
             Assert.IsNull(await Table.GetAsync(GetTuple(1)));

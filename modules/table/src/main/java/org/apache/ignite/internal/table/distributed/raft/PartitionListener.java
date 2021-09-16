@@ -283,7 +283,7 @@ public class PartitionListener implements RaftGroupListener {
             .collect(Collectors.toList());
 
         List<BinaryRow> res = storage.removeAll(keys).stream()
-            .map(skipped -> new ByteBufferRow(skipped.keyBytes()))
+            .map(skipped -> ((BinarySearchRow)skipped).sourceRow)
             .collect(Collectors.toList());
 
         clo.result(new MultiRowsResponse(res));
@@ -461,12 +461,16 @@ public class PartitionListener implements RaftGroupListener {
         /** Search key. */
         private final byte[] keyBytes;
 
+        /** Source row. */
+        private final BinaryRow sourceRow;
+
         /**
          * Constructor.
          *
          * @param row Row to search for.
          */
         BinarySearchRow(BinaryRow row) {
+            sourceRow = row;
             keyBytes = new byte[row.keySlice().capacity()];
 
             row.keySlice().get(keyBytes);
