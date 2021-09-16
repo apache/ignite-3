@@ -35,7 +35,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.InvokeClosure;
@@ -169,12 +168,11 @@ public class RocksDbStorage implements Storage {
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<DataRow> readAll(Collection<? extends SearchRow> keys) throws StorageException {
+    @Override public Collection<DataRow> readAll(List<? extends SearchRow> keys) throws StorageException {
         List<DataRow> res = new ArrayList<>(keys.size());
 
         try {
-            List<byte[]> keysList = keys.stream().map(SearchRow::keyBytes).collect(Collectors.toList());
-
+            List<byte[]> keysList = getKeys(keys);
             List<byte[]> valuesList = db.multiGetAsList(keysList);
 
             assert keys.size() == valuesList.size();
@@ -210,7 +208,7 @@ public class RocksDbStorage implements Storage {
     }
 
     /** {@inheritDoc} */
-    @Override public void writeAll(Collection<? extends DataRow> rows) throws StorageException {
+    @Override public void writeAll(List<? extends DataRow> rows) throws StorageException {
         try (WriteBatch batch = new WriteBatch();
              WriteOptions opts = new WriteOptions()) {
             for (DataRow row : rows) {
@@ -229,7 +227,7 @@ public class RocksDbStorage implements Storage {
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<DataRow> insertAll(Collection<? extends DataRow> rows) throws StorageException {
+    @Override public Collection<DataRow> insertAll(List<? extends DataRow> rows) throws StorageException {
         List<DataRow> cantInsert = new ArrayList<>();
 
         try (WriteBatch batch = new WriteBatch();
@@ -266,8 +264,8 @@ public class RocksDbStorage implements Storage {
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<DataRow> removeAll(Collection<? extends SearchRow> keys) {
-        List<DataRow> skippedRows = new ArrayList<>();
+    @Override public List<SearchRow> removeAll(List<? extends SearchRow> keys) {
+        List<SearchRow> skippedRows = new ArrayList<>();
 
         try (WriteBatch batch = new WriteBatch();
              WriteOptions opts = new WriteOptions()) {
@@ -280,7 +278,7 @@ public class RocksDbStorage implements Storage {
                 if (value != null)
                     data.delete(batch, keyBytes);
                 else
-                    skippedRows.add(new SimpleDataRow(keyBytes, value));
+                    skippedRows.add(key);
             }
 
             db.write(opts, batch);
@@ -293,36 +291,26 @@ public class RocksDbStorage implements Storage {
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<DataRow> removeAllExact(Collection<? extends DataRow> keyValues) {
+    @Override public Collection<DataRow> removeAllExact(List<? extends DataRow> keyValues) {
         List<DataRow> skippedRows = new ArrayList<>();
 
         try (WriteBatch batch = new WriteBatch();
              WriteOptions opts = new WriteOptions()) {
 
-            List<byte[]> keys = new ArrayList<>();
-            List<byte[]> expectedValues = new ArrayList<>();
-
-            for (DataRow keyValue : keyValues) {
-                byte[] keyBytes = keyValue.keyBytes();
-                byte[] valueBytes = keyValue.valueBytes();
-
-                keys.add(keyBytes);
-                expectedValues.add(valueBytes);
-            }
-
+            List<byte[]> keys = getKeys(keyValues);
             List<byte[]> values = db.multiGetAsList(keys);
 
-            assert values.size() == expectedValues.size();
+            assert values.size() == keyValues.size();
 
             for (int i = 0; i < keys.size(); i++) {
                 byte[] key = keys.get(i);
-                byte[] expectedValue = expectedValues.get(i);
+                byte[] expectedValue = keyValues.get(i).valueBytes();
                 byte[] value = values.get(i);
 
                 if (Arrays.equals(value, expectedValue))
                     data.delete(batch, key);
                 else
-                    skippedRows.add(new SimpleDataRow(key, value));
+                    skippedRows.add(keyValues.get(i));
             }
 
             db.write(opts, batch);
@@ -333,6 +321,7 @@ public class RocksDbStorage implements Storage {
 
         return skippedRows;
     }
+
 
     /** {@inheritDoc} */
     @Nullable
@@ -520,5 +509,19 @@ public class RocksDbStorage implements Storage {
     @TestOnly
     public Path getDbPath() {
         return dbPath;
+    }
+
+    /**
+     * Gets a list of key byte arrays.
+     * @param keyValues Key rows.
+     * @return List of keys as byte arrays.
+     */
+    private List<byte[]> getKeys(List<? extends SearchRow> keyValues) {
+        List<byte[]> keys = new ArrayList<>(keyValues.size());
+
+        for (SearchRow keyValue : keyValues)
+            keys.add(keyValue.keyBytes());
+
+        return keys;
     }
 }

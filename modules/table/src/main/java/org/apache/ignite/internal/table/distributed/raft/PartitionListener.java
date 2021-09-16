@@ -283,7 +283,7 @@ public class PartitionListener implements RaftGroupListener {
             .collect(Collectors.toList());
 
         List<BinaryRow> res = storage.removeAll(keys).stream()
-            .map(skipped -> new ByteBufferRow(skipped.valueBytes()))
+            .map(skipped -> new ByteBufferRow(skipped.keyBytes()))
             .collect(Collectors.toList());
 
         clo.result(new MultiRowsResponse(res));

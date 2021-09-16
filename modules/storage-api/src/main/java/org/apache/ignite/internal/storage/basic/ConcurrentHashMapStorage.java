@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -55,7 +56,7 @@ public class ConcurrentHashMapStorage implements Storage {
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<DataRow> readAll(Collection<? extends SearchRow> keys) {
+    @Override public Collection<DataRow> readAll(List<? extends SearchRow> keys) {
         return keys.stream()
             .map(this::read)
             .filter(Objects::nonNull)
@@ -68,12 +69,12 @@ public class ConcurrentHashMapStorage implements Storage {
     }
 
     /** {@inheritDoc} */
-    @Override public void writeAll(Collection<? extends DataRow> rows) throws StorageException {
+    @Override public void writeAll(List<? extends DataRow> rows) throws StorageException {
         rows.forEach(this::write);
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<DataRow> insertAll(Collection<? extends DataRow> rows) throws StorageException {
+    @Override public Collection<DataRow> insertAll(List<? extends DataRow> rows) throws StorageException {
         return rows.stream()
             .map(row -> map.putIfAbsent(new ByteArray(row.keyBytes()), row.valueBytes()) == null ? null : row)
             .filter(Objects::nonNull)
@@ -86,8 +87,8 @@ public class ConcurrentHashMapStorage implements Storage {
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<DataRow> removeAll(Collection<? extends SearchRow> keys) {
-        var skippedRows = new ArrayList<DataRow>(keys.size());
+    @Override public Collection<SearchRow> removeAll(List<? extends SearchRow> keys) {
+        var skippedRows = new ArrayList<SearchRow>(keys.size());
 
         for (SearchRow key : keys) {
             byte[] keyBytes = key.keyBytes();
@@ -95,14 +96,14 @@ public class ConcurrentHashMapStorage implements Storage {
             byte[] removedValueBytes = map.remove(new ByteArray(keyBytes));
 
             if (removedValueBytes == null)
-                skippedRows.add(new SimpleDataRow(keyBytes, removedValueBytes));
+                skippedRows.add(key);
         }
 
         return skippedRows;
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<DataRow> removeAllExact(Collection<? extends DataRow> keyValues) {
+    @Override public Collection<DataRow> removeAllExact(List<? extends DataRow> keyValues) {
         var skippedRows = new ArrayList<DataRow>(keyValues.size());
 
         for (DataRow row : keyValues) {
