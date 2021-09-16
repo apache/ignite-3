@@ -340,6 +340,19 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
+        public async Task TestInsertAllEmptyCollectionDoesNothingReturnsEmptyList()
+        {
+            var res = await Table.InsertAllAsync(Array.Empty<IIgniteTuple>());
+            CollectionAssert.IsEmpty(res);
+        }
+
+        [Test]
+        public async Task TestUpsertAllEmptyCollectionDoesNothing()
+        {
+            await Table.UpsertAllAsync(Array.Empty<IIgniteTuple>());
+        }
+
+        [Test]
         public async Task TestGetAllReturnsRecordsForExistingKeys()
         {
             var records = Enumerable

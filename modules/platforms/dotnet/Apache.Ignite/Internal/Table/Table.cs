@@ -87,15 +87,17 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(keys, nameof(keys));
 
-            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            using var iterator = keys.GetEnumerator();
 
-            using var writer = new PooledArrayBufferWriter();
-            var count = WriteTuples(writer, schema, keys, keyOnly: true);
-
-            if (count == 0)
+            if (!iterator.MoveNext())
             {
                 return Array.Empty<IIgniteTuple>();
             }
+
+            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+
+            using var writer = new PooledArrayBufferWriter();
+            WriteTuples(writer, schema, iterator, keyOnly: true);
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGetAll, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
@@ -121,10 +123,17 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(records, nameof(records));
 
+            using var iterator = records.GetEnumerator();
+
+            if (!iterator.MoveNext())
+            {
+                return;
+            }
+
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
 
             using var writer = new PooledArrayBufferWriter();
-            var count = WriteTuples(writer, schema, records);
+            var count = WriteTuples(writer, schema, iterator);
 
             if (count == 0)
             {
@@ -169,15 +178,17 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(records, nameof(records));
 
-            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            using var iterator = records.GetEnumerator();
 
-            using var writer = new PooledArrayBufferWriter();
-            var count = WriteTuples(writer, schema, records);
-
-            if (count == 0)
+            if (!iterator.MoveNext())
             {
                 return Array.Empty<IIgniteTuple>();
             }
+
+            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+
+            using var writer = new PooledArrayBufferWriter();
+            WriteTuples(writer, schema, iterator);
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleInsertAll, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
@@ -278,15 +289,17 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(keys, nameof(keys));
 
-            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            using var iterator = keys.GetEnumerator();
 
-            using var writer = new PooledArrayBufferWriter();
-            var count = WriteTuples(writer, schema, keys, keyOnly: true);
-
-            if (count == 0)
+            if (!iterator.MoveNext())
             {
                 return Array.Empty<IIgniteTuple>();
             }
+
+            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+
+            using var writer = new PooledArrayBufferWriter();
+            WriteTuples(writer, schema, iterator, keyOnly: true);
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleDeleteAll, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
@@ -299,15 +312,17 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(records, nameof(records));
 
-            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+            using var iterator = records.GetEnumerator();
 
-            using var writer = new PooledArrayBufferWriter();
-            var count = WriteTuples(writer, schema, records);
-
-            if (count == 0)
+            if (!iterator.MoveNext())
             {
                 return Array.Empty<IIgniteTuple>();
             }
+
+            var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
+
+            using var writer = new PooledArrayBufferWriter();
+            WriteTuples(writer, schema, iterator);
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleDeleteAllExact, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
@@ -572,7 +587,7 @@ namespace Apache.Ignite.Internal.Table
         private int WriteTuples(
             PooledArrayBufferWriter buf,
             Schema schema,
-            IEnumerable<IIgniteTuple> tuples,
+            IEnumerator<IIgniteTuple> tuples,
             bool keyOnly = false)
         {
             var w = buf.GetMessageWriter();
@@ -584,8 +599,10 @@ namespace Apache.Ignite.Internal.Table
             var count = 0;
             var countPos = buf.ReserveInt32();
 
-            foreach (var tuple in tuples)
+            do
             {
+                var tuple = tuples.Current;
+
                 if (tuple == null)
                 {
                     throw new ArgumentException("Tuple collection can't contain null elements.");
@@ -594,6 +611,7 @@ namespace Apache.Ignite.Internal.Table
                 WriteTuple(ref w, schema, tuple, keyOnly);
                 count++;
             }
+            while (tuples.MoveNext()); // First MoveNext is called outside to check for empty IEnumerable.
 
             buf.WriteInt32(countPos, count);
 
