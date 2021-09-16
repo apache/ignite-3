@@ -416,6 +416,47 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
+        public async Task TestDeleteAllExactNonExistentKeysReturnsAllKeys()
+        {
+            var skipped = await Table.DeleteAllExactAsync(new[] { GetTuple(1), GetTuple(2) });
+
+            Assert.AreEqual(2, skipped.Count);
+            CollectionAssert.AreEquivalent(new[] { 1, 2 }, skipped.Select(x => (int)x[1]!).ToArray());
+        }
+
+        [Test]
+        public async Task TestDeleteAllExactExistingKeysDifferentValuesReturnsAllKeysDoesNotRemove()
+        {
+            await Table.UpsertAllAsync(new[] { GetTuple(1, "1"), GetTuple(2, "2") });
+            var skipped = await Table.DeleteAllExactAsync(new[] { GetTuple(1, "11"), GetTuple(2, "x") });
+
+            Assert.AreEqual(2, skipped.Count);
+        }
+
+        [Test]
+        public async Task TestDeleteAllExactExistingKeysReturnsEmptyListRemovesRecords()
+        {
+            await Table.UpsertAllAsync(new[] { GetTuple(1, "1"), GetTuple(2, "2") });
+            var skipped = await Table.DeleteAllExactAsync(new[] { GetTuple(1), GetTuple(2) });
+
+            Assert.AreEqual(0, skipped.Count);
+            Assert.IsNull(await Table.GetAsync(GetTuple(1)));
+            Assert.IsNull(await Table.GetAsync(GetTuple(2)));
+        }
+
+        [Test]
+        public async Task TestDeleteAllExactRemovesExistingRecordsReturnsNonExistentKeys()
+        {
+            await Table.UpsertAllAsync(new[] { GetTuple(1, "1"), GetTuple(2, "2"), GetTuple(3, "3") });
+            var skipped = await Table.DeleteAllExactAsync(new[] { GetTuple(1), GetTuple(2) });
+
+            Assert.AreEqual(1, skipped.Count);
+            Assert.IsNull(await Table.GetAsync(GetTuple(1)));
+            Assert.IsNull(await Table.GetAsync(GetTuple(2)));
+            Assert.IsNotNull(await Table.GetAsync(GetTuple(3)));
+        }
+
+        [Test]
         public void TestUpsertAllThrowsArgumentExceptionOnNullCollectionElement()
         {
             var ex = Assert.ThrowsAsync<ArgumentException>(
