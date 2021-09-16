@@ -133,12 +133,7 @@ namespace Apache.Ignite.Internal.Table
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
 
             using var writer = new PooledArrayBufferWriter();
-            var count = WriteTuples(writer, schema, iterator);
-
-            if (count == 0)
-            {
-                return;
-            }
+            WriteTuples(writer, schema, iterator);
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleUpsertAll, writer).ConfigureAwait(false);
         }
@@ -584,7 +579,7 @@ namespace Apache.Ignite.Internal.Table
             w.Flush();
         }
 
-        private int WriteTuples(
+        private void WriteTuples(
             PooledArrayBufferWriter buf,
             Schema schema,
             IEnumerator<IIgniteTuple> tuples,
@@ -616,8 +611,6 @@ namespace Apache.Ignite.Internal.Table
             buf.WriteInt32(countPos, count);
 
             w.Flush();
-
-            return count;
         }
 
         private void WriteTupleWithHeader(
