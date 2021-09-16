@@ -65,6 +65,9 @@ public class JdbcMetadataCatalog {
     /** Table type. */
     private static final String TBL_TYPE = "TABLE";
 
+    /** Default schema name. */
+    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
+
     /** Ignite tables interface. Used to get all the database metadata. */
     private final IgniteTables tables;
 
@@ -198,6 +201,9 @@ public class JdbcMetadataCatalog {
         SortedSet<String> schemas = new TreeSet<>(); // to have values sorted.
 
         String schemaNameRegex = translateSqlWildcardsToRegex(schemaNamePtrn);
+
+        if (matches(DEFAULT_SCHEMA_NAME, schemaNameRegex))
+            schemas.add(DEFAULT_SCHEMA_NAME);
 
         tables.tables().stream()
             .map(tbl -> getTblSchema(tbl.tableName()))
