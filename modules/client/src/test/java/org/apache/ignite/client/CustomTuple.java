@@ -31,7 +31,6 @@ import org.jetbrains.annotations.NotNull;
 /**
  * User-defined test {@link Tuple} implementation.
  */
-@SuppressWarnings("unchecked")
 public class CustomTuple implements Tuple {
     /** */
     private final Long id;
