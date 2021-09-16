@@ -74,7 +74,7 @@ namespace Apache.Ignite.Internal.Proto
         /// <param name="reader">Reader.</param>
         /// <returns>Nullable int.</returns>
         public static int? ReadInt32Nullable(this ref MessagePackReader reader) =>
-            reader.IsNil ? null : reader.ReadInt32();
+            reader.IsNil ? (int?)null : reader.ReadInt32();
 
         /// <summary>
         /// Skips multiple elements.
