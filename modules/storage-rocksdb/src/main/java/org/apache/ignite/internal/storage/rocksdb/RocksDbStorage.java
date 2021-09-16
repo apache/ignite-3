@@ -264,7 +264,7 @@ public class RocksDbStorage implements Storage {
     }
 
     /** {@inheritDoc} */
-    @Override public List<SearchRow> removeAll(List<? extends SearchRow> keys) {
+    @Override public Collection<SearchRow> removeAll(List<? extends SearchRow> keys) {
         List<SearchRow> skippedRows = new ArrayList<>();
 
         try (WriteBatch batch = new WriteBatch();
