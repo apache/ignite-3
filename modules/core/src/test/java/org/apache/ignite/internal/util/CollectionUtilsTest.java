@@ -22,9 +22,11 @@ import java.util.Set;
 import java.util.stream.StreamSupport;
 import org.junit.jupiter.api.Test;
 
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
 import static org.apache.ignite.internal.util.CollectionUtils.union;
+import static org.apache.ignite.internal.util.CollectionUtils.view;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -59,6 +61,29 @@ public class CollectionUtilsTest {
         assertEquals(Set.of(1), union(Set.of(), new Integer[] {1}));
 
         assertEquals(Set.of(1, 2), union(Set.of(1), new Integer[] {2}));
+    }
+
+    /** */
+    @Test
+    void testView() {
+        assertTrue(collect(view(null, null)).isEmpty());
+        assertTrue(collect(view(List.of(), null)).isEmpty());
+        assertTrue(collect(view(null, identity())).isEmpty());
+
+        assertEquals(
+            List.of("1", "2", "3"),
+            collect(view(List.of("1", "2", "3"), null))
+        );
+
+        assertEquals(
+            List.of("1", "2", "3"),
+            collect(view(List.of("1", "2", "3"), identity()))
+        );
+
+        assertEquals(
+            List.of(1, 2, 3),
+            collect(view(List.of("1", "2", "3"), Integer::valueOf))
+        );
     }
 
     /**

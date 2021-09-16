@@ -116,7 +116,8 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
      * @return Map from child keys to a corresponding {@link ConfigurationProperty}.
      */
     public Map<String, ConfigurationProperty<?, ?>> members() {
-        refreshValue();
+        if (!listenOnly)
+            refreshValue();
 
         return Collections.unmodifiableMap(members);
     }

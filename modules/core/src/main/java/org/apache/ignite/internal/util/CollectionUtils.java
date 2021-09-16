@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
 
 import static java.util.Collections.addAll;
@@ -112,7 +113,7 @@ public final class CollectionUtils {
      * @return Concatenation of iterables.
      */
     @SafeVarargs
-    public static <T> Iterable<? extends T> concat(@Nullable Iterable<? extends T>... iterables) {
+    public static <T> Iterable<T> concat(@Nullable Iterable<? extends T>... iterables) {
         if (iterables == null || iterables.length == 0)
             return Collections::emptyIterator;
         else {
@@ -137,6 +138,41 @@ public final class CollectionUtils {
                         throw new NoSuchElementException();
                     else
                         return curr.next();
+                }
+            };
+        }
+    }
+
+    /**
+     * Create a view for an iterable with conversion of elements.
+     *
+     * @param iterable Iterable.
+     * @param mapper Conversion function.
+     * @param <T1> Type of the elements.
+     * @param <T2> Converted type of the elements.
+     * @return View of iterable.
+     */
+    public static <T1, T2> Iterable<T2> view(
+        @Nullable Iterable<? extends T1> iterable,
+        @Nullable Function<? super T1, ? extends T2> mapper
+    ) {
+        if (iterable == null)
+            return Collections::emptyIterator;
+        else if (mapper == null)
+            return (Iterable<T2>)iterable;
+        else {
+            return () -> new Iterator<>() {
+                /** Current iterator. */
+                Iterator<? extends T1> iterator = iterable.iterator();
+
+                /** {@inheritDoc} */
+                @Override public boolean hasNext() {
+                    return iterator.hasNext();
+                }
+
+                /** {@inheritDoc} */
+                @Override public T2 next() {
+                    return mapper.apply(iterator.next());
                 }
             };
         }

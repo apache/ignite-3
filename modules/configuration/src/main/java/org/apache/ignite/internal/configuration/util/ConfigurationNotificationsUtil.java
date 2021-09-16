@@ -30,7 +30,6 @@ import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.internal.configuration.ConfigurationNode;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.DynamicProperty;
 import org.apache.ignite.internal.configuration.NamedListConfiguration;
@@ -41,11 +40,14 @@ import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.leafNodeVisitor;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.namedListNodeVisitor;
+import static org.apache.ignite.internal.util.CollectionUtils.concat;
+import static org.apache.ignite.internal.util.CollectionUtils.view;
 
 /** */
 public class ConfigurationNotificationsUtil {
     /**
      * Recursively notifies all public configuration listeners, accumulating resulting futures in {@code futures} list.
+     *
      * @param oldInnerNode Old configuration values root.
      * @param newInnerNode New configuration values root.
      * @param cfgNode Public configuration tree node corresponding to the current inner nodes.
@@ -59,10 +61,42 @@ public class ConfigurationNotificationsUtil {
         long storageRevision,
         List<CompletableFuture<?>> futures
     ) {
+        notifyListeners(oldInnerNode, newInnerNode, cfgNode, storageRevision, futures, List.of());
+    }
+
+    /**
+     * Recursively notifies all public configuration listeners, accumulating resulting futures in {@code futures} list.
+     *
+     * @param oldInnerNode Old configuration values root.
+     * @param newInnerNode New configuration values root.
+     * @param cfgNode Public configuration tree node corresponding to the current inner nodes.
+     * @param storageRevision Storage revision.
+     * @param futures Write-only list of futures to accumulate results.
+     * @param anyConfigs Current {@link NamedListConfiguration#any "any"} configurations.
+     */
+    private static void notifyListeners(
+        InnerNode oldInnerNode,
+        InnerNode newInnerNode,
+        DynamicConfiguration<InnerNode, ?> cfgNode,
+        long storageRevision,
+        List<CompletableFuture<?>> futures,
+        Iterable<DynamicConfiguration<InnerNode, ?>> anyConfigs
+    ) {
         assert !(cfgNode instanceof NamedListConfiguration);
 
         if (oldInnerNode == null || oldInnerNode == newInnerNode)
             return;
+
+        for (DynamicConfiguration<InnerNode, ?> anyConfig : anyConfigs) {
+            notifyPublicListeners(
+                anyConfig.listeners(),
+                oldInnerNode,
+                newInnerNode,
+                storageRevision,
+                futures,
+                ConfigurationListener::onUpdate
+            );
+        }
 
         notifyPublicListeners(
             cfgNode.listeners(),
@@ -73,18 +107,25 @@ public class ConfigurationNotificationsUtil {
             ConfigurationListener::onUpdate
         );
 
-        Map<String, ConfigurationProperty<?, ?>> cfgNodeMembers = cfgNode.members();
-
         oldInnerNode.traverseChildren(new ConfigurationVisitor<Void>() {
             /** {@inheritDoc} */
             @Override public Void visitLeafNode(String key, Serializable oldLeaf) {
                 Serializable newLeaf = newInnerNode.traverseChild(key, leafNodeVisitor(), true);
 
                 if (newLeaf != oldLeaf) {
-                    var dynProperty = (DynamicProperty<Serializable>)cfgNodeMembers.get(key);
+                    for (DynamicConfiguration<InnerNode, ?> anyConfig : anyConfigs) {
+                        notifyPublicListeners(
+                            dynamicProperty(anyConfig, key).listeners(),
+                            oldLeaf,
+                            newLeaf,
+                            storageRevision,
+                            futures,
+                            ConfigurationListener::onUpdate
+                        );
+                    }
 
                     notifyPublicListeners(
-                        dynProperty.listeners(),
+                        dynamicProperty(cfgNode, key).listeners(),
                         oldLeaf,
                         newLeaf,
                         storageRevision,
@@ -100,9 +141,14 @@ public class ConfigurationNotificationsUtil {
             @Override public Void visitInnerNode(String key, InnerNode oldNode) {
                 InnerNode newNode = newInnerNode.traverseChild(key, innerNodeVisitor(), true);
 
-                var dynCfg = (DynamicConfiguration<InnerNode, ?>)cfgNodeMembers.get(key);
-
-                notifyListeners(oldNode, newNode, dynCfg, storageRevision, futures);
+                notifyListeners(
+                    oldNode,
+                    newNode,
+                    dynamicConfig(cfgNode, key),
+                    storageRevision,
+                    futures,
+                    view(anyConfigs, cfg -> dynamicConfig(cfg, key))
+                );
 
                 return null;
             }
@@ -112,10 +158,19 @@ public class ConfigurationNotificationsUtil {
                 var newNamedList = (NamedListNode<InnerNode>)newInnerNode.traverseChild(key, namedListNodeVisitor(), true);
 
                 if (newNamedList != oldNamedList) {
-                    var namedListCfg = (NamedListConfiguration<?, InnerNode, ?>)cfgNodeMembers.get(key);
+                    for (DynamicConfiguration<InnerNode, ?> anyConfig : anyConfigs) {
+                        notifyPublicListeners(
+                            namedDynamicConfig(anyConfig, key).listeners(),
+                            (NamedListView<InnerNode>)oldNamedList,
+                            newNamedList,
+                            storageRevision,
+                            futures,
+                            ConfigurationListener::onUpdate
+                        );
+                    }
 
                     notifyPublicListeners(
-                        namedListCfg.listeners(),
+                        namedDynamicConfig(cfgNode, key).listeners(),
                         (NamedListView<InnerNode>)oldNamedList,
                         newNamedList,
                         storageRevision,
@@ -126,6 +181,8 @@ public class ConfigurationNotificationsUtil {
                     // This is optimization, we could use "NamedListConfiguration#get" directly, but we don't want to.
                     List<String> oldNames = oldNamedList.namedListKeys();
                     List<String> newNames = newNamedList.namedListKeys();
+
+                    NamedListConfiguration<?, InnerNode, ?> namedListCfg = namedDynamicConfig(cfgNode, key);
 
                     Map<String, ConfigurationProperty<?, ?>> namedListCfgMembers = namedListCfg.touchMembers();
 
@@ -157,11 +214,20 @@ public class ConfigurationNotificationsUtil {
                         }
                     }
 
-                    List<ConfigurationNamedListListener<InnerNode>> extListeners = namedListCfg.extendedListeners();
-
                     for (String name : created) {
+                        for (DynamicConfiguration<InnerNode, ?> anyConfig : anyConfigs) {
+                            notifyPublicListeners(
+                                namedDynamicConfig(anyConfig, key).extendedListeners(),
+                                null,
+                                newNamedList.get(name),
+                                storageRevision,
+                                futures,
+                                ConfigurationNamedListListener::onCreate
+                            );
+                        }
+
                         notifyPublicListeners(
-                            extListeners,
+                            namedDynamicConfig(cfgNode, key).extendedListeners(),
                             null,
                             newNamedList.get(name),
                             storageRevision,
@@ -173,8 +239,19 @@ public class ConfigurationNotificationsUtil {
                     }
 
                     for (String name : deleted) {
+                        for (DynamicConfiguration<InnerNode, ?> anyConfig : anyConfigs) {
+                            notifyPublicListeners(
+                                namedDynamicConfig(anyConfig, key).extendedListeners(),
+                                oldNamedList.get(name),
+                                null,
+                                storageRevision,
+                                futures,
+                                ConfigurationNamedListListener::onDelete
+                            );
+                        }
+
                         notifyPublicListeners(
-                            extListeners,
+                            namedDynamicConfig(cfgNode, key).extendedListeners(),
                             oldNamedList.get(name),
                             null,
                             storageRevision,
@@ -182,10 +259,21 @@ public class ConfigurationNotificationsUtil {
                             ConfigurationNamedListListener::onDelete
                         );
 
-                        var deletedProp = (ConfigurationNode<N, ?>)namedListCfgMembers.get(name);
+                        // Notification for deleted configuration.
+
+                        for (var anyConfig : view(anyConfigs, cfg -> any(namedDynamicConfig(cfg, key)))) {
+                            notifyPublicListeners(
+                                anyConfig.listeners(),
+                                oldNamedList.get(name),
+                                null,
+                                storageRevision,
+                                futures,
+                                ConfigurationListener::onUpdate
+                            );
+                        }
 
                         notifyPublicListeners(
-                            deletedProp.listeners(),
+                            ((DynamicConfiguration<InnerNode, ?>)namedListCfgMembers.get(name)).listeners(),
                             oldNamedList.get(name),
                             null,
                             storageRevision,
@@ -195,8 +283,19 @@ public class ConfigurationNotificationsUtil {
                     }
 
                     for (Map.Entry<String, String> entry : renamed.entrySet()) {
+                        for (DynamicConfiguration<InnerNode, ?> anyConfig : anyConfigs) {
+                            notifyPublicListeners(
+                                namedDynamicConfig(anyConfig, key).extendedListeners(),
+                                oldNamedList.get(entry.getKey()),
+                                newNamedList.get(entry.getValue()),
+                                storageRevision,
+                                futures,
+                                (listener, evt) -> listener.onRename(entry.getKey(), entry.getValue(), evt)
+                            );
+                        }
+
                         notifyPublicListeners(
-                            extListeners,
+                            namedDynamicConfig(cfgNode, key).extendedListeners(),
                             oldNamedList.get(entry.getKey()),
                             newNamedList.get(entry.getValue()),
                             storageRevision,
@@ -209,8 +308,19 @@ public class ConfigurationNotificationsUtil {
                         if (!oldNames.contains(name))
                             continue;
 
+                        for (DynamicConfiguration<InnerNode, ?> anyConfig : anyConfigs) {
+                            notifyPublicListeners(
+                                namedDynamicConfig(anyConfig, key).extendedListeners(),
+                                oldNamedList.get(name),
+                                newNamedList.get(name),
+                                storageRevision,
+                                futures,
+                                ConfigurationListener::onUpdate
+                            );
+                        }
+
                         notifyPublicListeners(
-                            extListeners,
+                            namedDynamicConfig(cfgNode, key).extendedListeners(),
                             oldNamedList.get(name),
                             newNamedList.get(name),
                             storageRevision,
@@ -218,9 +328,14 @@ public class ConfigurationNotificationsUtil {
                             ConfigurationListener::onUpdate
                         );
 
-                        var dynCfg = (DynamicConfiguration<InnerNode, ?>)namedListCfgMembers.get(name);
-
-                        notifyListeners(oldNamedList.get(name), newNamedList.get(name), dynCfg, storageRevision, futures);
+                        notifyListeners(
+                            oldNamedList.get(name),
+                            newNamedList.get(name),
+                            (DynamicConfiguration<InnerNode, ?>)namedListCfgMembers.get(name),
+                            storageRevision,
+                            futures,
+                            concat(view(anyConfigs, cfg -> any(namedDynamicConfig(cfg, key))), List.of(any(namedListCfg)))
+                        );
                     }
                 }
 
@@ -233,7 +348,7 @@ public class ConfigurationNotificationsUtil {
      * Invoke {@link ConfigurationListener#onUpdate(ConfigurationNotificationEvent)} on all passed listeners and put
      * results in {@code futures}. Not recursively.
      *
-     * @param listeners List o flisteners.
+     * @param listeners List o listeners.
      * @param oldVal Old configuration value.
      * @param newVal New configuration value.
      * @param storageRevision Storage revision.
@@ -250,23 +365,25 @@ public class ConfigurationNotificationsUtil {
         List<CompletableFuture<?>> futures,
         BiFunction<L, ConfigurationNotificationEvent<V>, CompletableFuture<?>> updater
     ) {
-        ConfigurationNotificationEvent<V> evt = new ConfigurationNotificationEventImpl<>(
-            oldVal,
-            newVal,
-            storageRevision
-        );
+        if (!listeners.isEmpty()) {
+            ConfigurationNotificationEvent<V> evt = new ConfigurationNotificationEventImpl<>(
+                oldVal,
+                newVal,
+                storageRevision
+            );
 
-        for (L listener : listeners) {
-            try {
-                CompletableFuture<?> future = updater.apply(listener, evt);
+            for (L listener : listeners) {
+                try {
+                    CompletableFuture<?> future = updater.apply(listener, evt);
 
-                assert future != null : updater;
+                    assert future != null : updater;
 
-                if (future.isCompletedExceptionally() || future.isCancelled() || !future.isDone())
-                    futures.add(future);
-            }
-            catch (Throwable t) {
-                futures.add(CompletableFuture.failedFuture(t));
+                    if (future.isCompletedExceptionally() || future.isCancelled() || !future.isDone())
+                        futures.add(future);
+                }
+                catch (Throwable t) {
+                    futures.add(CompletableFuture.failedFuture(t));
+                }
             }
         }
     }
@@ -283,5 +400,71 @@ public class ConfigurationNotificationsUtil {
             if (value instanceof DynamicConfiguration)
                 touch((DynamicConfiguration<?, ?>)value);
         }
+    }
+
+    /**
+     * Get the dynamic property of the leaf.
+     *
+     * @param dynamicConfig Dynamic configuration.
+     * @param nodeName Name of the child node.
+     * @return Dynamic property of a leaf.
+     */
+    private static DynamicProperty<Serializable> dynamicProperty(
+        DynamicConfiguration<InnerNode, ?> dynamicConfig,
+        String nodeName
+    ) {
+        return (DynamicProperty<Serializable>)dynamicConfig.members().get(nodeName);
+    }
+
+    /**
+     * Get the dynamic configuration of the child node.
+     *
+     * @param dynamicConfig Dynamic configuration.
+     * @param nodeName Name of the child node.
+     * @return Dynamic configuration of the child node.
+     */
+    private static DynamicConfiguration<InnerNode, ?> dynamicConfig(
+        DynamicConfiguration<InnerNode, ?> dynamicConfig,
+        String nodeName
+    ) {
+        return (DynamicConfiguration<InnerNode, ?>)dynamicConfig.members().get(nodeName);
+    }
+
+    /**
+     * Get the named dynamic configuration of the child node.
+     *
+     * @param dynamicConfig Dynamic configuration.
+     * @param nodeName Name of the child node.
+     * @return Named dynamic configuration of the child node.
+     */
+    private static NamedListConfiguration<?, InnerNode, ?> namedDynamicConfig(
+        DynamicConfiguration<InnerNode, ?> dynamicConfig,
+        String nodeName
+    ) {
+        return (NamedListConfiguration<?, InnerNode, ?>)dynamicConfig.members().get(nodeName);
+    }
+
+    /**
+     * Get the dynamic configuration of the {@link NamedListConfiguration#any any} node.
+     *
+     * @param namedConfig Dynamic configuration.
+     * @return Dynamic configuration of the "any" node.
+     */
+    private static DynamicConfiguration<InnerNode, ?> any(NamedListConfiguration<?, InnerNode, ?> namedConfig) {
+        return (DynamicConfiguration<InnerNode, ?>)namedConfig.any();
+    }
+
+    /**
+     * Get the dynamic configuration of the child node.
+     *
+     * @param namedConfig Named dynamic configuration.
+     * @param nodeName Name of the child node.
+     * @return Dynamic configuration of the child node.
+     */
+    private static DynamicConfiguration<InnerNode, ?> dynamicConfig(
+        NamedListConfiguration<?, InnerNode, ?> namedConfig,
+        String nodeName
+    ) {
+        return (DynamicConfiguration<InnerNode, ?>)namedConfig.members().get(nodeName);
     }
 }

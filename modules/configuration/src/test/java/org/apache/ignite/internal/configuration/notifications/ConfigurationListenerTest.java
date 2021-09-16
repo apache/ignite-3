@@ -24,16 +24,20 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import org.apache.ignite.configuration.ConfigurationException;
+import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -702,6 +706,320 @@ public class ConfigurationListenerTest {
 
         assertThrows(ConfigurationException.class, () -> any2.i().value());
         assertThrows(ConfigurationException.class, () -> any2.i().update(300));
+    }
+
+    /** */
+    @Test
+    void testAnyListeners() throws Exception {
+        List<String> events = new ArrayList<>();
+
+        // Add "regular" listeners.
+        configuration.listen(configListener(ctx -> events.add("root")));
+
+        configuration.child().listen(configListener(ctx -> events.add("root.child")));
+        configuration.child().str().listen(configListener(ctx -> events.add("root.child.str")));
+        configuration.child().child2().listen(configListener(ctx -> events.add("root.child.child2")));
+        configuration.child().child2().i().listen(configListener(ctx -> events.add("root.child.child2.i")));
+
+        configuration.elements().listen(configListener(ctx -> events.add("root.elements")));
+        configuration.elements().listenElements(configNamedListenerOnCreate(ctx -> events.add("root.elements.onCrt")));
+        configuration.elements().listenElements(configNamedListenerOnUpdate(ctx -> events.add("root.elements.onUpd")));
+        configuration.elements().listenElements(configNamedListenerOnRename(ctx -> events.add("root.elements.onRen")));
+        configuration.elements().listenElements(configNamedListenerOnDelete(ctx -> events.add("root.elements.onDel")));
+
+        configuration.elements().change(c -> c.create("0", doNothingConsumer())).get(1, SECONDS);
+
+        ChildConfiguration childCfg = this.configuration.elements().get("0");
+
+        childCfg.listen(configListener(ctx -> events.add("root.elements.0")));
+        childCfg.str().listen(configListener(ctx -> events.add("root.elements.0.str")));
+        childCfg.child2().listen(configListener(ctx -> events.add("root.elements.0.child2")));
+        childCfg.child2().i().listen(configListener(ctx -> events.add("root.elements.0.child2.i")));
+
+        NamedConfigurationTree<Child2Configuration, Child2View, Child2Change> elements2 = childCfg.elements2();
+
+        elements2.listen(configListener(ctx -> events.add("root.elements.0.elements2")));
+        elements2.listenElements(configNamedListenerOnCreate(ctx -> events.add("root.elements.0.elements2.onCrt")));
+        elements2.listenElements(configNamedListenerOnUpdate(ctx -> events.add("root.elements.0.elements2.onUpd")));
+        elements2.listenElements(configNamedListenerOnRename(ctx -> events.add("root.elements.0.elements2.onRen")));
+        elements2.listenElements(configNamedListenerOnDelete(ctx -> events.add("root.elements.0.elements2.onDel")));
+
+        elements2.change(c -> c.create("0", doNothingConsumer())).get(1, SECONDS);
+
+        Child2Configuration child2 = elements2.get("0");
+
+        child2.listen(configListener(ctx -> events.add("root.elements.0.elements2.0")));
+        child2.i().listen(configListener(ctx -> events.add("root.elements.0.elements2.0.i")));
+
+        // Adding "any" listeners.
+        ChildConfiguration anyChild = configuration.elements().any();
+
+        anyChild.listen(configListener(ctx -> events.add("root.elements.any")));
+        anyChild.str().listen(configListener(ctx -> events.add("root.elements.any.str")));
+        anyChild.child2().listen(configListener(ctx -> events.add("root.elements.any.child2")));
+        anyChild.child2().i().listen(configListener(ctx -> events.add("root.elements.any.child2.i")));
+
+        NamedConfigurationTree<Child2Configuration, Child2View, Child2Change> anyEl2 = anyChild.elements2();
+
+        anyEl2.listen(configListener(ctx -> events.add("root.elements.any.elements2")));
+        anyEl2.listenElements(configNamedListenerOnCreate(ctx -> events.add("root.elements.any.elements2.onCrt")));
+        anyEl2.listenElements(configNamedListenerOnUpdate(ctx -> events.add("root.elements.any.elements2.onUpd")));
+        anyEl2.listenElements(configNamedListenerOnRename(ctx -> events.add("root.elements.any.elements2.onRen")));
+        anyEl2.listenElements(configNamedListenerOnDelete(ctx -> events.add("root.elements.any.elements2.onDel")));
+
+        Child2Configuration anyChild2 = anyEl2.any();
+
+        anyChild2.listen(configListener(ctx -> events.add("root.elements.any.elements2.any")));
+        anyChild2.i().listen(configListener(ctx -> events.add("root.elements.any.elements2.any.i")));
+
+        childCfg.elements2().any().listen(configListener(ctx -> events.add("root.elements.0.elements2.any")));
+        childCfg.elements2().any().i().listen(configListener(ctx -> events.add("root.elements.0.elements2.any.i")));
+
+        // Tests.
+        checkListeners(
+            () -> configuration.child().change(c -> c.changeStr("x").changeChild2(c0 -> c0.changeI(100))),
+            List.of("root", "root.child", "root.child.str", "root.child.child2", "root.child.child2.i"),
+            events
+        );
+
+        checkListeners(
+            () -> configuration.elements().get("0").str().update("x"),
+            List.of(
+                "root",
+                "root.elements",
+                "root.elements.onUpd",
+                //
+                "root.elements.any",
+                "root.elements.0",
+                //
+                "root.elements.any.str",
+                "root.elements.0.str"
+            ),
+            events
+        );
+
+        checkListeners(
+            () -> configuration.elements().get("0").elements2().get("0").i().update(200),
+            List.of(
+                "root",
+                "root.elements",
+                "root.elements.onUpd",
+                //
+                "root.elements.any",
+                "root.elements.0",
+                //
+                "root.elements.any.elements2",
+                "root.elements.0.elements2",
+                "root.elements.any.elements2.onUpd",
+                "root.elements.0.elements2.onUpd",
+                //
+                "root.elements.any.elements2.any",
+                "root.elements.0.elements2.any",
+                "root.elements.0.elements2.0",
+                //
+                "root.elements.any.elements2.any.i",
+                "root.elements.0.elements2.any.i",
+                "root.elements.0.elements2.0.i"
+            ),
+            events
+        );
+
+        checkListeners(
+            () -> configuration.elements().get("0").elements2().change(c -> c.create("1", doNothingConsumer())),
+            List.of(
+                "root",
+                "root.elements",
+                "root.elements.onUpd",
+                //
+                "root.elements.any",
+                "root.elements.0",
+                //
+                "root.elements.any.elements2",
+                "root.elements.0.elements2",
+                "root.elements.any.elements2.onCrt",
+                "root.elements.0.elements2.onCrt",
+                //
+                "root.elements.any.elements2.onUpd",
+                "root.elements.0.elements2.onUpd"
+            ),
+            events
+        );
+
+        checkListeners(
+            () -> configuration.elements()
+                .change(c -> c.create("1", c0 -> c0.changeElements2(c1 -> c1.create("2", doNothingConsumer())))),
+            List.of(
+                "root",
+                "root.elements",
+                "root.elements.onCrt",
+                "root.elements.onUpd"
+            ),
+            events
+        );
+
+        checkListeners(
+            () -> configuration.elements().get("1").elements2().get("2").i().update(200),
+            List.of(
+                "root",
+                "root.elements",
+                "root.elements.onUpd",
+                "root.elements.onUpd",
+                //
+                "root.elements.any",
+                "root.elements.any.elements2",
+                "root.elements.any.elements2.onUpd",
+                "root.elements.any.elements2.any",
+                "root.elements.any.elements2.any.i"
+            ),
+            events
+        );
+
+        checkListeners(
+            () -> configuration.elements().get("1").elements2().change(c -> c.rename("2", "2x")),
+            List.of(
+                "root",
+                "root.elements",
+                "root.elements.onUpd",
+                "root.elements.onUpd",
+                //
+                "root.elements.any",
+                "root.elements.any.elements2",
+                "root.elements.any.elements2.onRen"
+            ),
+            events
+        );
+
+        checkListeners(
+            () -> configuration.elements().get("1").elements2().change(c -> c.delete("2x")),
+            List.of(
+                "root",
+                "root.elements",
+                "root.elements.onUpd",
+                "root.elements.onUpd",
+                //
+                "root.elements.any",
+                "root.elements.any.elements2",
+                "root.elements.any.elements2.onDel",
+                "root.elements.any.elements2.any"
+            ),
+            events
+        );
+    }
+
+    /**
+     * Helper method for testing listeners.
+     *
+     * @param changeFun Configuration change function.
+     * @param exp Expected list of executing listeners.
+     * @param act Reference to the list of executing listeners that is filled after the {@code changeFun} is executed.
+     * @throws Exception If failed.
+     */
+    private static void checkListeners(
+        Supplier<CompletableFuture<Void>> changeFun,
+        List<String> exp,
+        List<String> act
+    ) throws Exception {
+        act.clear();
+
+        changeFun.get().get(1, SECONDS);
+
+        assertEquals(exp, act);
+    }
+
+    /**
+     * @param consumer Consumer of the notification context.
+     * @return Config value change listener.
+     */
+    private static <T> ConfigurationListener<T> configListener(Consumer<ConfigurationNotificationEvent<T>> consumer) {
+        return ctx -> {
+            consumer.accept(ctx);
+
+            return completedFuture(null);
+        };
+    }
+
+    /**
+     * @param consumer Consumer of the notification context.
+     * @return Named config value change listener.
+     */
+    private static <T> ConfigurationNamedListListener<T> configNamedListenerOnUpdate(
+        Consumer<ConfigurationNotificationEvent<T>> consumer
+    ) {
+        return ctx -> {
+            consumer.accept(ctx);
+
+            return completedFuture(null);
+        };
+    }
+
+    /**
+     * @param consumer Consumer of the notification context.
+     * @return Named config value change listener.
+     */
+    private static <T> ConfigurationNamedListListener<T> configNamedListenerOnCreate(
+        Consumer<ConfigurationNotificationEvent<T>> consumer
+    ) {
+        return new ConfigurationNamedListListener<T>() {
+            /** {@inheritDoc} */
+            @Override public @NotNull CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<T> ctx) {
+                return completedFuture(null);
+            }
+
+            /** {@inheritDoc} */
+            @Override public @NotNull CompletableFuture<?> onCreate(@NotNull ConfigurationNotificationEvent<T> ctx) {
+                consumer.accept(ctx);
+
+                return completedFuture(null);
+            }
+        };
+    }
+
+    /**
+     * @param consumer Consumer of the notification context.
+     * @return Named config value change listener.
+     */
+    private static <T> ConfigurationNamedListListener<T> configNamedListenerOnRename(
+        Consumer<ConfigurationNotificationEvent<T>> consumer
+    ) {
+        return new ConfigurationNamedListListener<T>() {
+            /** {@inheritDoc} */
+            @Override public @NotNull CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<T> ctx) {
+                return completedFuture(null);
+            }
+
+            /** {@inheritDoc} */
+            @Override public @NotNull CompletableFuture<?> onRename(
+                @NotNull String oldName,
+                @NotNull String newName,
+                @NotNull ConfigurationNotificationEvent<T> ctx
+            ) {
+                consumer.accept(ctx);
+
+                return completedFuture(null);
+            }
+        };
+    }
+
+    /**
+     * @param consumer Consumer of the notification context.
+     * @return Named config value change listener.
+     */
+    private static <T> ConfigurationNamedListListener<T> configNamedListenerOnDelete(
+        Consumer<ConfigurationNotificationEvent<T>> consumer
+    ) {
+        return new ConfigurationNamedListListener<T>() {
+            /** {@inheritDoc} */
+            @Override public @NotNull CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<T> ctx) {
+                return completedFuture(null);
+            }
+
+            /** {@inheritDoc} */
+            @Override public @NotNull CompletableFuture<?> onDelete(@NotNull ConfigurationNotificationEvent<T> ctx) {
+                consumer.accept(ctx);
+
+                return completedFuture(null);
+            }
+        };
     }
 
     /**
