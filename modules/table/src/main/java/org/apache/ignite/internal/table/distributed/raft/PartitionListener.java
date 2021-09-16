@@ -243,7 +243,7 @@ public class PartitionListener implements RaftGroupListener {
             .collect(Collectors.toList());
 
         List<BinaryRow> res = storage.insertAll(keyValues).stream()
-            .map(inserted -> new ByteBufferRow(inserted.valueBytes()))
+            .map(skipped -> new ByteBufferRow(skipped.valueBytes()))
             .collect(Collectors.toList());
 
         clo.result(new MultiRowsResponse(res));
@@ -283,7 +283,7 @@ public class PartitionListener implements RaftGroupListener {
             .collect(Collectors.toList());
 
         List<BinaryRow> res = storage.removeAll(keys).stream()
-            .map(removed -> new ByteBufferRow(removed.valueBytes()))
+            .map(skipped -> new ByteBufferRow(skipped.valueBytes()))
             .collect(Collectors.toList());
 
         clo.result(new MultiRowsResponse(res));
@@ -323,7 +323,7 @@ public class PartitionListener implements RaftGroupListener {
             .collect(Collectors.toList());
 
         List<BinaryRow> res = storage.removeAllExact(keyValues).stream()
-            .map(inserted -> new ByteBufferRow(inserted.valueBytes()))
+            .map(skipped -> new ByteBufferRow(skipped.valueBytes()))
             .collect(Collectors.toList());
 
         clo.result(new MultiRowsResponse(res));

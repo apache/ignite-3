@@ -267,7 +267,7 @@ public class RocksDbStorage implements Storage {
 
     /** {@inheritDoc} */
     @Override public Collection<DataRow> removeAll(Collection<? extends SearchRow> keys) {
-        List<DataRow> res = new ArrayList<>();
+        List<DataRow> skippedRows = new ArrayList<>();
 
         try (WriteBatch batch = new WriteBatch();
              WriteOptions opts = new WriteOptions()) {
@@ -277,11 +277,10 @@ public class RocksDbStorage implements Storage {
 
                 byte[] value = data.get(keyBytes);
 
-                if (value != null) {
-                    res.add(new SimpleDataRow(keyBytes, value));
-
+                if (value != null)
                     data.delete(batch, keyBytes);
-                }
+                else
+                    skippedRows.add(new SimpleDataRow(keyBytes, value));
             }
 
             db.write(opts, batch);
@@ -290,12 +289,12 @@ public class RocksDbStorage implements Storage {
             throw new StorageException("Failed to remove data from the storage", e);
         }
 
-        return res;
+        return skippedRows;
     }
 
     /** {@inheritDoc} */
     @Override public Collection<DataRow> removeAllExact(Collection<? extends DataRow> keyValues) {
-        List<DataRow> res = new ArrayList<>();
+        List<DataRow> skippedRows = new ArrayList<>();
 
         try (WriteBatch batch = new WriteBatch();
              WriteOptions opts = new WriteOptions()) {
@@ -320,11 +319,10 @@ public class RocksDbStorage implements Storage {
                 byte[] expectedValue = expectedValues.get(i);
                 byte[] value = values.get(i);
 
-                if (Arrays.equals(value, expectedValue)) {
-                    res.add(new SimpleDataRow(key, value));
-
+                if (Arrays.equals(value, expectedValue))
                     data.delete(batch, key);
-                }
+                else
+                    skippedRows.add(new SimpleDataRow(key, value));
             }
 
             db.write(opts, batch);
@@ -333,7 +331,7 @@ public class RocksDbStorage implements Storage {
             throw new StorageException("Failed to remove data from the storage", e);
         }
 
-        return res;
+        return skippedRows;
     }
 
     /** {@inheritDoc} */

@@ -88,7 +88,7 @@ public interface Storage extends AutoCloseable {
      * Removes {@link DataRow}s mapped by given keys.
      *
      * @param keys Search rows.
-     * @return List of removed data rows.
+     * @return List of skipped data rows.
      * @throws StorageException If failed to remove the data or the storage is already stopped.
      */
     public Collection<DataRow> removeAll(Collection<? extends SearchRow> keys);
@@ -97,7 +97,7 @@ public interface Storage extends AutoCloseable {
      * Removes {@link DataRow}s mapped by given keys and containing given values.
      *
      * @param keyValues Data rows.
-     * @return List of removed data rows.
+     * @return List of skipped data rows.
      * @throws StorageException If failed to remove the data or the storage is already stopped.
      */
     public Collection<DataRow> removeAllExact(Collection<? extends DataRow> keyValues);

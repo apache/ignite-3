@@ -87,37 +87,36 @@ public class ConcurrentHashMapStorage implements Storage {
 
     /** {@inheritDoc} */
     @Override public Collection<DataRow> removeAll(Collection<? extends SearchRow> keys) {
-        var deletedRows = new ArrayList<DataRow>(keys.size());
+        var skippedRows = new ArrayList<DataRow>(keys.size());
 
         for (SearchRow key : keys) {
             byte[] keyBytes = key.keyBytes();
 
             byte[] removedValueBytes = map.remove(new ByteArray(keyBytes));
 
-            if (removedValueBytes != null)
-                deletedRows.add(new SimpleDataRow(keyBytes, removedValueBytes));
+            if (removedValueBytes == null)
+                skippedRows.add(new SimpleDataRow(keyBytes, removedValueBytes));
         }
 
-        return deletedRows;
+        return skippedRows;
     }
 
     /** {@inheritDoc} */
     @Override public Collection<DataRow> removeAllExact(Collection<? extends DataRow> keyValues) {
-        var deletedRows = new ArrayList<DataRow>(keyValues.size());
+        var skippedRows = new ArrayList<DataRow>(keyValues.size());
 
         for (DataRow row : keyValues) {
             var key = new ByteArray(row.keyBytes());
 
             byte[] existingValueBytes = map.get(key);
 
-            if (Arrays.equals(existingValueBytes, row.valueBytes())) {
+            if (Arrays.equals(existingValueBytes, row.valueBytes()))
                 map.remove(key);
-
-                deletedRows.add(row);
-            }
+            else
+                skippedRows.add(row);
         }
 
-        return deletedRows;
+        return skippedRows;
     }
 
     /** {@inheritDoc} */
