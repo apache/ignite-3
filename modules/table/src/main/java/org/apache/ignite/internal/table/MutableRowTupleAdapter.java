@@ -232,7 +232,7 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements S
 
     /** {@inheritDoc} */
     @Override public Tuple set(@NotNull String columnName, Object value) {
-        unmarshallRow();
+        unmarshalRow();
 
         tuple.set(columnName, value);
 
@@ -242,7 +242,7 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements S
     /**
      * Converts immutable row to mutable tuple.
      */
-    private void unmarshallRow() {
+    private void unmarshalRow() {
         if (tuple == null) {
             tuple = new TupleImpl(this);
 
@@ -261,7 +261,7 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements S
      * @throws ObjectStreamException If failed.
      */
     protected Object writeReplace() throws ObjectStreamException {
-        unmarshallRow();
+        unmarshalRow();
 
         return tuple;
     }

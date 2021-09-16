@@ -37,7 +37,6 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Abstract row tuple adapter.
  */
-@SuppressWarnings("unchecked")
 public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     /** Underlying row. */
     protected transient Row row;

@@ -37,7 +37,6 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Simple tuple implementation.
  */
-@SuppressWarnings("unchecked")
 public class TupleImpl implements Tuple, Serializable {
     /** Version UID. */
     private static final long serialVersionUID = 0L;
