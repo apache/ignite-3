@@ -139,7 +139,6 @@ public class JdbcPrimaryKeyMeta implements ClientMessage {
     @Override public boolean equals(Object o) {
         if (this == o)
             return true;
-
         if (o == null || getClass() != o.getClass())
             return false;
 
@@ -147,16 +146,16 @@ public class JdbcPrimaryKeyMeta implements ClientMessage {
 
         return Objects.equals(schemaName, meta.schemaName)
             && Objects.equals(tblName, meta.tblName)
-            && Objects.equals(name, meta.name);
+            && Objects.equals(name, meta.name)
+            && Objects.equals(fields, meta.fields);
     }
 
     /** {@inheritDoc} */
     @Override public int hashCode() {
-        int result = schemaName != null ? schemaName.hashCode() : 0;
-
+        int result = schemaName.hashCode();
         result = 31 * result + tblName.hashCode();
         result = 31 * result + name.hashCode();
-
+        result = 31 * result + (fields != null ? fields.hashCode() : 0);
         return result;
     }
 }

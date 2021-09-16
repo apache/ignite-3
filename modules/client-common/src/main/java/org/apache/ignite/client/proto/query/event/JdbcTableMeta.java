@@ -125,7 +125,10 @@ public class JdbcTableMeta extends Response {
 
     /** {@inheritDoc} */
     @Override public int hashCode() {
-        return Objects.hash(schemaName, tblName, tblType);
+        int result = schemaName.hashCode();
+        result = 31 * result + tblName.hashCode();
+        result = 31 * result + tblType.hashCode();
+        return result;
     }
 
     /** {@inheritDoc} */
