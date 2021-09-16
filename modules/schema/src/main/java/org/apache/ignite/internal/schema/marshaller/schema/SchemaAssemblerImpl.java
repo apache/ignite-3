@@ -31,9 +31,9 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 /**
  *
  */
-public class SchemaAssemblerImpl extends AbstractSchemaAssembler {
+public class SchemaAssemblerImpl extends AbstractSchemaSerializer {
     /** Instance. */
-    public static final AbstractSchemaAssembler INSTANCE = new SchemaAssemblerImpl();
+    public static final AbstractSchemaSerializer INSTANCE = new SchemaAssemblerImpl();
 
     /** Schema version. */
     private static final byte SCHEMA_VER = 1;

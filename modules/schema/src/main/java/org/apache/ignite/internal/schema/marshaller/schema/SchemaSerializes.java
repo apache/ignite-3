@@ -23,7 +23,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 /**
  *
  */
-public interface SchemaAssembler {
+public interface SchemaSerializes {
     /**
      * @param desc
      * @param byteBuf

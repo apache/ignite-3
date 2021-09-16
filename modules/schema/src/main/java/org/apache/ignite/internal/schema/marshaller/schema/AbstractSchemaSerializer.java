@@ -23,28 +23,28 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 /**
  *
  */
-public abstract class AbstractSchemaAssembler implements SchemaAssembler {
-    /** Version. */
+public abstract class AbstractSchemaSerializer implements SchemaSerializes {
+    /** Schema serializer version. */
     protected final byte version;
 
-    /** Previous assembler version. */
-    protected final AbstractSchemaAssembler previousVersion;
+    /** Previous version serializer. */
+    protected final AbstractSchemaSerializer previous;
 
     /**
      * @param ver Assembler version.
-     * @param previousVer Previous assembler version.
+     * @param previous Previous version serializer.
      */
-    protected AbstractSchemaAssembler(byte ver, AbstractSchemaAssembler previousVer) {
+    protected AbstractSchemaSerializer(byte ver, AbstractSchemaSerializer previous) {
         this.version = ver;
-        this.previousVersion = previousVer;
+        this.previous = previous;
     }
 
     /**
      * @param ver Assembler version.
      */
-    protected AbstractSchemaAssembler(byte ver) {
+    protected AbstractSchemaSerializer(byte ver) {
         this.version = ver;
-        this.previousVersion = null;
+        this.previous = null;
     }
 
     /**
@@ -77,13 +77,13 @@ public abstract class AbstractSchemaAssembler implements SchemaAssembler {
      * @param ver
      * @return
      */
-    private SchemaAssembler getAssemblerByVersion(byte ver) {
+    private SchemaSerializes getAssemblerByVersion(byte ver) {
         if (ver == this.version)
             return this;
-        else if (this.previousVersion == null)
+        else if (this.previous == null)
             throw new IllegalArgumentException();
 
-        return this.previousVersion.getAssemblerByVersion(ver);
+        return this.previous.getAssemblerByVersion(ver);
     }
 
     /**

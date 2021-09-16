@@ -21,7 +21,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.schema.AbstractSchemaAssembler;
+import org.apache.ignite.internal.schema.marshaller.schema.AbstractSchemaSerializer;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaAssemblerImpl;
 import org.junit.jupiter.api.Test;
 
@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class AbstractAssemblerTest {
     @Test
     public void test() {
-        AbstractSchemaAssembler assembler = SchemaAssemblerImpl.INSTANCE;
+        AbstractSchemaSerializer assembler = SchemaAssemblerImpl.INSTANCE;
 
         SchemaDescriptor desc = new SchemaDescriptor(UUID.randomUUID(), 100500,
             new Column[] {

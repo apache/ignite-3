@@ -46,7 +46,7 @@ import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
-import org.apache.ignite.internal.schema.marshaller.schema.AbstractSchemaAssembler;
+import org.apache.ignite.internal.schema.marshaller.schema.AbstractSchemaSerializer;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaAssemblerImpl;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
@@ -96,7 +96,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     private final Map<UUID, SchemaRegistryImpl> schemaRegs = new ConcurrentHashMap<>();
 
     /** Schema assembler. */
-    private final AbstractSchemaAssembler assembler = SchemaAssemblerImpl.INSTANCE;
+    private final AbstractSchemaSerializer assembler = SchemaAssemblerImpl.INSTANCE;
 
     /**
      * The constructor.
