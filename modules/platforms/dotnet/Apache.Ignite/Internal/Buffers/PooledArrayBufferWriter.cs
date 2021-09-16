@@ -155,7 +155,7 @@ namespace Apache.Ignite.Internal.Buffers
         }
 
         /// <summary>
-        /// Reserves space for an int32 value and returns it's position.
+        /// Reserves space for an int32 value and returns its position.
         /// </summary>
         /// <returns>Reserved int position. To be used with <see cref="WriteInt32"/>.</returns>
         public int ReserveInt32()
