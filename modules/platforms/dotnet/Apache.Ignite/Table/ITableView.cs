@@ -95,7 +95,7 @@ namespace Apache.Ignite.Table
         Task<IList<T>> InsertAllAsync(IEnumerable<T> records);
 
         /// <summary>
-        /// Replaces a record with the same key columns if it exists.
+        /// Replaces a record with the same key columns if it exists, otherwise does nothing.
         /// </summary>
         /// <param name="record">Record to insert.</param>
         /// <returns>
@@ -157,7 +157,7 @@ namespace Apache.Ignite.Table
         Task<T?> GetAndDeleteAsync(T key);
 
         /// <summary>
-        /// Deletes multiple records.
+        /// Deletes multiple records. If one or more keys do not exist, other records are still deleted.
         /// </summary>
         /// <param name="keys">Record keys to delete.</param>
         /// <returns>
@@ -167,7 +167,8 @@ namespace Apache.Ignite.Table
         Task<IList<T>> DeleteAllAsync(IEnumerable<T> keys);
 
         /// <summary>
-        /// Deletes multiple exactly matching records.
+        /// Deletes multiple exactly matching records.  If one or more records do not exist,
+        /// other records are still deleted.
         /// </summary>
         /// <param name="records">Records to delete.</param>
         /// <returns>
