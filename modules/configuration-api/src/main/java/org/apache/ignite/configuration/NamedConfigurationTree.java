@@ -44,8 +44,10 @@ public interface NamedConfigurationTree<T extends ConfigurationProperty<VIEW, CH
      */
     void listenElements(ConfigurationNamedListListener<VIEW> listener);
 
-    // TODO: add descriptions.
     /**
+     * Get a placeholder that only allows you to add listeners to
+     * track configuration changes, as well as the entire sub-configuration.
+     *
      * @return Placeholder to add listeners for any configuration.
      */
     T any();

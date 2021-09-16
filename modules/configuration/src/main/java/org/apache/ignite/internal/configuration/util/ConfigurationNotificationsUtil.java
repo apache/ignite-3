@@ -30,6 +30,7 @@ import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.configuration.ConfigurationNode;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.DynamicProperty;
 import org.apache.ignite.internal.configuration.NamedListConfiguration;
@@ -273,7 +274,7 @@ public class ConfigurationNotificationsUtil {
                         }
 
                         notifyPublicListeners(
-                            ((DynamicConfiguration<InnerNode, ?>)namedListCfgMembers.get(name)).listeners(),
+                            ((ConfigurationNode<N, ?>)namedListCfgMembers.get(name)).listeners(),
                             oldNamedList.get(name),
                             null,
                             storageRevision,
@@ -304,10 +305,10 @@ public class ConfigurationNotificationsUtil {
                         );
                     }
 
-                    for (String name : newNames) {
-                        if (!oldNames.contains(name))
-                            continue;
+                    Set<String> updated = new HashSet<>(newNames);
+                    updated.retainAll(oldNames);
 
+                    for (String name : updated) {
                         for (DynamicConfiguration<InnerNode, ?> anyConfig : anyConfigs) {
                             notifyPublicListeners(
                                 namedDynamicConfig(anyConfig, key).extendedListeners(),
