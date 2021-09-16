@@ -41,7 +41,11 @@ public class TupleImpl implements Tuple, Serializable {
     /** Version UID. */
     private static final long serialVersionUID = 0L;
 
-    /** Column name -&gt; index mapping. */
+    /**
+     * Column name -&gt; index mapping.
+     * <p>
+     * Note: Transient because it's recoverable from {@link #colNames}.
+     */
     private transient Map<String, Integer> colIdxMap;
 
     /** Columns names. */
@@ -310,7 +314,7 @@ public class TupleImpl implements Tuple, Serializable {
     }
 
     /**
-     * Deserializes, then rebuilds column name-&gt;index mapping.
+     * Deserializes object.
      *
      * @param in Input object stream.
      * @throws IOException            If failed.
@@ -319,6 +323,7 @@ public class TupleImpl implements Tuple, Serializable {
     private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
         in.defaultReadObject();
 
+        // Recover column name->index mapping.
         colIdxMap = new HashMap<>(colNames.size());
 
         for (int i = 0; i < colNames.size(); i++)

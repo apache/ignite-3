@@ -38,7 +38,10 @@ import org.jetbrains.annotations.NotNull;
  * Abstract row tuple adapter.
  */
 public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
-    /** Underlying row. */
+    /**
+     * Underlying row.
+     * Note: Marked transient to prevent unwanted serialization of the schema and\or other context.
+     */
     protected transient Row row;
 
     /**
@@ -80,20 +83,20 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
 
         final Column col = row.schema().column(columnName);
 
-        return col == null ? defaultValue : (T) col.type().spec().objectValue(row, col.schemaIndex());
+        return col == null ? defaultValue : (T)col.type().spec().objectValue(row, col.schemaIndex());
     }
 
     /** {@inheritDoc} */
     @Override public <T> T value(@NotNull String columnName) {
         final Column col = rowColumnByName(columnName);
 
-        return (T) col.type().spec().objectValue(row, col.schemaIndex());
+        return (T)col.type().spec().objectValue(row, col.schemaIndex());
     }
 
     @Override public <T> T value(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return (T) col.type().spec().objectValue(row, col.schemaIndex());
+        return (T)col.type().spec().objectValue(row, col.schemaIndex());
     }
 
 
@@ -329,7 +332,8 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     }
 
     /**
-     * Returns row column for index.
+     * Returns row column for given column index.
+     *
      * @param columnIndex Column index.
      * @return Column.
      */

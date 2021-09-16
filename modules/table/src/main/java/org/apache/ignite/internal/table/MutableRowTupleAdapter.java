@@ -35,9 +35,34 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Mutable tuple adapter for a row.
+ * Adapter provides Tuple access methods and mutability for a Row.
+ * <p>
+ * Once adapter get created, it delegates all data access methods to the {@link #row}.
+ * <p>
+ * Mutability.
+ * Underlying Row is immutable serialized object and can't be mutated directly.
+ * Because of this fact, first call of {@link #set(String, Object)} method implies the Row conversion to a Tuple.
+ * <p>
+ * After the first mutation the {@link #tuple} becomes a full copy of {@link #row},
+ * all data access methods delegate to a {@link #tuple}, and the {@link #row} one is no longer useful.
+ * The adapter acts as simple schema-less tuple {@link TupleImpl} and {@link #schema()} return null.
+ * <p>
+ * Serialization.
+ * Row access methods implicitly require a context (schema) for a binary data reading, The context may be huge
+ * comparing to a row data, and its serialization is unwanted.
+ * So, Row firstly is converted to Tuple.
+ * <p>
+ * Because of after that the adapter will act as underlying tuple {@link TupleImpl},
+ * the adapter will be substituted unconditionally with the tuple itself during deserialization.
+ *
+ * @see TupleImpl
+ * @see #unmarshalRow()
+ * @see #writeReplace()
  */
 public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements Serializable {
+    // Default constructor and serialVersionUID not needed because, actually,
+    // this object never get serialized, it's unconditionally substituted during serialization.
+
     /** Tuple with overwritten data. */
     protected TupleImpl tuple;
 
