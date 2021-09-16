@@ -20,7 +20,7 @@ package org.apache.ignite.internal.processors.query.calcite.exec;
 import java.util.List;
 import java.util.UUID;
 
-import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.processors.query.calcite.SqlCursor;
 
 /**
  *
@@ -34,7 +34,7 @@ public interface ExecutionService {
      * @param params Query parameters.
      * @return Query cursor.
      */
-    List<Cursor<List<?>>> executeQuery(String schema, String query, Object[] params);
+    List<SqlCursor<List<?>>> executeQuery(String schema, String query, Object[] params);
 
     /**
      * Cancels a running query.
