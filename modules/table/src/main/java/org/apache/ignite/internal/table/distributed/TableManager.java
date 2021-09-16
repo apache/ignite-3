@@ -27,7 +27,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -125,33 +124,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final Map<IgniteUuid, TableImpl> tablesById = new ConcurrentHashMap<>();
 
     /**
-     * tableId -> future that adds an ability to await distributed table creation on local node from within the context
-     * of user's table creation intention.
-     *
-     * In other words, awaiting local {@link TableManager#createTableLocally(String, IgniteUuid, List, SchemaDescriptor)}
-     * from within {@link TableManager#createTableAsync(String, Consumer, boolean)}
-     */
-    private final Map<IgniteUuid, CompletableFuture<Table>> createTblIntention = new ConcurrentHashMap<>();
-
-    /**
-     * tableId -> future that adds an ability to await distributed table alter on local node from within the context
-     * of user's table alter intention.
-     *
-     * In other words, awaiting local alter table as a reaction on distributed event
-     * from within {@link TableManager#createTableAsync(String, Consumer, boolean)}
-     */
-    private final Map<IgniteUuid, CompletableFuture<Void>> alterTblIntention = new ConcurrentHashMap<>();
-
-    /**
-     * tableId -> future that adds an ability to await distributed table drop on local node from within the context
-     * of user's table drop intention.
-     *
-     * In other words, awaiting local {@link TableManager#dropTableLocally(String, IgniteUuid, List)}
-     * from within {@link TableManager#dropTableAsync(String)}
-     */
-    private final Map<IgniteUuid, CompletableFuture<Void>> dropTblIntention = new ConcurrentHashMap<>();
-
-    /**
      * Creates a new table manager.
      *
      * @param clusterCfgMgr Cluster configuration manager.
@@ -199,11 +171,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         fromBytes(schemasCtx.newValue().schema()));
 
                                 fireEvent(TableEvent.ALTER, new TableEventParameters(tablesById.get(tblId)), null);
-
-                                Optional.ofNullable(alterTblIntention.get(tblId)).ifPresent(f -> f.complete(null));
                             }
                             catch (Exception e) {
-                                Optional.ofNullable(alterTblIntention.get(tblId)).ifPresent(f -> f.completeExceptionally(e));
+                                fireEvent(TableEvent.ALTER, new TableEventParameters(tblId, ctx.newValue().name()), e);
                             }
 
                             return CompletableFuture.completedFuture(null);
@@ -345,11 +315,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 tablesById.put(tblId, table);
 
                 fireEvent(TableEvent.CREATE, new TableEventParameters(table), null);
-
-                Optional.ofNullable(createTblIntention.get(tblId)).ifPresent(f -> f.complete(table));
             }
             catch (Exception e) {
-                Optional.ofNullable(createTblIntention.get(tblId)).ifPresent(f -> f.completeExceptionally(e));
+                fireEvent(TableEvent.CREATE, new TableEventParameters(tblId, name), e);
             }
         });
     }
@@ -376,11 +344,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             tablesById.remove(table.tableId());
 
             fireEvent(TableEvent.DROP, new TableEventParameters(table), null);
-
-            Optional.ofNullable(dropTblIntention.get(tblId)).ifPresent(f -> f.complete(null));
         }
         catch (Exception e) {
-            Optional.ofNullable(dropTblIntention.get(tblId)).ifPresent(f -> f.completeExceptionally(e));
+            fireEvent(TableEvent.DROP, new TableEventParameters(tblId, name), e);
         }
     }
 
@@ -443,7 +409,27 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             else {
                 IgniteUuid tblId = TABLE_ID_GENERATOR.randomUuid();
 
-                createTblIntention.put(tblId, new CompletableFuture<>());
+                EventListener<TableEventParameters> clo = new EventListener<>() {
+                    @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
+                        IgniteUuid notificationTblId = parameters.tableId();
+
+                        if (!tblId.equals(notificationTblId))
+                            return false;
+
+                        if (e == null)
+                            tblFut.complete(parameters.table());
+                        else
+                            tblFut.completeExceptionally(e);
+
+                        return true;
+                    }
+
+                    @Override public void remove(@NotNull Throwable e) {
+                        tblFut.completeExceptionally(e);
+                    }
+                };
+
+                listen(TableEvent.CREATE, clo);
 
                 clusterCfgMgr
                     .configurationRegistry()
@@ -484,21 +470,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             }
                         )
                     )
-                    .thenRun(() -> createTblIntention.get(tblId).thenApply(tblFut::complete)
-                        .thenRun(() -> createTblIntention.remove(tblId))
-                        .exceptionally(throwable -> {
-                            createTblIntention.remove(tblId);
-
-                            tblFut.completeExceptionally(new IgniteException(throwable));
-
-                            return null;
-                        }))
                     .exceptionally(t -> {
                         LOG.error(LoggerMessageHelper.format("Table wasn't created [name={}]", name), t);
 
-                        createTblIntention.remove(tblId);
-
-                        tblFut.completeExceptionally(new IgniteException(t));
+                        removeListener(TableEvent.CREATE, clo, new IgniteInternalCheckedException(t));
 
                         return null;
                     });
@@ -525,7 +500,27 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             else {
                 IgniteUuid tblId = ((TableImpl) tbl).tableId();
 
-                alterTblIntention.put(tblId, new CompletableFuture<>());
+                EventListener<TableEventParameters> clo = new EventListener<>() {
+                    @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
+                        IgniteUuid notificationTblId = parameters.tableId();
+
+                        if (!tblId.equals(notificationTblId))
+                            return false;
+
+                        if (e == null)
+                            tblFut.complete(null);
+                        else
+                            tblFut.completeExceptionally(e);
+
+                        return true;
+                    }
+
+                    @Override public void remove(@NotNull Throwable e) {
+                        tblFut.completeExceptionally(e);
+                    }
+                };
+
+                listen(TableEvent.ALTER, clo);
 
                 clusterCfgMgr.configurationRegistry()
                     .getConfiguration(TablesConfiguration.KEY).tables()
@@ -547,21 +542,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     )
                             ));
                     })
-                    .thenRun(() -> alterTblIntention.get(tblId).thenApply(tblFut::complete)
-                        .thenRun(() -> alterTblIntention.remove(tblId))
-                        .exceptionally(throwable -> {
-                            alterTblIntention.remove(tblId);
-
-                            tblFut.completeExceptionally(new IgniteException(throwable));
-
-                            return null;
-                        }))
                     .exceptionally(t -> {
                         LOG.error(LoggerMessageHelper.format("Table wasn't altered [name={}]", name), t);
 
-                        alterTblIntention.remove(tblId);
-
-                        tblFut.completeExceptionally(new IgniteException(t));
+                        removeListener(TableEvent.ALTER, clo, new IgniteInternalCheckedException(t));
 
                         return null;
                     });
@@ -588,35 +572,37 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             else {
                 IgniteUuid tblId = ((TableImpl) tbl).tableId();
 
-                dropTblIntention.putIfAbsent(tblId, new CompletableFuture<>());
+                EventListener<TableEventParameters> clo = new EventListener<>() {
+                    @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
+                        String tableName = parameters.tableName();
+
+                        if (!name.equals(tableName))
+                            return false;
+
+                        if (e == null)
+                            dropTblFut.complete(null);
+                        else
+                            dropTblFut.completeExceptionally(e);
+
+                        return true;
+                    }
+
+                    @Override public void remove(@NotNull Throwable e) {
+                        dropTblFut.completeExceptionally(e);
+                    }
+                };
+
+                listen(TableEvent.DROP, clo);
 
                 clusterCfgMgr
                     .configurationRegistry()
                     .getConfiguration(TablesConfiguration.KEY)
                     .tables()
                     .change(change -> change.delete(name))
-                    .thenRun(() -> {
-                        CompletableFuture<Void> dropTblIntentionFut = dropTblIntention.get(tblId);
-
-                        if (dropTblIntentionFut != null)
-                            dropTblIntentionFut.thenRun(() -> dropTblFut.complete(null))
-                                .thenRun(() -> createTblIntention.remove(tblId))
-                                .exceptionally(throwable -> {
-                                    createTblIntention.remove(tblId);
-
-                                    dropTblFut.completeExceptionally(new IgniteException(throwable));
-
-                                    return null;
-                                });
-                        else
-                            dropTblFut.complete(null);
-                    })
                     .exceptionally(t -> {
                         LOG.error(LoggerMessageHelper.format("Table wasn't dropped [name={}]", name), t);
 
-                        createTblIntention.remove(tblId);
-
-                        dropTblFut.completeExceptionally(new IgniteException(t));
+                        removeListener(TableEvent.DROP, clo, new IgniteInternalCheckedException(t));
 
                         return null;
                     });
@@ -725,7 +711,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * Gets a table if it exists or {@code null} if it was not created or was removed before.
      *
      * @param id Table ID.
-     * false otherwise.
      * @return A table or {@code null} if table does not exist.
      */
     @Override public TableImpl table(IgniteUuid id) {
