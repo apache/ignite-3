@@ -73,18 +73,14 @@ public class JdbcMetaTablesResult extends Response {
 
         int size = unpacker.unpackArrayHeader();
 
-        if (size == 0)
-            meta = Collections.emptyList();
-        else {
-            meta = new ArrayList<>(size);
+        meta = new ArrayList<>(size);
 
-            for (int i = 0; i < size; ++i) {
-                JdbcTableMeta m = new JdbcTableMeta();
+        for (int i = 0; i < size; ++i) {
+            JdbcTableMeta m = new JdbcTableMeta();
 
-                m.readBinary(unpacker);
+            m.readBinary(unpacker);
 
-                meta.add(m);
-            }
+            meta.add(m);
         }
     }
 
