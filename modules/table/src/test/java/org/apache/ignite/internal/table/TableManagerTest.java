@@ -416,6 +416,8 @@ public class TableManagerTest {
                 }
                 catch (NodeStoppingException e) {
                     LOG.error("Node was stopped during table creation.", e);
+
+                    fail();
                 }
 
                 if (phaser != null)
@@ -435,6 +437,8 @@ public class TableManagerTest {
         }
         catch (NodeStoppingException e) {
             LOG.error("Node was stopped during table creation.", e);
+
+            fail();
         }
         finally {
             tableManager.stop();

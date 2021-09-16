@@ -224,24 +224,25 @@ public class MetaStorageManager implements IgniteComponent {
         Optional<IgniteUuid> watchId;
 
         try {
-            watchId = deployFut.get(3, TimeUnit.SECONDS);
+            // If deployed future is not done, that means that stop was called in the middle of
+            // IgniteImpl.start, before deployWatches, or before init phase.
+            // It is correct to check completeness of the future because the method calls are guarded by busy lock.
+            // TODO: add busy lock for init method https://issues.apache.org/jira/browse/IGNITE-14414
+            if (deployFut.isDone()) {
+                watchId = deployFut.get();
+
+                try {
+                    if (watchId.isPresent())
+                        metaStorageSvcFut.get().stopWatch(watchId.get());
+                }
+                catch (InterruptedException | ExecutionException e) {
+                    LOG.error("Failed to get meta storage service.");
+
+                    throw new IgniteInternalException(e);
+                }
+            }
         } catch (InterruptedException | ExecutionException e) {
             LOG.error("Failed to get watch.");
-
-            throw new IgniteInternalException(e);
-        }
-        catch (TimeoutException e) {
-            LOG.warn("Metastorage watch has not been deployed");
-
-            watchId = Optional.empty();
-        }
-
-        try {
-            if (watchId.isPresent())
-                metaStorageSvcFut.get().stopWatch(watchId.get());
-        }
-        catch (InterruptedException | ExecutionException e) {
-            LOG.error("Failed to get meta storage service.");
 
             throw new IgniteInternalException(e);
         }
