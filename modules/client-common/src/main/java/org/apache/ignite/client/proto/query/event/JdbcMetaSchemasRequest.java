@@ -23,7 +23,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * JDBC tables metadata request.
+ * JDBC schemas request.
  */
 public class JdbcMetaSchemasRequest implements ClientMessage {
     /** Schema search pattern. */

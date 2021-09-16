@@ -74,7 +74,6 @@ public class JdbcColumnMeta extends Response {
      * Default constructor is used for serialization.
      */
     public JdbcColumnMeta() {
-        // No-op.
     }
 
     /**
@@ -241,19 +240,26 @@ public class JdbcColumnMeta extends Response {
             return false;
 
         JdbcColumnMeta meta = (JdbcColumnMeta)o;
-
-        return Objects.equals(schemaName, meta.schemaName)
+        return nullable == meta.nullable
+            && dataType == meta.dataType
+            && precision == meta.precision
+            && scale == meta.scale
+            && Objects.equals(schemaName, meta.schemaName)
             && Objects.equals(tblName, meta.tblName)
-            && Objects.equals(colName, meta.colName);
+            && Objects.equals(colName, meta.colName)
+            && Objects.equals(dataTypeName, meta.dataTypeName);
     }
 
     /** {@inheritDoc} */
     @Override public int hashCode() {
-        int result = schemaName != null ? schemaName.hashCode() : 0;
-
+        int result = (nullable ? 1 : 0);
+        result = 31 * result + (schemaName != null ? schemaName.hashCode() : 0);
         result = 31 * result + (tblName != null ? tblName.hashCode() : 0);
-        result = 31 * result + colName.hashCode();
-
+        result = 31 * result + (colName != null ? colName.hashCode() : 0);
+        result = 31 * result + dataType;
+        result = 31 * result + (dataTypeName != null ? dataTypeName.hashCode() : 0);
+        result = 31 * result + precision;
+        result = 31 * result + scale;
         return result;
     }
 

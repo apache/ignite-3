@@ -25,7 +25,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * JDBC tables metadata result.
+ * JDBC schemas result.
  */
 public class JdbcMetaSchemasResult extends Response {
     /** Found schemas. */

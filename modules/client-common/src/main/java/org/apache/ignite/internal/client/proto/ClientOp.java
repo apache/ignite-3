@@ -120,15 +120,15 @@ public class ClientOp {
     /** Close query cursor. */
     public static final int SQL_CURSOR_CLOSE = 37;
 
-    /** Close query cursor. */
+    /** Get table metadata. */
     public static final int SQL_TABLE_META = 38;
 
-    /** Close query cursor. */
+    /** Get column metadata. */
     public static final int SQL_COLUMN_META = 39;
 
-    /** Close query cursor. */
+    /** Get schemas list. */
     public static final int SQL_SCHEMAS_META = 40;
 
-    /** Close query cursor. */
+    /** Get primary key metadata. */
     public static final int SQL_PK_META = 41;
 }

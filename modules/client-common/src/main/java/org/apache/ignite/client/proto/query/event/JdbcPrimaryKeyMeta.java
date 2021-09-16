@@ -45,7 +45,6 @@ public class JdbcPrimaryKeyMeta implements ClientMessage {
      * Default constructor is used for binary serialization.
      */
     public JdbcPrimaryKeyMeta() {
-        // No-op.
     }
 
     /**
@@ -53,7 +52,7 @@ public class JdbcPrimaryKeyMeta implements ClientMessage {
      *
      * @param schemaName Schema.
      * @param tblName Table.
-     * @param name Name.
+     * @param name Primary key name.
      * @param fields Primary key fields.
      */
     public JdbcPrimaryKeyMeta(String schemaName, String tblName, String name, List<String> fields) {

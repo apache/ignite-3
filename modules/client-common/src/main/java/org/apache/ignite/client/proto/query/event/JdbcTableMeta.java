@@ -118,12 +118,14 @@ public class JdbcTableMeta extends Response {
 
         JdbcTableMeta meta = (JdbcTableMeta)o;
 
-        return Objects.equals(schemaName, meta.schemaName) && Objects.equals(tblName, meta.tblName);
+        return Objects.equals(schemaName, meta.schemaName)
+            && Objects.equals(tblName, meta.tblName)
+            && Objects.equals(tblType, meta.tblType);
     }
 
     /** {@inheritDoc} */
     @Override public int hashCode() {
-        return Objects.hash(schemaName, tblName);
+        return Objects.hash(schemaName, tblName, tblType);
     }
 
     /** {@inheritDoc} */

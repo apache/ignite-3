@@ -25,7 +25,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 
 /**
- * Client sql close request handler.
+ * Client sql schema metadata request handler.
  */
 public class ClientSqlSchemasMetadataRequest {
     /**

@@ -71,33 +71,33 @@ public interface JdbcQueryEventHandler {
     QueryCloseResult close(QueryCloseRequest req);
 
     /**
-     * {@link JdbcMetaTablesResult} command handler.
+     * {@link JdbcMetaTablesRequest} command handler.
      *
-     * @param req Execute query request.
+     * @param req Jdbc tables metadata request.
      * @return Result.
      */
     JdbcMetaTablesResult tablesMeta(JdbcMetaTablesRequest req);
 
     /**
-     * {@link JdbcMetaColumnsResult} command handler.
+     * {@link JdbcMetaColumnsRequest} command handler.
      *
-     * @param req Execute query request.
+     * @param req Jdbc columns metadata request.
      * @return Result.
      */
     JdbcMetaColumnsResult columnsMeta(JdbcMetaColumnsRequest req);
 
     /**
-     * {@link JdbcMetaSchemasResult} command handler.
+     * {@link JdbcMetaSchemasRequest} command handler.
      *
-     * @param req Execute query request.
+     * @param req Jdbc schemas metadata request.
      * @return Result.
      */
     JdbcMetaSchemasResult schemasMeta(JdbcMetaSchemasRequest req);
 
     /**
-     * {@link JdbcMetaPrimaryKeysResult} command handler.
+     * {@link JdbcMetaPrimaryKeysRequest} command handler.
      *
-     * @param req Execute query request.
+     * @param req Jdbc primary keys metadata request.
      * @return Result.
      */
     JdbcMetaPrimaryKeysResult primaryKeysMeta(JdbcMetaPrimaryKeysRequest req);
