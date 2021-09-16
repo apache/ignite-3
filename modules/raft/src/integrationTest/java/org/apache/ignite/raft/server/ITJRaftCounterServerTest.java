@@ -24,6 +24,8 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
@@ -125,10 +127,15 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
     @WorkDirectory
     private Path dataPath;
 
+    /** Executor for raft group services. */
+    private ScheduledExecutorService executor;
+
     /** */
     @BeforeEach
     void before() {
         LOG.info(">>>>>>>>>>>>>>> Start test method: {}", testInfo.getTestMethod().orElseThrow().getName());
+
+        executor = new ScheduledThreadPoolExecutor(20);
     }
 
     /** */
@@ -157,6 +164,8 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
             server.stop();
         }
+
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
         super.after();
 
@@ -204,7 +213,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         ClusterService clientNode = clusterService(CLIENT_PORT + clients.size(), List.of(addr), true);
 
         RaftGroupService client = RaftGroupServiceImpl.start(groupId, clientNode, FACTORY, 10_000,
-            List.of(new Peer(addr)), false, 200).get(3, TimeUnit.SECONDS);
+            List.of(new Peer(addr)), false, 200, executor).get(3, TimeUnit.SECONDS);
 
         clients.add(client);
 

@@ -20,11 +20,15 @@ package org.apache.ignite.internal.raft;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Peer;
@@ -32,6 +36,7 @@ import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
+import org.apache.ignite.raft.jraft.util.Utils;
 
 /**
  * Best raft manager ever since 1982.
@@ -52,6 +57,9 @@ public class Loza implements IgniteComponent {
     /** Raft server. */
     private final RaftServer raftServer;
 
+    /** Executor for raft group services. */
+    private ScheduledExecutorService executor;
+
     /**
      * Constructor.
      *
@@ -61,6 +69,9 @@ public class Loza implements IgniteComponent {
         this.clusterNetSvc = clusterNetSvc;
 
         this.raftServer = new JRaftServerImpl(clusterNetSvc, dataPath);
+
+        // The number of cores was taken jraft's TimeManager
+        this.executor = new ScheduledThreadPoolExecutor(Math.min(Utils.cpus() * 3, 20));
     }
 
     /** {@inheritDoc} */
@@ -71,6 +82,8 @@ public class Loza implements IgniteComponent {
     /** {@inheritDoc} */
     @Override public void stop() throws Exception {
         // TODO: IGNITE-15161 Implement component's stop.
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+
         raftServer.stop();
     }
 
@@ -103,7 +116,8 @@ public class Loza implements IgniteComponent {
             TIMEOUT,
             peers,
             true,
-            DELAY
+            DELAY,
+            executor
         );
     }
 

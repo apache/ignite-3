@@ -24,10 +24,13 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
@@ -46,6 +49,7 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -102,6 +106,9 @@ public class RaftGroupServiceTest {
     @Mock
     private MessagingService messagingService;
 
+    /** Executor for raft group services. */
+    private ScheduledExecutorService executor;
+
     /**
      * @param testInfo Test info.
      */
@@ -109,7 +116,17 @@ public class RaftGroupServiceTest {
     void before(TestInfo testInfo) {
         when(cluster.messagingService()).thenReturn(messagingService);
 
+        executor = new ScheduledThreadPoolExecutor(20);
+
         LOG.info(">>>> Starting test {}", testInfo.getTestMethod().orElseThrow().getName());
+    }
+
+    /**
+     * Shutdown executor for raft group services.
+     */
+    @AfterEach
+    void after() {
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
     }
 
     /**
@@ -122,7 +139,7 @@ public class RaftGroupServiceTest {
         mockLeaderRequest(false);
 
         RaftGroupService service =
-            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY).get(3, TimeUnit.SECONDS);
+            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, executor).get(3, TimeUnit.SECONDS);
 
         assertNull(service.leader());
 
@@ -144,7 +161,7 @@ public class RaftGroupServiceTest {
         leader = null;
 
         RaftGroupService service =
-            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY).get(3, TimeUnit.SECONDS);
+            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, executor).get(3, TimeUnit.SECONDS);
 
         assertNull(service.leader());
 
@@ -179,7 +196,7 @@ public class RaftGroupServiceTest {
         }, 500);
 
         RaftGroupService service =
-            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY).get(3, TimeUnit.SECONDS);
+            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, executor).get(3, TimeUnit.SECONDS);
 
         assertNull(service.leader());
 
@@ -198,7 +215,7 @@ public class RaftGroupServiceTest {
         mockLeaderRequest(true);
 
         RaftGroupService service =
-            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY).get(3, TimeUnit.SECONDS);
+            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, executor).get(3, TimeUnit.SECONDS);
 
         try {
             service.refreshLeader().get(500, TimeUnit.MILLISECONDS);
@@ -221,7 +238,7 @@ public class RaftGroupServiceTest {
         mockUserInput(false, null);
 
         RaftGroupService service =
-            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY).get(3, TimeUnit.SECONDS);
+            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, executor).get(3, TimeUnit.SECONDS);
 
         service.refreshLeader().get();
 
@@ -241,7 +258,7 @@ public class RaftGroupServiceTest {
         mockUserInput(false, null);
 
         RaftGroupService service =
-            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY).get(3, TimeUnit.SECONDS);
+            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, executor).get(3, TimeUnit.SECONDS);
 
         assertNull(service.leader());
 
@@ -263,7 +280,7 @@ public class RaftGroupServiceTest {
         mockUserInput(true, null);
 
         RaftGroupService service =
-            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY).get(3, TimeUnit.SECONDS);
+            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, executor).get(3, TimeUnit.SECONDS);
 
         try {
             service.run(new TestCommand()).get(500, TimeUnit.MILLISECONDS);
@@ -286,7 +303,7 @@ public class RaftGroupServiceTest {
         mockUserInput(false, null);
 
         RaftGroupService service =
-            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, true, DELAY).get(3, TimeUnit.SECONDS);
+            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, true, DELAY, executor).get(3, TimeUnit.SECONDS);
 
         Peer leader = this.leader;
 
@@ -317,7 +334,7 @@ public class RaftGroupServiceTest {
         mockUserInput(false, null);
 
         RaftGroupService service =
-            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, true, DELAY).get(3, TimeUnit.SECONDS);
+            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, true, DELAY, executor).get(3, TimeUnit.SECONDS);
 
         Peer leader = this.leader;
 
@@ -353,7 +370,7 @@ public class RaftGroupServiceTest {
         mockUserInput(false, NODES.get(0));
 
         RaftGroupService service =
-            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT * 3, NODES, true, DELAY).get(3, TimeUnit.SECONDS);
+            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT * 3, NODES, true, DELAY, executor).get(3, TimeUnit.SECONDS);
 
         Peer leader = this.leader;
 
@@ -391,7 +408,7 @@ public class RaftGroupServiceTest {
         mockUserInput(false, null);
 
         RaftGroupService service =
-            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, true, DELAY).get(3, TimeUnit.SECONDS);
+            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, true, DELAY, executor).get(3, TimeUnit.SECONDS);
 
         Peer leader = this.leader;
 
@@ -422,7 +439,7 @@ public class RaftGroupServiceTest {
         mockSnapshotRequest(1);
 
         RaftGroupService service =
-            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY).get(3, TimeUnit.SECONDS);
+            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, executor).get(3, TimeUnit.SECONDS);
 
         var addr = new NetworkAddress("localhost", 8082);
 
@@ -448,7 +465,7 @@ public class RaftGroupServiceTest {
         mockSnapshotRequest(0);
 
         RaftGroupService service =
-            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY).get(3, TimeUnit.SECONDS);
+            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, executor).get(3, TimeUnit.SECONDS);
 
         var addr = new NetworkAddress("localhost", 8082);
 

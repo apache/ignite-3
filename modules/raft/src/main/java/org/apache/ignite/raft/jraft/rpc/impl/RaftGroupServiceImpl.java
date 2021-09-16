@@ -22,13 +22,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
@@ -98,7 +96,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     private final long retryDelay;
 
     /** TODO: Use shared executors instead https://issues.apache.org/jira/browse/IGNITE-15136 */
-    private final ScheduledExecutorService executor = Executors.newScheduledThreadPool(1, new NamedThreadFactory("Raft-Group-Service-Pool"));
+    private final ScheduledExecutorService executor;
 
     /**
      * Constructor.
@@ -118,7 +116,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         int timeout,
         List<Peer> peers,
         Peer leader,
-        long retryDelay
+        long retryDelay,
+        ScheduledExecutorService executor
     ) {
         this.cluster = requireNonNull(cluster);
         this.peers = requireNonNull(peers);
@@ -128,6 +127,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         this.groupId = groupId;
         this.retryDelay = retryDelay;
         this.leader = leader;
+        this.executor = executor;
     }
 
     /**
@@ -149,9 +149,10 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         int timeout,
         List<Peer> peers,
         boolean getLeader,
-        long retryDelay
+        long retryDelay,
+        ScheduledExecutorService executor
     ) {
-        var service = new RaftGroupServiceImpl(groupId, cluster, factory, timeout, peers, null, retryDelay);
+        var service = new RaftGroupServiceImpl(groupId, cluster, factory, timeout, peers, null, retryDelay, executor);
 
         if (!getLeader)
             return CompletableFuture.completedFuture(service);

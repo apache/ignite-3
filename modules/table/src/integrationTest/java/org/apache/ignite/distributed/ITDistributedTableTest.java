@@ -27,6 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
@@ -49,6 +51,7 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.ClusterNode;
@@ -181,9 +184,11 @@ public class ITDistributedTableTest {
             conf
         );
 
+        ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(20);
+
         RaftGroupService partRaftGrp =
             RaftGroupServiceImpl
-                .start(grpId, client, FACTORY, 10_000, conf, true, 200)
+                .start(grpId, client, FACTORY, 10_000, conf, true, 200, executor)
                 .get(3, TimeUnit.SECONDS);
 
         Row testRow = getTestRow();
@@ -202,6 +207,8 @@ public class ITDistributedTableTest {
         assertEquals(testRow.longValue(1), new Row(SCHEMA, getFut.get().getValue()).longValue(1));
 
         partSrv.stop();
+
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
     }
 
     /**
@@ -260,6 +267,8 @@ public class ITDistributedTableTest {
 
         Map<Integer, RaftGroupService> partMap = new HashMap<>();
 
+        ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(20);
+
         for (List<ClusterNode> partNodes : assignment) {
             RaftServer rs = raftServers.get(partNodes.get(0));
 
@@ -273,7 +282,7 @@ public class ITDistributedTableTest {
                 conf
             );
 
-            RaftGroupService service = RaftGroupServiceImpl.start(grpId, client, FACTORY, 10_000, conf, true, 200)
+            RaftGroupService service = RaftGroupServiceImpl.start(grpId, client, FACTORY, 10_000, conf, true, 200, executor)
                 .get(3, TimeUnit.SECONDS);
 
             partMap.put(p, service);
@@ -307,6 +316,8 @@ public class ITDistributedTableTest {
         partitionedTableRecordView(tbl.recordView(), PARTS * 10);
 
         partitionedTableKeyValueView(tbl.keyValueView(), PARTS * 10);
+
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
     }
 
     /**
