@@ -286,9 +286,9 @@ class ClientTableCommon {
             boolean keyOnly,
             SchemaDescriptor schema
     ) {
-        var tuple = Tuple.create();
-
         var cnt = keyOnly ? schema.keyColumns().length() : schema.length();
+
+        var tuple = Tuple.create(cnt);
 
         for (int i = 0; i < cnt; i++) {
             if (unpacker.getNextFormat() == MessageFormat.NIL) {
@@ -310,7 +310,7 @@ class ClientTableCommon {
      */
     public static Tuple readTupleSchemaless(ClientMessageUnpacker unpacker) {
         var cnt = unpacker.unpackMapHeader();
-        var tuple = Tuple.create();
+        var tuple = Tuple.create(cnt);
 
         for (int i = 0; i < cnt; i++) {
             var colName = unpacker.unpackString();
