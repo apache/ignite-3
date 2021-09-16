@@ -45,11 +45,11 @@ import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 
-//TODO Filter by table type must be added after 'view' type will appear.
+//TODO IGNITE-15525 Filter by table type must be added after 'view' type will appear.
 /**
  * Facade over {@link IgniteTables} to get information about database entities in terms of JDBC.
  */
-public class JdbcMetadataInfo {
+public class JdbcMetadataCatalog {
     /** Table name separator. */
     private static final String TABLE_NAME_SEPARATOR = "\\.";
 
@@ -81,7 +81,7 @@ public class JdbcMetadataInfo {
      *
      * @param tables IgniteTables.
      */
-    public JdbcMetadataInfo(IgniteTables tables) {
+    public JdbcMetadataCatalog(IgniteTables tables) {
         this.tables = tables;
     }
 

@@ -32,7 +32,7 @@ import org.apache.ignite.client.handler.requests.sql.ClientSqlFetchRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlPrimaryKeyMetadataRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlSchemasMetadataRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlTableMetadataRequest;
-import org.apache.ignite.client.handler.requests.sql.JdbcMetadataInfo;
+import org.apache.ignite.client.handler.requests.sql.JdbcMetadataCatalog;
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableDropRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
@@ -103,7 +103,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
         this.igniteTables = igniteTables;
 
-        this.handler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataInfo(igniteTables));
+        this.handler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables));
     }
 
     /** {@inheritDoc} */
