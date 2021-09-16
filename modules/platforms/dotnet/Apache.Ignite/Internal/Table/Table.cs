@@ -90,7 +90,12 @@ namespace Apache.Ignite.Internal.Table
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
 
             using var writer = new PooledArrayBufferWriter();
-            WriteTuples(writer, schema, keys, keyOnly: true);
+            var count = WriteTuples(writer, schema, keys, keyOnly: true);
+
+            if (count == 0)
+            {
+                return Array.Empty<IIgniteTuple>();
+            }
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleGetAll, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
@@ -119,7 +124,12 @@ namespace Apache.Ignite.Internal.Table
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
 
             using var writer = new PooledArrayBufferWriter();
-            WriteTuples(writer, schema, records);
+            var count = WriteTuples(writer, schema, records);
+
+            if (count == 0)
+            {
+                return;
+            }
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleUpsertAll, writer).ConfigureAwait(false);
         }
@@ -162,7 +172,12 @@ namespace Apache.Ignite.Internal.Table
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
 
             using var writer = new PooledArrayBufferWriter();
-            WriteTuples(writer, schema, records);
+            var count = WriteTuples(writer, schema, records);
+
+            if (count == 0)
+            {
+                return Array.Empty<IIgniteTuple>();
+            }
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleInsertAll, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
@@ -266,7 +281,12 @@ namespace Apache.Ignite.Internal.Table
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
 
             using var writer = new PooledArrayBufferWriter();
-            WriteTuples(writer, schema, keys, keyOnly: true);
+            var count = WriteTuples(writer, schema, keys, keyOnly: true);
+
+            if (count == 0)
+            {
+                return Array.Empty<IIgniteTuple>();
+            }
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleDeleteAll, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
@@ -282,7 +302,12 @@ namespace Apache.Ignite.Internal.Table
             var schema = await GetLatestSchemaAsync().ConfigureAwait(false);
 
             using var writer = new PooledArrayBufferWriter();
-            WriteTuples(writer, schema, records);
+            var count = WriteTuples(writer, schema, records);
+
+            if (count == 0)
+            {
+                return Array.Empty<IIgniteTuple>();
+            }
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TupleDeleteAllExact, writer).ConfigureAwait(false);
             var resSchema = await ReadSchemaAsync(resBuf, schema).ConfigureAwait(false);
@@ -544,7 +569,7 @@ namespace Apache.Ignite.Internal.Table
             w.Flush();
         }
 
-        private void WriteTuples(
+        private int WriteTuples(
             PooledArrayBufferWriter buf,
             Schema schema,
             IEnumerable<IIgniteTuple> tuples,
@@ -573,6 +598,8 @@ namespace Apache.Ignite.Internal.Table
             buf.WriteInt32(countPos, count);
 
             w.Flush();
+
+            return count;
         }
 
         private void WriteTupleWithHeader(
