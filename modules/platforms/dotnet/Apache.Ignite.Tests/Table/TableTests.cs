@@ -407,9 +407,10 @@ namespace Apache.Ignite.Tests.Table
         public async Task TestDeleteAllRemovesExistingRecordsReturnsNonExistentKeys()
         {
             await Table.UpsertAllAsync(new[] { GetTuple(1, "1"), GetTuple(2, "2"), GetTuple(3, "3") });
-            var skipped = await Table.DeleteAllAsync(new[] { GetTuple(1), GetTuple(2) });
+            var skipped = await Table.DeleteAllAsync(new[] { GetTuple(1), GetTuple(2), GetTuple(4) });
 
             Assert.AreEqual(1, skipped.Count);
+            Assert.AreEqual(4, skipped[0][0]);
             Assert.IsNull(await Table.GetAsync(GetTuple(1)));
             Assert.IsNull(await Table.GetAsync(GetTuple(2)));
             Assert.IsNotNull(await Table.GetAsync(GetTuple(3)));
@@ -452,7 +453,7 @@ namespace Apache.Ignite.Tests.Table
 
             Assert.AreEqual(1, skipped.Count);
             Assert.IsNull(await Table.GetAsync(GetTuple(1)));
-            Assert.IsNull(await Table.GetAsync(GetTuple(2)));
+            Assert.IsNotNull(await Table.GetAsync(GetTuple(2)));
             Assert.IsNotNull(await Table.GetAsync(GetTuple(3)));
         }
 
