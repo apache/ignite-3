@@ -121,6 +121,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     ) {
         this.cluster = requireNonNull(cluster);
         this.peers = requireNonNull(peers);
+        this.learners = Collections.emptyList();
         this.factory = factory;
         this.timeout = timeout;
         this.groupId = groupId;
