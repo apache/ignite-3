@@ -24,6 +24,7 @@ import java.util.Objects;
 import org.apache.ignite.client.proto.query.ClientMessage;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * JDBC primary key metadata.
@@ -157,5 +158,10 @@ public class JdbcPrimaryKeyMeta implements ClientMessage {
         result = 31 * result + name.hashCode();
         result = 31 * result + (fields != null ? fields.hashCode() : 0);
         return result;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(JdbcPrimaryKeyMeta.class, this);
     }
 }
