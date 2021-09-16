@@ -262,9 +262,9 @@ public class ConfigurationNotificationsUtil {
 
                         // Notification for deleted configuration.
 
-                        for (var anyConfig : view(anyConfigs, cfg -> any(namedDynamicConfig(cfg, key)))) {
+                        for (DynamicConfiguration<InnerNode, ?> anyConfig : anyConfigs) {
                             notifyPublicListeners(
-                                anyConfig.listeners(),
+                                any(namedDynamicConfig(anyConfig, key)).listeners(),
                                 oldNamedList.get(name),
                                 null,
                                 storageRevision,
@@ -366,25 +366,26 @@ public class ConfigurationNotificationsUtil {
         List<CompletableFuture<?>> futures,
         BiFunction<L, ConfigurationNotificationEvent<V>, CompletableFuture<?>> updater
     ) {
-        if (!listeners.isEmpty()) {
-            ConfigurationNotificationEvent<V> evt = new ConfigurationNotificationEventImpl<>(
-                oldVal,
-                newVal,
-                storageRevision
-            );
+        if (listeners.isEmpty())
+            return;
 
-            for (L listener : listeners) {
-                try {
-                    CompletableFuture<?> future = updater.apply(listener, evt);
+        ConfigurationNotificationEvent<V> evt = new ConfigurationNotificationEventImpl<>(
+            oldVal,
+            newVal,
+            storageRevision
+        );
 
-                    assert future != null : updater;
+        for (L listener : listeners) {
+            try {
+                CompletableFuture<?> future = updater.apply(listener, evt);
 
-                    if (future.isCompletedExceptionally() || future.isCancelled() || !future.isDone())
-                        futures.add(future);
-                }
-                catch (Throwable t) {
-                    futures.add(CompletableFuture.failedFuture(t));
-                }
+                assert future != null : updater;
+
+                if (future.isCompletedExceptionally() || future.isCancelled() || !future.isDone())
+                    futures.add(future);
+            }
+            catch (Throwable t) {
+                futures.add(CompletableFuture.failedFuture(t));
             }
         }
     }
