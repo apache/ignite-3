@@ -362,7 +362,7 @@ public class PartitionCommandListenerTest {
             doAnswer(invocation -> {
                 MultiRowsResponse resp = invocation.getArgument(0);
 
-                if (existed) {
+                if (!existed) {
                     assertEquals(KEY_COUNT, resp.getValues().size());
 
                     for (BinaryRow binaryRow : resp.getValues()) {
@@ -371,7 +371,6 @@ public class PartitionCommandListenerTest {
                         int keyVal = row.intValue(0);
 
                         assertTrue(keyVal < KEY_COUNT);
-                        assertEquals(keyVal, row.intValue(1));
                     }
                 }
                 else
@@ -524,7 +523,7 @@ public class PartitionCommandListenerTest {
             doAnswer(invocation -> {
                 MultiRowsResponse resp = invocation.getArgument(0);
 
-                if (existed) {
+                if (!existed) {
                     assertEquals(KEY_COUNT, resp.getValues().size());
 
                     for (BinaryRow binaryRow : resp.getValues()) {
