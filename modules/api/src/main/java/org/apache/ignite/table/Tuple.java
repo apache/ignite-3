@@ -88,26 +88,26 @@ public interface Tuple extends Iterable<Object> {
      * that the first one contains.  If the second tuple fails to contain such a mapping, {@code false} is returned;
      * If the iteration completes, {@code true} is returned.
      *
-     * @param first First tuple to compare.
-     * @param second Second tuple to compare.
+     * @param firstTuple First tuple to compare.
+     * @param secondTuple Second tuple to compare.
      * @return {@code true} if the first tuple is equal to the second tuple.
      */
-    static boolean equals(Tuple first, Tuple second) {
-        if (first == second)
+    static boolean equals(Tuple firstTuple, Tuple secondTuple) {
+        if (firstTuple == secondTuple)
             return true;
 
-        int columns = first.columnCount();
+        int columns = firstTuple.columnCount();
 
-        if (columns != second.columnCount())
+        if (columns != secondTuple.columnCount())
             return false;
 
         for (int idx = 0; idx < columns; idx++) {
-            int idx2 = second.columnIndex(first.columnName(idx));
+            int idx2 = secondTuple.columnIndex(firstTuple.columnName(idx));
 
             if (idx2 < 0)
                 return false;
 
-            if (!Objects.equals(first.value(idx), second.value(idx2)))
+            if (!Objects.deepEquals(firstTuple.value(idx), secondTuple.value(idx2)))
                 return false;
         }
 

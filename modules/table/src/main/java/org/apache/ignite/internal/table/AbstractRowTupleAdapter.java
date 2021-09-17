@@ -60,7 +60,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
 
     /** {@inheritDoc} */
     @Override public int columnCount() {
-        return row.schema().length();
+        return row.hasValue() ? row.schema().length() : row.schema().keyColumns().length();
     }
 
     /** {@inheritDoc} */

@@ -424,7 +424,7 @@ public class MutableRowTupleAdapterTest {
 
         Tuple tup2 = deserializeTuple(serializeTuple(TableRow.tuple(row)));
 
-        assertTupleEquals(tup1, tup2);
+        checkTuples(schema, tup1, tup2);
     }
 
     @Test
@@ -477,8 +477,8 @@ public class MutableRowTupleAdapterTest {
         Tuple key2 = deserializeTuple(serializeTuple(TableRow.keyTuple(row)));
         Tuple val2 = deserializeTuple(serializeTuple(TableRow.valueTuple(row)));
 
-        assertTupleEquals(key1, key2);
-        assertTupleEquals(val1, val2);
+        assertEquals(key1, key2);
+        assertEquals(val1, val2);
     }
 
     /**
@@ -509,28 +509,6 @@ public class MutableRowTupleAdapterTest {
         }
 
         return baos.toByteArray();
-    }
-
-    /**
-     * Assert that {@code expected} and {@code actual} tuples are equal.
-     *
-     * @param expected Expected tuple.
-     * @param actual Actual tuple.
-     */
-    private void assertTupleEquals(Tuple expected, Tuple actual) {
-        assertEquals(expected.columnCount(), actual.columnCount(), "Tuple size mismatch");
-
-        for (int i = 0; i < expected.columnCount(); i++) {
-            String name = expected.columnName(i);
-
-            if (expected.value(i) instanceof byte[]) {
-                assertArrayEquals((byte[])expected.value(i), actual.value(actual.columnIndex(name)), "columnIdx=" + i);
-                assertArrayEquals((byte[])expected.value(name), actual.value(name), "columnName=" + name);
-            } else {
-                assertEquals((Object)expected.value(i), actual.value(actual.columnIndex(name)), "columnIdx=" + i);
-                assertEquals((Object)expected.value(name), actual.value(name), "columnName=" + name);
-            }
-        }
     }
 
     /**
