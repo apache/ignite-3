@@ -309,7 +309,7 @@ public final class ClientTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        var sb = new StringBuilder("ClientTupleBuilder [");
+        var sb = new StringBuilder("ClientTuple [");
 
         for (int i = 0; i < columnCount(); i++) {
             if (i > 0)
