@@ -27,6 +27,7 @@ import org.apache.ignite.configuration.validation.Immutable;
  * Extended table configuration schema class.
  */
 @InternalConfiguration
+// TODO: IGNITE-15480 Add id's to columns in order to properly process column renaming withing index context.
 public class ExtendedTableConfigurationSchema extends TableConfigurationSchema {
     /** Table id. String representation of {@link org.apache.ignite.lang.IgniteUuid}. */
     @Value

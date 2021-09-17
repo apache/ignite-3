@@ -531,14 +531,23 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 schemasCh ->
                                     schemasCh.createOrUpdate(
                                         String.valueOf(schemasCh.size() + 1),
-                                        schemaCh -> schemaCh.changeSchema(
-                                            ByteUtils.toBytes(
-                                                SchemaUtils.prepareSchemaDescriptor(
-                                                    ((ExtendedTableView)tblCh).schemas().size(),
-                                                    tblCh
-                                                )
-                                            )
-                                        )
+                                        schemaCh -> {
+                                            ExtendedTableView currTableView = (ExtendedTableView) clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().get(name).value();
+
+                                            SchemaDescriptor descriptor = SchemaUtils.prepareSchemaDescriptor(
+                                                ((ExtendedTableView)tblCh).schemas().size(),
+                                                tblCh
+                                            );
+
+                                            descriptor.columnMapping(SchemaUtils.columnMapper(
+                                                tablesById.get(tblId).schemaRegistry().schema(currTableView.schemas().size() -1),
+                                                currTableView,
+                                                descriptor,
+                                                tblCh
+                                            ));
+
+                                            schemaCh.changeSchema(ByteUtils.toBytes(descriptor));
+                                        }
                                     )
                             ));
                     })
