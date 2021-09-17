@@ -68,7 +68,6 @@ public class VersionedRowStore {
         List<BinaryRow> res = storage
             .readAll(keys)
             .stream()
-            .filter(DataRow::hasValueBytes)
             .map(read -> new ByteBufferRow(read.valueBytes()))
             .collect(Collectors.toList());
 
@@ -104,10 +103,7 @@ public class VersionedRowStore {
 
         DataRow oldRow = getAndReplace.oldRow();
 
-        if (oldRow.hasValueBytes())
-            return new ByteBufferRow(oldRow.valueBytes());
-        else
-            return null;
+        return oldRow == null ? null : new ByteBufferRow(oldRow.valueBytes());
     }
 
     /** {@inheritDoc} */
@@ -168,7 +164,6 @@ public class VersionedRowStore {
             .collect(Collectors.toList());
 
         List<BinaryRow> res = storage.insertAll(keyValues).stream()
-            .filter(DataRow::hasValueBytes)
             .map(inserted -> new ByteBufferRow(inserted.valueBytes()))
             .filter(BinaryRow::hasValue)
             .collect(Collectors.toList());
@@ -212,7 +207,7 @@ public class VersionedRowStore {
 
         DataRow oldRow = getAndReplace.oldRow();
 
-        return oldRow.hasValueBytes() ? new ByteBufferRow(oldRow.valueBytes()) : null;
+        return oldRow == null ? null : new ByteBufferRow(oldRow.valueBytes());
     }
 
     /** {@inheritDoc} */
@@ -244,7 +239,6 @@ public class VersionedRowStore {
             .collect(Collectors.toList());
 
         List<BinaryRow> res = storage.removeAll(keys).stream()
-            .filter(DataRow::hasValueBytes)
             .map(removed -> new ByteBufferRow(removed.valueBytes()))
             .filter(BinaryRow::hasValue)
             .collect(Collectors.toList());
@@ -259,7 +253,6 @@ public class VersionedRowStore {
             .collect(Collectors.toList());
 
         List<BinaryRow> res = storage.removeAllExact(keyValues).stream()
-            .filter(DataRow::hasValueBytes)
             .map(inserted -> new ByteBufferRow(inserted.valueBytes()))
             .filter(BinaryRow::hasValue)
             .collect(Collectors.toList());
@@ -344,8 +337,8 @@ public class VersionedRowStore {
      * @param row The row.
      * @return The value.
      */
-    private static Value extractValue(@NotNull DataRow row) {
-        if (!row.hasValueBytes())
+    private static Value extractValue(@Nullable DataRow row) {
+        if (row == null)
             return new Value(null, null, null);
 
         ByteBuffer buf = row.value();
