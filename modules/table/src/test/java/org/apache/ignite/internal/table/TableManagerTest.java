@@ -92,9 +92,6 @@ public class TableManagerTest {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(TableManagerTest.class);
 
-    /** Internal prefix for the metasorage. */
-    private static final String INTERNAL_PREFIX = "internal.tables.";
-
     /** Public prefix for metastorage. */
     private static final String PUBLIC_PREFIX = "dst-cfg.table.tables.";
 
@@ -125,15 +122,7 @@ public class TableManagerTest {
 
     /** Schema manager. */
     @Mock(lenient = true)
-    private SchemaUtils sm;
-
-    /** Schema manager. */
-    @Mock(lenient = true)
     private BaselineManager bm;
-
-    /** Affinity manager. */
-    @Mock(lenient = true)
-    private AffinityUtils am;
 
     /** Raft manager. */
     @Mock(lenient = true)
@@ -198,7 +187,13 @@ public class TableManagerTest {
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15255")
     @Test
     public void testStaticTableConfigured() {
-        TableManager tableManager = new TableManager(clusterCfgMgr, rm, bm, mm, workDir);
+        TableManager tableManager = new TableManager(
+            clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
+            rm,
+            bm,
+            mm,
+            workDir
+        );
 
         assertEquals(1, tableManager.tables().size());
 
@@ -361,7 +356,13 @@ public class TableManagerTest {
                 thenReturn(assignment);
         }
 
-        TableManager tableManager = new TableManager(clusterCfgMgr, rm, bm, mm, workDir);
+        TableManager tableManager = new TableManager(
+            clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
+            rm,
+            bm,
+            mm,
+            workDir
+        );
 
         TableImpl tbl2;
 

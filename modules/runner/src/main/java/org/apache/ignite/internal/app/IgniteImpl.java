@@ -194,7 +194,7 @@ public class IgniteImpl implements Ignite {
         );
 
         distributedTblMgr = new TableManager(
-            clusterCfgMgr,
+            clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
             raftMgr,
             baselineMgr,
             metaStorageMgr,

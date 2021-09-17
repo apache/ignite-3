@@ -41,7 +41,6 @@ import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableChange;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
@@ -100,8 +99,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** */
     private static final IgniteUuidGenerator TABLE_ID_GENERATOR = new IgniteUuidGenerator(UUID.randomUUID(), 0);
 
-    /** Cluster configuration manager. */
-    private final ConfigurationManager clusterCfgMgr;
+    /** Tables configuration. */
+    private final TablesConfiguration tablesCfg;
 
     /** Raft manager. */
     private final Loza raftMgr;
@@ -126,20 +125,20 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * Creates a new table manager.
      *
-     * @param clusterCfgMgr Cluster configuration manager.
+     * @param tablesCfg Tables configuration.
      * @param raftMgr Raft manager.
      * @param baselineMgr Baseline manager.
      * @param metaStorageMgr Meta storage manager.
      * @param partitionsStoreDir Partitions store directory.
      */
     public TableManager(
-        ConfigurationManager clusterCfgMgr,
+        TablesConfiguration tablesCfg,
         Loza raftMgr,
         BaselineManager baselineMgr,
         MetaStorageManager metaStorageMgr,
         Path partitionsStoreDir
     ) {
-        this.clusterCfgMgr = clusterCfgMgr;
+        this.tablesCfg = tablesCfg;
         this.raftMgr = raftMgr;
         this.baselineMgr = baselineMgr;
         this.metaStorageMgr = metaStorageMgr;
@@ -148,7 +147,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override public void start() {
-        clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().
+        tablesCfg.tables().
             listenElements(new ConfigurationNamedListListener<TableView>() {
             @Override
             public @NotNull CompletableFuture<?> onCreate(@NotNull ConfigurationNotificationEvent<TableView> ctx) {
@@ -160,8 +159,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 final IgniteUuid tblId = IgniteUuid.fromString(((ExtendedTableView)ctx.newValue()).id());
 
                 // TODO: IGNITE-15409 Listener with any placeholder should be used instead.
-                ((ExtendedTableConfiguration) clusterCfgMgr.configurationRegistry().
-                    getConfiguration(TablesConfiguration.KEY).tables().get(ctx.newValue().name())).schemas().
+                ((ExtendedTableConfiguration)tablesCfg.tables().get(ctx.newValue().name())).schemas().
                     listenElements(new ConfigurationNamedListListener<>() {
                         @Override public @NotNull CompletableFuture<?> onCreate(
                             @NotNull ConfigurationNotificationEvent<SchemaView> schemasCtx) {
@@ -431,10 +429,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 listen(TableEvent.CREATE, clo);
 
-                clusterCfgMgr
-                    .configurationRegistry()
-                    .getConfiguration(TablesConfiguration.KEY)
-                    .tables()
+                tablesCfg.tables()
                     .change(
                         change -> change.create(
                             name,
@@ -442,9 +437,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 tableInitChange.accept(ch);
                                 ((ExtendedTableChange)ch).
                                     // Table id specification.
-                                    changeId(tblId.toString()).
+                                        changeId(tblId.toString()).
                                     // Affinity assignments calculation.
-                                    changeAssignments(
+                                        changeAssignments(
                                         ByteUtils.toBytes(
                                             AffinityUtils.calculateAssignments(
                                                 baselineMgr.nodes(),
@@ -454,7 +449,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         )
                                     ).
                                     // Table schema preparation.
-                                    changeSchemas(
+                                        changeSchemas(
                                         schemasCh -> schemasCh.create(
                                             String.valueOf(INITIAL_SCHEMA_VERSION),
                                             schemaCh -> schemaCh.changeSchema(
@@ -522,8 +517,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 listen(TableEvent.ALTER, clo);
 
-                clusterCfgMgr.configurationRegistry()
-                    .getConfiguration(TablesConfiguration.KEY).tables()
+                tablesCfg.tables()
                     .change(ch -> {
                         ch.createOrUpdate(name, tableChange);
                         ch.createOrUpdate(name, tblCh ->
@@ -532,7 +526,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     schemasCh.createOrUpdate(
                                         String.valueOf(schemasCh.size() + 1),
                                         schemaCh -> {
-                                            ExtendedTableView currTableView = (ExtendedTableView) clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().get(name).value();
+                                            ExtendedTableView currTableView = (ExtendedTableView)tablesCfg.tables().get(name).value();
 
                                             SchemaDescriptor descriptor = SchemaUtils.prepareSchemaDescriptor(
                                                 ((ExtendedTableView)tblCh).schemas().size(),
@@ -540,7 +534,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             );
 
                                             descriptor.columnMapping(SchemaUtils.columnMapper(
-                                                tablesById.get(tblId).schemaRegistry().schema(currTableView.schemas().size() -1),
+                                                tablesById.get(tblId).schemaRegistry().schema(currTableView.schemas().size() - 1),
                                                 currTableView,
                                                 descriptor,
                                                 tblCh
@@ -603,9 +597,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 listen(TableEvent.DROP, clo);
 
-                clusterCfgMgr
-                    .configurationRegistry()
-                    .getConfiguration(TablesConfiguration.KEY)
+                tablesCfg
                     .tables()
                     .change(change -> change.delete(name))
                     .exceptionally(t -> {
