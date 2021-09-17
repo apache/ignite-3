@@ -480,7 +480,7 @@ public class MutableRowTupleAdapterTest {
 
         Tuple rowKeyTuple = TableRow.keyTuple(row);
         Tuple rowValTuple = TableRow.valueTuple(row);
-        Tuple rowTuple = TableRow.tuple(new Row(schema, new ByteBufferRow(marshaller.marshal(valTuple).bytes())));
+        Tuple rowTuple = TableRow.tuple(new Row(schema, new ByteBufferRow(marshaller.marshal(tuple).bytes())));
 
         assertEquals(keyTuple, rowKeyTuple);
         assertEquals(rowKeyTuple, keyTuple);
