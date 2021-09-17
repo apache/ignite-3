@@ -89,7 +89,7 @@ public class JdbcStatementSelfTest extends AbstractJdbcSelfTest {
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("IGNITE-15187 + IGNITE-15108")
+    @Disabled("IGNITE-15108")
     public void testExecuteQuery0() throws Exception {
         ResultSet rs = stmt.executeQuery(SQL);
 
@@ -146,7 +146,7 @@ public class JdbcStatementSelfTest extends AbstractJdbcSelfTest {
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("IGNITE-15187 + IGNITE-15108")
+    @Disabled("IGNITE-15108")
     public void testExecute() throws Exception {
         assertTrue(stmt.execute(SQL));
 
@@ -186,7 +186,7 @@ public class JdbcStatementSelfTest extends AbstractJdbcSelfTest {
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("IGNITE-15187 + IGNITE-15108")
+    @Disabled("IGNITE-15108")
     public void testMaxRows() throws Exception {
         stmt.setMaxRows(1);
 
