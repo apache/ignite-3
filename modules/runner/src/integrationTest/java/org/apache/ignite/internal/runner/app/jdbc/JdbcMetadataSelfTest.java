@@ -154,7 +154,6 @@ public class JdbcMetadataSelfTest {
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("IGNITE-15187")
     public void testResultSetMetaData() throws Exception {
         Statement stmt = DriverManager.getConnection(URL).createStatement();
 
