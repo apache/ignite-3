@@ -436,7 +436,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     /** {@inheritDoc} */
     @Override public void shutdown() {
-        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+
     }
 
     /**
