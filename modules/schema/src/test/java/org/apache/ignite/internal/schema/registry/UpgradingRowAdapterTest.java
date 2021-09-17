@@ -140,7 +140,7 @@ public class UpgradingRowAdapterTest {
             }
 
             @Override public Column mappedColumn(int idx) {
-                return  idx == addedColumnIndex ? schema2.column(idx) : null;
+                return idx == addedColumnIndex ? schema2.column(idx) : null;
             }
         });
 
