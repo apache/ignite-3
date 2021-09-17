@@ -220,4 +220,15 @@ public class CustomTuple implements Tuple {
     @NotNull @Override public Iterator<Object> iterator() {
         throw new UnsupportedOperationException();
     }
+
+    @Override public int hashCode() {
+        return Tuple.hashCode(this);
+    }
+
+    @Override public boolean equals(Object obj) {
+        if (obj instanceof Tuple)
+            return Tuple.equals(this, (Tuple)obj);
+
+        return false;
+    }
 }

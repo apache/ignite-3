@@ -314,6 +314,19 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
         };
     }
 
+    /** {@inheritDoc} */
+    @Override public int hashCode() {
+        return Tuple.hashCode(this);
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean equals(Object obj) {
+        if (obj instanceof Tuple)
+            return Tuple.equals(this, (Tuple)obj);
+
+        return false;
+    }
+
     /**
      * Returns row column for name.
      *

@@ -313,6 +313,19 @@ public class TupleImpl implements Tuple, Serializable {
         };
     }
 
+    /** {@inheritDoc} */
+    @Override public int hashCode() {
+        return Tuple.hashCode(this);
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean equals(Object obj) {
+        if (obj instanceof Tuple)
+            return Tuple.equals(this, (Tuple)obj);
+
+        return false;
+    }
+
     /**
      * Deserializes object.
      *
