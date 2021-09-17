@@ -21,7 +21,10 @@ package org.apache.ignite.internal.schema.marshaller.schema;
  *
  */
 public final class Size {
-    /** Array header length. */
+    /** String array length. */
+    public static final int STRING_HEADER = 4;
+
+    /** Array length. */
     public static final int ARRAY_HEADER_LENGTH = 4;
 
     /** Boolean. */
@@ -35,9 +38,6 @@ public final class Size {
 
     /** Int. */
     public static final int INT = 4;
-
-    /** Long. */
-    public static final int LONG = 8;
 
     private Size() {
 

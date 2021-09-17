@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.schema.marshaller.schema;
 
 import java.nio.ByteBuffer;
-import java.util.UUID;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.DecimalNativeType;
@@ -31,26 +30,24 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 /**
  *
  */
-public class SchemaAssemblerImpl extends AbstractSchemaSerializer {
+public class SchemaSerializerImpl extends AbstractSchemaSerializer {
     /** Instance. */
-    public static final AbstractSchemaSerializer INSTANCE = new SchemaAssemblerImpl();
+    public static final AbstractSchemaSerializer INSTANCE = new SchemaSerializerImpl();
 
     /** Schema version. */
-    private static final byte SCHEMA_VER = 1;
+    private static final short SCHEMA_VER = 1;
 
     /**
      * Default constructor.
      */
-    public SchemaAssemblerImpl() {
+    public SchemaSerializerImpl() {
         super(SCHEMA_VER);
     }
 
     /** {@inheritDoc} */
     @Override public byte[] bytes(SchemaDescriptor desc, ByteBuffer byteBuf) {
-        byteBuf.put(SCHEMA_VER);
+        byteBuf.putShort(SCHEMA_VER);
         byteBuf.putInt(desc.version());
-
-        appendUUID(desc.tableId(), byteBuf);
 
         appendColumns(desc.keyColumns(), byteBuf);
         appendColumns(desc.valueColumns(), byteBuf);
@@ -68,7 +65,6 @@ public class SchemaAssemblerImpl extends AbstractSchemaSerializer {
     /** {@inheritDoc} */
     @Override public SchemaDescriptor value(ByteBuffer byteBuf) {
         int ver = byteBuf.getInt();
-        UUID tblId = readUUID(byteBuf);
 
         Column[] keyCols = readColumns(byteBuf);
         Column[] valCols = readColumns(byteBuf);
@@ -80,17 +76,16 @@ public class SchemaAssemblerImpl extends AbstractSchemaSerializer {
         for (int i = 0; i < affinityColsSize; i++)
             affinityCols[i] = readString(byteBuf);
 
-        return new SchemaDescriptor(tblId, ver, keyCols, affinityCols, valCols);
+        return new SchemaDescriptor(ver, keyCols, affinityCols, valCols);
     }
 
     /** {@inheritDoc} */
     @Override public int size(SchemaDescriptor desc) {
-        return Size.BYTE + //Assembler version
-            Size.INT + //Descriptor version
-            Size.LONG + Size.LONG + //Table UUID
+        return Size.BYTE +                      //Assembler version
+            Size.INT +                          //Descriptor version
             getColumnsSize(desc.keyColumns()) +
             getColumnsSize(desc.valueColumns()) +
-            Size.ARRAY_HEADER_LENGTH + //Affinity columns length
+            Size.ARRAY_HEADER_LENGTH +          //Affinity columns length
             getStringArraySize(desc.affinityColumns());
     }
 
@@ -99,9 +94,9 @@ public class SchemaAssemblerImpl extends AbstractSchemaSerializer {
      * @return
      */
     private int getStringArraySize(Column[] cols) {
-        int size = Size.ARRAY_HEADER_LENGTH; //String array size header
+        int size = Size.ARRAY_HEADER_LENGTH;      //String array size header
         for (Column column : cols)
-            size += Size.ARRAY_HEADER_LENGTH + column.name().getBytes().length; //String size header  + byte array length
+            size += getStringSize(column.name());
 
         return size;
     }
@@ -114,40 +109,24 @@ public class SchemaAssemblerImpl extends AbstractSchemaSerializer {
         int size = Size.ARRAY_HEADER_LENGTH; //cols array length
 
         for (Column column : cols.columns())
-            size += Size.INT + //Schema index
-                Size.BOOL + //nullable flag
-                Size.ARRAY_HEADER_LENGTH + //name string byte length header
-                column.name().getBytes().length + //Column name string bytes length
-                Size.INT + //type size in bytes
-                Size.ARRAY_HEADER_LENGTH + //type spec name string byte length header
-                column.type().spec().name().getBytes().length + //type name string byte length
-                Size.INT + //type precision (DECIMAL AND NUMBER types)
-                Size.INT; //type scale (DECIMAL type)
+            size += Size.INT +                      //Schema index
+                Size.BOOL +                         //nullable flag
+                getStringSize(column.name()) +
+                Size.INT +                          //type size in bytes
+                getStringSize(column.type().spec().name()) +
+                Size.INT +                          //type precision (for DECIMAL AND NUMBER types)
+                Size.INT;                           //type scale (for DECIMAL type)
 
         return size;
     }
 
     /**
-     * @param id
-     * @param buf
-     */
-    private void appendUUID(UUID id, ByteBuffer buf) {
-        long bits = id.getMostSignificantBits();
-        long bits1 = id.getLeastSignificantBits();
-
-        buf.putLong(bits);
-        buf.putLong(bits1);
-    }
-
-    /**
-     * @param buf
+     * @param str
      * @return
      */
-    private UUID readUUID(ByteBuffer buf) {
-        long bits = buf.getLong();
-        long bits1 = buf.getLong();
-
-        return new UUID(bits, bits1);
+    private int getStringSize(String str) {
+        return Size.STRING_HEADER + //string byte array header
+            str.getBytes().length; // string byte array length
     }
 
     /**
@@ -173,6 +152,17 @@ public class SchemaAssemblerImpl extends AbstractSchemaSerializer {
         appendString(col.name(), buf);
         NativeType type = col.type();
         buf.putInt(type.sizeInBytes());
+
+        appendPrecisionAndScale(buf, type);
+
+        appendString(type.spec().name(), buf);
+    }
+
+    /**
+     * @param buf
+     * @param type
+     */
+    private void appendPrecisionAndScale(ByteBuffer buf, NativeType type) {
         int precision = 0;
         int scale = 0;
         if (type.spec() == NativeTypeSpec.DECIMAL) {
@@ -183,8 +173,6 @@ public class SchemaAssemblerImpl extends AbstractSchemaSerializer {
 
         buf.putInt(precision);
         buf.putInt(scale);
-
-        appendString(type.spec().name(), buf);
     }
 
     private void appendString(String name, ByteBuffer buf) {
@@ -232,12 +220,12 @@ public class SchemaAssemblerImpl extends AbstractSchemaSerializer {
      * @return
      */
     private String readString(ByteBuffer buf) {
-        int length = buf.getInt();
-        byte[] array = new byte[length];
+        int len = buf.getInt();
+        byte[] arr = new byte[len];
 
-        for (int i = 0; i < length; i++)
-            array[i] = buf.get();
+        for (int i = 0; i < len; i++)
+            arr[i] = buf.get();
 
-        return new String(array);
+        return new String(arr);
     }
 }

@@ -22,7 +22,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.schema.AbstractSchemaSerializer;
-import org.apache.ignite.internal.schema.marshaller.schema.SchemaAssemblerImpl;
+import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -31,9 +31,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class AbstractAssemblerTest {
     @Test
     public void test() {
-        AbstractSchemaSerializer assembler = SchemaAssemblerImpl.INSTANCE;
+        AbstractSchemaSerializer assembler = SchemaSerializerImpl.INSTANCE;
 
-        SchemaDescriptor desc = new SchemaDescriptor(UUID.randomUUID(), 100500,
+        SchemaDescriptor desc = new SchemaDescriptor( 100500,
             new Column[] {
                 new Column("A", NativeTypes.INT8, false),
                 new Column("B", NativeTypes.UUID, false),
@@ -50,7 +50,6 @@ public class AbstractAssemblerTest {
         SchemaDescriptor deserialize = assembler.deserialize(serialize);
 
         assertEquals(desc.version(), deserialize.version());
-        assertEquals(desc.tableId(), deserialize.tableId());
 
         assertArrayEquals(desc.keyColumns().columns(), deserialize.keyColumns().columns());
         assertArrayEquals(desc.valueColumns().columns(), deserialize.valueColumns().columns());

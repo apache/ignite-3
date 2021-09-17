@@ -23,9 +23,9 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 /**
  *
  */
-public abstract class AbstractSchemaSerializer implements SchemaSerializes {
+public abstract class AbstractSchemaSerializer implements SchemaSerialize {
     /** Schema serializer version. */
-    protected final byte version;
+    protected final short version;
 
     /** Previous version serializer. */
     protected final AbstractSchemaSerializer previous;
@@ -42,7 +42,7 @@ public abstract class AbstractSchemaSerializer implements SchemaSerializes {
     /**
      * @param ver Assembler version.
      */
-    protected AbstractSchemaSerializer(byte ver) {
+    protected AbstractSchemaSerializer(short ver) {
         this.version = ver;
         this.previous = null;
     }
@@ -50,7 +50,7 @@ public abstract class AbstractSchemaSerializer implements SchemaSerializes {
     /**
      * @return Assembler version;
      */
-    public byte getVersion() {
+    public short getVersion() {
         return version;
     }
 
@@ -68,7 +68,7 @@ public abstract class AbstractSchemaSerializer implements SchemaSerializes {
      */
     public SchemaDescriptor deserialize(byte[] bytes) {
         ByteBuffer buf = createByteBuffer(bytes);
-        byte ver = readVersion(buf);
+        short ver = readVersion(buf);
 
         return getAssemblerByVersion(ver).value(buf);
     }
@@ -77,7 +77,7 @@ public abstract class AbstractSchemaSerializer implements SchemaSerializes {
      * @param ver
      * @return
      */
-    private SchemaSerializes getAssemblerByVersion(byte ver) {
+    private SchemaSerialize getAssemblerByVersion(short ver) {
         if (ver == this.version)
             return this;
         else if (this.previous == null)
@@ -106,7 +106,7 @@ public abstract class AbstractSchemaSerializer implements SchemaSerializes {
      * @param buf
      * @return
      */
-    protected byte readVersion(ByteBuffer buf) {
-        return buf.get();
+    protected short readVersion(ByteBuffer buf) {
+        return buf.getShort();
     }
 }
