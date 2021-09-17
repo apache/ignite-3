@@ -179,7 +179,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
     /** {@inheritDoc} */
     @Override public JdbcMetaColumnsResult queryMetadata(JdbcQueryMetadataRequest req) {
-        SqlCursor<List<?>> cur = openCursors.remove(req.cursorId());
+        SqlCursor<List<?>> cur = openCursors.get(req.cursorId());
 
         if (cur == null)
             return new JdbcMetaColumnsResult(Response.STATUS_FAILED,
