@@ -58,12 +58,15 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.LocalPortRangeNodeFinder;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
@@ -93,10 +96,13 @@ public class ITDistributedTableTest {
     public static final int NODE_PORT_BASE = 20_000;
 
     /** Nodes. */
-    private int nodes;
+    private int nodes = 1;
 
     /** Partitions. */
-    public int parts;
+    public int parts = 1;
+
+    /** Replicas. */
+    public int replicas = 1;
 
     /** Factory. */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
@@ -170,7 +176,7 @@ public class ITDistributedTableTest {
         List<List<ClusterNode>> assignment = RendezvousAffinityFunction.assignPartitions(
             cluster.stream().map(node -> node.topologyService().localMember()).collect(Collectors.toList()),
             parts,
-            1,
+            replicas,
             false,
             null
         );
@@ -180,22 +186,25 @@ public class ITDistributedTableTest {
         Map<Integer, RaftGroupService> partMap = new HashMap<>();
 
         for (List<ClusterNode> partNodes : assignment) {
-            RaftServer rs = raftServers.get(partNodes.get(0));
 
-            String grpId = "part-" + p;
 
-            List<Peer> conf = List.of(new Peer(partNodes.get(0).address()));
+            String grpId = groupName(p);
 
-            assertNotNull(rs.transactionManager());
+            List<Peer> conf = partNodes.stream().map(n -> n.address()).map(Peer::new).collect(Collectors.toList());
 
-            rs.startRaftGroup(
-                grpId,
-                new PartitionListener(UUID.randomUUID(), new VersionedRowStore(
-                    memStore ? new ConcurrentHashMapStorage() : new RocksDbStorage(dataPath.resolve("part" + p),
-                        ByteBuffer::compareTo),
-                    rs.transactionManager())),
-                conf
-            );
+            for (ClusterNode node : partNodes) {
+                RaftServer rs = raftServers.get(node);
+                assertNotNull(rs.transactionManager());
+
+                rs.startRaftGroup(
+                    grpId,
+                    new PartitionListener(UUID.randomUUID(), new VersionedRowStore(
+                        memStore ? new ConcurrentHashMapStorage() : new RocksDbStorage(dataPath.resolve("part" + p),
+                            ByteBuffer::compareTo),
+                        rs.transactionManager())),
+                    conf
+                );
+            }
 
             RaftGroupService service = RaftGroupServiceImpl.start(grpId, client, FACTORY, 10_000, conf, true, 200)
                 .get(3, TimeUnit.SECONDS);
@@ -231,6 +240,14 @@ public class ITDistributedTableTest {
                 return new Row(SCHEMA, row);
             }
         }, null, null);
+    }
+
+    /**
+     * @param p The partition.
+     * @return Group name.
+     */
+    private String groupName(int p) {
+        return "part-" + p;
     }
 
     /**
@@ -376,7 +393,7 @@ public class ITDistributedTableTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testClientServerTopology() throws Exception {
+    public void testSimple_1_1_1() throws Exception {
         nodes = 1;
         parts = 1;
 
@@ -389,10 +406,53 @@ public class ITDistributedTableTest {
 
         assertNotEquals(nearMgr, locMgr);
 
+        assertEquals(0, table.partition(makeKey(1)));
+
         InternalTransaction tx = putGet(nearMgr, true);
 
         assertEquals(TxState.COMMITED, nearMgr.state(tx.timestamp()));
         assertEquals(TxState.COMMITED, locMgr.state(tx.timestamp()));
+
+        long val2 = table.get(makeKey(1)).longValue("value");
+
+        assertEquals(1, val2);
+    }
+
+    /**
+     * Tests tx flow on 3 servers + 1 client topology.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testSimple_3_1_3() throws Exception {
+        nodes = 3;
+        parts = 1;
+        replicas = 3;
+
+        startTable(true);
+
+        TxManager nearMgr = ((InternalTableImpl) table.internalTable()).transactionManager();
+
+        InternalTransaction tx = putGet(nearMgr, true);
+
+        List<NetworkAddress> nodes = tx.nodes();
+
+        assertEquals(2, nodes.size());
+
+        ClusterNode locNode = cluster.get(0).topologyService().getByAddress(nodes.get(1));
+
+        TxManager locMgr = raftServers.get(locNode).transactionManager();
+
+        assertNotNull(locMgr);
+
+        assertEquals(TxState.COMMITED, nearMgr.state(tx.timestamp()));
+        assertEquals(TxState.COMMITED, locMgr.state(tx.timestamp()));
+
+//        for (Map.Entry<ClusterNode, RaftServer> entry : raftServers.entrySet()) {
+//            JRaftServerImpl srv = (JRaftServerImpl) entry.getValue();
+//            PartitionListener listener = (PartitionListener) getListener(srv, groupName(0));
+//            VersionedRowStore storage = listener.getStorage();
+//        }
 
         long val2 = table.get(makeKey(1)).longValue("value");
 
@@ -432,7 +492,7 @@ public class ITDistributedTableTest {
 
         assertEquals(1, tx.nodes().size());
 
-        Table txTable = table.withTransaction(tx);
+        Table txTable = tx.wrap(table);
 
         txTable.upsert(makeValue(1, 1));
 
@@ -712,5 +772,21 @@ public class ITDistributedTableTest {
      */
     private Tuple makeValue(long id, long val) {
         return Tuple.create().set("key", id).set("value", val);
+    }
+
+    /**
+     * Get the raft group listener from the jraft server.
+     *
+     * @param server Server.
+     * @param grpId Raft group id.
+     * @return Raft group listener.
+     */
+    protected RaftGroupListener getListener(JRaftServerImpl server, String grpId) {
+        org.apache.ignite.raft.jraft.RaftGroupService svc = server.raftGroupService(grpId);
+
+        JRaftServerImpl.DelegatingStateMachine fsm =
+            (JRaftServerImpl.DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
+
+        return fsm.getListener();
     }
 }

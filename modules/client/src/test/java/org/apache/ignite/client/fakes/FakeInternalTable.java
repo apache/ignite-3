@@ -27,12 +27,12 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.schema.SchemaMode;
-import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Fake internal table.
+ * TODO asch remove it, use DummyTable.
  */
 public class FakeInternalTable implements InternalTable {
     /** Table name. */
@@ -225,5 +225,10 @@ public class FakeInternalTable implements InternalTable {
         }
 
         return CompletableFuture.completedFuture(skipped);
+    }
+
+    /** {@inheritDoc} */
+    @Override public int partition(BinaryRow keyRow) {
+        return 0;
     }
 }

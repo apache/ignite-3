@@ -358,6 +358,12 @@ public class InternalTableImpl implements InternalTable {
                 .collect(Collectors.toList()));
     }
 
+    /** {@inheritDoc} */
+    @TestOnly
+    @Override public int partition(BinaryRow keyRow) {
+        return partId(keyRow);
+    }
+
     /**
      * Get partition id by key row.
      *

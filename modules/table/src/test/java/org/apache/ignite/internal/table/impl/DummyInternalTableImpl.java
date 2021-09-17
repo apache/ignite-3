@@ -233,18 +233,25 @@ public class DummyInternalTableImpl implements InternalTable {
         return completedFuture(store.deleteExact(row, tx.timestamp()));
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<BinaryRow> getAndDelete(BinaryRow row, InternalTransaction tx) {
         return completedFuture(store.getAndDelete(row, tx.timestamp()));
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows,
         InternalTransaction tx) {
         return completedFuture(store.deleteAll(rows, tx.timestamp()));
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows,
         InternalTransaction tx) {
         return completedFuture(store.deleteAllExact(rows, tx.timestamp()));
     }
 
+    /** {@inheritDoc} */
+    @Override public int partition(BinaryRow keyRow) {
+        return 0;
+    }
 }

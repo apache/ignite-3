@@ -20,11 +20,9 @@ package org.apache.ignite.internal.table;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.locks.Lock;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.schema.SchemaMode;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -184,6 +182,12 @@ public interface InternalTable {
      * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows, @Nullable InternalTransaction tx);
+
+    /**
+     * @param keyRow The key.
+     * @return The partition.
+     */
+    int partition(BinaryRow keyRow);
 
     //TODO: IGNTIE-14488. Add invoke() methods.
 }

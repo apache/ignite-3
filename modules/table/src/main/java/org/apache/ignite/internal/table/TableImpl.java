@@ -426,4 +426,16 @@ public class TableImpl extends AbstractTableView implements Table {
     public void schemaType(SchemaMode schemaMode) {
         this.tbl.schema(schemaMode);
     }
+
+    /**
+     * @param t The tuple.
+     * @return The partition.
+     */
+    public int partition(Tuple t) {
+        Objects.requireNonNull(t);
+
+        final Row keyRow = marshaller().marshalKey(t); // Convert to portable format to pass TX/storage layer.
+
+        return tbl.partition(keyRow);
+    }
 }
