@@ -22,7 +22,6 @@ import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
-import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -81,7 +80,7 @@ public class PartitionCommandListenerTest {
     private Path dataPath;
 
     /** Schema. */
-    public static SchemaDescriptor SCHEMA = new SchemaDescriptor(UUID.randomUUID(),
+    public static SchemaDescriptor SCHEMA = new SchemaDescriptor(
         1,
         new Column[] {new Column("key", NativeTypes.INT32, false)},
         new Column[] {new Column("value", NativeTypes.INT32, false)}
@@ -362,7 +361,7 @@ public class PartitionCommandListenerTest {
             doAnswer(invocation -> {
                 MultiRowsResponse resp = invocation.getArgument(0);
 
-                if (existed) {
+                if (!existed) {
                     assertEquals(KEY_COUNT, resp.getValues().size());
 
                     for (BinaryRow binaryRow : resp.getValues()) {
@@ -371,7 +370,6 @@ public class PartitionCommandListenerTest {
                         int keyVal = row.intValue(0);
 
                         assertTrue(keyVal < KEY_COUNT);
-                        assertEquals(keyVal, row.intValue(1));
                     }
                 }
                 else
@@ -524,7 +522,7 @@ public class PartitionCommandListenerTest {
             doAnswer(invocation -> {
                 MultiRowsResponse resp = invocation.getArgument(0);
 
-                if (existed) {
+                if (!existed) {
                     assertEquals(KEY_COUNT, resp.getValues().size());
 
                     for (BinaryRow binaryRow : resp.getValues()) {
