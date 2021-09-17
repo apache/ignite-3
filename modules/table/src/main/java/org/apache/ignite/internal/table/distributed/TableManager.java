@@ -573,8 +573,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             if (tbl == null)
                 dropTblFut.complete(null);
             else {
-                IgniteUuid tblId = ((TableImpl) tbl).tableId();
-
                 EventListener<TableEventParameters> clo = new EventListener<>() {
                     @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
                         String tableName = parameters.tableName();
