@@ -34,17 +34,17 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.RaftErrorCode;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
-import org.apache.ignite.raft.client.message.ActionRequest;
-import org.apache.ignite.raft.client.message.GetLeaderRequest;
-import org.apache.ignite.raft.client.message.GetLeaderResponse;
-import org.apache.ignite.raft.client.message.RaftClientMessageGroup;
-import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
-import org.apache.ignite.raft.client.message.RaftErrorResponse;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
+import org.apache.ignite.raft.jraft.RaftMessageGroup;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.rpc.ActionRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -59,7 +59,7 @@ public class RaftServerImpl implements RaftServer {
     private static final IgniteLogger LOG = IgniteLogger.forClass(RaftServerImpl.class);
 
     /** */
-    private final RaftClientMessagesFactory clientMsgFactory;
+    private final RaftMessagesFactory clientMsgFactory;
 
     /** */
     private final ClusterService service;
@@ -83,7 +83,7 @@ public class RaftServerImpl implements RaftServer {
      * @param service Network service.
      * @param clientMsgFactory Client message factory.
      */
-    public RaftServerImpl(ClusterService service, RaftClientMessagesFactory clientMsgFactory) {
+    public RaftServerImpl(ClusterService service, RaftMessagesFactory clientMsgFactory) {
         Objects.requireNonNull(service);
         Objects.requireNonNull(clientMsgFactory);
 
@@ -97,12 +97,12 @@ public class RaftServerImpl implements RaftServer {
     /** {@inheritDoc} */
     @Override public void start() {
         service.messagingService().addMessageHandler(
-            RaftClientMessageGroup.class,
+            RaftMessageGroup.class,
             (message, senderAddr, correlationId) -> {
-                if (message instanceof GetLeaderRequest) {
+                if (message instanceof CliRequests.GetLeaderRequest) {
                     var localPeer = new Peer(service.topologyService().localMember().address());
 
-                    GetLeaderResponse resp = clientMsgFactory.getLeaderResponse().leader(localPeer).build();
+                    CliRequests.GetLeaderResponse resp = clientMsgFactory.getLeaderResponse().leaderId(PeerId.fromPeer(localPeer).toString()).build();
 
                     service.messagingService().send(senderAddr, resp, correlationId);
                 }
@@ -112,7 +112,7 @@ public class RaftServerImpl implements RaftServer {
                     RaftGroupListener lsnr = listeners.get(req0.groupId());
 
                     if (lsnr == null) {
-                        sendError(senderAddr, correlationId, RaftErrorCode.ILLEGAL_STATE);
+                        sendError(senderAddr, correlationId, RaftError.UNKNOWN);
 
                         return;
                     }
@@ -223,7 +223,7 @@ public class RaftServerImpl implements RaftServer {
             }
         })) {
             // Queue out of capacity.
-            sendError(sender, corellationId, RaftErrorCode.BUSY);
+            sendError(sender, corellationId, RaftError.EBUSY);
         }
     }
 
@@ -253,8 +253,8 @@ public class RaftServerImpl implements RaftServer {
         }
     }
 
-    private void sendError(NetworkAddress sender, String corellationId, RaftErrorCode errorCode) {
-        RaftErrorResponse resp = clientMsgFactory.raftErrorResponse().errorCode(errorCode).build();
+    private void sendError(NetworkAddress sender, String corellationId, RaftError error) {
+        RpcRequests.ErrorResponse resp = clientMsgFactory.errorResponse().errorCode(error.getNumber()).build();
 
         service.messagingService().send(sender, resp, corellationId);
     }

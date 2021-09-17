@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -25,6 +26,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.DataRow;
+import org.apache.ignite.internal.storage.SearchRow;
+import org.apache.ignite.internal.storage.basic.SimpleDataRow;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteExactAllCommand;
@@ -50,6 +54,7 @@ import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -81,120 +86,239 @@ public class PartitionListener implements RaftGroupListener {
 
     /** {@inheritDoc} */
     @Override public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
-        while (iterator.hasNext()) {
-            CommandClosure<ReadCommand> clo = iterator.next();
-
-            if (clo.command() instanceof GetCommand) {
-                GetCommand cmd = (GetCommand) clo.command();
-
-                clo.result(new SingleRowResponse(storage.get(cmd.getKeyRow(), cmd.getTimestamp())));
-            }
-            else if (clo.command() instanceof GetAllCommand) {
-                Set<BinaryRow> keyRows = ((GetAllCommand)clo.command()).getKeyRows();
-
-                assert keyRows != null && !keyRows.isEmpty();
-
-                // TODO asch all reads are sequeti
-                clo.result(new MultiRowsResponse(storage.getAll(keyRows, null)));
-            }
+        iterator.forEachRemaining((CommandClosure<? extends ReadCommand> clo) -> {
+            if (clo.command() instanceof GetCommand)
+                handleGetCommand((CommandClosure<GetCommand>) clo);
+            else if (clo.command() instanceof GetAllCommand)
+                handleGetAllCommand((CommandClosure<GetAllCommand>) clo);
             else
                 assert false : "Command was not found [cmd=" + clo.command() + ']';
-        }
+        });
     }
 
     /** {@inheritDoc} */
     @Override public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
-        while (iterator.hasNext()) {
-            CommandClosure<WriteCommand> clo = iterator.next();
+        iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
+            Command command = clo.command();
 
-            if (clo.command() instanceof InsertCommand) {
-                InsertCommand cmd = (InsertCommand) clo.command();
-
-                clo.result(storage.insert(cmd.getRow(), cmd.getTimestamp()));
-            }
-            else if (clo.command() instanceof DeleteCommand)
-                clo.result(storage.delete(((DeleteCommand)clo.command()).getKeyRow(), null));
-            else if (clo.command() instanceof ReplaceCommand) {
-                ReplaceCommand cmd = ((ReplaceCommand)clo.command());
-
-                clo.result(storage.replace(cmd.getOldRow(), cmd.getRow(), null));
-            }
-            else if (clo.command() instanceof UpsertCommand) {
-                UpsertCommand cmd = (UpsertCommand) clo.command();
-
-                storage.upsert(cmd.getRow(), cmd.getTimestamp());
-
-                clo.result(null);
-            }
-            else if (clo.command() instanceof InsertAllCommand) {
-                Set<BinaryRow> rows = ((InsertAllCommand)clo.command()).getRows();
-
-                assert rows != null && !rows.isEmpty();
-
-                clo.result(new MultiRowsResponse(storage.insertAll(rows, null)));
-            }
-            else if (clo.command() instanceof UpsertAllCommand) {
-                Set<BinaryRow> rows = ((UpsertAllCommand)clo.command()).getRows();
-
-                assert rows != null && !rows.isEmpty();
-
-                storage.upsertAll(rows, null);
-
-                clo.result(null);
-            }
-            else if (clo.command() instanceof DeleteAllCommand) {
-                Set<BinaryRow> rows = ((DeleteAllCommand)clo.command()).getRows();
-
-                assert rows != null && !rows.isEmpty();
-
-                clo.result(new MultiRowsResponse(storage.deleteAll(rows, null)));
-            }
-            else if (clo.command() instanceof DeleteExactCommand) {
-                BinaryRow row = ((DeleteExactCommand)clo.command()).getRow();
-
-                assert row != null;
-                assert row.hasValue();
-
-                clo.result(storage.deleteExact(row, null));
-            }
-            else if (clo.command() instanceof DeleteExactAllCommand) {
-                Set<BinaryRow> rows = ((DeleteExactAllCommand)clo.command()).getRows();
-
-                assert rows != null && !rows.isEmpty();
-
-                clo.result(new MultiRowsResponse(storage.deleteAll(rows, null)));
-            }
-            else if (clo.command() instanceof ReplaceIfExistCommand) {
-                BinaryRow row = ((ReplaceIfExistCommand)clo.command()).getRow();
-
-                assert row != null;
-
-                clo.result(storage.replace(row, null));
-            }
-            else if (clo.command() instanceof GetAndDeleteCommand) {
-                BinaryRow row = ((GetAndDeleteCommand)clo.command()).getKeyRow();
-
-                assert row != null;
-
-                clo.result(new SingleRowResponse(storage.getAndDelete(row, null)));
-            }
-            else if (clo.command() instanceof GetAndReplaceCommand) {
-                BinaryRow row = ((GetAndReplaceCommand)clo.command()).getRow();
-
-                assert row != null && row.hasValue();
-
-                clo.result(new SingleRowResponse(storage.getAndReplace(row, null)));
-            }
-            else if (clo.command() instanceof GetAndUpsertCommand) {
-                BinaryRow row = ((GetAndUpsertCommand)clo.command()).getKeyRow();
-
-                assert row != null && row.hasValue();
-
-                clo.result(new SingleRowResponse(storage.getAndUpsert(row, null)));
-            }
+            if (command instanceof InsertCommand)
+                handleInsertCommand((CommandClosure<InsertCommand>) clo);
+            else if (command instanceof DeleteCommand)
+                handleDeleteCommand((CommandClosure<DeleteCommand>) clo);
+            else if (command instanceof ReplaceCommand)
+                handleReplaceCommand((CommandClosure<ReplaceCommand>) clo);
+            else if (command instanceof UpsertCommand)
+                handleUpsertCommand((CommandClosure<UpsertCommand>) clo);
+            else if (command instanceof InsertAllCommand)
+                handleInsertAllCommand((CommandClosure<InsertAllCommand>) clo);
+            else if (command instanceof UpsertAllCommand)
+                handleUpsertAllCommand((CommandClosure<UpsertAllCommand>) clo);
+            else if (command instanceof DeleteAllCommand)
+                handleDeleteAllCommand((CommandClosure<DeleteAllCommand>) clo);
+            else if (command instanceof DeleteExactCommand)
+                handleDeleteExactCommand((CommandClosure<DeleteExactCommand>) clo);
+            else if (command instanceof DeleteExactAllCommand)
+                handleDeleteExactAllCommand((CommandClosure<DeleteExactAllCommand>) clo);
+            else if (command instanceof ReplaceIfExistCommand)
+                handleReplaceIfExistsCommand((CommandClosure<ReplaceIfExistCommand>) clo);
+            else if (command instanceof GetAndDeleteCommand)
+                handleGetAndDeleteCommand((CommandClosure<GetAndDeleteCommand>) clo);
+            else if (command instanceof GetAndReplaceCommand)
+                handleGetAndReplaceCommand((CommandClosure<GetAndReplaceCommand>) clo);
+            else if (command instanceof GetAndUpsertCommand)
+                handleGetAndUpsertCommand((CommandClosure<GetAndUpsertCommand>) clo);
             else
-                assert false : "Command was not found [cmd=" + clo.command() + ']';
-        }
+                assert false : "Command was not found [cmd=" + command + ']';
+        });
+    }
+
+    /**
+     * Handler for the {@link GetCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleGetCommand(CommandClosure<GetCommand> clo) {
+        GetCommand cmd = (GetCommand) clo.command();
+
+        clo.result(new SingleRowResponse(storage.get(cmd.getKeyRow(), cmd.getTimestamp())));
+    }
+
+    /**
+     * Handler for the {@link GetAllCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleGetAllCommand(CommandClosure<GetAllCommand> clo) {
+        Set<BinaryRow> keyRows = ((GetAllCommand)clo.command()).getKeyRows();
+
+        assert keyRows != null && !keyRows.isEmpty();
+
+        // TODO asch all reads are sequeti
+        clo.result(new MultiRowsResponse(storage.getAll(keyRows, null)));
+    }
+
+    /**
+     * Handler for the {@link InsertCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleInsertCommand(CommandClosure<InsertCommand> clo) {
+        InsertCommand cmd = (InsertCommand) clo.command();
+
+        clo.result(storage.insert(cmd.getRow(), cmd.getTimestamp()));
+    }
+
+    /**
+     * Handler for the {@link DeleteCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleDeleteCommand(CommandClosure<DeleteCommand> clo) {
+        clo.result(storage.delete(((DeleteCommand)clo.command()).getKeyRow(), null));
+    }
+
+    /**
+     * Handler for the {@link ReplaceCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleReplaceCommand(CommandClosure<ReplaceCommand> clo) {
+        ReplaceCommand cmd = ((ReplaceCommand)clo.command());
+
+        clo.result(storage.replace(cmd.getOldRow(), cmd.getRow(), null));
+    }
+
+    /**
+     * Handler for the {@link UpsertCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleUpsertCommand(CommandClosure<UpsertCommand> clo) {
+        UpsertCommand cmd = (UpsertCommand) clo.command();
+
+        storage.upsert(cmd.getRow(), cmd.getTimestamp());
+
+        clo.result(null);
+    }
+
+    /**
+     * Handler for the {@link InsertAllCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleInsertAllCommand(CommandClosure<InsertAllCommand> clo) {
+        Set<BinaryRow> rows = ((InsertAllCommand)clo.command()).getRows();
+
+        assert rows != null && !rows.isEmpty();
+
+        clo.result(new MultiRowsResponse(storage.insertAll(rows, null)));
+    }
+
+    /**
+     * Handler for the {@link UpsertAllCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleUpsertAllCommand(CommandClosure<UpsertAllCommand> clo) {
+        Set<BinaryRow> rows = ((UpsertAllCommand)clo.command()).getRows();
+
+        assert rows != null && !rows.isEmpty();
+
+        storage.upsertAll(rows, null);
+
+        clo.result(null);
+    }
+
+    /**
+     * Handler for the {@link DeleteAllCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleDeleteAllCommand(CommandClosure<DeleteAllCommand> clo) {
+        Set<BinaryRow> rows = ((DeleteAllCommand)clo.command()).getRows();
+
+        assert rows != null && !rows.isEmpty();
+
+        clo.result(new MultiRowsResponse(storage.deleteAll(rows, null)));
+    }
+
+    /**
+     * Handler for the {@link DeleteExactCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleDeleteExactCommand(CommandClosure<DeleteExactCommand> clo) {
+        BinaryRow row = ((DeleteExactCommand)clo.command()).getRow();
+
+        assert row != null;
+        assert row.hasValue();
+
+        clo.result(storage.deleteExact(row, null));
+    }
+
+    /**
+     * Handler for the {@link DeleteExactAllCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleDeleteExactAllCommand(CommandClosure<DeleteExactAllCommand> clo) {
+        Set<BinaryRow> rows = ((DeleteExactAllCommand)clo.command()).getRows();
+
+        assert rows != null && !rows.isEmpty();
+
+        clo.result(new MultiRowsResponse(storage.deleteAll(rows, null)));
+    }
+
+    /**
+     * Handler for the {@link ReplaceIfExistCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleReplaceIfExistsCommand(CommandClosure<ReplaceIfExistCommand> clo) {
+        BinaryRow row = ((ReplaceIfExistCommand)clo.command()).getRow();
+
+        assert row != null;
+
+        clo.result(storage.replace(row, null));
+    }
+
+    /**
+     * Handler for the {@link GetAndDeleteCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleGetAndDeleteCommand(CommandClosure<GetAndDeleteCommand> clo) {
+        BinaryRow row = ((GetAndDeleteCommand)clo.command()).getKeyRow();
+
+        assert row != null;
+
+        clo.result(new SingleRowResponse(storage.getAndDelete(row, null)));
+    }
+
+    /**
+     * Handler for the {@link GetAndReplaceCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleGetAndReplaceCommand(CommandClosure<GetAndReplaceCommand> clo) {
+        BinaryRow row = ((GetAndReplaceCommand)clo.command()).getRow();
+
+        assert row != null && row.hasValue();
+
+        clo.result(new SingleRowResponse(storage.getAndReplace(row, null)));
+    }
+
+    /**
+     * Handler for the {@link GetAndUpsertCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleGetAndUpsertCommand(CommandClosure<GetAndUpsertCommand> clo) {
+        BinaryRow row = ((GetAndUpsertCommand)clo.command()).getKeyRow();
+
+        assert row != null && row.hasValue();
+
+        clo.result(new SingleRowResponse(storage.getAndUpsert(row, null)));
     }
 
     /** {@inheritDoc} */
@@ -251,63 +375,46 @@ public class PartitionListener implements RaftGroupListener {
     }
 
     /**
-     * Wrapper provides correct byte[] comparison.
+     * Extracts a key and a value from the {@link BinaryRow} and wraps it in a {@link DataRow}.
+     *
+     * @param row Binary row.
+     * @return Data row.
      */
-    private static class KeyWrapper {
-        /** Data. */
-        private final byte[] data;
+    @NotNull private static DataRow extractAndWrapKeyValue(@NotNull BinaryRow row) {
+        byte[] key = new byte[row.keySlice().capacity()];
 
-        /** Hash. */
-        private final int hash;
+        row.keySlice().get(key);
+
+        return new SimpleDataRow(key, row.bytes());
+    }
+
+    /**
+     * Adapter that converts a {@link BinaryRow} into a {@link SearchRow}.
+     */
+    private static class BinarySearchRow implements SearchRow {
+        /** Search key. */
+        private final byte[] keyBytes;
 
         /**
          * Constructor.
          *
-         * @param data Wrapped data.
+         * @param row Row to search for.
          */
-        KeyWrapper(byte[] data, int hash) {
-            assert data != null;
+        BinarySearchRow(BinaryRow row) {
+            keyBytes = new byte[row.keySlice().capacity()];
 
-            this.data = data;
-            this.hash = hash;
+            row.keySlice().get(keyBytes);
         }
 
         /** {@inheritDoc} */
-        @Override public boolean equals(Object o) {
-            if (this == o)
-                return true;
-
-            if (o == null || getClass() != o.getClass())
-                return false;
-
-            KeyWrapper wrapper = (KeyWrapper)o;
-            return Arrays.equals(data, wrapper.data);
+        @Override public byte @NotNull [] keyBytes() {
+            return keyBytes;
         }
 
         /** {@inheritDoc} */
-        @Override public int hashCode() {
-            return hash;
+        @Override public @NotNull ByteBuffer key() {
+            return ByteBuffer.wrap(keyBytes);
         }
-    }
-
-    /**
-     * Compares two rows.
-     *
-     * @param row Row to compare.
-     * @param row2 Row to compare.
-     * @return True if these rows is equivalent, false otherwise.
-     */
-    private boolean equalValues(BinaryRow row, BinaryRow row2) {
-        if (row == row2)
-            return true;
-
-        if (row == null || row2 == null)
-            return false;
-
-        if (row.hasValue() ^ row2.hasValue())
-            return false;
-
-        return row.valueSlice().compareTo(row2.valueSlice()) == 0;
     }
 
     /**

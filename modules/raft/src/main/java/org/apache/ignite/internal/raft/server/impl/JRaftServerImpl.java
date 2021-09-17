@@ -148,7 +148,6 @@ public class JRaftServerImpl implements RaftServer {
             service,
             nodeManager,
             txManager,
-            opts.getRaftClientMessagesFactory(),
             opts.getRaftMessagesFactory(),
             requestExecutor
         );

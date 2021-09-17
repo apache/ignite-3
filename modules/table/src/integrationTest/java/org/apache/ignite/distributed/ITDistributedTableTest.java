@@ -62,9 +62,9 @@ import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -99,7 +99,7 @@ public class ITDistributedTableTest {
     public int parts;
 
     /** Factory. */
-    private static final RaftClientMessagesFactory FACTORY = new RaftClientMessagesFactory();
+    private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
     /** Network factory. */
     private static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
@@ -599,7 +599,6 @@ public class ITDistributedTableTest {
 
         for (int i = 0; i < keysCnt; i++)
             keys.add(Tuple.create().set("key", Long.valueOf(i)));
-
 
         Map<Tuple, Tuple> entries = view.getAll(keys);
 
