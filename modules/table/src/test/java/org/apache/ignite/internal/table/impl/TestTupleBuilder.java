@@ -229,6 +229,9 @@ public class TestTupleBuilder implements Tuple {
 
     /** {@inheritDoc} */
     @Override public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+
         if (obj instanceof Tuple)
             return Tuple.equals(this, (Tuple)obj);
 

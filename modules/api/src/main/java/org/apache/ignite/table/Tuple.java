@@ -93,6 +93,9 @@ public interface Tuple extends Iterable<Object> {
      * @return {@code true} if the first tuple is equal to the second tuple.
      */
     static boolean equals(Tuple first, Tuple second) {
+        if (first == second)
+            return true;
+
         int columns = first.columnCount();
 
         if (columns != second.columnCount())
