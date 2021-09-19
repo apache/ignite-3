@@ -19,11 +19,17 @@ package org.apache.ignite.internal.table.distributed.storage;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
@@ -40,20 +46,27 @@ import org.apache.ignite.internal.table.distributed.command.InsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.ReplaceCommand;
 import org.apache.ignite.internal.table.distributed.command.ReplaceIfExistCommand;
+import org.apache.ignite.internal.table.distributed.command.ScanInitCommand;
+import org.apache.ignite.internal.table.distributed.command.ScanRetrieveBatchCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
 import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.schema.SchemaMode;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Storage of table rows.
  */
 public class InternalTableImpl implements InternalTable {
+    /** IgniteUuid generator. */
+    private final IgniteUuidGenerator UUID_GENERATOR = new IgniteUuidGenerator(UUID.randomUUID(), 0);
+
     /** Partition map. */
     private Map<Integer, RaftGroupService> partitionMap;
 
@@ -277,6 +290,11 @@ public class InternalTableImpl implements InternalTable {
         return collectMultiRowsResponses(futures);
     }
 
+    /** {@inheritDoc} */
+    @Override public Publisher<BinaryRow> scan(int p, @Nullable Transaction tx) {
+        return new PartitionScanPublisher(partitionMap.get(p));
+    }
+
     /**
      * Get partition id by key row.
      *
@@ -309,5 +327,76 @@ public class InternalTableImpl implements InternalTable {
 
                     return list;
                 });
+    }
+
+    // TODO: 18.09.21 Javadoc
+    // TODO: 18.09.21 Seems that it's possible to implement "cursor closing" through subsciption cancel.
+    // TODO: 17.09.21 Publisher<T>?
+    private class PartitionScanPublisher implements Publisher<BinaryRow> {
+        // TODO: 18.09.21 Think about thread safetey. What opperations are we going to preocess from different threads. Shoul we have syncrhonized list, atomics, etc
+        private final List<PartitionScanSubsciption> subscriptions;
+
+        private final RaftGroupService raftGroupSvc;
+
+        public PartitionScanPublisher(RaftGroupService raftGroupSvc) {
+            subscriptions = Collections.synchronizedList(new ArrayList<>());
+            this.raftGroupSvc = raftGroupSvc;
+        }
+
+        /** {@inheritDoc} */
+        @Override public void subscribe(Subscriber<? super BinaryRow> subscriber) {
+            PartitionScanSubsciption subscription = new PartitionScanSubsciption(subscriber);
+
+            subscriptions.add(subscription);
+
+            subscriber.onSubscribe(subscription);
+        }
+
+        // TODO: 18.09.21 javadoc
+        private class PartitionScanSubsciption implements Subscription {
+            private final Subscriber<? super BinaryRow> subscriber;
+
+            private final AtomicBoolean isCanceled;
+
+            private final IgniteUuid scanId;
+
+            private final CompletableFuture<Void> scanInitOp;
+
+            // TODO: 19.09.21 Multiple subsciptions fix.
+
+            // TODO: 18.09.21 !!!!! Important one: what is about threading model? Who is responsible for prcessing result. Is there an executor required or what?
+            public PartitionScanSubsciption(Subscriber<? super BinaryRow> subscriber) {
+                this.subscriber = subscriber;
+                this.isCanceled = new AtomicBoolean(false);
+                this.scanId = UUID_GENERATOR.randomUuid();
+                // TODO: 18.09.21 Local node id.
+                this.scanInitOp = raftGroupSvc.run(new ScanInitCommand("", scanId));
+            }
+
+            @Override public void request(long n) {
+                if (isCanceled.get())
+                    return;
+
+                // TODO: 18.09.21 Inner batching isn't implemented, cause given raft based solution is't yet proven to be used in real life, it seems to be a premature optimization right now.
+                // TODO: 18.09.21 Use proper then here.
+                scanInitOp.thenCompose((none) -> raftGroupSvc.<MultiRowsResponse>run(new ScanRetrieveBatchCommand(n, scanId)))
+                    .thenAccept(
+                        res -> {
+                            res.getValues().forEach(subscriber::onNext);
+                            subscriber.onComplete();
+                        })
+                    .exceptionally(
+                        t -> {
+                            subscriber.onError(t);
+                            return null;
+                        });
+            }
+
+            @Override public void cancel() {
+                isCanceled.set(true);
+
+                subscriptions.remove(this);
+            }
+        }
     }
 }

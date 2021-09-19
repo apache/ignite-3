@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Flow;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
@@ -32,6 +33,7 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.schema.SchemaMode;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Dummy table storage implementation.
@@ -232,6 +234,12 @@ public class DummyInternalTableImpl implements InternalTable {
 
     @Override public CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows,
         Transaction tx) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Flow.Publisher<BinaryRow> scan(int p, @Nullable Transaction tx) {
+        // TODO: 18.09.21
         return null;
     }
 

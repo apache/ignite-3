@@ -241,7 +241,7 @@ public class MetaStorageListener implements RaftGroupListener {
                         rangeCmd.requesterNodeId()
                     )
                 );
-
+                // TODO: 18.09.21 Here and in other meta storage cursor's cases there's no sense in returning cursor id, cause we now generate it on client side.
                 clo.result(cursorId);
             }
             else if (clo.command() instanceof CursorNextCommand) {

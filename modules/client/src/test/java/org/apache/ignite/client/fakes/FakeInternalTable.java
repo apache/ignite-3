@@ -22,6 +22,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Flow;
+
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.lang.IgniteUuid;
@@ -223,5 +225,11 @@ public class FakeInternalTable implements InternalTable {
         }
 
         return CompletableFuture.completedFuture(skipped);
+    }
+
+    /** {@inheritDoc} */
+    @Override public Flow.Publisher<BinaryRow> scan(int p, @Nullable Transaction tx) {
+        // TODO: 18.09.21
+        return null;
     }
 }
