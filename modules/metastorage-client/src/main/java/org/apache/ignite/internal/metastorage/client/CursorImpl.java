@@ -79,7 +79,7 @@ public class CursorImpl<T> implements Cursor<T> {
             if (e.getCause() != null && e.getCause().getClass().equals(NodeStoppingException.class))
                 return;
 
-            LOG.warn("Unable to evaluate cursor close command");
+            LOG.debug("Unable to evaluate cursor close command", e);
 
             throw new IgniteInternalException(e);
         }
@@ -107,7 +107,7 @@ public class CursorImpl<T> implements Cursor<T> {
                 if (e.getCause() != null && e.getCause().getClass().equals(NodeStoppingException.class))
                     return false;
 
-                LOG.warn("Unable to evaluate cursor hasNext command");
+                LOG.debug("Unable to evaluate cursor hasNext command", e);
 
                 throw new IgniteInternalException(e);
             }
@@ -128,7 +128,7 @@ public class CursorImpl<T> implements Cursor<T> {
                 if (e.getCause() != null && e.getCause().getClass().equals(NodeStoppingException.class))
                     throw new NoSuchElementException();
 
-                LOG.warn("Unable to evaluate cursor hasNext command");
+                LOG.debug("Unable to evaluate cursor hasNext command", e);
 
                 throw new IgniteInternalException(e);
             }
