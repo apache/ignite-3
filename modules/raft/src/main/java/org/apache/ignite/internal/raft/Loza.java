@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.server.RaftServer;
@@ -27,17 +28,17 @@ import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 
 /**
  * Best raft manager ever since 1982.
  */
 public class Loza implements IgniteComponent {
     /** Factory. */
-    private static final RaftClientMessagesFactory FACTORY = new RaftClientMessagesFactory();
+    private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
     /** Timeout. */
     private static final int TIMEOUT = 1000;
@@ -79,18 +80,21 @@ public class Loza implements IgniteComponent {
      *
      * @param groupId Raft group id.
      * @param nodes Raft group nodes.
-     * @param lsnr Raft group listener.
+     * @param lsnrSupplier Raft group listener supplier.
      * @return Future representing pending completion of the operation.
      */
-    public CompletableFuture<RaftGroupService> prepareRaftGroup(String groupId, List<ClusterNode> nodes, RaftGroupListener lsnr) {
+    public CompletableFuture<RaftGroupService> prepareRaftGroup(
+        String groupId,
+        List<ClusterNode> nodes,
+        Supplier<RaftGroupListener> lsnrSupplier) {
         assert !nodes.isEmpty();
 
         List<Peer> peers = nodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
 
         String locNodeName = clusterNetSvc.topologyService().localMember().name();
 
-        if (nodes.stream().map(ClusterNode::name).collect(Collectors.toSet()).contains(locNodeName))
-            raftServer.startRaftGroup(groupId, lsnr, peers);
+        if (nodes.stream().anyMatch(n -> locNodeName.equals(n.name())))
+            raftServer.startRaftGroup(groupId, lsnrSupplier.get(), peers);
 
         return RaftGroupServiceImpl.start(
             groupId,
