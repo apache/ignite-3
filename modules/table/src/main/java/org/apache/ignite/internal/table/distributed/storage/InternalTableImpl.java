@@ -341,50 +341,64 @@ public class InternalTableImpl implements InternalTable {
                 });
     }
 
-    // TODO: 18.09.21 Javadoc
-    // TODO: 18.09.21 Seems that it's possible to implement "cursor closing" through subsciption cancel.
-    // TODO: 17.09.21 Publisher<T>?
+    // TODO: sanpwc Seems that it's possible to implement "cursor closing" through subsciption cancel.
+    /** Parition scan publisher. */
     private class PartitionScanPublisher implements Publisher<BinaryRow> {
-        // TODO: 18.09.21 Think about thread safetey. What opperations are we going to preocess from different threads. Shoul we have syncrhonized list, atomics, etc
-        private final List<PartitionScanSubsciption> subscriptions;
+        // TODO sanpwc: Consider using only one subscription instead of list.
+        /** List of subscriptions. */
+        private final List<PartitionScanSubscription> subscriptions;
 
-        private final RaftGroupService raftGroupSvc;
+        /** {@link Publisher<BinaryRow>} that relatively notifies about partition rows.  */
+        private final RaftGroupService raftGrpSvc;
 
-        public PartitionScanPublisher(RaftGroupService raftGroupSvc) {
-            subscriptions = Collections.synchronizedList(new ArrayList<>());
-            this.raftGroupSvc = raftGroupSvc;
+        /**
+         * The constructor.
+         *
+         * @param raftGrpSvc {@link Publisher<BinaryRow>} that relatively notifies about partition rows.
+         */
+        public PartitionScanPublisher(RaftGroupService raftGrpSvc) {
+            this.subscriptions = Collections.synchronizedList(new ArrayList<>());
+            this.raftGrpSvc = raftGrpSvc;
         }
 
         /** {@inheritDoc} */
         @Override public void subscribe(Subscriber<? super BinaryRow> subscriber) {
-            PartitionScanSubsciption subscription = new PartitionScanSubsciption(subscriber);
+            PartitionScanSubscription subscription = new PartitionScanSubscription(subscriber);
 
             subscriptions.add(subscription);
 
             subscriber.onSubscribe(subscription);
         }
 
-        // TODO: 18.09.21 javadoc
-        private class PartitionScanSubsciption implements Subscription {
+        /**
+         * Partition Scan Subscription.
+         */
+        private class PartitionScanSubscription implements Subscription {
+            /** */
             private final Subscriber<? super BinaryRow> subscriber;
 
+            /** */
             private final AtomicBoolean isCanceled;
 
+            /** Scan id to uniquely identify it on server side. */
             private final IgniteUuid scanId;
 
+            /** Scan initial operation that created server cursor. */
             private final CompletableFuture<Void> scanInitOp;
 
-            // TODO: 19.09.21 Multiple subsciptions fix.
-
-            // TODO: 18.09.21 !!!!! Important one: what is about threading model? Who is responsible for prcessing result. Is there an executor required or what?
-            public PartitionScanSubsciption(Subscriber<? super BinaryRow> subscriber) {
+            /**
+             * The constructor.
+             * @param subscriber The subscriber.
+             */
+            public PartitionScanSubscription(Subscriber<? super BinaryRow> subscriber) {
                 this.subscriber = subscriber;
                 this.isCanceled = new AtomicBoolean(false);
                 this.scanId = UUID_GENERATOR.randomUuid();
-                // TODO: 18.09.21 Local node id.
-                this.scanInitOp = raftGroupSvc.run(new ScanInitCommand("", scanId));
+                // TODO: sanpwc Local node id.
+                this.scanInitOp = raftGrpSvc.run(new ScanInitCommand("", scanId));
             }
 
+            /** {@inheritDoc} */
             @Override public void request(long n) {
                 if (n < 0)
                     subscriber.onError(new IllegalArgumentException("Requested amount of items is less than 0."));
@@ -392,9 +406,7 @@ public class InternalTableImpl implements InternalTable {
                 if (isCanceled.get())
                     return;
 
-                // TODO: 18.09.21 Inner batching isn't implemented, cause given raft based solution is't yet proven to be used in real life, it seems to be a premature optimization right now.
-                // TODO: 18.09.21 Use proper then here.
-                scanInitOp.thenCompose((none) -> raftGroupSvc.<MultiRowsResponse>run(new ScanRetrieveBatchCommand(n, scanId)))
+                scanInitOp.thenCompose((none) -> raftGrpSvc.<MultiRowsResponse>run(new ScanRetrieveBatchCommand(n, scanId)))
                     .thenAccept(
                         res -> {
                             if (res.getValues() == null)
@@ -412,6 +424,7 @@ public class InternalTableImpl implements InternalTable {
                         });
             }
 
+            /** {@inheritDoc} */
             @Override public void cancel() {
                 isCanceled.set(true);
 
