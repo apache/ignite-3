@@ -37,6 +37,7 @@ class SchemaClassesInfo {
     /** Configuration Schema class. */
     final Class<?> schemaClass;
 
+    /** Flag indicating that this schema is annotated with {@link DirectAccess}. */
     final boolean direct;
 
     /** Class name for the VIEW class. */
