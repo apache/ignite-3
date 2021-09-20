@@ -66,7 +66,6 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
@@ -130,6 +129,9 @@ public class ITDistributedTableTest {
     private Map<ClusterNode, RaftServer> raftServers;
 
     /** */
+    private Map<Integer, RaftGroupService> raftClients;
+
+    /** */
     @WorkDirectory
     private Path dataPath;
 
@@ -183,11 +185,9 @@ public class ITDistributedTableTest {
 
         int p = 0;
 
-        Map<Integer, RaftGroupService> partMap = new HashMap<>();
+        raftClients = new HashMap<>();
 
         for (List<ClusterNode> partNodes : assignment) {
-
-
             String grpId = groupName(p);
 
             List<Peer> conf = partNodes.stream().map(n -> n.address()).map(Peer::new).collect(Collectors.toList());
@@ -199,17 +199,17 @@ public class ITDistributedTableTest {
                 rs.startRaftGroup(
                     grpId,
                     new PartitionListener(UUID.randomUUID(), new VersionedRowStore(
-                        memStore ? new ConcurrentHashMapStorage() : new RocksDbStorage(dataPath.resolve("part" + p),
-                            ByteBuffer::compareTo),
+                        memStore ? new ConcurrentHashMapStorage() :
+                            new RocksDbStorage(dataPath.resolve("part" + p), ByteBuffer::compareTo),
                         rs.transactionManager())),
                     conf
                 );
             }
 
             RaftGroupService service = RaftGroupServiceImpl.start(grpId, client, FACTORY, 10_000, conf, true, 200)
-                .get(3, TimeUnit.SECONDS);
+                .get(5, TimeUnit.SECONDS);
 
-            partMap.put(p, service);
+            raftClients.put(p, service);
 
             p++;
         }
@@ -220,7 +220,7 @@ public class ITDistributedTableTest {
         table = new TableImpl(new InternalTableImpl(
             "tbl",
             UUID.randomUUID(),
-            partMap,
+            raftClients,
             parts,
             nearMgr
         ), new SchemaRegistry() {
@@ -257,13 +257,16 @@ public class ITDistributedTableTest {
      */
     @AfterEach
     public void afterTest() throws Exception {
-        for (ClusterService node : cluster) {
+        for (RaftServer rs : raftServers.values())
+            rs.stop();
+
+        for (RaftGroupService svc : raftClients.values())
+            svc.shutdown();
+
+        for (ClusterService node : cluster)
             node.stop();
-        }
 
         client.stop();
-
-        // TODO asch stop other components.
     }
 
     /**

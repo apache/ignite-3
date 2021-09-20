@@ -78,9 +78,7 @@ public class VersionedRowStore {
     public void upsert(@NotNull BinaryRow row, Timestamp ts) {
         assert row != null;
 
-        TxState state = txManager.state(ts);
-
-        assert state == TxState.PENDING;
+        // TODO asch tx state is not propagated on backups, should be implemented for recovery support.
 
         SimpleDataRow key = new SimpleDataRow(extractAndWrapKey(row).keyBytes(), null);
 
@@ -92,7 +90,7 @@ public class VersionedRowStore {
     }
 
     /** {@inheritDoc} */
-    public BinaryRow getAndUpsert(@NotNull BinaryRow row, Timestamp ts) {
+    @Nullable public BinaryRow getAndUpsert(@NotNull BinaryRow row, Timestamp ts) {
         assert row != null;
 
         DataRow keyValue = extractAndWrapKeyValue(row);
@@ -137,10 +135,6 @@ public class VersionedRowStore {
 //        storage.invoke(newRow, writeIfAbsent);
 //
 //        return writeIfAbsent.result();
-
-        TxState state = txManager.state(ts);
-
-        assert state == TxState.PENDING : state + " " + ts;
 
         SimpleDataRow key = new SimpleDataRow(extractAndWrapKey(row).keyBytes(), null);
 
@@ -431,10 +425,9 @@ public class VersionedRowStore {
             return new Pair<>(val.newRow, null);
         }
 
-        // Will be false if this is a first transactional op.
-        boolean inTx = val.timestamp.equals(ts);
 
-        if (inTx)
+        // Checks "inTx" condition. Will be false if this is a first transactional op.
+        if (val.timestamp.equals(ts))
             return new Pair<>(val.newRow, val.oldRow);
 
         TxState state = txManager.state(val.timestamp);
@@ -472,12 +465,12 @@ public class VersionedRowStore {
         BinaryRow newRow;
 
         /** The value for rollback. */
-        BinaryRow oldRow;
+        @Nullable BinaryRow oldRow;
 
         /** Transaction's timestamp. */
         Timestamp timestamp;
 
-        Value(BinaryRow newRow, BinaryRow oldRow, Timestamp timestamp) {
+        Value(BinaryRow newRow, @Nullable BinaryRow oldRow, Timestamp timestamp) {
             this.newRow = newRow;
             this.oldRow = oldRow;
             this.timestamp = timestamp;

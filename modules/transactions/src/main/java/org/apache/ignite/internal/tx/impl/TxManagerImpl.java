@@ -178,7 +178,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             }).thenCompose(x -> x);
     }
 
-
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> readLock(UUID tableId, ByteBuffer keyData, Timestamp ts) {
         if (state(ts) != TxState.PENDING)

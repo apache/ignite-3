@@ -49,7 +49,7 @@ public interface TxManager extends IgniteComponent {
      * @param after After state.
      * @return {@code True} if a state was changed.
      */
-    boolean changeState(Timestamp ts, TxState before, TxState after);
+    boolean changeState(Timestamp ts, @Nullable TxState before, TxState after);
 
     /**
      * @param ts The timestamp.
