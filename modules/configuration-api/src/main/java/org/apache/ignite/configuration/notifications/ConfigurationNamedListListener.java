@@ -66,4 +66,9 @@ public interface ConfigurationNamedListListener<VIEW> extends ConfigurationListe
     @NotNull default CompletableFuture<?> onDelete(@NotNull ConfigurationNotificationEvent<VIEW> ctx) {
         return completedFuture(null);
     }
+
+    /** {@inheritDoc} */
+    @Override @NotNull default CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<VIEW> ctx) {
+        return completedFuture(null);
+    }
 }

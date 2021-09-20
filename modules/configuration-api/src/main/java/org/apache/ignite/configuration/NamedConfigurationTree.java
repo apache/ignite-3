@@ -45,8 +45,10 @@ public interface NamedConfigurationTree<T extends ConfigurationProperty<VIEW, CH
     void listenElements(ConfigurationNamedListListener<VIEW> listener);
 
     /**
-     * Get a placeholder that only allows you to add listeners to
-     * track configuration changes, as well as the entire sub-configuration.
+     * Get a placeholder that allows you to add listeners for changing configuration value
+     * of any element of the named list and any of its nested configurations.
+     * <p>
+     * NOTE: {@link ConfigurationListenOnlyException} will be thrown when trying to get/update the configuration values.
      *
      * @return Placeholder to add listeners for any configuration.
      */

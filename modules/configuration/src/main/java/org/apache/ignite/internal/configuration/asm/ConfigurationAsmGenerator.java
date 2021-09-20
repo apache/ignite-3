@@ -1023,7 +1023,7 @@ public class ConfigurationAsmGenerator {
             BytecodeExpression newValue;
 
             if (isValue(schemaField)) {
-                // newValue = new DynamicProperty(super.keys, fieldName, rootKey, changer, boolean);
+                // newValue = new DynamicProperty(super.keys, fieldName, rootKey, changer, listenOnly);
                 newValue = newInstance(
                     DynamicProperty.class,
                     thisKeysVar,
@@ -1039,7 +1039,7 @@ public class ConfigurationAsmGenerator {
                 ParameterizedType cfgImplParameterizedType = typeFromJavaClassName(fieldInfo.cfgImplClassName);
 
                 if (isConfigValue(schemaField)) {
-                    // newValue = new MyConfigurationImpl(super.keys, fieldName, rootKey, changer, boolean);
+                    // newValue = new MyConfigurationImpl(super.keys, fieldName, rootKey, changer, listenOnly);
                     newValue = newInstance(
                         cfgImplParameterizedType,
                         thisKeysVar,

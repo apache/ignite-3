@@ -313,11 +313,17 @@ public class ConfigurationNotificationsUtil {
                     Collection<DynamicConfiguration<InnerNode, ?>> newAnyConfigs = null;
 
                     for (String name : updated) {
+                        InnerNode oldVal = oldNamedList.get(name);
+                        InnerNode newVal = newNamedList.get(name);
+
+                        if (oldVal == newVal)
+                            continue;
+
                         for (DynamicConfiguration<InnerNode, ?> anyConfig : anyConfigs) {
                             notifyPublicListeners(
                                 namedDynamicConfig(anyConfig, key).extendedListeners(),
-                                oldNamedList.get(name),
-                                newNamedList.get(name),
+                                oldVal,
+                                newVal,
                                 storageRevision,
                                 futures,
                                 ConfigurationListener::onUpdate
@@ -326,8 +332,8 @@ public class ConfigurationNotificationsUtil {
 
                         notifyPublicListeners(
                             namedDynamicConfig(cfgNode, key).extendedListeners(),
-                            oldNamedList.get(name),
-                            newNamedList.get(name),
+                            oldVal,
+                            newVal,
                             storageRevision,
                             futures,
                             ConfigurationListener::onUpdate
@@ -345,8 +351,8 @@ public class ConfigurationNotificationsUtil {
                         }
 
                         notifyListeners(
-                            oldNamedList.get(name),
-                            newNamedList.get(name),
+                            oldVal,
+                            newVal,
                             (DynamicConfiguration<InnerNode, ?>)namedListCfgMembers.get(name),
                             storageRevision,
                             futures,
@@ -364,7 +370,7 @@ public class ConfigurationNotificationsUtil {
      * Invoke {@link ConfigurationListener#onUpdate(ConfigurationNotificationEvent)} on all passed listeners and put
      * results in {@code futures}. Not recursively.
      *
-     * @param listeners List o listeners.
+     * @param listeners List of listeners.
      * @param oldVal Old configuration value.
      * @param newVal New configuration value.
      * @param storageRevision Storage revision.
@@ -469,19 +475,5 @@ public class ConfigurationNotificationsUtil {
      */
     private static DynamicConfiguration<InnerNode, ?> any(NamedListConfiguration<?, InnerNode, ?> namedConfig) {
         return (DynamicConfiguration<InnerNode, ?>)namedConfig.any();
-    }
-
-    /**
-     * Get the dynamic configuration of the child node.
-     *
-     * @param namedConfig Named dynamic configuration.
-     * @param nodeName Name of the child node.
-     * @return Dynamic configuration of the child node.
-     */
-    private static DynamicConfiguration<InnerNode, ?> dynamicConfig(
-        NamedListConfiguration<?, InnerNode, ?> namedConfig,
-        String nodeName
-    ) {
-        return (DynamicConfiguration<InnerNode, ?>)namedConfig.members().get(nodeName);
     }
 }

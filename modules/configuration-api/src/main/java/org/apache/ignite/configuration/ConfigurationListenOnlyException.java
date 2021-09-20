@@ -18,15 +18,15 @@
 package org.apache.ignite.configuration;
 
 /**
- * This exception is used to indicate any error condition in the configuration.
+ * This exception is used if an attempt was made to get/update a configuration value in listen-only mode.
  */
-public class ConfigurationException extends RuntimeException {
+public class ConfigurationListenOnlyException extends RuntimeException {
     /**
      * Constructor.
      *
      * @param message Error message.
      */
-    public ConfigurationException(String message) {
+    public ConfigurationListenOnlyException(String message) {
         super(message);
     }
 }

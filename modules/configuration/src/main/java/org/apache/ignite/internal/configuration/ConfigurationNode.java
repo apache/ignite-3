@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
-import org.apache.ignite.configuration.ConfigurationException;
+import org.apache.ignite.configuration.ConfigurationListenOnlyException;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
@@ -106,7 +106,7 @@ public abstract class ConfigurationNode<VIEW, CHANGE> implements ConfigurationPr
      *
      * @return Latest configuration value.
      * @throws NoSuchElementException If configuration is a part of already deleted named list configuration entry.
-     * @throws ConfigurationException If there was an attempt to get or update a property value in
+     * @throws ConfigurationListenOnlyException If there was an attempt to get or update a property value in
      *      {@link #listenOnly listen-only} mode.
      */
     protected final VIEW refreshValue() throws NoSuchElementException {
@@ -173,7 +173,7 @@ public abstract class ConfigurationNode<VIEW, CHANGE> implements ConfigurationPr
      * @return Exception if there was an attempt to get or update a property value in
      *      {@link #listenOnly listen-only} mode.
      */
-    protected ConfigurationException listenOnlyException() {
-        throw new ConfigurationException("Adding only listeners mode: " + keys);
+    protected ConfigurationListenOnlyException listenOnlyException() {
+        throw new ConfigurationListenOnlyException("Adding only listeners mode: " + keys);
     }
 }
