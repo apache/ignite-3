@@ -74,7 +74,7 @@ public class Loza implements IgniteComponent {
         raftServer.stop();
     }
 
-    public CompletableFuture<RaftGroupService> prepareRaftGroup(String groupId, List<ClusterNode> nodes, RaftGroupListener lsnr) {
+    public CompletableFuture<RaftGroupService> prepareRaftGroup(String groupId, List<ClusterNode> nodes, Supplier<RaftGroupListener> lsnr) {
         return prepareRaftGroup(groupId, nodes, lsnr, null);
     }
 

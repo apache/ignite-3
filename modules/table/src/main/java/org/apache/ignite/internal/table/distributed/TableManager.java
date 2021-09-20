@@ -33,13 +33,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
@@ -284,7 +281,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         );
                     },
                     () -> {
-                        return affMgr.updateAssignment(tblId).thenApply(assignments -> assignments.get(currentPartition).stream().map(n -> new Peer(n.address())).collect(Collectors.toList()));
+                        var key = new ByteArray("dst-cfg.table.tables." + tblId + ".assignments");
+
+                        return metaStorageMgr.get(key).thenApply(
+                            r -> ((List<List<ClusterNode>>) ByteUtils.fromBytes(r.value())).get(p).stream().map(n -> new Peer(n.address())).collect(Collectors.toList())
+                        );
                     }
                 )
             )
