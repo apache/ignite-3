@@ -19,10 +19,8 @@ package org.apache.ignite.internal.table;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.schema.SchemaMode;
 import org.apache.ignite.tx.Transaction;
@@ -198,7 +196,12 @@ public interface InternalTable {
     CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows,
         @Nullable Transaction tx);
 
-    // TODO: 18.09.21 javadoc
+    /**
+     * Scans given partition, providing {@link Publisher<BinaryRow>} that relatively notifies about partition rows.
+     * @param p The partition.
+     * @param tx The transaction.
+     * @return {@link Publisher<BinaryRow>} t{@link Publisher<BinaryRow>} that relatively notifies about partition rows.
+     */
     Publisher<BinaryRow> scan(int p, @Nullable Transaction tx);
 
     //TODO: IGNTIE-14488. Add invoke() methods.

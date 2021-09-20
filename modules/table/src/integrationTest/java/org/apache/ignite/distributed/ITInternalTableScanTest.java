@@ -58,20 +58,16 @@ import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -82,7 +78,6 @@ import static org.mockito.Mockito.when;
  * Tests for {@link InternalTable#scan(int, org.apache.ignite.tx.Transaction)}
  */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class ITInternalTableScanTest {
     /** */
@@ -98,7 +93,7 @@ public class ITInternalTableScanTest {
     private static final String TEST_TABLE_NAME = "testTbl";
 
     /** Mock partition storage. */
-    @Mock(lenient = true)
+    @Mock
     private Storage mockStorage;
 
     /** */
@@ -195,62 +190,12 @@ public class ITInternalTableScanTest {
      */
     @Test
     public void testOneRowScan() throws Exception {
-        List<DataRow> subscribedItems = List.of(
-            prepareDataRow("key1", "val1"),
-            prepareDataRow("key2", "val2")
-        );
-
-        AtomicInteger cursorTouchCnt = new AtomicInteger(0);
-
-        List<BinaryRow> retrievedItems = Collections.synchronizedList(new ArrayList<>());
-
-        when(mockStorage.scan(any())).thenAnswer(invocation -> {
-            var cursor = mock(Cursor.class);
-
-            when(cursor.hasNext()).thenAnswer(hnInvocation -> cursorTouchCnt.get() < subscribedItems.size());
-
-            when(cursor.next()).thenAnswer(nInvocation -> subscribedItems.get(cursorTouchCnt.getAndIncrement()));
-
-            return cursor;
-        });
-
-        AtomicBoolean noMoreData = new AtomicBoolean(false);
-
-        internalTbl.scan(0, null).subscribe(new Subscriber<>() {
-            private Subscription subscription;
-
-            @Override public void onSubscribe(Subscription subscription) {
-                this.subscription = subscription;
-
-                subscription.request(1);
-            }
-
-            @Override public void onNext(BinaryRow item) {
-                retrievedItems.add(item);
-
-                subscription.request(1);
-            }
-
-            @Override public void onError(Throwable throwable) {
-                fail("onError call is not expected.");
-            }
-
-            @Override public void onComplete() {
-                noMoreData.set(true);
-                // TODO: sanpwc Do we really need to call subscription.cancel?
-                subscription.cancel();
-            }
-        });
-
-        assertTrue(waitForCondition(() -> retrievedItems.size() == 2, 1_000));
-
-        List<byte[]> expItems = subscribedItems.stream().map(DataRow::valueBytes).collect(Collectors.toList());
-        List<byte[]> gotItems = retrievedItems.stream().map(BinaryRow::bytes).collect(Collectors.toList());
-
-        for (int i = 0; i < expItems.size(); i++)
-            assertTrue(Arrays.equals(expItems.get(i), gotItems.get(i)));
-
-        assertTrue(noMoreData.get(), "More data is not expected.");
+        requestNTest(
+            List.of(
+                prepareDataRow("key1", "val1"),
+                prepareDataRow("key2", "val2")
+            ),
+            1);
     }
 
     /**
@@ -258,28 +203,23 @@ public class ITInternalTableScanTest {
      */
     @Test
     public void testMultipleRowScan() throws Exception {
-        List<DataRow> subscribedItems = List.of(
-            prepareDataRow("key1", "val1"),
-            prepareDataRow("key2", "val2"),
-            prepareDataRow("key3", "val3"),
-            prepareDataRow("key4", "val4")
-        );
+        requestNTest(
+            List.of(
+                prepareDataRow("key1", "val1"),
+                prepareDataRow("key2", "val2"),
+                prepareDataRow("key3", "val3"),
+                prepareDataRow("key4", "val4"),
+                prepareDataRow("key5", "val5")
+            ),
+            2);
+    }
 
-        AtomicInteger cursorTouchCnt = new AtomicInteger(0);
-
-        List<BinaryRow> retrievedItems = Collections.synchronizedList(new ArrayList<>());
-
-        when(mockStorage.scan(any())).thenAnswer(invocation -> {
-            var cursor = mock(Cursor.class);
-
-            when(cursor.hasNext()).thenAnswer(hnInvocation -> cursorTouchCnt.get() < subscribedItems.size());
-
-            when(cursor.next()).thenAnswer(nInvocation -> subscribedItems.get(cursorTouchCnt.getAndIncrement()));
-
-            return cursor;
-        });
-
-        AtomicBoolean noMoreData = new AtomicBoolean(false);
+    /**
+     * Checks that {@link IllegalArgumentException} is thrown in case of negative request amount.
+     */
+    @Test()
+    public void testNegativeReqScan() throws Exception {
+        AtomicReference<Throwable> gotException = new AtomicReference<>();
 
         internalTbl.scan(0, null).subscribe(new Subscriber<>() {
             private Subscription subscription;
@@ -287,35 +227,31 @@ public class ITInternalTableScanTest {
             @Override public void onSubscribe(Subscription subscription) {
                 this.subscription = subscription;
 
-                subscription.request(1);
+                subscription.request(-1);
             }
 
             @Override public void onNext(BinaryRow item) {
-                retrievedItems.add(item);
-
-                subscription.request(2);
+                fail("Should never get here.");
             }
 
             @Override public void onError(Throwable throwable) {
-                fail("onError call is not expected.");
-            }
-
-            @Override public void onComplete() {
-                noMoreData.set(true);
+                gotException.set(throwable);
                 // TODO: sanpwc Do we really need to call subscription.cancel?
                 subscription.cancel();
             }
+
+            @Override public void onComplete() {
+                fail("Should never get here.");
+            }
         });
 
-        assertTrue(waitForCondition(() -> retrievedItems.size() == 4, 1_000));
+        assertTrue(waitForCondition(() -> gotException.get() != null, 1_000));
 
-        List<byte[]> expItems = subscribedItems.stream().map(DataRow::valueBytes).collect(Collectors.toList());
-        List<byte[]> gotItems = retrievedItems.stream().map(BinaryRow::bytes).collect(Collectors.toList());
-
-        for (int i = 0; i < expItems.size(); i++)
-            assertTrue(Arrays.equals(expItems.get(i), gotItems.get(i)));
-
-        assertTrue(noMoreData.get(), "More data is not expected.");
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> {throw gotException.get();},
+            "Requested amount of items is less than 0."
+        );
     }
 
     /**
@@ -343,7 +279,7 @@ public class ITInternalTableScanTest {
             }
 
             @Override public void onNext(BinaryRow item) {
-                subscription.request(1);
+                fail("Should never get here.");
             }
 
             @Override public void onError(Throwable throwable) {
@@ -353,13 +289,29 @@ public class ITInternalTableScanTest {
             }
 
             @Override public void onComplete() {
-                // No-op.
+                fail("Should never get here.");
             }
         });
 
-        Thread.sleep(1_000);
-
         assertTrue(waitForCondition(() -> gotException.get() != null, 1_000));
+    }
+
+    /**
+     * Checks that {@link IllegalArgumentException} is thrown in case of invalid parition.
+     */
+    @Test()
+    public void testInvalidPartitionParameterScan() throws Exception {
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> {internalTbl.scan(-1, null);},
+            "Invalid partition [partition={-1}, minValue={0}, maxValue={0}]."
+        );
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> {internalTbl.scan(1, null);},
+            "Invalid partition [partition={1}, minValue={0}, maxValue={0}]."
+        );
     }
 
     /**
@@ -381,5 +333,67 @@ public class ITInternalTableScanTest {
 
             return new SimpleDataRow(keyBytes, outputStream.toByteArray());
         }
+    }
+
+    /**
+     * Checks whether publisher provides all existing data and then completes if requested by reqAmount rows at a time.
+     *
+     * @param submittedItems Items to be pushed by ublisher.
+     * @param reqAmount Amount of rows to request at a time.
+     * @throws Exception If Any.
+     */
+    private void requestNTest(List<DataRow> submittedItems, int reqAmount) throws Exception {
+        AtomicInteger cursorTouchCnt = new AtomicInteger(0);
+
+        List<BinaryRow> retrievedItems = Collections.synchronizedList(new ArrayList<>());
+
+        when(mockStorage.scan(any())).thenAnswer(invocation -> {
+            var cursor = mock(Cursor.class);
+
+            when(cursor.hasNext()).thenAnswer(hnInvocation -> cursorTouchCnt.get() < submittedItems.size());
+
+            when(cursor.next()).thenAnswer(nInvocation -> submittedItems.get(cursorTouchCnt.getAndIncrement()));
+
+            return cursor;
+        });
+
+        AtomicBoolean noMoreData = new AtomicBoolean(false);
+
+        internalTbl.scan(0, null).subscribe(new Subscriber<>() {
+            private Subscription subscription;
+
+            @Override public void onSubscribe(Subscription subscription) {
+                this.subscription = subscription;
+
+                subscription.request(reqAmount);
+            }
+
+            @Override public void onNext(BinaryRow item) {
+                retrievedItems.add(item);
+
+                if (retrievedItems.size() % reqAmount == 0)
+                    subscription.request(reqAmount);
+            }
+
+            @Override public void onError(Throwable throwable) {
+                fail("onError call is not expected.");
+            }
+
+            @Override public void onComplete() {
+                noMoreData.set(true);
+                // TODO: sanpwc Do we really need to call subscription.cancel?
+                subscription.cancel();
+            }
+        });
+
+        assertTrue(waitForCondition(() -> retrievedItems.size() == submittedItems.size(), 1_000));
+
+        List<byte[]> expItems = submittedItems.stream().map(DataRow::valueBytes).collect(Collectors.toList());
+        List<byte[]> gotItems = retrievedItems.stream().map(BinaryRow::bytes).collect(Collectors.toList());
+
+        for (int i = 0; i < expItems.size(); i++)
+            assertTrue(Arrays.equals(expItems.get(i), gotItems.get(i)));
+
+        assertTrue(noMoreData.get(), "More data is not expected.");
     }
 }

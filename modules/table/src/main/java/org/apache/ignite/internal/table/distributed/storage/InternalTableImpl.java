@@ -54,6 +54,7 @@ import org.apache.ignite.internal.table.distributed.command.response.MultiRowsRe
 import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
+import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.schema.SchemaMode;
 import org.apache.ignite.tx.Transaction;
@@ -292,6 +293,17 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public Publisher<BinaryRow> scan(int p, @Nullable Transaction tx) {
+        if (p < 0 || p >= partitions) {
+            throw new IllegalArgumentException(
+                LoggerMessageHelper.format(
+                    "Invalid partition [partition={}, minValue={}, maxValue={}].",
+                    p,
+                    0,
+                    partitions - 1
+                )
+            );
+        }
+
         return new PartitionScanPublisher(partitionMap.get(p));
     }
 
@@ -374,6 +386,9 @@ public class InternalTableImpl implements InternalTable {
             }
 
             @Override public void request(long n) {
+                if (n < 0)
+                    subscriber.onError(new IllegalArgumentException("Requested amount of items is less than 0."));
+
                 if (isCanceled.get())
                     return;
 
@@ -382,8 +397,13 @@ public class InternalTableImpl implements InternalTable {
                 scanInitOp.thenCompose((none) -> raftGroupSvc.<MultiRowsResponse>run(new ScanRetrieveBatchCommand(n, scanId)))
                     .thenAccept(
                         res -> {
-                            res.getValues().forEach(subscriber::onNext);
-                            subscriber.onComplete();
+                            if (res.getValues() == null)
+                                subscriber.onComplete();
+                            else
+                                res.getValues().forEach(subscriber::onNext);
+
+                            if (res.getValues().size() < n)
+                                subscriber.onComplete();
                         })
                     .exceptionally(
                         t -> {
