@@ -61,7 +61,7 @@
         <junit.jupiter.version>5.7.0</junit.jupiter.version>
         <micronaut.version>2.1.2</micronaut.version>
         <micronaut.test.junit5.version>2.3.1</micronaut.test.junit5.version>
-        <mockito.framework.version>3.4.6</mockito.framework.version>
+        <mockito.framework.version>3.8.0</mockito.framework.version>
         <mockito.junit.jupiter.version>3.3.3</mockito.junit.jupiter.version>
         <picocli.version>4.5.2</picocli.version>
         <slf4j.version>1.7.32</slf4j.version>
@@ -104,6 +104,7 @@
         <maven.shade.plugin.version>3.2.4</maven.shade.plugin.version>
         <maven.source.plugin.version>3.2.1</maven.source.plugin.version>
         <maven.surefire.plugin.version>3.0.0-M5</maven.surefire.plugin.version>
+        <maven.exec.plugin.version>3.0.0</maven.exec.plugin.version>
     </properties>
 
     <distributionManagement>
@@ -457,6 +458,13 @@
 
             <dependency>
                 <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-metastorage-server</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-network</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
@@ -497,6 +505,12 @@
             <dependency>
                 <groupId>org.mockito</groupId>
                 <artifactId>mockito-core</artifactId>
+                <version>${mockito.framework.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-inline</artifactId>
                 <version>${mockito.framework.version}</version>
             </dependency>
 
@@ -942,6 +956,12 @@
                     <artifactId>fmpp-maven-plugin</artifactId>
                     <version>${maven.fmpp.plugin.version}</version>
                 </plugin>
+
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>exec-maven-plugin</artifactId>
+                    <version>${maven.exec.plugin.version}</version>
+                </plugin>
             </plugins>
         </pluginManagement>
 
@@ -1127,6 +1147,7 @@
                         <exclude>modules/raft/src/main/java/org/apache/ignite/raft/jraft/util/HeapByteBufUtil.java</exclude> <!-- Netty license. -->
                         <exclude>modules/raft/src/main/java/org/apache/ignite/raft/jraft/util/timer/TimerTask.java</exclude> <!-- Netty license. -->
                         <exclude>modules/raft/src/main/java/org/apache/ignite/raft/jraft/util/timer/Timeout.java</exclude> <!-- Netty license. -->
+                        <exclude>**/*.sln</exclude> <!-- Visual Studio solution. -->
                     </excludes>
                 </configuration>
             </plugin>

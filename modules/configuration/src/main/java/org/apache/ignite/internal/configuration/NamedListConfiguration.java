@@ -33,8 +33,8 @@ import org.apache.ignite.configuration.notifications.ConfigurationNamedListListe
 /**
  * Named configuration wrapper.
  */
-public final class NamedListConfiguration<T extends ConfigurationProperty<VIEW, CHANGE>, VIEW, CHANGE>
-    extends DynamicConfiguration<NamedListView<VIEW>, NamedListChange<CHANGE>>
+public final class NamedListConfiguration<T extends ConfigurationProperty<VIEW, CHANGE>, VIEW, CHANGE extends VIEW>
+    extends DynamicConfiguration<NamedListView<VIEW>, NamedListChange<VIEW, CHANGE>>
     implements NamedConfigurationTree<T, VIEW, CHANGE>
 {
     /** Listeners of property update. */
@@ -58,7 +58,7 @@ public final class NamedListConfiguration<T extends ConfigurationProperty<VIEW, 
         List<String> prefix,
         String key,
         RootKey<?, ?> rootKey,
-        ConfigurationChanger changer,
+        DynamicConfigurationChanger changer,
         BiFunction<List<String>, String, T> creator
     ) {
         super(prefix, key, rootKey, changer);

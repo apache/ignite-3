@@ -24,10 +24,20 @@ import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlCloseRequest;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlColumnMetadataRequest;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteBatchRequest;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlFetchRequest;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlPrimaryKeyMetadataRequest;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlSchemasMetadataRequest;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlTableMetadataRequest;
+import org.apache.ignite.client.handler.requests.sql.JdbcMetadataCatalog;
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableDropRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTupleContainsKeyRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleDeleteAllExactRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleDeleteAllRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleDeleteExactRequest;
@@ -51,13 +61,15 @@ import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertAllReque
 import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertAllSchemalessRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertSchemalessRequest;
-import org.apache.ignite.client.proto.ClientErrorCode;
-import org.apache.ignite.client.proto.ClientMessageCommon;
-import org.apache.ignite.client.proto.ClientMessagePacker;
-import org.apache.ignite.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.client.proto.ClientOp;
-import org.apache.ignite.client.proto.ProtocolVersion;
-import org.apache.ignite.client.proto.ServerMessageType;
+import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
+import org.apache.ignite.internal.client.proto.ClientErrorCode;
+import org.apache.ignite.internal.client.proto.ClientMessageCommon;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.ProtocolVersion;
+import org.apache.ignite.internal.client.proto.ServerMessageType;
+import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -76,15 +88,22 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** Context. */
     private ClientContext clientContext;
 
+    /** Handler. */
+    private final JdbcQueryEventHandler handler;
+
     /**
      * Constructor.
      *
      * @param igniteTables Ignite tables API entry point.
+     * @param processor Sql query processor.
      */
-    public ClientInboundMessageHandler(IgniteTables igniteTables) {
+    public ClientInboundMessageHandler(IgniteTables igniteTables,
+        QueryProcessor processor) {
         assert igniteTables != null;
 
         this.igniteTables = igniteTables;
+
+        this.handler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables));
     }
 
     /** {@inheritDoc} */
@@ -137,7 +156,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             try {
                 ProtocolVersion.LATEST_VER.pack(errPacker);
-                errPacker.packInt(ClientErrorCode.FAILED).packString(t.getMessage());
+
+                String message = t.getMessage();
+
+                if (message == null)
+                    message = t.getClass().getName();
+
+                errPacker.packInt(ClientErrorCode.FAILED).packString(message);
 
                 write(errPacker, ctx);
             }
@@ -315,6 +340,33 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             case ClientOp.TUPLE_GET_AND_DELETE:
                 return ClientTupleGetAndDeleteRequest.process(in, out, igniteTables);
+
+            case ClientOp.TUPLE_CONTAINS_KEY:
+                return ClientTupleContainsKeyRequest.process(in, out, igniteTables);
+
+            case ClientOp.SQL_EXEC:
+                return ClientSqlExecuteRequest.execute(in, out, handler);
+
+            case ClientOp.SQL_EXEC_BATCH:
+                return ClientSqlExecuteBatchRequest.process(in, out, handler);
+
+            case ClientOp.SQL_NEXT:
+                return ClientSqlFetchRequest.process(in, out, handler);
+
+            case ClientOp.SQL_CURSOR_CLOSE:
+                return ClientSqlCloseRequest.process(in, out, handler);
+
+            case ClientOp.SQL_TABLE_META:
+                return ClientSqlTableMetadataRequest.process(in, out, handler);
+
+            case ClientOp.SQL_COLUMN_META:
+                return ClientSqlColumnMetadataRequest.process(in, out, handler);
+
+            case ClientOp.SQL_SCHEMAS_META:
+                return ClientSqlSchemasMetadataRequest.process(in, out, handler);
+
+            case ClientOp.SQL_PK_META:
+                return ClientSqlPrimaryKeyMetadataRequest.process(in, out, handler);
 
             default:
                 throw new IgniteException("Unexpected operation code: " + opCode);

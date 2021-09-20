@@ -22,9 +22,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import org.apache.ignite.client.proto.ClientOp;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 
@@ -108,7 +108,7 @@ public class ClientTables implements IgniteTables {
             var res = new ArrayList<Table>(cnt);
 
             for (int i = 0; i < cnt; i++)
-                res.add(new ClientTable(ch, in.unpackUuid(), in.unpackString()));
+                res.add(new ClientTable(ch, in.unpackIgniteUuid(), in.unpackString()));
 
             return res;
         });
@@ -124,6 +124,6 @@ public class ClientTables implements IgniteTables {
         Objects.requireNonNull(name);
 
         return ch.serviceAsync(ClientOp.TABLE_GET, w -> w.out().packString(name),
-                r -> new ClientTable(ch, r.in().unpackUuid(), name));
+                r -> new ClientTable(ch, r.in().unpackIgniteUuid(), name));
     }
 }
