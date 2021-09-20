@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.configuration.util;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -41,8 +43,7 @@ import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.leafNodeVisitor;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.namedListNodeVisitor;
-import static org.apache.ignite.internal.util.CollectionUtils.concat;
-import static org.apache.ignite.internal.util.CollectionUtils.view;
+import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 
 /** */
 public class ConfigurationNotificationsUtil {
@@ -81,7 +82,7 @@ public class ConfigurationNotificationsUtil {
         DynamicConfiguration<InnerNode, ?> cfgNode,
         long storageRevision,
         List<CompletableFuture<?>> futures,
-        Iterable<DynamicConfiguration<InnerNode, ?>> anyConfigs
+        Collection<DynamicConfiguration<InnerNode, ?>> anyConfigs
     ) {
         assert !(cfgNode instanceof NamedListConfiguration);
 
@@ -148,7 +149,7 @@ public class ConfigurationNotificationsUtil {
                     dynamicConfig(cfgNode, key),
                     storageRevision,
                     futures,
-                    view(anyConfigs, cfg -> dynamicConfig(cfg, key))
+                    viewReadOnly(anyConfigs, cfg -> dynamicConfig(cfg, key))
                 );
 
                 return null;
@@ -308,6 +309,9 @@ public class ConfigurationNotificationsUtil {
                     Set<String> updated = new HashSet<>(newNames);
                     updated.retainAll(oldNames);
 
+                    // Lazy initialization.
+                    Collection<DynamicConfiguration<InnerNode, ?>> newAnyConfigs = null;
+
                     for (String name : updated) {
                         for (DynamicConfiguration<InnerNode, ?> anyConfig : anyConfigs) {
                             notifyPublicListeners(
@@ -329,13 +333,24 @@ public class ConfigurationNotificationsUtil {
                             ConfigurationListener::onUpdate
                         );
 
+                        if (newAnyConfigs == null) {
+                            if (anyConfigs.isEmpty())
+                                newAnyConfigs = List.of(any(namedListCfg));
+                            else {
+                                newAnyConfigs = new ArrayList<>(anyConfigs.size() + 1);
+
+                                newAnyConfigs.addAll(viewReadOnly(anyConfigs, cfg -> any(namedDynamicConfig(cfg, key))));
+                                newAnyConfigs.add(any(namedListCfg));
+                            }
+                        }
+
                         notifyListeners(
                             oldNamedList.get(name),
                             newNamedList.get(name),
                             (DynamicConfiguration<InnerNode, ?>)namedListCfgMembers.get(name),
                             storageRevision,
                             futures,
-                            concat(view(anyConfigs, cfg -> any(namedDynamicConfig(cfg, key))), List.of(any(namedListCfg)))
+                            newAnyConfigs
                         );
                     }
                 }

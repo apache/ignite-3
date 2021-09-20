@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.util;
 
+import java.util.AbstractCollection;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -144,35 +145,49 @@ public final class CollectionUtils {
     }
 
     /**
-     * Create a view for an iterable with conversion of elements.
+     * Create a collection view that can only be read.
      *
-     * @param iterable Iterable.
+     * @param collection Basic collection.
      * @param mapper Conversion function.
-     * @param <T1> Type of the elements.
-     * @param <T2> Converted type of the elements.
-     * @return View of iterable.
+     * @param <T1> Base type of the collection.
+     * @param <T2> Type for view.
+     * @return Read-only collection view.
      */
-    public static <T1, T2> Iterable<T2> view(
-        @Nullable Iterable<? extends T1> iterable,
+    public static <T1, T2> Collection<T2> viewReadOnly(
+        @Nullable Collection<? extends T1> collection,
         @Nullable Function<? super T1, ? extends T2> mapper
     ) {
-        if (iterable == null)
-            return Collections::emptyIterator;
+        if (nullOrEmpty(collection))
+            return Collections.emptyList();
         else if (mapper == null)
-            return (Iterable<T2>)iterable;
+            return (Collection<T2>)collection;
         else {
-            return () -> new Iterator<>() {
-                /** Current iterator. */
-                Iterator<? extends T1> iterator = iterable.iterator();
-
+            return new AbstractCollection<>() {
                 /** {@inheritDoc} */
-                @Override public boolean hasNext() {
-                    return iterator.hasNext();
+                @Override public Iterator<T2> iterator() {
+                    Iterator<? extends T1> iterator = collection.iterator();
+
+                    return new Iterator<>() {
+                        /** {@inheritDoc} */
+                        @Override public boolean hasNext() {
+                            return iterator.hasNext();
+                        }
+
+                        /** {@inheritDoc} */
+                        @Override public T2 next() {
+                            return mapper.apply(iterator.next());
+                        }
+                    };
                 }
 
                 /** {@inheritDoc} */
-                @Override public T2 next() {
-                    return mapper.apply(iterator.next());
+                @Override public int size() {
+                    return collection.size();
+                }
+
+                /** {@inheritDoc} */
+                @Override public boolean isEmpty() {
+                    return collection.isEmpty();
                 }
             };
         }

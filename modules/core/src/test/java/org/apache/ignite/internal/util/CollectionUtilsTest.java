@@ -26,8 +26,9 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
 import static org.apache.ignite.internal.util.CollectionUtils.union;
-import static org.apache.ignite.internal.util.CollectionUtils.view;
+import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -65,25 +66,26 @@ public class CollectionUtilsTest {
 
     /** */
     @Test
-    void testView() {
-        assertTrue(collect(view(null, null)).isEmpty());
-        assertTrue(collect(view(List.of(), null)).isEmpty());
-        assertTrue(collect(view(null, identity())).isEmpty());
+    void testViewReadOnly() {
+        assertTrue(viewReadOnly(null, null).isEmpty());
+        assertTrue(viewReadOnly(List.of(), null).isEmpty());
 
-        assertEquals(
-            List.of("1", "2", "3"),
-            collect(view(List.of("1", "2", "3"), null))
-        );
+        assertEquals(List.of(1), viewReadOnly(List.of(1), null));
+        assertEquals(List.of(1), collect(viewReadOnly(List.of(1), identity())));
 
-        assertEquals(
-            List.of("1", "2", "3"),
-            collect(view(List.of("1", "2", "3"), identity()))
-        );
+        assertEquals(List.of("1", "2", "3"), collect(viewReadOnly(List.of(1, 2, 3), String::valueOf)));
 
-        assertEquals(
-            List.of(1, 2, 3),
-            collect(view(List.of("1", "2", "3"), Integer::valueOf))
-        );
+        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null).add(1));
+        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null).addAll(List.of()));
+
+        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null).remove(1));
+        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null).removeAll(List.of()));
+        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null).removeIf(o -> true));
+        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null).clear());
+
+        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null).retainAll(List.of()));
+
+        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null).iterator().remove());
     }
 
     /**
