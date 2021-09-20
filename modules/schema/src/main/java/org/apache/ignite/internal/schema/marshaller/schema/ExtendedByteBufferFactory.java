@@ -24,21 +24,21 @@ import java.nio.ByteBuffer;
  */
 public interface ExtendedByteBufferFactory {
     /**
-     * ExtendedByteBuffer factory interface.
+     * ExtendedByteBuffer which wraps byte array.
      */
     static ExtendedByteBuffer wrap(byte[] bytes) {
         return new ExtendedByteBufferImpl(ByteBuffer.wrap(bytes));
     }
 
     /**
-     * ExtendedByteBuffer factory interface.
+     * ExtendedByteBuffer with allocated byte array.
      */
     static ExtendedByteBuffer allocate(int size) {
         return new ExtendedByteBufferImpl(ByteBuffer.allocate(size));
     }
 
     /**
-     * ExtendedByteBuffer factory interface.
+     * ExtendedByteBuffer for size calculation.
      */
     static ExtendedByteBuffer calcSize() {
         return new CalcSizeByteBuffer();

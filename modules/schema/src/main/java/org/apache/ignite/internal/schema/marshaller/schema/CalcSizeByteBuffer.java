@@ -21,6 +21,21 @@ package org.apache.ignite.internal.schema.marshaller.schema;
  * ExtendedByteBuffer implementation that does not store any data but counts the size of the data that passed through it.
  */
 public class CalcSizeByteBuffer implements ExtendedByteBuffer {
+    /** String array length. */
+    private static final int STRING_HEADER = 4;
+
+    /** Array length. */
+    private static final int ARRAY_HEADER_LENGTH = 4;
+
+    /** Byte. */
+    private static final int BYTE = 1;
+
+    /** Short. */
+    private static final int SHORT = 2;
+
+    /** Int. */
+    private static final int INT = 4;
+
     /** Size. */
     private int size;
 
@@ -33,29 +48,28 @@ public class CalcSizeByteBuffer implements ExtendedByteBuffer {
 
     /** {@inheritDoc} */
     @Override public void put(byte val) {
-        size += Size.BYTE;
+        size += BYTE;
     }
 
     /** {@inheritDoc} */
     @Override public void put(byte[] values) {
-        size += Size.ARRAY_HEADER_LENGTH;
+        size += ARRAY_HEADER_LENGTH;
         size += values.length;
     }
 
     /** {@inheritDoc} */
     @Override public void putShort(short val) {
-        size += Size.SHORT;
+        size += SHORT;
     }
 
     /** {@inheritDoc} */
     @Override public void putInt(int val) {
-        size += Size.INT;
+        size += INT;
     }
 
     /** {@inheritDoc} */
     @Override public void putString(String val) {
-        size += Size.STRING_HEADER +
-            val.getBytes().length;
+        size += STRING_HEADER + val.getBytes().length;
     }
 
     /** {@inheritDoc} */
