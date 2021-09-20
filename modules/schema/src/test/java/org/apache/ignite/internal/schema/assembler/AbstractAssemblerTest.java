@@ -54,7 +54,5 @@ public class AbstractAssemblerTest {
         assertArrayEquals(desc.keyColumns().columns(), deserialize.keyColumns().columns());
         assertArrayEquals(desc.valueColumns().columns(), deserialize.valueColumns().columns());
         assertArrayEquals(desc.affinityColumns(), deserialize.affinityColumns());
-
-        assertEquals(desc, desc);
     }
 }

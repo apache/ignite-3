@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema.marshaller.schema;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.DecimalNativeType;
@@ -26,9 +27,11 @@ import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.NumberNativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.TemporalNativeType;
+import org.apache.ignite.internal.schema.VarlenNativeType;
 
 /**
- *
+ * Serialize SchemaDescriptor object to byte array and vice versa.
  */
 public class SchemaSerializerImpl extends AbstractSchemaSerializer {
     /** Instance. */
@@ -90,8 +93,8 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
     }
 
     /**
-     * @param cols
-     * @return
+     * @param cols Column array.
+     * @return Size of an array with column names.
      */
     private int getStringArraySize(Column[] cols) {
         int size = Size.ARRAY_HEADER_LENGTH;      //String array size header
@@ -102,8 +105,8 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
     }
 
     /**
-     * @param cols
-     * @return
+     * @param cols Column array.
+     * @return Size of column array, including column name and column native type.
      */
     private int getColumnsSize(Columns cols) {
         int size = Size.ARRAY_HEADER_LENGTH; //cols array length
@@ -112,17 +115,47 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
             size += Size.INT +                      //Schema index
                 Size.BOOL +                         //nullable flag
                 getStringSize(column.name()) +
-                Size.INT +                          //type size in bytes
-                getStringSize(column.type().spec().name()) +
-                Size.INT +                          //type precision (for DECIMAL AND NUMBER types)
-                Size.INT;                           //type scale (for DECIMAL type)
+                getNativeTypeSize(column.type());
 
         return size;
     }
 
     /**
-     * @param str
-     * @return
+     * @param type Native type.
+     * @return Native type size depending on NativeTypeSpec params.
+     */
+    private int getNativeTypeSize(NativeType type) {
+        int typeSize = 0;
+
+        switch (type.spec()) {
+            case STRING:
+            case BYTES:
+            case TIME:
+            case DATETIME:
+            case TIMESTAMP:
+            case NUMBER:
+            case BITMASK:
+                typeSize += Size.INT; //For precision, len or bits
+
+                break;
+            case DECIMAL:
+                typeSize += Size.INT; //For precision
+                typeSize += Size.INT; //For scale
+
+                break;
+            default:
+                break;
+        }
+
+        return getStringSize(type.spec().name()) + //native type name
+            typeSize;
+    }
+
+    /**
+     * Gets string byte representation size with array header.
+     *
+     * @param str String.
+     * @return String byte size with array header.
      */
     private int getStringSize(String str) {
         return Size.STRING_HEADER + //string byte array header
@@ -130,8 +163,10 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
     }
 
     /**
-     * @param cols
-     * @param buf
+     * Appends column array to byte buffer.
+     *
+     * @param buf Byte buffer.
+     * @param cols Column array.
      */
     private void appendColumns(Columns cols, ByteBuffer buf) {
         Column[] colArr = cols.columns();
@@ -143,48 +178,131 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
     }
 
     /**
-     * @param col
-     * @param buf
+     * Appends column to byte buffer.
+     *
+     * @param buf Byte buffer.
+     * @param col Column.
      */
     private void appendColumn(Column col, ByteBuffer buf) {
         buf.putInt(col.schemaIndex());
         buf.put((byte)(col.nullable() ? 1 : 0));
         appendString(col.name(), buf);
-        NativeType type = col.type();
-        buf.putInt(type.sizeInBytes());
-
-        appendPrecisionAndScale(buf, type);
-
-        appendString(type.spec().name(), buf);
+        appendNativeType(buf, col.type());
     }
 
     /**
-     * @param buf
-     * @param type
+     * Appends native type to byte buffer.
+     *
+     * @param buf Byte buffer.
+     * @param type Native type.
      */
-    private void appendPrecisionAndScale(ByteBuffer buf, NativeType type) {
-        int precision = 0;
-        int scale = 0;
-        if (type.spec() == NativeTypeSpec.DECIMAL) {
+    private void appendNativeType(ByteBuffer buf, NativeType type) {
+        appendString(type.spec().name(), buf);
+
+        switch (type.spec()) {
+            case STRING:
+            case BYTES:
+                appendTypeLen(buf, type);
+                break;
+            case BITMASK:
+                appendBits(buf, type);
+                break;
+            case DECIMAL:
+                appendPrecision(buf, type);
+                appendScale(buf, type);
+                break;
+            case TIME:
+            case DATETIME:
+            case TIMESTAMP:
+            case NUMBER:
+                appendPrecision(buf, type);
+                break;
+            default:
+                break;
+        }
+    }
+
+    /**
+     * Appends precision of native type to byte buffer.
+     *
+     * @param buf Byte buffer.
+     * @param type Native type with precision.
+     */
+    private void appendPrecision(ByteBuffer buf, NativeType type) {
+        NativeTypeSpec spec = type.spec();
+        int precision;
+
+        if (spec == NativeTypeSpec.DECIMAL)
             precision = ((DecimalNativeType)type).precision();
-            scale = ((DecimalNativeType)type).scale();
-        } else if ((type.spec() == NativeTypeSpec.NUMBER))
+        else if (spec == NativeTypeSpec.NUMBER)
             precision = ((NumberNativeType)type).precision();
+        else if (type instanceof TemporalNativeType)
+            precision = ((TemporalNativeType)type).precision();
+        else throw new IllegalArgumentException();
 
         buf.putInt(precision);
+    }
+
+    /**
+     * Appends scale of native type to byte buffer.
+     *
+     * @param buf Byte buffer.
+     * @param type Native type with scale.
+     */
+    private void appendScale(ByteBuffer buf, NativeType type) {
+        assert type.spec() == NativeTypeSpec.DECIMAL;
+
+        int scale = ((DecimalNativeType)type).scale();
+
         buf.putInt(scale);
     }
 
-    private void appendString(String name, ByteBuffer buf) {
-        byte[] bytes = name.getBytes();
+    /**
+     * Appends len of native type to byte buffer.
+     *
+     * @param buf Byte buffer.
+     * @param type VarLen native type.
+     */
+    private void appendTypeLen(ByteBuffer buf, NativeType type) {
+        assert type.spec() == NativeTypeSpec.STRING || type.spec() == NativeTypeSpec.BYTES;
+
+        int len = ((VarlenNativeType)type).length();
+
+        buf.putInt(len);
+    }
+
+    /**
+     * Appends bit len of bitmask native type to byte buffer.
+     *
+     * @param buf Byte buffer.
+     * @param type Bitmask native type.
+     */
+    private void appendBits(ByteBuffer buf, NativeType type) {
+        assert type.spec() == NativeTypeSpec.BITMASK;
+
+        int bits = ((BitmaskNativeType)type).bits();
+
+        buf.putInt(bits);
+    }
+
+    /**
+     * Appends string header and string byte representation length to byte buffer.
+     *
+     * @param buf Byte buffer.
+     * @param str String.
+     */
+    private void appendString(String str, ByteBuffer buf) {
+        byte[] bytes = str.getBytes();
 
         buf.putInt(bytes.length);
         buf.put(bytes);
     }
 
     /**
-     * @param buf
-     * @return
+     * Reads column array from byte buffer.
+     *
+     * @param buf Byte buffer.
+     * @return Column array.
      */
     private Column[] readColumns(ByteBuffer buf) {
         int size = buf.getInt();
@@ -198,26 +316,106 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
     }
 
     /**
-     * @param buf
-     * @return
+     * Reads column from byte buffer.
+     *
+     * @param buf Byte buffer.
+     * @return Column.
      */
     private Column readColumn(ByteBuffer buf) {
         int schemaIdx = buf.getInt();
         boolean nullable = buf.get() == 1;
         String name = readString(buf);
-        int sizeInBytes = buf.getInt();
-        int precision = buf.getInt();
-        int scale = buf.getInt();
-        String nativeTypeSpecName = readString(buf);
-
-        NativeType nativeType = NativeTypes.fromName(nativeTypeSpecName, sizeInBytes, precision, scale);
+        NativeType nativeType = readNativeType(buf);
 
         return new Column(name, nativeType, nullable).copy(schemaIdx);
     }
 
     /**
-     * @param buf
-     * @return
+     * Reads native type from byte buffer.
+     *
+     * @param buf Byte buffer.
+     * @return Native type.
+     */
+    private NativeType readNativeType(ByteBuffer buf) {
+        String nativeTypeSpecName = readString(buf);
+
+        NativeTypeSpec spec = NativeTypeSpec.valueOf(nativeTypeSpecName);
+
+        switch (spec) {
+            case STRING:
+                int strLen = buf.getInt();
+
+                return NativeTypes.stringOf(strLen);
+
+            case BYTES:
+                int len = buf.getInt();
+
+                return NativeTypes.blobOf(len);
+
+            case BITMASK:
+                int bits = buf.getInt();
+
+                return NativeTypes.bitmaskOf(bits);
+
+                case DECIMAL: {
+                int precision = buf.getInt();
+                int scale = buf.getInt();
+
+                return NativeTypes.decimalOf(precision, scale);
+            }
+            case TIME: {
+                int precision = buf.getInt();
+
+                return NativeTypes.time(precision);
+            }
+            case DATETIME: {
+                int precision = buf.getInt();
+
+                return NativeTypes.datetime(precision);
+            }
+            case TIMESTAMP: {
+                int precision = buf.getInt();
+
+                return NativeTypes.timestamp(precision);
+            }
+            case NUMBER: {
+                int precision = buf.getInt();
+
+                return NativeTypes.numberOf(precision);
+            }
+            case INT8:
+                return NativeTypes.INT8;
+
+            case INT16:
+                return NativeTypes.INT16;
+
+            case INT32:
+                return NativeTypes.INT32;
+
+            case INT64:
+                return NativeTypes.INT64;
+
+            case FLOAT:
+                return NativeTypes.FLOAT;
+
+            case DOUBLE:
+                return NativeTypes.DOUBLE;
+
+            case UUID:
+                return NativeTypes.UUID;
+
+            case DATE:
+                return NativeTypes.DATE;
+        }
+
+        throw new IllegalArgumentException();
+    }
+
+    /**
+     * Reads string from byte buffer.
+     *
+     * @param buf Byte buffer.
+     * @return String.
      */
     private String readString(ByteBuffer buf) {
         int len = buf.getInt();

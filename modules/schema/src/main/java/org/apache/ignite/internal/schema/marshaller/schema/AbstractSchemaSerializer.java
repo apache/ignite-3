@@ -21,9 +21,9 @@ import java.nio.ByteBuffer;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 
 /**
- *
+ * Schema serializer.
  */
-public abstract class AbstractSchemaSerializer implements SchemaSerialize {
+public abstract class AbstractSchemaSerializer implements SchemaSerializer {
     /** Schema serializer version. */
     protected final short version;
 
@@ -55,16 +55,20 @@ public abstract class AbstractSchemaSerializer implements SchemaSerialize {
     }
 
     /**
-     * @param desc
-     * @return
+     * Serialize SchemaDescriptor object to byte array.
+     *
+     * @param desc SchemaDescriptor object.
+     * @return SchemaDescriptor byte array representation.
      */
     public byte[] serialize(SchemaDescriptor desc) {
         return this.bytes(desc, createByteBuffer(desc));
     }
 
     /**
-     * @param bytes
-     * @return
+     * Deserialize byte array to SchemaDescriptor object.
+     *
+     * @param bytes SchemaDescriptor byte array representation.
+     * @return SchemaDescriptor object.
      */
     public SchemaDescriptor deserialize(byte[] bytes) {
         ByteBuffer buf = createByteBuffer(bytes);
@@ -74,10 +78,13 @@ public abstract class AbstractSchemaSerializer implements SchemaSerialize {
     }
 
     /**
-     * @param ver
-     * @return
+     * Gets schema serializer by version.
+     *
+     * @param ver SchemaSerializer target version.
+     * @return SchemaSerializer object.
+     * @throws IllegalArgumentException If SchemaSerializer with right version is not found.
      */
-    private SchemaSerialize getAssemblerByVersion(short ver) {
+    private SchemaSerializer getAssemblerByVersion(short ver) {
         if (ver == this.version)
             return this;
         else if (this.previous == null)
@@ -87,24 +94,30 @@ public abstract class AbstractSchemaSerializer implements SchemaSerialize {
     }
 
     /**
-     * @param bytes
-     * @return
+     * Wraps a byte array into a buffer.
+     *
+     * @param bytes Byte array.
+     * @return ByteBuffer byte buffer.
      */
     protected ByteBuffer createByteBuffer(byte[] bytes) {
         return ByteBuffer.wrap(bytes);
     }
 
     /**
-     * @param desc
-     * @return
+     * Calculates the required size from SchemaDescriptor object and allocates a new ByteBuffer with the given size.
+     *
+     * @param desc SchemaDescriptor object.
+     * @return ByteBuffer object.
      */
     protected ByteBuffer createByteBuffer(SchemaDescriptor desc) {
         return ByteBuffer.allocate(size(desc));
     }
 
     /**
-     * @param buf
-     * @return
+     * Reads SchemaSerializer version from byte buffer.
+     *
+     * @param buf ByteBuffer object.
+     * @return SchemaSerializer version.
      */
     protected short readVersion(ByteBuffer buf) {
         return buf.getShort();
