@@ -147,13 +147,14 @@ public class TxTest extends IgniteAbstractTest {
 
     /** */
     @Test
-    @Disabled
     public void testMixedPutGet() throws TransactionException {
         accounts.upsert(makeValue(1, BALANCE_1));
 
         igniteTransactions.runInTransaction(tx -> {
-            accounts.getAsync(makeKey(1)).thenComposeAsync(r ->
-                accounts.upsertAsync(makeValue(1, r.doubleValue("balance") + DELTA))).join();
+            Table txAcc = tx.wrap(accounts);
+
+            txAcc.getAsync(makeKey(1)).thenComposeAsync(r ->
+                txAcc.upsertAsync(makeValue(1, r.doubleValue("balance") + DELTA))).join();
         });
 
         assertEquals(BALANCE_1 + DELTA, accounts.get(makeKey(1)).doubleValue("balance"));

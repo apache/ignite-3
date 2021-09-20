@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table.distributed.raft;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.UUID;
@@ -33,6 +32,7 @@ import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteExactAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteExactCommand;
+import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.GetAllCommand;
 import org.apache.ignite.internal.table.distributed.command.GetAndDeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.GetAndReplaceCommand;
@@ -47,7 +47,9 @@ import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
 import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
+import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ReadCommand;
@@ -127,6 +129,8 @@ public class PartitionListener implements RaftGroupListener {
                 handleGetAndReplaceCommand((CommandClosure<GetAndReplaceCommand>) clo);
             else if (command instanceof GetAndUpsertCommand)
                 handleGetAndUpsertCommand((CommandClosure<GetAndUpsertCommand>) clo);
+            else if (command instanceof FinishTxCommand)
+                handleFinishTxCommand((CommandClosure<FinishTxCommand>) clo);
             else
                 assert false : "Command was not found [cmd=" + command + ']';
         });
@@ -319,6 +323,20 @@ public class PartitionListener implements RaftGroupListener {
         assert row != null && row.hasValue();
 
         clo.result(new SingleRowResponse(storage.getAndUpsert(row, null)));
+    }
+
+    /**
+     * Handler for the {@link FinishTxCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleFinishTxCommand(CommandClosure<FinishTxCommand> clo) {
+        FinishTxCommand cmd = clo.command();
+
+        Timestamp ts = cmd.timestamp();
+        boolean commit = cmd.finish();
+
+        clo.result(txManager.changeState(ts, TxState.PENDING, commit ? TxState.COMMITED : TxState.ABORTED));
     }
 
     /** {@inheritDoc} */

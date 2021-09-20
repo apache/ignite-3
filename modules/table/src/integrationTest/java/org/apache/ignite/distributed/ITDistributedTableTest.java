@@ -80,6 +80,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -396,7 +397,7 @@ public class ITDistributedTableTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testSimple_1_1_1() throws Exception {
+    public void testCommit_1_1_1() throws Exception {
         nodes = 1;
         parts = 1;
 
@@ -427,7 +428,7 @@ public class ITDistributedTableTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testSimple_3_1_3() throws Exception {
+    public void testCommit_3_1_3() throws Exception {
         nodes = 3;
         parts = 1;
         replicas = 3;
@@ -435,6 +436,8 @@ public class ITDistributedTableTest {
         startTable(true);
 
         TxManager nearMgr = ((InternalTableImpl) table.internalTable()).transactionManager();
+
+        int part = table.partition(makeKey(1));
 
         InternalTransaction tx = putGet(nearMgr, true);
 
@@ -446,20 +449,29 @@ public class ITDistributedTableTest {
 
         TxManager locMgr = raftServers.get(locNode).transactionManager();
 
+        assertNotSame(nearMgr, locMgr);
         assertNotNull(locMgr);
 
         assertEquals(TxState.COMMITED, nearMgr.state(tx.timestamp()));
         assertEquals(TxState.COMMITED, locMgr.state(tx.timestamp()));
 
-//        for (Map.Entry<ClusterNode, RaftServer> entry : raftServers.entrySet()) {
-//            JRaftServerImpl srv = (JRaftServerImpl) entry.getValue();
-//            PartitionListener listener = (PartitionListener) getListener(srv, groupName(0));
-//            VersionedRowStore storage = listener.getStorage();
-//        }
+        assertEquals(1, table.get(makeKey(1)).longValue("value"));
 
-        long val2 = table.get(makeKey(1)).longValue("value");
+        RaftGroupService svc = raftClients.get(part);
 
-        assertEquals(1, val2);
+        Peer leader = svc.leader();
+        assertNotNull(leader);
+
+        // Stop current leader and make sure committed value is not lost.
+        ClusterNode leaderAddr = client.topologyService().getByAddress(leader.address());
+        RaftServer raftLeaderServer = raftServers.remove(leaderAddr);
+        raftLeaderServer.stop();
+        svc.refreshLeader().get(5, TimeUnit.SECONDS);
+
+        assertNotNull(svc.leader());
+        assertNotEquals(leader, svc.leader());
+
+        assertEquals(1, table.get(makeKey(1)).longValue("value"));
     }
 
     /**
@@ -468,9 +480,10 @@ public class ITDistributedTableTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testClientServerTopologyRollback() throws Exception {
+    public void testRollback_1_1_1() throws Exception {
         nodes = 1;
         parts = 1;
+        replicas = 1;
 
         startTable(true);
 
