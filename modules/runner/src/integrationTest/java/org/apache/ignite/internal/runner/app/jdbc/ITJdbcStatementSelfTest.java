@@ -40,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Statement test.
  */
 @SuppressWarnings({"ThrowableNotThrown"})
-public class JdbcStatementSelfTest extends AbstractJdbcSelfTest {
+public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
     /** SQL query. */
     private static final String SQL =
         "select 1::INTEGER, true, 1::TINYINT, 1::SMALLINT, 1::INTEGER, 1::BIGINT, 1.0::FLOAT, 1.0::DOUBLE, 1.0::DOUBLE, '1';";
