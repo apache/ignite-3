@@ -205,7 +205,6 @@ public class SchemaDescriptorConverter {
     /**
      * Build schema descriptor by table schema.
      *
-     * @param tblId Table id.
      * @param schemaVer Schema version.
      * @param tblCfg Table schema.
      * @return SchemaDescriptor.

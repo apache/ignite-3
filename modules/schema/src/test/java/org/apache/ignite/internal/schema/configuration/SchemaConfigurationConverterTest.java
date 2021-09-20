@@ -153,7 +153,7 @@ public class SchemaConfigurationConverterTest {
     }
 
     /**
-     * Add/remove PrimaryIndex into configuration and read it back.
+     * Add/remove index on primary key into configuration and read it back.
      */
     @Test
     public void testUniqIndex() throws ExecutionException, InterruptedException {
@@ -177,7 +177,7 @@ public class SchemaConfigurationConverterTest {
     }
 
     /**
-     * Add/remove PrimaryIndex into configuration and read it back.
+     * Detect an index containing affinity key as unique one.
      */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15483")
     @Test

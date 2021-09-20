@@ -44,7 +44,7 @@ public class SchemaDescriptorConverterTest {
      * Convert table with complex primary key and check it.
      */
     @Test
-    public void testComplexPrimaryIndex() {
+    public void testComplexPrimaryKey() {
         TableSchemaBuilder bldr = getBuilder(false, false);
         TableDefinition tblSchm = bldr.withPrimaryKey(
             SchemaBuilders.primaryKey()
@@ -63,7 +63,7 @@ public class SchemaDescriptorConverterTest {
      * Convert table with complex primary key with affinity column configured and check it.
      */
     @Test
-    public void testComplexPrimaryIndexWithAffinity() {
+    public void testComplexPrimaryKeyWithAffinity() {
         TableSchemaBuilder bldr = getBuilder(false, false);
         TableDefinition tblSchm = bldr.withPrimaryKey(
             SchemaBuilders.primaryKey()
