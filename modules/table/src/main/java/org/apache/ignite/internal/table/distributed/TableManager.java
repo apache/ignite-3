@@ -36,6 +36,10 @@ import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
@@ -75,6 +79,7 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -277,6 +282,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 ByteBuffer::compareTo
                             )
                         );
+                    },
+                    () -> {
+                        return affMgr.updateAssignment(tblId).thenApply(assignments -> assignments.get(currentPartition).stream().map(n -> new Peer(n.address())).collect(Collectors.toList()));
                     }
                 )
             )
@@ -347,6 +355,38 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             fireEvent(TableEvent.DROP, new TableEventParameters(tblId, name), e);
         }
     }
+
+//    private CompletableFuture<Map<Integer, RaftGroupService>> refreshPartitionMapping(UUID tblId) {
+//        return affMgr.updateAssignment(tblId).thenCompose(newMapping -> {
+//            int partition = 0;
+//            ArrayList<CompletableFuture<RaftGroupService>> partitionsGroupsFutures = new ArrayList<>();
+//            for (List<ClusterNode> nodes: newMapping) {
+//                partitionsGroupsFutures.add(raftMgr.prepareRaftGroup(
+//                    raftGroupName(tblId, partition++),
+//                    nodes
+//                ));
+//            }
+//
+//            CompletableFuture<Map<Integer, RaftGroupService>> future = CompletableFuture.allOf(partitionsGroupsFutures.toArray(CompletableFuture[]::new)).thenApply((v) -> {
+//                Map<Integer, RaftGroupService> partitionMap = new HashMap<>(partitionsGroupsFutures.size());
+//
+//                for (int p = 0; p < partitionsGroupsFutures.size(); p++) {
+//                    CompletableFuture<RaftGroupService> f = partitionsGroupsFutures.get(p);
+//
+//                    assert f.isDone();
+//
+//                    RaftGroupService service = f.join();
+//
+//                    partitionMap.put(p, service);
+//                }
+//
+//                return partitionMap;
+//            });
+//
+//            return future;
+//        });
+//
+//    }
 
     /**
      * Compounds a RAFT group unique name.

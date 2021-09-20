@@ -120,13 +120,13 @@ public abstract class BaseCliRequestProcessor<T extends Message> extends RpcRequ
         if (peerId != null) {
             node = nodeManager.get(groupId, peerId);
             if (node == null) {
-                st.setError(RaftError.ENOENT, "Fail to find node %s in group %s", peerId, groupId);
+                st.setError(RaftError.ENOPEER, "Fail to find node %s in group %s", peerId, groupId);
             }
         }
         else {
             List<Node> nodes = nodeManager.getNodesByGroupId(groupId);
             if (nodes == null || nodes.isEmpty()) {
-                st.setError(RaftError.ENOENT, "Empty nodes in group %s", groupId);
+                st.setError(RaftError.ENOPEER, "Empty nodes in group %s", groupId);
             }
             else if (nodes.size() > 1) {
                 st.setError(RaftError.EINVAL, "Peer must be specified since there're %d nodes in group %s",
