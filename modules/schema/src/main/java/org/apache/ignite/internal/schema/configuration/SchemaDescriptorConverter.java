@@ -27,7 +27,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DecimalNativeType;
@@ -211,7 +210,7 @@ public class SchemaDescriptorConverter {
      * @param tblCfg Table schema.
      * @return SchemaDescriptor.
      */
-    public static SchemaDescriptor convert(UUID tblId, int schemaVer, TableDefinition tblCfg) {
+    public static SchemaDescriptor convert(int schemaVer, TableDefinition tblCfg) {
         List<ColumnDefinition> keyColsCfg = new ArrayList<>(tblCfg.keyColumns());
 
         Column[] keyCols = new Column[keyColsCfg.size()];
@@ -229,7 +228,7 @@ public class SchemaDescriptorConverter {
         for (int i = 0; i < valCols.length; i++)
             valCols[i] = convert(valColsCfg.get(i));
 
-        return new SchemaDescriptor(tblId, schemaVer, keyCols, affCols, valCols);
+        return new SchemaDescriptor(schemaVer, keyCols, affCols, valCols);
     }
 
     /**

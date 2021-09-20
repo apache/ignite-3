@@ -85,7 +85,7 @@ public abstract class AbstractClientTest {
 
     public static Ignite startClient(String... addrs) {
         if (addrs == null || addrs.length == 0)
-            addrs = new String[]{"127.0.0.2:" + serverPort};
+            addrs = new String[]{"127.0.0.1:" + serverPort};
 
         var builder = IgniteClient.builder().addresses(addrs);
 
@@ -110,7 +110,7 @@ public abstract class AbstractClientTest {
                 local -> local.changePort(port).changePortRange(portRange)
         ).join();
 
-        var module = new ClientHandlerModule(ignite.tables(), cfg);
+        var module = new ClientHandlerModule(((FakeIgnite)ignite).queryEngine(), ignite.tables(), cfg);
         module.start();
 
         return new IgniteBiTuple<>(module, cfg);

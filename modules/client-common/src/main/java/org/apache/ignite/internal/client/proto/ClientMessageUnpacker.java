@@ -30,7 +30,9 @@ import java.util.BitSet;
 import java.util.UUID;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteUuid;
 import org.msgpack.core.ExtensionTypeHeader;
 import org.msgpack.core.MessageFormat;
 import org.msgpack.core.MessagePack;
@@ -41,6 +43,7 @@ import org.msgpack.core.buffer.InputStreamBufferInput;
 import org.msgpack.value.ImmutableValue;
 
 import static org.apache.ignite.internal.client.proto.ClientDataType.BITMASK;
+import static org.apache.ignite.internal.client.proto.ClientDataType.BOOLEAN;
 import static org.apache.ignite.internal.client.proto.ClientDataType.BYTES;
 import static org.apache.ignite.internal.client.proto.ClientDataType.DATE;
 import static org.apache.ignite.internal.client.proto.ClientDataType.DATETIME;
@@ -347,6 +350,33 @@ public class ClientMessageUnpacker extends MessageUnpacker {
     }
 
     /**
+     * Reads an {@link IgniteUuid}.
+     *
+     * @return {@link IgniteUuid} value.
+     * @throws MessageTypeException when type is not {@link IgniteUuid}.
+     * @throws MessageSizeException when size is not correct.
+     */
+    public IgniteUuid unpackIgniteUuid() {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        var hdr = unpackExtensionTypeHeader();
+        var type = hdr.getType();
+        var len = hdr.getLength();
+
+        if (type != ClientMsgPackType.IGNITE_UUID)
+            throw new MessageTypeException("Expected Ignite UUID extension (1), but got " + type);
+
+        if (len != 24)
+            throw new MessageSizeException("Expected 24 bytes for UUID extension, but got " + len, len);
+
+        var bytes = readPayload(24);
+
+        ByteBuffer bb = ByteBuffer.wrap(bytes);
+
+        return new IgniteUuid(new UUID(bb.getLong(), bb.getLong()), bb.getLong());
+    }
+
+    /**
      * Reads a decimal.
      *
      * @return Decimal value.
@@ -411,6 +441,27 @@ public class ClientMessageUnpacker extends MessageUnpacker {
         var bytes = readPayload(len);
 
         return new BigInteger(bytes);
+    }
+
+    /**
+     * Reads an integer array.
+     *
+     * @return Integer array.
+     */
+    public int[] unpackIntArray() {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        int size = unpackArrayHeader();
+
+        if (size == 0)
+            return ArrayUtils.INT_EMPTY_ARRAY;
+
+        int[] res = new int[size];
+
+        for (int i = 0; i < size; i++)
+            res[i] = unpackInt();
+
+        return res;
     }
 
     /**
@@ -529,6 +580,9 @@ public class ClientMessageUnpacker extends MessageUnpacker {
             return null;
 
         switch (dataType) {
+            case BOOLEAN:
+                return unpackBoolean();
+
             case INT8:
                 return unpackByte();
 
@@ -582,6 +636,34 @@ public class ClientMessageUnpacker extends MessageUnpacker {
         }
 
         throw new IgniteException("Unknown client data type: " + dataType);
+    }
+
+    /**
+     * Packs an object.
+     *
+     * @return Object array.
+     * @throws IllegalStateException in case of unexpected value type.
+     */
+    public Object[] unpackObjectArray() {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        if (tryUnpackNil())
+            return null;
+
+        int size = unpackArrayHeader();
+
+        if (size == 0)
+            return ArrayUtils.OBJECT_EMPTY_ARRAY;
+
+        Object[] args = new Object[size];
+
+        for (int i = 0; i < size; i++) {
+            if (tryUnpackNil())
+                continue;
+
+            args[i] = unpackObject(unpackInt());
+        }
+        return args;
     }
 
     /**

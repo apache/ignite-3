@@ -107,4 +107,28 @@ public class ClientOp {
 
     /** Check if the tuple with the given key exists. */
     public static final int TUPLE_CONTAINS_KEY = 33;
+
+    /** Execute sql query. */
+    public static final int SQL_EXEC = 34;
+
+    /** Get next batch by query cursor. */
+    public static final int SQL_NEXT = 35;
+
+    /** Execute batch query. */
+    public static final int SQL_EXEC_BATCH = 36;
+
+    /** Close query cursor. */
+    public static final int SQL_CURSOR_CLOSE = 37;
+
+    /** Get table metadata. */
+    public static final int SQL_TABLE_META = 38;
+
+    /** Get column metadata. */
+    public static final int SQL_COLUMN_META = 39;
+
+    /** Get schemas list. */
+    public static final int SQL_SCHEMAS_META = 40;
+
+    /** Get primary key metadata. */
+    public static final int SQL_PK_META = 41;
 }
