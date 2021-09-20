@@ -21,6 +21,9 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * Scan init command for PartitionListener that prepares server side scan for further iteration ove it.
+ */
 public class ScanInitCommand implements WriteCommand {
     /** Id of the node that requests scan. */
     @NotNull private final String requesterNodeId;

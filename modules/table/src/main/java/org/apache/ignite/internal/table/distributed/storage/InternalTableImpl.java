@@ -30,7 +30,6 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
@@ -46,12 +45,14 @@ import org.apache.ignite.internal.table.distributed.command.InsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.ReplaceCommand;
 import org.apache.ignite.internal.table.distributed.command.ReplaceIfExistCommand;
+import org.apache.ignite.internal.table.distributed.command.ScanCloseCommand;
 import org.apache.ignite.internal.table.distributed.command.ScanInitCommand;
 import org.apache.ignite.internal.table.distributed.command.ScanRetrieveBatchCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
 import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.lang.LoggerMessageHelper;
@@ -65,6 +66,8 @@ import org.jetbrains.annotations.Nullable;
  * Storage of table rows.
  */
 public class InternalTableImpl implements InternalTable {
+    /** Log. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(InternalTableImpl.class);
     /** IgniteUuid generator. */
     private final IgniteUuidGenerator UUID_GENERATOR = new IgniteUuidGenerator(UUID.randomUUID(), 0);
 
@@ -409,17 +412,31 @@ public class InternalTableImpl implements InternalTable {
                 scanInitOp.thenCompose((none) -> raftGrpSvc.<MultiRowsResponse>run(new ScanRetrieveBatchCommand(n, scanId)))
                     .thenAccept(
                         res -> {
-                            if (res.getValues() == null)
+                            if (res.getValues() == null) {
+                                raftGrpSvc.run(new ScanCloseCommand(scanId)).exceptionally(closeT -> {
+                                    LOG.warn("Unable to close scan.", closeT);
+
+                                    return null;
+                                });
+
                                 subscriber.onComplete();
+                            }
+
                             else
                                 res.getValues().forEach(subscriber::onNext);
 
-                            if (res.getValues().size() < n)
+                            if (res.getValues().size() < n) {
+                                cancel();
+
                                 subscriber.onComplete();
+                            }
                         })
                     .exceptionally(
                         t -> {
+                            cancel();
+
                             subscriber.onError(t);
+
                             return null;
                         });
             }
@@ -429,6 +446,12 @@ public class InternalTableImpl implements InternalTable {
                 isCanceled.set(true);
 
                 subscriptions.remove(this);
+
+                raftGrpSvc.run(new ScanCloseCommand(scanId)).exceptionally(closeT -> {
+                    LOG.warn("Unable to close scan.", closeT);
+
+                    return null;
+                });
             }
         }
     }

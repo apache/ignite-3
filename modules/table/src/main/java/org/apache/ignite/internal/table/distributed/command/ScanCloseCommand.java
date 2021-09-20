@@ -22,39 +22,25 @@ import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Scan retreive batch command for PartitionListener that retrieves batch of data from previously prepared server scan,
- * see {@link ScanInitCommand} for more details.
+ * Scan close command for PartitionListener that closes scan with given id.
  */
-public class ScanRetrieveBatchCommand implements WriteCommand {
-    /** Amount of items to retrieve. */
-    private final long itemsToRetrieveCnt;
-
+public class ScanCloseCommand implements WriteCommand {
     /** Id of scan that is associated with the current command. */
     @NotNull private final IgniteUuid scanId;
 
     /**
-     * @param itemsToRetrieveCnt Amount of items to retrieve.
+     * The Constructor.
+     *
      * @param scanId Id of scan that is associated with the current command.
      */
-    public ScanRetrieveBatchCommand(
-        long itemsToRetrieveCnt,
-        @NotNull IgniteUuid scanId
-    ) {
-        this.itemsToRetrieveCnt = itemsToRetrieveCnt;
+    public ScanCloseCommand(@NotNull IgniteUuid scanId) {
         this.scanId = scanId;
-    }
-
-    /**
-     * @return Amount of items to retrieve.
-     */
-    public long itemsToRetrieveCount() {
-        return itemsToRetrieveCnt;
     }
 
     /**
      * @return Id of scan that is associated with the current command.
      */
-    @NotNull public IgniteUuid scanId() {
+    public @NotNull IgniteUuid scanId() {
         return scanId;
     }
 }

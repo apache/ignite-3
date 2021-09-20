@@ -236,8 +236,6 @@ public class ITInternalTableScanTest {
 
             @Override public void onError(Throwable throwable) {
                 gotException.set(throwable);
-                // TODO: sanpwc Do we really need to call subscription.cancel?
-                subscription.cancel();
             }
 
             @Override public void onComplete() {
@@ -284,8 +282,6 @@ public class ITInternalTableScanTest {
 
             @Override public void onError(Throwable throwable) {
                 gotException.set(throwable);
-                // TODO: sanpwc Do we really need to call subscription.cancel?
-                subscription.cancel();
             }
 
             @Override public void onComplete() {
@@ -381,12 +377,10 @@ public class ITInternalTableScanTest {
 
             @Override public void onComplete() {
                 noMoreData.set(true);
-                // TODO: sanpwc Do we really need to call subscription.cancel?
-                subscription.cancel();
             }
         });
 
-        assertTrue(waitForCondition(() -> retrievedItems.size() == submittedItems.size(), 1_000));
+        assertTrue(waitForCondition(() -> retrievedItems.size() == submittedItems.size(), 2_000));
 
         List<byte[]> expItems = submittedItems.stream().map(DataRow::valueBytes).collect(Collectors.toList());
         List<byte[]> gotItems = retrievedItems.stream().map(BinaryRow::bytes).collect(Collectors.toList());

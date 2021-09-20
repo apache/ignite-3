@@ -31,9 +31,11 @@ import java.util.stream.Collectors;
 
 import org.apache.ignite.internal.metastorage.common.command.MultipleEntryResponse;
 import org.apache.ignite.internal.metastorage.common.command.SingleEntryResponse;
+import org.apache.ignite.internal.metastorage.common.command.cursor.CursorCloseCommand;
 import org.apache.ignite.internal.metastorage.server.Entry;
 import org.apache.ignite.internal.metastorage.server.EntryEvent;
 import org.apache.ignite.internal.metastorage.server.WatchEvent;
+import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.DataRow;
@@ -58,6 +60,7 @@ import org.apache.ignite.internal.table.distributed.command.InsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.ReplaceCommand;
 import org.apache.ignite.internal.table.distributed.command.ReplaceIfExistCommand;
+import org.apache.ignite.internal.table.distributed.command.ScanCloseCommand;
 import org.apache.ignite.internal.table.distributed.command.ScanInitCommand;
 import org.apache.ignite.internal.table.distributed.command.ScanRetrieveBatchCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertAllCommand;
@@ -142,6 +145,8 @@ public class PartitionListener implements RaftGroupListener {
                 handleScanInitCommand((CommandClosure<ScanInitCommand>) clo);
             else if (command instanceof ScanRetrieveBatchCommand)
                 handleScanRetrieveBatchCommand((CommandClosure<ScanRetrieveBatchCommand>) clo);
+            else if (command instanceof ScanCloseCommand)
+                handleScanCloseCommand((CommandClosure<ScanCloseCommand>) clo);
             else
                 assert false : "Command was not found [cmd=" + command + ']';
         });
@@ -487,6 +492,30 @@ public class PartitionListener implements RaftGroupListener {
         }
 
         clo.result(new MultiRowsResponse(res));
+    }
+
+    /**
+     * Handler for the {@link ScanCloseCommand}.
+     *
+     * @param clo Command closure.
+     */
+    private void handleScanCloseCommand(CommandClosure<ScanCloseCommand> clo) {
+        CursorMeta cursorDesc = cursors.get(clo.command().scanId());
+
+        if (cursorDesc == null) {
+            clo.result(null);
+
+            return;
+        }
+
+        try {
+            cursorDesc.cursor().close();
+        }
+        catch (Exception e) {
+            throw new IgniteInternalException(e);
+        }
+
+        clo.result(null);
     }
 
     /** {@inheritDoc} */
