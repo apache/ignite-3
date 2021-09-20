@@ -47,10 +47,6 @@ public class MockAsyncContext implements RpcContext {
         return nodeManager;
     }
 
-    @Override public TxManager getTxManager() {
-        return null;
-    }
-
     @Override public void sendResponse(Object responseObject) {
         this.responseObject = responseObject;
     }

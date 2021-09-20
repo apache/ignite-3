@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -77,6 +79,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -441,32 +444,30 @@ public class ITDistributedTableTest {
 
         InternalTransaction tx = putGet(nearMgr, true);
 
-        List<NetworkAddress> nodes = tx.nodes();
+        Map<NetworkAddress, Set<String>> topMap = tx.map();
 
-        assertEquals(2, nodes.size());
-
-        ClusterNode locNode = cluster.get(0).topologyService().getByAddress(nodes.get(1));
-
-        TxManager locMgr = raftServers.get(locNode).transactionManager();
-
-        assertNotSame(nearMgr, locMgr);
-        assertNotNull(locMgr);
+        assertEquals(1, topMap.size());
 
         assertEquals(TxState.COMMITED, nearMgr.state(tx.timestamp()));
-        assertEquals(TxState.COMMITED, locMgr.state(tx.timestamp()));
+
+        // Raft replication is majority, need to wait for all nodes.
+        for (RaftServer srv : raftServers.values())
+            waitForCondition(() -> srv.transactionManager().state(tx.timestamp()) == TxState.COMMITED, 5_000);
 
         assertEquals(1, table.get(makeKey(1)).longValue("value"));
 
         RaftGroupService svc = raftClients.get(part);
 
+        // A leader must match mapped tx node.
         Peer leader = svc.leader();
         assertNotNull(leader);
+        assertEquals(leader.address(), topMap.keySet().iterator().next());
 
         // Stop current leader and make sure committed value is not lost.
         ClusterNode leaderAddr = client.topologyService().getByAddress(leader.address());
         RaftServer raftLeaderServer = raftServers.remove(leaderAddr);
         raftLeaderServer.stop();
-        svc.refreshLeader().get(5, TimeUnit.SECONDS);
+        svc.refreshLeader().get(3, TimeUnit.SECONDS);
 
         assertNotNull(svc.leader());
         assertNotEquals(leader, svc.leader());
@@ -506,7 +507,7 @@ public class ITDistributedTableTest {
     private InternalTransaction putGet(TxManager nearMgr, boolean commit) throws TransactionException {
         InternalTransaction tx = nearMgr.begin();
 
-        assertEquals(1, tx.nodes().size());
+        assertEquals(0, tx.map().size());
 
         Table txTable = tx.wrap(table);
 
@@ -516,7 +517,7 @@ public class ITDistributedTableTest {
 
         assertEquals(1, val);
 
-        assertEquals(2, tx.nodes().size());
+        assertEquals(1, tx.map().size());
 
         if (commit)
             tx.commit();

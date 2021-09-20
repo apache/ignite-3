@@ -18,19 +18,29 @@
 package org.apache.ignite.internal.tx;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 public interface InternalTransaction extends Transaction {
+    /**
+     * @return The timestamp.
+     */
     Timestamp timestamp();
 
     /**
-     * Returns a transaction topology.
-     *
-     * @return A list of enlisted nodes where the first node is a transaction originator.
+     * @return {@code True} if an originator and a data nodes are collocated.
      */
-    List<NetworkAddress> nodes();
+    boolean collocated();
+
+    /**
+     * Returns a transaction map on topology.
+     *
+     * @return A map of enlisted nodes mapped to a partitions set.
+     */
+    Map<NetworkAddress, Set<String>> map();
 
     /**
      * @return The state.
@@ -39,9 +49,10 @@ public interface InternalTransaction extends Transaction {
 
     /**
      * @param node The node.
+     * @param partId Partition group id.
      * @return {@code True} if a node is enlisted into the transaction.
      */
-    boolean enlist(NetworkAddress node);
+    boolean enlist(NetworkAddress node, String groupId);
 
     /**
      * Sets a thread of control for a transaction.

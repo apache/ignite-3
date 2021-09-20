@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import java.util.List;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
@@ -37,8 +39,11 @@ public class TransactionImpl implements InternalTransaction {
     /** TX manager. */
     private final TxManager txManager;
 
+    /** Originator. */
+    private final NetworkAddress address;
+
     /** */
-    private List<NetworkAddress> nodes = new CopyOnWriteArrayList<>();
+    private Map<NetworkAddress, Set<String>> map = new ConcurrentHashMap<>();
 
     /** */
     private Thread t;
@@ -46,10 +51,12 @@ public class TransactionImpl implements InternalTransaction {
     /**
      * @param txManager The tx managert.
      * @param timestamp The timestamp.
+     * @param address
      */
-    public TransactionImpl(TxManager txManager, Timestamp timestamp) {
+    public TransactionImpl(TxManager txManager, Timestamp timestamp, NetworkAddress address) {
         this.txManager = txManager;
         this.timestamp = timestamp;
+        this.address = address;
     }
 
     /** {@inheritDoc} */
@@ -57,8 +64,13 @@ public class TransactionImpl implements InternalTransaction {
         return timestamp;
     }
 
-    @Override public List<NetworkAddress> nodes() {
-        return nodes;
+    /** {@inheritDoc} */
+    @Override public boolean collocated() {
+        return map.containsKey(address);
+    }
+
+    @Override public Map<NetworkAddress, Set<String>> map() {
+        return map;
     }
 
     /** {@inheritDoc} */
@@ -67,13 +79,9 @@ public class TransactionImpl implements InternalTransaction {
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized boolean enlist(NetworkAddress node) {
-        boolean newNode = !nodes.contains(node);
-
-        if (newNode)
-            nodes.add(node);
-
-        return newNode;
+    @Override public synchronized boolean enlist(NetworkAddress node, String groupId) {
+        // TODO asch remove synchronized
+        return map.computeIfAbsent(node, k -> new HashSet<>()).add(groupId);
     }
 
     /** {@inheritDoc} */
@@ -111,14 +119,15 @@ public class TransactionImpl implements InternalTransaction {
      * @return The future.
      */
     private CompletableFuture<Void> finish(boolean commit) {
-        CompletableFuture[] futs = new CompletableFuture[nodes.size()];
+        CompletableFuture[] futs = new CompletableFuture[map.size() + 1];
 
-        for (int i = 0; i < nodes.size(); i++) {
-            NetworkAddress node = nodes.get(i);
+        int i = 0;
 
-            futs[i] = (txManager.isLocal(node) ? commit ? txManager.commitAsync(timestamp) : txManager.rollbackAsync(timestamp) :
-                txManager.finishRemote(node, timestamp, commit));
-        }
+        for (Map.Entry<NetworkAddress, Set<String>> entry : map.entrySet())
+            futs[i++] = txManager.finishRemote(entry.getKey(), timestamp, commit, entry.getValue());
+
+        futs[i] = collocated() ? CompletableFuture.completedFuture(null) : commit ? txManager.commitAsync(timestamp) :
+            txManager.rollbackAsync(timestamp);
 
         return CompletableFuture.allOf(futs);
     }

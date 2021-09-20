@@ -82,6 +82,8 @@ public class VersionedRowStore {
 
         SimpleDataRow key = new SimpleDataRow(extractAndWrapKey(row).keyBytes(), null);
 
+        txManager.getOrCreateTransaction(ts);
+
         Value value = extractValue(storage.read(key));
 
         Pair<BinaryRow, BinaryRow> pair = result(value, ts);
@@ -135,6 +137,8 @@ public class VersionedRowStore {
 //        storage.invoke(newRow, writeIfAbsent);
 //
 //        return writeIfAbsent.result();
+
+        txManager.getOrCreateTransaction(ts);
 
         SimpleDataRow key = new SimpleDataRow(extractAndWrapKey(row).keyBytes(), null);
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.message;
 
 import java.io.Serializable;
+import java.util.Set;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
@@ -36,4 +37,9 @@ public interface TxFinishRequest extends NetworkMessage, Serializable {
      * @return {@code True} to commit.
      */
     boolean commit();
+
+    /**
+     * @return Enlisted partition groups.
+     */
+    Set<String> partitions();
 }

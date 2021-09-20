@@ -224,7 +224,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     /**
      *
      */
-    private abstract static class CommandClosureImpl<T extends Command> implements Closure, CommandClosure<T> {
+    public abstract static class CommandClosureImpl<T extends Command> implements Closure, CommandClosure<T> {
         /**
          *
          */
@@ -233,7 +233,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
         /**
          * @param command The command.
          */
-        CommandClosureImpl(T command) {
+        public CommandClosureImpl(T command) {
             this.command = command;
         }
 

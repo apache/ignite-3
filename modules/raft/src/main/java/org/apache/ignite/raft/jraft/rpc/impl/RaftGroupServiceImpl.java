@@ -70,6 +70,9 @@ import static org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest
  * The implementation of {@link RaftGroupService}
  */
 public class RaftGroupServiceImpl implements RaftGroupService {
+    /** */
+    private static final int INVOKE_TIMEOUT = 500;
+
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(RaftGroupServiceImpl.class);
 
@@ -386,7 +389,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         TransferLeaderRequest req = factory.transferLeaderRequest()
             .groupId(groupId).leaderId(PeerId.fromPeer(newLeader).toString()).build();
 
-        CompletableFuture<NetworkMessage> fut = cluster.messagingService().invoke(newLeader.address(), req, timeout);
+        CompletableFuture<NetworkMessage> fut = cluster.messagingService().invoke(newLeader.address(), req, INVOKE_TIMEOUT);
 
         return fut.thenCompose(resp -> {
             if (resp != null) {
@@ -428,7 +431,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     @Override public <R> CompletableFuture<R> run(Peer peer, ReadCommand cmd) {
         ActionRequest req = factory.actionRequest().command(cmd).groupId(groupId).readOnlySafe(false).build();
 
-        CompletableFuture<?> fut = cluster.messagingService().invoke(peer.address(), req, timeout);
+        CompletableFuture<?> fut = cluster.messagingService().invoke(peer.address(), req, INVOKE_TIMEOUT);
 
         return fut.thenApply(resp -> (R) ((ActionResponse) resp).result());
     }
@@ -453,13 +456,15 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param <R> Response type.
      */
     private <R> void sendWithRetry(Peer peer, Object req, long stopTime, CompletableFuture<R> fut) {
+        LOG.info("sendWithRetry " + stopTime + " " + peer);
+
         if (currentTimeMillis() >= stopTime) {
             fut.completeExceptionally(new TimeoutException());
 
             return;
         }
 
-        CompletableFuture<?> fut0 = cluster.messagingService().invoke(peer.address(), (NetworkMessage) req, timeout);
+        CompletableFuture<?> fut0 = cluster.messagingService().invoke(peer.address(), (NetworkMessage) req, INVOKE_TIMEOUT);
 
         fut0.whenComplete(new BiConsumer<Object, Throwable>() {
             @Override public void accept(Object resp, Throwable err) {
@@ -508,9 +513,10 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                             }, retryDelay, TimeUnit.MILLISECONDS);
                         }
                     }
-                    else
+                    else {
                         fut.completeExceptionally(
                             new RaftException(RaftError.forNumber(resp0.errorCode()), resp0.errorMsg()));
+                    }
                 }
                 else {
                     leader = peer; // The OK response was received from a leader.
@@ -527,7 +533,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @return {@code True} if this is a recoverable exception.
      */
     private boolean recoverable(Throwable t) {
-        return t.getCause() instanceof IOException;
+        return t.getCause() instanceof IOException || t.getCause() instanceof TimeoutException;
     }
 
     /**

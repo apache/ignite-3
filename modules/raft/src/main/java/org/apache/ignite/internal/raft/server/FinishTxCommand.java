@@ -1,4 +1,4 @@
-package org.apache.ignite.internal.table.distributed.command;
+package org.apache.ignite.internal.raft.server;
 
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.WriteCommand;

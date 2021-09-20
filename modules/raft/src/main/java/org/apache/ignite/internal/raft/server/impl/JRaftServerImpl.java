@@ -23,17 +23,27 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.raft.server.FinishTxCommand;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.message.TxFinishRequest;
+import org.apache.ignite.internal.tx.message.TxFinishResponseBuilder;
+import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.raft.client.ElectionPriority;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.WriteCommand;
@@ -52,8 +62,10 @@ import org.apache.ignite.raft.jraft.core.ReadOnlyServiceImpl;
 import org.apache.ignite.raft.jraft.core.StateMachineAdapter;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.raft.jraft.entity.Task;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.apache.ignite.raft.jraft.rpc.impl.ActionRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
@@ -61,6 +73,8 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
+import org.apache.ignite.raft.jraft.util.Marshaller;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.raft.jraft.JRaftUtils.addressFromEndpoint;
@@ -68,7 +82,10 @@ import static org.apache.ignite.raft.jraft.JRaftUtils.addressFromEndpoint;
 /**
  * Raft server implementation on top of forked JRaft library.
  */
-public class JRaftServerImpl implements RaftServer {
+public class JRaftServerImpl implements RaftServer, NetworkMessageHandler {
+    /** Factory. */
+    private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
+
     /** Cluster service. */
     private final ClusterService service;
 
@@ -185,6 +202,8 @@ public class JRaftServerImpl implements RaftServer {
         }
 
         rpcServer.init(null);
+
+        service.messagingService().addMessageHandler(TxMessageGroup.class, this);
     }
 
     /** {@inheritDoc} */
@@ -409,6 +428,66 @@ public class JRaftServerImpl implements RaftServer {
         /** {@inheritDoc} */
         @Override public void onShutdown() {
             listener.onShutdown();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onReceived(NetworkMessage message, NetworkAddress senderAddr, String correlationId) {
+        // Support raft and transactions interop.
+        if (message instanceof TxFinishRequest) {
+            TxFinishRequest req = (TxFinishRequest) message;
+
+            Set<String> groupIds = req.partitions();
+
+            CompletableFuture[] futs = new CompletableFuture[groupIds.size()];
+
+            int i = 0;
+
+            // Send a finish command to all raft groups.
+            for (String groupId : groupIds) {
+                RaftGroupService svc = groups.get(groupId);
+
+                FinishTxCommand cmd = new FinishTxCommand(req.timestamp(), req.commit());
+
+                CompletableFuture finalFut = new CompletableFuture();
+
+                futs[i++] = finalFut;
+
+                // apply is async, shouldn't throw any exception.
+                svc.getRaftNode().apply(new Task(ByteBuffer.wrap(Marshaller.DEFAULT.marshall(cmd)),
+                    new ActionRequestProcessor.CommandClosureImpl<FinishTxCommand>(cmd) {
+                        /** {@inheritDoc} */
+                        @Override public void result(@Nullable Serializable res) {
+                            run(Status.OK());
+                        }
+
+                        /** {@inheritDoc} */
+                        @Override public void run(Status status) {
+                            if (status.isOk())
+                                finalFut.complete(null);
+                            else // TODO asch heuristic exception ?
+                                finalFut.completeExceptionally(new TransactionException(status.getErrorMsg()));
+                        }
+                    }));
+            }
+
+
+            CompletableFuture.allOf(futs).thenCompose(ignored -> req.commit() ?
+                txManager.commitAsync(req.timestamp()) :
+                txManager.rollbackAsync(req.timestamp()))
+                .handle(new BiFunction<Void, Throwable, Void>() {
+                    @Override public Void apply(Void ignored, Throwable err) {
+                        // TODO asch report finish error code.
+                        TxFinishResponseBuilder resp = FACTORY.txFinishResponse();
+
+                        if (err != null)
+                            resp.errorMessage(err.getMessage());
+
+                        service.messagingService().send(senderAddr, resp.build(), correlationId);
+
+                        return null;
+                    }
+                });
         }
     }
 }

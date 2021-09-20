@@ -184,10 +184,12 @@ public class InternalTableImpl implements InternalTable {
     }
 
     private RaftGroupService enlist(BinaryRow row, InternalTransaction tx) {
-        RaftGroupService svc = partitionMap.get(partId(row));
+        int partId = partId(row);
+
+        RaftGroupService svc = partitionMap.get(partId);
 
         // TODO asch fixme need to map to fixed topology.
-        tx.enlist(svc.leader().address()); // Enlist the leaseholder.
+        tx.enlist(svc.leader().address(), svc.groupId()); // Enlist the leaseholder.
 
         return svc;
     }

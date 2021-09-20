@@ -31,11 +31,6 @@ public interface RpcContext {
     NodeManager getNodeManager();
 
     /**
-     * @return Transaction manager.
-     */
-    @Nullable TxManager getTxManager();
-
-    /**
      * Send a response back.
      *
      * @param responseObj The response object.

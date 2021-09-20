@@ -174,10 +174,6 @@ public class IgniteRpcServer implements RpcServer<Void> {
                         return nodeManager;
                     }
 
-                    @Override public TxManager getTxManager() {
-                        return txManager;
-                    }
-
                     @Override public void sendResponse(Object responseObj) {
                         service.messagingService().send(senderAddr, (NetworkMessage) responseObj, correlationId);
                     }

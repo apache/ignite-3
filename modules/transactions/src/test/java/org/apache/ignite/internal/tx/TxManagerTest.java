@@ -16,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 /** */
@@ -95,9 +96,10 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txMgr.begin();
 
-        tx.enlist(addr);
+        tx.enlist(addr, "test");
 
-        assertEquals(1, tx.nodes().size());
-        assertEquals(addr, tx.nodes().iterator().next());
+        assertEquals(1, tx.map().size());
+        assertTrue(tx.map().containsKey(addr));
+        assertTrue(tx.map().get(addr).contains("test"));
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx;
 
 import java.nio.ByteBuffer;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -91,11 +92,12 @@ public interface TxManager extends IgniteComponent {
     boolean getOrCreateTransaction(Timestamp ts);
 
     /**
-     * @param addr The address.
      * @param timestamp The timestamp.
+     * @param addr The address.
      * @param commit {@code True} if a commit requested.
+     * @param groupIds Group ids.
      */
-    CompletableFuture<Void> finishRemote(NetworkAddress addr, Timestamp ts, boolean commit);
+    CompletableFuture<Void> finishRemote(NetworkAddress addr, Timestamp ts, boolean commit, Set<String> groupIds);
 
     /**
      * @param addr The address.
