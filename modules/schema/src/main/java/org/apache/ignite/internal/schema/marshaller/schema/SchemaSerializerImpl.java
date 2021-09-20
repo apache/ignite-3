@@ -157,7 +157,8 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
             precision = ((NumberNativeType)type).precision();
         else if (type instanceof TemporalNativeType)
             precision = ((TemporalNativeType)type).precision();
-        else throw new IllegalArgumentException();
+        else
+            throw new IllegalArgumentException("Native type does not contain precision " + type);
 
         buf.putInt(precision);
     }

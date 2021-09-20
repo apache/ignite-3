@@ -56,6 +56,8 @@ public class ExtendedByteBufferImpl implements ExtendedByteBuffer {
 
     /** {@inheritDoc} */
     @Override public void putString(String val) {
+        assert val != null;
+
         byte[] bytes = val.getBytes();
 
         buffer.putInt(bytes.length);

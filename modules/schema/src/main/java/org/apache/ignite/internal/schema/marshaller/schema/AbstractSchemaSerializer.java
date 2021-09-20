@@ -88,7 +88,7 @@ public abstract class AbstractSchemaSerializer implements SchemaSerializer {
         if (ver == this.version)
             return this;
         else if (this.previous == null)
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("Unable to find schema serializer with version " + ver);
 
         return this.previous.getAssemblerByVersion(ver);
     }

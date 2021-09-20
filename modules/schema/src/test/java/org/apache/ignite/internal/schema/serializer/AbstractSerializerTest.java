@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.assembler;
+package org.apache.ignite.internal.schema.serializer;
 
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -27,7 +27,13 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class AbstractAssemblerTest {
+/**
+ * SchemaDescriptor (de)serializer test.
+ */
+public class AbstractSerializerTest {
+    /**
+     * (de)Serialize schema test.
+     */
     @Test
     public void test() {
         AbstractSchemaSerializer assembler = SchemaSerializerImpl.INSTANCE;
@@ -35,17 +41,27 @@ public class AbstractAssemblerTest {
         SchemaDescriptor desc = new SchemaDescriptor( 100500,
             new Column[] {
                 new Column("A", NativeTypes.INT8, false),
-                new Column("B", NativeTypes.UUID, false),
-                new Column("C", NativeTypes.decimalOf(10,20), false),
+                new Column("B", NativeTypes.INT16, false),
+                new Column("C", NativeTypes.INT32, false),
+                new Column("D", NativeTypes.INT64, false),
+                new Column("E", NativeTypes.UUID, false),
+                new Column("F", NativeTypes.FLOAT, false),
+                new Column("G", NativeTypes.DOUBLE, false),
+                new Column("H", NativeTypes.DATE, false),
             },
             new Column[] {
-                new Column("D", NativeTypes.INT8, false),
-                new Column("E", NativeTypes.UUID, false),
-                new Column("FG", NativeTypes.numberOf(10), true),
+                new Column("A1", NativeTypes.stringOf(128), false),
+                new Column("B1", NativeTypes.numberOf(255), false),
+                new Column("C1", NativeTypes.decimalOf(128, 64), false),
+                new Column("D1", NativeTypes.bitmaskOf(256), false),
+                new Column("E1", NativeTypes.datetime(8), false),
+                new Column("F1", NativeTypes.time(8), false),
+                new Column("G1", NativeTypes.timestamp(8), true)
             }
         );
 
         byte[] serialize = assembler.serialize(desc);
+
         SchemaDescriptor deserialize = assembler.deserialize(serialize);
 
         assertEquals(desc.version(), deserialize.version());
