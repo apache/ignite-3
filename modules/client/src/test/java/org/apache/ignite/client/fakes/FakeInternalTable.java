@@ -26,11 +26,14 @@ import java.util.concurrent.Flow;
 
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.schema.SchemaMode;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import javax.naming.OperationNotSupportedException;
 
 /**
  * Fake internal table.
@@ -228,8 +231,7 @@ public class FakeInternalTable implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public Flow.Publisher<BinaryRow> scan(int p, @Nullable Transaction tx) {
-        // TODO: 18.09.21
-        return null;
+    @Override public @NotNull Flow.Publisher<BinaryRow> scan(int p, @Nullable Transaction tx) {
+        throw new IgniteInternalException(new OperationNotSupportedException());
     }
 }

@@ -202,7 +202,7 @@ public interface InternalTable {
      * @param tx The transaction.
      * @return {@link Publisher<BinaryRow>} t{@link Publisher<BinaryRow>} that relatively notifies about partition rows.
      */
-    Publisher<BinaryRow> scan(int p, @Nullable Transaction tx);
+    @NotNull Publisher<BinaryRow> scan(int p, @Nullable Transaction tx);
 
     //TODO: IGNTIE-14488. Add invoke() methods.
 }
