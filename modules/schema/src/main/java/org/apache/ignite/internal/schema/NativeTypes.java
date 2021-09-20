@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.BitSet;
+import org.apache.ignite.internal.schema.marshaller.schema.ExtendedByteBuffer;
 import org.apache.ignite.schema.ColumnType;
 
 /**
@@ -316,5 +317,86 @@ public class NativeTypes {
             default:
                 throw new InvalidTypeException("Unexpected type " + type);
         }
+    }
+
+    /**
+     * Reads native type from byte buffer.
+     *
+     * @param buf Byte buffer.
+     * @return Native type.
+     */
+    public static NativeType fromByteBuffer(ExtendedByteBuffer buf) {
+        String nativeTypeSpecName = buf.getString();
+
+        NativeTypeSpec spec = NativeTypeSpec.valueOf(nativeTypeSpecName);
+
+        switch (spec) {
+            case STRING:
+                int strLen = buf.getInt();
+
+                return NativeTypes.stringOf(strLen);
+
+            case BYTES:
+                int len = buf.getInt();
+
+                return NativeTypes.blobOf(len);
+
+            case BITMASK:
+                int bits = buf.getInt();
+
+                return NativeTypes.bitmaskOf(bits);
+
+            case DECIMAL: {
+                int precision = buf.getInt();
+                int scale = buf.getInt();
+
+                return NativeTypes.decimalOf(precision, scale);
+            }
+            case TIME: {
+                int precision = buf.getInt();
+
+                return NativeTypes.time(precision);
+            }
+            case DATETIME: {
+                int precision = buf.getInt();
+
+                return NativeTypes.datetime(precision);
+            }
+            case TIMESTAMP: {
+                int precision = buf.getInt();
+
+                return NativeTypes.timestamp(precision);
+            }
+            case NUMBER: {
+                int precision = buf.getInt();
+
+                return NativeTypes.numberOf(precision);
+            }
+            case INT8:
+                return NativeTypes.INT8;
+
+            case INT16:
+                return NativeTypes.INT16;
+
+            case INT32:
+                return NativeTypes.INT32;
+
+            case INT64:
+                return NativeTypes.INT64;
+
+            case FLOAT:
+                return NativeTypes.FLOAT;
+
+            case DOUBLE:
+                return NativeTypes.DOUBLE;
+
+            case UUID:
+                return NativeTypes.UUID;
+
+            case DATE:
+                return NativeTypes.DATE;
+        }
+
+        throw new InvalidTypeException("Unexpected type " + spec);
     }
 }

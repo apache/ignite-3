@@ -17,23 +17,30 @@
 
 package org.apache.ignite.internal.schema.marshaller.schema;
 
-import org.apache.ignite.internal.schema.SchemaDescriptor;
+import java.nio.ByteBuffer;
 
 /**
- * SchemaDescriptor (De)Serializer interface.
+ * ExtendedByteBuffer factory interface.
  */
-public interface SchemaSerializer {
+public interface ExtendedByteBufferFactory {
     /**
-     * Writes SchemaDescriptor object to byte buffer.
-     *
-     * @param desc SchemaDescriptor object.
-     * @return ExtendedByteBuffer with serialized object.
+     * ExtendedByteBuffer factory interface.
      */
-    ExtendedByteBuffer bytes(SchemaDescriptor desc, ExtendedByteBuffer byteBuf);
+    static ExtendedByteBuffer wrap(byte[] bytes) {
+        return new ExtendedByteBufferImpl(ByteBuffer.wrap(bytes));
+    }
 
     /**
-     * @param byteBuf Byte buffer with byte array.
-     * @return SchemaDescriptor object.
+     * ExtendedByteBuffer factory interface.
      */
-    SchemaDescriptor value(ExtendedByteBuffer byteBuf);
+    static ExtendedByteBuffer allocate(int size) {
+        return new ExtendedByteBufferImpl(ByteBuffer.allocate(size));
+    }
+
+    /**
+     * ExtendedByteBuffer factory interface.
+     */
+    static ExtendedByteBuffer calcSize() {
+        return new CalcSizeByteBuffer();
+    }
 }

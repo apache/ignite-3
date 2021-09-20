@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.schema.assembler;
 
-import java.util.UUID;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
