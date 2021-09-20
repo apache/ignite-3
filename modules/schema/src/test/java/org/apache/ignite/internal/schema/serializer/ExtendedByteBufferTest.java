@@ -78,7 +78,6 @@ public class ExtendedByteBufferTest {
 
         assertEquals(calcSizeBuf.size(), array.length);
 
-
         ExtendedByteBuffer wrapBuf = ExtendedByteBufferFactory.wrap(array);
 
         assertThrows(UnsupportedOperationException.class, wrapBuf::size);
