@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutionException;
@@ -51,7 +52,6 @@ import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
@@ -74,76 +74,61 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 /** */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-public class TxTest extends IgniteAbstractTest {
+public abstract class TxAbstractTest extends IgniteAbstractTest {
     /** Table ID test value. */
-    public final java.util.UUID tableId = java.util.UUID.randomUUID();
-
-    /** Table ID test value. */
-    public final java.util.UUID tableId2 = java.util.UUID.randomUUID();
+    protected static final UUID tableId = java.util.UUID.randomUUID();
 
     /** */
-    private static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
+    protected static SchemaDescriptor ACCOUNTS_SCHEMA = new SchemaDescriptor(
+        tableId,
+        1,
+        new Column[]{new Column("accountNumber", NativeTypes.INT64, false)},
+        new Column[]{new Column("balance", NativeTypes.DOUBLE, false)}
+    );
+
+    /** Table ID test value. */
+    public static final UUID tableId2 = java.util.UUID.randomUUID();
+
+    /** */
+    protected static SchemaDescriptor CUSTOMERS_SCHEMA = new SchemaDescriptor(
+        tableId2,
+        1,
+        new Column[]{new Column("accountNumber", NativeTypes.INT64, false)},
+        new Column[]{new Column("name", NativeTypes.STRING, false)}
+    );
+
+    /** */
+    protected static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
     /** Accounts table id -> balance. */
-    private Table accounts;
+    protected Table accounts;
 
     /** Customers table id -> name. */
-    private Table customers;
+    protected Table customers;
 
     /** */
-    public static final double BALANCE_1 = 500;
+    protected static final double BALANCE_1 = 500;
 
     /** */
-    public static final double BALANCE_2 = 500;
+    protected static final double BALANCE_2 = 500;
 
     /** */
-    public static final double DELTA = 100;
+    protected static final double DELTA = 100;
 
     /** */
-    private IgniteTransactions igniteTransactions;
+    protected IgniteTransactions igniteTransactions;
 
     /** */
-    private LockManager lockManager;
+    protected LockManager lockManager;
 
     /** */
-    private TxManager txManager;
+    protected TxManager txManager;
 
     /**
      * Initialize the test state.
      */
     @BeforeEach
-    public void before() {
-        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(ADDR);
-
-        lockManager = new HeapLockManager();
-
-        txManager = new TxManagerImpl(clusterService, lockManager);
-
-        igniteTransactions = new IgniteTransactionsImpl(txManager);
-
-        InternalTable table = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapStorage(), txManager), txManager);
-
-        SchemaDescriptor schema = new SchemaDescriptor(
-            tableId,
-            1,
-            new Column[]{new Column("accountNumber", NativeTypes.INT64, false)},
-            new Column[]{new Column("balance", NativeTypes.DOUBLE, false)}
-        );
-
-        accounts = new TableImpl(table, new DummySchemaManagerImpl(schema), null, null);
-
-        InternalTable table2 = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapStorage(), txManager), txManager);
-
-        SchemaDescriptor schema2 = new SchemaDescriptor(
-            tableId2,
-            1,
-            new Column[]{new Column("accountNumber", NativeTypes.INT64, false)},
-            new Column[]{new Column("name", NativeTypes.STRING, false)}
-        );
-
-        customers = new TableImpl(table2, new DummySchemaManagerImpl(schema2), null, null);
-    }
+    public abstract void before() throws Exception;
 
     /** */
     @Test
