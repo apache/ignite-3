@@ -33,6 +33,7 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -98,12 +99,17 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
             return CompletableFuture.completedFuture(invokeResult);
         });
 
-        when(mock.range(any(), any())).thenAnswer(invocation -> {
-            ByteArray keyFrom = invocation.getArgument(0);
-            ByteArray keyTo = invocation.getArgument(1);
+        try {
+            when(mock.range(any(), any())).thenAnswer(invocation -> {
+                ByteArray keyFrom = invocation.getArgument(0);
+                ByteArray keyTo = invocation.getArgument(1);
 
-            return new CursorAdapter(metaStorage.range(keyFrom.bytes(), keyTo == null ? null : keyTo.bytes()));
-        });
+                return new CursorAdapter(metaStorage.range(keyFrom.bytes(), keyTo == null ? null : keyTo.bytes()));
+            });
+        }
+        catch (NodeStoppingException e) {
+            throw new RuntimeException(e);
+        }
 
         return mock;
     }
