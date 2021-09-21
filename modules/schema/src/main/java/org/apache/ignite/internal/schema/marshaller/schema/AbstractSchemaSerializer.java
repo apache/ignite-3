@@ -33,7 +33,7 @@ public abstract class AbstractSchemaSerializer implements SchemaSerializer {
      * @param ver Serializer version.
      * @param previous Previous version serializer.
      */
-    protected AbstractSchemaSerializer(byte ver, AbstractSchemaSerializer previous) {
+    protected AbstractSchemaSerializer(short ver, AbstractSchemaSerializer previous) {
         this.version = ver;
         this.previous = previous;
     }
