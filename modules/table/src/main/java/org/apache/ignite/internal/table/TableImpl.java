@@ -29,7 +29,9 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.schema.SchemaMode;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
@@ -425,5 +427,9 @@ public class TableImpl extends AbstractTableView implements Table {
      */
     public void schemaType(SchemaMode schemaMode) {
         this.tbl.schema(schemaMode);
+    }
+
+    public void updateInternalTableRaftGroupService(int p, RaftGroupService raftGroupService) {
+        ((InternalTableImpl)tbl).updateInternalTableRaftGroupService(p, raftGroupService);
     }
 }

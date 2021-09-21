@@ -33,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
@@ -78,6 +79,7 @@ import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.TopologyEventHandler;
+import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -207,6 +209,78 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             @NotNull ConfigurationNotificationEvent<SchemaView> ctx) {
                             return CompletableFuture.completedFuture(null);
                         }
+                    });
+
+                // TODO sanpwc: comment.
+                ((ExtendedTableConfiguration)tablesCfg.tables().get(ctx.newValue().name())).assignments().
+                    listen(assignmentsCtx -> {
+                        List<Set<ClusterNode>> oldAssignments =
+                            (List<Set<ClusterNode>>)ByteUtils.fromBytes(assignmentsCtx.oldValue());
+
+                        List<Set<ClusterNode>> newAssignments =
+                            (List<Set<ClusterNode>>)ByteUtils.fromBytes(assignmentsCtx.newValue());
+
+                        // TODO sanpwc: add ticket for partitions and replica changes.
+                        // TODO sanpwc: add comment that it's safe to iterate over partitions and replicas cause there will
+                        // TODO be exact same amount of partitions and replicas for both old and new assignments, cause
+                        // TODO corresponding tickets aren't implemented yet.
+                        for (int i = 0; i < oldAssignments.size(); i++) {
+                            final int p = i;
+
+                            Set<ClusterNode> oldPartitionAssignment = oldAssignments.get(p);
+                            Set<ClusterNode> newPartitionAssignment = newAssignments.get(p);
+
+                            var toRemove = new HashSet<>(oldPartitionAssignment);
+                            var toAdd = new HashSet<>(newPartitionAssignment);
+                            var oldNewUnion = new HashSet<>(oldPartitionAssignment);
+
+                            toRemove.removeAll(newPartitionAssignment);
+                            toAdd.removeAll(oldPartitionAssignment);
+                            oldNewUnion.addAll(newPartitionAssignment);
+
+                            // TODO sanpwc: add exception handling for both branches.
+                            raftMgr.updateAddNodesRaftGroup(
+                                raftGroupName(tblId, p),
+                                oldNewUnion,
+                                toAdd,
+                                () -> {
+                                    Path storageDir = partitionsStoreDir.resolve(ctx.newValue().name());
+
+                                    try {
+                                        Files.createDirectories(storageDir);
+                                    }
+                                    catch (IOException e) {
+                                        throw new IgniteInternalException(
+                                            "Failed to create partitions store directory for " + ctx.newValue().name() + ": " + e.getMessage(),
+                                            e
+                                        );
+                                    }
+
+                                    return new PartitionListener(
+                                        new RocksDbStorage(
+                                            storageDir.resolve(String.valueOf(p)),
+                                            ByteBuffer::compareTo
+                                        )
+                                    );
+                                })
+                                .thenCompose((updatedUnionRaftGroupService) -> updatedUnionRaftGroupService.
+                                    changePeers(oldNewUnion.stream().map(n -> new Peer(n.address())).collect(Collectors.toList())))
+                                .thenRun(() ->
+                                    raftMgr.updateDropNodesRaftGroup(
+                                        raftGroupName(tblId, p),
+                                        newPartitionAssignment,
+                                        toRemove)
+                                        .thenAccept(
+                                            updatedNewAssignmentsRaftGroupService -> {
+                                                updatedNewAssignmentsRaftGroupService.
+                                                    changePeers(oldNewUnion.stream().map(n -> new Peer(n.address())).collect(Collectors.toList()));
+
+                                                tables.get(ctx.newValue().name()).updateInternalTableRaftGroupService(p, updatedNewAssignmentsRaftGroupService);
+                                            }
+                                        ));
+                        }
+
+                        return CompletableFuture.completedFuture(null);
                     });
 
                 createTableLocally(

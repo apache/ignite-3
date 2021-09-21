@@ -189,6 +189,9 @@ public class TableManagerTest {
     @Test
     public void testStaticTableConfigured() {
         TableManager tableManager = new TableManager(
+            // TODO: 22.09.21 Use proper values instead of null.
+            null,
+            null,
             clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
             rm,
             bm,
@@ -358,6 +361,9 @@ public class TableManagerTest {
         }
 
         TableManager tableManager = new TableManager(
+            // TODO: 22.09.21 Use proper values instead of null.
+            null,
+            null,
             clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
             rm,
             bm,

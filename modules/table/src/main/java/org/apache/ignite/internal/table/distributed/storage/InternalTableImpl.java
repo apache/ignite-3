@@ -253,6 +253,10 @@ public class InternalTableImpl implements InternalTable {
         return collectMultiRowsResponses(futures);
     }
 
+    public void updateInternalTableRaftGroupService(int p, RaftGroupService raftGroupService) {
+        partitionMap.put(p, raftGroupService);
+    }
+
     /**
      * Map rows to partitions.
      *

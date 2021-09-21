@@ -225,4 +225,61 @@ class ITDynamicTableCreationTest {
         assertEquals(7373, (Integer)kvView2.get(keyTuple2).value("valInt"));
         assertNull(kvView2.get(keyTuple2).value("valNull"));
     }
+
+    /**
+     * Check dynamic table creation.
+     */
+    @Test
+    void testFooBar() throws Exception {
+        clusterNodes.add(IgnitionManager.start("node0", nodesBootstrapCfg.get("node0"), workDir.resolve("node0")));
+
+//        nodesBootstrapCfg.forEach((nodeName, configStr) ->
+//            clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
+//        );
+//
+//        assertEquals(3, clusterNodes.size());
+
+        // Create table on node 0.
+        SchemaTable schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
+            SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
+            SchemaBuilders.column("val", ColumnType.INT32).asNullable().build()
+        ).withPrimaryKey("key").build();
+
+        clusterNodes.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
+            SchemaConfigurationConverter.convert(schTbl1, tblCh)
+                .changeReplicas(1)
+                .changePartitions(10)
+        );
+
+        clusterNodes.add(IgnitionManager.start("node1", nodesBootstrapCfg.get("node1"), workDir.resolve("node1")));
+
+        // Put data on node 1.
+//        Table tbl1 = clusterNodes.get(0).tables().table(schTbl1.canonicalName());
+//        KeyValueBinaryView kvView1 = tbl1.kvView();
+//
+//        tbl1.insert(Tuple.create().set("key", 1L).set("val", 111));
+//        kvView1.put(Tuple.create().set("key", 2L), Tuple.create().set("val", 222));
+
+//        Thread.sleep(10000);
+
+//        // Get data on node 2.
+//        Table tbl2 = clusterNodes.get(2).tables().table(schTbl1.canonicalName());
+//        KeyValueBinaryView kvView2 = tbl2.kvView();
+//
+//        final Tuple keyTuple1 = Tuple.create().set("key", 1L);
+//        final Tuple keyTuple2 = Tuple.create().set("key", 2L);
+//
+//        assertThrows(IllegalArgumentException.class, () -> kvView2.get(keyTuple1).value("key"));
+//        assertThrows(IllegalArgumentException.class, () -> kvView2.get(keyTuple2).value("key"));
+//        assertEquals(1, (Long)tbl2.get(keyTuple1).value("key"));
+//        assertEquals(2, (Long)tbl2.get(keyTuple2).value("key"));
+//
+//        assertEquals(111, (Integer)tbl2.get(keyTuple1).value("val"));
+//        assertEquals(111, (Integer)kvView2.get(keyTuple1).value("val"));
+//        assertEquals(222, (Integer)tbl2.get(keyTuple2).value("val"));
+//        assertEquals(222, (Integer)kvView2.get(keyTuple2).value("val"));
+//
+//        assertThrows(IllegalArgumentException.class, () -> kvView1.get(keyTuple1).value("key"));
+//        assertThrows(IllegalArgumentException.class, () -> kvView1.get(keyTuple2).value("key"));
+    }
 }

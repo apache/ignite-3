@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raft;
 
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -96,6 +97,57 @@ public class Loza implements IgniteComponent {
 
         if (nodes.stream().anyMatch(n -> locNodeName.equals(n.name())))
             raftServer.startRaftGroup(groupId, lsnrSupplier.get(), peers);
+
+        return RaftGroupServiceImpl.start(
+            groupId,
+            clusterNetSvc,
+            FACTORY,
+            TIMEOUT,
+            peers,
+            true,
+            DELAY
+        );
+    }
+
+    public CompletableFuture<RaftGroupService> updateAddNodesRaftGroup(
+        String groupId,
+        Collection<ClusterNode> nodes,
+        Collection<ClusterNode> deltaNodes,
+        Supplier<RaftGroupListener> lsnrSupplier
+    ) {
+        assert !nodes.isEmpty();
+
+        List<Peer> peers = nodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
+
+        String locNodeName = clusterNetSvc.topologyService().localMember().name();
+
+        if (deltaNodes.stream().anyMatch(n -> locNodeName.equals(n.name())))
+            raftServer.startRaftGroup(groupId, lsnrSupplier.get(), peers);
+
+        return RaftGroupServiceImpl.start(
+            groupId,
+            clusterNetSvc,
+            FACTORY,
+            TIMEOUT,
+            peers,
+            true,
+            DELAY
+        );
+    }
+
+    public CompletableFuture<RaftGroupService> updateDropNodesRaftGroup(
+        String groupId,
+        Collection<ClusterNode> nodes,
+        Collection<ClusterNode> deltaNodes
+    ) {
+        assert !nodes.isEmpty();
+
+        List<Peer> peers = nodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
+
+        String locNodeName = clusterNetSvc.topologyService().localMember().name();
+
+        if (deltaNodes.stream().anyMatch(n -> locNodeName.equals(n.name())))
+            raftServer.stopRaftGroup(groupId);
 
         return RaftGroupServiceImpl.start(
             groupId,
