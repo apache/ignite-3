@@ -172,9 +172,9 @@ public class MetaStorageManager implements IgniteComponent {
         if (metastorageNodes.length > 0) {
             metaStorageNodesOnStart = true;
 
-            List<ClusterNode> metaStorageMembers = clusterNetSvc.topologyService().allMembers().stream()
+            Set<ClusterNode> metaStorageMembers = clusterNetSvc.topologyService().allMembers().stream()
                 .filter(metaStorageNodesContainsLocPred)
-                .collect(Collectors.toList());
+                .collect(Collectors.toSet());
 
             storage.start();
 
@@ -1028,16 +1028,16 @@ public class MetaStorageManager implements IgniteComponent {
      * This code will be deleted after node init phase is developed.
      * https://issues.apache.org/jira/browse/IGNITE-14414
      */
-    private List<ClusterNode> metastorageNodes() {
+    private Set<ClusterNode> metastorageNodes() {
         String[] metastorageNodes = this.locCfgMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
             .metastorageNodes().value();
 
         Predicate<ClusterNode> metaStorageNodesContainsLocPred =
             clusterNode -> Arrays.asList(metastorageNodes).contains(clusterNode.name());
 
-        List<ClusterNode> metaStorageMembers = clusterNetSvc.topologyService().allMembers().stream()
+        Set<ClusterNode> metaStorageMembers = clusterNetSvc.topologyService().allMembers().stream()
             .filter(metaStorageNodesContainsLocPred)
-            .collect(Collectors.toList());
+            .collect(Collectors.toSet());
 
         return metaStorageMembers;
     }

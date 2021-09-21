@@ -197,7 +197,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 createTableLocally(
                     ctx.newValue().name(),
                     IgniteUuid.fromString(((ExtendedTableView)ctx.newValue()).id()),
-                    (List<List<ClusterNode>>)ByteUtils.fromBytes(((ExtendedTableView)ctx.newValue()).assignments()),
+                    (List<Set<ClusterNode>>)ByteUtils.fromBytes(((ExtendedTableView)ctx.newValue()).assignments()),
                     (SchemaDescriptor)ByteUtils.fromBytes(((ExtendedTableView)ctx.newValue()).schemas().
                         get(String.valueOf(INITIAL_SCHEMA_VERSION)).schema())
                 );
@@ -218,7 +218,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 dropTableLocally(
                     ctx.oldValue().name(),
                     IgniteUuid.fromString(((ExtendedTableView)ctx.oldValue()).id()),
-                    (List<List<ClusterNode>>)ByteUtils.fromBytes(((ExtendedTableView)ctx.oldValue()).assignments())
+                    (List<Set<ClusterNode>>)ByteUtils.fromBytes(((ExtendedTableView)ctx.oldValue()).assignments())
                 );
 
                 return CompletableFuture.completedFuture(null);
@@ -246,7 +246,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private void createTableLocally(
         String name,
         IgniteUuid tblId,
-        List<List<ClusterNode>> assignment,
+        List<Set<ClusterNode>> assignment,
         SchemaDescriptor schemaDesc
     ) {
         int partitions = assignment.size();
@@ -327,7 +327,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param tblId Table id.
      * @param assignment Affinity assignment.
      */
-    private void dropTableLocally(String name, IgniteUuid tblId, List<List<ClusterNode>> assignment) {
+    private void dropTableLocally(String name, IgniteUuid tblId, List<Set<ClusterNode>> assignment) {
         try {
             int partitions = assignment.size();
 

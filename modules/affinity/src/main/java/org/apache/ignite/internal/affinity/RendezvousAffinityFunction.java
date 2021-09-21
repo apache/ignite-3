@@ -28,6 +28,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.function.BiPredicate;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteLogger;
@@ -87,13 +88,13 @@ public class RendezvousAffinityFunction {
      * @param nodeFilter Filter for nodes.
      * @return Assignment.
      */
-    public static List<ClusterNode> assignPartition(
+    public static Set<ClusterNode> assignPartition(
         int part,
-        List<ClusterNode> nodes,
+        Set<ClusterNode> nodes,
         int replicas,
         Map<String, Collection<ClusterNode>> neighborhoodCache,
         boolean exclNeighbors,
-        BiPredicate<ClusterNode, List<ClusterNode>> nodeFilter
+        BiPredicate<ClusterNode, Set<ClusterNode>> nodeFilter
     ) {
         if (nodes.size() <= 1)
             return nodes;
@@ -101,14 +102,14 @@ public class RendezvousAffinityFunction {
         IgniteBiTuple<Long, ClusterNode>[] hashArr =
             (IgniteBiTuple<Long, ClusterNode>[])new IgniteBiTuple[nodes.size()];
 
-        for (int i = 0; i < nodes.size(); i++) {
-            ClusterNode node = nodes.get(i);
+        int idx = 0;
 
+        for (ClusterNode node: nodes) {
             Object nodeHash = resolveNodeHash(node);
 
             long hash = hash(nodeHash.hashCode(), part);
 
-            hashArr[i] = new IgniteBiTuple<>(hash, node);
+            hashArr[idx++] = new IgniteBiTuple<>(hash, node);
         }
 
         final int effectiveReplicas = replicas == Integer.MAX_VALUE ? nodes.size() : Math.min(replicas, nodes.size());
@@ -121,7 +122,7 @@ public class RendezvousAffinityFunction {
 
         Iterator<ClusterNode> it = sortedNodes.iterator();
 
-        List<ClusterNode> res = new ArrayList<>(effectiveReplicas);
+        Set<ClusterNode> res = new HashSet<>(effectiveReplicas);
 
         Collection<ClusterNode> allNeighbors = new HashSet<>();
 
@@ -186,11 +187,11 @@ public class RendezvousAffinityFunction {
      * @param sortedNodes Sorted for specified partitions nodes.
      * @return Assignment.
      */
-    private static List<ClusterNode> replicatedAssign(List<ClusterNode> nodes,
+    private static Set<ClusterNode> replicatedAssign(Set<ClusterNode> nodes,
         Iterable<ClusterNode> sortedNodes) {
         ClusterNode first = sortedNodes.iterator().next();
 
-        List<ClusterNode> res = new ArrayList<>(nodes.size());
+        Set<ClusterNode> res = new HashSet<>(nodes.size());
 
         res.add(first);
 
@@ -237,26 +238,26 @@ public class RendezvousAffinityFunction {
      * @param nodeFilter Filter for nodes.
      * @return List nodes by partition.
      */
-    public static List<List<ClusterNode>> assignPartitions(
+    public static List<Set<ClusterNode>> assignPartitions(
         Collection<ClusterNode> currentTopologySnapshot,
         int partitions,
         int replicas,
         boolean exclNeighbors,
-        BiPredicate<ClusterNode, List<ClusterNode>> nodeFilter
+        BiPredicate<ClusterNode, Set<ClusterNode>> nodeFilter
     ) {
         assert partitions <= MAX_PARTITIONS_COUNT : "partitions <= " + MAX_PARTITIONS_COUNT;
         assert partitions > 0 : "parts > 0";
         assert replicas > 0 : "replicas > 0";
 
-        List<List<ClusterNode>> assignments = new ArrayList<>(partitions);
+        List<Set<ClusterNode>> assignments = new ArrayList<>(partitions);
 
         Map<String, Collection<ClusterNode>> neighborhoodCache = exclNeighbors ?
             neighbors(currentTopologySnapshot) : null;
 
-        List<ClusterNode> nodes = new ArrayList<>(currentTopologySnapshot);
+        Set<ClusterNode> nodes = new HashSet<>(currentTopologySnapshot);
 
         for (int i = 0; i < partitions; i++) {
-            List<ClusterNode> partAssignment = assignPartition(i, nodes, replicas, neighborhoodCache, exclNeighbors, nodeFilter);
+            Set<ClusterNode> partAssignment = assignPartition(i, nodes, replicas, neighborhoodCache, exclNeighbors, nodeFilter);
 
             assignments.add(partAssignment);
         }

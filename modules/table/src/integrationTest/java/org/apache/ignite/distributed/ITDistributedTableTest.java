@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -246,7 +247,7 @@ public class ITDistributedTableTest {
             raftServers.put(cluster.get(i).topologyService().localMember(), raftSrv);
         }
 
-        List<List<ClusterNode>> assignment = RendezvousAffinityFunction.assignPartitions(
+        List<Set<ClusterNode>> assignment = RendezvousAffinityFunction.assignPartitions(
             cluster.stream().map(node -> node.topologyService().localMember()).collect(Collectors.toList()),
             PARTS,
             1,
@@ -258,12 +259,15 @@ public class ITDistributedTableTest {
 
         Map<Integer, RaftGroupService> partMap = new HashMap<>();
 
-        for (List<ClusterNode> partNodes : assignment) {
-            RaftServer rs = raftServers.get(partNodes.get(0));
+
+        for (Set<ClusterNode> partNodes : assignment) {
+            ClusterNode firstNode = partNodes.iterator().next();
+
+            RaftServer rs = raftServers.get(firstNode);
 
             String grpId = "part-" + p;
 
-            List<Peer> conf = List.of(new Peer(partNodes.get(0).address()));
+            List<Peer> conf = List.of(new Peer(firstNode.address()));
 
             rs.startRaftGroup(
                 grpId,

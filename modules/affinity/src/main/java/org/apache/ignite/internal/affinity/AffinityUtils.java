@@ -19,6 +19,7 @@ package org.apache.ignite.internal.affinity;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 
@@ -33,7 +34,7 @@ public class AffinityUtils {
      * @param replicas Replicas count.
      * @return List nodes by partition.
      */
-    public static List<List<ClusterNode>> calculateAssignments(
+    public static List<Set<ClusterNode>> calculateAssignments(
         @NotNull Collection<ClusterNode> baselineNodes,
         int partitions,
         int replicas
