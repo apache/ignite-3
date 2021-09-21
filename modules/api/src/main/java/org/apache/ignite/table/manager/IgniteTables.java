@@ -40,7 +40,7 @@ public interface IgniteTables {
     Table createTable(String name, Consumer<TableChange> tableInitChange);
 
     /**
-     * Creates a new table with the given {@code name} asynshronously.
+     * Creates a new table with the given {@code name} asynchronously.
      * If a table with the same name already exists, a future will be completed with exception.
      *
      * @param name Table name.
