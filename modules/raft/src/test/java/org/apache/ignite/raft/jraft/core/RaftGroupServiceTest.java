@@ -214,6 +214,56 @@ public class RaftGroupServiceTest {
      * @throws Exception
      */
     @Test
+    public void testUserRequestWrongAssigments() throws Exception {
+        String groupId = "test";
+
+        List<Peer> wrongPeers = Stream.of(30000, 30001, 30002)
+            .map(port -> new NetworkAddress("localhost", port))
+            .map(Peer::new)
+            .collect(Collectors.toUnmodifiableList());
+
+        ArgumentMatcher<NetworkAddress> wrongPeerMatcher = (NetworkAddress address) -> {
+            return wrongPeers.stream().anyMatch(a -> a.address().equals(address));
+        };
+
+        ArgumentMatcher<NetworkAddress> normalPeersMatcher = (NetworkAddress address) -> {
+            return NODES.stream().anyMatch(a -> a.address().equals(address));
+        };
+
+        when(messagingService.invoke(
+            argThat(wrongPeerMatcher),
+            any(),
+            anyLong()
+        )).then(invocation -> {
+            return failedFuture(new IgniteInternalException(new ConnectException()));
+        });
+
+        when(messagingService.invoke(
+            argThat(normalPeersMatcher),
+            any(),
+            anyLong()
+        )).then(invocation -> {
+            PeerId leader0 = PeerId.fromPeer(leader);
+
+            return completedFuture(FACTORY.getLeaderResponse().leaderId(leader0.toString()).build());
+        });
+
+        CompletableFuture<List<Peer>> normalPeers = CompletableFuture.completedFuture(NODES);
+
+        RaftGroupService service =
+            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, wrongPeers, false, DELAY, () -> normalPeers).get(3, TimeUnit.SECONDS);
+
+        assertEquals(null, service.leader());
+
+        service.refreshLeader().get();
+
+        assertEquals(leader,  service.leader());
+    }
+
+    /**
+     * @throws Exception
+     */
+    @Test
     public void testUserRequestLeaderElected() throws Exception {
         String groupId = "test";
 

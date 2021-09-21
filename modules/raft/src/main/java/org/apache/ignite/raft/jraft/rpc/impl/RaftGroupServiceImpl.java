@@ -474,9 +474,23 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param fut The future.
      * @param <R> Response type.
      */
-    private <R> void sendWithRetry(Peer peer, Object req, long stopTime, CompletableFuture<R> fut, List<Peer> anotherPeers, boolean searchAliveNode) {
+    private <R> void sendWithRetry(Peer peer, Object req, long stopTime, CompletableFuture<R> fut,
+        List<Peer> anotherPeers, boolean reassignmentNeeded) {
         if (currentTimeMillis() >= stopTime) {
             fut.completeExceptionally(new TimeoutException());
+
+            return;
+        }
+
+        if (reassignmentNeeded) {
+            updatePeersFromAssignments.get().thenAccept(peers -> {
+                this.peers = peers;
+                Peer p = randomNode(peers);
+                executor.schedule(() -> {
+                    this.peers = peers;
+                    sendWithRetry(p, req, stopTime, fut);
+                }, 0, TimeUnit.MILLISECONDS);
+            }).exceptionally(err -> { fut.completeExceptionally(err); return null; });
 
             return;
         }
@@ -488,20 +502,19 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             @Override public void accept(Object resp, Throwable err) {
                 if (err != null) {
                     if (recoverable(err)) {
-                        if (searchAliveNode && updatePeersFromAssignments != null) {
+                        if (updatePeersFromAssignments != null) {
                             if (!anotherPeers.isEmpty())
                                 executor.schedule(() -> {
                                     Peer nextPeer = randomNode(anotherPeers);
                                     anotherPeers.remove(nextPeer);
-                                    sendWithRetry(nextPeer, req, stopTime, fut, anotherPeers, true);
+                                    sendWithRetry(nextPeer, req, stopTime, fut, anotherPeers, false);
 
                                     return null;
                                 }, retryDelay, TimeUnit.MILLISECONDS);
                             else
-                                executor.schedule(() ->
-                                    updatePeersFromAssignments.get().thenAccept(newPeers -> {
-                                        sendWithRetry(randomNode(), req, stopTime, fut);
-                                    }), retryDelay, TimeUnit.MILLISECONDS);
+                                executor.schedule(() -> {
+                                    sendWithRetry(peer, req, stopTime, fut, anotherPeers, true);
+                                }, 0, TimeUnit.MILLISECONDS);
                         }
                         else
                             executor.schedule(() -> {
@@ -530,10 +543,26 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                         }, retryDelay, TimeUnit.MILLISECONDS);
                     }
                     else if (resp0.errorCode() == RaftError.ENOPEER.getNumber()) {
-                        executor.schedule(() ->
-                            updatePeersFromAssignments.get().thenAccept(newPeers -> {
+                        if (updatePeersFromAssignments != null) {
+                            if (!anotherPeers.isEmpty())
+                                executor.schedule(() -> {
+                                    Peer nextPeer = randomNode(anotherPeers);
+                                    anotherPeers.remove(nextPeer);
+                                    sendWithRetry(nextPeer, req, stopTime, fut, anotherPeers, false);
+
+                                    return null;
+                                }, retryDelay, TimeUnit.MILLISECONDS);
+                            else
+                                executor.schedule(() -> {
+                                    sendWithRetry(peer, req, stopTime, fut, anotherPeers, true);
+                                }, 0, TimeUnit.MILLISECONDS);
+                        }
+                        else
+                            executor.schedule(() -> {
                                 sendWithRetry(randomNode(), req, stopTime, fut);
-                            }), retryDelay, TimeUnit.MILLISECONDS);
+
+                                return null;
+                            }, retryDelay, TimeUnit.MILLISECONDS);
                     }
                     else if (resp0.errorCode() == RaftError.EPERM.getNumber()) {
                         if (resp0.leaderId() == null) {
