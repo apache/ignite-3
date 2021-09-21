@@ -204,5 +204,5 @@ public interface InternalTable {
      */
     @NotNull Publisher<BinaryRow> scan(int p, @Nullable Transaction tx);
 
-    //TODO: IGNTIE-14488. Add invoke() methods.
+    //TODO: IGNITE-14488. Add invoke() methods.
 }
