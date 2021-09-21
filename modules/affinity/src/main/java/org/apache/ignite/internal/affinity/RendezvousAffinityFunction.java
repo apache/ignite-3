@@ -163,8 +163,7 @@ public class RendezvousAffinityFunction {
             while (it.hasNext() && res.size() < effectiveReplicas) {
                 ClusterNode node = it.next();
 
-                if (!res.contains(node))
-                    res.add(node);
+                res.add(node);
             }
 
             if (!exclNeighborsWarn) {

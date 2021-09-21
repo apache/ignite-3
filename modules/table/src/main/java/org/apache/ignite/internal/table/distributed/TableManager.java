@@ -41,6 +41,7 @@ import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableChange;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
@@ -75,6 +76,8 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -98,6 +101,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** */
     private static final IgniteUuidGenerator TABLE_ID_GENERATOR = new IgniteUuidGenerator(UUID.randomUUID(), 0);
+
+    /** Cluster network service. */
+    private final ClusterService clusterSvc;
+
+    /** Node configuration manager. */
+    private final ConfigurationManager nodeCfgMgr;
 
     /** Tables configuration. */
     private final TablesConfiguration tablesCfg;
@@ -125,6 +134,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * Creates a new table manager.
      *
+     * @param clusterSvc Cluster network service.
+     * @param nodeCfgMgr Node configuration manager.
      * @param tablesCfg Tables configuration.
      * @param raftMgr Raft manager.
      * @param baselineMgr Baseline manager.
@@ -132,12 +143,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param partitionsStoreDir Partitions store directory.
      */
     public TableManager(
+        ClusterService clusterSvc,
+        ConfigurationManager nodeCfgMgr,
         TablesConfiguration tablesCfg,
         Loza raftMgr,
         BaselineManager baselineMgr,
         MetaStorageManager metaStorageMgr,
         Path partitionsStoreDir
     ) {
+        this.clusterSvc = clusterSvc;
+        this.nodeCfgMgr = nodeCfgMgr;
         this.tablesCfg = tablesCfg;
         this.raftMgr = raftMgr;
         this.baselineMgr = baselineMgr;
@@ -227,6 +242,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             @Override
             public @NotNull CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<TableView> ctx) {
                 return CompletableFuture.completedFuture(null);
+            }
+        });
+
+        clusterSvc.topologyService().addEventHandler(new TopologyEventHandler() {
+            @Override public void onAppeared(ClusterNode member) {
+                recalculateAssignments();
+            }
+
+            @Override public void onDisappeared(ClusterNode member) {
+                recalculateAssignments();
             }
         });
     }
@@ -805,5 +830,30 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private boolean isTableConfigured(String name) {
         return tableNamesConfigured().contains(name);
+    }
+
+    /**
+     * Recalculates assignments for all tables and updates corresponding table configuration.
+     */
+    private void recalculateAssignments() {
+        if (metaStorageMgr.hasMetastorageLocally(nodeCfgMgr)) {
+            tablesCfg.tables().change(
+                tbls -> {
+                    for (int i = 0; i < tbls.size(); i++) {
+                        tbls.createOrUpdate(tbls.get(i).name(), changeX -> {
+                            ExtendedTableChange change = (ExtendedTableChange)changeX;
+                            byte[] currAssignments = change.assignments();
+
+                            List<Set<ClusterNode>> recalculatedAssignments = AffinityUtils.calculateAssignments(
+                                baselineMgr.nodes(),
+                                change.partitions(),
+                                change.replicas());
+
+                            if (!recalculatedAssignments.equals(ByteUtils.fromBytes(currAssignments)))
+                                change.changeAssignments(ByteUtils.toBytes(recalculatedAssignments));
+                        });
+                    }
+                });
+        }
     }
 }
