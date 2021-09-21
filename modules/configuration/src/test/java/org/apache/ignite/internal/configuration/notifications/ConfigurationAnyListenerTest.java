@@ -254,7 +254,18 @@ public class ConfigurationAnyListenerTest {
             List.of(
                 "root",
                 "root.elements",
-                "root.elements.onCrt"
+                "root.elements.onCrt",
+                //
+                "root.elements.any",
+                "root.elements.any.str",
+                //
+                "root.elements.any.child2",
+                "root.elements.any.child2.i",
+                //
+                "root.elements.any.elements2",
+                "root.elements.any.elements2.onCrt",
+                "root.elements.any.elements2.any",
+                "root.elements.any.elements2.any.i"
             ),
             events
         );
@@ -272,7 +283,12 @@ public class ConfigurationAnyListenerTest {
                 "root.elements.any.elements2",
                 "root.elements.0.elements2",
                 "root.elements.any.elements2.onCrt",
-                "root.elements.0.elements2.onCrt"
+                "root.elements.0.elements2.onCrt",
+                //
+                "root.elements.any.elements2.any",
+                "root.elements.0.elements2.any",
+                "root.elements.any.elements2.any.i",
+                "root.elements.0.elements2.any.i"
             ),
             events
         );
@@ -286,7 +302,10 @@ public class ConfigurationAnyListenerTest {
                 //
                 "root.elements.any",
                 "root.elements.any.elements2",
-                "root.elements.any.elements2.onCrt"
+                "root.elements.any.elements2.onCrt",
+                //
+                "root.elements.any.elements2.any",
+                "root.elements.any.elements2.any.i"
             ),
             events
         );
