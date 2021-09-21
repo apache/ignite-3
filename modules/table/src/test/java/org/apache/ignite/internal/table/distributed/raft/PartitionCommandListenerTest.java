@@ -422,8 +422,6 @@ public class PartitionCommandListenerTest {
         }));
     }
 
-    // TODO: 18.09.21 Should I add tests here for Scans commands?
-
     /**
      * Upserts rows.
      */
