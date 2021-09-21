@@ -561,28 +561,6 @@ public class ConfigurationNotificationsUtil {
     }
 
     /**
-     *
-     */
-    private static Collection<DynamicConfiguration<InnerNode, ?>> anyConfigs(
-        Collection<DynamicConfiguration<InnerNode, ?>> anyConfigs,
-        DynamicConfiguration<InnerNode, ?> cfgNode,
-        String key
-    ) {
-        NamedListConfiguration<?, InnerNode, ?> namedListConfig = namedDynamicConfig(cfgNode, key);
-
-        if (anyConfigs.isEmpty())
-            return List.of(any(namedListConfig));
-        else {
-            Collection<DynamicConfiguration<InnerNode, ?>> res = new ArrayList<>(anyConfigs.size() + 1);
-
-            res.addAll(viewReadOnly(anyConfigs, cfg -> any(namedDynamicConfig(cfg, key))));
-            res.add(any(namedListConfig));
-
-            return res;
-        }
-    }
-
-    /**
      * Merge {@link NamedListConfiguration#any "any"} configurations.
      *
      * @param anyConfigs Current {@link NamedListConfiguration#any "any"} configurations.
