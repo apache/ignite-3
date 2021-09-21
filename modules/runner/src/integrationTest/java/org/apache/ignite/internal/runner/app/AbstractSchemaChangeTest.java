@@ -49,37 +49,13 @@ import static org.apache.ignite.internal.schema.configuration.SchemaConfiguratio
 @ExtendWith(WorkDirectoryExtension.class)
 abstract class AbstractSchemaChangeTest {
     /** Table name. */
-    public static final String TABLE = "PUBLIC.tbl1";
+    public static final String TABLE = "PUBLIC.TBL1";
 
     /** Nodes bootstrap configuration. */
-    private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {{
+    private static final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {{
         put("node0", "{\n" +
             "  \"node\": {\n" +
             "    \"metastorageNodes\":[ \"node0\" ]\n" +
-            "  },\n" +
-            "  \"network\": {\n" +
-            "    \"port\":3344,\n" +
-            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-            "  }\n" +
-            "}");
-
-        put("node1", "{\n" +
-            "  \"node\": {\n" +
-            "    \"metastorageNodes\":[ \"node0\" ]\n" +
-            "  },\n" +
-            "  \"network\": {\n" +
-            "    \"port\":3345,\n" +
-            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-            "  }\n" +
-            "}");
-
-        put("node2", "{\n" +
-            "  \"node\": {\n" +
-            "    \"metastorageNodes\":[ \"node0\" ]\n" +
-            "  },\n" +
-            "  \"network\": {\n" +
-            "    \"port\":3346,\n" +
-            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
             "  }\n" +
             "}");
     }};
@@ -199,7 +175,7 @@ abstract class AbstractSchemaChangeTest {
      */
     protected void createTable(List<Ignite> nodes) {
         // Create table on node 0.
-        SchemaTable schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
+        SchemaTable schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "TBL1").columns(
             SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
             SchemaBuilders.column("valInt", ColumnType.INT32).asNullable().build(),
             SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build()

@@ -75,7 +75,7 @@ public class SchemaUtils {
 
                 mapper.add(newCol); // New column added.
             }
-            else {
+            else if (newColView != null) {
                 final Column newCol = newDesc.column(newColView.name());
                 final Column oldCol = oldDesc.column(oldColView.name());
 

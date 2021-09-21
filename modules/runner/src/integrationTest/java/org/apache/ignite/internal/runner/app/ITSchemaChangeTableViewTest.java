@@ -21,6 +21,7 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.function.Supplier;
 import org.apache.ignite.app.Ignite;
+import org.apache.ignite.internal.table.SchemaMismatchException;
 import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -36,7 +37,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 /**
  * Ignition interface tests.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-14581")
 class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
     /**
      * Check add a new column to table schema.
@@ -64,7 +64,7 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             assertThrows(IllegalArgumentException.class, () -> tbl.get(keyTuple).value("valStr"));
 
             // Check tuple of outdated schema.
-            assertThrows(IllegalArgumentException.class,
+            assertThrows(SchemaMismatchException.class,
                 () -> tbl.insert(Tuple.create().set("key", 2L).set("valInt", -222).set("valStr", "str"))
             );
 
@@ -93,7 +93,7 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
         {
             tbl.insert(Tuple.create().set("key", 1L).set("valInt", 111));
 
-            assertThrows(IllegalArgumentException.class,
+            assertThrows(SchemaMismatchException.class,
                 () -> tbl.insert(Tuple.create().set("key", 1L).set("valInt", -111).set("valStrNew", "str"))
             );
         }
@@ -131,7 +131,7 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
         {
             tbl.insert(Tuple.create().set("key", 1L).set("valInt", 111));
 
-            assertThrows(IllegalArgumentException.class,
+            assertThrows(SchemaMismatchException.class,
                     () -> tbl.insert(Tuple.create().set("key", 2L).set("valRenamed", -222))
             );
         }
@@ -147,7 +147,7 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             assertThrows(IllegalArgumentException.class, () -> tbl.get(keyTuple1).value("valInt"));
 
             // Check tuple of outdated schema.
-            assertThrows(IllegalArgumentException.class,
+            assertThrows(SchemaMismatchException.class,
                     () -> tbl.insert(Tuple.create().set("key", 2L).set("valInt", -222))
             );
 
@@ -176,7 +176,7 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
         {
             tbl.insert(Tuple.create().set("key", 1L).set("valInt", 111));
 
-            assertThrows(IllegalArgumentException.class,
+            assertThrows(SchemaMismatchException.class,
                 () -> tbl.insert(Tuple.create().set("key", 2L).set("val2", -222))
             );
         }
@@ -222,7 +222,7 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
         {
             tbl.insert(Tuple.create().set("key", 1L).set("valInt", 111));
 
-            assertThrows(IllegalArgumentException.class, () -> tbl.insert(
+            assertThrows(SchemaMismatchException.class, () -> tbl.insert(
                 Tuple.create().set("key", 2L).set("val", "I'not exists"))
             );
         }

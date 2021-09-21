@@ -463,6 +463,8 @@ public class SchemaConfigurationConverter {
 
         for (String key : colsView.namedListKeys()) {
             ColumnView colView = colsView.get(key);
+            if (colView == null)
+                continue;
             Column col = convert(colView);
 
             columns.put(Integer.valueOf(key), col);
