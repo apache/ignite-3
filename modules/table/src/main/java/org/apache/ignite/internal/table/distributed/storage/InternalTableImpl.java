@@ -397,7 +397,7 @@ public class InternalTableImpl implements InternalTable {
                 this.subscriber = subscriber;
                 this.isCanceled = new AtomicBoolean(false);
                 this.scanId = UUID_GENERATOR.randomUuid();
-                // TODO: sanpwc Local node id.
+                // TODO: IGNITE-15544 Close partition scans on node left.
                 this.scanInitOp = raftGrpSvc.run(new ScanInitCommand("", scanId));
             }
 
