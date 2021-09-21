@@ -259,7 +259,6 @@ public class ITDistributedTableTest {
 
         Map<Integer, RaftGroupService> partMap = new HashMap<>();
 
-
         for (Set<ClusterNode> partNodes : assignment) {
             ClusterNode firstNode = partNodes.iterator().next();
 
