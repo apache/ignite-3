@@ -345,10 +345,8 @@ public class InternalTableImpl implements InternalTable {
                 });
     }
 
-    // TODO: sanpwc Seems that it's possible to implement "cursor closing" through subsciption cancel.
     /** Parition scan publisher. */
     private class PartitionScanPublisher implements Publisher<BinaryRow> {
-        // TODO sanpwc: Consider using only one subscription instead of list.
         /** List of subscriptions. */
         private final List<PartitionScanSubscription> subscriptions;
 
