@@ -22,7 +22,7 @@ import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Scan init command for PartitionListener that prepares server side scan for further iteration ove it.
+ * Scan init command for PartitionListener that prepares server-side scan for further iteration over it.
  */
 public class ScanInitCommand implements WriteCommand {
     /** Id of the node that requests scan. */
