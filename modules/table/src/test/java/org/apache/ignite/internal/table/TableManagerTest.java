@@ -338,7 +338,7 @@ public class TableManagerTest {
         CompletableFuture<TableManager> tblManagerFut,
         Phaser phaser
     ) {
-        when(rm.prepareRaftGroup(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+        when(rm.prepareRaftGroup(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
         AtomicBoolean tableCreatedFlag = new AtomicBoolean();
 
