@@ -69,10 +69,10 @@ public interface Tuple extends Iterable<Object> {
         int hash = 0;
 
         for (int idx = 0; idx < tuple.columnCount(); idx++) {
-            String key = tuple.columnName(idx);
-            Object val = tuple.value(idx);
+            String colunmName = tuple.columnName(idx);
+            Object columnValue = tuple.value(idx);
 
-            hash += key.hashCode() ^ (val == null ? 0 : val.hashCode());
+            hash += colunmName.hashCode() ^ (columnValue == null ? 0 : columnValue.hashCode());
         }
 
         return hash;
