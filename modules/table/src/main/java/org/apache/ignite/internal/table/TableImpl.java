@@ -43,6 +43,7 @@ import org.apache.ignite.table.mapper.ValueMapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Table view implementation for binary objects.
@@ -431,6 +432,7 @@ public class TableImpl extends AbstractTableView implements Table {
      * @param t The tuple.
      * @return The partition.
      */
+    @TestOnly
     public int partition(Tuple t) {
         Objects.requireNonNull(t);
 

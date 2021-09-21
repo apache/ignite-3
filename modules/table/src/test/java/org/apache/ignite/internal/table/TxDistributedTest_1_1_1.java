@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.table;
 
-import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -30,19 +30,16 @@ import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.basic.ConcurrentHashMapStorage;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -71,18 +68,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-public class TxDistributedTest extends TxAbstractTest {
+/** TODO asch parallelize startup */
+public class TxDistributedTest_1_1_1 extends TxAbstractTest {
     /** Base network port. */
     public static final int NODE_PORT_BASE = 20_000;
-
-    /** Nodes. */
-    private int nodes = 1;
-
-    /** Partitions. */
-    public int parts = 1;
-
-    /** Replicas. */
-    public int replicas = 1;
 
     /** Factory. */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
@@ -110,30 +99,48 @@ public class TxDistributedTest extends TxAbstractTest {
     private Path dataPath;
 
     /**
+     * @return Nodes.
+     */
+    protected int nodes() {
+        return 1;
+    }
+
+    /**
+     * @return Replicas.
+     */
+    protected int replicas() {
+        return 1;
+    }
+
+    /**
      * Initialize the test state.
      */
     @Override @BeforeEach
     public void before() throws Exception {
+        int nodes = nodes();
+        int replicas = replicas();
+
         assertTrue(nodes > 0);
-        assertTrue(parts > 0);
+        assertTrue(replicas > 0);
 
         var nodeFinder = new LocalPortRangeNodeFinder(NODE_PORT_BASE, NODE_PORT_BASE + nodes);
 
         nodeFinder.findNodes().stream()
-            .map(addr -> startClient(addr.toString(), addr.port(), nodeFinder))
+            .map(addr -> startNode(addr.toString(), addr.port(), nodeFinder))
             .forEach(cluster::add);
 
         for (ClusterService node : cluster)
             assertTrue(waitForTopology(node, nodes, 1000));
 
-        log.info("Cluster started.");
+        log.info("The cluster has been started");
 
-        client = startClient("client", NODE_PORT_BASE + nodes, nodeFinder);
+        client = startNode("client", NODE_PORT_BASE + nodes, nodeFinder);
 
         assertTrue(waitForTopology(client, nodes + 1, 1000));
 
-        log.info("Client started.");
+        log.info("The client has been started");
 
+        // Start raft servers. Each raft server can hold multiple groups.
         raftServers = new HashMap<>(nodes);
 
         for (int i = 0; i < nodes; i++) {
@@ -146,19 +153,21 @@ public class TxDistributedTest extends TxAbstractTest {
             raftServers.put(cluster.get(i).topologyService().localMember(), raftSrv);
         }
 
+        log.info("Raft servers have been started");
+
         List<List<ClusterNode>> assignment = RendezvousAffinityFunction.assignPartitions(
             cluster.stream().map(node -> node.topologyService().localMember()).collect(Collectors.toList()),
-            parts,
+            1,
             replicas,
             false,
             null
         );
 
-        int p = 0;
+        raftClients = new HashMap<>();
 
-        Map<Integer, RaftGroupService> raftClients = new HashMap<>();
+        for (int p = 0; p < assignment.size(); p++) {
+            List<ClusterNode> partNodes = assignment.get(p);
 
-        for (List<ClusterNode> partNodes : assignment) {
             String grpId = "part-" + p;
 
             List<Peer> conf = partNodes.stream().map(n -> n.address()).map(Peer::new).collect(Collectors.toList());
@@ -180,43 +189,51 @@ public class TxDistributedTest extends TxAbstractTest {
                 .get(5, TimeUnit.SECONDS);
 
             raftClients.put(p, service);
-
-            p++;
         }
 
-        // Originator's tx manager.
-        TxManager nearMgr = new TxManagerImpl(client, new HeapLockManager());
+        log.info("Partition groups have been started");
 
-        SchemaDescriptor schema = new SchemaDescriptor(
-            tableId,
-            1,
-            new Column[]{new Column("accountNumber", NativeTypes.INT64, false)},
-            new Column[]{new Column("balance", NativeTypes.DOUBLE, false)}
-        );
+        RaftGroupService svc = raftClients.get(0);
+
+        Peer leader = svc.leader();
+
+        assertNotNull(leader);
+
+        RaftServer leaderSrv = raftServers.get(client.topologyService().getByAddress(leader.address()));
+
+        txManager = Objects.requireNonNull(leaderSrv.transactionManager());
+
+        lockManager = ((TxManagerImpl) txManager).getLockManager();
+
+        TxManagerImpl nearTxManager = new TxManagerImpl(client, new HeapLockManager());
+
+        igniteTransactions = new IgniteTransactionsImpl(nearTxManager);
 
         accounts = new TableImpl(new InternalTableImpl(
             "tbl",
-            UUID.randomUUID(),
+            tableId,
             raftClients,
-            parts,
-            nearMgr
+            1,
+            nearTxManager
         ), new SchemaRegistry() {
             @Override public SchemaDescriptor schema() {
-                return schema;
+                return ACCOUNTS_SCHEMA;
             }
 
             @Override public int lastSchemaVersion() {
-                return schema.version();
+                return ACCOUNTS_SCHEMA.version();
             }
 
             @Override public SchemaDescriptor schema(int ver) {
-                return schema;
+                return ACCOUNTS_SCHEMA;
             }
 
             @Override public Row resolve(BinaryRow row) {
-                return new Row(schema, row);
+                return new Row(ACCOUNTS_SCHEMA, row);
             }
         }, null, null);
+
+        log.info("Accounts table have been started");
     }
 
     /**
@@ -244,7 +261,7 @@ public class TxDistributedTest extends TxAbstractTest {
      * @param nodeFinder Node finder.
      * @return The client cluster view.
      */
-    private static ClusterService startClient(String name, int port, NodeFinder nodeFinder) {
+    private static ClusterService startNode(String name, int port, NodeFinder nodeFinder) {
         var network = ClusterServiceTestUtils.clusterService(
             name,
             port,

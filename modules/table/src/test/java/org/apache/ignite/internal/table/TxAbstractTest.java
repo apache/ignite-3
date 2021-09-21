@@ -28,22 +28,14 @@ import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.storage.basic.ConcurrentHashMapStorage;
-import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
-import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
-import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
@@ -54,7 +46,6 @@ import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -69,7 +60,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 /** */
 @ExtendWith(MockitoExtension.class)
@@ -119,10 +109,10 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     protected IgniteTransactions igniteTransactions;
 
     /** */
-    protected LockManager lockManager;
+    protected TxManager txManager;
 
     /** */
-    protected TxManager txManager;
+    protected LockManager lockManager;
 
     /**
      * Initialize the test state.
@@ -138,8 +128,9 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         igniteTransactions.runInTransaction(tx -> {
             Table txAcc = tx.wrap(accounts);
 
-            txAcc.getAsync(makeKey(1)).thenComposeAsync(r ->
-                txAcc.upsertAsync(makeValue(1, r.doubleValue("balance") + DELTA))).join();
+            Tuple r = txAcc.getAsync(makeKey(1)).join();
+
+            txAcc.upsertAsync(makeValue(1, r.doubleValue("balance") + DELTA)).join();
         });
 
         assertEquals(BALANCE_1 + DELTA, accounts.get(makeKey(1)).doubleValue("balance"));

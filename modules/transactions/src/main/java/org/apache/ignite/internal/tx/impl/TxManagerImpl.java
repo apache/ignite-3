@@ -40,6 +40,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
@@ -307,5 +308,13 @@ public class TxManagerImpl implements TxManager {
         @Override public int hashCode() {
             return Objects.hash(tableId, key);
         }
+    }
+
+    /**
+     * @return The lock manager.
+     */
+    @TestOnly
+    public LockManager getLockManager() {
+        return lockManager;
     }
 }

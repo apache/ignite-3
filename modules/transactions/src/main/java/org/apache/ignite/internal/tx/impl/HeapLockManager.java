@@ -170,7 +170,7 @@ public class HeapLockManager implements LockManager {
                 }
 
                 // Lock if oldest.
-                locked = waiters.firstKey() == timestamp;
+                locked = waiters.firstKey().equals(timestamp);
 
                 if (locked)
                     waiter.lock();
