@@ -45,9 +45,9 @@ import org.apache.ignite.internal.table.distributed.command.InsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.ReplaceCommand;
 import org.apache.ignite.internal.table.distributed.command.ReplaceIfExistCommand;
-import org.apache.ignite.internal.table.distributed.command.ScanCloseCommand;
-import org.apache.ignite.internal.table.distributed.command.ScanInitCommand;
-import org.apache.ignite.internal.table.distributed.command.ScanRetrieveBatchCommand;
+import org.apache.ignite.internal.table.distributed.command.scan.ScanCloseCommand;
+import org.apache.ignite.internal.table.distributed.command.scan.ScanInitCommand;
+import org.apache.ignite.internal.table.distributed.command.scan.ScanRetrieveBatchCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
@@ -68,6 +68,7 @@ import org.jetbrains.annotations.Nullable;
 public class InternalTableImpl implements InternalTable {
     /** Log. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(InternalTableImpl.class);
+
     /** IgniteUuid generator. */
     private final IgniteUuidGenerator UUID_GENERATOR = new IgniteUuidGenerator(UUID.randomUUID(), 0);
 
@@ -295,7 +296,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public Publisher<BinaryRow> scan(int p, @Nullable Transaction tx) {
+    @Override public @NotNull Publisher<BinaryRow> scan(int p, @Nullable Transaction tx) {
         if (p < 0 || p >= partitions) {
             throw new IllegalArgumentException(
                 LoggerMessageHelper.format(
@@ -393,7 +394,7 @@ public class InternalTableImpl implements InternalTable {
              * The constructor.
              * @param subscriber The subscriber.
              */
-            public PartitionScanSubscription(Subscriber<? super BinaryRow> subscriber) {
+            private PartitionScanSubscription(Subscriber<? super BinaryRow> subscriber) {
                 this.subscriber = subscriber;
                 this.isCanceled = new AtomicBoolean(false);
                 this.scanId = UUID_GENERATOR.randomUuid();

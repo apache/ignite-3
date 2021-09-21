@@ -107,11 +107,11 @@ public class ITInternalTableScanTest {
     /**
      * Prepare test environment:
      * <ol>
-     *     <li>Start network node.</li>
-     *     <li>Start raft server.</li>
-     *     <li>Prepare partitioned raft group.</li>
-     *     <li>Prepare partitioned raft group service.</li>
-     *     <li>Prepare internal table as a test object.</li>
+     * <li>Start network node.</li>
+     * <li>Start raft server.</li>
+     * <li>Prepare partitioned raft group.</li>
+     * <li>Prepare partitioned raft group service.</li>
+     * <li>Prepare internal table as a test object.</li>
      * </ol>
      *
      * @throws Exception If any.
@@ -232,7 +232,9 @@ public class ITInternalTableScanTest {
                 }
             ).when(cursor).close();
 
-            when(cursor.hasNext()).thenAnswer(hnInvocation -> {throw new StorageException("test");});
+            when(cursor.hasNext()).thenAnswer(hnInvocation -> {
+                throw new StorageException("test");
+            });
 
             return cursor;
         });
@@ -261,7 +263,9 @@ public class ITInternalTableScanTest {
 
         assertThrows(
             IllegalArgumentException.class,
-            () -> {throw gotException.get();},
+            () -> {
+                throw gotException.get();
+            },
             "Requested amount of items is less than 0."
         );
     }
@@ -278,7 +282,9 @@ public class ITInternalTableScanTest {
         when(mockStorage.scan(any())).thenAnswer(invocation -> {
             var cursor = mock(Cursor.class);
 
-            when(cursor.hasNext()).thenAnswer(hnInvocation -> {throw new StorageException("test");});
+            when(cursor.hasNext()).thenAnswer(hnInvocation -> {
+                throw new StorageException("test");
+            });
 
             doAnswer(
                 invocationClose -> {
@@ -324,13 +330,17 @@ public class ITInternalTableScanTest {
     public void testInvalidPartitionParameterScan() throws Exception {
         assertThrows(
             IllegalArgumentException.class,
-            () -> {internalTbl.scan(-1, null);},
+            () -> {
+                internalTbl.scan(-1, null);
+            },
             "Invalid partition [partition={-1}, minValue={0}, maxValue={0}]."
         );
 
         assertThrows(
             IllegalArgumentException.class,
-            () -> {internalTbl.scan(1, null);},
+            () -> {
+                internalTbl.scan(1, null);
+            },
             "Invalid partition [partition={1}, minValue={0}, maxValue={0}]."
         );
     }
@@ -341,11 +351,11 @@ public class ITInternalTableScanTest {
      * @param entryKey Key.
      * @param entryVal Value
      * @return {@link DataRow} based on given key and value.
-     *
      * @throws java.io.IOException If failed to close output stream that was used to convertation.
      */
     @SuppressWarnings("ConstantConditions") // It's ok for test.
-    private static @NotNull DataRow prepareDataRow(@NotNull String entryKey, @NotNull String entryVal) throws IOException {
+    private static @NotNull DataRow prepareDataRow(@NotNull String entryKey,
+        @NotNull String entryVal) throws IOException {
         byte[] keyBytes = ByteUtils.toBytes(entryKey);
 
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
