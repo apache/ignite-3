@@ -403,8 +403,11 @@ public class InternalTableImpl implements InternalTable {
 
             /** {@inheritDoc} */
             @Override public void request(long n) {
-                if (n < 0)
+                if (n < 0) {
+                    cancel();
+
                     subscriber.onError(new IllegalArgumentException("Requested amount of items is less than 0."));
+                }
 
                 if (isCanceled.get())
                     return;

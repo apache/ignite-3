@@ -61,7 +61,6 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -71,6 +70,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -78,7 +78,6 @@ import static org.mockito.Mockito.when;
  * Tests for {@link InternalTable#scan(int, org.apache.ignite.tx.Transaction)}
  */
 @ExtendWith(MockitoExtension.class)
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class ITInternalTableScanTest {
     /** */
     private static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
@@ -221,12 +220,25 @@ public class ITInternalTableScanTest {
     public void testNegativeReqScan() throws Exception {
         AtomicReference<Throwable> gotException = new AtomicReference<>();
 
+        AtomicBoolean cursorClosed = new AtomicBoolean(false);
+
+        when(mockStorage.scan(any())).thenAnswer(invocation -> {
+            var cursor = mock(Cursor.class);
+
+            doAnswer(
+                invocationClose -> {
+                    cursorClosed.set(true);
+                    return null;
+                }
+            ).when(cursor).close();
+
+            when(cursor.hasNext()).thenAnswer(hnInvocation -> {throw new StorageException("test");});
+
+            return cursor;
+        });
+
         internalTbl.scan(0, null).subscribe(new Subscriber<>() {
-            private Subscription subscription;
-
             @Override public void onSubscribe(Subscription subscription) {
-                this.subscription = subscription;
-
                 subscription.request(-1);
             }
 
@@ -245,6 +257,8 @@ public class ITInternalTableScanTest {
 
         assertTrue(waitForCondition(() -> gotException.get() != null, 1_000));
 
+        assertTrue(waitForCondition(cursorClosed::get, 1_000));
+
         assertThrows(
             IllegalArgumentException.class,
             () -> {throw gotException.get();},
@@ -259,10 +273,19 @@ public class ITInternalTableScanTest {
     public void testExceptionRowScan() throws Exception {
         AtomicReference<Throwable> gotException = new AtomicReference<>();
 
+        AtomicBoolean cursorClosed = new AtomicBoolean(false);
+
         when(mockStorage.scan(any())).thenAnswer(invocation -> {
             var cursor = mock(Cursor.class);
 
             when(cursor.hasNext()).thenAnswer(hnInvocation -> {throw new StorageException("test");});
+
+            doAnswer(
+                invocationClose -> {
+                    cursorClosed.set(true);
+                    return null;
+                }
+            ).when(cursor).close();
 
             return cursor;
         });
@@ -290,6 +313,8 @@ public class ITInternalTableScanTest {
         });
 
         assertTrue(waitForCondition(() -> gotException.get() != null, 1_000));
+
+        assertTrue(waitForCondition(cursorClosed::get, 1_000));
     }
 
     /**
