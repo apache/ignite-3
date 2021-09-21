@@ -353,7 +353,6 @@ public class ITInternalTableScanTest {
      * @return {@link DataRow} based on given key and value.
      * @throws java.io.IOException If failed to close output stream that was used to convertation.
      */
-    @SuppressWarnings("ConstantConditions") // It's ok for test.
     private static @NotNull DataRow prepareDataRow(@NotNull String entryKey,
         @NotNull String entryVal) throws IOException {
         byte[] keyBytes = ByteUtils.toBytes(entryKey);

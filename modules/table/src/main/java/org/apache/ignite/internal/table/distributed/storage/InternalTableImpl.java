@@ -358,7 +358,7 @@ public class InternalTableImpl implements InternalTable {
          *
          * @param raftGrpSvc {@link Publisher<BinaryRow>} that relatively notifies about partition rows.
          */
-        public PartitionScanPublisher(RaftGroupService raftGrpSvc) {
+        PartitionScanPublisher(RaftGroupService raftGrpSvc) {
             this.subscriptions = Collections.synchronizedList(new ArrayList<>());
             this.raftGrpSvc = raftGrpSvc;
         }
