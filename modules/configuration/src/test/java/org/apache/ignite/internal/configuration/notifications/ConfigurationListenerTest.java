@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.notifications;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
@@ -28,6 +29,7 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -643,5 +645,46 @@ public class ConfigurationListenerTest {
         fut.get(1, SECONDS);
 
         assertEquals(List.of("deleted"), log);
+    }
+
+    /** */
+    @Test
+    void testStopListen() throws Exception {
+        List<String> events = new ArrayList<>();
+
+        ConfigurationListener<ParentView> listener0 = ctx -> {
+            events.add("0");
+
+            return completedFuture(null);
+        };
+
+        ConfigurationListener<ParentView> listener1 = ctx -> {
+            events.add("1");
+
+            return completedFuture(null);
+        };
+
+        configuration.listen(listener0);
+        configuration.listen(listener1);
+
+        configuration.change(c -> c.changeChild(c0 -> c0.changeStr(UUID.randomUUID().toString()))).get(1, SECONDS);
+
+        events.sort(String::compareTo);
+
+        assertEquals(List.of("0", "1"), events);
+
+        configuration.stopListen(listener0);
+
+        events.clear();
+        configuration.change(c -> c.changeChild(c0 -> c0.changeStr(UUID.randomUUID().toString()))).get(1, SECONDS);
+
+        assertEquals(List.of("1"), events);
+
+        configuration.stopListen(listener1);
+
+        events.clear();
+        configuration.change(c -> c.changeChild(c0 -> c0.changeStr(UUID.randomUUID().toString()))).get(1, SECONDS);
+
+        assertEquals(List.of(), events);
     }
 }

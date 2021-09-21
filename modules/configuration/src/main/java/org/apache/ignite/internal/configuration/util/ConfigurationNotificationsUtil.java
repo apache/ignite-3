@@ -370,7 +370,7 @@ public class ConfigurationNotificationsUtil {
      * Invoke {@link ConfigurationListener#onUpdate(ConfigurationNotificationEvent)} on all passed listeners and put
      * results in {@code futures}. Not recursively.
      *
-     * @param listeners List of listeners.
+     * @param listeners Collection of listeners.
      * @param oldVal Old configuration value.
      * @param newVal New configuration value.
      * @param storageRevision Storage revision.
@@ -380,7 +380,7 @@ public class ConfigurationNotificationsUtil {
      * @param <L> Type of the configuration listener.
      */
     private static <V, L extends ConfigurationListener<V>> void notifyPublicListeners(
-        List<? extends L> listeners,
+        Collection<? extends L> listeners,
         V oldVal,
         V newVal,
         long storageRevision,

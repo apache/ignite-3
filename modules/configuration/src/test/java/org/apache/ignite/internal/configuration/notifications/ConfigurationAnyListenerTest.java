@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.notifications;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -44,7 +45,9 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Class for testing notification of listeners for a {@link NamedConfigurationTree#any}.
@@ -441,6 +444,30 @@ public class ConfigurationAnyListenerTest {
         );
     }
 
+    /** */
+    @Test
+    void testAnyStopListen() throws Exception {
+        ConfigurationListener<FirstSubView> listener = configListener(ctx -> events.add("root.elements.any2"));
+
+        rootConfig.elements().any().listen(listener);
+
+        checkListeners(
+            () -> rootConfig.elements().get("0").str().update(UUID.randomUUID().toString()),
+            events,
+            List.of("root.elements.any", "root.elements.any2"),
+            List.of()
+        );
+
+        rootConfig.elements().any().stopListen(listener);
+
+        checkListeners(
+            () -> rootConfig.elements().get("0").str().update(UUID.randomUUID().toString()),
+            events,
+            List.of("root.elements.any"),
+            List.of("root.elements.any2")
+        );
+    }
+
     /**
      * Helper method for testing listeners.
      *
@@ -459,6 +486,32 @@ public class ConfigurationAnyListenerTest {
         changeFun.get().get(1, SECONDS);
 
         assertEquals(exp, act);
+    }
+
+    /**
+     * Helper method for testing listeners.
+     *
+     * @param changeFun Configuration change function.
+     * @param events Reference to the list of executing listeners that is filled after the {@code changeFun} is executed.
+     * @param expContains Listeners that are expected are contained in the {@code events}.
+     * @param expNotContains Listeners that are expected are not contained in the {@code events}.
+     * @throws Exception If failed.
+     */
+    private static void checkListeners(
+        Supplier<CompletableFuture<Void>> changeFun,
+        List<String> events,
+        List<String> expContains,
+        List<String> expNotContains
+    ) throws Exception {
+        events.clear();
+
+        changeFun.get().get(1, SECONDS);
+
+        for (String exp : expContains)
+            assertTrue(events.contains(exp), () -> exp + " not contains in " + events);
+
+        for (String exp : expNotContains)
+            assertFalse(events.contains(exp), () -> exp + " contains in " + events);
     }
 
     /**
