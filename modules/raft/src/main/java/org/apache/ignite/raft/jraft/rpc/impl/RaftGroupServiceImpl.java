@@ -147,7 +147,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         boolean getLeader,
         long retryDelay) {
 
-        return start(groupId, cluster, factory, timeout, peers, getLeader, retryDelay);
+        return start(groupId, cluster, factory, timeout, peers, getLeader, retryDelay, null);
     }
 
     /**

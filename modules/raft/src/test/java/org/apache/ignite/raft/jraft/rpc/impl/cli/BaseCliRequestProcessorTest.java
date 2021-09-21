@@ -145,7 +145,7 @@ public class BaseCliRequestProcessorTest {
         this.processor.handleRequest(asyncContext, TestUtils.createPingRequest());
         ErrorResponse resp = (ErrorResponse) asyncContext.getResponseObject();
         assertNotNull(resp);
-        assertEquals(RaftError.ENOENT.getNumber(), resp.errorCode());
+        assertEquals(RaftError.ENOPEER.getNumber(), resp.errorCode());
         assertEquals("Empty nodes in group test", resp.errorMsg());
     }
 
@@ -186,7 +186,7 @@ public class BaseCliRequestProcessorTest {
         this.processor.handleRequest(asyncContext, TestUtils.createPingRequest());
         ErrorResponse resp = (ErrorResponse) asyncContext.getResponseObject();
         assertNotNull(resp);
-        assertEquals(RaftError.ENOENT.getNumber(), resp.errorCode());
+        assertEquals(RaftError.ENOPEER.getNumber(), resp.errorCode());
         assertEquals("Fail to find node localhost:8081 in group test", resp.errorMsg());
     }
 }

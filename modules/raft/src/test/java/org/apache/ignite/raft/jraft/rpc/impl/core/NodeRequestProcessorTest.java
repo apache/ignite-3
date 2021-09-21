@@ -118,7 +118,7 @@ public class NodeRequestProcessorTest {
         this.processor.handleRequest(asyncContext, TestUtils.createPingRequest());
         ErrorResponse resp = (ErrorResponse) asyncContext.getResponseObject();
         assertNotNull(resp);
-        assertEquals(RaftError.ENOENT.getNumber(), resp.errorCode());
+        assertEquals(RaftError.ENOPEER.getNumber(), resp.errorCode());
         assertEquals("Peer id not found: localhost:8081, group: test", resp.errorMsg());
     }
 }
