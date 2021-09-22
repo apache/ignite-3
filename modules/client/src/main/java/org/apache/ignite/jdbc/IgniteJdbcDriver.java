@@ -107,7 +107,7 @@ public class IgniteJdbcDriver implements Driver {
      * @return Driver instance.
      * @throws RuntimeException when failed to register driver.
      */
-    public static synchronized Driver register() {
+    private static synchronized Driver register() {
         try {
             if (!registered) {
                 DriverManager.registerDriver(INSTANCE);

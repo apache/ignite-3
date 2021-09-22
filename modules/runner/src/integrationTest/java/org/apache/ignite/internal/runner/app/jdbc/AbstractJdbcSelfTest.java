@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
-import org.apache.ignite.jdbc.IgniteJdbcDriver;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.function.Executable;
@@ -57,8 +56,6 @@ public class AbstractJdbcSelfTest {
      */
     @BeforeAll
     public static void beforeAll(@TempDir Path temp) {
-        IgniteJdbcDriver.register();
-
         nodesBootstrapCfg.forEach((nodeName, configStr) ->
             clusterNodes.add(IgnitionManager.start(nodeName, configStr, temp.resolve(nodeName)))
         );
