@@ -94,7 +94,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     /** */
     private final long retryDelay;
 
-    /** TODO: Use shared executors instead https://issues.apache.org/jira/browse/IGNITE-15136 */
+    /** Executor for scheduling retries of {@link RaftGroupServiceImpl#sendWithRetry} invocations. */
     private final ScheduledExecutorService executor;
 
     /**
@@ -107,6 +107,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param peers Initial group configuration.
      * @param leader Group leader.
      * @param retryDelay Retry delay.
+     * @param executor Executor for retrying requests.
      */
     private RaftGroupServiceImpl(
         String groupId,
@@ -139,6 +140,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param peers List of all peers.
      * @param getLeader {@code True} to get the group's leader upon service creation.
      * @param retryDelay Retry delay.
+     * @param executor Executor for retrying requests.
      * @return Future representing pending completion of the operation.
      */
     public static CompletableFuture<RaftGroupService> start(
