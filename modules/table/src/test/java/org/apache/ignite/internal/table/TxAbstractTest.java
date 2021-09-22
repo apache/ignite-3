@@ -114,16 +114,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     @BeforeEach
     public abstract void before() throws Exception;
 
-    /**
-     *
-     * @throws Exception
-     */
-    @AfterEach
-    public void after() throws Exception {
-        assertPartitionsSame(accounts, 0);
-        assertPartitionsSame(customers, 0);
-    }
-
     /** */
     @Test
     public void testMixedPutGet() throws TransactionException {
@@ -132,9 +122,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         igniteTransactions.runInTransaction(tx -> {
             Table txAcc = tx.wrap(accounts);
 
-            Tuple r = txAcc.getAsync(makeKey(1)).join();
-
-            txAcc.upsertAsync(makeValue(1, r.doubleValue("balance") + DELTA)).join();
+            txAcc.getAsync(makeKey(1)).thenCompose(r ->
+                txAcc.upsertAsync(makeValue(1, r.doubleValue("balance") + DELTA))).join();
         });
 
         assertEquals(BALANCE_1 + DELTA, accounts.get(makeKey(1)).doubleValue("balance"));

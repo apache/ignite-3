@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -212,6 +213,11 @@ public class ConcurrentHashMapStorage implements Storage {
 
     /** {@inheritDoc} */
     @Override public int hashCode() {
-        return map.hashCode();
+        int hash = 0;
+
+        for (Map.Entry<ByteArray, byte[]> entry : map.entrySet())
+            hash += entry.getKey().hashCode() ^ Arrays.hashCode(entry.getValue());
+
+        return hash;
     }
 }

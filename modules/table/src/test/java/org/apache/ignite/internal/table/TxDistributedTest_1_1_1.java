@@ -62,7 +62,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
+import static org.apache.ignite.lang.LoggerMessageHelper.format;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -72,34 +74,54 @@ import static org.junit.jupiter.api.Assertions.fail;
 @MockitoSettings(strictness = Strictness.LENIENT)
 /** TODO asch parallelize startup */
 public class TxDistributedTest_1_1_1 extends TxAbstractTest {
-    /** Base network port. */
+    /**
+     * Base network port.
+     */
     public static final int NODE_PORT_BASE = 20_000;
 
-    /** Factory. */
+    /**
+     * Factory.
+     */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
-    /** Network factory. */
+    /**
+     * Network factory.
+     */
     private static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
-    /** */
+    /**
+     *
+     */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
 
-    /** */
+    /**
+     *
+     */
     private ClusterService client;
 
-    /** */
-    private Map<ClusterNode, RaftServer> raftServers;
+    /**
+     *
+     */
+    protected Map<ClusterNode, RaftServer> raftServers;
 
-    /** */
+    /**
+     *
+     */
     protected Map<Integer, RaftGroupService> accRaftClients;
 
-    /** */
+    /**
+     *
+     */
     protected Map<Integer, RaftGroupService> custRaftClients;
 
-    /** Cluster. */
+    /**
+     * Cluster.
+     */
     private ArrayList<ClusterService> cluster = new ArrayList<>();
 
-    /** */
+    /**
+     *
+     */
     @WorkDirectory
     private Path dataPath;
 
@@ -160,9 +182,11 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
 
         log.info("Raft servers have been started");
 
-        accRaftClients = startTable("account");
+        final String accountsName = "accounts";
+        final String customersName = "customers";
 
-        custRaftClients = startTable("customers");
+        accRaftClients = startTable(accountsName);
+        custRaftClients = startTable(customersName);
 
         log.info("Partition groups have been started");
 
@@ -170,8 +194,8 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
 
         igniteTransactions = new IgniteTransactionsImpl(nearTxManager);
 
-        accounts = new TableImpl(new InternalTableImpl(
-            "accounts",
+        this.accounts = new TableImpl(new InternalTableImpl(
+            accountsName,
             tableId,
             accRaftClients,
             1,
@@ -194,8 +218,8 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
             }
         }, null, null);
 
-        customers = new TableImpl(new InternalTableImpl(
-            "customers",
+        this.customers = new TableImpl(new InternalTableImpl(
+            customersName,
             tableId2,
             custRaftClients,
             1,
@@ -271,10 +295,8 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
      *
      * @throws Exception If failed.
      */
-    @Override @AfterEach
+    @AfterEach
     public void after() throws Exception {
-        super.after();
-
         for (RaftServer rs : raftServers.values())
             rs.stop();
 
@@ -291,8 +313,8 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
     }
 
     /**
-     * @param name Node name.
-     * @param port Local port.
+     * @param name       Node name.
+     * @param port       Local port.
      * @param nodeFinder Node finder.
      * @return The client cluster view.
      */
@@ -310,7 +332,9 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
         return network;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override protected TxManager txManager(Table t) {
         Map<Integer, RaftGroupService> clients = null;
 
@@ -332,7 +356,25 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
         return leaderSrv.transactionManager();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override protected void assertPartitionsSame(Table t, int partId) {
-        // No-op.
+        int hash = 0;
+
+        for (Map.Entry<ClusterNode, RaftServer> entry : raftServers.entrySet()) {
+            JRaftServerImpl svc = (JRaftServerImpl) entry.getValue();
+            org.apache.ignite.raft.jraft.RaftGroupService grp = svc.raftGroupService(t.tableName() + "-part-" + partId);
+            JRaftServerImpl.DelegatingStateMachine fsm = (JRaftServerImpl.DelegatingStateMachine) grp.getRaftNode().getOptions().getFsm();
+            PartitionListener listener = (PartitionListener) fsm.getListener();
+            VersionedRowStore storage = listener.getStorage();
+            if (hash == 0)
+                hash = storage.delegate().hashCode();
+            else {
+                assertEquals(hash, storage.delegate().hashCode(),
+                    format("Partition replicas are not equal [table={}, partId={}]",
+                        t.tableName(), svc.clusterService().topologyService().localMember().address()));
+            }
+        }
     }
 }

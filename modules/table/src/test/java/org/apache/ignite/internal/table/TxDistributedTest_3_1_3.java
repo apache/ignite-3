@@ -17,15 +17,11 @@
 
 package org.apache.ignite.internal.table;
 
-import java.util.Map;
-import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.table.Table;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-
-import static org.junit.jupiter.api.Assertions.fail;
 
 /** */
 @ExtendWith(MockitoExtension.class)
@@ -41,15 +37,15 @@ public class TxDistributedTest_3_1_3 extends TxDistributedTest_1_1_1 {
         return 3;
     }
 
-    /** {@inheritDoc} */
-    @Override protected void assertPartitionsSame(Table t, int partId) {
-        Map<Integer, RaftGroupService> clients = null;
+    /**
+     *
+     * @throws Exception
+     */
+    @Override @AfterEach
+    public void after() throws Exception {
+        assertPartitionsSame(accounts, 0);
+        assertPartitionsSame(customers, 0);
 
-        if (t == accounts)
-            clients = accRaftClients;
-        else if (t == customers)
-            clients = custRaftClients;
-        else
-            fail("Unknown table " + t.tableName());
+        super.after();
     }
 }
