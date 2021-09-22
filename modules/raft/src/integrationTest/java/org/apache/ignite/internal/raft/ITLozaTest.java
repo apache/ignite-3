@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.server;
+package org.apache.ignite.internal.raft;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -28,18 +28,23 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.ClusterServiceFactory;
+import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.StaticNodeFinder;
+import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
+import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -53,15 +58,23 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
+/**
+ * Tests for {@link Loza} functionality.
+ */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(MockitoExtension.class)
-
-/**
- *
- */
-public class ITLozaTest extends RaftServerAbstractTest {
+public class ITLozaTest {
     /** Node's name. */
     private static final String NODE_NAME = "node1";
+
+    /** Network factory. */
+    protected static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
+
+    /** Server port offset. */
+    protected static final int PORT = 20010;
+
+    /** */
+    private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
 
     /** */
     @WorkDirectory
@@ -75,13 +88,59 @@ public class ITLozaTest extends RaftServerAbstractTest {
     );
 
     /**
+     * @param groupId Raft group id.
+     */
+    private void startClient(String groupId, Loza loza) throws ExecutionException, InterruptedException, TimeoutException {
+        loza.prepareRaftGroup(groupId, List.of(node), () -> new RaftGroupListener() {
+            @Override public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
+            }
+
+            @Override public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
+
+            }
+
+            @Override public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
+
+            }
+
+            @Override public boolean onSnapshotLoad(Path path) {
+                return false;
+            }
+
+            @Override public void onShutdown() {
+
+            }
+        }).get(10, TimeUnit.SECONDS);
+    }
+
+    /**
+     * @param name Node name.
+     * @param port Local port.
+     * @param servers Server nodes of the cluster.
+     * @return The client cluster view.
+     */
+    protected ClusterService clusterService(String name, int port, List<NetworkAddress> servers) {
+        var network = ClusterServiceTestUtils.clusterService(
+            name,
+            port,
+            new StaticNodeFinder(servers),
+            SERIALIZATION_REGISTRY,
+            NETWORK_FACTORY
+        );
+
+        network.start();
+
+        return network;
+    }
+
+    /**
      * Tests that RaftGroupServiceImpl uses shared executor for retrying RaftGroupServiceImpl#sendWithRetry()
      */
     @Test
     public void testRaftServiceUsingSharedExecutor() throws Exception {
         var addr1 = new NetworkAddress(getLocalAddress(), PORT);
 
-        ClusterService service = spy(clusterService(node.name(), PORT, List.of(addr1), true));
+        ClusterService service = spy(clusterService(node.name(), PORT, List.of(addr1)));
 
         MessagingService messagingServiceMock = mock(MessagingService.class);
 
@@ -127,31 +186,5 @@ public class ITLozaTest extends RaftServerAbstractTest {
         loza.stop();
 
         service.stop();
-    }
-
-    /**
-     * @param groupId Raft group id.
-     */
-    private void startClient(String groupId, Loza loza) throws ExecutionException, InterruptedException, TimeoutException {
-        loza.prepareRaftGroup(groupId, List.of(node), () -> new RaftGroupListener() {
-            @Override public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
-            }
-
-            @Override public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
-
-            }
-
-            @Override public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-
-            }
-
-            @Override public boolean onSnapshotLoad(Path path) {
-                return false;
-            }
-
-            @Override public void onShutdown() {
-
-            }
-        }).get(10, TimeUnit.SECONDS);
     }
 }
