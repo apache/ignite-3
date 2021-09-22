@@ -21,6 +21,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.table.RecordView;
@@ -57,17 +58,25 @@ public class StrictSchemaOperationsTest {
     public void schemaMismatch() {
         SchemaDescriptor schema = new SchemaDescriptor(
             1,
-            new Column[] {new Column("id", NativeTypes.INT64, false)},
+            new Column[] {
+                new Column("id", NativeTypes.INT64, false),
+                new Column("affId", NativeTypes.INT64, false)
+            },
             new Column[] {new Column("val", NativeTypes.INT64, true)}
         );
 
         Table tbl = createTableImpl(schema);
 
-        assertThrows(SchemaMismatchException.class, () -> tbl.recordView().get(Tuple.create().set("id", 0L).set("val", 0L)));
+        assertThrows(SchemaMismatchException.class, () -> tbl.recordView().get(Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L)));
+        assertThrows(SchemaMismatchException.class, () -> tbl.recordView().get(Tuple.create().set("id", 0L)));
 
-        assertThrows(SchemaMismatchException.class, () -> tbl.keyValueView().get(Tuple.create().set("id", 0L).set("val", 0L)));
-        assertThrows(SchemaMismatchException.class, () -> tbl.keyValueView().put(Tuple.create().set("id", 0L).set("val", 0L), Tuple.create()));
-        assertThrows(SchemaMismatchException.class, () -> tbl.keyValueView().put(Tuple.create().set("id", 0L), Tuple.create().set("id", 0L).set("val", 0L)));
+        assertThrows(SchemaMismatchException.class, () -> tbl.keyValueView().get(Tuple.create().set("id", 0L)));
+        assertThrows(SchemaMismatchException.class, () -> tbl.keyValueView().get(Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L)));
+
+        assertThrows(SchemaMismatchException.class, () -> tbl.keyValueView().put(Tuple.create().set("id", 0L), Tuple.create()));
+        assertThrows(SchemaMismatchException.class, () -> tbl.keyValueView().put(Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L), Tuple.create()));
+        assertThrows(SchemaMismatchException.class, () -> tbl.keyValueView().put(Tuple.create().set("id", 0L).set("affId", 1L),
+            Tuple.create().set("id", 0L).set("val", 0L)));
     }
 
     /**
