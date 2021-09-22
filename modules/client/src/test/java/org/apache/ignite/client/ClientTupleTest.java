@@ -356,7 +356,7 @@ public class ClientTupleTest {
 
     private static Tuple getTuple() {
         return new ClientTuple(SCHEMA)
-                   .set("id", 3L)
-                   .set("name", "Shirt");
+                .set("id", 3L)
+                .set("name", "Shirt");
     }
 }

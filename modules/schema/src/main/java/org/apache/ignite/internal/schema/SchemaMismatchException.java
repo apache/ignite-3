@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.internal.schema;
 
 import org.apache.ignite.lang.IgniteException;
 
