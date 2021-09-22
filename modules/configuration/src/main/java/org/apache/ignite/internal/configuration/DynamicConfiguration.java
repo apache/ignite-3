@@ -140,4 +140,9 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
     public Map<String, ConfigurationProperty<?, ?>> touchMembers() {
         return members();
     }
+
+    /**
+     * @return Configuration interface, for example {@code RootConfiguration}.
+     */
+    public abstract Class<? extends ConfigurationProperty<VIEW, CHANGE>> configType();
 }

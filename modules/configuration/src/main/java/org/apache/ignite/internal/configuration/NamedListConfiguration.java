@@ -124,4 +124,9 @@ public final class NamedListConfiguration<T extends ConfigurationProperty<VIEW, 
     @Override public T any() {
         return anyConfig;
     }
+
+    /** {@inheritDoc} */
+    @Override public Class<? extends ConfigurationProperty<NamedListView<VIEW>, NamedListChange<VIEW, CHANGE>>> configType() {
+        throw new UnsupportedOperationException("Not supported.");
+    }
 }

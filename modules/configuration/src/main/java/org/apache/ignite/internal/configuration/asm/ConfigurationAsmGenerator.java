@@ -940,6 +940,9 @@ public class ConfigurationAsmGenerator {
         for (Field schemaField : concat(asList(schemaFields), extensionsFields))
             addConfigurationImplGetMethod(classDef, schemaClass, fieldDefs, schemaField);
 
+        // org.apache.ignite.internal.configuration.DynamicConfiguration#configType
+        addCfgImplConfigTypeMethod(classDef, typeFromJavaClassName(schemaClassInfo.cfgClassName));
+
         return classDef;
     }
 
@@ -1373,5 +1376,22 @@ public class ConfigurationAsmGenerator {
         return Stream.concat(Stream.of(schemaClass), schemaExtensions.stream())
             .map(cls -> typeFromJavaClassName(configurationClassName(cls)))
             .toArray(ParameterizedType[]::new);
+    }
+
+    /**
+     * Add {@link DynamicConfiguration#configType} method implementation to the class. It looks like the following code:
+     * <pre><code>
+     * public Class configType() {
+     *     return RootConfiguration.class;
+     * }
+     * </code></pre>
+     * @param classDef Class definition.
+     * @param clazz Definition of the configuration interface, for example {@code RootConfiguration}.
+     */
+    private void addCfgImplConfigTypeMethod(ClassDefinition classDef, ParameterizedType clazz) {
+        classDef.declareMethod(of(PUBLIC), "configType", type(Class.class))
+            .getBody()
+            .append(constantClass(clazz))
+            .retObject();
     }
 }
