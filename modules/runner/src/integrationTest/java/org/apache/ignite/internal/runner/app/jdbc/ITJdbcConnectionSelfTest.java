@@ -63,6 +63,9 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 @SuppressWarnings("ThrowableNotThrown")
 public class ITJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
+    /**
+     * Test JDBC loading via ServiceLoader
+     */
     @Test
     public void testServiceLoader() {
         ServiceLoader<Driver> sl = ServiceLoader.load(Driver.class);
