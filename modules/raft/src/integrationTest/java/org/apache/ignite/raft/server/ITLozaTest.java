@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.raft.server;
 
 import java.io.IOException;
@@ -23,7 +40,6 @@ import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -35,22 +51,21 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(MockitoExtension.class)
-public class ITLozaTest extends RaftServerAbstractTest{
+
+/**
+ *
+ */
+public class ITLozaTest extends RaftServerAbstractTest {
+    /** Node's name. */
     private static final String NODE_NAME = "node1";
 
     /** */
     @WorkDirectory
     private Path dataPath;
-
-    private Loza loza;
-
-    /** Cluster service. */
-    ClusterService service;
 
     /** Test node. */
     private final ClusterNode node = new ClusterNode(
@@ -66,13 +81,13 @@ public class ITLozaTest extends RaftServerAbstractTest{
     public void testRaftServiceUsingSharedExecutor() throws Exception {
         var addr1 = new NetworkAddress(getLocalAddress(), PORT);
 
-        service = spy(clusterService(node.name(), PORT, List.of(addr1), true));
+        ClusterService service = spy(clusterService(node.name(), PORT, List.of(addr1), true));
 
         MessagingService messagingServiceMock = mock(MessagingService.class);
 
         when(service.messagingService()).thenReturn(messagingServiceMock);
 
-        CompletableFuture<NetworkMessage> fut  = new CompletableFuture<>();
+        CompletableFuture<NetworkMessage> fut = new CompletableFuture<>();
 
         AtomicInteger executorsInvocations = new AtomicInteger(0);
 
@@ -88,15 +103,16 @@ public class ITLozaTest extends RaftServerAbstractTest{
         });
 
         // Need to complete exceptionally to enforce sendWithRetry to be scheduled with shared executor.
+        // See RaftGroupServiceImpl#recoverable
         fut.completeExceptionally(new Exception("Test exception", new IOException()));
 
-        loza = new Loza(service, dataPath);
+        Loza loza = new Loza(service, dataPath);
 
         loza.start();
 
         for (int i = 0; i < 5; i++) {
             try {
-                startClient(Integer.toString(i));
+                startClient(Integer.toString(i), loza);
             }
             catch (ExecutionException | InterruptedException | TimeoutException e) {
                 if (!(e.getCause() instanceof TimeoutException))
@@ -113,14 +129,11 @@ public class ITLozaTest extends RaftServerAbstractTest{
         service.stop();
     }
 
-
     /**
-     * @param groupId Group id.
-     * @return The client.
-     * @throws Exception If failed.
+     * @param groupId Raft group id.
      */
-    private RaftGroupService startClient(String groupId) throws ExecutionException, InterruptedException, TimeoutException {
-        return loza.prepareRaftGroup(groupId, List.of(node), () ->  new RaftGroupListener() {
+    private void startClient(String groupId, Loza loza) throws ExecutionException, InterruptedException, TimeoutException {
+        loza.prepareRaftGroup(groupId, List.of(node), () -> new RaftGroupListener() {
             @Override public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
             }
 
