@@ -56,17 +56,25 @@ public class StrictSchemaOperationsTest {
     public void schemaMismatch() {
         SchemaDescriptor schema = new SchemaDescriptor(
             1,
-            new Column[] {new Column("id", NativeTypes.INT64, false)},
+            new Column[] {
+                new Column("id", NativeTypes.INT64, false),
+                new Column("affId", NativeTypes.INT64, false)
+            },
             new Column[] {new Column("val", NativeTypes.INT64, true)}
         );
 
         Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
-        assertThrows(SchemaMismatchException.class, () -> tbl.get(Tuple.create().set("id", 0L).set("val", 0L)));
+        assertThrows(SchemaMismatchException.class, () -> tbl.get(Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L)));
+        assertThrows(SchemaMismatchException.class, () -> tbl.get(Tuple.create().set("id", 0L)));
 
-        assertThrows(SchemaMismatchException.class, () -> tbl.kvView().get(Tuple.create().set("id", 0L).set("val", 0L)));
-        assertThrows(SchemaMismatchException.class, () -> tbl.kvView().put(Tuple.create().set("id", 0L).set("val", 0L), Tuple.create()));
-        assertThrows(SchemaMismatchException.class, () -> tbl.kvView().put(Tuple.create().set("id", 0L), Tuple.create().set("id", 0L).set("val", 0L)));
+        assertThrows(SchemaMismatchException.class, () -> tbl.kvView().get(Tuple.create().set("id", 0L)));
+        assertThrows(SchemaMismatchException.class, () -> tbl.kvView().get(Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L)));
+
+        assertThrows(SchemaMismatchException.class, () -> tbl.kvView().put(Tuple.create().set("id", 0L), Tuple.create()));
+        assertThrows(SchemaMismatchException.class, () -> tbl.kvView().put(Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L), Tuple.create()));
+        assertThrows(SchemaMismatchException.class, () -> tbl.kvView().put(Tuple.create().set("id", 0L).set("affId", 1L),
+            Tuple.create().set("id", 0L).set("val", 0L)));
     }
 
     /**
