@@ -21,9 +21,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
 import org.apache.ignite.configuration.ConfigurationListenOnlyException;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.annotation.Config;
@@ -32,22 +29,23 @@ import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.checkContainsListeners;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.checkEqualsListeners;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configListener;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnCreate;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnDelete;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnRename;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnUpdate;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.doNothingConsumer;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Class for testing notification of listeners for a {@link NamedConfigurationTree#any}.
@@ -232,7 +230,7 @@ public class ConfigurationAnyListenerTest {
     /** */
     @Test
     void testNoAnyListenerNotification() throws Exception {
-        checkListeners(
+        checkEqualsListeners(
             () -> rootConfig.child().change(c -> c.changeStr("x").changeChild2(c0 -> c0.changeI(100))),
             List.of(
                 "root",
@@ -248,7 +246,7 @@ public class ConfigurationAnyListenerTest {
     /** */
     @Test
     void testAnyListenerNotificationOnCreate() throws Exception {
-        checkListeners(
+        checkEqualsListeners(
             () -> rootConfig.elements()
                 .change(c -> c.create("1", c0 -> c0.changeElements2(c1 -> c1.create("2", doNothingConsumer())))),
             List.of(
@@ -270,7 +268,7 @@ public class ConfigurationAnyListenerTest {
             events
         );
 
-        checkListeners(
+        checkEqualsListeners(
             () -> rootConfig.elements().get("0").elements2().change(c -> c.create("1", doNothingConsumer())),
             List.of(
                 "root",
@@ -293,7 +291,7 @@ public class ConfigurationAnyListenerTest {
             events
         );
 
-        checkListeners(
+        checkEqualsListeners(
             () -> rootConfig.elements().get("1").elements2().change(c -> c.create("3", doNothingConsumer())),
             List.of(
                 "root",
@@ -314,7 +312,7 @@ public class ConfigurationAnyListenerTest {
     /** */
     @Test
     void testAnyListenerNotificationOnRename() throws Exception {
-        checkListeners(
+        checkEqualsListeners(
             () -> rootConfig.elements().get("0").elements2().change(c -> c.rename("0", "0x")),
             List.of(
                 "root",
@@ -337,7 +335,7 @@ public class ConfigurationAnyListenerTest {
             .change(c -> c.create("1", c0 -> c0.changeElements2(c1 -> c1.create("2", doNothingConsumer()))))
             .get(1, SECONDS);
 
-        checkListeners(
+        checkEqualsListeners(
             () -> rootConfig.elements().get("1").elements2().change(c -> c.rename("2", "2x")),
             List.of(
                 "root",
@@ -355,7 +353,7 @@ public class ConfigurationAnyListenerTest {
     /** */
     @Test
     void testAnyListenerNotificationOnDelete() throws Exception {
-        checkListeners(
+        checkEqualsListeners(
             () -> rootConfig.elements().get("0").elements2().change(c -> c.delete("0")),
             List.of(
                 "root",
@@ -381,7 +379,7 @@ public class ConfigurationAnyListenerTest {
             .change(c -> c.create("1", c0 -> c0.changeElements2(c1 -> c1.create("2", doNothingConsumer()))))
             .get(1, SECONDS);
 
-        checkListeners(
+        checkEqualsListeners(
             () -> rootConfig.elements().get("1").elements2().change(c -> c.delete("2")),
             List.of(
                 "root",
@@ -400,7 +398,7 @@ public class ConfigurationAnyListenerTest {
     /** */
     @Test
     void testAnyListenerNotificationForLeaf() throws Exception {
-        checkListeners(
+        checkEqualsListeners(
             () -> rootConfig.elements().get("0").str().update("x"),
             List.of(
                 "root",
@@ -416,7 +414,7 @@ public class ConfigurationAnyListenerTest {
             events
         );
 
-        checkListeners(
+        checkEqualsListeners(
             () -> rootConfig.elements().get("0").elements2().get("0").i().update(200),
             List.of(
                 "root",
@@ -446,7 +444,7 @@ public class ConfigurationAnyListenerTest {
             .change(c -> c.create("1", c0 -> c0.changeElements2(c1 -> c1.create("2", doNothingConsumer()))))
             .get(1, SECONDS);
 
-        checkListeners(
+        checkEqualsListeners(
             () -> rootConfig.elements().get("1").elements2().get("2").i().update(200),
             List.of(
                 "root",
@@ -470,7 +468,7 @@ public class ConfigurationAnyListenerTest {
 
         rootConfig.elements().any().listen(listener);
 
-        checkListeners(
+        checkContainsListeners(
             () -> rootConfig.elements().get("0").str().update(UUID.randomUUID().toString()),
             events,
             List.of("root.elements.any", "root.elements.any2"),
@@ -479,7 +477,7 @@ public class ConfigurationAnyListenerTest {
 
         rootConfig.elements().any().stopListen(listener);
 
-        checkListeners(
+        checkContainsListeners(
             () -> rootConfig.elements().get("0").str().update(UUID.randomUUID().toString()),
             events,
             List.of("root.elements.any"),
@@ -487,141 +485,4 @@ public class ConfigurationAnyListenerTest {
         );
     }
 
-    /**
-     * Helper method for testing listeners.
-     *
-     * @param changeFun Configuration change function.
-     * @param exp Expected list of executing listeners.
-     * @param act Reference to the list of executing listeners that is filled after the {@code changeFun} is executed.
-     * @throws Exception If failed.
-     */
-    private static void checkListeners(
-        Supplier<CompletableFuture<Void>> changeFun,
-        List<String> exp,
-        List<String> act
-    ) throws Exception {
-        act.clear();
-
-        changeFun.get().get(1, SECONDS);
-
-        assertEquals(exp, act);
-    }
-
-    /**
-     * Helper method for testing listeners.
-     *
-     * @param changeFun Configuration change function.
-     * @param events Reference to the list of executing listeners that is filled after the {@code changeFun} is executed.
-     * @param expContains Listeners that are expected are contained in the {@code events}.
-     * @param expNotContains Listeners that are expected are not contained in the {@code events}.
-     * @throws Exception If failed.
-     */
-    private static void checkListeners(
-        Supplier<CompletableFuture<Void>> changeFun,
-        List<String> events,
-        List<String> expContains,
-        List<String> expNotContains
-    ) throws Exception {
-        events.clear();
-
-        changeFun.get().get(1, SECONDS);
-
-        for (String exp : expContains)
-            assertTrue(events.contains(exp), () -> exp + " not contains in " + events);
-
-        for (String exp : expNotContains)
-            assertFalse(events.contains(exp), () -> exp + " contains in " + events);
-    }
-
-    /**
-     * @param consumer Consumer of the notification context.
-     * @return Config value change listener.
-     */
-    private static <T> ConfigurationListener<T> configListener(Consumer<ConfigurationNotificationEvent<T>> consumer) {
-        return ctx -> {
-            consumer.accept(ctx);
-
-            return completedFuture(null);
-        };
-    }
-
-    /**
-     * @param consumer Consumer of the notification context.
-     * @return Named config value change listener.
-     */
-    private static <T> ConfigurationNamedListListener<T> configNamedListenerOnUpdate(
-        Consumer<ConfigurationNotificationEvent<T>> consumer
-    ) {
-        return new ConfigurationNamedListListener<>() {
-            /** {@inheritDoc} */
-            @Override public @NotNull CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<T> ctx) {
-                consumer.accept(ctx);
-
-                return completedFuture(null);
-            }
-        };
-    }
-
-    /**
-     * @param consumer Consumer of the notification context.
-     * @return Named config value change listener.
-     */
-    private static <T> ConfigurationNamedListListener<T> configNamedListenerOnCreate(
-        Consumer<ConfigurationNotificationEvent<T>> consumer
-    ) {
-        return new ConfigurationNamedListListener<>() {
-            /** {@inheritDoc} */
-            @Override public @NotNull CompletableFuture<?> onCreate(@NotNull ConfigurationNotificationEvent<T> ctx) {
-                consumer.accept(ctx);
-
-                return completedFuture(null);
-            }
-        };
-    }
-
-    /**
-     * @param consumer Consumer of the notification context.
-     * @return Named config value change listener.
-     */
-    private static <T> ConfigurationNamedListListener<T> configNamedListenerOnRename(
-        Consumer<ConfigurationNotificationEvent<T>> consumer
-    ) {
-        return new ConfigurationNamedListListener<>() {
-            /** {@inheritDoc} */
-            @Override public @NotNull CompletableFuture<?> onRename(
-                @NotNull String oldName,
-                @NotNull String newName,
-                @NotNull ConfigurationNotificationEvent<T> ctx
-            ) {
-                consumer.accept(ctx);
-
-                return completedFuture(null);
-            }
-        };
-    }
-
-    /**
-     * @param consumer Consumer of the notification context.
-     * @return Named config value change listener.
-     */
-    private static <T> ConfigurationNamedListListener<T> configNamedListenerOnDelete(
-        Consumer<ConfigurationNotificationEvent<T>> consumer
-    ) {
-        return new ConfigurationNamedListListener<>() {
-            /** {@inheritDoc} */
-            @Override public @NotNull CompletableFuture<?> onDelete(@NotNull ConfigurationNotificationEvent<T> ctx) {
-                consumer.accept(ctx);
-
-                return completedFuture(null);
-            }
-        };
-    }
-
-    /**
-     * @return Consumer who does nothing.
-     */
-    private static <T> Consumer<T> doNothingConsumer() {
-        return t -> {
-        };
-    }
 }

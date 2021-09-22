@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.notifications;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -41,10 +42,18 @@ import org.junit.jupiter.api.Test;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.checkContainsListeners;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configListener;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnCreate;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnDelete;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnRename;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnUpdate;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.doNothingConsumer;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /** */
@@ -652,39 +661,237 @@ public class ConfigurationListenerTest {
     void testStopListen() throws Exception {
         List<String> events = new ArrayList<>();
 
-        ConfigurationListener<ParentView> listener0 = ctx -> {
-            events.add("0");
-
-            return completedFuture(null);
-        };
-
-        ConfigurationListener<ParentView> listener1 = ctx -> {
-            events.add("1");
-
-            return completedFuture(null);
-        };
+        ConfigurationListener<ParentView> listener0 = configListener(ctx -> events.add("0"));
+        ConfigurationListener<ParentView> listener1 = configListener(ctx -> events.add("1"));
 
         configuration.listen(listener0);
         configuration.listen(listener1);
 
-        configuration.change(c -> c.changeChild(c0 -> c0.changeStr(UUID.randomUUID().toString()))).get(1, SECONDS);
-
-        events.sort(String::compareTo);
-
-        assertEquals(List.of("0", "1"), events);
+        checkContainsListeners(
+            () -> configuration.change(c -> c.changeChild(c0 -> c0.changeStr(UUID.randomUUID().toString()))),
+            events,
+            List.of("0", "1"),
+            List.of()
+        );
 
         configuration.stopListen(listener0);
 
-        events.clear();
-        configuration.change(c -> c.changeChild(c0 -> c0.changeStr(UUID.randomUUID().toString()))).get(1, SECONDS);
-
-        assertEquals(List.of("1"), events);
+        checkContainsListeners(
+            () -> configuration.change(c -> c.changeChild(c0 -> c0.changeStr(UUID.randomUUID().toString()))),
+            events,
+            List.of("1"),
+            List.of("0")
+        );
 
         configuration.stopListen(listener1);
 
-        events.clear();
-        configuration.change(c -> c.changeChild(c0 -> c0.changeStr(UUID.randomUUID().toString()))).get(1, SECONDS);
+        checkContainsListeners(
+            () -> configuration.change(c -> c.changeChild(c0 -> c0.changeStr(UUID.randomUUID().toString()))),
+            events,
+            List.of(),
+            List.of("0", "1")
+        );
+    }
 
-        assertEquals(List.of(), events);
+    /** */
+    @Test
+    void testGetConfigFromNotificationEvent() throws Exception {
+        String newVal = UUID.randomUUID().toString();
+
+        configuration.listen(configListener(ctx -> {
+            ParentConfiguration parent = ctx.config(ParentConfiguration.class);
+
+            assertNotNull(parent);
+            assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
+
+            assertEquals(newVal, parent.child().str().value());
+        }));
+
+        configuration.child().listen(configListener(ctx -> {
+            assertNotNull(ctx.config(ParentConfiguration.class));
+
+            ChildConfiguration child = ctx.config(ChildConfiguration.class);
+
+            assertNotNull(child);
+            assertNull(ctx.keyNamedConfig(ChildConfiguration.class));
+
+            assertEquals(newVal, child.str().value());
+        }));
+
+        configuration.child().str().listen(configListener(ctx -> {
+            assertNotNull(ctx.config(ParentConfiguration.class));
+
+            ChildConfiguration child = ctx.config(ChildConfiguration.class);
+
+            assertNotNull(child);
+            assertNull(ctx.keyNamedConfig(ChildConfiguration.class));
+
+            assertEquals(newVal, child.str().value());
+        }));
+
+        configuration.change(c0 -> c0.changeChild(c1 -> c1.changeStr(newVal))).get(1, SECONDS);
+    }
+
+    /** */
+    @Test
+    void testGetConfigFromNotificationEventOnCreate() throws Exception {
+        String newVal = UUID.randomUUID().toString();
+        String key = UUID.randomUUID().toString();
+
+        configuration.elements().listen(configListener(ctx -> {
+            ParentConfiguration parent = ctx.config(ParentConfiguration.class);
+
+            assertNotNull(parent);
+            assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
+
+            assertNull(ctx.config(ChildConfiguration.class));
+            assertNull(ctx.keyNamedConfig(ChildConfiguration.class));
+
+            assertEquals(newVal, parent.elements().get(key).str().value());
+        }));
+
+        configuration.elements().listenElements(configNamedListenerOnCreate(ctx -> {
+            assertNotNull(ctx.config(ParentConfiguration.class));
+            assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
+
+            ChildConfiguration child = ctx.config(ChildConfiguration.class);
+
+            assertNotNull(child);
+            assertEquals(key, ctx.keyNamedConfig(ChildConfiguration.class));
+
+            assertEquals(newVal, child.str().value());
+        }));
+
+        configuration.elements().change(c -> c.create(key, c1 -> c1.changeStr(newVal))).get(1, SECONDS);
+    }
+
+    /** */
+    @Test
+    void testGetConfigFromNotificationEventOnRename() throws Exception {
+        String val = "default";
+        String oldKey = UUID.randomUUID().toString();
+        String newKey = UUID.randomUUID().toString();
+
+        configuration.elements().change(c -> c.create(oldKey, doNothingConsumer())).get(1, SECONDS);
+
+        configuration.elements().listen(configListener(ctx -> {
+            ParentConfiguration parent = ctx.config(ParentConfiguration.class);
+
+            assertNotNull(parent);
+            assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
+
+            assertNull(ctx.config(ChildConfiguration.class));
+            assertNull(ctx.keyNamedConfig(ChildConfiguration.class));
+
+            assertNull(parent.elements().get(oldKey));
+            assertEquals(val, parent.elements().get(newKey).str().value());
+        }));
+
+        configuration.elements().listenElements(configNamedListenerOnRename(ctx -> {
+            assertNotNull(ctx.config(ParentConfiguration.class));
+            assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
+
+            ChildConfiguration child = ctx.config(ChildConfiguration.class);
+
+            assertNotNull(child);
+            assertEquals(newKey, ctx.keyNamedConfig(ChildConfiguration.class));
+
+            assertEquals(val, child.str().value());
+        }));
+
+        configuration.elements().change(c -> c.rename(oldKey, newKey));
+    }
+
+    /** */
+    @Test
+    void testGetConfigFromNotificationEventOnDelete() throws Exception {
+        String key = UUID.randomUUID().toString();
+
+        configuration.elements().change(c -> c.create(key, doNothingConsumer())).get(1, SECONDS);
+
+        configuration.elements().listen(configListener(ctx -> {
+            ParentConfiguration parent = ctx.config(ParentConfiguration.class);
+
+            assertNotNull(parent);
+            assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
+
+            assertNull(ctx.config(ChildConfiguration.class));
+            assertNull(ctx.keyNamedConfig(ChildConfiguration.class));
+
+            assertNull(parent.elements().get(key));
+        }));
+
+        configuration.elements().listenElements(configNamedListenerOnDelete(ctx -> {
+            assertNotNull(ctx.config(ParentConfiguration.class));
+            assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
+
+            ChildConfiguration child = ctx.config(ChildConfiguration.class);
+
+            assertNotNull(child);
+            assertEquals(key, ctx.keyNamedConfig(ChildConfiguration.class));
+
+            assertThrows(NoSuchElementException.class, () -> child.str().value());
+        }));
+
+        configuration.elements().get(key).listen(configListener(ctx -> {
+            assertNotNull(ctx.config(ParentConfiguration.class));
+            assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
+
+            ChildConfiguration child = ctx.config(ChildConfiguration.class);
+
+            assertNotNull(child);
+            assertEquals(key, ctx.keyNamedConfig(ChildConfiguration.class));
+
+            assertThrows(NoSuchElementException.class, () -> child.str().value());
+        }));
+
+        configuration.elements().change(c -> c.delete(key)).get(1, SECONDS);
+    }
+
+    /** */
+    @Test
+    void testGetConfigFromNotificationEventOnUpdate() throws Exception {
+        String newVal = UUID.randomUUID().toString();
+        String key = UUID.randomUUID().toString();
+
+        configuration.elements().change(c -> c.create(key, doNothingConsumer())).get(1, SECONDS);
+
+        configuration.elements().listen(configListener(ctx -> {
+            ParentConfiguration parent = ctx.config(ParentConfiguration.class);
+
+            assertNotNull(parent);
+            assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
+
+            assertNull(ctx.config(ChildConfiguration.class));
+            assertNull(ctx.keyNamedConfig(ChildConfiguration.class));
+
+            assertEquals(newVal, parent.elements().get(key).str().value());
+        }));
+
+        configuration.elements().listenElements(configNamedListenerOnUpdate(ctx -> {
+            assertNotNull(ctx.config(ParentConfiguration.class));
+            assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
+
+            ChildConfiguration child = ctx.config(ChildConfiguration.class);
+
+            assertNotNull(child);
+            assertEquals(key, ctx.keyNamedConfig(ChildConfiguration.class));
+
+            assertEquals(newVal, child.str().value());
+        }));
+
+        configuration.elements().get(key).listen(configListener(ctx -> {
+            assertNotNull(ctx.config(ParentConfiguration.class));
+            assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
+
+            ChildConfiguration child = ctx.config(ChildConfiguration.class);
+
+            assertNotNull(child);
+            assertEquals(key, ctx.keyNamedConfig(ChildConfiguration.class));
+
+            assertEquals(newVal, child.str().value());
+        }));
+
+        configuration.elements().get(key).str().update(newVal).get(1, SECONDS);
     }
 }
