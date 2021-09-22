@@ -25,7 +25,7 @@ import java.util.Iterator;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.storage.DataRow;
@@ -43,7 +43,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ConcurrentHashMapStorage implements Storage {
     /** Storage content. */
-    private final ConcurrentMap<ByteArray, byte[]> map = new ConcurrentHashMap<>();
+    private final ConcurrentSkipListMap<ByteArray, byte[]> map = new ConcurrentSkipListMap<>();
 
     /** {@inheritDoc} */
     @Override @Nullable public DataRow read(SearchRow key) throws StorageException {
@@ -196,5 +196,22 @@ public class ConcurrentHashMapStorage implements Storage {
     /** {@inheritDoc} */
     @Override public void close() throws Exception {
         // No-op.
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        ConcurrentHashMapStorage that = (ConcurrentHashMapStorage) o;
+
+        if (!map.equals(that.map)) return false;
+
+        return true;
+    }
+
+    /** {@inheritDoc} */
+    @Override public int hashCode() {
+        return map.hashCode();
     }
 }

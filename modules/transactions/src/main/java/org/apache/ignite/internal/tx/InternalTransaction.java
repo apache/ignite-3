@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.network.NetworkAddress;

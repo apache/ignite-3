@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -38,6 +37,7 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -53,6 +53,7 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -64,8 +65,9 @@ import org.mockito.quality.Strictness;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
-/** */
+
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 /** TODO asch parallelize startup */
@@ -89,7 +91,10 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
     private Map<ClusterNode, RaftServer> raftServers;
 
     /** */
-    private Map<Integer, RaftGroupService> raftClients;
+    protected Map<Integer, RaftGroupService> accRaftClients;
+
+    /** */
+    protected Map<Integer, RaftGroupService> custRaftClients;
 
     /** Cluster. */
     private ArrayList<ClusterService> cluster = new ArrayList<>();
@@ -155,64 +160,20 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
 
         log.info("Raft servers have been started");
 
-        List<List<ClusterNode>> assignment = RendezvousAffinityFunction.assignPartitions(
-            cluster.stream().map(node -> node.topologyService().localMember()).collect(Collectors.toList()),
-            1,
-            replicas,
-            false,
-            null
-        );
+        accRaftClients = startTable("account");
 
-        raftClients = new HashMap<>();
-
-        for (int p = 0; p < assignment.size(); p++) {
-            List<ClusterNode> partNodes = assignment.get(p);
-
-            String grpId = "part-" + p;
-
-            List<Peer> conf = partNodes.stream().map(n -> n.address()).map(Peer::new).collect(Collectors.toList());
-
-            for (ClusterNode node : partNodes) {
-                RaftServer rs = raftServers.get(node);
-                assertNotNull(rs.transactionManager());
-
-                rs.startRaftGroup(
-                    grpId,
-                    new PartitionListener(UUID.randomUUID(), new VersionedRowStore(
-                        new ConcurrentHashMapStorage(),
-                        rs.transactionManager())),
-                    conf
-                );
-            }
-
-            RaftGroupService service = RaftGroupServiceImpl.start(grpId, client, FACTORY, 10_000, conf, true, 200)
-                .get(5, TimeUnit.SECONDS);
-
-            raftClients.put(p, service);
-        }
+        custRaftClients = startTable("customers");
 
         log.info("Partition groups have been started");
-
-        RaftGroupService svc = raftClients.get(0);
-
-        Peer leader = svc.leader();
-
-        assertNotNull(leader);
-
-        RaftServer leaderSrv = raftServers.get(client.topologyService().getByAddress(leader.address()));
-
-        txManager = Objects.requireNonNull(leaderSrv.transactionManager());
-
-        lockManager = ((TxManagerImpl) txManager).getLockManager();
 
         TxManagerImpl nearTxManager = new TxManagerImpl(client, new HeapLockManager());
 
         igniteTransactions = new IgniteTransactionsImpl(nearTxManager);
 
         accounts = new TableImpl(new InternalTableImpl(
-            "tbl",
+            "accounts",
             tableId,
-            raftClients,
+            accRaftClients,
             1,
             nearTxManager
         ), new SchemaRegistry() {
@@ -233,7 +194,76 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
             }
         }, null, null);
 
-        log.info("Accounts table have been started");
+        customers = new TableImpl(new InternalTableImpl(
+            "customers",
+            tableId2,
+            custRaftClients,
+            1,
+            nearTxManager
+        ), new SchemaRegistry() {
+            @Override public SchemaDescriptor schema() {
+                return CUSTOMERS_SCHEMA;
+            }
+
+            @Override public int lastSchemaVersion() {
+                return CUSTOMERS_SCHEMA.version();
+            }
+
+            @Override public SchemaDescriptor schema(int ver) {
+                return CUSTOMERS_SCHEMA;
+            }
+
+            @Override public Row resolve(BinaryRow row) {
+                return new Row(CUSTOMERS_SCHEMA, row);
+            }
+        }, null, null);
+
+        log.info("Tables have been started");
+    }
+
+    /**
+     * @param name The name.
+     * @return Groups map.
+     * @throws Exception
+     */
+    private Map<Integer, RaftGroupService> startTable(String name) throws Exception {
+        List<List<ClusterNode>> assignment = RendezvousAffinityFunction.assignPartitions(
+            cluster.stream().map(node -> node.topologyService().localMember()).collect(Collectors.toList()),
+            1,
+            replicas(),
+            false,
+            null
+        );
+
+        Map<Integer, RaftGroupService> clients = new HashMap<>();
+
+        for (int p = 0; p < assignment.size(); p++) {
+            List<ClusterNode> partNodes = assignment.get(p);
+
+            String grpId = name + "-part-" + p;
+
+            List<Peer> conf = partNodes.stream().map(n -> n.address()).map(Peer::new).collect(Collectors.toList());
+
+            for (ClusterNode node : partNodes) {
+                RaftServer rs = raftServers.get(node);
+                assertNotNull(rs.transactionManager());
+
+                rs.startRaftGroup(
+                    grpId,
+                    new PartitionListener(UUID.randomUUID(), new VersionedRowStore(
+                        new ConcurrentHashMapStorage(),
+                        rs.transactionManager())),
+                    conf
+                );
+            }
+
+            RaftGroupService service = RaftGroupServiceImpl.start(grpId, client, FACTORY, 100_000, conf, true, 200)
+                .get(5, TimeUnit.SECONDS);
+
+            clients.put(p, service);
+        }
+
+        return clients;
     }
 
     /**
@@ -241,12 +271,17 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
      *
      * @throws Exception If failed.
      */
-    @AfterEach
-    public void afterTest() throws Exception {
+    @Override @AfterEach
+    public void after() throws Exception {
+        super.after();
+
         for (RaftServer rs : raftServers.values())
             rs.stop();
 
-        for (RaftGroupService svc : raftClients.values())
+        for (RaftGroupService svc : accRaftClients.values())
+            svc.shutdown();
+
+        for (RaftGroupService svc : custRaftClients.values())
             svc.shutdown();
 
         for (ClusterService node : cluster)
@@ -273,5 +308,31 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
         network.start();
 
         return network;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected TxManager txManager(Table t) {
+        Map<Integer, RaftGroupService> clients = null;
+
+        if (t == accounts)
+            clients = accRaftClients;
+        else if (t == customers)
+            clients = custRaftClients;
+        else
+            fail("Unknown table " + t.tableName());
+
+        RaftGroupService svc = clients.get(0);
+
+        Peer leader = svc.leader();
+
+        assertNotNull(leader);
+
+        RaftServer leaderSrv = raftServers.get(client.topologyService().getByAddress(leader.address()));
+
+        return leaderSrv.transactionManager();
+    }
+
+    @Override protected void assertPartitionsSame(Table t, int partId) {
+        // No-op.
     }
 }

@@ -471,7 +471,6 @@ public class JRaftServerImpl implements RaftServer, NetworkMessageHandler {
                     }));
             }
 
-
             CompletableFuture.allOf(futs).thenCompose(ignored -> req.commit() ?
                 txManager.commitAsync(req.timestamp()) :
                 txManager.rollbackAsync(req.timestamp()))

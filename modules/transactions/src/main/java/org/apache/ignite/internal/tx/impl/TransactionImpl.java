@@ -51,7 +51,7 @@ public class TransactionImpl implements InternalTransaction {
     /**
      * @param txManager The tx managert.
      * @param timestamp The timestamp.
-     * @param address
+     * @param address The local address.
      */
     public TransactionImpl(TxManager txManager, Timestamp timestamp, NetworkAddress address) {
         this.txManager = txManager;

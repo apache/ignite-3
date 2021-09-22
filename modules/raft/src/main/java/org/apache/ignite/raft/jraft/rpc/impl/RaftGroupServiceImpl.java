@@ -456,8 +456,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param <R> Response type.
      */
     private <R> void sendWithRetry(Peer peer, Object req, long stopTime, CompletableFuture<R> fut) {
-        LOG.info("sendWithRetry " + stopTime + " " + peer);
-
         if (currentTimeMillis() >= stopTime) {
             fut.completeExceptionally(new TimeoutException());
 

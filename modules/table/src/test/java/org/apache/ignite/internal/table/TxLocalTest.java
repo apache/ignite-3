@@ -21,10 +21,13 @@ import org.apache.ignite.internal.storage.basic.ConcurrentHashMapStorage;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.BeforeEach;
 import org.mockito.Mockito;
 
@@ -32,6 +35,12 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 /** */
 public class TxLocalTest extends TxAbstractTest {
+    /** */
+    private HeapLockManager lockManager;
+
+    /** */
+    private TxManagerImpl txManager;
+
     /**
      * Initialize the test state.
      */
@@ -53,5 +62,17 @@ public class TxLocalTest extends TxAbstractTest {
         InternalTable table2 = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapStorage(), txManager), txManager);
 
         customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), null, null);
+    }
+
+    @Override protected TxManager txManager(Table t) {
+        return txManager;
+    }
+
+    @Override protected LockManager lockManager(Table t) {
+        return lockManager;
+    }
+
+    @Override protected void assertPartitionsSame(Table t, int partId) {
+        // No-op.
     }
 }
