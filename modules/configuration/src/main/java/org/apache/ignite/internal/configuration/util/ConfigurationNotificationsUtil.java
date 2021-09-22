@@ -285,7 +285,7 @@ public class ConfigurationNotificationsUtil {
                         DynamicConfiguration<InnerNode, ?> delNodeCfg =
                             (DynamicConfiguration<InnerNode, ?>)namedListCfgMembers.get(name);
 
-                        eventConfigs.put(delNodeCfg.configType(), new ConfigurationContainer(name, delNodeCfg));
+                        eventConfigs.put(delNodeCfg.configType(), new ConfigurationContainer(name, null));
 
                         InnerNode oldVal = oldNamedList.get(name);
 

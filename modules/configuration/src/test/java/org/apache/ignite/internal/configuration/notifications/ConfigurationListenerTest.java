@@ -825,24 +825,16 @@ public class ConfigurationListenerTest {
             assertNotNull(ctx.config(ParentConfiguration.class));
             assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
 
-            ChildConfiguration child = ctx.config(ChildConfiguration.class);
-
-            assertNotNull(child);
+            assertNull(ctx.config(ChildConfiguration.class));
             assertEquals(key, ctx.keyNamedConfig(ChildConfiguration.class));
-
-            assertThrows(NoSuchElementException.class, () -> child.str().value());
         }));
 
         configuration.elements().get(key).listen(configListener(ctx -> {
             assertNotNull(ctx.config(ParentConfiguration.class));
             assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
 
-            ChildConfiguration child = ctx.config(ChildConfiguration.class);
-
-            assertNotNull(child);
+            assertNull(ctx.config(ChildConfiguration.class));
             assertEquals(key, ctx.keyNamedConfig(ChildConfiguration.class));
-
-            assertThrows(NoSuchElementException.class, () -> child.str().value());
         }));
 
         configuration.elements().change(c -> c.delete(key)).get(1, SECONDS);

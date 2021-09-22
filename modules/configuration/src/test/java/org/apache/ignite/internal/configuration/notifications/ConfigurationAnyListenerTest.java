@@ -45,6 +45,9 @@ import static org.apache.ignite.internal.configuration.notifications.Configurati
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnRename;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnUpdate;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.doNothingConsumer;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -485,4 +488,170 @@ public class ConfigurationAnyListenerTest {
         );
     }
 
+    /** */
+    @Test
+    void testAnyGetConfigFromNotificationEventOnCreate() throws Exception {
+        String key0 = UUID.randomUUID().toString();
+        String key1 = UUID.randomUUID().toString();
+
+        rootConfig.elements().any().listen(configListener(ctx -> {
+            assertNotNull(ctx.config(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+        }));
+
+        rootConfig.elements().change(c -> c.create(key0, doNothingConsumer())).get(1, SECONDS);
+
+        rootConfig.elements().any().elements2().listenElements(configNamedListenerOnCreate(ctx -> {
+            assertNotNull(ctx.config(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+
+            assertNotNull(ctx.config(SecondSubConfiguration.class));
+            assertEquals(key1, ctx.keyNamedConfig(SecondSubConfiguration.class));
+        }));
+
+        rootConfig.elements().any().elements2().any().listen(configListener(ctx -> {
+            assertNotNull(ctx.config(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+
+            assertNotNull(ctx.config(SecondSubConfiguration.class));
+            assertEquals(key1, ctx.keyNamedConfig(SecondSubConfiguration.class));
+        }));
+
+        rootConfig.elements().get(key0).elements2().change(c -> c.create(key1, doNothingConsumer())).get(1, SECONDS);
+    }
+
+    /** */
+    @Test
+    void testAnyGetConfigFromNotificationEventOnRename() throws Exception {
+        String key0 = UUID.randomUUID().toString();
+        String oldKey1 = UUID.randomUUID().toString();
+        String newKey1 = UUID.randomUUID().toString();
+
+        rootConfig.elements().any().listen(configListener(ctx -> {
+            assertNotNull(ctx.config(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+        }));
+
+        rootConfig.elements()
+            .change(c -> c.create(key0, c1 -> c1.changeElements2(c2 -> c2.create(oldKey1, doNothingConsumer()))))
+            .get(1, SECONDS);
+
+        rootConfig.elements().get(key0).elements2().listenElements(configNamedListenerOnRename(ctx -> {
+            assertNotNull(ctx.config(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+
+            assertNotNull(ctx.config(SecondSubConfiguration.class));
+            assertEquals(newKey1, ctx.keyNamedConfig(SecondSubConfiguration.class));
+        }));
+
+        rootConfig.elements().any().elements2().listenElements(configNamedListenerOnRename(ctx -> {
+            assertNotNull(ctx.config(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+
+            assertNotNull(ctx.config(SecondSubConfiguration.class));
+            assertEquals(newKey1, ctx.keyNamedConfig(SecondSubConfiguration.class));
+        }));
+
+        rootConfig.elements().get(key0).elements2().change(c -> c.rename(oldKey1, newKey1)).get(1, SECONDS);
+    }
+
+    /** */
+    @Test
+    void testAnyGetConfigFromNotificationEventOnDelete() throws Exception {
+        String key0 = UUID.randomUUID().toString();
+        String key1 = UUID.randomUUID().toString();
+
+        rootConfig.elements().any().listen(configListener(ctx -> {
+            assertNotNull(ctx.config(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+        }));
+
+        rootConfig.elements()
+            .change(c -> c.create(key0, c1 -> c1.changeElements2(c2 -> c2.create(key1, doNothingConsumer()))))
+            .get(1, SECONDS);
+
+        rootConfig.elements().any().elements2().listenElements(configNamedListenerOnDelete(ctx -> {
+            assertNotNull(ctx.config(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+
+            assertNull(ctx.config(SecondSubConfiguration.class));
+            assertEquals(key1, ctx.keyNamedConfig(SecondSubConfiguration.class));
+        }));
+
+        rootConfig.elements().get(key0).elements2().listenElements(configNamedListenerOnDelete(ctx -> {
+            assertNotNull(ctx.config(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+
+            assertNull(ctx.config(SecondSubConfiguration.class));
+            assertEquals(key1, ctx.keyNamedConfig(SecondSubConfiguration.class));
+        }));
+
+        rootConfig.elements().any().elements2().any().listen(configListener(ctx -> {
+            assertNotNull(ctx.config(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+
+            assertNull(ctx.config(SecondSubConfiguration.class));
+            assertEquals(key1, ctx.keyNamedConfig(SecondSubConfiguration.class));
+        }));
+
+        rootConfig.elements().get(key0).elements2().any().listen(configListener(ctx -> {
+            assertNotNull(ctx.config(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+
+            assertNull(ctx.config(SecondSubConfiguration.class));
+            assertEquals(key1, ctx.keyNamedConfig(SecondSubConfiguration.class));
+        }));
+
+        rootConfig.elements().get(key0).elements2().change(c -> c.delete(key1)).get(1, SECONDS);
+    }
+
+    /** */
+    @Test
+    void testAnyGetConfigFromNotificationEventOnUpdate() throws Exception {
+        String key0 = UUID.randomUUID().toString();
+        String key1 = UUID.randomUUID().toString();
+        int newVal = Integer.MAX_VALUE;
+
+        rootConfig.elements()
+            .change(c -> c.create(key0, c1 -> c1.changeElements2(c2 -> c2.create(key1, doNothingConsumer()))))
+            .get(1, SECONDS);
+
+        rootConfig.elements().any().elements2().listenElements(configNamedListenerOnUpdate(ctx -> {
+            assertNotNull(ctx.config(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+
+            SecondSubConfiguration second = ctx.config(SecondSubConfiguration.class);
+
+            assertNotNull(second);
+            assertEquals(key1, ctx.keyNamedConfig(SecondSubConfiguration.class));
+
+            assertEquals(newVal, second.i().value());
+        }));
+
+        rootConfig.elements().any().elements2().any().listen(configListener(ctx -> {
+            assertNotNull(ctx.config(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+
+            SecondSubConfiguration second = ctx.config(SecondSubConfiguration.class);
+
+            assertNotNull(second);
+            assertEquals(key1, ctx.keyNamedConfig(SecondSubConfiguration.class));
+
+            assertEquals(newVal, second.i().value());
+        }));
+
+        rootConfig.elements().get(key0).elements2().any().listen(configListener(ctx -> {
+            assertNotNull(ctx.config(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+
+            SecondSubConfiguration second = ctx.config(SecondSubConfiguration.class);
+
+            assertNotNull(second);
+            assertEquals(key1, ctx.keyNamedConfig(SecondSubConfiguration.class));
+
+            assertEquals(newVal, second.i().value());
+        }));
+
+        rootConfig.elements().get(key0).elements2().get(key1).i().update(newVal).get(1, SECONDS);
+    }
 }

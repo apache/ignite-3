@@ -31,7 +31,7 @@ class ConfigurationContainer {
     @Nullable final String keyNamedConfig;
 
     /** Configuration for {@link ConfigurationNotificationEvent#config}. */
-    final ConfigurationProperty<InnerNode, ?> config;
+    @Nullable final ConfigurationProperty<InnerNode, ?> config;
 
     /**
      * Constructor.
@@ -41,7 +41,7 @@ class ConfigurationContainer {
      */
     ConfigurationContainer(
         @Nullable String keyNamedConfig,
-        ConfigurationProperty<InnerNode, ?> config
+        @Nullable ConfigurationProperty<InnerNode, ?> config
     ) {
         this.keyNamedConfig = keyNamedConfig;
         this.config = config;
