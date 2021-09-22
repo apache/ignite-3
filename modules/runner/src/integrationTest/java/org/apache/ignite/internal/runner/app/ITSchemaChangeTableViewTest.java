@@ -24,7 +24,7 @@ import org.apache.ignite.app.Ignite;
 import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.table.Table;
+import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -47,7 +47,7 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        final Table tbl = grid.get(0).tables().table(TABLE);
+        RecordView<Tuple> tbl = grid.get(0).tables().table(TABLE).recordView();
 
         {
             tbl.insert(Tuple.create().set("key", 1L).set("valInt", 111).set("valStr", "str"));
@@ -88,7 +88,7 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        Table tbl = grid.get(0).tables().table(TABLE);
+        RecordView<Tuple> tbl = grid.get(0).tables().table(TABLE).recordView();
 
         {
             tbl.insert(Tuple.create().set("key", 1L).set("valInt", 111));
@@ -126,7 +126,7 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        Table tbl = grid.get(0).tables().table(TABLE);
+        RecordView<Tuple> tbl = grid.get(0).tables().table(TABLE).recordView();
 
         {
             tbl.insert(Tuple.create().set("key", 1L).set("valInt", 111));
@@ -171,7 +171,7 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        Table tbl = grid.get(0).tables().table(TABLE);
+        RecordView<Tuple> tbl = grid.get(0).tables().table(TABLE).recordView();
 
         {
             tbl.insert(Tuple.create().set("key", 1L).set("valInt", 111));
@@ -217,7 +217,7 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         final Column column = SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValue("default").build();
 
-        Table tbl = grid.get(0).tables().table(TABLE);
+        RecordView<Tuple> tbl = grid.get(0).tables().table(TABLE).recordView();
 
         {
             tbl.insert(Tuple.create().set("key", 1L).set("valInt", 111));
@@ -289,7 +289,7 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        Table tbl = grid.get(0).tables().table(TABLE);
+        RecordView<Tuple> tbl = grid.get(0).tables().table(TABLE).recordView();
 
         final String colName = "valStr";
 

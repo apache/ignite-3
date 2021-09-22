@@ -26,7 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.table.InvokeProcessor;
-import org.apache.ignite.table.KeyValueBinaryView;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -35,7 +35,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Client key-value view implementation for binary user-object representation.
  */
-public class ClientKeyValueBinaryView implements KeyValueBinaryView {
+public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     /** Underlying table. */
     private final ClientTable tbl;
 
@@ -161,7 +161,12 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> removeAsync(@NotNull Tuple key) {
-        return tbl.deleteAsync(key);
+        Objects.requireNonNull(key);
+
+        return tbl.doSchemaOutOpAsync(
+            ClientOp.TUPLE_DELETE,
+            (s, w) -> tbl.writeTuple(key, s, w, true),
+            ClientMessageUnpacker::unpackBoolean);
     }
 
     /** {@inheritDoc} */
@@ -187,7 +192,13 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<Tuple>> removeAllAsync(@NotNull Collection<Tuple> keys) {
-        return tbl.deleteAllAsync(keys);
+        Objects.requireNonNull(keys);
+
+        return tbl.doSchemaOutInOpAsync(
+            ClientOp.TUPLE_DELETE_ALL,
+            (s, w) -> tbl.writeTuples(keys, s, w, true),
+            (schema, in) -> tbl.readTuples(schema, in, true),
+            Collections.emptyList());
     }
 
     /** {@inheritDoc} */
@@ -294,7 +305,7 @@ public class ClientKeyValueBinaryView implements KeyValueBinaryView {
     }
 
     /** {@inheritDoc} */
-    @Override public KeyValueBinaryView withTransaction(Transaction tx) {
+    @Override public KeyValueView<Tuple, Tuple> withTransaction(Transaction tx) {
         // TODO: Transactions IGNITE-15240
         throw new UnsupportedOperationException();
     }

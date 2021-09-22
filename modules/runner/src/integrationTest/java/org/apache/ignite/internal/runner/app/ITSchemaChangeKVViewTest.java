@@ -24,7 +24,7 @@ import org.apache.ignite.app.Ignite;
 import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.table.KeyValueBinaryView;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -47,7 +47,7 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        KeyValueBinaryView kvView = grid.get(1).tables().table(TABLE).kvView();
+        KeyValueView<Tuple, Tuple> kvView = grid.get(1).tables().table(TABLE).keyValueView();
 
         {
             kvView.put(
@@ -91,7 +91,7 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        KeyValueBinaryView kvView = grid.get(1).tables().table(TABLE).kvView();
+        KeyValueView<Tuple, Tuple> kvView = grid.get(1).tables().table(TABLE).keyValueView();
 
         {
             kvView.put(Tuple.create().set("key", 1L), Tuple.create().set("valInt", 111));
@@ -133,7 +133,7 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        KeyValueBinaryView kvView = grid.get(1).tables().table(TABLE).kvView();
+        KeyValueView<Tuple, Tuple> kvView = grid.get(1).tables().table(TABLE).keyValueView();
 
         {
             kvView.put(Tuple.create().set("key", 1L), Tuple.create().set("valInt", 111));
@@ -184,7 +184,7 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         final Column column = SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValue("default").build();
 
-        KeyValueBinaryView kvView = grid.get(1).tables().table(TABLE).kvView();
+        KeyValueView<Tuple, Tuple> kvView = grid.get(1).tables().table(TABLE).keyValueView();
 
         {
             kvView.put(Tuple.create().set("key", 1L), Tuple.create().set("valInt", 111));
@@ -263,7 +263,7 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        KeyValueBinaryView kvView = grid.get(1).tables().table(TABLE).kvView();
+        KeyValueView<Tuple, Tuple> kvView = grid.get(1).tables().table(TABLE).keyValueView();
 
         final String colName = "valStr";
 
