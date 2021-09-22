@@ -268,10 +268,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     })
                                 .thenRun(() ->
                                     // Stop raft nodes from old assignment that doesn't fit into new one.
+                                    // TODO: According to return value check whether raft group was stopped.
                                     raftMgr.stopRaftGroupLocally(
                                         raftGroupName(tblId, p),
                                         toRemove)
                                 );
+                            // TODO: Add exceptionally close.
                         }
 
                         return CompletableFuture.completedFuture(null);
