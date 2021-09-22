@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -43,8 +44,8 @@ public class TxDistributedTest_3_1_3 extends TxDistributedTest_1_1_1 {
      */
     @Override @AfterEach
     public void after() throws Exception {
-        assertPartitionsSame(accounts, 0);
-        assertPartitionsSame(customers, 0);
+        IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(accounts, 0), 5_000);
+        IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(customers, 0), 5_000);
 
         super.after();
     }

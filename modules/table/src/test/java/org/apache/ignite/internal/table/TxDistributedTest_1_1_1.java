@@ -62,9 +62,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
-import static org.apache.ignite.lang.LoggerMessageHelper.format;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -359,7 +357,7 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
     /**
      * {@inheritDoc}
      */
-    @Override protected void assertPartitionsSame(Table t, int partId) {
+    @Override protected boolean assertPartitionsSame(Table t, int partId) {
         int hash = 0;
 
         for (Map.Entry<ClusterNode, RaftServer> entry : raftServers.entrySet()) {
@@ -368,13 +366,13 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
             JRaftServerImpl.DelegatingStateMachine fsm = (JRaftServerImpl.DelegatingStateMachine) grp.getRaftNode().getOptions().getFsm();
             PartitionListener listener = (PartitionListener) fsm.getListener();
             VersionedRowStore storage = listener.getStorage();
+
             if (hash == 0)
                 hash = storage.delegate().hashCode();
-            else {
-                assertEquals(hash, storage.delegate().hashCode(),
-                    format("Partition replicas are not equal [table={}, partId={}]",
-                        t.tableName(), svc.clusterService().topologyService().localMember().address()));
-            }
+            else if (hash != storage.delegate().hashCode())
+                return false;
         }
+
+        return true;
     }
 }

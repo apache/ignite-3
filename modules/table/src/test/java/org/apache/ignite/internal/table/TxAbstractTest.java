@@ -947,6 +947,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     /**
      * @param t The table.
      * @param partId Partition id.
+     * @return {@code True} if a replicas are the same.
      */
-    protected abstract void assertPartitionsSame(Table t, int partId);
+    protected abstract boolean assertPartitionsSame(Table t, int partId);
 }

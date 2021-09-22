@@ -72,7 +72,7 @@ public class TxLocalTest extends TxAbstractTest {
         return lockManager;
     }
 
-    @Override protected void assertPartitionsSame(Table t, int partId) {
-        // No-op.
+    @Override protected boolean assertPartitionsSame(Table t, int partId) {
+        return true;
     }
 }
