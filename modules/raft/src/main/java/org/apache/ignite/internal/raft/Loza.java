@@ -46,6 +46,7 @@ public class Loza implements IgniteComponent {
     /** Factory. */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
+    /** Raft client pool name. */
     public static final String CLIENT_POOL_NAME = "Raft-Group-Client";
 
     // The number of cores was taken jraft's TimeManager
