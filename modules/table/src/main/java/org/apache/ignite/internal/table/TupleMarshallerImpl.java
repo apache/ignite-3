@@ -106,7 +106,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             if (keyTuple0.knownColumns() < keyTuple.columnCount())
                 throw new SchemaMismatchException("Key tuple doesn't match schema: extraColumns=" + extraColumnNames(keyTuple, true, schema));
 
-            if (valTuple0.knownColumns() == valTuple.columnCount())
+            if (valTuple == null || valTuple0.knownColumns() == valTuple.columnCount())
                 break; // Nothing to do.
 
             if (tbl.schemaMode() == SchemaMode.STRICT_SCHEMA)
