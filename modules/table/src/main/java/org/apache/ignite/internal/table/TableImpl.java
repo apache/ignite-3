@@ -86,17 +86,17 @@ public class TableImpl implements Table {
 
     /** {@inheritDoc} */
     @Override public RecordView<Tuple> recordView() {
-        return new RecordBinaryView(tbl, schemaReg, tblMgr, null);
+        return new RecordBinaryViewImpl(tbl, schemaReg, tblMgr, null);
     }
 
     /** {@inheritDoc} */
     @Override public <K, V> KeyValueView<K, V> keyValueView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper) {
-        return new KVViewImpl<>(tbl, schemaReg, keyMapper, valMapper, null);
+        return new KeyValueViewImpl<>(tbl, schemaReg, keyMapper, valMapper, null);
     }
 
     /** {@inheritDoc} */
     @Override public KeyValueView<Tuple, Tuple> keyValueView() {
-        return new KVBinaryViewImpl(tbl, schemaReg, tblMgr, null);
+        return new KeyValueBinaryViewImpl(tbl, schemaReg, tblMgr, null);
     }
 
     /**

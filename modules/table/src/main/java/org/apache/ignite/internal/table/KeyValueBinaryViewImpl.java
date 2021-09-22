@@ -37,7 +37,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Key-value view implementation for binary user-object representation.
  */
-public class KVBinaryViewImpl extends AbstractTableView implements KeyValueView<Tuple, Tuple> {
+public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValueView<Tuple, Tuple> {
     /** Marshaller. */
     private final TupleMarshallerImpl marsh;
 
@@ -50,7 +50,7 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueView<
      * @param tbl Table storage.
      * @param schemaReg Schema registry.
      */
-    public KVBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaReg, TableManager tblMgr, Transaction tx) {
+    public KeyValueBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaReg, TableManager tblMgr, Transaction tx) {
         super(tbl, schemaReg, tx);
 
         this.tblMgr = tblMgr;
@@ -296,8 +296,8 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueView<
     }
 
     /** {@inheritDoc} */
-    @Override public KVBinaryViewImpl withTransaction(Transaction tx) {
-        return new KVBinaryViewImpl(tbl, schemaReg, tblMgr, tx);
+    @Override public KeyValueBinaryViewImpl withTransaction(Transaction tx) {
+        return new KeyValueBinaryViewImpl(tbl, schemaReg, tblMgr, tx);
     }
 
     /**

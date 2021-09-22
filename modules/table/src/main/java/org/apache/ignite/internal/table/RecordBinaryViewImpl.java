@@ -39,7 +39,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Table view implementation for binary objects.
  */
-public class RecordBinaryView extends AbstractTableView implements RecordView<Tuple> {
+public class RecordBinaryViewImpl extends AbstractTableView implements RecordView<Tuple> {
     /** Marshaller. */
     private final TupleMarshallerImpl marsh;
 
@@ -54,7 +54,7 @@ public class RecordBinaryView extends AbstractTableView implements RecordView<Tu
      * @param tblMgr Table manager.
      * @param tx The transaction.
      */
-    public RecordBinaryView(InternalTable tbl, SchemaRegistry schemaReg, TableManager tblMgr, @Nullable Transaction tx) {
+    public RecordBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaReg, TableManager tblMgr, @Nullable Transaction tx) {
         super(tbl, schemaReg, tx);
 
         marsh = new TupleMarshallerImpl(tblMgr, tbl, schemaReg);
@@ -64,8 +64,8 @@ public class RecordBinaryView extends AbstractTableView implements RecordView<Tu
 
 
     /** {@inheritDoc} */
-    @Override public RecordBinaryView withTransaction(Transaction tx) {
-        return new RecordBinaryView(tbl, schemaReg, tblMgr, tx);
+    @Override public RecordBinaryViewImpl withTransaction(Transaction tx) {
+        return new RecordBinaryViewImpl(tbl, schemaReg, tblMgr, tx);
     }
 
     /** {@inheritDoc} */

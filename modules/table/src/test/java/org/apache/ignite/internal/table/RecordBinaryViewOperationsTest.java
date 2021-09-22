@@ -43,7 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * TODO: IGNITE-14486 Add tests for bulk operations.
  * TODO: IGNITE-14486 Add tests for async operations.
  */
-public class TableBinaryViewOperationsTest {
+public class RecordBinaryViewOperationsTest {
     /**
      *
      */
