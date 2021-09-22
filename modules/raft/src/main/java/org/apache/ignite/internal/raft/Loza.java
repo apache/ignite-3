@@ -49,7 +49,9 @@ public class Loza implements IgniteComponent {
     /** Raft client pool name. */
     public static final String CLIENT_POOL_NAME = "Raft-Group-Client";
 
-    // The number of cores was taken jraft's TimeManager
+    /**
+     * Raft client pool size. Size was taken from jraft's TimeManager.
+     */
     private static final int CLIENT_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
 
     /** Timeout. */
