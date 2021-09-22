@@ -33,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
@@ -80,6 +81,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -211,7 +213,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         }
                     });
 
-                // TODO sanpwc: comment.
+                // Performs following logic for each partition during iteration:
+                //  - Creates, previously absent, raft nodes according to new assignments.
+                //  - Trigger rebalance by changing peers from old assignment to (old assignment union new assignment).
+                //  - After change peers completion trigger one more change peers from
+                //    (old assignment union new assignment) to new assignment to eliminate non-new-assignment peers from
+                //    raft service.
+                //  - Update table with new raft group services with changed peers.
+                //  - Stop raft nodes from old assignment that doesn't fit into new one.
                 ((ExtendedTableConfiguration)tablesCfg.tables().get(ctx.newValue().name())).assignments().
                     listen(assignmentsCtx -> {
                         List<Set<ClusterNode>> oldAssignments =
@@ -220,10 +229,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         List<Set<ClusterNode>> newAssignments =
                             (List<Set<ClusterNode>>)ByteUtils.fromBytes(assignmentsCtx.newValue());
 
-                        // TODO sanpwc: add ticket for partitions and replica changes.
-                        // TODO sanpwc: add comment that it's safe to iterate over partitions and replicas cause there will
-                        // TODO be exact same amount of partitions and replicas for both old and new assignments, cause
-                        // TODO corresponding tickets aren't implemented yet.
+                        // TODO: IGNITE-15554 Add logic for assignment recalculation in case of partitions or replicas changes
+                        // TODO: Until IGNITE-15554 is implemented it's safe to iterate over partitions and replicas cause there will
+                        // TODO: be exact same amount of partitions and replicas for both old and new assignments
                         for (int i = 0; i < oldAssignments.size(); i++) {
                             final int p = i;
 
@@ -238,46 +246,32 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             toAdd.removeAll(oldPartitionAssignment);
                             oldNewUnion.addAll(newPartitionAssignment);
 
-                            // TODO sanpwc: add exception handling for both branches.
-                            raftMgr.updateAddNodesRaftGroup(
+                            // Create new raft nodes according to new assignments.
+                            raftMgr.updateRaftGroup(
                                 raftGroupName(tblId, p),
                                 oldNewUnion,
                                 toAdd,
-                                () -> {
-                                    Path storageDir = partitionsStoreDir.resolve(ctx.newValue().name());
+                                prepareRaftGroupListenerSupplier(p, ctx.newValue().name())
+                            )
+                                .thenAccept(
+                                    updatedRaftGroupService -> {
+                                        // Change peers from old assignment to (old assignment union new assignment).
+                                        updatedRaftGroupService.changePeers(
+                                            oldNewUnion.stream().map(n -> new Peer(n.address())).collect(Collectors.toList()));
 
-                                    try {
-                                        Files.createDirectories(storageDir);
-                                    }
-                                    catch (IOException e) {
-                                        throw new IgniteInternalException(
-                                            "Failed to create partitions store directory for " + ctx.newValue().name() + ": " + e.getMessage(),
-                                            e
-                                        );
-                                    }
+                                        // Change peers from (old assignment union new assignment) to new assignment.
+                                        updatedRaftGroupService.changePeers(
+                                            newPartitionAssignment.stream().map(n -> new Peer(n.address())).collect(Collectors.toList()));
 
-                                    return new PartitionListener(
-                                        new RocksDbStorage(
-                                            storageDir.resolve(String.valueOf(p)),
-                                            ByteBuffer::compareTo
-                                        )
-                                    );
-                                })
-                                .thenCompose((updatedUnionRaftGroupService) -> updatedUnionRaftGroupService.
-                                    changePeers(oldNewUnion.stream().map(n -> new Peer(n.address())).collect(Collectors.toList())))
+                                        // Update table with new raft group services with changed peers.
+                                        tables.get(ctx.newValue().name()).updateInternalTableRaftGroupService(p, updatedRaftGroupService);
+                                    })
                                 .thenRun(() ->
-                                    raftMgr.updateDropNodesRaftGroup(
+                                    // Stop raft nodes from old assignment that doesn't fit into new one.
+                                    raftMgr.stopRaftGroupLocally(
                                         raftGroupName(tblId, p),
-                                        newPartitionAssignment,
                                         toRemove)
-                                        .thenAccept(
-                                            updatedNewAssignmentsRaftGroupService -> {
-                                                updatedNewAssignmentsRaftGroupService.
-                                                    changePeers(oldNewUnion.stream().map(n -> new Peer(n.address())).collect(Collectors.toList()));
-
-                                                tables.get(ctx.newValue().name()).updateInternalTableRaftGroupService(p, updatedNewAssignmentsRaftGroupService);
-                                            }
-                                        ));
+                                );
                         }
 
                         return CompletableFuture.completedFuture(null);
@@ -357,26 +351,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 raftMgr.prepareRaftGroup(
                     raftGroupName(tblId, p),
                     assignment.get(p),
-                    () -> {
-                        Path storageDir = partitionsStoreDir.resolve(name);
-
-                        try {
-                            Files.createDirectories(storageDir);
-                        }
-                        catch (IOException e) {
-                            throw new IgniteInternalException(
-                                "Failed to create partitions store directory for " + name + ": " + e.getMessage(),
-                                e
-                            );
-                        }
-
-                        return new PartitionListener(
-                            new RocksDbStorage(
-                                storageDir.resolve(String.valueOf(p)),
-                                ByteBuffer::compareTo
-                            )
-                        );
-                    }
+                    prepareRaftGroupListenerSupplier(p, name)
                 )
             )
         );
@@ -929,5 +904,34 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
                 });
         }
+    }
+
+    /**
+     * Prepare {@link RaftGroupListener} supplier for given partition of the table.
+     * @param p Partition.
+     * @param name Table name.
+     * @return Supplier for {@link RaftGroupListener} for given partition of the table.
+     */
+    @NotNull private Supplier<RaftGroupListener> prepareRaftGroupListenerSupplier(int p, String name) {
+        return () -> {
+            Path storageDir = partitionsStoreDir.resolve(name);
+
+            try {
+                Files.createDirectories(storageDir);
+            }
+            catch (IOException e) {
+                throw new IgniteInternalException(
+                    "Failed to create partitions store directory for " + name + ": " + e.getMessage(),
+                    e
+                );
+            }
+
+            return new PartitionListener(
+                new RocksDbStorage(
+                    storageDir.resolve(String.valueOf(p)),
+                    ByteBuffer::compareTo
+                )
+            );
+        };
     }
 }

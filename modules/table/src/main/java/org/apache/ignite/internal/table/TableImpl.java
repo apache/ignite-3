@@ -429,7 +429,13 @@ public class TableImpl extends AbstractTableView implements Table {
         this.tbl.schema(schemaMode);
     }
 
-    public void updateInternalTableRaftGroupService(int p, RaftGroupService raftGroupService) {
-        ((InternalTableImpl)tbl).updateInternalTableRaftGroupService(p, raftGroupService);
+    /**
+     * Updates internal table raft group service for given partition.
+     *
+     * @param p Partition.
+     * @param raftGrpSvc Raft group service.
+     */
+    public void updateInternalTableRaftGroupService(int p, RaftGroupService raftGrpSvc) {
+        ((InternalTableImpl)tbl).updateInternalTableRaftGroupService(p, raftGrpSvc);
     }
 }

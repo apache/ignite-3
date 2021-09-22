@@ -253,8 +253,14 @@ public class InternalTableImpl implements InternalTable {
         return collectMultiRowsResponses(futures);
     }
 
-    public void updateInternalTableRaftGroupService(int p, RaftGroupService raftGroupService) {
-        partitionMap.put(p, raftGroupService);
+    /**
+     * Updates internal table raft group service for given partition.
+     *
+     * @param p Partition.
+     * @param raftGrpSvc Raft group service.
+     */
+    public void updateInternalTableRaftGroupService(int p, RaftGroupService raftGrpSvc) {
+        partitionMap.put(p, raftGrpSvc);
     }
 
     /**

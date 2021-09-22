@@ -109,7 +109,17 @@ public class Loza implements IgniteComponent {
         );
     }
 
-    public CompletableFuture<RaftGroupService> updateAddNodesRaftGroup(
+    /**
+     * Creates a raft group service providing operations on a raft group.
+     * If {@code deltaNodes} contains the current node, then raft group starts on the current node.
+     * @param groupId Raft group id.
+     * @param nodes Full set of raft group nodes.
+     * @param deltaNodes New raft group nodes.
+     * @param lsnrSupplier Raft group listener supplier.
+     * @return Future representing pending completion of the operation.
+     * @return
+     */
+    public CompletableFuture<RaftGroupService> updateRaftGroup(
         String groupId,
         Collection<ClusterNode> nodes,
         Collection<ClusterNode> deltaNodes,
@@ -135,29 +145,23 @@ public class Loza implements IgniteComponent {
         );
     }
 
-    public CompletableFuture<RaftGroupService> updateDropNodesRaftGroup(
+    /**
+     * Stop raft node locally if any.
+     *
+     * @param groupId Raft group id.
+     * @param nodes Non-raft group nodes.
+     * @return {@code true} if raft group was successfully stopped or if there was not matching raft group locally.
+     */
+    public boolean stopRaftGroupLocally(
         String groupId,
-        Collection<ClusterNode> nodes,
-        Collection<ClusterNode> deltaNodes
+        Collection<ClusterNode> nodes
     ) {
-        assert !nodes.isEmpty();
-
-        List<Peer> peers = nodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
-
         String locNodeName = clusterNetSvc.topologyService().localMember().name();
 
-        if (deltaNodes.stream().anyMatch(n -> locNodeName.equals(n.name())))
-            raftServer.stopRaftGroup(groupId);
+        if (nodes.stream().anyMatch(n -> locNodeName.equals(n.name())))
+            return raftServer.stopRaftGroup(groupId);
 
-        return RaftGroupServiceImpl.start(
-            groupId,
-            clusterNetSvc,
-            FACTORY,
-            TIMEOUT,
-            peers,
-            true,
-            DELAY
-        );
+        return true;
     }
 
     /**
