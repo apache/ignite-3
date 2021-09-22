@@ -36,6 +36,7 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.jraft.util.Utils;
 
@@ -46,7 +47,7 @@ public class Loza implements IgniteComponent {
     /** Factory. */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
-    private static final String CLIENT_POOL_NAME = "Raft-Group-Client";
+    public static final String CLIENT_POOL_NAME = "Raft-Group-Client";
 
     // The number of cores was taken jraft's TimeManager
     private static final int CLIENT_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
@@ -76,7 +77,7 @@ public class Loza implements IgniteComponent {
 
         this.raftServer = new JRaftServerImpl(clusterNetSvc, dataPath);
 
-        this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE, new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.topologyService().localMember().name(), CLIENT_POOL_NAME)));
+        this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE, new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(), CLIENT_POOL_NAME)));
     }
 
     /** {@inheritDoc} */
