@@ -105,7 +105,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
         while (true) {
             if (keyTuple0.knownColumns() < keyTuple.columnCount())
-                throw new SchemaMismatchException("Key tuple doesn't match schema: extraColumns=" + extraColumnNames(keyTuple, true, schema));
+                throw new SchemaMismatchException("Key tuple contains extra columns: " + extraColumnNames(keyTuple, true, schema));
 
             if (valTuple == null || valTuple0.knownColumns() == valTuple.columnCount())
                 break; // Nothing to do.
@@ -165,7 +165,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         InternalTuple keyTuple0 = toInternalTuple(schema, keyTuple, true);
 
         if (keyTuple0.knownColumns() < keyTuple.columnCount())
-            throw new SchemaMismatchException("Key tuple doesn't match schema: extraColumns=" + extraColumnNames(keyTuple, true, schema));
+            throw new SchemaMismatchException("Key tuple contains extra columns: " + extraColumnNames(keyTuple, true, schema));
 
         final RowAssembler rowBuilder = createAssembler(schema, keyTuple0, InternalTuple.NO_VALUE);
 
@@ -222,7 +222,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
                 if (val == POISON_OBJECT) {
                     if (keyFlag)
-                        throw new SchemaMismatchException("Key tuple doesn't match schema: missedColumn=" + col.name());
+                        throw new SchemaMismatchException("Missed key column: " + col.name());
 
                     val = col.defaultValue();
 
