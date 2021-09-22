@@ -27,7 +27,6 @@ import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -242,7 +241,7 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
         {
             tbl.insert(Tuple.create().set("key", 4L).set("valInt", 444));
 
-            assertThrows(IllegalArgumentException.class, () -> tbl.insert(
+            assertThrows(SchemaMismatchException.class, () -> tbl.insert(
                 Tuple.create().set("key", 4L).set("val", "I'm not exist"))
             );
         }

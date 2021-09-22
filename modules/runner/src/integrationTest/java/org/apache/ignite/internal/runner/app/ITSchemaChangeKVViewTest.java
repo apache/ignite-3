@@ -27,7 +27,6 @@ import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -56,19 +55,7 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             );
         }
 
-        grid.get(0).tables().alterTable(TABLE,
-            chng -> chng.changeColumns(cols -> {
-                cols.delete(chng.columns().namedListKeys().stream()
-                    .filter(key -> "valStr".equals(chng.columns().get(key).name()))
-                    .findAny()
-                    .orElseThrow(() -> {
-                        throw new IllegalStateException("Column not found.");
-                    })
-                );
-            })
-        );
-
-//        dropColumn(grid, "valStr");
+        dropColumn(grid, "valStr");
 
         {
             // Check old row conversion.
@@ -226,7 +213,7 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             kvView.put(Tuple.create().set("key", 4L),
                 Tuple.create().set("valInt", 444));
 
-            assertThrows(IllegalArgumentException.class, () -> kvView.put(
+            assertThrows(SchemaMismatchException.class, () -> kvView.put(
                 Tuple.create().set("key", 4L),
                 Tuple.create().set("val", "I'm not exist"))
             );
