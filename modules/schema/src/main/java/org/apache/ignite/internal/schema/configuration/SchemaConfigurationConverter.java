@@ -463,11 +463,12 @@ public class SchemaConfigurationConverter {
 
         for (String key : colsView.namedListKeys()) {
             ColumnView colView = colsView.get(key);
-            if (colView == null)
-                continue;
-            Column col = convert(colView);
 
-            columns.put(Integer.valueOf(key), col);
+            if (colView != null) {
+                Column col = convert(colView);
+
+                columns.put(Integer.valueOf(key), col);
+            }
         }
 
         NamedListView<? extends TableIndexView> idxsView = tblView.indices();
