@@ -23,8 +23,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
@@ -344,7 +344,6 @@ public class InternalTableImpl implements InternalTable {
 
         /** */
         private AtomicBoolean wasSubscribed;
-
 
         /**
          * The constructor.
