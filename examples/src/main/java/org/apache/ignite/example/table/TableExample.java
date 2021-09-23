@@ -107,5 +107,8 @@ public class TableExample {
             "    Account Number: " + accountTuple.intValue("accountNumber") + '\n' +
             "    Owner: " + accountTuple.stringValue("firstName") + " " + accountTuple.stringValue("lastName") + '\n' +
             "    Balance: $" + accountTuple.doubleValue("balance"));
+
+        ignite.tables().dropTable(accTbl.canonicalName());
+        ignite.close();
     }
 }

@@ -109,5 +109,8 @@ public class KeyValueBinaryViewExample {
             "    Account Number: " + key.intValue("accountNumber") + '\n' +
             "    Owner: " + value.stringValue("firstName") + " " + value.stringValue("lastName") + '\n' +
             "    Balance: $" + value.doubleValue("balance"));
+
+        ignite.tables().dropTable(accTbl.canonicalName());
+        ignite.close();
     }
 }
