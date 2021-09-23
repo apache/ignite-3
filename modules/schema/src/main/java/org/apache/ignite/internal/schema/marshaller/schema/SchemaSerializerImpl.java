@@ -206,7 +206,8 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
     private void appendColumn(Column col, ByteBuffer buf) {
         buf.putInt(col.schemaIndex());
         buf.put((byte)(col.nullable() ? 1 : 0));
-        appendString(col.name(), buf);
+
+        appendString(col.name(), buf);        
         appendNativeType(buf, col.type());
     }
 
