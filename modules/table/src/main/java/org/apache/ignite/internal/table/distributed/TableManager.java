@@ -33,7 +33,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
@@ -59,6 +58,7 @@ import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorage;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.PartitionAssignmentsUpdater;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -76,7 +76,6 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -280,13 +279,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             )
                         );
                     },
-                    () -> {
-                        var key = new ByteArray("dst-cfg.table.tables." + tblId + ".assignments");
-
-                        return metaStorageMgr.get(key).thenApply(
-                            r -> ((List<List<ClusterNode>>) ByteUtils.fromBytes(r.value())).get(p).stream().map(n -> new Peer(n.address())).collect(Collectors.toList())
-                        );
-                    }
+                    new PartitionAssignmentsUpdater(metaStorageMgr, tblId, p)
                 )
             )
         );

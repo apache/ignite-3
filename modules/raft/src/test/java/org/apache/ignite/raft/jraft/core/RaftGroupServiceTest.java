@@ -248,10 +248,8 @@ public class RaftGroupServiceTest {
             return completedFuture(FACTORY.getLeaderResponse().leaderId(leader0.toString()).build());
         });
 
-        CompletableFuture<List<Peer>> normalPeers = CompletableFuture.completedFuture(NODES);
-
         RaftGroupService service =
-            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, wrongPeers, false, DELAY, () -> normalPeers).get(3, TimeUnit.SECONDS);
+            RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, wrongPeers, false, DELAY, () -> NODES).get(3, TimeUnit.SECONDS);
 
         assertEquals(null, service.leader());
 

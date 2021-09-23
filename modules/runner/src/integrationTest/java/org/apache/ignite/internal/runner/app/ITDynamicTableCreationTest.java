@@ -26,10 +26,13 @@ import java.util.UUID;
 import com.google.common.collect.Lists;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
@@ -99,7 +102,7 @@ class ITDynamicTableCreationTest {
      * Check dynamic table creation.
      */
     @Test
-    void testDynamicSimpleTableCreation() {
+    void testDynamicSimpleTableCreation() throws NoSuchFieldException, IllegalAccessException, NodeStoppingException {
         nodesBootstrapCfg.forEach((nodeName, configStr) ->
             clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
         );

@@ -91,7 +91,7 @@ public class Loza implements IgniteComponent {
         String groupId,
         List<ClusterNode> nodes,
         Supplier<RaftGroupListener> lsnrSupplier,
-        Supplier<CompletableFuture<List<Peer>>> updatePeers) {
+        Supplier<List<Peer>> updatePeers) {
         assert !nodes.isEmpty();
 
         List<Peer> peers = nodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());

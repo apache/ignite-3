@@ -102,7 +102,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     /** TODO: Use shared executors instead https://issues.apache.org/jira/browse/IGNITE-15136 */
     private final ScheduledExecutorService executor = Executors.newScheduledThreadPool(1, new NamedThreadFactory("Raft-Group-Service-Pool"));
 
-    private Supplier<CompletableFuture<List<Peer>>> updatePeersFromAssignments;
+    private Supplier<List<Peer>> updatePeersFromAssignments;
 
     private long networkTimeout = new RpcOptions().getRpcConnectTimeoutMs();
 
@@ -125,7 +125,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         List<Peer> peers,
         Peer leader,
         long retryDelay,
-        Supplier<CompletableFuture<List<Peer>>> updatePeersFromAssignments
+        Supplier<List<Peer>> updatePeersFromAssignments
     ) {
         this.cluster = requireNonNull(cluster);
         this.peers = requireNonNull(peers);
@@ -170,7 +170,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         List<Peer> peers,
         boolean getLeader,
         long retryDelay,
-        Supplier<CompletableFuture<List<Peer>>> updatePeersFromAssignments
+        Supplier<List<Peer>> updatePeersFromAssignments
     ) {
         var service = new RaftGroupServiceImpl(groupId, cluster, factory, timeout, peers, null, retryDelay, updatePeersFromAssignments);
 
@@ -483,14 +483,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         }
 
         if (reassignmentNeeded) {
-            updatePeersFromAssignments.get().thenAccept(peers -> {
+            this.peers = updatePeersFromAssignments.get();
+            Peer p = randomNode(peers);
+            executor.schedule(() -> {
                 this.peers = peers;
-                Peer p = randomNode(peers);
-                executor.schedule(() -> {
-                    this.peers = peers;
-                    sendWithRetry(p, req, stopTime, fut);
-                }, 0, TimeUnit.MILLISECONDS);
-            }).exceptionally(err -> { fut.completeExceptionally(err); return null; });
+                sendWithRetry(p, req, stopTime, fut);
+            }, 0, TimeUnit.MILLISECONDS);
 
             return;
         }
