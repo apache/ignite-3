@@ -415,11 +415,7 @@ public class InternalTableImpl implements InternalTable {
                     .thenAccept(
                         res -> {
                             if (res.getValues() == null) {
-                                raftGrpSvc.run(new ScanCloseCommand(scanId)).exceptionally(closeT -> {
-                                    LOG.warn("Unable to close scan.", closeT);
-
-                                    return null;
-                                });
+                                cancel();
 
                                 subscriber.onComplete();
                             }
