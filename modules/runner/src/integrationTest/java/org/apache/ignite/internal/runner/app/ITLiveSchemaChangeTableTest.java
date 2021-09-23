@@ -273,7 +273,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
         Table tbl = grid.get(0).tables().table(TABLE);
         RecordView<Tuple> recView = tbl.recordView();
 
-        ((TableImpl)recView).schemaMode(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaMode(SchemaMode.LIVE_SCHEMA);
 
         UUID uuid = UUID.randomUUID();
 
