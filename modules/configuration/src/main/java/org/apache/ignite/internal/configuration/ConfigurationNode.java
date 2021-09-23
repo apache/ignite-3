@@ -35,9 +35,9 @@ import static java.util.concurrent.ConcurrentHashMap.newKeySet;
 /**
  * Super class for dynamic configuration tree nodes. Has all common data and value retrieving algorithm in it.
  */
-public abstract class ConfigurationNode<VIEW, CHANGE> implements ConfigurationProperty<VIEW, CHANGE> {
+public abstract class ConfigurationNode<VIEW> implements ConfigurationProperty<VIEW> {
     /** Listeners of property update. */
-    protected final Collection<ConfigurationListener<VIEW>> updateListeners = newKeySet();
+    private final Collection<ConfigurationListener<VIEW>> updateListeners = newKeySet();
 
     /** Full path to the current node. */
     protected final List<String> keys;
@@ -117,19 +117,20 @@ public abstract class ConfigurationNode<VIEW, CHANGE> implements ConfigurationPr
      *      {@link #listenOnly listen-only} mode.
      */
     protected final VIEW refreshValue() throws NoSuchElementException {
+        TraversableTreeNode newRootNode = changer.getRootNode(rootKey);
+        TraversableTreeNode oldRootNode = cachedRootNode;
+
+        // 'invalid' and 'val' visibility is guaranteed by the 'cachedRootNode' volatile read
         if (invalid)
             throw noSuchElementException();
         else if (listenOnly)
             throw listenOnlyException();
 
-        TraversableTreeNode newRootNode = changer.getRootNode(rootKey);
-        TraversableTreeNode oldRootNode = cachedRootNode;
-
         if (oldRootNode == newRootNode)
             return val;
 
         try {
-            VIEW newVal = (VIEW)ConfigurationUtil.find(keys.subList(1, keys.size()), newRootNode, true);
+            VIEW newVal = ConfigurationUtil.find(keys.subList(1, keys.size()), newRootNode, true);
 
             synchronized (this) {
                 if (cachedRootNode == oldRootNode) {

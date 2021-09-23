@@ -115,6 +115,8 @@ public class ConfigurationNotificationsUtil {
             eventConfigs
         );
 
+        Map<String, ConfigurationProperty<?>> cfgNodeMembers = cfgNode.members();
+
         oldInnerNode.traverseChildren(new ConfigurationVisitor<Void>() {
             /** {@inheritDoc} */
             @Override public Void visitLeafNode(String key, Serializable oldLeaf) {
@@ -165,7 +167,7 @@ public class ConfigurationNotificationsUtil {
             }
 
             /** {@inheritDoc} */
-            @Override public <N extends InnerNode> Void visitNamedListNode(String key, NamedListNode<N> oldNamedList) {
+            @Override public Void visitNamedListNode(String key, NamedListNode<?> oldNamedList) {
                 var newNamedList = (NamedListNode<InnerNode>)newInnerNode.traverseChild(key, namedListNodeVisitor(), true);
 
                 if (newNamedList != oldNamedList) {
@@ -197,7 +199,7 @@ public class ConfigurationNotificationsUtil {
 
                     NamedListConfiguration<?, InnerNode, ?> namedListCfg = namedDynamicConfig(cfgNode, key);
 
-                    Map<String, ConfigurationProperty<?, ?>> namedListCfgMembers = namedListCfg.touchMembers();
+                    Map<String, ConfigurationProperty<?>> namedListCfgMembers = namedListCfg.touchMembers();
 
                     Set<String> created = new HashSet<>(newNames);
                     created.removeAll(oldNames);
@@ -493,7 +495,7 @@ public class ConfigurationNotificationsUtil {
     public static void touch(DynamicConfiguration<?, ?> cfg) {
         cfg.touchMembers();
 
-        for (ConfigurationProperty<?, ?> value : cfg.members().values()) {
+        for (ConfigurationProperty<?> value : cfg.members().values()) {
             if (value instanceof DynamicConfiguration)
                 touch((DynamicConfiguration<?, ?>)value);
         }

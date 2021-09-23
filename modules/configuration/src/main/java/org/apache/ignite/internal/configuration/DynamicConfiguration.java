@@ -35,11 +35,11 @@ import org.apache.ignite.internal.configuration.util.ConfigurationNotificationsU
 /**
  * This class represents configuration root or node.
  */
-public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNode<VIEW, CHANGE>
+public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNode<VIEW>
     implements ConfigurationTree<VIEW, CHANGE>
 {
     /** Configuration members (leaves and nodes). */
-    protected volatile Map<String, ConfigurationProperty<?, ?>> members = new LinkedHashMap<>();
+    protected volatile Map<String, ConfigurationProperty<?>> members = new LinkedHashMap<>();
 
     /**
      * Constructor.
@@ -50,7 +50,7 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
      * @param changer Configuration changer.
      * @param listenOnly Only adding listeners mode, without the ability to get or update the property value.
      */
-    protected DynamicConfiguration(
+    public DynamicConfiguration(
         List<String> prefix,
         String key,
         RootKey<?, ?> rootKey,
@@ -65,7 +65,7 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
      * @param member Configuration member (leaf or node).
      * @param <P> Type of member.
      */
-    protected final <P extends ConfigurationProperty<?, ?>> void add(P member) {
+    protected final <P extends ConfigurationProperty<?>> void add(P member) {
         members.put(member.key(), member);
     }
 
@@ -115,7 +115,7 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
      *
      * @return Map from child keys to a corresponding {@link ConfigurationProperty}.
      */
-    public Map<String, ConfigurationProperty<?, ?>> members() {
+    public Map<String, ConfigurationProperty<?>> members() {
         if (!listenOnly)
             refreshValue();
 
@@ -137,7 +137,7 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
      *
      * @return Members map associated with "previous" node state.
      */
-    public Map<String, ConfigurationProperty<?, ?>> touchMembers() {
+    public Map<String, ConfigurationProperty<?>> touchMembers() {
         return members();
     }
 
