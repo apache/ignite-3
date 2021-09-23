@@ -221,89 +221,48 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
 
         switch (type.spec()) {
             case STRING:
-            case BYTES:
-                appendTypeLen(buf, type);
+            case BYTES: {
+                int len = ((VarlenNativeType)type).length();
+
+                buf.putInt(len);
+
                 break;
-            case BITMASK:
-                appendBits(buf, type);
+            }
+            case BITMASK: {
+                int bits = ((BitmaskNativeType)type).bits();
+
+                buf.putInt(bits);
+
                 break;
-            case DECIMAL:
-                appendPrecision(buf, type);
-                appendScale(buf, type);
+            }
+            case DECIMAL: {
+                int precision = ((DecimalNativeType)type).precision();
+                int scale = ((DecimalNativeType)type).scale();
+
+                buf.putInt(precision);
+                buf.putInt(scale);
+
                 break;
+            }
             case TIME:
             case DATETIME:
-            case TIMESTAMP:
-            case NUMBER:
-                appendPrecision(buf, type);
+            case TIMESTAMP: {
+                int precision = ((TemporalNativeType)type).precision();
+
+                buf.putInt(precision);
+
                 break;
+            }
+            case NUMBER: {
+                int precision = ((NumberNativeType)type).precision();
+
+                buf.putInt(precision);
+
+                break;
+            }
             default:
                 break;
         }
-    }
-
-    /**
-     * Appends precision of native type to byte buffer.
-     *
-     * @param buf Byte buffer.
-     * @param type Native type with precision.
-     */
-    private void appendPrecision(ByteBuffer buf, NativeType type) {
-        NativeTypeSpec spec = type.spec();
-        int precision;
-
-        if (spec == NativeTypeSpec.DECIMAL)
-            precision = ((DecimalNativeType)type).precision();
-        else if (spec == NativeTypeSpec.NUMBER)
-            precision = ((NumberNativeType)type).precision();
-        else if (type instanceof TemporalNativeType)
-            precision = ((TemporalNativeType)type).precision();
-        else
-            throw new IllegalArgumentException("Native type does not contain precision " + type);
-
-        buf.putInt(precision);
-    }
-
-    /**
-     * Appends scale of native type to byte buffer.
-     *
-     * @param buf Byte buffer.
-     * @param type Native type with scale.
-     */
-    private void appendScale(ByteBuffer buf, NativeType type) {
-        assert type.spec() == NativeTypeSpec.DECIMAL;
-
-        int scale = ((DecimalNativeType)type).scale();
-
-        buf.putInt(scale);
-    }
-
-    /**
-     * Appends len of native type to byte buffer.
-     *
-     * @param buf Byte buffer.
-     * @param type VarLen native type.
-     */
-    private void appendTypeLen(ByteBuffer buf, NativeType type) {
-        assert type.spec() == NativeTypeSpec.STRING || type.spec() == NativeTypeSpec.BYTES;
-
-        int len = ((VarlenNativeType)type).length();
-
-        buf.putInt(len);
-    }
-
-    /**
-     * Appends bit len of bitmask native type to byte buffer.
-     *
-     * @param buf Byte buffer.
-     * @param type Bitmask native type.
-     */
-    private void appendBits(ByteBuffer buf, NativeType type) {
-        assert type.spec() == NativeTypeSpec.BITMASK;
-
-        int bits = ((BitmaskNativeType)type).bits();
-
-        buf.putInt(bits);
     }
 
     /**
