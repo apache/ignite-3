@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.configuration.ConfigurationListenOnlyException;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.RootKey;
@@ -30,14 +31,13 @@ import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.configuration.util.KeyNotFoundException;
 
 import static java.util.Collections.unmodifiableCollection;
-import static java.util.concurrent.ConcurrentHashMap.newKeySet;
 
 /**
  * Super class for dynamic configuration tree nodes. Has all common data and value retrieving algorithm in it.
  */
 public abstract class ConfigurationNode<VIEW> implements ConfigurationProperty<VIEW> {
     /** Listeners of property update. */
-    private final Collection<ConfigurationListener<VIEW>> updateListeners = newKeySet();
+    private final Collection<ConfigurationListener<VIEW>> updateListeners = ConcurrentHashMap.newKeySet();
 
     /** Full path to the current node. */
     protected final List<String> keys;

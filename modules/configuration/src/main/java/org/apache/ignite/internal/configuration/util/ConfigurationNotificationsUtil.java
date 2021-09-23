@@ -572,7 +572,7 @@ public class ConfigurationNotificationsUtil {
             }
 
             /** {@inheritDoc} */
-            @Override public <N extends InnerNode> Void visitNamedListNode(String key, NamedListNode<N> newNamedList) {
+            @Override public Void visitNamedListNode(String key, NamedListNode<?> newNamedList) {
                 for (DynamicConfiguration<InnerNode, ?> anyConfig : anyConfigs) {
                     notifyPublicListeners(
                         namedDynamicConfig(anyConfig, key).listeners(),

@@ -144,5 +144,5 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
     /**
      * @return Configuration interface, for example {@code RootConfiguration}.
      */
-    public abstract Class<? extends ConfigurationProperty<VIEW, CHANGE>> configType();
+    public abstract Class<? extends ConfigurationProperty<VIEW>> configType();
 }

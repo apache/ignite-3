@@ -147,7 +147,7 @@ public class ConfigurationAsmGenerator {
     /** {@link ConstructableTreeNode#copy()} */
     private static final Method COPY;
 
-    /** {@link DynamicConfiguration#DynamicConfiguration)} */
+    /** {@link DynamicConfiguration#DynamicConfiguration} */
     private static final Constructor<?> DYNAMIC_CONFIGURATION_CTOR;
 
     /** {@link DirectDynamicConfiguration#DirectDynamicConfiguration} */
@@ -200,7 +200,8 @@ public class ConfigurationAsmGenerator {
                 List.class,
                 String.class,
                 RootKey.class,
-                DynamicConfigurationChanger.class
+                DynamicConfigurationChanger.class,
+                boolean.class
             );
 
             DYNAMIC_CONFIGURATION_ADD = DynamicConfiguration.class.getDeclaredMethod(
