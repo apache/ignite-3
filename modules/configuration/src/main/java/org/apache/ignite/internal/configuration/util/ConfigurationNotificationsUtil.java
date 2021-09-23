@@ -115,8 +115,6 @@ public class ConfigurationNotificationsUtil {
             eventConfigs
         );
 
-        Map<String, ConfigurationProperty<?>> cfgNodeMembers = cfgNode.members();
-
         oldInnerNode.traverseChildren(new ConfigurationVisitor<Void>() {
             /** {@inheritDoc} */
             @Override public Void visitLeafNode(String key, Serializable oldLeaf) {
