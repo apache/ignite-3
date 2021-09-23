@@ -197,11 +197,11 @@ public interface InternalTable {
         @Nullable Transaction tx);
 
     /**
-     * Scans given partition, providing {@link Publisher<BinaryRow>} that reflectively notifies about partition rows.
+     * Scans given partition, providing {@link Publisher<BinaryRow>} that reactively notifies about partition rows.
      *
      * @param p The partition.
      * @param tx The transaction.
-     * @return {@link Publisher<BinaryRow>} that reflectively notifies about partition rows.
+     * @return {@link Publisher<BinaryRow>} that reactively notifies about partition rows.
      */
     @NotNull Publisher<BinaryRow> scan(int p, @Nullable Transaction tx);
 
