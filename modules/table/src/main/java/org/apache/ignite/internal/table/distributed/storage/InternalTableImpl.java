@@ -291,7 +291,25 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Boolean> delete(BinaryRow keyRow, InternalTransaction tx) {
-        return partitionMap.get(partId(keyRow)).run(new DeleteCommand(keyRow));
+        // TODO asch get rid of copy paste.
+        if (tx == null) {
+            try {
+                tx = txManager.tx();
+            }
+            catch (TransactionException e) {
+                return CompletableFuture.failedFuture(e);
+            }
+        }
+
+        if (tx != null) {
+            return enlist(keyRow, tx).run(new DeleteCommand(keyRow, tx.timestamp()));
+        }
+        else {
+            InternalTransaction tx0 = txManager.begin();
+
+            return enlist(keyRow, tx0)
+                .run(new DeleteCommand(keyRow, tx0.timestamp())).thenCompose(r -> tx0.commitAsync().thenApply(ignored -> (Boolean) r));
+        }
     }
 
     /** {@inheritDoc} */

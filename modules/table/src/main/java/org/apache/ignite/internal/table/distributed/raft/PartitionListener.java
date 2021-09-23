@@ -178,7 +178,9 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleDeleteCommand(CommandClosure<DeleteCommand> clo) {
-        clo.result(storage.delete(((DeleteCommand)clo.command()).getKeyRow(), null));
+        DeleteCommand cmd = clo.command();
+
+        clo.result(storage.delete(cmd.getKeyRow(), cmd.getTimestamp()));
     }
 
     /**

@@ -458,8 +458,10 @@ public class PartitionCommandListenerTest {
      * @param existed True if rows are existed, false otherwise.
      */
     private void delete(boolean existed) {
+        Timestamp ts = Timestamp.nextVersion();
+
         commandListener.onWrite(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new DeleteCommand(getTestKey(i)));
+            when(clo.command()).thenReturn(new DeleteCommand(getTestKey(i), ts));
 
             doAnswer(invocation -> {
                 assertEquals(existed, invocation.getArgument(0));

@@ -172,7 +172,7 @@ public class DummyInternalTableImpl implements InternalTable {
     @Override public CompletableFuture<Boolean> delete(BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        return completedFuture(store.delete(row, tx.timestamp()));
+        return wrapInTx(row, tx, tx0 -> store.delete(row, tx0.timestamp()));
     }
 
     /** {@inheritDoc} */

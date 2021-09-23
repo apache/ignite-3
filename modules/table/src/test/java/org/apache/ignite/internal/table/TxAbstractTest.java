@@ -25,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -54,6 +55,7 @@ import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -468,6 +470,44 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(100., accounts.get(makeKey(1)).doubleValue("balance"));
         assertEquals(200., accounts.get(makeKey(2)).doubleValue("balance"));
         assertNull(accounts.get(makeKey(3)));
+    }
+
+    @Test
+    public void testRemoveCommit() throws TransactionException {
+        Tuple key = makeKey(1);
+
+        assertFalse(accounts.delete(key));
+        assertNull(accounts.get(key));
+
+        accounts.upsert(makeValue(1, 100.));
+
+        igniteTransactions.runInTransaction(tx -> {
+            assertNotNull(accounts.get(key));
+            assertTrue(accounts.delete(key));
+            assertNull(accounts.get(key));
+        });
+
+        assertNull(accounts.get(key));
+        accounts.upsert(makeValue(1, 100.));
+        assertNotNull(accounts.get(key));
+    }
+
+    @Test
+    public void testRemoveAbort() throws TransactionException {
+        Tuple key = makeKey(1);
+
+        accounts.upsert(makeValue(1, 100.));
+
+        assertThrows(RuntimeException.class, () -> igniteTransactions.runInTransaction((Consumer<Transaction>) tx -> {
+            assertNotNull(accounts.get(key));
+            assertTrue(accounts.delete(key));
+            assertNull(accounts.get(key));
+            throw new RuntimeException();
+        }));
+
+        assertNotNull(accounts.get(key));
+        assertTrue(accounts.delete(key));
+        assertNull(accounts.get(key));
     }
 
     @Test

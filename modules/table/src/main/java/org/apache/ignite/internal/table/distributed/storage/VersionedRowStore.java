@@ -25,7 +25,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * TODO asch use read only buffers ?
+ * TODO asch use read only buffers ? replace Pair from ignite-schema
  */
 public class VersionedRowStore {
     /** Storage delegate. */
@@ -78,8 +78,6 @@ public class VersionedRowStore {
     public void upsert(@NotNull BinaryRow row, Timestamp ts) {
         assert row != null;
 
-        // TODO asch tx state is not propagated on backups, should be implemented for recovery support.
-
         SimpleDataRow key = new SimpleDataRow(extractAndWrapKey(row).keyBytes(), null);
 
         txManager.getOrCreateTransaction(ts);
@@ -107,27 +105,35 @@ public class VersionedRowStore {
     }
 
     /** {@inheritDoc} */
-    public boolean delete(BinaryRow row, Timestamp tx) {
+    public boolean delete(BinaryRow row, Timestamp ts) {
         assert row != null;
 
-        SearchRow newRow = extractAndWrapKey(row);
+        txManager.getOrCreateTransaction(ts);
 
-        var getAndRemoveClosure = new GetAndRemoveInvokeClosure();
+        SimpleDataRow key = new SimpleDataRow(extractAndWrapKey(row).keyBytes(), null);
 
-        storage.invoke(newRow, getAndRemoveClosure);
+        Value value = extractValue(storage.read(key));
 
-        return getAndRemoveClosure.result();
+        Pair<BinaryRow, BinaryRow> pair = result(value, ts);
+
+        if (pair.getFirst() == null)
+            return false;
+
+        // Write a tombstone.
+        storage.write(packValue(key, new Value(null, pair.getSecond(), ts)));
+
+        return true;
     }
 
     /** {@inheritDoc} */
-    public void upsertAll(Collection<BinaryRow> rows, Timestamp tx) {
+    public void upsertAll(Collection<BinaryRow> rows, Timestamp ts) {
         assert rows != null && !rows.isEmpty();
 
         storage.writeAll(rows.stream().map(VersionedRowStore::extractAndWrapKeyValue).collect(Collectors.toList()));
     }
 
     /** {@inheritDoc} */
-    public Boolean insert(BinaryRow row, Timestamp ts) {
+    public boolean insert(BinaryRow row, Timestamp ts) {
         assert row != null && row.hasValue() : row;
 
 //        DataRow newRow = extractAndWrapKeyValue(row);
@@ -147,15 +153,15 @@ public class VersionedRowStore {
         Pair<BinaryRow, BinaryRow> pair = result(value, ts);
 
         if (pair.getFirst() != null)
-            return Boolean.FALSE;
+            return false;
 
         storage.write(packValue(key, new Value(row, null, ts)));
 
-        return Boolean.TRUE;
+        return true;
     }
 
     /** {@inheritDoc} */
-    public Collection<BinaryRow> insertAll(Collection<BinaryRow> rows, Timestamp tx) {
+    public Collection<BinaryRow> insertAll(Collection<BinaryRow> rows, Timestamp ts) {
         assert rows != null && !rows.isEmpty();
 
         List<DataRow> keyValues = rows.stream().map(VersionedRowStore::extractAndWrapKeyValue)
@@ -170,7 +176,7 @@ public class VersionedRowStore {
     }
 
     /** {@inheritDoc} */
-    public boolean replace(BinaryRow row, Timestamp tx) {
+    public boolean replace(BinaryRow row, Timestamp ts) {
         assert row != null;
 
         DataRow keyValue = extractAndWrapKeyValue(row);
@@ -182,7 +188,7 @@ public class VersionedRowStore {
         return replaceIfExists.result();
     }
 
-    public boolean replace(BinaryRow oldRow, BinaryRow newRow, Timestamp tx) {
+    public boolean replace(BinaryRow oldRow, BinaryRow newRow, Timestamp ts) {
         assert oldRow != null;
         assert newRow != null;
 
@@ -474,7 +480,7 @@ public class VersionedRowStore {
         /** Transaction's timestamp. */
         Timestamp timestamp;
 
-        Value(BinaryRow newRow, @Nullable BinaryRow oldRow, Timestamp timestamp) {
+        Value(@Nullable BinaryRow newRow, @Nullable BinaryRow oldRow, Timestamp timestamp) {
             this.newRow = newRow;
             this.oldRow = oldRow;
             this.timestamp = timestamp;

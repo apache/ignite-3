@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.command;
 
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
@@ -28,6 +29,10 @@ import org.jetbrains.annotations.NotNull;
 public class DeleteCommand implements WriteCommand {
     /** Binary key row. */
     private transient BinaryRow keyRow;
+
+    /** The timestamp. */
+    private final Timestamp timestamp;
+
 
     /*
      * Row bytes.
@@ -42,10 +47,11 @@ public class DeleteCommand implements WriteCommand {
      *
      * @param keyRow Binary key row.
      */
-    public DeleteCommand(@NotNull BinaryRow keyRow) {
+    public DeleteCommand(@NotNull BinaryRow keyRow, Timestamp timestamp) {
         assert keyRow != null;
 
         this.keyRow = keyRow;
+        this.timestamp = timestamp;
 
         CommandUtils.rowToBytes(keyRow, bytes -> keyRowBytes = bytes);
     }
@@ -62,4 +68,10 @@ public class DeleteCommand implements WriteCommand {
         return keyRow;
     }
 
+    /**
+     * @return The timestamp.
+     */
+    public Timestamp getTimestamp() {
+        return timestamp;
+    }
 }
