@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.marshaller.schema;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 
 /**
@@ -59,7 +60,7 @@ public abstract class AbstractSchemaSerializer implements SchemaSerializer {
      * @return SchemaDescriptor byte array representation.
      */
     public byte[] serialize(SchemaDescriptor desc) {
-        return this.bytes(desc, createByteBuffer(desc)).array();
+        return this.bytes(desc, createByteBuffer(desc));
     }
 
     /**
@@ -69,7 +70,7 @@ public abstract class AbstractSchemaSerializer implements SchemaSerializer {
      * @return SchemaDescriptor object.
      */
     public SchemaDescriptor deserialize(byte[] bytes) {
-        ExtendedByteBuffer buf = createByteBuffer(bytes);
+        ByteBuffer buf = createByteBuffer(bytes);
 
         short ver = readVersion(buf);
 
@@ -93,23 +94,13 @@ public abstract class AbstractSchemaSerializer implements SchemaSerializer {
     }
 
     /**
-     * Calculate size in bytes of SchemaDescriptor object.
-     *
-     * @param desc SchemaDescriptor object.
-     * @return Size in bytes.
-     */
-    private int size(SchemaDescriptor desc) {
-        return bytes(desc, ExtendedByteBufferFactory.calcSize()).size();
-    }
-
-    /**
      * Wraps a byte array into a buffer.
      *
      * @param bytes Byte array.
      * @return ByteBuffer byte buffer.
      */
-    protected ExtendedByteBuffer createByteBuffer(byte[] bytes) {
-        return ExtendedByteBufferFactory.wrap(bytes);
+    protected ByteBuffer createByteBuffer(byte[] bytes) {
+        return ByteBuffer.wrap(bytes);
     }
 
     /**
@@ -118,8 +109,8 @@ public abstract class AbstractSchemaSerializer implements SchemaSerializer {
      * @param desc SchemaDescriptor object.
      * @return ByteBuffer object.
      */
-    protected ExtendedByteBuffer createByteBuffer(SchemaDescriptor desc) {
-        return ExtendedByteBufferFactory.allocate(size(desc));
+    protected ByteBuffer createByteBuffer(SchemaDescriptor desc) {
+        return ByteBuffer.allocate(size(desc));
     }
 
     /**
@@ -128,7 +119,7 @@ public abstract class AbstractSchemaSerializer implements SchemaSerializer {
      * @param buf ByteBuffer object.
      * @return SchemaSerializer version.
      */
-    protected short readVersion(ExtendedByteBuffer buf) {
+    protected short readVersion(ByteBuffer buf) {
         return buf.getShort();
     }
 }

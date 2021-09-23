@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.marshaller.schema;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 
 /**
@@ -27,13 +28,21 @@ public interface SchemaSerializer {
      * Writes SchemaDescriptor object to byte buffer.
      *
      * @param desc SchemaDescriptor object.
-     * @return ExtendedByteBuffer with serialized object.
+     * @return byte array.
      */
-    ExtendedByteBuffer bytes(SchemaDescriptor desc, ExtendedByteBuffer byteBuf);
+    byte[] bytes(SchemaDescriptor desc, ByteBuffer byteBuf);
 
     /**
      * @param byteBuf Byte buffer with byte array.
      * @return SchemaDescriptor object.
      */
-    SchemaDescriptor value(ExtendedByteBuffer byteBuf);
+    SchemaDescriptor value(ByteBuffer byteBuf);
+
+    /**
+     * Calculates size in bytes of SchemaDescriptor object.
+     *
+     * @param desc SchemaDescriptor object.
+     * @return size in bytes.
+     */
+    int size(SchemaDescriptor desc);
 }

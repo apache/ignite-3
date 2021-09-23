@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.schema.marshaller.schema;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.DecimalNativeType;
+import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -36,6 +38,21 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
     /** Instance. */
     public static final AbstractSchemaSerializer INSTANCE = new SchemaSerializerImpl();
 
+    /** String array length. */
+    private static final int STRING_HEADER = 4;
+
+    /** Array length. */
+    private static final int ARRAY_HEADER_LENGTH = 4;
+
+    /** Byte. */
+    private static final int BYTE = 1;
+
+    /** Short. */
+    private static final int SHORT = 2;
+
+    /** Int. */
+    private static final int INT = 4;
+
     /** Schema version. */
     private static final short SCHEMA_VER = 1;
 
@@ -47,7 +64,7 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
     }
 
     /** {@inheritDoc} */
-    @Override public ExtendedByteBuffer bytes(SchemaDescriptor desc, ExtendedByteBuffer byteBuf) {
+    @Override public byte[] bytes(SchemaDescriptor desc, ByteBuffer byteBuf) {
         byteBuf.putShort(SCHEMA_VER);
         byteBuf.putInt(desc.version());
 
@@ -59,13 +76,13 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
         byteBuf.putInt(affinityCols.length);
 
         for (Column column : affinityCols)
-            byteBuf.putString(column.name());
+            appendString(column.name(), byteBuf);
 
-        return byteBuf;
+        return byteBuf.array();
     }
 
     /** {@inheritDoc} */
-    @Override public SchemaDescriptor value(ExtendedByteBuffer byteBuf) {
+    @Override public SchemaDescriptor value(ByteBuffer byteBuf) {
         int ver = byteBuf.getInt();
 
         Column[] keyCols = readColumns(byteBuf);
@@ -76,9 +93,95 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
         String[] affinityCols = new String[affinityColsSize];
 
         for (int i = 0; i < affinityColsSize; i++)
-            affinityCols[i] = byteBuf.getString();
+            affinityCols[i] = readString(byteBuf);
 
         return new SchemaDescriptor(ver, keyCols, affinityCols, valCols);
+    }
+
+    /** {@inheritDoc} */
+    @Override public int size(SchemaDescriptor desc) {
+        return SHORT +                      //Assembler version
+            INT +                          //Descriptor version
+            getColumnsSize(desc.keyColumns()) +
+            getColumnsSize(desc.valueColumns()) +
+            ARRAY_HEADER_LENGTH +          //Affinity columns length
+            getStringArraySize(desc.affinityColumns());
+    }
+
+    /**
+     * Gets column names array size in bytes.
+     *
+     * @param cols Column array.
+     * @return Size of an array with column names.
+     */
+    private int getStringArraySize(Column[] cols) {
+        int size = ARRAY_HEADER_LENGTH;      //String array size header
+        for (Column column : cols)
+            size += getStringSize(column.name());
+
+        return size;
+    }
+
+    /**
+     * Gets columns array size in bytes.
+     *
+     * @param cols Column array.
+     * @return Size of column array, including column name and column native type.
+     */
+    private int getColumnsSize(Columns cols) {
+        int size = ARRAY_HEADER_LENGTH; //cols array length
+
+        for (Column column : cols.columns())
+            size += INT +                      //Schema index
+                BYTE +                         //nullable flag
+                getStringSize(column.name()) +
+                getNativeTypeSize(column.type());
+
+        return size;
+    }
+
+    /**
+     * Gets native type size in bytes.
+     *
+     * @param type Native type.
+     * @return Native type size depending on NativeTypeSpec params.
+     */
+    private int getNativeTypeSize(NativeType type) {
+        int typeSize = 0;
+
+        switch (type.spec()) {
+            case STRING:
+            case BYTES:
+            case TIME:
+            case DATETIME:
+            case TIMESTAMP:
+            case NUMBER:
+            case BITMASK:
+                typeSize += INT; //For precision, len or bits
+
+                break;
+            case DECIMAL:
+                typeSize += INT; //For precision
+                typeSize += INT; //For scale
+
+                break;
+            default:
+                break;
+        }
+
+        return getStringSize(type.spec().name()) + //native type name
+            typeSize;
+    }
+
+    /**
+     * Gets string size in bytes.
+     *
+     * @param str String.
+     * @return Byte array size.
+     */
+    private int getStringSize(String str) {
+        return STRING_HEADER + //string byte array header
+            str.getBytes().length; // string byte array length
     }
 
     /**
@@ -87,7 +190,7 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
      * @param buf Byte buffer.
      * @param cols Column array.
      */
-    private void appendColumns(Columns cols, ExtendedByteBuffer buf) {
+    private void appendColumns(Columns cols, ByteBuffer buf) {
         Column[] colArr = cols.columns();
 
         buf.putInt(colArr.length);
@@ -102,10 +205,10 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
      * @param buf Byte buffer.
      * @param col Column.
      */
-    private void appendColumn(Column col, ExtendedByteBuffer buf) {
+    private void appendColumn(Column col, ByteBuffer buf) {
         buf.putInt(col.schemaIndex());
         buf.put((byte)(col.nullable() ? 1 : 0));
-        buf.putString(col.name());
+        appendString(col.name(), buf);
         appendNativeType(buf, col.type());
     }
 
@@ -115,8 +218,8 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
      * @param buf Byte buffer.
      * @param type Native type.
      */
-    private void appendNativeType(ExtendedByteBuffer buf, NativeType type) {
-        buf.putString(type.spec().name());
+    private void appendNativeType(ByteBuffer buf, NativeType type) {
+        appendString(type.spec().name(), buf);
 
         switch (type.spec()) {
             case STRING:
@@ -147,7 +250,7 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
      * @param buf Byte buffer.
      * @param type Native type with precision.
      */
-    private void appendPrecision(ExtendedByteBuffer buf, NativeType type) {
+    private void appendPrecision(ByteBuffer buf, NativeType type) {
         NativeTypeSpec spec = type.spec();
         int precision;
 
@@ -169,7 +272,7 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
      * @param buf Byte buffer.
      * @param type Native type with scale.
      */
-    private void appendScale(ExtendedByteBuffer buf, NativeType type) {
+    private void appendScale(ByteBuffer buf, NativeType type) {
         assert type.spec() == NativeTypeSpec.DECIMAL;
 
         int scale = ((DecimalNativeType)type).scale();
@@ -183,7 +286,7 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
      * @param buf Byte buffer.
      * @param type VarLen native type.
      */
-    private void appendTypeLen(ExtendedByteBuffer buf, NativeType type) {
+    private void appendTypeLen(ByteBuffer buf, NativeType type) {
         assert type.spec() == NativeTypeSpec.STRING || type.spec() == NativeTypeSpec.BYTES;
 
         int len = ((VarlenNativeType)type).length();
@@ -197,7 +300,7 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
      * @param buf Byte buffer.
      * @param type Bitmask native type.
      */
-    private void appendBits(ExtendedByteBuffer buf, NativeType type) {
+    private void appendBits(ByteBuffer buf, NativeType type) {
         assert type.spec() == NativeTypeSpec.BITMASK;
 
         int bits = ((BitmaskNativeType)type).bits();
@@ -206,12 +309,25 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
     }
 
     /**
+     * Appends string byte representation to byte buffer.
+     *
+     * @param buf Byte buffer.
+     * @param str String.
+     */
+    private void appendString(String str, ByteBuffer buf) {
+        byte[] bytes = str.getBytes();
+
+        buf.putInt(bytes.length);
+        buf.put(bytes);
+    }
+
+    /**
      * Reads column array from byte buffer.
      *
      * @param buf Byte buffer.
      * @return Column array.
      */
-    private Column[] readColumns(ExtendedByteBuffer buf) {
+    private Column[] readColumns(ByteBuffer buf) {
         int size = buf.getInt();
 
         Column[] colArr = new Column[size];
@@ -228,13 +344,110 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
      * @param buf Byte buffer.
      * @return Column.
      */
-    private Column readColumn(ExtendedByteBuffer buf) {
+    private Column readColumn(ByteBuffer buf) {
         int schemaIdx = buf.getInt();
         boolean nullable = buf.get() == 1;
-        String name = buf.getString();
+        String name = readString(buf);
 
-        NativeType nativeType = NativeTypes.fromByteBuffer(buf);
+        NativeType nativeType = fromByteBuffer(buf);
 
         return new Column(name, nativeType, nullable).copy(schemaIdx);
+    }
+
+    /**
+     * Reads native type from byte buffer.
+     *
+     * @param buf Byte buffer.
+     * @return Native type.
+     */
+    private NativeType fromByteBuffer(ByteBuffer buf) {
+        String nativeTypeSpecName = readString(buf);
+
+        NativeTypeSpec spec = NativeTypeSpec.valueOf(nativeTypeSpecName);
+
+        switch (spec) {
+            case STRING:
+                int strLen = buf.getInt();
+
+                return NativeTypes.stringOf(strLen);
+
+            case BYTES:
+                int len = buf.getInt();
+
+                return NativeTypes.blobOf(len);
+
+            case BITMASK:
+                int bits = buf.getInt();
+
+                return NativeTypes.bitmaskOf(bits);
+
+            case DECIMAL: {
+                int precision = buf.getInt();
+                int scale = buf.getInt();
+
+                return NativeTypes.decimalOf(precision, scale);
+            }
+            case TIME: {
+                int precision = buf.getInt();
+
+                return NativeTypes.time(precision);
+            }
+            case DATETIME: {
+                int precision = buf.getInt();
+
+                return NativeTypes.datetime(precision);
+            }
+            case TIMESTAMP: {
+                int precision = buf.getInt();
+
+                return NativeTypes.timestamp(precision);
+            }
+            case NUMBER: {
+                int precision = buf.getInt();
+
+                return NativeTypes.numberOf(precision);
+            }
+            case INT8:
+                return NativeTypes.INT8;
+
+            case INT16:
+                return NativeTypes.INT16;
+
+            case INT32:
+                return NativeTypes.INT32;
+
+            case INT64:
+                return NativeTypes.INT64;
+
+            case FLOAT:
+                return NativeTypes.FLOAT;
+
+            case DOUBLE:
+                return NativeTypes.DOUBLE;
+
+            case UUID:
+                return NativeTypes.UUID;
+
+            case DATE:
+                return NativeTypes.DATE;
+        }
+
+        throw new InvalidTypeException("Unexpected type " + spec);
+    }
+
+    /**
+     * Reads string from byte buffer.
+     *
+     * @param buf Byte buffer.
+     * @return String.
+     */
+    private String readString(ByteBuffer buf) {
+        int len = buf.getInt();
+        byte[] arr = new byte[len];
+
+        for (int i = 0; i < len; i++)
+            arr[i] = buf.get();
+
+        return new String(arr);
     }
 }
