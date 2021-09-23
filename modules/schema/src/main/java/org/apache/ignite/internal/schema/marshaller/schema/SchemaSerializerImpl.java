@@ -445,8 +445,7 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
         int len = buf.getInt();
         byte[] arr = new byte[len];
 
-        for (int i = 0; i < len; i++)
-            arr[i] = buf.get();
+        buf.get(arr);
 
         return new String(arr);
     }
