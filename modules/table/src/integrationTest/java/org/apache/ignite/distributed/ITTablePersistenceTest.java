@@ -36,6 +36,7 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.service.ITAbstractListenerSnapshotTest;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -69,7 +70,8 @@ public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
             "table",
             new IgniteUuid(UUID.randomUUID(), 0),
             Map.of(0, service),
-            1
+            1,
+            NetworkAddress::toString
         );
 
         table.upsert(FIRST_VALUE, null).get();
@@ -81,7 +83,8 @@ public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
             "table",
             new IgniteUuid(UUID.randomUUID(), 0),
             Map.of(0, service),
-            1
+            1,
+            NetworkAddress::toString
         );
 
         // Remove the first key
@@ -97,7 +100,8 @@ public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
             "table",
             new IgniteUuid(UUID.randomUUID(), 0),
             Map.of(0, service),
-            1
+            1,
+            NetworkAddress::toString
         );
 
         table.upsert(SECOND_VALUE, null).get();

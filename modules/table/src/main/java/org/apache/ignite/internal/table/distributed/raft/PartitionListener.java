@@ -63,6 +63,7 @@ import org.apache.ignite.internal.table.distributed.command.scan.ScanRetrieveBat
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
@@ -474,7 +475,8 @@ public class PartitionListener implements RaftGroupListener {
         CursorMeta cursorDesc = cursors.get(clo.command().scanId());
 
         if (cursorDesc == null) {
-            clo.result(new NoSuchElementException("Corresponding cursor on server side not found."));
+            clo.result(new NoSuchElementException(LoggerMessageHelper.format(
+                "Cursor with id={} is not found on server side.", clo.command().scanId())));
 
             return;
         }
