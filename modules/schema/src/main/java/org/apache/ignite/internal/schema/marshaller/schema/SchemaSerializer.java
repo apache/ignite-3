@@ -29,9 +29,8 @@ public interface SchemaSerializer {
      *
      * @param desc SchemaDescriptor object.
      * @param byteBuf ByteBuffer object with allocated byte array.
-     * @return byte array.
      */
-    byte[] bytes(SchemaDescriptor desc, ByteBuffer byteBuf);
+    void writeToBuffer(SchemaDescriptor desc, ByteBuffer byteBuf);
 
     /**
      * @param byteBuf Byte buffer with byte array.

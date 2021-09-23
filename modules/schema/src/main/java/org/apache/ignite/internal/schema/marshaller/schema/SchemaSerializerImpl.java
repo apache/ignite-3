@@ -64,7 +64,7 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
     }
 
     /** {@inheritDoc} */
-    @Override public byte[] bytes(SchemaDescriptor desc, ByteBuffer byteBuf) {
+    @Override public void writeToBuffer(SchemaDescriptor desc, ByteBuffer byteBuf) {
         byteBuf.putShort(SCHEMA_VER);
         byteBuf.putInt(desc.version());
 
@@ -77,8 +77,6 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
 
         for (Column column : affinityCols)
             appendString(column.name(), byteBuf);
-
-        return byteBuf.array();
     }
 
     /** {@inheritDoc} */

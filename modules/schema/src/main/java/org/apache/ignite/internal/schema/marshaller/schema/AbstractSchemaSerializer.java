@@ -60,7 +60,11 @@ public abstract class AbstractSchemaSerializer implements SchemaSerializer {
      * @return SchemaDescriptor byte array representation.
      */
     public byte[] serialize(SchemaDescriptor desc) {
-        return this.bytes(desc, createByteBuffer(desc));
+        ByteBuffer buf = allocateByteBuffer(desc);
+
+        this.writeToBuffer(desc, buf);
+
+        return buf.array();
     }
 
     /**
@@ -99,7 +103,7 @@ public abstract class AbstractSchemaSerializer implements SchemaSerializer {
      * @param bytes Byte array.
      * @return ByteBuffer byte buffer.
      */
-    protected ByteBuffer createByteBuffer(byte[] bytes) {
+    private ByteBuffer createByteBuffer(byte[] bytes) {
         return ByteBuffer.wrap(bytes);
     }
 
@@ -109,7 +113,7 @@ public abstract class AbstractSchemaSerializer implements SchemaSerializer {
      * @param desc SchemaDescriptor object.
      * @return ByteBuffer object.
      */
-    protected ByteBuffer createByteBuffer(SchemaDescriptor desc) {
+    private ByteBuffer allocateByteBuffer(SchemaDescriptor desc) {
         return ByteBuffer.allocate(size(desc));
     }
 
@@ -119,7 +123,7 @@ public abstract class AbstractSchemaSerializer implements SchemaSerializer {
      * @param buf ByteBuffer object.
      * @return SchemaSerializer version.
      */
-    protected short readVersion(ByteBuffer buf) {
+    private short readVersion(ByteBuffer buf) {
         return buf.getShort();
     }
 }
