@@ -345,29 +345,34 @@ public class InternalTableImpl implements InternalTable {
                 });
     }
 
-    /** Parition scan publisher. */
+    /** Partition scan publisher. */
     private class PartitionScanPublisher implements Publisher<BinaryRow> {
-        /** List of subscriptions. */
-        private final List<PartitionScanSubscription> subscriptions;
-
         /** {@link Publisher<BinaryRow>} that relatively notifies about partition rows.  */
         private final RaftGroupService raftGrpSvc;
+
+        /** */
+        private AtomicBoolean wasSubscribed;
+
 
         /**
          * The constructor.
          *
-         * @param raftGrpSvc {@link Publisher<BinaryRow>} that relatively notifies about partition rows.
+         * @param raftGrpSvc {@link RaftGroupService} to run corresponding raft commands.
          */
         PartitionScanPublisher(RaftGroupService raftGrpSvc) {
-            this.subscriptions = Collections.synchronizedList(new ArrayList<>());
             this.raftGrpSvc = raftGrpSvc;
+            this.wasSubscribed = new AtomicBoolean(false);
         }
 
         /** {@inheritDoc} */
         @Override public void subscribe(Subscriber<? super BinaryRow> subscriber) {
-            PartitionScanSubscription subscription = new PartitionScanSubscription(subscriber);
+            if (subscriber == null)
+                throw new NullPointerException("Subscriber is null");
 
-            subscriptions.add(subscription);
+            if (!wasSubscribed.compareAndSet(false, true))
+                subscriber.onError(new IllegalStateException("Scan publisher does not support multiple subscriptions."));
+
+            PartitionScanSubscription subscription = new PartitionScanSubscription(subscriber);
 
             subscriber.onSubscribe(subscription);
         }
@@ -402,12 +407,53 @@ public class InternalTableImpl implements InternalTable {
 
             /** {@inheritDoc} */
             @Override public void request(long n) {
-                if (n < 0) {
+                if (n <= 0) {
                     cancel();
 
-                    subscriber.onError(new IllegalArgumentException("Requested amount of items is less than 0."));
+                    subscriber.onError(new IllegalArgumentException(LoggerMessageHelper.
+                        format("Invalid requested amount of items [requested={}, minValue=1]", n))
+                    );
                 }
 
+                if (isCanceled.get())
+                    return;
+
+                final int internalBatchSize = Integer.MAX_VALUE;
+
+                for (int intBatchCnr = 0; intBatchCnr < (n / internalBatchSize); intBatchCnr++)
+                    scanBatch(internalBatchSize);
+
+                scanBatch((int)(n % internalBatchSize));
+            }
+
+            /** {@inheritDoc} */
+            @Override public void cancel() {
+                cancel(true);
+            }
+
+            /**
+             * Cancels given subscription and closes cursor if necessary.
+             *
+             * @param closeCursor If {@code true} closes inner storage scan.
+             */
+            private void cancel(boolean closeCursor) {
+                isCanceled.set(true);
+
+                if (closeCursor) {
+                    raftGrpSvc.run(new ScanCloseCommand(scanId)).exceptionally(closeT -> {
+                        LOG.warn("Unable to close scan.", closeT);
+
+                        return null;
+                    });
+                }
+            }
+
+            /**
+             * Requests and processes n requested elements where n is an integer.
+             *
+             * @param n Requested amount of items.
+             */
+            private void scanBatch(int n) {
                 if (isCanceled.get())
                     return;
 
@@ -415,15 +461,12 @@ public class InternalTableImpl implements InternalTable {
                     .thenAccept(
                         res -> {
                             if (res.getValues() == null) {
-                                raftGrpSvc.run(new ScanCloseCommand(scanId)).exceptionally(closeT -> {
-                                    LOG.warn("Unable to close scan.", closeT);
-
-                                    return null;
-                                });
+                                cancel();
 
                                 subscriber.onComplete();
-                            }
 
+                                return;
+                            }
                             else
                                 res.getValues().forEach(subscriber::onNext);
 
@@ -435,25 +478,12 @@ public class InternalTableImpl implements InternalTable {
                         })
                     .exceptionally(
                         t -> {
-                            cancel();
+                            cancel(!scanInitOp.isCompletedExceptionally());
 
                             subscriber.onError(t);
 
                             return null;
                         });
-            }
-
-            /** {@inheritDoc} */
-            @Override public void cancel() {
-                isCanceled.set(true);
-
-                subscriptions.remove(this);
-
-                raftGrpSvc.run(new ScanCloseCommand(scanId)).exceptionally(closeT -> {
-                    LOG.warn("Unable to close scan.", closeT);
-
-                    return null;
-                });
             }
         }
     }

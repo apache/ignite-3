@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.TimeUnit;
@@ -60,12 +61,14 @@ import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -214,12 +217,13 @@ public class ITInternalTableScanTest {
     }
 
     /**
-     * Checks that {@link IllegalArgumentException} is thrown in case of negative request amount.
+     * Checks whether {@link IllegalArgumentException} is thrown and inner storage cursor is closes in case of invalid
+     * requested amount of items.
+     *
+     * @throws Exception If any.
      */
     @Test()
-    public void testNegativeReqScan() throws Exception {
-        AtomicReference<Throwable> gotException = new AtomicReference<>();
-
+    public void testInvalidRequestedAmountScan() throws Exception {
         AtomicBoolean cursorClosed = new AtomicBoolean(false);
 
         when(mockStorage.scan(any())).thenAnswer(invocation -> {
@@ -239,42 +243,48 @@ public class ITInternalTableScanTest {
             return cursor;
         });
 
-        internalTbl.scan(0, null).subscribe(new Subscriber<>() {
-            @Override public void onSubscribe(Subscription subscription) {
-                subscription.request(-1);
-            }
+        for (long n : new long[] {-1, 0}) {
+            AtomicReference<Throwable> gotException = new AtomicReference<>();
 
-            @Override public void onNext(BinaryRow item) {
-                fail("Should never get here.");
-            }
+            cursorClosed.set(false);
 
-            @Override public void onError(Throwable throwable) {
-                gotException.set(throwable);
-            }
+            internalTbl.scan(0, null).subscribe(new Subscriber<>() {
+                @Override public void onSubscribe(Subscription subscription) {
+                    subscription.request(n);
+                }
 
-            @Override public void onComplete() {
-                fail("Should never get here.");
-            }
-        });
+                @Override public void onNext(BinaryRow item) {
+                    fail("Should never get here.");
+                }
 
-        assertTrue(waitForCondition(() -> gotException.get() != null, 1_000));
+                @Override public void onError(Throwable throwable) {
+                    gotException.set(throwable);
+                }
 
-        assertTrue(waitForCondition(cursorClosed::get, 1_000));
+                @Override public void onComplete() {
+                    fail("Should never get here.");
+                }
+            });
 
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> {
-                throw gotException.get();
-            },
-            "Requested amount of items is less than 0."
-        );
+            assertTrue(waitForCondition(() -> gotException.get() != null, 1_000));
+
+            assertTrue(waitForCondition(cursorClosed::get, 1_000));
+
+            assertThrows(
+                IllegalArgumentException.class,
+                () -> {
+                    throw gotException.get();
+                }
+            );
+        }
     }
 
     /**
-     * Checks that exception from storage properly propagates to subscriber.
+     * Checks that exception from storage cursors has next properly propagates to subscriber.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15581")
     @Test
-    public void testExceptionRowScan() throws Exception {
+    public void testExceptionRowScanCursorHasNext() throws Exception {
         AtomicReference<Throwable> gotException = new AtomicReference<>();
 
         AtomicBoolean cursorClosed = new AtomicBoolean(false);
@@ -297,11 +307,8 @@ public class ITInternalTableScanTest {
         });
 
         internalTbl.scan(0, null).subscribe(new Subscriber<>() {
-            private Subscription subscription;
 
             @Override public void onSubscribe(Subscription subscription) {
-                this.subscription = subscription;
-
                 subscription.request(1);
             }
 
@@ -320,28 +327,122 @@ public class ITInternalTableScanTest {
 
         assertTrue(waitForCondition(() -> gotException.get() != null, 1_000));
 
+        assertEquals(gotException.get().getCause().getClass(), StorageException.class);
+
         assertTrue(waitForCondition(cursorClosed::get, 1_000));
     }
+
+    /**
+     * Checks that exception from storage cursor creation properly propagates to subscriber.
+     */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15581")
+    @Test
+    public void testExceptionRowScan() throws Exception {
+        AtomicReference<Throwable> gotException = new AtomicReference<>();
+
+        when(mockStorage.scan(any())).thenThrow(new StorageException("Some storage exception"));
+
+        internalTbl.scan(0, null).subscribe(new Subscriber<>() {
+
+            @Override public void onSubscribe(Subscription subscription) {
+                subscription.request(1);
+            }
+
+            @Override public void onNext(BinaryRow item) {
+                fail("Should never get here.");
+            }
+
+            @Override public void onError(Throwable throwable) {
+                gotException.set(throwable);
+            }
+
+            @Override public void onComplete() {
+                fail("Should never get here.");
+            }
+        });
+
+        assertTrue(waitForCondition(() -> gotException.get() != null, 1_000));
+
+        assertEquals(gotException.get().getCause().getClass(), StorageException.class);
+    }
+
 
     /**
      * Checks that {@link IllegalArgumentException} is thrown in case of invalid parition.
      */
     @Test()
-    public void testInvalidPartitionParameterScan() throws Exception {
+    public void testInvalidPartitionParameterScan() {
         assertThrows(
             IllegalArgumentException.class,
-            () -> {
-                internalTbl.scan(-1, null);
-            },
-            "Invalid partition [partition={-1}, minValue={0}, maxValue={0}]."
+            () -> internalTbl.scan(-1, null)
         );
 
         assertThrows(
             IllegalArgumentException.class,
-            () -> {
-                internalTbl.scan(1, null);
-            },
-            "Invalid partition [partition={1}, minValue={0}, maxValue={0}]."
+            () -> internalTbl.scan(1, null)
+        );
+    }
+
+    /**
+     * Checks that in case of second subscription {@link IllegalStateException} will be fires to onError.
+     *
+     * @throws Exception If any.
+     */
+    @Test
+    public void testSecondSubscriptionFiresIllegalStateException() throws Exception {
+        Flow.Publisher<BinaryRow> scan = internalTbl.scan(0, null);
+
+        scan.subscribe(new Subscriber<>() {
+            @Override public void onSubscribe(Subscription subscription) {
+
+            }
+
+            @Override public void onNext(BinaryRow item) {
+
+            }
+
+            @Override public void onError(Throwable throwable) {
+
+            }
+
+            @Override public void onComplete() {
+
+            }
+        });
+
+        AtomicReference<Throwable> gotException = new AtomicReference<>();
+
+        scan.subscribe(new Subscriber<>() {
+            @Override public void onSubscribe(Subscription subscription) {
+
+            }
+
+            @Override public void onNext(BinaryRow item) {
+
+            }
+
+            @Override public void onError(Throwable throwable) {
+                gotException.set(throwable);
+            }
+
+            @Override public void onComplete() {
+
+            }
+        });
+
+        assertTrue(waitForCondition(() -> gotException.get() != null, 1_000));
+
+        assertEquals(gotException.get().getClass(), IllegalStateException.class);
+    }
+
+    /**
+     * Checks that {@link NullPointerException} is thrown in case of null subscription.
+     */
+    @Test
+    public void testNullPointerExceptionIsThrownInCaseOfNullSubscription() {
+        assertThrows(
+            NullPointerException.class,
+            () -> internalTbl.scan(0, null).subscribe(null)
         );
     }
 

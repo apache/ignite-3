@@ -27,7 +27,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class ScanRetrieveBatchCommand implements WriteCommand {
     /** Amount of items to retrieve. */
-    private final long itemsToRetrieveCnt;
+    private final int itemsToRetrieveCnt;
 
     /** Id of scan that is associated with the current command. */
     @NotNull private final IgniteUuid scanId;
@@ -37,7 +37,7 @@ public class ScanRetrieveBatchCommand implements WriteCommand {
      * @param scanId Id of scan that is associated with the current command.
      */
     public ScanRetrieveBatchCommand(
-        long itemsToRetrieveCnt,
+        int itemsToRetrieveCnt,
         @NotNull IgniteUuid scanId
     ) {
         this.itemsToRetrieveCnt = itemsToRetrieveCnt;
@@ -47,7 +47,7 @@ public class ScanRetrieveBatchCommand implements WriteCommand {
     /**
      * @return Amount of items to retrieve.
      */
-    public long itemsToRetrieveCount() {
+    public int itemsToRetrieveCount() {
         return itemsToRetrieveCnt;
     }
 

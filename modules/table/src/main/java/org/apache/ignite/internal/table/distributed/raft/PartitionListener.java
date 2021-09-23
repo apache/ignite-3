@@ -33,6 +33,7 @@ import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.storage.Storage;
+import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.basic.DeleteExactInvokeClosure;
 import org.apache.ignite.internal.storage.basic.GetAndRemoveInvokeClosure;
 import org.apache.ignite.internal.storage.basic.GetAndReplaceInvokeClosure;
@@ -446,15 +447,20 @@ public class PartitionListener implements RaftGroupListener {
 
         IgniteUuid cursorId = rangeCmd.scanId();
 
-        Cursor<DataRow> cursor = storage.scan(key -> true);
+        try {
+            Cursor<DataRow> cursor = storage.scan(key -> true);
 
-        cursors.put(
-            cursorId,
-            new CursorMeta(
-                cursor,
-                rangeCmd.requesterNodeId()
-            )
-        );
+            cursors.put(
+                cursorId,
+                new CursorMeta(
+                    cursor,
+                    rangeCmd.requesterNodeId()
+                )
+            );
+        }
+        catch (StorageException e) {
+            clo.result(e);
+        }
 
         clo.result(null);
     }
@@ -492,7 +498,7 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleScanCloseCommand(CommandClosure<ScanCloseCommand> clo) {
-        CursorMeta cursorDesc = cursors.get(clo.command().scanId());
+        CursorMeta cursorDesc = cursors.remove(clo.command().scanId());
 
         if (cursorDesc == null) {
             clo.result(null);
