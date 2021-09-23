@@ -68,7 +68,7 @@ public class RaftOptions implements Copiable<RaftOptions> {
     /**
      * Maximum number of tasks that can be applied in a batch
      */
-    private int applyBatch = 32;
+    private int applyBatch = 1;
 
     /**
      * Call fsync when need

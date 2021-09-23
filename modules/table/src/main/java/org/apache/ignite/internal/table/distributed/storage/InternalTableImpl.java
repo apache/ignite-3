@@ -85,7 +85,8 @@ public class InternalTableImpl implements InternalTable {
         UUID tableId,
         Map<Integer, RaftGroupService> partMap,
         int partitions,
-        TxManager txManager) {
+        TxManager txManager
+    ) {
         this.tableName = tableName;
         this.tableId = tableId;
         this.partitionMap = partMap;

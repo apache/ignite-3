@@ -70,9 +70,6 @@ import static org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest
  * The implementation of {@link RaftGroupService}
  */
 public class RaftGroupServiceImpl implements RaftGroupService {
-    /** */
-    private static final int INVOKE_TIMEOUT = 500;
-
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(RaftGroupServiceImpl.class);
 
@@ -389,7 +386,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         TransferLeaderRequest req = factory.transferLeaderRequest()
             .groupId(groupId).leaderId(PeerId.fromPeer(newLeader).toString()).build();
 
-        CompletableFuture<NetworkMessage> fut = cluster.messagingService().invoke(newLeader.address(), req, INVOKE_TIMEOUT);
+        CompletableFuture<NetworkMessage> fut = cluster.messagingService().invoke(newLeader.address(), req, timeout);
 
         return fut.thenCompose(resp -> {
             if (resp != null) {
@@ -431,7 +428,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     @Override public <R> CompletableFuture<R> run(Peer peer, ReadCommand cmd) {
         ActionRequest req = factory.actionRequest().command(cmd).groupId(groupId).readOnlySafe(false).build();
 
-        CompletableFuture<?> fut = cluster.messagingService().invoke(peer.address(), req, INVOKE_TIMEOUT);
+        CompletableFuture<?> fut = cluster.messagingService().invoke(peer.address(), req, timeout);
 
         return fut.thenApply(resp -> (R) ((ActionResponse) resp).result());
     }
@@ -462,7 +459,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             return;
         }
 
-        CompletableFuture<?> fut0 = cluster.messagingService().invoke(peer.address(), (NetworkMessage) req, INVOKE_TIMEOUT);
+        CompletableFuture<?> fut0 = cluster.messagingService().invoke(peer.address(), (NetworkMessage) req, timeout);
 
         fut0.whenComplete(new BiConsumer<Object, Throwable>() {
             @Override public void accept(Object resp, Throwable err) {

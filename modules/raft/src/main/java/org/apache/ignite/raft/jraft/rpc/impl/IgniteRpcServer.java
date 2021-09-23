@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
@@ -168,27 +169,32 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
             RpcProcessor<NetworkMessage> finalPrc = prc;
 
-            executor.execute(() -> {
-                var context = new RpcContext() {
-                    @Override public NodeManager getNodeManager() {
-                        return nodeManager;
-                    }
+            try {
+                executor.execute(() -> {
+                    var context = new RpcContext() {
+                        @Override public NodeManager getNodeManager() {
+                            return nodeManager;
+                        }
 
-                    @Override public void sendResponse(Object responseObj) {
-                        service.messagingService().send(senderAddr, (NetworkMessage) responseObj, correlationId);
-                    }
+                        @Override public void sendResponse(Object responseObj) {
+                            service.messagingService().send(senderAddr, (NetworkMessage) responseObj, correlationId);
+                        }
 
-                    @Override public NetworkAddress getRemoteAddress() {
-                        return senderAddr;
-                    }
+                        @Override public NetworkAddress getRemoteAddress() {
+                            return senderAddr;
+                        }
 
-                    @Override public NetworkAddress getLocalAddress() {
-                        return service.topologyService().localMember().address();
-                    }
-                };
+                        @Override public NetworkAddress getLocalAddress() {
+                            return service.topologyService().localMember().address();
+                        }
+                    };
 
-                finalPrc.handleRequest(context, message);
-            });
+                    finalPrc.handleRequest(context, message);
+                });
+            }
+            catch (RejectedExecutionException e) {
+                // Node is stopping.
+            }
         }
     }
 

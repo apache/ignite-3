@@ -42,9 +42,7 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -533,7 +531,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     /** */
     @Test
-    @Disabled // TODO asch striped disruptor is broken
     public void testCrossTable() throws TransactionException {
         customers.upsert(makeValue(1, "test"));
         accounts.upsert(makeValue(1, 100.));
@@ -652,7 +649,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     /** */
     @Test
-    @Disabled
     public void testCrossTableAsync() throws TransactionException {
         customers.upsert(makeValue(1, "test"));
         accounts.upsert(makeValue(1, 100.));
@@ -701,7 +697,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     /** */
     @Test
-    @Disabled
     public void testCrossTableAsyncKeyValueView() throws TransactionException {
         customers.upsert(makeValue(1, "test"));
         accounts.upsert(makeValue(1, 100.));
@@ -724,7 +719,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     /** */
     @Test
-    @Disabled
     public void testCrossTableAsyncKeyValueViewRollback() throws TransactionException {
         customers.upsert(makeValue(1, "test"));
         accounts.upsert(makeValue(1, 100.));
