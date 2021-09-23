@@ -610,7 +610,8 @@ public class PartitionListener implements RaftGroupListener {
          * @param cursor Cursor.
          * @param requesterNodeId Id of the node that creates cursor.
          */
-        CursorMeta(Cursor<DataRow> cursor,
+        CursorMeta(
+            Cursor<DataRow> cursor,
             String requesterNodeId
         ) {
             this.cursor = cursor;
