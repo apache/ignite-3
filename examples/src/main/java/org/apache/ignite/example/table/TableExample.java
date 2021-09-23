@@ -21,6 +21,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
+import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.schema.ColumnType;
+import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 
@@ -44,7 +48,7 @@ public class TableExample {
     public static void main(String[] args) throws Exception {
         Ignite ignite = IgnitionManager.start(
             "node-0",
-            Files.readString(Path.of("config", "ignite-config.json")),
+            Files.readString(Path.of( "examples/config/ignite-config.json").toAbsolutePath()),
             Path.of("work")
         );
 
@@ -61,21 +65,17 @@ public class TableExample {
         //
         //---------------------------------------------------------------------------------
 
-        Table accounts = ignite.tables().createTable("PUBLIC.accounts", tbl -> tbl
-            .changeName("PUBLIC.accounts")
-            .changeColumns(cols -> cols
-                .create("0", c -> c.changeName("accountNumber").changeType(t -> t.changeType("int32")).changeNullable(false))
-                .create("1", c -> c.changeName("firstName").changeType(t -> t.changeType("string")).changeNullable(true))
-                .create("2", c -> c.changeName("lastName").changeType(t -> t.changeType("string")).changeNullable(true))
-                .create("3", c -> c.changeName("balance").changeType(t -> t.changeType("double")).changeNullable(true))
-            )
-            .changeIndices(idxs -> idxs
-                .create("PK", idx -> idx
-                    .changeName("PK")
-                    .changeType("PK")
-                    .changeColumns(cols -> cols.create("0", c -> c.changeName("accountNumber").changeAsc(true)))
-                )
-            )
+        SchemaTable accTbl = SchemaBuilders.tableBuilder("PUBLIC", "accounts").columns(
+            SchemaBuilders.column("accountNumber", ColumnType.INT32).asNullable().build(),
+            SchemaBuilders.column("firstName", ColumnType.string()).asNullable().build(),
+            SchemaBuilders.column("lastName", ColumnType.string()).asNullable().build(),
+            SchemaBuilders.column("balance", ColumnType.DOUBLE).asNullable().build()
+        ).withPrimaryKey("accountNumber").build();
+
+        Table accounts = ignite.tables().createTable(accTbl.canonicalName(), tblCh ->
+            SchemaConfigurationConverter.convert(accTbl, tblCh)
+                .changeReplicas(1)
+                .changePartitions(10)
         );
 
         //---------------------------------------------------------------------------------
