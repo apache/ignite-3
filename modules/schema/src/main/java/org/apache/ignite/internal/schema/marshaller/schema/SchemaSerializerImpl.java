@@ -64,7 +64,7 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
     }
 
     /** {@inheritDoc} */
-    @Override public void writeToBuffer(SchemaDescriptor desc, ByteBuffer byteBuf) {
+    @Override public void writeTo(SchemaDescriptor desc, ByteBuffer byteBuf) {
         byteBuf.putShort(SCHEMA_VER);
         byteBuf.putInt(desc.version());
 
@@ -80,7 +80,7 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
     }
 
     /** {@inheritDoc} */
-    @Override public SchemaDescriptor value(ByteBuffer byteBuf) {
+    @Override public SchemaDescriptor readFrom(ByteBuffer byteBuf) {
         int ver = byteBuf.getInt();
 
         Column[] keyCols = readColumns(byteBuf);

@@ -62,7 +62,7 @@ public abstract class AbstractSchemaSerializer implements SchemaSerializer {
     public byte[] serialize(SchemaDescriptor desc) {
         ByteBuffer buf = ByteBuffer.allocate(size(desc));
 
-        this.writeToBuffer(desc, buf);
+        this.writeTo(desc, buf);
 
         return buf.array();
     }
@@ -78,7 +78,7 @@ public abstract class AbstractSchemaSerializer implements SchemaSerializer {
 
         short ver = readVersion(buf);
 
-        return getSerializerByVersion(ver).value(buf);
+        return getSerializerByVersion(ver).readFrom(buf);
     }
 
     /**

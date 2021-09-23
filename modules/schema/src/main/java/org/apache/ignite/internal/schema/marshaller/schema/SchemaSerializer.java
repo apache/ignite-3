@@ -30,13 +30,13 @@ public interface SchemaSerializer {
      * @param desc SchemaDescriptor object.
      * @param byteBuf ByteBuffer object with allocated byte array.
      */
-    void writeToBuffer(SchemaDescriptor desc, ByteBuffer byteBuf);
+    void writeTo(SchemaDescriptor desc, ByteBuffer byteBuf);
 
     /**
      * @param byteBuf Byte buffer with byte array.
      * @return SchemaDescriptor object.
      */
-    SchemaDescriptor value(ByteBuffer byteBuf);
+    SchemaDescriptor readFrom(ByteBuffer byteBuf);
 
     /**
      * Calculates size in bytes of SchemaDescriptor object.
