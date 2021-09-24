@@ -51,6 +51,28 @@ public interface IgniteTables {
     CompletableFuture<Table> createTableAsync(String name, Consumer<TableChange> tableInitChange);
 
     /**
+     * Creates a new table with the given {@code name} or returns an existing one with the same {@code name}.
+     *
+     * Note: the configuration of the existed table will NOT be validated against the given {@code tableInitChange}.
+     *
+     * @param name Table name.
+     * @param tableInitChange Table changer.
+     * @return Existing or newly created table.
+     */
+    Table createTableIfNotExists(String name, Consumer<TableChange> tableInitChange);
+
+    /**
+     * Creates a new table with the given {@code name} or returns an existing one with the same {@code name}.
+     *
+     * Note: the configuration of the existed table will NOT be validated against the given {@code tableInitChange}.
+     *
+     * @param name Table name.
+     * @param tableInitChange Table changer.
+     * @return Future representing pending completion of the operation.
+     */
+    CompletableFuture<Table> createTableIfNotExistsAsync(String name, Consumer<TableChange> tableInitChange);
+
+    /**
      * Alter a cluster table.
      *
      * @param name Table name.
@@ -66,24 +88,6 @@ public interface IgniteTables {
      * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange);
-
-    /**
-     * Creates a new table with the given {@code name} or returns an existing one with the same {@code name}.
-     *
-     * @param name Table name.
-     * @param tableInitChange Table changer.
-     * @return Existing or newly created table.
-     */
-    Table createTableIfNotExists(String name, Consumer<TableChange> tableInitChange);
-
-    /**
-     * Creates a new table with the given {@code name} or returns an existing one with the same {@code name}.
-     *
-     * @param name Table name.
-     * @param tableInitChange Table changer.
-     * @return Future representing pending completion of the operation.
-     */
-    CompletableFuture<Table> createTableIfNotExistsAsync(String name, Consumer<TableChange> tableInitChange);
 
     /**
      * Drops a table with the name specified.
