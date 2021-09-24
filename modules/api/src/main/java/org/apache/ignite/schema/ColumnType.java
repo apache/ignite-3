@@ -126,10 +126,10 @@ public class ColumnType {
      * @throws IllegalArgumentException If precision value was invalid.
      */
     public static NumberColumnType numberOf(int precision) {
-        if (precision <= 0)
+        if (precision < 0)
             throw new IllegalArgumentException("Precision [" + precision + "] must be positive integer value.");
 
-        return new NumberColumnType(ColumnTypeSpec.NUMBER, precision);
+        return precision == 0 ? UNLIMITED_NUMBER: new NumberColumnType(ColumnTypeSpec.NUMBER, precision);
     }
 
     /**

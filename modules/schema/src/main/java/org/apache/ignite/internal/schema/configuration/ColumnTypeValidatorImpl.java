@@ -38,8 +38,10 @@ public class ColumnTypeValidatorImpl implements Validator<ColumnTypeValidator, C
 
         try {
             SchemaConfigurationConverter.convert(newType);
-        } catch (IllegalArgumentException ex) {
+        } catch (Exception ex) {
             ctx.addIssue(new ValidationIssue(ex.getMessage()));
+
+            return;
         }
 
         if (oldType == null)

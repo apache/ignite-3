@@ -22,10 +22,12 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import com.google.common.collect.Lists;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
+import org.apache.ignite.configuration.schemas.table.ColumnChange;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -107,70 +109,36 @@ abstract class AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        Assertions.assertThrows(ConfigurationValidationException.class, () -> {
-            grid.get(0).tables().alterTable(TABLE,
-                tblChanger -> tblChanger.changeColumns(cols -> {
-                    final String colKey = tblChanger.columns().namedListKeys().stream()
-                        .filter(c -> "valInt".equals(tblChanger.columns().get(c).name()))
-                        .findFirst()
-                        .orElseGet(() -> Assertions.fail("Column not found."));
+        assertColumnChangeThrows(grid, "valStr", colChanger -> colChanger.changeType(c -> c.changeType("UNKNOWN_TYPE")));
+        assertColumnChangeThrows(grid, "valStr", colChanger -> colChanger.changeType(c -> c.changeType("BYTES")));
 
-                    tblChanger.changeColumns(listChanger ->
-                        listChanger.createOrUpdate(colKey, colChanger -> colChanger.changeType(c -> c.changeType("STRING")))
-                    );
-                })
-            );
-        });
-    }
+        assertColumnChangeThrows(grid, "valInt", colChanger -> colChanger.changeType(c -> c.changePrecision(10)));
+        assertColumnChangeThrows(grid, "valInt", colChanger -> colChanger.changeType(c -> c.changeScale(10)));
+        assertColumnChangeThrows(grid, "valInt", colChanger -> colChanger.changeType(c -> c.changeLength(1)));
 
-    /**
-     * Check unsupported column nullability change.
-     */
-    @Test
-    public void testMakeColumnNonNullable() {
-        List<Ignite> grid = startGrid();
+        assertColumnChangeThrows(grid, "valBigInt", colChanger -> colChanger.changeType(c -> c.changePrecision(10)));
+//        assertColumnChageThrows(grid, "valBigInt", colChanger -> colChanger.changeType(c -> c.changePrecision(0)));
+//        assertColumnChageThrows(grid, "valBigInt", colChanger -> colChanger.changeType(c -> c.changePrecision(-1)));
+        assertColumnChangeThrows(grid, "valBigInt", colChanger -> colChanger.changeType(c -> c.changeScale(2)));
+        assertColumnChangeThrows(grid, "valBigInt", colChanger -> colChanger.changeType(c -> c.changeLength(10)));
 
-        createTable(grid);
-
-        Assertions.assertThrows(ConfigurationValidationException.class, () -> {
-            grid.get(0).tables().alterTable(TABLE,
-                tblChanger -> tblChanger.changeColumns(cols -> {
-                    final String colKey = tblChanger.columns().namedListKeys().stream()
-                        .filter(c -> "valInt".equals(tblChanger.columns().get(c).name()))
-                        .findFirst()
-                        .orElseGet(() -> Assertions.fail("Column not found."));
-
-                    tblChanger.changeColumns(listChanger ->
-                        listChanger.createOrUpdate(colKey, colChanger -> colChanger.changeNullable(false))
-                    );
-                })
-            );
-        });
+//        assertColumnChageThrows(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(0)));
+//        assertColumnChageThrows(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(-1)));
+//        assertColumnChageThrows(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeScale(-2)));
+        assertColumnChangeThrows(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeLength(10)));
     }
 
     /**
      * Check unsupported nullability change.
      */
     @Test
-    public void testMakeColumnsNullable() {
+    public void testChangeColumnsNullability() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
 
-        Assertions.assertThrows(ConfigurationValidationException.class, () -> {
-            grid.get(0).tables().alterTable(TABLE,
-                tblChanger -> tblChanger.changeColumns(cols -> {
-                    final String colKey = tblChanger.columns().namedListKeys().stream()
-                        .filter(c -> "valStr".equals(tblChanger.columns().get(c).name()))
-                        .findFirst()
-                        .orElseGet(() -> Assertions.fail("Column not found."));
-
-                    tblChanger.changeColumns(listChanger ->
-                        listChanger.createOrUpdate(colKey, colChanger -> colChanger.changeNullable(true))
-                    );
-                })
-            );
-        });
+        assertColumnChangeThrows(grid, "valStr", colChanger -> colChanger.changeNullable(true));
+        assertColumnChangeThrows(grid, "valInt", colChanger -> colChanger.changeNullable(false));
     }
 
     /**
@@ -192,6 +160,8 @@ abstract class AbstractSchemaChangeTest {
         SchemaTable schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
             SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
             SchemaBuilders.column("valInt", ColumnType.INT32).asNullable().build(),
+            SchemaBuilders.column("valDecimal", ColumnType.decimalOf()).asNullable().build(),
+            SchemaBuilders.column("valBigInt", ColumnType.numberOf()).asNullable().build(),
             SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build()
         ).withPrimaryKey("key").build();
 
@@ -275,5 +245,21 @@ abstract class AbstractSchemaChangeTest {
                 );
             })
         );
+    }
+
+    private void assertColumnChangeThrows(List<Ignite> grid, String colName, Consumer<ColumnChange> colChanger) {
+        Assertions.assertThrows(ConfigurationValidationException.class, () -> {
+            grid.get(0).tables().alterTable(TABLE,
+                tblChanger -> tblChanger.changeColumns(cols -> {
+                    final String colKey = tblChanger.columns().namedListKeys().stream()
+                                              .filter(c -> colName.equals(tblChanger.columns().get(c).name()))
+                                              .findFirst()
+                                              .orElseGet(() -> Assertions.fail("Column not found."));
+
+                    tblChanger.changeColumns(listChanger ->  listChanger.createOrUpdate(colKey, colChanger)
+                    );
+                })
+            );
+        });
     }
 }
