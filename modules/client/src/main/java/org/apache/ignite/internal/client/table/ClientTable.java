@@ -101,12 +101,12 @@ public class ClientTable implements Table {
 
     /** {@inheritDoc} */
     @Override public <R> RecordView<R> recordView(RecordMapper<R> recMapper) {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public <K, V> KeyValueView<K, V> keyValueView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper) {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     @Override public RecordView<Tuple> recordView() {

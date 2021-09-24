@@ -268,7 +268,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
             InvokeProcessor<Tuple, Tuple, R> proc,
             Serializable... args
     ) {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -277,7 +277,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
             InvokeProcessor<Tuple, Tuple, R> proc,
             Serializable... args
     ) {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -286,7 +286,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
             InvokeProcessor<Tuple, Tuple, R> proc,
             Serializable... args
     ) {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -295,18 +295,18 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
             InvokeProcessor<Tuple, Tuple, R> proc,
             Serializable... args
     ) {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @Nullable Transaction transaction() {
         // TODO: Transactions IGNITE-15240
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public KeyValueView<Tuple, Tuple> withTransaction(Transaction tx) {
         // TODO: Transactions IGNITE-15240
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 }
