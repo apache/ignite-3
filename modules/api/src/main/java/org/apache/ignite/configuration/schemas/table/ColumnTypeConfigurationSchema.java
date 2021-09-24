@@ -19,6 +19,7 @@ package org.apache.ignite.configuration.schemas.table;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Immutable;
 
 /**
  * Configuration for SQL table column type.
@@ -27,6 +28,7 @@ import org.apache.ignite.configuration.annotation.Value;
 public class ColumnTypeConfigurationSchema {
     /** Type name. */
     @Value
+    @Immutable
     public String type;
 
     /** Length. */

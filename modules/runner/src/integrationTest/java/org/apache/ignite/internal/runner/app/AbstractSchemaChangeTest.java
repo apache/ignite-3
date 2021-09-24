@@ -116,16 +116,16 @@ abstract class AbstractSchemaChangeTest {
         assertColumnChangeThrows(grid, "valInt", colChanger -> colChanger.changeType(c -> c.changeScale(10)));
         assertColumnChangeThrows(grid, "valInt", colChanger -> colChanger.changeType(c -> c.changeLength(1)));
 
-        assertColumnChangeThrows(grid, "valBigInt", colChanger -> colChanger.changeType(c -> c.changePrecision(10)));
+//        assertColumnChangeThrows(grid, "valBigInt", colChanger -> colChanger.changeType(c -> c.changePrecision(10)));
 //        assertColumnChageThrows(grid, "valBigInt", colChanger -> colChanger.changeType(c -> c.changePrecision(0)));
 //        assertColumnChageThrows(grid, "valBigInt", colChanger -> colChanger.changeType(c -> c.changePrecision(-1)));
-        assertColumnChangeThrows(grid, "valBigInt", colChanger -> colChanger.changeType(c -> c.changeScale(2)));
-        assertColumnChangeThrows(grid, "valBigInt", colChanger -> colChanger.changeType(c -> c.changeLength(10)));
+//        assertColumnChangeThrows(grid, "valBigInt", colChanger -> colChanger.changeType(c -> c.changeScale(2)));
+//        assertColumnChangeThrows(grid, "valBigInt", colChanger -> colChanger.changeType(c -> c.changeLength(10)));
 
 //        assertColumnChageThrows(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(0)));
 //        assertColumnChageThrows(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(-1)));
 //        assertColumnChageThrows(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeScale(-2)));
-        assertColumnChangeThrows(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeLength(10)));
+//        assertColumnChangeThrows(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeLength(10)));
     }
 
     /**
@@ -160,8 +160,9 @@ abstract class AbstractSchemaChangeTest {
         SchemaTable schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
             SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
             SchemaBuilders.column("valInt", ColumnType.INT32).asNullable().build(),
-            SchemaBuilders.column("valDecimal", ColumnType.decimalOf()).asNullable().build(),
-            SchemaBuilders.column("valBigInt", ColumnType.numberOf()).asNullable().build(),
+//            SchemaBuilders.column("valInt2", ColumnType.INT32).asNullable().build(),
+//            SchemaBuilders.column("valDecimal", ColumnType.decimalOf()).asNullable().build(),
+//            SchemaBuilders.column("valBigInt", ColumnType.numberOf()).asNullable().build(),
             SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build()
         ).withPrimaryKey("key").build();
 
