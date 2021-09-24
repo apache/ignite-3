@@ -264,7 +264,7 @@ public class ColumnType {
         private static final VarLenColumnType UNLIMITED_STRING = new VarLenColumnType(ColumnTypeSpec.STRING, 0);
 
         /** Blob varlen type of unlimited length. */
-        private static final VarLenColumnType UNLIMITED_BLOB = new VarLenColumnType(ColumnTypeSpec.BLOB, 0);;
+        private static final VarLenColumnType UNLIMITED_BLOB = new VarLenColumnType(ColumnTypeSpec.BLOB, 0);
 
         /** Max length. */
         private final int length;

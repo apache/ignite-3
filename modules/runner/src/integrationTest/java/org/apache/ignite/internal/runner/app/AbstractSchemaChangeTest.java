@@ -117,7 +117,7 @@ abstract class AbstractSchemaChangeTest {
                                               .findFirst()
                                               .orElseGet(() -> Assertions.fail("Column not found."));
 
-                    tblChanger.changeColumns(listChanger ->  listChanger.createOrUpdate(colKey, c -> c.changeType(t -> t.changeType("UNKNOWN_TYPE")))
+                    tblChanger.changeColumns(listChanger -> listChanger.createOrUpdate(colKey, c -> c.changeType(t -> t.changeType("UNKNOWN_TYPE")))
                     );
                 })
             );
@@ -270,7 +270,7 @@ abstract class AbstractSchemaChangeTest {
                                               .findFirst()
                                               .orElseGet(() -> Assertions.fail("Column not found."));
 
-                    tblChanger.changeColumns(listChanger ->  listChanger.createOrUpdate(colKey, colChanger)
+                    tblChanger.changeColumns(listChanger -> listChanger.createOrUpdate(colKey, colChanger)
                     );
                 })
             );
