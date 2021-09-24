@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.schema.SchemaMode;
+import org.apache.ignite.schema.definition.SchemaManagementMode;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -102,7 +102,7 @@ public class TableImpl implements Table {
     /**
      * @param schemaMode New schema management mode.
      */
-    public void schemaMode(SchemaMode schemaMode) {
+    public void schemaMode(SchemaManagementMode schemaMode) {
         this.tbl.schema(schemaMode);
     }
 }

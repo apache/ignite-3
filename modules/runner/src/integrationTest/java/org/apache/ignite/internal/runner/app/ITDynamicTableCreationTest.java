@@ -30,9 +30,9 @@ import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConver
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.SchemaTable;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -108,7 +108,7 @@ class ITDynamicTableCreationTest {
         assertEquals(3, clusterNodes.size());
 
         // Create table on node 0.
-        SchemaTable schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
+        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
             SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
             SchemaBuilders.column("val", ColumnType.INT32).asNullable().build()
         ).withPrimaryKey("key").build();
@@ -161,16 +161,15 @@ class ITDynamicTableCreationTest {
         assertEquals(3, clusterNodes.size());
 
         // Create table on node 0.
-        SchemaTable scmTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
+        TableDefinition scmTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
             SchemaBuilders.column("key", ColumnType.UUID).asNonNull().build(),
             SchemaBuilders.column("affKey", ColumnType.INT64).asNonNull().build(),
             SchemaBuilders.column("valStr", ColumnType.string()).asNullable().build(),
             SchemaBuilders.column("valInt", ColumnType.INT32).asNullable().build(),
             SchemaBuilders.column("valNull", ColumnType.INT16).asNullable().build()
-        ).withIndex(
-            SchemaBuilders.pkIndex()
-                .addIndexColumn("key").done()
-                .addIndexColumn("affKey").done()
+        ).withPrimaryKey(
+            SchemaBuilders.primaryKey()
+                .withColumns("key", "affKey")
                 .withAffinityColumns("affKey")
                 .build()
         ).build();

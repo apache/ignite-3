@@ -24,7 +24,7 @@ import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.schema.SchemaMode;
+import org.apache.ignite.schema.definition.SchemaManagementMode;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -67,7 +67,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
         Table tbl = grid.get(0).tables().table(TABLE);
         RecordView<Tuple> recView = tbl.recordView();
 
-        ((TableImpl)tbl).schemaMode(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
 
         Tuple row = Tuple.create().set("key", 1L).set("valStrNew", "111").set("valIntNew", 333);
 
@@ -95,7 +95,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         recView.insert(oldSchemaTuple);
 
-        ((TableImpl)tbl).schemaMode(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
 
         Tuple upsertOldSchemaTuple = Tuple.create().set("key", 32L).set("valStrNew", "111").set("valIntNew", 333);
 
@@ -121,7 +121,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         Tuple oldSchemaTuple = Tuple.create().set("key", 32L).set("valInt", 111).set("valStr", "str");
 
-        ((TableImpl)tbl).schemaMode(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
 
         Tuple row = Tuple.create().set("key", 1L).set("valStrNew", "111").set("valIntNew", 333);
 
@@ -151,7 +151,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
         Table tbl = grid.get(0).tables().table(TABLE);
         RecordView<Tuple> recView = tbl.recordView();
 
-        ((TableImpl)tbl).schemaMode(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
 
         Tuple val = Tuple.create().set("key", 1L).set("valStrNew", "111").set("valIntNew", 333);
 
@@ -161,7 +161,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
         assertEquals("111", res.value("valStrNew"));
         assertEquals(Integer.valueOf(333), res.value("valIntNew"));
 
-        ((TableImpl)tbl).schemaMode(SchemaMode.STRICT_SCHEMA);
+        ((TableImpl)tbl).schemaMode(SchemaManagementMode.STRICT);
 
         Tuple anotherKey = Tuple.create().set("key", 2L).set("valStrNew", "111").set("valIntNew", 333);
 
@@ -187,7 +187,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
         Table tbl = grid.get(0).tables().table(TABLE);
         RecordView<Tuple> recView = tbl.recordView();
 
-        ((TableImpl)tbl).schemaMode(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
 
         Tuple oldSchemaVal = Tuple.create().set("key", 32L).set("valInt", 111).set("valStr", "str");
         Tuple upsertOldSchemaVal = Tuple.create().set("key", 32L).set("valStrNew", "111").set("valIntNew", 333);
@@ -216,7 +216,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
         Table tbl = grid.get(0).tables().table(TABLE);
         RecordView<Tuple> recView = tbl.recordView();
 
-        ((TableImpl)tbl).schemaMode(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
 
         UUID uuid = UUID.randomUUID();
 
@@ -273,7 +273,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
         Table tbl = grid.get(0).tables().table(TABLE);
         RecordView<Tuple> recView = tbl.recordView();
 
-        ((TableImpl)tbl).schemaMode(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
 
         UUID uuid = UUID.randomUUID();
 
@@ -307,7 +307,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
         Table tbl = grid.get(0).tables().table(TABLE);
         RecordView<Tuple> recView = tbl.recordView();
 
-        ((TableImpl)tbl).schemaMode(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
 
         Tuple rowWithObject = Tuple.create().set("key", 1L).set("newBrokenColumn", new Object());
 

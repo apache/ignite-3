@@ -22,7 +22,7 @@ import org.apache.ignite.app.Ignite;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.schema.SchemaMode;
+import org.apache.ignite.schema.definition.SchemaManagementMode;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -61,7 +61,7 @@ class ITLiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(1).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaMode(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
 
         KeyValueView<Tuple, Tuple> kvBinaryView = tbl.keyValueView();
 
@@ -86,7 +86,7 @@ class ITLiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(0).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaMode(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
 
         KeyValueView<Tuple, Tuple> kvBinaryView = tbl.keyValueView();
 
@@ -99,7 +99,7 @@ class ITLiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
         assertEquals("111", res.value("valStrNew"));
         assertEquals(Integer.valueOf(333), res.value("valIntNew"));
 
-        ((TableImpl)tbl).schemaMode(SchemaMode.STRICT_SCHEMA);
+        ((TableImpl)tbl).schemaMode(SchemaManagementMode.STRICT);
 
         Tuple anotherKey = Tuple.create().set("key", 2L);
         Tuple anotherVal = Tuple.create().set("valStrNew", "111").set("valIntNew", 333);
@@ -125,7 +125,7 @@ class ITLiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(1).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaMode(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
 
         KeyValueView<Tuple, Tuple> view = tbl.keyValueView();
 
@@ -155,7 +155,7 @@ class ITLiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(1).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaMode(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
 
         KeyValueView<Tuple, Tuple> view = tbl.keyValueView();
 
@@ -187,7 +187,7 @@ class ITLiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(0).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaMode(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
 
         KeyValueView<Tuple, Tuple> view = tbl.keyValueView();
 
