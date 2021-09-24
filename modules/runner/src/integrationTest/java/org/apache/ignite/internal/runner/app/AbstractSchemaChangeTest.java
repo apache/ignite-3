@@ -37,7 +37,6 @@ import org.apache.ignite.schema.SchemaTable;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -128,7 +127,7 @@ abstract class AbstractSchemaChangeTest {
     /**
      * Check unsupported column nullability change.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15056")
+//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15056")
     @Test
     public void testMakeColumnNonNullable() {
         List<Ignite> grid = startGrid();
@@ -154,7 +153,7 @@ abstract class AbstractSchemaChangeTest {
     /**
      * Check unsupported nullability change.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15056")
+//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15056")
     @Test
     public void testMakeColumnsNullable() {
         List<Ignite> grid = startGrid();

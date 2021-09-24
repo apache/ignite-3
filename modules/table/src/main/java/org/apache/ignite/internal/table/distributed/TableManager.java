@@ -480,7 +480,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override public void alterTable(String name, Consumer<TableChange> tableChange) {
-        alterTableAsync(name, tableChange).join();
+        join(alterTableAsync(name, tableChange));
     }
 
     /** {@inheritDoc} */
@@ -805,5 +805,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private boolean isTableConfigured(String name) {
         return tableNamesConfigured().contains(name);
+    }
+
+    /**
+     * Join and unwrap {@link CompletionException} to {@link IgniteException} if needed.
+     *
+     * @param future Completable future.
+     */
+    private void join(CompletableFuture<Void> future) {
+        try {
+            future.join();
+        }
+        catch (CompletionException ex) {
+            if (ex.getCause() instanceof RuntimeException)
+                throw (IgniteException)ex.getCause();
+
+            throw ex;
+        }
     }
 }

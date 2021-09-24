@@ -36,14 +36,22 @@ public class ColumnTypeValidatorImpl implements Validator<ColumnTypeValidator, C
         ColumnTypeView newType = ctx.getNewValue();
         ColumnTypeView oldType = ctx.getOldValue();
 
-        if (!Objects.deepEquals(newType, oldType))
-            ctx.addIssue(new ValidationIssue("Unsupported column type change: " + ctx.currentKey()));
-
         try {
             SchemaConfigurationConverter.convert(newType);
         } catch (IllegalArgumentException ex) {
             ctx.addIssue(new ValidationIssue(ex.getMessage()));
         }
+
+        if (oldType == null)
+            return; // Nothing to do.
+
+        if (!Objects.deepEquals(newType.type(), oldType.type()) ||
+                newType.precision() != oldType.precision() ||
+                newType.scale() != oldType.scale() ||
+                newType.length() != oldType.length())
+//        if (!Objects.deepEquals(newType, oldType))
+            ctx.addIssue(new ValidationIssue("Unsupported column type change: " + ctx.currentKey()));
+
     }
 
     /** Private constructor. */
