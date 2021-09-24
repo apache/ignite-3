@@ -74,14 +74,18 @@ class ConfigurationNotificationEventImpl<VIEW> implements ConfigurationNotificat
     }
 
     /** {@inheritDoc} */
-    @Override public <T extends ConfigurationProperty> @Nullable T config(Class<T> configClass) {
+    @Override public <T extends ConfigurationProperty> @Nullable T config(
+        Class<? extends ConfigurationProperty> configClass
+    ) {
         ConfigurationContainer container = configs.get(configClass);
 
         return container == null ? null : (T)container.config;
     }
 
     /** {@inheritDoc} */
-    @Override public @Nullable <T extends ConfigurationProperty> String keyNamedConfig(Class<T> configClass) {
+    @Override public @Nullable <T extends ConfigurationProperty> String name(
+        Class<? extends ConfigurationProperty> configClass
+    ) {
         ConfigurationContainer container = configs.get(configClass);
 
         return container == null ? null : container.keyNamedConfig;

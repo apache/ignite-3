@@ -121,6 +121,11 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEW>, VIEW,
     }
 
     /** {@inheritDoc} */
+    @Override public void stopListenElements(ConfigurationNamedListListener<VIEW> listener) {
+        extendedListeners.remove(listener);
+    }
+
+    /** {@inheritDoc} */
     @Override public T any() {
         return anyConfig;
     }

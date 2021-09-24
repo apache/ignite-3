@@ -52,7 +52,7 @@ public interface ConfigurationNotificationEvent<VIEW> {
     long storageRevision();
 
     /**
-     * Get the parent (any from the root) or current configuration.
+     * Returns the parent (any from the root) or current configuration.
      * <p>
      * For example, if we changed the child configuration, then we can get both the parent
      * and the current child configuration.
@@ -61,10 +61,10 @@ public interface ConfigurationNotificationEvent<VIEW> {
      * @param <T> Configuration type.
      * @return Configuration instance.
      */
-    @Nullable <T extends ConfigurationProperty> T config(Class<T> configClass);
+    @Nullable <T extends ConfigurationProperty> T config(Class<? extends ConfigurationProperty> configClass);
 
     /**
-     * Get the key of a named list item for the parent (any from the root) or current configuration.
+     * Returns the key of a named list item for the parent (any from the root) or current configuration.
      * <p>
      * For example, if a column of a table has changed, then we can get the name of the table and columns
      * for which the changes have occurred.
@@ -73,5 +73,5 @@ public interface ConfigurationNotificationEvent<VIEW> {
      * @param <T> Configuration type.
      * @return Configuration instance.
      */
-    @Nullable <T extends ConfigurationProperty> String keyNamedConfig(Class<T> configClass);
+    @Nullable <T extends ConfigurationProperty> String name(Class<? extends ConfigurationProperty> configClass);
 }

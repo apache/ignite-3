@@ -656,7 +656,7 @@ public class ConfigurationNotificationsUtil {
     }
 
     /**
-     * Get the dynamic property of the leaf.
+     * Returns the dynamic property of the leaf.
      *
      * @param dynamicConfig Dynamic configuration.
      * @param nodeName Name of the child node.
@@ -670,7 +670,7 @@ public class ConfigurationNotificationsUtil {
     }
 
     /**
-     * Get the dynamic configuration of the child node.
+     * Returns the dynamic configuration of the child node.
      *
      * @param dynamicConfig Dynamic configuration.
      * @param nodeName Name of the child node.
@@ -684,7 +684,7 @@ public class ConfigurationNotificationsUtil {
     }
 
     /**
-     * Get the named dynamic configuration of the child node.
+     * Returns the named dynamic configuration of the child node.
      *
      * @param dynamicConfig Dynamic configuration.
      * @param nodeName Name of the child node.
@@ -698,7 +698,7 @@ public class ConfigurationNotificationsUtil {
     }
 
     /**
-     * Get the dynamic configuration of the {@link NamedListConfiguration#any any} node.
+     * Returns the dynamic configuration of the {@link NamedListConfiguration#any any} node.
      *
      * @param namedConfig Dynamic configuration.
      * @return Dynamic configuration of the "any" node.

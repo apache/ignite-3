@@ -24,10 +24,10 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Configuration container for {@link ConfigurationNotificationEvent#config} and
- * {@link ConfigurationNotificationEvent#keyNamedConfig}.
+ * {@link ConfigurationNotificationEvent#name}.
  */
 class ConfigurationContainer {
-    /** Key of the named list item for {@link ConfigurationNotificationEvent#keyNamedConfig}. */
+    /** Key of the named list item for {@link ConfigurationNotificationEvent#name}. */
     @Nullable final String keyNamedConfig;
 
     /** Configuration for {@link ConfigurationNotificationEvent#config}. */
@@ -36,7 +36,7 @@ class ConfigurationContainer {
     /**
      * Constructor.
      *
-     * @param keyNamedConfig Key of the named list item for {@link ConfigurationNotificationEvent#keyNamedConfig}.
+     * @param keyNamedConfig Key of the named list item for {@link ConfigurationNotificationEvent#name}.
      * @param config Configuration for {@link ConfigurationNotificationEvent#config}.
      */
     ConfigurationContainer(

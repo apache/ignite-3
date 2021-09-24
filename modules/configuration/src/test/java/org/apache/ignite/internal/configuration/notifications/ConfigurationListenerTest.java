@@ -662,32 +662,42 @@ public class ConfigurationListenerTest {
         ConfigurationListener<ParentView> listener0 = configListener(ctx -> events.add("0"));
         ConfigurationListener<ParentView> listener1 = configListener(ctx -> events.add("1"));
 
+        ConfigurationNamedListListener<ChildView> listener2 = configNamedListenerOnUpdate(ctx -> events.add("2"));
+        ConfigurationNamedListListener<ChildView> listener3 = configNamedListenerOnUpdate(ctx -> events.add("3"));
+
         configuration.listen(listener0);
         configuration.listen(listener1);
 
+        configuration.elements().listenElements(listener2);
+        configuration.elements().listenElements(listener3);
+
+        configuration.elements().change(c -> c.create("0", doNothingConsumer())).get(1, SECONDS);
+
         checkContainsListeners(
-            () -> configuration.change(c -> c.changeChild(c0 -> c0.changeStr(UUID.randomUUID().toString()))),
+            () -> configuration.elements().get("0").str().update(UUID.randomUUID().toString()),
             events,
-            List.of("0", "1"),
+            List.of("0", "1", "2", "3"),
             List.of()
         );
 
         configuration.stopListen(listener0);
+        configuration.elements().stopListenElements(listener2);
 
         checkContainsListeners(
-            () -> configuration.change(c -> c.changeChild(c0 -> c0.changeStr(UUID.randomUUID().toString()))),
+            () -> configuration.elements().get("0").str().update(UUID.randomUUID().toString()),
             events,
-            List.of("1"),
-            List.of("0")
+            List.of("1", "3"),
+            List.of("0", "2")
         );
 
         configuration.stopListen(listener1);
+        configuration.elements().stopListenElements(listener3);
 
         checkContainsListeners(
-            () -> configuration.change(c -> c.changeChild(c0 -> c0.changeStr(UUID.randomUUID().toString()))),
+            () -> configuration.elements().get("0").str().update(UUID.randomUUID().toString()),
             events,
             List.of(),
-            List.of("0", "1")
+            List.of("0", "1", "2", "3")
         );
     }
 
@@ -700,7 +710,7 @@ public class ConfigurationListenerTest {
             ParentConfiguration parent = ctx.config(ParentConfiguration.class);
 
             assertNotNull(parent);
-            assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
+            assertNull(ctx.name(ParentConfiguration.class));
 
             assertEquals(newVal, parent.child().str().value());
         }));
@@ -711,7 +721,7 @@ public class ConfigurationListenerTest {
             ChildConfiguration child = ctx.config(ChildConfiguration.class);
 
             assertNotNull(child);
-            assertNull(ctx.keyNamedConfig(ChildConfiguration.class));
+            assertNull(ctx.name(ChildConfiguration.class));
 
             assertEquals(newVal, child.str().value());
         }));
@@ -722,7 +732,7 @@ public class ConfigurationListenerTest {
             ChildConfiguration child = ctx.config(ChildConfiguration.class);
 
             assertNotNull(child);
-            assertNull(ctx.keyNamedConfig(ChildConfiguration.class));
+            assertNull(ctx.name(ChildConfiguration.class));
 
             assertEquals(newVal, child.str().value());
         }));
@@ -740,22 +750,22 @@ public class ConfigurationListenerTest {
             ParentConfiguration parent = ctx.config(ParentConfiguration.class);
 
             assertNotNull(parent);
-            assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
+            assertNull(ctx.name(ParentConfiguration.class));
 
             assertNull(ctx.config(ChildConfiguration.class));
-            assertNull(ctx.keyNamedConfig(ChildConfiguration.class));
+            assertNull(ctx.name(ChildConfiguration.class));
 
             assertEquals(newVal, parent.elements().get(key).str().value());
         }));
 
         configuration.elements().listenElements(configNamedListenerOnCreate(ctx -> {
             assertNotNull(ctx.config(ParentConfiguration.class));
-            assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
+            assertNull(ctx.name(ParentConfiguration.class));
 
             ChildConfiguration child = ctx.config(ChildConfiguration.class);
 
             assertNotNull(child);
-            assertEquals(key, ctx.keyNamedConfig(ChildConfiguration.class));
+            assertEquals(key, ctx.name(ChildConfiguration.class));
 
             assertEquals(newVal, child.str().value());
         }));
@@ -776,10 +786,10 @@ public class ConfigurationListenerTest {
             ParentConfiguration parent = ctx.config(ParentConfiguration.class);
 
             assertNotNull(parent);
-            assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
+            assertNull(ctx.name(ParentConfiguration.class));
 
             assertNull(ctx.config(ChildConfiguration.class));
-            assertNull(ctx.keyNamedConfig(ChildConfiguration.class));
+            assertNull(ctx.name(ChildConfiguration.class));
 
             assertNull(parent.elements().get(oldKey));
             assertEquals(val, parent.elements().get(newKey).str().value());
@@ -787,12 +797,12 @@ public class ConfigurationListenerTest {
 
         configuration.elements().listenElements(configNamedListenerOnRename(ctx -> {
             assertNotNull(ctx.config(ParentConfiguration.class));
-            assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
+            assertNull(ctx.name(ParentConfiguration.class));
 
             ChildConfiguration child = ctx.config(ChildConfiguration.class);
 
             assertNotNull(child);
-            assertEquals(newKey, ctx.keyNamedConfig(ChildConfiguration.class));
+            assertEquals(newKey, ctx.name(ChildConfiguration.class));
 
             assertEquals(val, child.str().value());
         }));
@@ -811,28 +821,28 @@ public class ConfigurationListenerTest {
             ParentConfiguration parent = ctx.config(ParentConfiguration.class);
 
             assertNotNull(parent);
-            assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
+            assertNull(ctx.name(ParentConfiguration.class));
 
             assertNull(ctx.config(ChildConfiguration.class));
-            assertNull(ctx.keyNamedConfig(ChildConfiguration.class));
+            assertNull(ctx.name(ChildConfiguration.class));
 
             assertNull(parent.elements().get(key));
         }));
 
         configuration.elements().listenElements(configNamedListenerOnDelete(ctx -> {
             assertNotNull(ctx.config(ParentConfiguration.class));
-            assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
+            assertNull(ctx.name(ParentConfiguration.class));
 
             assertNull(ctx.config(ChildConfiguration.class));
-            assertEquals(key, ctx.keyNamedConfig(ChildConfiguration.class));
+            assertEquals(key, ctx.name(ChildConfiguration.class));
         }));
 
         configuration.elements().get(key).listen(configListener(ctx -> {
             assertNotNull(ctx.config(ParentConfiguration.class));
-            assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
+            assertNull(ctx.name(ParentConfiguration.class));
 
             assertNull(ctx.config(ChildConfiguration.class));
-            assertEquals(key, ctx.keyNamedConfig(ChildConfiguration.class));
+            assertEquals(key, ctx.name(ChildConfiguration.class));
         }));
 
         configuration.elements().change(c -> c.delete(key)).get(1, SECONDS);
@@ -850,34 +860,34 @@ public class ConfigurationListenerTest {
             ParentConfiguration parent = ctx.config(ParentConfiguration.class);
 
             assertNotNull(parent);
-            assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
+            assertNull(ctx.name(ParentConfiguration.class));
 
             assertNull(ctx.config(ChildConfiguration.class));
-            assertNull(ctx.keyNamedConfig(ChildConfiguration.class));
+            assertNull(ctx.name(ChildConfiguration.class));
 
             assertEquals(newVal, parent.elements().get(key).str().value());
         }));
 
         configuration.elements().listenElements(configNamedListenerOnUpdate(ctx -> {
             assertNotNull(ctx.config(ParentConfiguration.class));
-            assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
+            assertNull(ctx.name(ParentConfiguration.class));
 
             ChildConfiguration child = ctx.config(ChildConfiguration.class);
 
             assertNotNull(child);
-            assertEquals(key, ctx.keyNamedConfig(ChildConfiguration.class));
+            assertEquals(key, ctx.name(ChildConfiguration.class));
 
             assertEquals(newVal, child.str().value());
         }));
 
         configuration.elements().get(key).listen(configListener(ctx -> {
             assertNotNull(ctx.config(ParentConfiguration.class));
-            assertNull(ctx.keyNamedConfig(ParentConfiguration.class));
+            assertNull(ctx.name(ParentConfiguration.class));
 
             ChildConfiguration child = ctx.config(ChildConfiguration.class);
 
             assertNotNull(child);
-            assertEquals(key, ctx.keyNamedConfig(ChildConfiguration.class));
+            assertEquals(key, ctx.name(ChildConfiguration.class));
 
             assertEquals(newVal, child.str().value());
         }));

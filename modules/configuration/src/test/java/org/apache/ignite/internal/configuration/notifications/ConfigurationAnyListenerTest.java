@@ -29,6 +29,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
+import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.junit.jupiter.api.AfterEach;
@@ -467,24 +468,34 @@ public class ConfigurationAnyListenerTest {
     /** */
     @Test
     void testAnyStopListen() throws Exception {
-        ConfigurationListener<FirstSubView> listener = configListener(ctx -> events.add("root.elements.any2"));
+        ConfigurationListener<FirstSubView> listener0 = configListener(ctx -> events.add("root.elements.any2"));
 
-        rootConfig.elements().any().listen(listener);
+        ConfigurationNamedListListener<SecondSubView> listener1 = configNamedListenerOnUpdate(
+            ctx -> events.add("root.elements.any2.elements2.onUpd")
+        );
+
+        rootConfig.elements().any().listen(listener0);
+        rootConfig.elements().any().elements2().listenElements(listener1);
 
         checkContainsListeners(
-            () -> rootConfig.elements().get("0").str().update(UUID.randomUUID().toString()),
+            () -> rootConfig.elements().get("0").elements2().get("0").i().update(Integer.MAX_VALUE),
             events,
-            List.of("root.elements.any", "root.elements.any2"),
+            List.of(
+                "root.elements.any",
+                "root.elements.any2",
+                "root.elements.any2.elements2.onUpd"
+            ),
             List.of()
         );
 
-        rootConfig.elements().any().stopListen(listener);
+        rootConfig.elements().any().stopListen(listener0);
+        rootConfig.elements().any().elements2().stopListenElements(listener1);
 
         checkContainsListeners(
-            () -> rootConfig.elements().get("0").str().update(UUID.randomUUID().toString()),
+            () -> rootConfig.elements().get("0").elements2().get("0").i().update(Integer.MIN_VALUE),
             events,
             List.of("root.elements.any"),
-            List.of("root.elements.any2")
+            List.of("root.elements.any2", "root.elements.any2.elements2.onUpd")
         );
     }
 
@@ -496,25 +507,25 @@ public class ConfigurationAnyListenerTest {
 
         rootConfig.elements().any().listen(configListener(ctx -> {
             assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
         }));
 
         rootConfig.elements().change(c -> c.create(key0, doNothingConsumer())).get(1, SECONDS);
 
         rootConfig.elements().any().elements2().listenElements(configNamedListenerOnCreate(ctx -> {
             assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
 
             assertNotNull(ctx.config(SecondSubConfiguration.class));
-            assertEquals(key1, ctx.keyNamedConfig(SecondSubConfiguration.class));
+            assertEquals(key1, ctx.name(SecondSubConfiguration.class));
         }));
 
         rootConfig.elements().any().elements2().any().listen(configListener(ctx -> {
             assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
 
             assertNotNull(ctx.config(SecondSubConfiguration.class));
-            assertEquals(key1, ctx.keyNamedConfig(SecondSubConfiguration.class));
+            assertEquals(key1, ctx.name(SecondSubConfiguration.class));
         }));
 
         rootConfig.elements().get(key0).elements2().change(c -> c.create(key1, doNothingConsumer())).get(1, SECONDS);
@@ -529,7 +540,7 @@ public class ConfigurationAnyListenerTest {
 
         rootConfig.elements().any().listen(configListener(ctx -> {
             assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
         }));
 
         rootConfig.elements()
@@ -538,18 +549,18 @@ public class ConfigurationAnyListenerTest {
 
         rootConfig.elements().get(key0).elements2().listenElements(configNamedListenerOnRename(ctx -> {
             assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
 
             assertNotNull(ctx.config(SecondSubConfiguration.class));
-            assertEquals(newKey1, ctx.keyNamedConfig(SecondSubConfiguration.class));
+            assertEquals(newKey1, ctx.name(SecondSubConfiguration.class));
         }));
 
         rootConfig.elements().any().elements2().listenElements(configNamedListenerOnRename(ctx -> {
             assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
 
             assertNotNull(ctx.config(SecondSubConfiguration.class));
-            assertEquals(newKey1, ctx.keyNamedConfig(SecondSubConfiguration.class));
+            assertEquals(newKey1, ctx.name(SecondSubConfiguration.class));
         }));
 
         rootConfig.elements().get(key0).elements2().change(c -> c.rename(oldKey1, newKey1)).get(1, SECONDS);
@@ -563,7 +574,7 @@ public class ConfigurationAnyListenerTest {
 
         rootConfig.elements().any().listen(configListener(ctx -> {
             assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
         }));
 
         rootConfig.elements()
@@ -572,34 +583,34 @@ public class ConfigurationAnyListenerTest {
 
         rootConfig.elements().any().elements2().listenElements(configNamedListenerOnDelete(ctx -> {
             assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
 
             assertNull(ctx.config(SecondSubConfiguration.class));
-            assertEquals(key1, ctx.keyNamedConfig(SecondSubConfiguration.class));
+            assertEquals(key1, ctx.name(SecondSubConfiguration.class));
         }));
 
         rootConfig.elements().get(key0).elements2().listenElements(configNamedListenerOnDelete(ctx -> {
             assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
 
             assertNull(ctx.config(SecondSubConfiguration.class));
-            assertEquals(key1, ctx.keyNamedConfig(SecondSubConfiguration.class));
+            assertEquals(key1, ctx.name(SecondSubConfiguration.class));
         }));
 
         rootConfig.elements().any().elements2().any().listen(configListener(ctx -> {
             assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
 
             assertNull(ctx.config(SecondSubConfiguration.class));
-            assertEquals(key1, ctx.keyNamedConfig(SecondSubConfiguration.class));
+            assertEquals(key1, ctx.name(SecondSubConfiguration.class));
         }));
 
         rootConfig.elements().get(key0).elements2().any().listen(configListener(ctx -> {
             assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
 
             assertNull(ctx.config(SecondSubConfiguration.class));
-            assertEquals(key1, ctx.keyNamedConfig(SecondSubConfiguration.class));
+            assertEquals(key1, ctx.name(SecondSubConfiguration.class));
         }));
 
         rootConfig.elements().get(key0).elements2().change(c -> c.delete(key1)).get(1, SECONDS);
@@ -618,36 +629,36 @@ public class ConfigurationAnyListenerTest {
 
         rootConfig.elements().any().elements2().listenElements(configNamedListenerOnUpdate(ctx -> {
             assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
 
             SecondSubConfiguration second = ctx.config(SecondSubConfiguration.class);
 
             assertNotNull(second);
-            assertEquals(key1, ctx.keyNamedConfig(SecondSubConfiguration.class));
+            assertEquals(key1, ctx.name(SecondSubConfiguration.class));
 
             assertEquals(newVal, second.i().value());
         }));
 
         rootConfig.elements().any().elements2().any().listen(configListener(ctx -> {
             assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
 
             SecondSubConfiguration second = ctx.config(SecondSubConfiguration.class);
 
             assertNotNull(second);
-            assertEquals(key1, ctx.keyNamedConfig(SecondSubConfiguration.class));
+            assertEquals(key1, ctx.name(SecondSubConfiguration.class));
 
             assertEquals(newVal, second.i().value());
         }));
 
         rootConfig.elements().get(key0).elements2().any().listen(configListener(ctx -> {
             assertNotNull(ctx.config(FirstSubConfiguration.class));
-            assertEquals(key0, ctx.keyNamedConfig(FirstSubConfiguration.class));
+            assertEquals(key0, ctx.name(FirstSubConfiguration.class));
 
             SecondSubConfiguration second = ctx.config(SecondSubConfiguration.class);
 
             assertNotNull(second);
-            assertEquals(key1, ctx.keyNamedConfig(SecondSubConfiguration.class));
+            assertEquals(key1, ctx.name(SecondSubConfiguration.class));
 
             assertEquals(newVal, second.i().value());
         }));

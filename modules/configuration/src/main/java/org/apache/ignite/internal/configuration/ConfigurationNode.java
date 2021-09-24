@@ -21,7 +21,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.configuration.ConfigurationListenOnlyException;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.RootKey;
@@ -37,7 +37,7 @@ import static java.util.Collections.unmodifiableCollection;
  */
 public abstract class ConfigurationNode<VIEW> implements ConfigurationProperty<VIEW> {
     /** Listeners of property update. */
-    private final Collection<ConfigurationListener<VIEW>> updateListeners = ConcurrentHashMap.newKeySet();
+    private final List<ConfigurationListener<VIEW>> updateListeners = new CopyOnWriteArrayList<>();
 
     /** Full path to the current node. */
     protected final List<String> keys;
