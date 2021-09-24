@@ -818,7 +818,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
         catch (CompletionException ex) {
             if (ex.getCause() instanceof RuntimeException)
-                throw (IgniteException)ex.getCause();
+                throw (RuntimeException)ex.getCause();
 
             throw ex;
         }

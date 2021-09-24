@@ -101,7 +101,6 @@ abstract class AbstractSchemaChangeTest {
     /**
      * Check unsupported column type change.
      */
-//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15056")
     @Test
     public void testChangeColumnType() {
         List<Ignite> grid = startGrid();
@@ -127,7 +126,6 @@ abstract class AbstractSchemaChangeTest {
     /**
      * Check unsupported column nullability change.
      */
-//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15056")
     @Test
     public void testMakeColumnNonNullable() {
         List<Ignite> grid = startGrid();
@@ -153,7 +151,6 @@ abstract class AbstractSchemaChangeTest {
     /**
      * Check unsupported nullability change.
      */
-//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15056")
     @Test
     public void testMakeColumnsNullable() {
         List<Ignite> grid = startGrid();
