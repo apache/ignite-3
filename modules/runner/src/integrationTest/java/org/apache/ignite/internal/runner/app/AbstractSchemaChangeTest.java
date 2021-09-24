@@ -123,7 +123,7 @@ abstract class AbstractSchemaChangeTest {
             );
         });
 
-        assertColumnChangeThrows(grid, "valStr", colChanger -> colChanger.changeType(c -> c.changeType("BYTES")));
+        assertColumnChangeThrows(grid, "valInt", colChanger -> colChanger.changeType(c -> c.changeType(ColumnType.blobOf().typeSpec().name())));
 
         assertColumnChangeThrows(grid, "valInt", colChanger -> colChanger.changeType(c -> c.changePrecision(10)));
         assertColumnChangeThrows(grid, "valInt", colChanger -> colChanger.changeType(c -> c.changeScale(10)));
