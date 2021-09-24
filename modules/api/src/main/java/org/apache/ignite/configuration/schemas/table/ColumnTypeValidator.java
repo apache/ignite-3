@@ -31,6 +31,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  */
 @Target({ FIELD, PARAMETER })
 @Retention(RUNTIME)
-public @interface TableColumnValidator {
+public @interface ColumnTypeValidator {
 
 }

@@ -17,30 +17,36 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
-import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.schemas.table.ColumnView;
-import org.apache.ignite.configuration.schemas.table.TableColumnValidator;
+import java.util.Objects;
+import org.apache.ignite.configuration.schemas.table.ColumnTypeValidator;
+import org.apache.ignite.configuration.schemas.table.ColumnTypeView;
 import org.apache.ignite.configuration.validation.ValidationContext;
+import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 
 /**
- * SchemaTable validator implementation.
+ * Column definition validator implementation validates column changes.
  */
-public class TableColumnValidatorImpl implements Validator<TableColumnValidator, NamedListView<ColumnView>> {
+public class ColumnTypeValidatorImpl implements Validator<ColumnTypeValidator, ColumnTypeView> {
     /** Static instance. */
-    public static final TableColumnValidatorImpl INSTANCE = new TableColumnValidatorImpl();
+    public static final ColumnTypeValidatorImpl INSTANCE = new ColumnTypeValidatorImpl();
 
     /** {@inheritDoc} */
-    @Override public void validate(TableColumnValidator annotation, ValidationContext<NamedListView<ColumnView>> ctx) {
-        NamedListView<ColumnView> list = ctx.getNewValue();
+    @Override public void validate(ColumnTypeValidator annotation, ValidationContext<ColumnTypeView> ctx) {
+        ColumnTypeView newType = ctx.getNewValue();
+        ColumnTypeView oldType = ctx.getOldValue();
 
-        for (String key : list.namedListKeys()) {
-            ColumnView view = list.get(key);
+        if (!Objects.deepEquals(newType, oldType))
+            ctx.addIssue(new ValidationIssue("Unsupported column type change: " + ctx.currentKey()));
+
+        try {
+            SchemaConfigurationConverter.convert(newType);
+        } catch (IllegalArgumentException ex) {
+            ctx.addIssue(new ValidationIssue(ex.getMessage()));
         }
-
     }
 
     /** Private constructor. */
-    private TableColumnValidatorImpl() {
+    private ColumnTypeValidatorImpl() {
     }
 }

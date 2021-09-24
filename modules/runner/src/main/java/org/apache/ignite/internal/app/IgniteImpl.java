@@ -22,11 +22,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.app.Ignite;
@@ -37,6 +37,8 @@ import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
+import org.apache.ignite.configuration.schemas.table.ColumnTypeValidator;
+import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -50,6 +52,8 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDBKeyValue
 import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
 import org.apache.ignite.internal.processors.query.calcite.SqlQueryProcessor;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.schema.configuration.ColumnTypeValidatorImpl;
+import org.apache.ignite.internal.schema.configuration.SchemaTableValidatorImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
@@ -145,7 +149,7 @@ public class IgniteImpl implements Ignite {
         vaultMgr = createVault(workDir);
 
         nodeCfgMgr = new ConfigurationManager(
-            Arrays.asList(
+            List.of(
                 NetworkConfiguration.KEY,
                 NodeConfiguration.KEY,
                 RestConfiguration.KEY,
@@ -178,11 +182,14 @@ public class IgniteImpl implements Ignite {
 
         // TODO: IGNITE-15414 Schema validation refactoring with configuration validators.
         clusterCfgMgr = new ConfigurationManager(
-            Arrays.asList(
+            List.of(
                 ClusterConfiguration.KEY,
                 TablesConfiguration.KEY
             ),
-            Map.of(),
+            Map.of(
+                TableValidator.class, Set.of(SchemaTableValidatorImpl.INSTANCE),
+                ColumnTypeValidator.class, Set.of(ColumnTypeValidatorImpl.INSTANCE)
+            ),
             new DistributedConfigurationStorage(metaStorageMgr, vaultMgr),
             Collections.singletonList(ExtendedTableConfigurationSchema.class)
         );

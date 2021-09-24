@@ -26,7 +26,7 @@ import java.util.function.Supplier;
 import com.google.common.collect.Lists;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
-import org.apache.ignite.internal.schema.InvalidTypeException;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -102,22 +102,20 @@ abstract class AbstractSchemaChangeTest {
     /**
      * Check unsupported column type change.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15056")
+//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15056")
     @Test
     public void testChangeColumnType() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
 
-        Assertions.assertThrows(InvalidTypeException.class, () -> {
+        Assertions.assertThrows(ConfigurationValidationException.class, () -> {
             grid.get(0).tables().alterTable(TABLE,
                 tblChanger -> tblChanger.changeColumns(cols -> {
                     final String colKey = tblChanger.columns().namedListKeys().stream()
                         .filter(c -> "valInt".equals(tblChanger.columns().get(c).name()))
                         .findFirst()
-                        .orElseThrow(() -> {
-                            throw new IllegalStateException("Column not found.");
-                        });
+                        .orElseGet(() -> Assertions.fail("Column not found."));
 
                     tblChanger.changeColumns(listChanger ->
                         listChanger.createOrUpdate(colKey, colChanger -> colChanger.changeType(c -> c.changeType("STRING")))
@@ -137,15 +135,13 @@ abstract class AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        Assertions.assertThrows(InvalidTypeException.class, () -> {
+        Assertions.assertThrows(ConfigurationValidationException.class, () -> {
             grid.get(0).tables().alterTable(TABLE,
                 tblChanger -> tblChanger.changeColumns(cols -> {
                     final String colKey = tblChanger.columns().namedListKeys().stream()
                         .filter(c -> "valInt".equals(tblChanger.columns().get(c).name()))
                         .findFirst()
-                        .orElseThrow(() -> {
-                            throw new IllegalStateException("Column not found.");
-                        });
+                        .orElseGet(() -> Assertions.fail("Column not found."));
 
                     tblChanger.changeColumns(listChanger ->
                         listChanger.createOrUpdate(colKey, colChanger -> colChanger.changeNullable(false))
@@ -165,15 +161,13 @@ abstract class AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        Assertions.assertThrows(InvalidTypeException.class, () -> {
+        Assertions.assertThrows(ConfigurationValidationException.class, () -> {
             grid.get(0).tables().alterTable(TABLE,
                 tblChanger -> tblChanger.changeColumns(cols -> {
                     final String colKey = tblChanger.columns().namedListKeys().stream()
                         .filter(c -> "valStr".equals(tblChanger.columns().get(c).name()))
                         .findFirst()
-                        .orElseThrow(() -> {
-                            throw new IllegalStateException("Column not found.");
-                        });
+                        .orElseGet(() -> Assertions.fail("Column not found."));
 
                     tblChanger.changeColumns(listChanger ->
                         listChanger.createOrUpdate(colKey, colChanger -> colChanger.changeNullable(true))

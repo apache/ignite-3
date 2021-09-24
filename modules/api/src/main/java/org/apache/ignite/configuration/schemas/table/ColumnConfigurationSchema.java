@@ -33,6 +33,7 @@ public class ColumnConfigurationSchema {
 
     /** Column type. */
     @ConfigValue
+    @ColumnTypeValidator
     public ColumnTypeConfigurationSchema type;
 
     /** Nullable flag. */

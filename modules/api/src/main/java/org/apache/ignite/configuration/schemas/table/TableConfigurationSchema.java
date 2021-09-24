@@ -25,7 +25,7 @@ import org.apache.ignite.configuration.validation.Max;
 import org.apache.ignite.configuration.validation.Min;
 
 /**
- * Table configuartion schema class.
+ * Table configuration schema class.
  */
 @Config
 public class TableConfigurationSchema {
