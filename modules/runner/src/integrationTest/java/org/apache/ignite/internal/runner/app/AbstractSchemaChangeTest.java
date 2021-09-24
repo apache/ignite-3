@@ -109,7 +109,20 @@ abstract class AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        assertColumnChangeThrows(grid, "valStr", colChanger -> colChanger.changeType(c -> c.changeType("UNKNOWN_TYPE")));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> {
+            grid.get(0).tables().alterTable(TABLE,
+                tblChanger -> tblChanger.changeColumns(cols -> {
+                    final String colKey = tblChanger.columns().namedListKeys().stream()
+                                              .filter(c -> "valStr".equals(tblChanger.columns().get(c).name()))
+                                              .findFirst()
+                                              .orElseGet(() -> Assertions.fail("Column not found."));
+
+                    tblChanger.changeColumns(listChanger ->  listChanger.createOrUpdate(colKey, c -> c.changeType(t -> t.changeType("UNKNOWN_TYPE")))
+                    );
+                })
+            );
+        });
+
         assertColumnChangeThrows(grid, "valStr", colChanger -> colChanger.changeType(c -> c.changeType("BYTES")));
 
         assertColumnChangeThrows(grid, "valInt", colChanger -> colChanger.changeType(c -> c.changePrecision(10)));
@@ -160,7 +173,7 @@ abstract class AbstractSchemaChangeTest {
         SchemaTable schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
             SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
             SchemaBuilders.column("valInt", ColumnType.INT32).asNullable().build(),
-//            SchemaBuilders.column("valInt2", ColumnType.INT32).asNullable().build(),
+            SchemaBuilders.column("valBlob", ColumnType.blobOf()).asNullable().build(),
 //            SchemaBuilders.column("valDecimal", ColumnType.decimalOf()).asNullable().build(),
 //            SchemaBuilders.column("valBigInt", ColumnType.numberOf()).asNullable().build(),
             SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build()
