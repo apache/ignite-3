@@ -53,7 +53,7 @@ import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
 import org.apache.ignite.internal.processors.query.calcite.SqlQueryProcessor;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.configuration.ColumnTypeValidatorImpl;
-import org.apache.ignite.internal.schema.configuration.SchemaTableValidatorImpl;
+import org.apache.ignite.internal.schema.configuration.TableValidatorImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
@@ -187,7 +187,7 @@ public class IgniteImpl implements Ignite {
                 TablesConfiguration.KEY
             ),
             Map.of(
-                TableValidator.class, Set.of(SchemaTableValidatorImpl.INSTANCE),
+                TableValidator.class, Set.of(TableValidatorImpl.INSTANCE),
                 ColumnTypeValidator.class, Set.of(ColumnTypeValidatorImpl.INSTANCE)
             ),
             new DistributedConfigurationStorage(metaStorageMgr, vaultMgr),
