@@ -18,6 +18,7 @@
 package org.apache.ignite.configuration.schemas.table;
 
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
@@ -48,6 +49,10 @@ public class TableConfigurationSchema {
     /** Columns configuration. */
     @NamedConfigValue
     public ColumnConfigurationSchema columns;
+
+    /** Primary key configuration. */
+    @ConfigValue
+    public PrimaryKeyConfigurationSchema primaryKey;
 
     /** Indices configuration. */
     @NamedConfigValue
