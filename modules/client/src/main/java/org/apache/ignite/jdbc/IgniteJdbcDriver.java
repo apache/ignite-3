@@ -39,7 +39,7 @@ import static org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl.URL_PREFI
  */
 public class IgniteJdbcDriver implements Driver {
     /** Driver instance. */
-    private static Driver INSTANCE = new IgniteJdbcDriver();
+    private static Driver INSTANCE;
 
     static {
         register();
@@ -104,13 +104,13 @@ public class IgniteJdbcDriver implements Driver {
      * @throws RuntimeException when failed to register driver.
      */
     private static synchronized void register() {
+        if (isRegistered())
+            throw new RuntimeException("Driver is already registered. It can only be registered once.");
+
         try {
-            if (!isRegistered()) {
-                Driver registeredDriver = new IgniteJdbcDriver();
-                DriverManager.registerDriver(registeredDriver);
-                IgniteJdbcDriver.INSTANCE = registeredDriver;
-            }
-            DriverManager.registerDriver(INSTANCE);
+            Driver registeredDriver = new IgniteJdbcDriver();
+            DriverManager.registerDriver(registeredDriver);
+            IgniteJdbcDriver.INSTANCE = registeredDriver;
         }
         catch (SQLException e) {
             throw new RuntimeException("Failed to register Ignite JDBC driver.", e);
