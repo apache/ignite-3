@@ -45,7 +45,7 @@ public interface NamedConfigurationTree<T extends ConfigurationProperty<VIEW>, V
     void listenElements(ConfigurationNamedListListener<VIEW> listener);
 
     /**
-     * Remove named-list-specific configuration values listener.
+     * Removes named-list-specific configuration values listener.
      *
      * @param listener Listener.
      */
