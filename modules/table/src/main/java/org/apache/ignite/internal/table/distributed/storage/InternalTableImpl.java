@@ -23,9 +23,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
@@ -431,7 +433,7 @@ public class InternalTableImpl implements InternalTable {
                 isCanceled.set(true);
 
                 if (closeCursor) {
-                    raftGrpSvc.run(new ScanCloseCommand(scanId)).exceptionally(closeT -> {
+                    scanInitOp.thenRun(() -> raftGrpSvc.run(new ScanCloseCommand(scanId))).exceptionally(closeT -> {
                         LOG.warn("Unable to close scan.", closeT);
 
                         return null;
@@ -469,6 +471,10 @@ public class InternalTableImpl implements InternalTable {
                         })
                     .exceptionally(
                         t -> {
+                            if (t instanceof NoSuchElementException ||
+                                t instanceof CompletionException && t.getCause() instanceof NoSuchElementException)
+                                return null;
+
                             cancel(!scanInitOp.isCompletedExceptionally());
 
                             subscriber.onError(t);

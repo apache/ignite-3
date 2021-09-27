@@ -473,11 +473,8 @@ public class PartitionListener implements RaftGroupListener {
     private void handleScanRetrieveBatchCommand(CommandClosure<ScanRetrieveBatchCommand> clo) {
         CursorMeta cursorDesc = cursors.get(clo.command().scanId());
 
-        if (cursorDesc == null) {
+        if (cursorDesc == null)
             clo.result(new NoSuchElementException("Corresponding cursor on server side not found."));
-
-            return;
-        }
 
         List<BinaryRow> res = new ArrayList<>();
 
