@@ -26,7 +26,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -47,22 +46,22 @@ import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
  * Tests for {@link Loza} functionality.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-@ExtendWith(MockitoExtension.class)
 public class ITLozaTest {
     /** Node's name. */
     private static final String NODE_NAME = "node1";
@@ -138,49 +137,35 @@ public class ITLozaTest {
      */
     @Test
     public void testRaftServiceUsingSharedExecutor() throws Exception {
-        var addr1 = new NetworkAddress(getLocalAddress(), PORT);
+        ClusterService service = spy(clusterService(node.name(), PORT, List.of(node.address())));
 
-        ClusterService service = spy(clusterService(node.name(), PORT, List.of(addr1)));
-
-        MessagingService messagingServiceMock = mock(MessagingService.class);
+        MessagingService messagingServiceMock = spy(service.messagingService());
 
         when(service.messagingService()).thenReturn(messagingServiceMock);
 
-        CompletableFuture<NetworkMessage> fut = new CompletableFuture<>();
-
-        AtomicInteger executorsInvocations = new AtomicInteger(0);
-
-        when(messagingServiceMock.invoke((NetworkAddress)any(), any(), anyLong())).thenAnswer(mock -> {
-            String threadName = Thread.currentThread().getName();
-
-            assertTrue(threadName.contains(Loza.CLIENT_POOL_NAME) || threadName.contains("main"));
-
-            if (threadName.contains(Loza.CLIENT_POOL_NAME))
-                executorsInvocations.incrementAndGet();
-
-            return fut;
-        });
-
-        // Need to complete exceptionally to enforce sendWithRetry to be scheduled with shared executor.
-        // See RaftGroupServiceImpl#recoverable
-        fut.completeExceptionally(new Exception("Test exception", new IOException()));
+        CompletableFuture<NetworkMessage> exception = CompletableFuture.failedFuture(new Exception(new IOException()));
 
         Loza loza = new Loza(service, dataPath);
 
         loza.start();
 
         for (int i = 0; i < 5; i++) {
-            try {
-                startClient(Integer.toString(i), loza);
-            }
-            catch (ExecutionException | InterruptedException | TimeoutException e) {
-                if (!(e.getCause() instanceof TimeoutException))
-                    fail(e);
+            // return an error on first invocation
+            doReturn(exception)
+                // assert that a retry has been issued on the executor
+                .doAnswer(invocation -> {
+                    assertThat(Thread.currentThread().getName(), containsString(Loza.CLIENT_POOL_NAME));
 
-                assertTrue(executorsInvocations.get() > 1);
-            }
+                    return exception;
+                })
+                // finally call the real method
+                .doCallRealMethod()
+                .when(messagingServiceMock).invoke(any(NetworkAddress.class), any(), anyLong());
 
-            executorsInvocations.set(0);
+            startClient(Integer.toString(i), loza);
+
+            verify(messagingServiceMock, times(3 * (i + 1)))
+                .invoke(any(NetworkAddress.class), any(), anyLong());
         }
 
         loza.stop();
