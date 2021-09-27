@@ -164,7 +164,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         @Override public @NotNull CompletableFuture<?> onCreate(
                             @NotNull ConfigurationNotificationEvent<SchemaView> schemasCtx) {
                             try {
-                                ((SchemaRegistryImpl)tables.get(ctx.newValue().name()).schemaRegistry()).
+                                ((SchemaRegistryImpl)tables.get(ctx.newValue().name()).schemaView()).
                                     onSchemaRegistered((SchemaDescriptor)ByteUtils.
                                         fromBytes(schemasCtx.newValue().schema()));
 
@@ -305,8 +305,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 var table = new TableImpl(
                     internalTable,
                     schemaRegistry,
-                    TableManager.this,
-                    null
+                    TableManager.this
                 );
 
                 tables.put(name, table);
@@ -370,12 +369,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /** {@inheritDoc} */
-    @Override public Table getOrCreateTable(String name, Consumer<TableChange> tableInitChange) {
-        return getOrCreateTableAsync(name, tableInitChange).join();
+    @Override public Table createTableIfNotExists(String name, Consumer<TableChange> tableInitChange) {
+        return createTableIfNotExistsAsync(name, tableInitChange).join();
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Table> getOrCreateTableAsync(String name, Consumer<TableChange> tableInitChange) {
+    @Override public CompletableFuture<Table> createTableIfNotExistsAsync(String name, Consumer<TableChange> tableInitChange) {
         return createTableAsync(name, tableInitChange, false);
     }
 
@@ -534,7 +533,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             );
 
                                             descriptor.columnMapping(SchemaUtils.columnMapper(
-                                                tablesById.get(tblId).schemaRegistry().schema(currTableView.schemas().size()),
+                                                tablesById.get(tblId).schemaView().schema(currTableView.schemas().size()),
                                                 currTableView,
                                                 descriptor,
                                                 tblCh
