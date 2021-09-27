@@ -45,4 +45,11 @@ public interface ConfigurationProperty<VIEW> {
      * @param listener Listener.
      */
     void listen(ConfigurationListener<VIEW> listener);
+
+    /**
+     * Remove configuration values listener.
+     *
+     * @param listener Listener.
+     */
+    void stopListen(ConfigurationListener<VIEW> listener);
 }
