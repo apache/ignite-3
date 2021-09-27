@@ -428,7 +428,8 @@ public class InternalTableImpl implements InternalTable {
              * @param closeCursor If {@code true} closes inner storage scan.
              */
             private void cancel(boolean closeCursor) {
-                isCanceled.set(true);
+                if (!isCanceled.compareAndSet(false, true))
+                    return;
 
                 if (closeCursor) {
                     raftGrpSvc.run(new ScanCloseCommand(scanId)).exceptionally(closeT -> {
