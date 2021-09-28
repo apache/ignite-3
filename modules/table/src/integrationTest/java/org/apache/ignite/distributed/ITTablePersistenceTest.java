@@ -17,11 +17,20 @@
 
 package org.apache.ignite.distributed;
 
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -31,17 +40,23 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.DataRow;
+import org.apache.ignite.internal.storage.Storage;
+import org.apache.ignite.internal.storage.basic.ConcurrentHashMapStorage;
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.service.ITAbstractListenerSnapshotTest;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.jetbrains.annotations.NotNull;
+
+import static java.util.stream.Collectors.toList;
 
 /**
- * Persistent (rocksdb-based) partitions raft group snapshots tests.
+ * Persistent partitions raft group snapshots tests.
  */
 public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<PartitionListener> {
     /** */
@@ -62,6 +77,9 @@ public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
 
     /** */
     private static final Row SECOND_VALUE = createKeyValueRow(1, 1);
+
+    /** Paths for created partition listeners. */
+    private Map<PartitionListener, Path> paths = new ConcurrentHashMap<>();
 
     /** {@inheritDoc} */
     @Override public void beforeFollowerStop(RaftGroupService service) throws Exception {
@@ -105,7 +123,7 @@ public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
 
     /** {@inheritDoc} */
     @Override public BooleanSupplier snapshotCheckClosure(JRaftServerImpl restarted, boolean interactedAfterSnapshot) {
-        RocksDbStorage storage = (RocksDbStorage) getListener(restarted, raftGroupId()).getStorage();
+        Storage storage = getListener(restarted, raftGroupId()).getStorage();
 
         Row key = interactedAfterSnapshot ? SECOND_KEY : FIRST_KEY;
         Row value = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
@@ -125,14 +143,53 @@ public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
 
     /** {@inheritDoc} */
     @Override public Path getListenerPersistencePath(PartitionListener listener) {
-        return ((RocksDbStorage) listener.getStorage()).getDbPath();
+        return paths.get(listener);
     }
 
     /** {@inheritDoc} */
     @Override public RaftGroupListener createListener(Path workDir) {
-        return new PartitionListener(
-            new RocksDbStorage(workDir.resolve(UUID.randomUUID().toString()), ByteBuffer::compareTo)
-        );
+        Path tableDir = workDir.resolve(UUID.randomUUID().toString());
+
+        PartitionListener listener = new PartitionListener(new ConcurrentHashMapStorage() {
+            /** {@inheritDoc} */
+            @Override public @NotNull CompletableFuture<Void> snapshot(Path snapshotPath) {
+                return CompletableFuture.runAsync(() -> {
+                    try (
+                        OutputStream out = new FileOutputStream(snapshotPath.resolve("snapshot_file").toFile());
+                        ObjectOutputStream objOut = new ObjectOutputStream(out)
+                    ) {
+                        objOut.writeObject(map.keySet().stream().map(ByteArray::bytes).collect(toList()));
+                        objOut.writeObject(map.values().stream().collect(toList()));
+                    }
+                    catch (Exception e) {
+                        throw new IgniteInternalException(e);
+                    }
+                });
+            }
+
+            /** {@inheritDoc} */
+            @Override public void restoreSnapshot(Path snapshotPath) {
+                try (
+                    InputStream in = new FileInputStream(snapshotPath.resolve("snapshot_file").toFile());
+                    ObjectInputStream objIn = new ObjectInputStream(in)
+                ) {
+                    var keys = (List<byte[]>)objIn.readObject();
+                    var values = (List<byte[]>)objIn.readObject();
+
+                    map.clear();
+
+                    for (int i = 0; i < keys.size(); i++)
+                        map.put(new ByteArray(keys.get(i)), values.get(i));
+                }
+                catch (Exception e) {
+                    throw new IgniteInternalException(e);
+                }
+            }
+        });
+
+        paths.put(listener, tableDir);
+
+        return listener;
     }
 
     /** {@inheritDoc} */

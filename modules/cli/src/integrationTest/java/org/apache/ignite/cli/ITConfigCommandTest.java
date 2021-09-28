@@ -33,6 +33,7 @@ import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Integration test for {@code ignite config} commands.
@@ -114,13 +115,16 @@ public class ITConfigCommandTest extends AbstractCliTest {
         );
 
         assertEquals(0, exitCode);
-        assertEquals(
-            "\"{\"clientConnector\":{\"connectTimeout\":5000,\"port\":" + clientPort + ",\"portRange\":0}," +
-                "\"network\":{\"netClusterNodes\":[],\"port\":" + networkPort + "}," +
-                "\"node\":{\"metastorageNodes\":[\"localhost1\"]}," +
-                "\"rest\":{\"port\":" + restPort + ",\"portRange\":0}}\"" + nl,
-            unescapeQuotes(out.toString())
-        );
+
+        String unescapedOut = unescapeQuotes(out.toString());
+
+        assertTrue(unescapedOut.contains(
+            "\"clientConnector\":{\"connectTimeout\":5000,\"port\":" + clientPort + ",\"portRange\":0}"
+        ), unescapedOut);
+
+        assertTrue(unescapedOut.contains(
+            "\"rest\":{\"port\":" + restPort + ",\"portRange\":0}}\""
+        ), unescapedOut);
     }
 
     @Test

@@ -17,14 +17,25 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.AbstractStorageTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.rocksdb.ColumnFamilyDescriptor;
+import org.rocksdb.ColumnFamilyHandle;
+import org.rocksdb.ColumnFamilyOptions;
+import org.rocksdb.DBOptions;
+import org.rocksdb.Options;
+import org.rocksdb.RocksDB;
+import org.rocksdb.RocksDBException;
 
 /**
  * Storage test implementation for {@link RocksDbStorage}.
@@ -32,15 +43,48 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 public class RocksDbStorageTest extends AbstractStorageTest {
     /** */
+    private static final String CF_NAME = "default";
+
+    /** */
+    private Options options;
+
+    /** */
+    private ColumnFamilyDescriptor cfDescriptor;
+
+    /** */
+    private ColumnFamilyHandle cfHandle;
+
+    /** */
+    private DBOptions dbOptions;
+
+    /** */
+    private RocksDB db;
+
+    /** */
     @BeforeEach
-    public void setUp(@WorkDirectory Path workDir) {
-        storage = new RocksDbStorage(workDir, ByteBuffer::compareTo);
+    public void setUp(@WorkDirectory Path workDir) throws RocksDBException {
+        options = new Options().setCreateIfMissing(true);
+
+        byte[] cfNameBytes = CF_NAME.getBytes(StandardCharsets.UTF_8);
+
+        cfDescriptor = new ColumnFamilyDescriptor(cfNameBytes, new ColumnFamilyOptions(options));
+
+        List<ColumnFamilyHandle> cfHandles = new ArrayList<>(1);
+
+        dbOptions = new DBOptions().setCreateIfMissing(true);
+
+        db = RocksDB.open(dbOptions, workDir.toString(), List.of(cfDescriptor), cfHandles);
+
+        cfHandle = cfHandles.get(0);
+
+        ColumnFamily cf = new ColumnFamily(db, cfHandle, CF_NAME, cfDescriptor.getOptions(), this.options);
+
+        storage = new RocksDbStorage(db, cf);
     }
 
     /** */
     @AfterEach
     public void tearDown() throws Exception {
-        if (storage != null)
-            ((AutoCloseable)storage).close();
+        IgniteUtils.closeAll(storage, cfHandle, db, dbOptions, cfDescriptor.getOptions(), options);
     }
 }

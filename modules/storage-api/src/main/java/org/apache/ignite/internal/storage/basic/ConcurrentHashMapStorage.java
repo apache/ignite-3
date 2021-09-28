@@ -44,7 +44,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ConcurrentHashMapStorage implements Storage {
     /** Storage content. */
-    private final ConcurrentMap<ByteArray, byte[]> map = new ConcurrentHashMap<>();
+    protected final ConcurrentMap<ByteArray, byte[]> map = new ConcurrentHashMap<>();
 
     /** {@inheritDoc} */
     @Override @Nullable public DataRow read(SearchRow key) throws StorageException {
