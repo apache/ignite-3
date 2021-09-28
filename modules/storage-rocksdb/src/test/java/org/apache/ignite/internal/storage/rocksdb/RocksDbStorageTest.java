@@ -43,16 +43,16 @@ import org.rocksdb.RocksDBException;
 @ExtendWith(WorkDirectoryExtension.class)
 public class RocksDbStorageTest extends AbstractStorageTest {
     /** */
-    private static final String CF_NAME = "default";
+    private static final String CF_NAME = "partition";
 
     /** */
     private Options options;
 
     /** */
-    private ColumnFamilyDescriptor cfDescriptor;
+    private List<ColumnFamilyDescriptor> cfDescriptors;
 
     /** */
-    private ColumnFamilyHandle cfHandle;
+    private List<ColumnFamilyHandle> cfHandles;
 
     /** */
     private DBOptions dbOptions;
@@ -65,19 +65,18 @@ public class RocksDbStorageTest extends AbstractStorageTest {
     public void setUp(@WorkDirectory Path workDir) throws RocksDBException {
         options = new Options().setCreateIfMissing(true);
 
-        byte[] cfNameBytes = CF_NAME.getBytes(StandardCharsets.UTF_8);
+        cfDescriptors = List.of(
+            new ColumnFamilyDescriptor("default".getBytes(StandardCharsets.UTF_8), new ColumnFamilyOptions(options)),
+            new ColumnFamilyDescriptor(CF_NAME.getBytes(StandardCharsets.UTF_8), new ColumnFamilyOptions(options))
+        );
 
-        cfDescriptor = new ColumnFamilyDescriptor(cfNameBytes, new ColumnFamilyOptions(options));
+        cfHandles = new ArrayList<>(2);
 
-        List<ColumnFamilyHandle> cfHandles = new ArrayList<>(1);
+        dbOptions = new DBOptions().setCreateIfMissing(true).setCreateMissingColumnFamilies(true);
 
-        dbOptions = new DBOptions().setCreateIfMissing(true);
+        db = RocksDB.open(dbOptions, workDir.toString(), cfDescriptors, cfHandles);
 
-        db = RocksDB.open(dbOptions, workDir.toString(), List.of(cfDescriptor), cfHandles);
-
-        cfHandle = cfHandles.get(0);
-
-        ColumnFamily cf = new ColumnFamily(db, cfHandle, CF_NAME, cfDescriptor.getOptions(), this.options);
+        ColumnFamily cf = new ColumnFamily(db, cfHandles.get(1), CF_NAME, cfDescriptors.get(1).getOptions(), this.options);
 
         storage = new RocksDbStorage(db, cf);
     }
@@ -85,6 +84,15 @@ public class RocksDbStorageTest extends AbstractStorageTest {
     /** */
     @AfterEach
     public void tearDown() throws Exception {
-        IgniteUtils.closeAll(storage, cfHandle, db, dbOptions, cfDescriptor.getOptions(), options);
+        IgniteUtils.closeAll(
+            storage,
+            cfHandles.get(1),
+            cfHandles.get(0),
+            db,
+            dbOptions,
+            cfDescriptors.get(1).getOptions(),
+            cfDescriptors.get(0).getOptions(),
+            options
+        );
     }
 }

@@ -53,6 +53,7 @@ import org.rocksdb.Snapshot;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
 
+import static java.util.Collections.nCopies;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.createSstFile;
 
 /**
@@ -106,7 +107,7 @@ public class RocksDbStorage implements Storage {
 
         try {
             List<byte[]> keysList = getKeys(keys);
-            List<byte[]> valuesList = db.multiGetAsList(List.of(data.handle()), keysList);
+            List<byte[]> valuesList = db.multiGetAsList(nCopies(keys.size(), data.handle()), keysList);
 
             assert keys.size() == valuesList.size();
 
@@ -231,7 +232,7 @@ public class RocksDbStorage implements Storage {
              WriteOptions opts = new WriteOptions()) {
 
             List<byte[]> keys = getKeys(keyValues);
-            List<byte[]> values = db.multiGetAsList(List.of(data.handle()), keys);
+            List<byte[]> values = db.multiGetAsList(nCopies(keys.size(), data.handle()), keys);
 
             assert values.size() == keyValues.size();
 
