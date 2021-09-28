@@ -106,7 +106,7 @@ public class RocksDbStorage implements Storage {
 
         try {
             List<byte[]> keysList = getKeys(keys);
-            List<byte[]> valuesList = db.multiGetAsList(keysList);
+            List<byte[]> valuesList = db.multiGetAsList(List.of(data.handle()), keysList);
 
             assert keys.size() == valuesList.size();
 
@@ -231,7 +231,7 @@ public class RocksDbStorage implements Storage {
              WriteOptions opts = new WriteOptions()) {
 
             List<byte[]> keys = getKeys(keyValues);
-            List<byte[]> values = db.multiGetAsList(keys);
+            List<byte[]> values = db.multiGetAsList(List.of(data.handle()), keys);
 
             assert values.size() == keyValues.size();
 
