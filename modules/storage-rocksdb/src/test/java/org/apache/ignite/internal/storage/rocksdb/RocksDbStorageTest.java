@@ -17,82 +17,74 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import org.apache.ignite.internal.rocksdb.ColumnFamily;
+import org.apache.ignite.configuration.schemas.store.DataRegionConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.AbstractStorageTest;
+import org.apache.ignite.internal.storage.engine.DataRegion;
+import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.rocksdb.ColumnFamilyDescriptor;
-import org.rocksdb.ColumnFamilyHandle;
-import org.rocksdb.ColumnFamilyOptions;
-import org.rocksdb.DBOptions;
-import org.rocksdb.Options;
-import org.rocksdb.RocksDB;
-import org.rocksdb.RocksDBException;
+
+import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 /**
  * Storage test implementation for {@link RocksDbStorage}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 public class RocksDbStorageTest extends AbstractStorageTest {
     /** */
-    private static final String CF_NAME = "partition";
+    private TableStorage table;
 
     /** */
-    private Options options;
-
-    /** */
-    private List<ColumnFamilyDescriptor> cfDescriptors;
-
-    /** */
-    private List<ColumnFamilyHandle> cfHandles;
-
-    /** */
-    private DBOptions dbOptions;
-
-    /** */
-    private RocksDB db;
+    private DataRegion dataRegion;
 
     /** */
     @BeforeEach
-    public void setUp(@WorkDirectory Path workDir) throws RocksDBException {
-        options = new Options().setCreateIfMissing(true);
+    public void setUp(
+        @WorkDirectory Path workDir,
+        @InjectConfiguration DataRegionConfiguration dataRegionCfg,
+        @InjectConfiguration TableConfiguration tableCfg
+    ) throws Exception {
+        dataRegionCfg.change(cfg -> cfg.changeSize(16 * 1024).changeWriteBufferSize(16 * 1024)).get();
 
-        cfDescriptors = List.of(
-            new ColumnFamilyDescriptor("default".getBytes(StandardCharsets.UTF_8), new ColumnFamilyOptions(options)),
-            new ColumnFamilyDescriptor(CF_NAME.getBytes(StandardCharsets.UTF_8), new ColumnFamilyOptions(options))
-        );
+        RocksDbStorageEngine engine = new RocksDbStorageEngine();
 
-        cfHandles = new ArrayList<>(2);
+        dataRegion = engine.createDataRegion(dataRegionCfg);
 
-        dbOptions = new DBOptions().setCreateIfMissing(true).setCreateMissingColumnFamilies(true);
+        assertThat(dataRegion, is(instanceOf(RocksDbDataRegion.class)));
 
-        db = RocksDB.open(dbOptions, workDir.toString(), cfDescriptors, cfHandles);
+        dataRegion.start();
 
-        ColumnFamily cf = new ColumnFamily(db, cfHandles.get(1), CF_NAME, cfDescriptors.get(1).getOptions(), this.options);
+        table = engine.createTable(workDir, tableCfg, dataRegion, (tableView, indexName) -> null);
 
-        storage = new RocksDbStorage(db, cf);
+        assertThat(table, is(instanceOf(RocksDbTableStorage.class)));
+
+        table.start();
+
+        storage = table.getOrCreatePartition(0);
+
+        assertThat(storage, is(instanceOf(RocksDbStorage.class)));
     }
 
     /** */
     @AfterEach
     public void tearDown() throws Exception {
-        IgniteUtils.closeAll(
-            storage,
-            cfHandles.get(1),
-            cfHandles.get(0),
-            db,
-            dbOptions,
-            cfDescriptors.get(1).getOptions(),
-            cfDescriptors.get(0).getOptions(),
-            options
-        );
+        try {
+            if (table != null)
+                table.stop();
+        }
+        finally {
+            if (dataRegion != null)
+                dataRegion.stop();
+        }
     }
 }
