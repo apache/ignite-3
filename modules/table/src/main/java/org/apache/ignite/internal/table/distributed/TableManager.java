@@ -165,8 +165,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         @Override public @NotNull CompletableFuture<?> onCreate(
                             @NotNull ConfigurationNotificationEvent<SchemaView> schemasCtx) {
                             try {
-                                ((SchemaRegistryImpl)tables.get(ctx.newValue().name()).schemaRegistry()).
-                                    onSchemaRegistered(SchemaSerializerImpl.INSTANCE.deserialize(schemasCtx.newValue().schema()));
+                                ((SchemaRegistryImpl)tables.get(ctx.newValue().name()).schemaView()).
+                                    onSchemaRegistered((SchemaDescriptor)ByteUtils.
+                                        fromBytes(schemasCtx.newValue().schema()));
 
                                 fireEvent(TableEvent.ALTER, new TableEventParameters(tablesById.get(tblId)), null);
                             }
@@ -198,7 +199,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     ctx.newValue().name(),
                     IgniteUuid.fromString(((ExtendedTableView)ctx.newValue()).id()),
                     (List<List<ClusterNode>>)ByteUtils.fromBytes(((ExtendedTableView)ctx.newValue()).assignments()),
-                    SchemaSerializerImpl.INSTANCE.deserialize(((ExtendedTableView)ctx.newValue()).schemas().
+                    (SchemaDescriptor)ByteUtils.fromBytes(((ExtendedTableView)ctx.newValue()).schemas().
                         get(String.valueOf(INITIAL_SCHEMA_VERSION)).schema())
                 );
 
@@ -305,8 +306,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 var table = new TableImpl(
                     internalTable,
                     schemaRegistry,
-                    TableManager.this,
-                    null
+                    TableManager.this
                 );
 
                 tables.put(name, table);
@@ -370,12 +370,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /** {@inheritDoc} */
-    @Override public Table getOrCreateTable(String name, Consumer<TableChange> tableInitChange) {
-        return getOrCreateTableAsync(name, tableInitChange).join();
+    @Override public Table createTableIfNotExists(String name, Consumer<TableChange> tableInitChange) {
+        return createTableIfNotExistsAsync(name, tableInitChange).join();
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Table> getOrCreateTableAsync(String name, Consumer<TableChange> tableInitChange) {
+    @Override public CompletableFuture<Table> createTableIfNotExistsAsync(String name, Consumer<TableChange> tableInitChange) {
         return createTableAsync(name, tableInitChange, false);
     }
 
@@ -453,7 +453,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         schemasCh -> schemasCh.create(
                                             String.valueOf(INITIAL_SCHEMA_VERSION),
                                             schemaCh -> schemaCh.changeSchema(
-                                                SchemaSerializerImpl.INSTANCE.serialize(
+                                                ByteUtils.toBytes(
                                                     SchemaUtils.prepareSchemaDescriptor(
                                                         ((ExtendedTableView)ch).schemas().size(),
                                                         ch
@@ -534,13 +534,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             );
 
                                             descriptor.columnMapping(SchemaUtils.columnMapper(
-                                                tablesById.get(tblId).schemaRegistry().schema(currTableView.schemas().size() - 1),
+                                                tablesById.get(tblId).schemaView().schema(currTableView.schemas().size()),
                                                 currTableView,
                                                 descriptor,
                                                 tblCh
                                             ));
 
-                                            schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(descriptor));
+                                            schemaCh.changeSchema(ByteUtils.toBytes(descriptor));
                                         }
                                     )
                             ));

@@ -19,14 +19,13 @@ package org.apache.ignite.internal.runner.app;
 
 import java.util.List;
 import org.apache.ignite.app.Ignite;
-import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.schema.SchemaMode;
-import org.apache.ignite.table.KeyValueBinaryView;
+import org.apache.ignite.schema.definition.SchemaManagementMode;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -36,7 +35,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Live schema tests for KV View.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-14581")
 class ITLiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
     /**
      * Check exception for unknown column when STRICT_SCHEMA is enabled.
@@ -47,9 +45,9 @@ class ITLiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        KeyValueBinaryView view = grid.get(1).tables().table(TABLE).kvView();
+        KeyValueView<Tuple, Tuple> view = grid.get(0).tables().table(TABLE).keyValueView();
 
-        assertThrows(IllegalArgumentException.class, () -> Tuple.create().set("key", 1L).set("unknownColumn", 10));
+        assertThrows(SchemaMismatchException.class, () -> view.put(Tuple.create().set("key", 1L), Tuple.create().set("unknownColumn", 10)));
     }
 
     /**
@@ -63,9 +61,9 @@ class ITLiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(1).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
 
-        KeyValueBinaryView kvBinaryView = tbl.kvView();
+        KeyValueView<Tuple, Tuple> kvBinaryView = tbl.keyValueView();
 
         Tuple key = Tuple.create().set("key", 1L);
         Tuple val = Tuple.create().set("valStrNew", "111").set("valIntNew", 333);
@@ -86,11 +84,11 @@ class ITLiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        Table tbl = grid.get(1).tables().table(TABLE);
+        Table tbl = grid.get(0).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
 
-        KeyValueBinaryView kvBinaryView = tbl.kvView();
+        KeyValueView<Tuple, Tuple> kvBinaryView = tbl.keyValueView();
 
         Tuple key = Tuple.create().set("key", 1L);
         Tuple val = Tuple.create().set("valStrNew", "111").set("valIntNew", 333);
@@ -101,7 +99,7 @@ class ITLiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
         assertEquals("111", res.value("valStrNew"));
         assertEquals(Integer.valueOf(333), res.value("valIntNew"));
 
-        ((TableImpl)tbl).schemaType(SchemaMode.STRICT_SCHEMA);
+        ((TableImpl)tbl).schemaMode(SchemaManagementMode.STRICT);
 
         Tuple anotherKey = Tuple.create().set("key", 2L);
         Tuple anotherVal = Tuple.create().set("valStrNew", "111").set("valIntNew", 333);
@@ -113,7 +111,7 @@ class ITLiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
         assertEquals("111", newRes.value("valStrNew"));
         assertEquals(Integer.valueOf(333), newRes.value("valIntNew"));
 
-        assertThrows(IllegalArgumentException.class, () -> Tuple.create().set("key", 1L).set("unknownColumn", 10));
+        assertThrows(SchemaMismatchException.class, () -> kvBinaryView.put(Tuple.create().set("key", 1L), Tuple.create().set("unknownColumn", 10)));
     }
 
     /**
@@ -127,9 +125,9 @@ class ITLiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(1).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
 
-        KeyValueBinaryView view = tbl.kvView();
+        KeyValueView<Tuple, Tuple> view = tbl.keyValueView();
 
         Tuple oldSchemaKey = Tuple.create().set("key", 32L);
         Tuple oldSchemaVal = Tuple.create().set("valInt", 111).set("valStr", "str");
@@ -157,9 +155,9 @@ class ITLiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(1).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
 
-        KeyValueBinaryView view = tbl.kvView();
+        KeyValueView<Tuple, Tuple> view = tbl.keyValueView();
 
         Tuple oldSchemaKey = Tuple.create().set("key", 32L);
 
@@ -187,11 +185,11 @@ class ITLiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        Table tbl = grid.get(1).tables().table(TABLE);
+        Table tbl = grid.get(0).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
 
-        KeyValueBinaryView view = tbl.kvView();
+        KeyValueView<Tuple, Tuple> view = tbl.keyValueView();
 
         Tuple oldSchemaKey = Tuple.create().set("key", 32L);
         Tuple oldSchemaVal = Tuple.create().set("valInt", 111).set("valStr", "str");
@@ -207,9 +205,7 @@ class ITLiveSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
         assertEquals("111", res.value("valStrNew"));
         assertEquals(Integer.valueOf(333), res.value("valIntNew"));
 
-        Tuple newVerBuilder = Tuple.create();
-
-        SchemaDescriptor schema = ((SchemaAware)newVerBuilder).schema();
+        SchemaDescriptor schema = ((TableImpl)tbl).schemaView().schema();
 
         assertTrue(schema.columnNames().contains("valStrNew"));
         assertTrue(schema.columnNames().contains("valIntNew"));

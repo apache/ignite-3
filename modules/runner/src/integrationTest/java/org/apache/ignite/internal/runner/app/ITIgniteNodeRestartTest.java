@@ -23,9 +23,9 @@ import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.SchemaTable;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Disabled;
@@ -159,23 +159,23 @@ public class ITIgniteNodeRestartTest extends IgniteAbstractTest {
             "  }\n" +
             "}", workDir.resolve(NODE_NAME));
 
-        SchemaTable scmTbl1 = SchemaBuilders.tableBuilder("PUBLIC", TABLE_NAME).columns(
+        TableDefinition scmTbl1 = SchemaBuilders.tableBuilder("PUBLIC", TABLE_NAME).columns(
             SchemaBuilders.column("id", ColumnType.INT32).asNonNull().build(),
             SchemaBuilders.column("name", ColumnType.string()).asNullable().build()
-        ).withIndex(
-            SchemaBuilders.pkIndex()
-                .addIndexColumn("id").done()
+        ).withPrimaryKey(
+            SchemaBuilders.primaryKey()
+                .withColumns("id")
                 .build()
         ).build();
 
-        Table table = ignite.tables().getOrCreateTable(
+        Table table = ignite.tables().createTableIfNotExists(
             scmTbl1.canonicalName(), tbl -> SchemaConfigurationConverter.convert(scmTbl1, tbl).changePartitions(10));
 
         for (int i = 0; i < 100; i++) {
             Tuple key = Tuple.create().set("id", i);
             Tuple val = Tuple.create().set("name", "name " + i);
 
-            table.kvView().put(key, val);
+            table.keyValueView().put(key, val);
         }
 
         IgnitionManager.stop(NODE_NAME);
@@ -185,7 +185,7 @@ public class ITIgniteNodeRestartTest extends IgniteAbstractTest {
         assertNotNull(ignite.tables().table(TABLE_NAME));
 
         for (int i = 0; i < 100; i++) {
-            assertEquals("name " + i, table.kvView().get(Tuple.create()
+            assertEquals("name " + i, table.keyValueView().get(Tuple.create()
                 .set("id", i))
                 .stringValue("name"));
         }
