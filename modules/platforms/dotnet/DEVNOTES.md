@@ -35,4 +35,4 @@ Static code analysis (Roslyn-based) runs as part of the build and includes code 
 `dotnet publish Apache.Ignite --configuration Release --output release/bin`
 
 ### Pack NuGet
-`dotnet pack --configuration Release --include-source --output release/nupkg`
+`dotnet pack Apache.Ignite --configuration Release --include-source --output release/nupkg`
