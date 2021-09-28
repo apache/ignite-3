@@ -91,6 +91,7 @@ public class RocksDbTableStorage implements TableStorage {
     private RocksDB db;
 
     /** CF handle for meta information. */
+    @SuppressWarnings("unused")
     private ColumnFamilyHandle metaCfHandle;
 
     /** Column families for partitions. Stored as a list for the quick access by an index. */
