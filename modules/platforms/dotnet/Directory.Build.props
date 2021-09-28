@@ -22,6 +22,13 @@
         <LangVersion>9</LangVersion>
         <Nullable>enable</Nullable>
         <Version>3.0.0-alpha3</Version>
+
+        <Company>Apache Software Foundation</Company>
+        <Authors>Apache Ignite</Authors>
+        <Copyright>2015 - 2021 The Apache Software Foundation</Copyright>
+        <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+        <RepositoryUrl>https://github.com/apache/ignite-3</RepositoryUrl>
+        <PackageProjectUrl>https://ignite.apache.org/</PackageProjectUrl>
     </PropertyGroup>
 
     <ItemGroup>
