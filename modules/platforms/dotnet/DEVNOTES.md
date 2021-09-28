@@ -32,7 +32,7 @@ Static code analysis (Roslyn-based) runs as part of the build and includes code 
 ## Release Procedure
 
 ### Build Binaries
-`dotnet publish --configuration Release --output release/bin `
+`dotnet publish Apache.Ignite --configuration Release --output release/bin`
 
 ### Pack NuGet
 `dotnet pack --configuration Release --include-source --output release/nupkg`
