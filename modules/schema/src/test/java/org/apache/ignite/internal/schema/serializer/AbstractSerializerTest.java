@@ -38,7 +38,7 @@ public class AbstractSerializerTest {
     public void test() {
         AbstractSchemaSerializer assembler = SchemaSerializerImpl.INSTANCE;
 
-        SchemaDescriptor desc = new SchemaDescriptor( 100500,
+        SchemaDescriptor desc = new SchemaDescriptor(100500,
             new Column[] {
                 new Column("A", NativeTypes.INT8, false),
                 new Column("B", NativeTypes.INT16, false),
