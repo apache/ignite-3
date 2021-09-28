@@ -29,6 +29,7 @@
         <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
         <RepositoryUrl>https://github.com/apache/ignite-3</RepositoryUrl>
         <PackageProjectUrl>https://ignite.apache.org/</PackageProjectUrl>
+        <PackageIcon>Apache_Ignite_logo_128x128.png</PackageIcon>
     </PropertyGroup>
 
     <ItemGroup>
@@ -38,6 +39,10 @@
 
     <ItemGroup>
         <AdditionalFiles Include="$(MSBuildThisFileDirectory)\stylecop.json" Link="stylecop.json" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="$(MSBuildThisFileDirectory)\Apache_Ignite_logo_128x128.png" Pack="true" PackagePath=""/>
     </ItemGroup>
 
 </Project>
