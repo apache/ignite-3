@@ -31,6 +31,8 @@
         <PackageProjectUrl>https://ignite.apache.org/</PackageProjectUrl>
         <PackageIcon>Apache_Ignite_logo_128x128.png</PackageIcon>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+        <PackageTags>Apache;Ignite;In-Memory;Distributed;Computing;SQL;NoSQL;Database;</PackageTags>
+        <Description>.NET client for Apache Ignite. Ignite is a distributed database for high-performance computing with in-memory speed.</Description>
     </PropertyGroup>
 
     <ItemGroup>
