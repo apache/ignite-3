@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.processors.query.calcite.exec.rel;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -55,7 +55,7 @@ public class TableScanNode<Row> extends AbstractNode<Row> {
     private final int[] parts;
 
     /** */
-    private final Deque<Row> inBuff = new ArrayDeque<>(inBufSize);
+    private final Queue<Row> inBuff = new LinkedBlockingQueue<>(inBufSize);
 
     /** */
     private final @Nullable Predicate<Row> filters;
@@ -159,13 +159,16 @@ public class TableScanNode<Row> extends AbstractNode<Row> {
 
         checkState();
 
-        if (waiting <= 0 && requested > 0 && !inBuff.isEmpty()) {
+        if ((waiting <= 0 || activeSubscription == null) && requested > 0 && !inBuff.isEmpty()) {
             inLoop = true;
             try {
                 while (requested > 0 && !inBuff.isEmpty()) {
                     checkState();
 
                     Row row = inBuff.poll();
+
+                    if (filters != null && !filters.test(row))
+                        continue;
 
                     if (rowTransformer != null)
                         row = rowTransformer.apply(row);
@@ -202,17 +205,13 @@ public class TableScanNode<Row> extends AbstractNode<Row> {
         if (subscription != null)
             subscription.request(waiting);
         else if (curPartIdx < parts.length)
-            table.internalTable().scan(parts[curPartIdx++], null).subscribe(new SubscriberImpl(inBuff));
+            table.internalTable().scan(parts[curPartIdx++], null).subscribe(new SubscriberImpl());
         else
             waiting = NOT_WAITING;
     }
 
     private class SubscriberImpl implements Flow.Subscriber<BinaryRow> {
-        private final Deque<Row> inBuff;
-
-        private SubscriberImpl(Deque<Row> buf) {
-            inBuff = buf;
-        }
+        private int received;
 
         /** {@inheritDoc} */
         @Override public void onSubscribe(Subscription subscription) {
@@ -226,12 +225,11 @@ public class TableScanNode<Row> extends AbstractNode<Row> {
         @Override public void onNext(BinaryRow binRow) {
             Row row = convert(binRow);
 
-            if (filters != null && !filters.test(row))
-                return;
-
             inBuff.add(row);
 
-            if (inBuff.size() == inBufSize) {
+            if (++received == inBufSize) {
+                received = 0;
+
                 context().execute(() -> {
                     waiting = 0;
                     push();
@@ -248,9 +246,11 @@ public class TableScanNode<Row> extends AbstractNode<Row> {
 
         /** {@inheritDoc} */
         @Override public void onComplete() {
+            int received0 = received;
+
             context().execute(() -> {
                 activeSubscription = null;
-                waiting -= inBuff.size();
+                waiting -= received0;
 
                 push();
             }, TableScanNode.this::onError);
