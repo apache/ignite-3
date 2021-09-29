@@ -21,7 +21,9 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.function.Supplier;
 import org.apache.ignite.app.Ignite;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
@@ -114,6 +116,7 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             kvView.put(
                 Tuple.create().set("key", 2L),
                 Tuple.create().set("valInt", 222).set("valStrNew", "str")
+
             );
 
             Tuple keyTuple2 = Tuple.create().set("key", 2L);
