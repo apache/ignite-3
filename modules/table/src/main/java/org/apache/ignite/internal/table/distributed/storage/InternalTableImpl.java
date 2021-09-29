@@ -72,7 +72,7 @@ public class InternalTableImpl implements InternalTable {
     private static final IgniteLogger LOG = IgniteLogger.forClass(InternalTableImpl.class);
 
     /** IgniteUuid generator. */
-    private final IgniteUuidGenerator UUID_GENERATOR = new IgniteUuidGenerator(UUID.randomUUID(), 0);
+    private static final IgniteUuidGenerator UUID_GENERATOR = new IgniteUuidGenerator(UUID.randomUUID(), 0);
 
     //TODO: IGNITE-15443 Use IntMap structure instead of HashMap.
     /** Partition map. */
@@ -345,7 +345,7 @@ public class InternalTableImpl implements InternalTable {
         private final RaftGroupService raftGrpSvc;
 
         /** */
-        private AtomicBoolean wasSubscribed;
+        private AtomicBoolean subscribed;
 
         /**
          * The constructor.
@@ -354,7 +354,7 @@ public class InternalTableImpl implements InternalTable {
          */
         PartitionScanPublisher(RaftGroupService raftGrpSvc) {
             this.raftGrpSvc = raftGrpSvc;
-            this.wasSubscribed = new AtomicBoolean(false);
+            this.subscribed = new AtomicBoolean(false);
         }
 
         /** {@inheritDoc} */
@@ -362,7 +362,7 @@ public class InternalTableImpl implements InternalTable {
             if (subscriber == null)
                 throw new NullPointerException("Subscriber is null");
 
-            if (!wasSubscribed.compareAndSet(false, true))
+            if (!subscribed.compareAndSet(false, true))
                 subscriber.onError(new IllegalStateException("Scan publisher does not support multiple subscriptions."));
 
             PartitionScanSubscription subscription = new PartitionScanSubscription(subscriber);
@@ -378,7 +378,7 @@ public class InternalTableImpl implements InternalTable {
             private final Subscriber<? super BinaryRow> subscriber;
 
             /** */
-            private final AtomicBoolean isCanceled;
+            private final AtomicBoolean canceled;
 
             /** Scan id to uniquely identify it on server side. */
             private final IgniteUuid scanId;
@@ -392,7 +392,7 @@ public class InternalTableImpl implements InternalTable {
              */
             private PartitionScanSubscription(Subscriber<? super BinaryRow> subscriber) {
                 this.subscriber = subscriber;
-                this.isCanceled = new AtomicBoolean(false);
+                this.canceled = new AtomicBoolean(false);
                 this.scanId = UUID_GENERATOR.randomUuid();
                 // TODO: IGNITE-15544 Close partition scans on node left.
                 this.scanInitOp = raftGrpSvc.run(new ScanInitCommand("", scanId));
@@ -408,7 +408,7 @@ public class InternalTableImpl implements InternalTable {
                     );
                 }
 
-                if (isCanceled.get())
+                if (canceled.get())
                     return;
 
                 final int internalBatchSize = Integer.MAX_VALUE;
@@ -430,7 +430,7 @@ public class InternalTableImpl implements InternalTable {
              * @param closeCursor If {@code true} closes inner storage scan.
              */
             private void cancel(boolean closeCursor) {
-                if (!isCanceled.compareAndSet(false, true))
+                if (!canceled.compareAndSet(false, true))
                     return;
 
                 if (closeCursor) {
@@ -448,7 +448,7 @@ public class InternalTableImpl implements InternalTable {
              * @param n Requested amount of items.
              */
             private void scanBatch(int n) {
-                if (isCanceled.get())
+                if (canceled.get())
                     return;
 
                 scanInitOp.thenCompose((none) -> raftGrpSvc.<MultiRowsResponse>run(new ScanRetrieveBatchCommand(n, scanId)))
