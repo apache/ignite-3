@@ -63,7 +63,8 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
-import org.apache.ignite.table.KeyValueBinaryView;
+import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
@@ -71,6 +72,7 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -125,11 +127,11 @@ public class ITDistributedTableTest {
      * Start all cluster nodes before each test.
      */
     @BeforeEach
-    public void beforeTest() {
+    public void beforeTest(TestInfo testInfo) {
         var nodeFinder = new LocalPortRangeNodeFinder(NODE_PORT_BASE, NODE_PORT_BASE + NODES);
 
         nodeFinder.findNodes().stream()
-            .map(addr -> startClient(addr.toString(), addr.port(), nodeFinder))
+            .map(addr -> startClient(testInfo, addr.port(), nodeFinder))
             .forEach(cluster::add);
 
         for (ClusterService node : cluster)
@@ -137,7 +139,7 @@ public class ITDistributedTableTest {
 
         LOG.info("Cluster started.");
 
-        client = startClient("client", NODE_PORT_BASE + NODES, nodeFinder);
+        client = startClient(testInfo, NODE_PORT_BASE + NODES, nodeFinder);
 
         assertTrue(waitForTopology(client, NODES + 1, 1000));
 
@@ -300,11 +302,11 @@ public class ITDistributedTableTest {
             @Override public Row resolve(BinaryRow row) {
                 return new Row(SCHEMA, row);
             }
-        }, null, null);
+        }, null);
 
-        partitionedTableView(tbl, PARTS * 10);
+        partitionedTableRecordView(tbl.recordView(), PARTS * 10);
 
-        partitionedTableKVBinaryView(tbl.kvView(), PARTS * 10);
+        partitionedTableKeyValueView(tbl.keyValueView(), PARTS * 10);
     }
 
     /**
@@ -313,7 +315,7 @@ public class ITDistributedTableTest {
      * @param view Table view.
      * @param keysCnt Count of keys.
      */
-    public void partitionedTableView(Table view, int keysCnt) {
+    public void partitionedTableRecordView(RecordView<Tuple> view, int keysCnt) {
         LOG.info("Test for Table view [keys={}]", keysCnt);
 
         for (int i = 0; i < keysCnt; i++) {
@@ -404,7 +406,7 @@ public class ITDistributedTableTest {
      * @param view Table view.
      * @param keysCnt Count of keys.
      */
-    public void partitionedTableKVBinaryView(KeyValueBinaryView view, int keysCnt) {
+    public void partitionedTableKeyValueView(KeyValueView<Tuple, Tuple> view, int keysCnt) {
         LOG.info("Tes for Key-Value binary view [keys={}]", keysCnt);
 
         for (int i = 0; i < keysCnt; i++) {
@@ -490,14 +492,14 @@ public class ITDistributedTableTest {
     }
 
     /**
-     * @param name Node name.
+     * @param testInfo Test info.
      * @param port Local port.
      * @param nodeFinder Node finder.
      * @return The client cluster view.
      */
-    private static ClusterService startClient(String name, int port, NodeFinder nodeFinder) {
+    private static ClusterService startClient(TestInfo testInfo, int port, NodeFinder nodeFinder) {
         var network = ClusterServiceTestUtils.clusterService(
-            name,
+            testInfo,
             port,
             nodeFinder,
             SERIALIZATION_REGISTRY,
