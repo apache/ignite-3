@@ -368,7 +368,7 @@ public class ITInternalTableScanTest {
 
 
     /**
-     * Checks that {@link IllegalArgumentException} is thrown in case of invalid parition.
+     * Checks that {@link IllegalArgumentException} is thrown in case of invalid partition.
      */
     @Test()
     public void testInvalidPartitionParameterScan() {
