@@ -63,6 +63,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -120,11 +121,11 @@ public class ITInternalTableScanTest {
      * @throws Exception If any.
      */
     @BeforeEach
-    public void setUp() throws Exception {
+    public void setUp(TestInfo testInfo) throws Exception {
         NetworkAddress nodeNetworkAddress = new NetworkAddress("localhost", 20_000);
 
         network = ClusterServiceTestUtils.clusterService(
-            "Node" + 20_000,
+            testInfo,
             20_000,
             new StaticNodeFinder(List.of(nodeNetworkAddress)),
             SERIALIZATION_REGISTRY,
