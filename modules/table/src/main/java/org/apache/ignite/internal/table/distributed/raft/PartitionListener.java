@@ -27,8 +27,8 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.DataRow;
+import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.SearchRow;
-import org.apache.ignite.internal.storage.Storage;
 import org.apache.ignite.internal.storage.basic.DeleteExactInvokeClosure;
 import org.apache.ignite.internal.storage.basic.GetAndRemoveInvokeClosure;
 import org.apache.ignite.internal.storage.basic.GetAndReplaceInvokeClosure;
@@ -66,15 +66,15 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class PartitionListener implements RaftGroupListener {
     /** Partition storage. */
-    private final Storage storage;
+    private final PartitionStorage storage;
 
     /**
      * Constructor.
      *
-     * @param storage Storage.
+     * @param partitionStorage Storage.
      */
-    public PartitionListener(Storage storage) {
-        this.storage = storage;
+    public PartitionListener(PartitionStorage partitionStorage) {
+        this.storage = partitionStorage;
     }
 
     /** {@inheritDoc} */
@@ -491,7 +491,7 @@ public class PartitionListener implements RaftGroupListener {
      * @return Underlying storage.
      */
     @TestOnly
-    public Storage getStorage() {
+    public PartitionStorage getStorage() {
         return storage;
     }
 }

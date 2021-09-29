@@ -17,14 +17,14 @@
 
 package org.apache.ignite.distributed;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -40,8 +40,8 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.DataRow;
-import org.apache.ignite.internal.storage.Storage;
-import org.apache.ignite.internal.storage.basic.ConcurrentHashMapStorage;
+import org.apache.ignite.internal.storage.PartitionStorage;
+import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -79,7 +79,7 @@ public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
     private static final Row SECOND_VALUE = createKeyValueRow(1, 1);
 
     /** Paths for created partition listeners. */
-    private Map<PartitionListener, Path> paths = new ConcurrentHashMap<>();
+    private final Map<PartitionListener, Path> paths = new ConcurrentHashMap<>();
 
     /** {@inheritDoc} */
     @Override public void beforeFollowerStop(RaftGroupService service) throws Exception {
@@ -123,7 +123,7 @@ public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
 
     /** {@inheritDoc} */
     @Override public BooleanSupplier snapshotCheckClosure(JRaftServerImpl restarted, boolean interactedAfterSnapshot) {
-        Storage storage = getListener(restarted, raftGroupId()).getStorage();
+        PartitionStorage storage = getListener(restarted, raftGroupId()).getStorage();
 
         Row key = interactedAfterSnapshot ? SECOND_KEY : FIRST_KEY;
         Row value = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
@@ -150,16 +150,16 @@ public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
     @Override public RaftGroupListener createListener(Path workDir) {
         Path tableDir = workDir.resolve(UUID.randomUUID().toString());
 
-        PartitionListener listener = new PartitionListener(new ConcurrentHashMapStorage() {
+        PartitionListener listener = new PartitionListener(new ConcurrentHashMapPartitionStorage() {
             /** {@inheritDoc} */
             @Override public @NotNull CompletableFuture<Void> snapshot(Path snapshotPath) {
                 return CompletableFuture.runAsync(() -> {
                     try (
-                        OutputStream out = new FileOutputStream(snapshotPath.resolve("snapshot_file").toFile());
+                        OutputStream out = Files.newOutputStream(snapshotPath.resolve("snapshot_file"));
                         ObjectOutputStream objOut = new ObjectOutputStream(out)
                     ) {
                         objOut.writeObject(map.keySet().stream().map(ByteArray::bytes).collect(toList()));
-                        objOut.writeObject(map.values().stream().collect(toList()));
+                        objOut.writeObject(new ArrayList<>(map.values()));
                     }
                     catch (Exception e) {
                         throw new IgniteInternalException(e);
@@ -170,7 +170,7 @@ public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
             /** {@inheritDoc} */
             @Override public void restoreSnapshot(Path snapshotPath) {
                 try (
-                    InputStream in = new FileInputStream(snapshotPath.resolve("snapshot_file").toFile());
+                    InputStream in = Files.newInputStream(snapshotPath.resolve("snapshot_file"));
                     ObjectInputStream objIn = new ObjectInputStream(in)
                 ) {
                     var keys = (List<byte[]>)objIn.readObject();

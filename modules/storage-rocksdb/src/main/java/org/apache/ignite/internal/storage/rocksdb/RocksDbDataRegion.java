@@ -21,6 +21,7 @@ import java.util.Locale;
 import org.apache.ignite.configuration.schemas.store.DataRegionConfiguration;
 import org.apache.ignite.configuration.schemas.store.DataRegionView;
 import org.apache.ignite.internal.storage.engine.DataRegion;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.Cache;
 import org.rocksdb.ClockCache;
 import org.rocksdb.LRUCache;
@@ -82,12 +83,8 @@ public class RocksDbDataRegion implements DataRegion {
     }
 
     /** {@inheritDoc} */
-    @Override public void stop() {
-        if (writeBufferManager != null)
-            writeBufferManager.close();
-
-        if (cache != null)
-            cache.close();
+    @Override public void stop() throws Exception {
+        IgniteUtils.closeAll(writeBufferManager, cache);
     }
 
     /**

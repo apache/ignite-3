@@ -34,19 +34,19 @@ public class DataRegionConfigurationSchema {
 
     /** Size of the rocksdb offheap cache. */
     @Value(hasDefault = true)
-    public int size = 64 * 1024 * 1024;
+    public long size = 256 * 1024 * 1024;
 
     /** Size of rocksdb write buffer. */
     @Value(hasDefault = true)
     @Min(1)
     public long writeBufferSize = 64 * 1024 * 1024;
 
-    /** Cache type - either {@code Clock} or {@code LRU}. */
-    @OneOf({"Clock", "LRU"})
+    /** Cache type - only {@code LRU} is supported at the moment. {@code Clock} implementation has known bugs. */
+    @OneOf({"LRU"})
     @Value(hasDefault = true)
     public String cache = "LRU";
 
-    /** Logarithm of the number of cache shards. {@code -1} if no shards required. */
+    /** The cache is sharded to 2^numShardBits shards, by hash of the key. */
     @Min(-1)
     @Value(hasDefault = true)
     public int numShardBits = -1;

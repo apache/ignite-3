@@ -32,7 +32,7 @@ import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
-import org.apache.ignite.internal.storage.Storage;
+import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.tostring.S;
@@ -95,7 +95,10 @@ public class RocksDbTableStorage implements TableStorage {
     private ColumnFamilyHandle metaCfHandle;
 
     /** Column families for partitions. Stored as a list for the quick access by an index. */
-    private List<ColumnFamily> partitionCfs;
+    private Map<Integer, ColumnFamily> partitionCfs = new ConcurrentHashMap<>();
+
+    /** Max number of partitions in the table. */
+    private int partitions;
 
     /** Column families for indexes by their names. */
     private Map<String, ColumnFamilyHandle> indicesCfHandles = new ConcurrentHashMap<>();
@@ -127,62 +130,18 @@ public class RocksDbTableStorage implements TableStorage {
 
     /** {@inheritDoc} */
     @Override public void start() throws StorageException {
+        String absolutePathStr = tablePath.toAbsolutePath().toString();
+
+        Map<CFType, List<String>> cfNamesGrouped = getCfNames(absolutePathStr);
+
+        List<ColumnFamilyDescriptor> cfDescriptors = convertToCfDescriptors(cfNamesGrouped);
+
+        List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
+
         DBOptions dbOptions = addToCloseableResources(new DBOptions()
             .setCreateIfMissing(true)
             .setWriteBufferManager(dataRegion.writeBufferManager())
         );
-
-        String absolutePathStr = tablePath.toAbsolutePath().toString();
-
-        List<String> cfNames = listCfNames(absolutePathStr);
-
-        Map<CFType, List<String>> cfGrouped = cfNames.stream().collect(groupingBy(this::cfType));
-
-        List<ColumnFamilyDescriptor> cfDescriptors = new ArrayList<>();
-
-        cfDescriptors.add(new ColumnFamilyDescriptor(
-            CF_META.getBytes(StandardCharsets.UTF_8),
-            addToCloseableResources(new ColumnFamilyOptions(addToCloseableResources(new Options().setCreateIfMissing(true))))
-        ));
-
-        for (String partitionCfName : cfGrouped.getOrDefault(CFType.PARTITION, List.of()))
-            cfDescriptors.add(new ColumnFamilyDescriptor(
-                partitionCfName.getBytes(StandardCharsets.UTF_8),
-                new ColumnFamilyOptions()
-            ));
-
-        TableView tableCfgView = tableCfg.value();
-
-        NamedListView<? extends TableIndexView> indicesCfgView = tableCfgView.indices();
-
-        for (String indexCfName : cfGrouped.getOrDefault(CFType.INDEX, List.of())) {
-            String indexName = indexCfName.substring(CF_INDEX_PREFIX.length());
-
-            TableIndexView indexCfgView = indicesCfgView.get(indexName);
-
-            assert indexCfgView != null : indexCfName; //TODO Bullshit!
-
-            Comparator<ByteBuffer> indexComparator = indexComparatorFactory.apply(tableCfgView, indexName);
-
-            cfDescriptors.add(new ColumnFamilyDescriptor(
-                indexCfName.getBytes(StandardCharsets.UTF_8),
-                new ColumnFamilyOptions()
-                    .setComparator(addToCloseableResources(
-                        new AbstractComparator(addToCloseableResources(new ComparatorOptions())) {
-                            /** {@inheritDoc} */
-                            @Override public String name() {
-                                return "index-comparator";
-                            }
-
-                            /** {@inheritDoc} */
-                            @Override public int compare(ByteBuffer a, ByteBuffer b) {
-                                return indexComparator.compare(a, b);
-                            }
-                        }))
-            ));
-        }
-
-        List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
 
         try {
             db = addToCloseableResources(RocksDB.open(dbOptions, absolutePathStr, cfDescriptors, cfHandles));
@@ -191,9 +150,7 @@ public class RocksDbTableStorage implements TableStorage {
             throw new StorageException("Failed to initialize RocksDB instance.", e);
         }
 
-        partitionCfs = new ArrayList<>(tableCfgView.partitions());
-
-        partitionCfs.addAll(Collections.nCopies(tableCfgView.partitions(), null));
+        partitions = tableCfg.value().partitions();
 
         for (int cfListIndex = 0; cfListIndex < cfHandles.size(); cfListIndex++) {
             ColumnFamilyHandle cfHandle = cfHandles.get(cfListIndex);
@@ -213,7 +170,7 @@ public class RocksDbTableStorage implements TableStorage {
 
                 ColumnFamilyDescriptor cfDescriptor = cfDescriptors.get(cfListIndex);
 
-                partitionCfs.set(partId, new ColumnFamily(db, cfHandle, handleName, cfDescriptor.getOptions(), null));
+                partitionCfs.put(partId, new ColumnFamily(db, cfHandle, handleName, cfDescriptor.getOptions(), null));
             }
             else {
                 String indexName = handleName.substring(CF_INDEX_PREFIX.length());
@@ -231,7 +188,7 @@ public class RocksDbTableStorage implements TableStorage {
             Collections.reverse(copy);
 
             IgniteUtils.closeAll(concat(
-                concat(partitionCfs.stream(), indicesCfHandles.values().stream()),
+                concat(partitionCfs.values().stream(), indicesCfHandles.values().stream()),
                 copy.stream()
             ));
         }
@@ -241,7 +198,7 @@ public class RocksDbTableStorage implements TableStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public Storage getOrCreatePartition(int partId) {
+    @Override public PartitionStorage getOrCreatePartition(int partId) {
         assert partId < partitionCfs.size() : S.toString(
             "Attempt to create partition with id outside of configured range",
             "partitionId", partId, false,
@@ -266,39 +223,95 @@ public class RocksDbTableStorage implements TableStorage {
             catch (RocksDBException e) {
                 cfDescriptor.getOptions().close();
 
-                throw new StorageException("Feiled to create new ROcksDB column family " + handleName, e);
+                throw new StorageException("Failed to create new RocksDB column family " + handleName, e);
             }
 
-            partitionCfs.set(partId, partitionCf);
+            partitionCfs.put(partId, partitionCf);
         }
 
-        return new RocksDbStorage(db, partitionCf);
+        return new RocksDbPartitionStorage(db, partitionCf);
     }
 
     /**
-     * Returns list of column families names that belong to RocksDB instance in the given path.
+     * Returns list of column families names that belong to RocksDB instance in the given path, grouped by thier
+     * {@link CFType}.
      *
      * @param path DB path.
-     * @return List of column families names.
+     * @return Map with column families names.
      * @throws StorageException If something went wrong.
      */
-    @NotNull private List<String> listCfNames(String path) throws StorageException {
+    private Map<CFType, List<String>> getCfNames(String absolutePathStr) {
         List<String> cfNames = new ArrayList<>();
 
         try (Options opts = new Options()) {
-            List<byte[]> cfNamesBytes = RocksDB.listColumnFamilies(opts, path);
+            List<byte[]> cfNamesBytes = RocksDB.listColumnFamilies(opts, absolutePathStr);
 
             for (byte[] cfNameBytes : cfNamesBytes)
                 cfNames.add(new String(cfNameBytes, StandardCharsets.UTF_8));
         }
         catch (RocksDBException e) {
             throw new StorageException(
-                "Failed to read list of columnfamilies names for the RocksDB instance located at path " + path,
+                "Failed to read list of columnfamilies names for the RocksDB instance located at path " + absolutePathStr,
                 e
             );
         }
 
-        return cfNames;
+        return cfNames.stream().collect(groupingBy(this::cfType));
+    }
+
+    /**
+     * Returns list of CF descriptors by their names.
+     *
+     * @param cfGrouped Map from CF type to lists of names.
+     * @return List of CF descriptors.
+     */
+    @NotNull private List<ColumnFamilyDescriptor> convertToCfDescriptors(Map<CFType, List<String>> cfGrouped) {
+        List<ColumnFamilyDescriptor> cfDescriptors = new ArrayList<>();
+
+        Options cfOptions = addToCloseableResources(new Options().setCreateIfMissing(true));
+
+        cfDescriptors.add(new ColumnFamilyDescriptor(
+            CF_META.getBytes(StandardCharsets.UTF_8),
+            addToCloseableResources(new ColumnFamilyOptions(cfOptions))
+        ));
+
+        for (String partitionCfName : cfGrouped.getOrDefault(CFType.PARTITION, List.of())) {
+            cfDescriptors.add(new ColumnFamilyDescriptor(
+                partitionCfName.getBytes(StandardCharsets.UTF_8),
+                new ColumnFamilyOptions()
+            ));
+        }
+
+        NamedListView<? extends TableIndexView> indicesCfgView = tableCfg.value().indices();
+
+        for (String indexCfName : cfGrouped.getOrDefault(CFType.INDEX, List.of())) {
+            String indexName = indexCfName.substring(CF_INDEX_PREFIX.length());
+
+            TableIndexView indexCfgView = indicesCfgView.get(indexName);
+
+            assert indexCfgView != null : "Found index that is absent in configuration: " + indexCfName;
+
+            Comparator<ByteBuffer> indexComparator = indexComparatorFactory.apply(tableCfg.value(), indexName);
+
+            cfDescriptors.add(new ColumnFamilyDescriptor(
+                indexCfName.getBytes(StandardCharsets.UTF_8),
+                new ColumnFamilyOptions()
+                    .setComparator(addToCloseableResources(
+                        new AbstractComparator(addToCloseableResources(new ComparatorOptions())) {
+                            /** {@inheritDoc} */
+                            @Override public String name() {
+                                return "index-comparator";
+                            }
+
+                            /** {@inheritDoc} */
+                            @Override public int compare(ByteBuffer a, ByteBuffer b) {
+                                return indexComparator.compare(a, b);
+                            }
+                        }))
+            ));
+        }
+
+        return cfDescriptors;
     }
 
     /**
@@ -317,8 +330,8 @@ public class RocksDbTableStorage implements TableStorage {
      * @param cfName Column family name.
      * @return Partition id.
      */
-    private int partitionId(String cfName) {
-        return parseInt(cfName.substring(CF_PARTITION_PREFIX.length(), cfName.length()));
+    private static int partitionId(String cfName) {
+        return parseInt(cfName.substring(CF_PARTITION_PREFIX.length()));
     }
 
     /**

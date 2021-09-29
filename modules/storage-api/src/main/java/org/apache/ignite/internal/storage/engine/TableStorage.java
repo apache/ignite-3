@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.engine;
 
-import org.apache.ignite.internal.storage.Storage;
+import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 
 /**
@@ -30,7 +30,7 @@ public interface TableStorage {
      * @param partId Partition id.
      * @return Partition storage.
      */
-    Storage getOrCreatePartition(int partId);
+    PartitionStorage getOrCreatePartition(int partId);
 
     /**
      * Starts the storage.

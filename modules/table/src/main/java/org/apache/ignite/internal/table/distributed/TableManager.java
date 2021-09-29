@@ -32,10 +32,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
-import java.util.stream.IntStream;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.configuration.schemas.store.DataRegionConfiguration;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
@@ -57,7 +55,6 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
-import org.apache.ignite.internal.storage.Storage;
 import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.TableStorage;
@@ -121,8 +118,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Meta storage service. */
     private final MetaStorageManager metaStorageMgr;
 
-    /** Storage engine instance. Only one type is available right not, it's a {@link RocksDbStorageEngine}. */
-    private final StorageEngine<DataStorageConfiguration, DataRegionConfiguration> engine;
+    /** Storage engine instance. Only one type is available right now, which is the {@link RocksDbStorageEngine}. */
+    private final StorageEngine engine;
 
     /** Partitions store directory. */
     private final Path partitionsStoreDir;
@@ -137,7 +134,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private DataRegion defaultDataRegion;
 
     //TODO: IGNITE-15161 These should go into TableImpl instances.
-    /** Instances of table storages that need to be stop on component stop. */
+    /** Instances of table storages that need to be stopped on component stop. */
     private final Set<TableStorage> tableStorages = ConcurrentHashMap.newKeySet();
 
     /**
@@ -320,19 +317,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         tableStorages.add(tableStorage);
 
-        IntStream.range(0, partitions).forEach(p ->
+        for (int p = 0; p < partitions; p++) {
+            int partId = p;
+
             partitionsGroupsFutures.add(
                 raftMgr.prepareRaftGroup(
                     raftGroupName(tblId, p),
                     assignment.get(p),
-                    () -> {
-                        Storage storage = tableStorage.getOrCreatePartition(p);
-
-                        return new PartitionListener(storage);
-                    }
+                    () -> new PartitionListener(tableStorage.getOrCreatePartition(partId))
                 )
-            )
-        );
+            );
+        }
 
         CompletableFuture.allOf(partitionsGroupsFutures.toArray(CompletableFuture[]::new)).thenRun(() -> {
             try {

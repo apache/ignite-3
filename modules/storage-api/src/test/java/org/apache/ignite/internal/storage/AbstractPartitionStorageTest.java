@@ -55,7 +55,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Abstract test that covers basic scenarios of the storage API.
  */
-public abstract class AbstractStorageTest {
+public abstract class AbstractPartitionStorageTest {
     /** Test key. */
     private static final String KEY = "key";
 
@@ -63,7 +63,7 @@ public abstract class AbstractStorageTest {
     private static final String VALUE = "value";
 
     /** Storage instance. */
-    protected Storage storage;
+    protected PartitionStorage storage;
 
     /**
      * Tests that read / write / remove work consistently on the same key.
@@ -459,7 +459,7 @@ public abstract class AbstractStorageTest {
     }
 
     /**
-     * Tests the {@link Storage#readAll(List)} operation successfully reads data rows from the storage.
+     * Tests the {@link PartitionStorage#readAll(List)} operation successfully reads data rows from the storage.
      */
     @Test
     public void testReadAll() {
@@ -477,7 +477,7 @@ public abstract class AbstractStorageTest {
     }
 
     /**
-     * Tests that {@link Storage#writeAll(List)} operation successfully writes a collection of data rows into the
+     * Tests that {@link PartitionStorage#writeAll(List)} operation successfully writes a collection of data rows into the
      * storage.
      */
     @Test
@@ -491,7 +491,7 @@ public abstract class AbstractStorageTest {
     }
 
     /**
-     * Tests that {@link Storage#insertAll(List)} operation doesn't insert data rows which keys
+     * Tests that {@link PartitionStorage#insertAll(List)} operation doesn't insert data rows which keys
      * are already present in the storage. This operation must also return the list of such data rows.
      */
     @Test
@@ -511,7 +511,7 @@ public abstract class AbstractStorageTest {
     }
 
     /**
-     * Tests that {@link Storage#removeAll(List)} operation successfully retrieves and removes a collection of
+     * Tests that {@link PartitionStorage#removeAll(List)} operation successfully retrieves and removes a collection of
      * {@link SearchRow}s.
      */
     @Test
@@ -541,7 +541,7 @@ public abstract class AbstractStorageTest {
     }
 
     /**
-     * Tests that {@link Storage#removeAllExact(List)} operation successfully removes and retrieves a collection
+     * Tests that {@link PartitionStorage#removeAllExact(List)} operation successfully removes and retrieves a collection
      * of data rows with the given exact keys and values from the storage.
      */
     @Test
@@ -560,7 +560,7 @@ public abstract class AbstractStorageTest {
     }
 
     /**
-     * Tests that {@link Storage#removeAllExact(List)} operation doesn't remove and retrieve a collection
+     * Tests that {@link PartitionStorage#removeAllExact(List)} operation doesn't remove and retrieve a collection
      * of data rows with the given exact keys and values from the storage if the value in the storage doesn't match
      * the given value.
      */

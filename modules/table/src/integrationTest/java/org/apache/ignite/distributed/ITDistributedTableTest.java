@@ -39,7 +39,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.storage.basic.ConcurrentHashMapStorage;
+import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
@@ -174,7 +174,7 @@ public class ITDistributedTableTest {
 
         partSrv.startRaftGroup(
             grpId,
-            new PartitionListener(new ConcurrentHashMapStorage()),
+            new PartitionListener(new ConcurrentHashMapPartitionStorage()),
             conf
         );
 
@@ -265,7 +265,7 @@ public class ITDistributedTableTest {
 
             rs.startRaftGroup(
                 grpId,
-                new PartitionListener(new ConcurrentHashMapStorage()),
+                new PartitionListener(new ConcurrentHashMapPartitionStorage()),
                 conf
             );
 

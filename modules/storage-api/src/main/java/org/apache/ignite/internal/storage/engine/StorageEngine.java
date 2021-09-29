@@ -22,27 +22,20 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.function.BiFunction;
 import org.apache.ignite.configuration.schemas.store.DataRegionConfiguration;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 
 /**
  * General storageengine interface.
- *
- * @param <StorageCfg> Type of storage configuration.
- * @param <RegionCfg> Type of data region configuration.
  */
-public interface StorageEngine<
-    StorageCfg extends DataStorageConfiguration,
-    RegionCfg extends DataRegionConfiguration>
-{
+public interface StorageEngine {
     /**
      * Creates new data resion.
      *
      * @param regionCfg Data region configuration.
      * @return New data region.
      */
-    DataRegion createDataRegion(RegionCfg regionCfg);
+    DataRegion createDataRegion(DataRegionConfiguration regionCfg);
 
     /**
      * Creates new table storage.

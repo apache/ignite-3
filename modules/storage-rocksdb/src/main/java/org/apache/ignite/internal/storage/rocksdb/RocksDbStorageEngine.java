@@ -22,22 +22,16 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.function.BiFunction;
 import org.apache.ignite.configuration.schemas.store.DataRegionConfiguration;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.TableStorage;
-import org.rocksdb.RocksDB;
 
 /**
  * Storage engine implementation based on RocksDB.
  */
-public class RocksDbStorageEngine implements StorageEngine<DataStorageConfiguration, DataRegionConfiguration> {
-    static {
-        RocksDB.loadLibrary();
-    }
-
+public class RocksDbStorageEngine implements StorageEngine {
     /** {@inheritDoc} */
     @Override public DataRegion createDataRegion(DataRegionConfiguration regionCfg) {
         return new RocksDbDataRegion(regionCfg);

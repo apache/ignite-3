@@ -36,8 +36,8 @@ import java.util.function.Predicate;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.InvokeClosure;
+import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.SearchRow;
-import org.apache.ignite.internal.storage.Storage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
 import org.apache.ignite.internal.util.Cursor;
@@ -59,7 +59,7 @@ import static org.apache.ignite.internal.rocksdb.RocksUtils.createSstFile;
 /**
  * Storage implementation based on a single RocksDB instance.
  */
-public class RocksDbStorage implements Storage {
+public class RocksDbPartitionStorage implements PartitionStorage {
     static {
         RocksDB.loadLibrary();
     }
@@ -81,7 +81,7 @@ public class RocksDbStorage implements Storage {
      * @param columnFamily Column family to be used for all storage operations.
      * @throws StorageException If failed to create RocksDB instance.
      */
-    public RocksDbStorage(RocksDB db, ColumnFamily columnFamily) throws StorageException {
+    public RocksDbPartitionStorage(RocksDB db, ColumnFamily columnFamily) throws StorageException {
         this.db = db;
 
         this.data = columnFamily;
