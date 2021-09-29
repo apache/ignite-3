@@ -20,10 +20,12 @@ package org.apache.ignite.internal.configuration.processor;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
@@ -49,17 +51,22 @@ import com.squareup.javapoet.WildcardTypeName;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.DirectAccess;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.jetbrains.annotations.Nullable;
 
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static java.util.stream.Collectors.toUnmodifiableSet;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -72,7 +79,7 @@ public class Processor extends AbstractProcessor {
     /** Java file padding. */
     private static final String INDENT = "    ";
 
-    /** */
+    /** {@link RootKey} class name. */
     private static final ClassName ROOT_KEY_CLASSNAME = ClassName.get("org.apache.ignite.configuration", "RootKey");
 
     /** {@inheritDoc} */
@@ -97,9 +104,9 @@ public class Processor extends AbstractProcessor {
     private boolean process0(RoundEnvironment roundEnvironment) {
         Elements elementUtils = processingEnv.getElementUtils();
 
-        // All classes annotated with @ConfigurationRoot, @Config, @InternalConfiguration.
+        // All classes annotated with {@link #supportedAnnotationTypes}.
         List<TypeElement> annotatedConfigs = roundEnvironment
-            .getElementsAnnotatedWithAny(Set.of(ConfigurationRoot.class, Config.class, InternalConfiguration.class))
+            .getElementsAnnotatedWithAny(supportedAnnotationTypes())
             .stream()
             .filter(element -> element.getKind() == ElementKind.CLASS)
             .map(TypeElement.class::cast)
@@ -498,35 +505,25 @@ public class Processor extends AbstractProcessor {
      */
     private void validate(TypeElement clazz, Collection<VariableElement> fields) {
         if (clazz.getAnnotation(InternalConfiguration.class) != null) {
-            if (clazz.getAnnotation(Config.class) != null) {
-                throw new ProcessorException(String.format(
-                    "Class with @%s is not allowed with @%s: %s",
-                    Config.class.getSimpleName(),
-                    InternalConfiguration.class.getSimpleName(),
-                    clazz.getQualifiedName()
-                ));
+            List<Class<? extends Annotation>> incompatibleClassAnnotations = List.of(
+                Config.class,
+                PolymorphicConfig.class,
+                PolymorphicConfigInstance.class
+            );
+
+            for (Class<? extends Annotation> incompatible : incompatibleClassAnnotations) {
+                if (clazz.getAnnotation(incompatible) != null)
+                    throw incompatibleClassAnnotationError(clazz, incompatible, InternalConfiguration.class);
             }
-            else if (clazz.getAnnotation(ConfigurationRoot.class) != null) {
-                if (!isObjectClass(clazz.getSuperclass())) {
-                    throw new ProcessorException(String.format(
-                        "Class with @%s and @%s should not have a superclass: %s",
-                        ConfigurationRoot.class.getSimpleName(),
-                        InternalConfiguration.class.getSimpleName(),
-                        clazz.getQualifiedName()
-                    ));
-                }
+
+            if (clazz.getAnnotation(ConfigurationRoot.class) != null) {
+                if (!isObjectClass(clazz.getSuperclass()))
+                    throw existSuperClassError(clazz, ConfigurationRoot.class, InternalConfiguration.class);
             }
-            else if (isObjectClass(clazz.getSuperclass())) {
-                throw new ProcessorException(String.format(
-                    "Class with @%s must have a superclass: %s",
-                    InternalConfiguration.class.getSimpleName(),
-                    clazz.getQualifiedName()
-                ));
-            }
+            else if (isObjectClass(clazz.getSuperclass()))
+                throw missingSuperClassError(clazz, InternalConfiguration.class);
             else {
-                TypeElement superClazz = processingEnv
-                    .getElementUtils()
-                    .getTypeElement(clazz.getSuperclass().toString());
+                TypeElement superClazz = superClass(clazz);
 
                 if (superClazz.getAnnotation(InternalConfiguration.class) != null) {
                     throw new ProcessorException(String.format(
@@ -536,14 +533,8 @@ public class Processor extends AbstractProcessor {
                     ));
                 }
                 else if (superClazz.getAnnotation(ConfigurationRoot.class) == null &&
-                    superClazz.getAnnotation(Config.class) == null) {
-                    throw new ProcessorException(String.format(
-                        "Superclass must have @%s or @%s: %s",
-                        ConfigurationRoot.class.getSimpleName(),
-                        Config.class.getSimpleName(),
-                        clazz.getQualifiedName()
-                    ));
-                }
+                    superClazz.getAnnotation(Config.class) == null)
+                    throw superClassMissingAnnotationsError(clazz, ConfigurationRoot.class, Config.class);
                 else {
                     Set<Name> superClazzFieldNames = fields(superClazz).stream()
                         .map(VariableElement::getSimpleName)
@@ -565,15 +556,144 @@ public class Processor extends AbstractProcessor {
                 }
             }
         }
+        else if (clazz.getAnnotation(PolymorphicConfig.class) != null) {
+            List<Class<? extends Annotation>> incompatibleClassAnnotations = List.of(
+                ConfigurationRoot.class,
+                Config.class,
+                PolymorphicConfigInstance.class
+            );
+
+            for (Class<? extends Annotation> incompatible : incompatibleClassAnnotations) {
+                if (clazz.getAnnotation(incompatible) != null)
+                    throw incompatibleClassAnnotationError(clazz, incompatible, PolymorphicConfig.class);
+            }
+
+            if (!isObjectClass(clazz.getSuperclass()))
+                throw existSuperClassError(clazz, PolymorphicConfig.class);
+            else {
+                String fieldName = clazz.getAnnotation(PolymorphicConfig.class).fieldName();
+
+                if (fields.stream().anyMatch(f -> f.getSimpleName().contentEquals(fieldName))) {
+                    throw new ProcessorException(String.format(
+                        "Field name '%s' is reserved for %s: %s",
+                        fieldName,
+                        PolymorphicConfig.class.getSimpleName(),
+                        clazz.getQualifiedName()
+                    ));
+                }
+            }
+        }
+        else if (clazz.getAnnotation(PolymorphicConfigInstance.class) != null) {
+            List<Class<? extends Annotation>> incompatibleClassAnnotations = List.of(
+                ConfigurationRoot.class,
+                Config.class
+            );
+
+            for (Class<? extends Annotation> incompatible : incompatibleClassAnnotations) {
+                if (clazz.getAnnotation(incompatible) != null)
+                    throw incompatibleClassAnnotationError(clazz, incompatible, PolymorphicConfigInstance.class);
+            }
+
+            if (isObjectClass(clazz.getSuperclass()))
+                throw missingSuperClassError(clazz, PolymorphicConfigInstance.class);
+            else if (superClass(clazz).getAnnotation(PolymorphicConfig.class) == null)
+                throw superClassMissingAnnotationsError(clazz, PolymorphicConfig.class);
+        }
+    }
+
+    /**
+     * @param clazz Class type.
+     * @param first First annotation type.
+     * @param second Second annotation type.
+     * @return Class annotation incompatibility error.
+     */
+    private ProcessorException incompatibleClassAnnotationError(
+        TypeElement clazz,
+        Class<? extends Annotation> first,
+        Class<? extends Annotation> second
+    ) {
+        return new ProcessorException(String.format(
+            "Class with @%s is not allowed with @%s: %s",
+            first.getSimpleName(),
+            second.getSimpleName(),
+            clazz.getQualifiedName()
+        ));
+    }
+
+    /**
+     * @param clazz Class type.
+     * @param annotation Annotation type.
+     * @return Superclass missing errors.
+     */
+    private ProcessorException missingSuperClassError(
+        TypeElement clazz,
+        Class<? extends Annotation> annotation
+    ) {
+        return new ProcessorException(String.format(
+            "Class with @%s must have a superclass: %s",
+            annotation.getSimpleName(),
+            clazz.getQualifiedName()
+        ));
+    }
+
+    /**
+     * @param clazz Class type.
+     * @param annotations Annotation types.
+     * @return Superclass existence error.
+     */
+    @SafeVarargs
+    private ProcessorException existSuperClassError(
+        TypeElement clazz,
+        Class<? extends Annotation>... annotations
+    ) {
+        return new ProcessorException(String.format(
+            "Class with @%s should not have a superclass: %s",
+            Stream.of(annotations).map(Class::getSimpleName).collect(joining(" and")),
+            clazz.getQualifiedName()
+        ));
+    }
+
+    /**
+     * @param clazz Class type.
+     * @param annotations Annotation types.
+     * @return Superclass missing annotation error.
+     */
+    @SafeVarargs
+    private ProcessorException superClassMissingAnnotationsError(
+        TypeElement clazz,
+        Class<? extends Annotation>... annotations
+    ) {
+        return new ProcessorException(String.format(
+            "Superclass must have @%s: %s",
+            Stream.of(annotations).map(Class::getSimpleName).collect(joining(" or")),
+            clazz.getQualifiedName()
+        ));
+    }
+
+    /**
+     * @param clazz Class type.
+     * @return Superclass type.
+     */
+    private TypeElement superClass(TypeElement clazz) {
+        return processingEnv.getElementUtils().getTypeElement(clazz.getSuperclass().toString());
+    }
+
+    /**
+     * @return Annotation types supported by this processor.
+     */
+    private Set<Class<? extends Annotation>> supportedAnnotationTypes() {
+        return Set.of(
+            Config.class,
+            ConfigurationRoot.class,
+            InternalConfiguration.class,
+            PolymorphicConfig.class,
+            PolymorphicConfigInstance.class
+        );
     }
 
     /** {@inheritDoc} */
     @Override public Set<String> getSupportedAnnotationTypes() {
-        return Set.of(
-            Config.class.getCanonicalName(),
-            ConfigurationRoot.class.getCanonicalName(),
-            InternalConfiguration.class.getCanonicalName()
-        );
+        return supportedAnnotationTypes().stream().map(Class::getCanonicalName).collect(toUnmodifiableSet());
     }
 
     /** {@inheritDoc} */

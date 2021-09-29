@@ -144,6 +144,67 @@ public class ITProcessorTest extends AbstractProcessorTest {
         );
     }
 
+    /** */
+    @Test
+    void testErrorPolymorphicConfigCodeGeneration() {
+        String packageName = "org.apache.ignite.internal.configuration.processor.polymorphic";
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> batchCompile(packageName, "ErrorPolymorphic0ConfigurationSchema")
+        );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> batchCompile(packageName, "ErrorPolymorphic1ConfigurationSchema")
+        );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> batchCompile(packageName, "ErrorPolymorphic2ConfigurationSchema")
+        );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> batchCompile(packageName, "ErrorPolymorphic3ConfigurationSchema")
+        );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> batchCompile(packageName, "ErrorPolymorphic4ConfigurationSchema")
+        );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> batchCompile(packageName, "ErrorPolymorphic5ConfigurationSchema")
+        );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> batchCompile(packageName, "ErrorPolymorphicInstance0ConfigurationSchema")
+        );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> batchCompile(packageName, "ErrorPolymorphicInstance1ConfigurationSchema")
+        );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> batchCompile(packageName, "ErrorPolymorphicInstance2ConfigurationSchema")
+        );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> batchCompile(packageName, "ErrorPolymorphicInstance3ConfigurationSchema")
+        );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> batchCompile(packageName, "ErrorPolymorphicInstance4ConfigurationSchema")
+        );
+    }
+
     /**
      * Compile set of classes.
      *
