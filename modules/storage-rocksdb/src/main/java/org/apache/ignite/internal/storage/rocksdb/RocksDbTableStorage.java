@@ -199,10 +199,10 @@ public class RocksDbTableStorage implements TableStorage {
 
     /** {@inheritDoc} */
     @Override public PartitionStorage getOrCreatePartition(int partId) {
-        assert partId < partitionCfs.size() : S.toString(
+        assert partId < partitions : S.toString(
             "Attempt to create partition with id outside of configured range",
             "partitionId", partId, false,
-            "partitions", partitionCfs.size(), false
+            "partitions", partitions, false
         );
 
         ColumnFamily partitionCf = partitionCfs.get(partId);
