@@ -35,8 +35,8 @@ import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.Storage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.AbstractComparator;
 import org.rocksdb.ColumnFamilyDescriptor;
@@ -136,14 +136,7 @@ public class RocksDbTableStorage implements TableStorage {
 
         List<String> cfNames = listCfNames(absolutePathStr);
 
-        Map<CFType, List<String>> cfGrouped;
-
-        try {
-            cfGrouped = cfNames.stream().collect(groupingBy(this::cfType));
-        }
-        catch (IgniteInternalException e) {
-            throw new StorageException(e.getMessage(), e.getCause());
-        }
+        Map<CFType, List<String>> cfGrouped = cfNames.stream().collect(groupingBy(this::cfType));
 
         List<ColumnFamilyDescriptor> cfDescriptors = new ArrayList<>();
 
@@ -195,7 +188,7 @@ public class RocksDbTableStorage implements TableStorage {
             db = addToCloseableResources(RocksDB.open(dbOptions, absolutePathStr, cfDescriptors, cfHandles));
         }
         catch (RocksDBException e) {
-            throw new StorageException(e);
+            throw new StorageException("Failed to initialize RocksDB instance.", e);
         }
 
         partitionCfs = new ArrayList<>(tableCfgView.partitions());
@@ -210,7 +203,7 @@ public class RocksDbTableStorage implements TableStorage {
                 handleName = new String(cfHandle.getName(), StandardCharsets.UTF_8);
             }
             catch (RocksDBException e) {
-                throw new StorageException(e);
+                throw new StorageException("Failed to read RocksDB column family name.", e);
             }
 
             if (handleName.equals(CF_META))
@@ -243,42 +236,43 @@ public class RocksDbTableStorage implements TableStorage {
             ));
         }
         catch (Exception e) {
-            throw new StorageException(e);
+            throw new StorageException("Failed to stop RocksDB table storage.", e);
         }
     }
 
     /** {@inheritDoc} */
     @Override public Storage getOrCreatePartition(int partId) {
-        try {
-            ColumnFamily partitionCf = partitionCfs.get(partId);
+        assert partId < partitionCfs.size() : S.toString(
+            "Attempt to create partition with id outside of configured range",
+            "partitionId", partId, false,
+            "partitions", partitionCfs.size(), false
+        );
 
-            if (partitionCf == null) {
-                String handleName = partitionCfName(partId);
+        ColumnFamily partitionCf = partitionCfs.get(partId);
 
-                ColumnFamilyDescriptor cfDescriptor = new ColumnFamilyDescriptor(
-                    handleName.getBytes(StandardCharsets.UTF_8),
-                    new ColumnFamilyOptions()
-                );
+        if (partitionCf == null) {
+            String handleName = partitionCfName(partId);
 
-                try {
-                    ColumnFamilyHandle cfHandle = db.createColumnFamily(cfDescriptor);
+            ColumnFamilyDescriptor cfDescriptor = new ColumnFamilyDescriptor(
+                handleName.getBytes(StandardCharsets.UTF_8),
+                new ColumnFamilyOptions()
+            );
 
-                    partitionCf = new ColumnFamily(db, cfHandle, handleName, cfDescriptor.getOptions(), null);
-                }
-                catch (RocksDBException e) {
-                    cfDescriptor.getOptions().close();
+            try {
+                ColumnFamilyHandle cfHandle = db.createColumnFamily(cfDescriptor);
 
-                    throw new StorageException(e);
-                }
+                partitionCf = new ColumnFamily(db, cfHandle, handleName, cfDescriptor.getOptions(), null);
+            }
+            catch (RocksDBException e) {
+                cfDescriptor.getOptions().close();
 
-                partitionCfs.set(partId, partitionCf);
+                throw new StorageException("Feiled to create new ROcksDB column family " + handleName, e);
             }
 
-            return new RocksDbStorage(db, partitionCf);
+            partitionCfs.set(partId, partitionCf);
         }
-        catch (IndexOutOfBoundsException ioobe) {
-            throw new StorageException("fucking shit", ioobe);
-        }
+
+        return new RocksDbStorage(db, partitionCf);
     }
 
     /**
@@ -298,7 +292,10 @@ public class RocksDbTableStorage implements TableStorage {
                 cfNames.add(new String(cfNameBytes, StandardCharsets.UTF_8));
         }
         catch (RocksDBException e) {
-            throw new StorageException(e);
+            throw new StorageException(
+                "Failed to read list of columnfamilies names for the RocksDB instance located at path " + path,
+                e
+            );
         }
 
         return cfNames;
@@ -339,9 +336,9 @@ public class RocksDbTableStorage implements TableStorage {
      *
      * @param cfName Column family name.
      * @return Column family type.
-     * @throws IgniteInternalException If column family name doesn't match any known pattern.
+     * @throws StorageException If column family name doesn't match any known pattern.
      */
-    private CFType cfType(String cfName) throws IgniteInternalException {
+    private CFType cfType(String cfName) throws StorageException {
         if (CF_META.equals(cfName))
             return CFType.META;
 
@@ -351,7 +348,7 @@ public class RocksDbTableStorage implements TableStorage {
         if (cfName.startsWith(CF_INDEX_PREFIX))
             return CFType.INDEX;
 
-        throw new IgniteInternalException("Unidentified column family [name=" + cfName + ", table=" + tableCfg.name() + ']');
+        throw new StorageException("Unidentified column family [name=" + cfName + ", table=" + tableCfg.name() + ']');
     }
 
     /**
