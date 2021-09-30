@@ -30,15 +30,18 @@ import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.SchemaTable;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.TableDefinition;
 
 /**
  * Helper class for non-Java platform tests (.NET, C++, Python, ...).
  * Starts nodes, populates tables and data for tests.
  */
 public class PlatformTestNodeRunner {
+    /** Test node name. */
+    private static final String NODE_NAME = PlatformTestNodeRunner.class.getCanonicalName();
+
     /** */
     private static final String SCHEMA_NAME = "PUB";
 
@@ -47,9 +50,9 @@ public class PlatformTestNodeRunner {
 
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {{
-        put("node0", "{\n" +
+        put(NODE_NAME, "{\n" +
                 "  \"node\": {\n" +
-                "    \"metastorageNodes\":[ \"node0\" ]\n" +
+                "    \"metastorageNodes\":[ \"" + NODE_NAME + "\" ]\n" +
                 "  },\n" +
                 "  \"clientConnector\":{\"port\": 10942,\"portRange\":10}," +
                 "  \"network\": {\n" +
@@ -79,7 +82,7 @@ public class PlatformTestNodeRunner {
         var keyCol = "key";
         var valCol = "val";
 
-        SchemaTable schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
+        TableDefinition schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
                 SchemaBuilders.column(keyCol, ColumnType.INT32).asNonNull().build(),
                 SchemaBuilders.column(valCol, ColumnType.string()).asNullable().build()
         ).withPrimaryKey(keyCol).build();

@@ -30,18 +30,21 @@ import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.schema.Column;
-import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.SchemaTable;
+import org.apache.ignite.schema.definition.ColumnDefinition;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.TableDefinition;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 
 /**
  * Ignition interface tests.
@@ -51,38 +54,11 @@ abstract class AbstractSchemaChangeTest {
     /** Table name. */
     public static final String TABLE = "PUBLIC.tbl1";
 
+    /** Network ports of the test nodes. */
+    private static final int[] PORTS = { 3344, 3345, 3346 };
+
     /** Nodes bootstrap configuration. */
-    private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {{
-        put("node0", "{\n" +
-            "  \"node\": {\n" +
-            "    \"metastorageNodes\":[ \"node0\" ]\n" +
-            "  },\n" +
-            "  \"network\": {\n" +
-            "    \"port\":3344,\n" +
-            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-            "  }\n" +
-            "}");
-
-        put("node1", "{\n" +
-            "  \"node\": {\n" +
-            "    \"metastorageNodes\":[ \"node0\" ]\n" +
-            "  },\n" +
-            "  \"network\": {\n" +
-            "    \"port\":3345,\n" +
-            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-            "  }\n" +
-            "}");
-
-        put("node2", "{\n" +
-            "  \"node\": {\n" +
-            "    \"metastorageNodes\":[ \"node0\" ]\n" +
-            "  },\n" +
-            "  \"network\": {\n" +
-            "    \"port\":3346,\n" +
-            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-            "  }\n" +
-            "}");
-    }};
+    private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>();
 
     /** Cluster nodes. */
     private final List<Ignite> clusterNodes = new ArrayList<>();
@@ -91,9 +67,48 @@ abstract class AbstractSchemaChangeTest {
     @WorkDirectory
     private Path workDir;
 
-    /**
-     *
-     */
+    /** */
+    @BeforeEach
+    void setUp(TestInfo testInfo) {
+        String node0Name = testNodeName(testInfo, PORTS[0]);
+        String node1Name = testNodeName(testInfo, PORTS[1]);
+        String node2Name = testNodeName(testInfo, PORTS[2]);
+
+        nodesBootstrapCfg.put(
+            node0Name,
+            "{\n" +
+            "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n" +
+            "  network: {\n" +
+            "    port: " + PORTS[0] + "\n" +
+            "    netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+            "  }\n" +
+            "}"
+        );
+
+        nodesBootstrapCfg.put(
+            node1Name,
+            "{\n" +
+            "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n" +
+            "  network: {\n" +
+            "    port: " + PORTS[1] + "\n" +
+            "    netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+            "  }\n" +
+            "}"
+        );
+
+        nodesBootstrapCfg.put(
+            node2Name,
+            "{\n" +
+            "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n" +
+            "  network: {\n" +
+            "    port: " + PORTS[2] + "\n" +
+            "    netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+            "  }\n" +
+            "}"
+        );
+    }
+
+    /** */
     @AfterEach
     void afterEach() throws Exception {
         IgniteUtils.closeAll(Lists.reverse(clusterNodes));
@@ -199,10 +214,10 @@ abstract class AbstractSchemaChangeTest {
      */
     protected void createTable(List<Ignite> nodes) {
         // Create table on node 0.
-        SchemaTable schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
+        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
             SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
             SchemaBuilders.column("valInt", ColumnType.INT32).asNullable().build(),
-            SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build()
+            SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValueExpression("default").build()
         ).withPrimaryKey("key").build();
 
         nodes.get(0).tables().createTable(
@@ -215,7 +230,7 @@ abstract class AbstractSchemaChangeTest {
      * @param nodes Cluster nodes.
      * @param columnToAdd Column to add.
      */
-    protected void addColumn(List<Ignite> nodes, Column columnToAdd) {
+    protected void addColumn(List<Ignite> nodes, ColumnDefinition columnToAdd) {
         nodes.get(0).tables().alterTable(TABLE,
             chng -> chng.changeColumns(cols -> {
                 int colIdx = chng.columns().namedListKeys().stream().mapToInt(Integer::parseInt).max().getAsInt() + 1;

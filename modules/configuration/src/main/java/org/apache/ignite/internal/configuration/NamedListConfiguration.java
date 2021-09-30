@@ -33,7 +33,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationNamedListListe
 /**
  * Named configuration wrapper.
  */
-public final class NamedListConfiguration<T extends ConfigurationProperty<VIEW, CHANGE>, VIEW, CHANGE extends VIEW>
+public class NamedListConfiguration<T extends ConfigurationProperty<VIEW>, VIEW, CHANGE extends VIEW>
     extends DynamicConfiguration<NamedListView<VIEW>, NamedListChange<VIEW, CHANGE>>
     implements NamedConfigurationTree<T, VIEW, CHANGE>
 {
@@ -43,26 +43,36 @@ public final class NamedListConfiguration<T extends ConfigurationProperty<VIEW, 
     /** Creator of named configuration. */
     private final BiFunction<List<String>, String, T> creator;
 
+    /** Placeholder to add listeners for any configuration. */
+    private final T anyConfig;
+
     /** */
     private volatile Map<String, T> notificationCache = Collections.emptyMap();
 
     /**
      * Constructor.
+     *
      * @param prefix Configuration prefix.
      * @param key Configuration key.
      * @param rootKey Root key.
      * @param changer Configuration changer.
+     * @param listenOnly Only adding listeners mode, without the ability to get or update the property value.
      * @param creator Underlying configuration creator function.
+     * @param anyConfig Placeholder to add listeners for any configuration.
      */
     public NamedListConfiguration(
         List<String> prefix,
         String key,
         RootKey<?, ?> rootKey,
         DynamicConfigurationChanger changer,
-        BiFunction<List<String>, String, T> creator
+        boolean listenOnly,
+        BiFunction<List<String>, String, T> creator,
+        T anyConfig
     ) {
-        super(prefix, key, rootKey, changer);
+        super(prefix, key, rootKey, changer, listenOnly);
+
         this.creator = creator;
+        this.anyConfig = anyConfig;
     }
 
     /** {@inheritDoc} */
@@ -74,11 +84,11 @@ public final class NamedListConfiguration<T extends ConfigurationProperty<VIEW, 
 
     /** {@inheritDoc} */
     @Override protected synchronized void beforeRefreshValue(NamedListView<VIEW> newValue) {
-        Map<String, ConfigurationProperty<?, ?>> oldValues = this.members;
-        Map<String, ConfigurationProperty<?, ?>> newValues = new LinkedHashMap<>();
+        Map<String, ConfigurationProperty<?>> oldValues = this.members;
+        Map<String, ConfigurationProperty<?>> newValues = new LinkedHashMap<>();
 
         for (String key : newValue.namedListKeys()) {
-            ConfigurationProperty<?, ?> oldElement = oldValues.get(key);
+            ConfigurationProperty<?> oldElement = oldValues.get(key);
 
             if (oldElement != null)
                 newValues.put(key, oldElement);
@@ -90,7 +100,7 @@ public final class NamedListConfiguration<T extends ConfigurationProperty<VIEW, 
     }
 
     /** {@inheritDoc} */
-    @Override public Map<String, ConfigurationProperty<?, ?>> touchMembers() {
+    @Override public Map<String, ConfigurationProperty<?>> touchMembers() {
         Map<String, T> res = notificationCache;
 
         refreshValue();
@@ -106,7 +116,22 @@ public final class NamedListConfiguration<T extends ConfigurationProperty<VIEW, 
     }
 
     /** {@inheritDoc} */
-    @Override public final void listenElements(ConfigurationNamedListListener<VIEW> listener) {
+    @Override public void listenElements(ConfigurationNamedListListener<VIEW> listener) {
         extendedListeners.add(listener);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void stopListenElements(ConfigurationNamedListListener<VIEW> listener) {
+        extendedListeners.remove(listener);
+    }
+
+    /** {@inheritDoc} */
+    @Override public T any() {
+        return anyConfig;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Class<? extends ConfigurationProperty<NamedListView<VIEW>>> configType() {
+        throw new UnsupportedOperationException("Not supported.");
     }
 }

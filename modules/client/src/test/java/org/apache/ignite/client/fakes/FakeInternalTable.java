@@ -22,10 +22,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Flow.Publisher;
+import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.schema.SchemaMode;
+import org.apache.ignite.schema.definition.SchemaManagementMode;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -65,12 +68,12 @@ public class FakeInternalTable implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull SchemaMode schemaMode() {
-        return SchemaMode.STRICT_SCHEMA;
+    @Override public @NotNull SchemaManagementMode schemaMode() {
+        return SchemaManagementMode.STRICT;
     }
 
     /** {@inheritDoc} */
-    @Override public void schema(SchemaMode schemaMode) {
+    @Override public void schema(SchemaManagementMode schemaMode) {
         // No-op.
     }
 
@@ -223,5 +226,10 @@ public class FakeInternalTable implements InternalTable {
         }
 
         return CompletableFuture.completedFuture(skipped);
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Publisher<BinaryRow> scan(int p, @Nullable Transaction tx) {
+        throw new IgniteInternalException(new OperationNotSupportedException());
     }
 }

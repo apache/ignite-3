@@ -21,12 +21,12 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.function.Supplier;
 import org.apache.ignite.app.Ignite;
-import org.apache.ignite.schema.Column;
-import org.apache.ignite.schema.ColumnType;
+import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.table.KeyValueBinaryView;
+import org.apache.ignite.schema.definition.ColumnDefinition;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -36,7 +36,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 /**
  * Ignition interface tests.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-14581")
 class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
     /**
      * Check add a new column to table schema.
@@ -47,7 +46,7 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        KeyValueBinaryView kvView = grid.get(1).tables().table(TABLE).kvView();
+        KeyValueView<Tuple, Tuple> kvView = grid.get(0).tables().table(TABLE).keyValueView();
 
         {
             kvView.put(
@@ -66,7 +65,7 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             assertThrows(IllegalArgumentException.class, () -> kvView.get(keyTuple).value("valStr"));
 
             // Check tuple of outdated schema.
-            assertThrows(IllegalArgumentException.class, () -> kvView.put(
+            assertThrows(SchemaMismatchException.class, () -> kvView.put(
                 Tuple.create().set("key", 2L),
                 Tuple.create().set("valInt", -222).set("valStr", "str"))
             );
@@ -91,18 +90,18 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        KeyValueBinaryView kvView = grid.get(1).tables().table(TABLE).kvView();
+        KeyValueView<Tuple, Tuple> kvView = grid.get(0).tables().table(TABLE).keyValueView();
 
         {
             kvView.put(Tuple.create().set("key", 1L), Tuple.create().set("valInt", 111));
 
-            assertThrows(IllegalArgumentException.class, () -> kvView.put(
+            assertThrows(SchemaMismatchException.class, () -> kvView.put(
                 Tuple.create().set("key", 1L),
                 Tuple.create().set("valInt", -111).set("valStrNew", "str"))
             );
         }
 
-        addColumn(grid, SchemaBuilders.column("valStrNew", ColumnType.string()).asNullable().withDefaultValue("default").build());
+        addColumn(grid, SchemaBuilders.column("valStrNew", ColumnType.string()).asNullable().withDefaultValueExpression("default").build());
 
         {
             // Check old row conversion.
@@ -133,12 +132,12 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        KeyValueBinaryView kvView = grid.get(1).tables().table(TABLE).kvView();
+        KeyValueView<Tuple, Tuple> kvView = grid.get(0).tables().table(TABLE).keyValueView();
 
         {
             kvView.put(Tuple.create().set("key", 1L), Tuple.create().set("valInt", 111));
 
-            assertThrows(IllegalArgumentException.class, () -> kvView.put(
+            assertThrows(SchemaMismatchException.class, () -> kvView.put(
                 Tuple.create().set("key", 2L),
                 Tuple.create().set("valRenamed", 222))
             );
@@ -156,7 +155,7 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             assertThrows(IllegalArgumentException.class, () -> kvView.get(keyTuple1).value("valInt"));
 
             // Check tuple of correct schema.
-            assertThrows(IllegalArgumentException.class, () -> kvView.put(
+            assertThrows(SchemaMismatchException.class, () -> kvView.put(
                 Tuple.create().set("key", 2L),
                 Tuple.create().set("valInt", -222))
             );
@@ -182,14 +181,14 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        final Column column = SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValue("default").build();
+        final ColumnDefinition column = SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValueExpression("default").build();
 
-        KeyValueBinaryView kvView = grid.get(1).tables().table(TABLE).kvView();
+        KeyValueView<Tuple, Tuple> kvView = grid.get(0).tables().table(TABLE).keyValueView();
 
         {
             kvView.put(Tuple.create().set("key", 1L), Tuple.create().set("valInt", 111));
 
-            assertThrows(IllegalArgumentException.class, () -> kvView.put(
+            assertThrows(SchemaMismatchException.class, () -> kvView.put(
                 Tuple.create().set("key", 2L),
                 Tuple.create().set("val", "I'not exists"))
             );
@@ -214,13 +213,13 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             kvView.put(Tuple.create().set("key", 4L),
                 Tuple.create().set("valInt", 444));
 
-            assertThrows(IllegalArgumentException.class, () -> kvView.put(
+            assertThrows(SchemaMismatchException.class, () -> kvView.put(
                 Tuple.create().set("key", 4L),
                 Tuple.create().set("val", "I'm not exist"))
             );
         }
 
-        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValue("default").build());
+        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValueExpression("default").build());
 
         {
             kvView.put(Tuple.create().set("key", 5L), Tuple.create().set("valInt", 555));
@@ -263,7 +262,7 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        KeyValueBinaryView kvView = grid.get(1).tables().table(TABLE).kvView();
+        KeyValueView<Tuple, Tuple> kvView = grid.get(0).tables().table(TABLE).keyValueView();
 
         final String colName = "valStr";
 
@@ -272,7 +271,7 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
         }
 
         changeDefault(grid, colName, (Supplier<Object> & Serializable)() -> "newDefault");
-        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).withDefaultValue("newDefault").build());
+        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).withDefaultValueExpression("newDefault").build());
 
         {
             kvView.put(Tuple.create().set("key", 2L), Tuple.create().set("valInt", 222));

@@ -54,7 +54,7 @@ public class ClientTables implements IgniteTables {
         Objects.requireNonNull(name);
         Objects.requireNonNull(tableInitChange);
 
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -67,20 +67,20 @@ public class ClientTables implements IgniteTables {
         Objects.requireNonNull(name);
         Objects.requireNonNull(tableChange);
 
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
-    @Override public Table getOrCreateTable(String name, Consumer<TableChange> tableInitChange) {
-        return getOrCreateTableAsync(name, tableInitChange).join();
+    @Override public Table createTableIfNotExists(String name, Consumer<TableChange> tableInitChange) {
+        return createTableIfNotExistsAsync(name, tableInitChange).join();
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Table> getOrCreateTableAsync(String name, Consumer<TableChange> tableInitChange) {
+    @Override public CompletableFuture<Table> createTableIfNotExistsAsync(String name, Consumer<TableChange> tableInitChange) {
         Objects.requireNonNull(name);
         Objects.requireNonNull(tableInitChange);
 
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
