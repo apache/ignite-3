@@ -58,7 +58,7 @@ public class ITProcessorTest extends AbstractProcessorTest {
 
     /** */
     @Test
-    void testSuccessInternalConfigCodeGeneration() throws Exception {
+    void testSuccessInternalConfigCodeGeneration() {
         String packageName = "org.apache.ignite.internal.configuration.processor.internal";
 
         ClassName cls0 = ClassName.get(packageName, "SimpleRootConfigurationSchema");
