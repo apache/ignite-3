@@ -447,19 +447,20 @@ public class Processor extends AbstractProcessor {
         }
 
         if (isPolymorphicConfig) {
-            // Parameter type, for example: Class<? extends SimpleConfiguration>.
+            // Parameter type: Class<T>.
             ParameterizedTypeName parameterType = ParameterizedTypeName.get(
                 ClassName.get(Class.class),
-                WildcardTypeName.subtypeOf(Utils.getConfigurationInterfaceName(schemaClassName))
+                TypeVariableName.get("T")
             );
 
             // Variable type, for example: <T extends SimpleChange>.
             TypeVariableName typeVariable = TypeVariableName.get("T", changeClsName);
 
+            // Method like: <T extends SimpleChange> T convert(Class<T> changeClass);
             MethodSpec.Builder convertMtdBuilder = MethodSpec.methodBuilder("convert")
                 .addModifiers(PUBLIC, ABSTRACT)
                 .addTypeVariable(typeVariable)
-                .addParameter(parameterType, "configClass")
+                .addParameter(parameterType, "changeClass")
                 .returns(TypeVariableName.get("T"));
 
             changeClsBuilder.addMethod(convertMtdBuilder.build());
