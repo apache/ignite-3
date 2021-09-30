@@ -485,21 +485,11 @@
             </dependency>
 
             <dependency>
-                <groupId>org.junit.jupiter</groupId>
-                <artifactId>junit-jupiter-engine</artifactId>
-                <version>${junit.jupiter.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.junit.jupiter</groupId>
-                <artifactId>junit-jupiter-api</artifactId>
-                <version>${junit.jupiter.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.junit.jupiter</groupId>
-                <artifactId>junit-jupiter-params</artifactId>
-                <version>${junit.jupiter.version}</version>
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>${junit.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
 
             <dependency>
@@ -1012,6 +1002,8 @@
                     <argLine>-Djava.util.logging.config.file=../../config/java.util.logging.properties</argLine>
                     <excludes>
                         <exclude>**/IT*.java</exclude>
+                        <!-- Exclude inner classes (preserve default behaviour) -->
+                        <exclude>**/*$*</exclude>
                     </excludes>
                 </configuration>
             </plugin>
