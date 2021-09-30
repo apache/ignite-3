@@ -205,6 +205,24 @@ public class ITProcessorTest extends AbstractProcessorTest {
         );
     }
 
+    /** */
+    @Test
+    void testSuccessPolymorphicConfigCodeGeneration() throws Exception {
+        String packageName = "org.apache.ignite.internal.configuration.processor.polymorphic";
+
+        ClassName cls0 = ClassName.get(packageName, "SimplePolymorphicConfigurationSchema");
+        ClassName cls1 = ClassName.get(packageName, "SimplePolymorphicInstanceConfigurationSchema");
+
+        BatchCompilation batchCompile = batchCompile(cls0, cls1);
+
+        assertNotEquals(Compilation.Status.FAILURE, batchCompile.getCompilationStatus().status());
+
+        assertEquals(2 * 3, batchCompile.generated().size());
+
+        assertTrue(batchCompile.getBySchema(cls0).allGenerated());
+        assertTrue(batchCompile.getBySchema(cls1).allGenerated());
+    }
+
     /**
      * Compile set of classes.
      *
