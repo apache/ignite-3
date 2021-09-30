@@ -90,7 +90,6 @@ import static org.mockito.Mockito.when;
  */
 @ExtendWith({MockitoExtension.class, WorkDirectoryExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
-@Disabled
 public class TableManagerTest {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(TableManagerTest.class);

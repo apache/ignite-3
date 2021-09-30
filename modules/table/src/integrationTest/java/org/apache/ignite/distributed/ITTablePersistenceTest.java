@@ -17,19 +17,11 @@
 
 package org.apache.ignite.distributed;
 
-import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
@@ -45,15 +37,10 @@ import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorag
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.service.ITAbstractListenerSnapshotTest;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.jetbrains.annotations.NotNull;
-
-import static java.util.stream.Collectors.toList;
 
 /**
  * Persistent partitions raft group snapshots tests.
@@ -148,48 +135,17 @@ public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
 
     /** {@inheritDoc} */
     @Override public RaftGroupListener createListener(Path workDir) {
-        Path tableDir = workDir.resolve(UUID.randomUUID().toString());
+        return paths.entrySet().stream()
+            .filter(entry -> entry.getValue().equals(workDir))
+            .map(Map.Entry::getKey)
+            .findAny()
+            .orElseGet(() -> {
+                PartitionListener listener = new PartitionListener(new ConcurrentHashMapPartitionStorage());
 
-        PartitionListener listener = new PartitionListener(new ConcurrentHashMapPartitionStorage() {
-            /** {@inheritDoc} */
-            @Override public @NotNull CompletableFuture<Void> snapshot(Path snapshotPath) {
-                return CompletableFuture.runAsync(() -> {
-                    try (
-                        OutputStream out = Files.newOutputStream(snapshotPath.resolve("snapshot_file"));
-                        ObjectOutputStream objOut = new ObjectOutputStream(out)
-                    ) {
-                        objOut.writeObject(map.keySet().stream().map(ByteArray::bytes).collect(toList()));
-                        objOut.writeObject(new ArrayList<>(map.values()));
-                    }
-                    catch (Exception e) {
-                        throw new IgniteInternalException(e);
-                    }
-                });
-            }
+                paths.put(listener, workDir);
 
-            /** {@inheritDoc} */
-            @Override public void restoreSnapshot(Path snapshotPath) {
-                try (
-                    InputStream in = Files.newInputStream(snapshotPath.resolve("snapshot_file"));
-                    ObjectInputStream objIn = new ObjectInputStream(in)
-                ) {
-                    var keys = (List<byte[]>)objIn.readObject();
-                    var values = (List<byte[]>)objIn.readObject();
-
-                    map.clear();
-
-                    for (int i = 0; i < keys.size(); i++)
-                        map.put(new ByteArray(keys.get(i)), values.get(i));
-                }
-                catch (Exception e) {
-                    throw new IgniteInternalException(e);
-                }
-            }
-        });
-
-        paths.put(listener, tableDir);
-
-        return listener;
+                return listener;
+            });
     }
 
     /** {@inheritDoc} */
