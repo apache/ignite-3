@@ -21,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
@@ -135,8 +136,13 @@ public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
 
     /** {@inheritDoc} */
     @Override public RaftGroupListener createListener(Path workDir) {
-        if (paths.containsValue(workDir))
-            return paths.entrySet().stream().filter(entry -> entry.getValue().equals(workDir)).findAny().get().getKey();
+        Optional<PartitionListener> maybeListener = paths.entrySet().stream()
+            .filter(entry -> entry.getValue().equals(workDir))
+            .map(Map.Entry::getKey)
+            .findAny();
+
+        if (maybeListener.isPresent())
+            return maybeListener.get();
 
         PartitionListener listener = new PartitionListener(new ConcurrentHashMapStorage());
 
