@@ -132,9 +132,7 @@ public class RocksDbTableStorage implements TableStorage {
 
     /** {@inheritDoc} */
     @Override public void start() throws StorageException {
-        String absolutePathStr = tablePath.toAbsolutePath().toString();
-
-        Map<CFType, List<String>> cfNamesGrouped = getCfNames(absolutePathStr);
+        Map<CFType, List<String>> cfNamesGrouped = getCfNames();
 
         List<ColumnFamilyDescriptor> cfDescriptors = convertToCfDescriptors(cfNamesGrouped);
 
@@ -146,7 +144,7 @@ public class RocksDbTableStorage implements TableStorage {
         );
 
         try {
-            db = addToCloseableResources(RocksDB.open(dbOptions, absolutePathStr, cfDescriptors, cfHandles));
+            db = addToCloseableResources(RocksDB.open(dbOptions, tablePath.toAbsolutePath().toString(), cfDescriptors, cfHandles));
         }
         catch (RocksDBException e) {
             throw new StorageException("Failed to initialize RocksDB instance.", e);
@@ -240,11 +238,12 @@ public class RocksDbTableStorage implements TableStorage {
      * Returns list of column families names that belong to RocksDB instance in the given path, grouped by thier
      * {@link CFType}.
      *
-     * @param path DB path.
      * @return Map with column families names.
      * @throws StorageException If something went wrong.
      */
-    private Map<CFType, List<String>> getCfNames(String absolutePathStr) {
+    private Map<CFType, List<String>> getCfNames() {
+        String absolutePathStr = tablePath.toAbsolutePath().toString();
+
         List<String> cfNames = new ArrayList<>();
 
         try (Options opts = new Options()) {
