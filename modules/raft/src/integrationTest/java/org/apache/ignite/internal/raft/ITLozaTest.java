@@ -60,9 +60,6 @@ import static org.mockito.Mockito.when;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ITLozaTest {
-    /** Node's name. */
-    private static final String NODE_NAME = "node1";
-
     /** Network factory. */
     private static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
@@ -76,18 +73,10 @@ public class ITLozaTest {
     @WorkDirectory
     private Path dataPath;
 
-    /** Test node. */
-    private final ClusterNode node = new ClusterNode(
-        UUID.randomUUID().toString(),
-        NODE_NAME,
-        new NetworkAddress(getLocalAddress(), PORT)
-    );
-
     /**
      * Starts a raft group service with a provided group id on a provided Loza instance.
      */
-    private void startClient(String groupId,
-        Loza loza) throws ExecutionException, InterruptedException, TimeoutException {
+    private void startClient(String groupId, ClusterNode node, Loza loza) throws Exception {
         loza.prepareRaftGroup(groupId,
             List.of(node), () -> mock(RaftGroupListener.class)
         ).get(10, TimeUnit.SECONDS);
@@ -123,7 +112,7 @@ public class ITLozaTest {
         Loza loza = null;
 
         try {
-            service = spy(clusterService(testInfo, PORT, List.of(node.address())));
+            service = spy(clusterService(testInfo, PORT, List.of(new NetworkAddress(getLocalAddress(), PORT))));
 
             MessagingService messagingServiceMock = spy(service.messagingService());
 
@@ -148,7 +137,7 @@ public class ITLozaTest {
                     .doCallRealMethod()
                     .when(messagingServiceMock).invoke(any(NetworkAddress.class), any(), anyLong());
 
-                startClient(Integer.toString(i), loza);
+                startClient(Integer.toString(i), service.topologyService().localMember(), loza);
 
                 verify(messagingServiceMock, times(3 * (i + 1)))
                     .invoke(any(NetworkAddress.class), any(), anyLong());
