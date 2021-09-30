@@ -158,7 +158,7 @@ public class AbstractSerializerTest {
 
         ColumnMapper mapper1 = deserialize.columnMapping();
 
-        assertEquals(1,  mapper1.map(0));
-        assertEquals(c1,  mapper1.mappedColumn(2));
+        assertEquals(1, mapper1.map(0));
+        assertEquals(c1, mapper1.mappedColumn(2));
     }
 }
