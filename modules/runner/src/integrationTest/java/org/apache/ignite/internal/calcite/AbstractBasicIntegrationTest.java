@@ -166,7 +166,7 @@ public class AbstractBasicIntegrationTest {
             {idx++, null, 15d},
             {idx++, "Ilya", 15d},
             {idx++, "Roma", 10d},
-            {idx++, "Roma", 10d}
+            {idx, "Roma", 10d}
         });
 
         return tbl;
