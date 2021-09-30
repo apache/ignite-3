@@ -22,6 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Set;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
@@ -35,6 +36,7 @@ import org.junit.platform.testkit.engine.EventType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.platform.engine.discovery.DiscoverySelectors.selectClass;
@@ -86,12 +88,7 @@ public class WorkDirectoryExtensionTest {
      */
     @Test
     void testStaticFieldInjection() {
-        execute(NormalStaticFieldInjectionTest.class)
-            .testEvents()
-            .assertThatEvents()
-            .filteredOn(type(EventType.FINISHED))
-            .isNotEmpty()
-            .are(finishedSuccessfully());
+        assertExecutesSuccessfully(NormalStaticFieldInjectionTest.class);
     }
 
     /**
@@ -124,12 +121,34 @@ public class WorkDirectoryExtensionTest {
      */
     @Test
     void testFieldInjection() {
-        execute(NormalFieldInjectionTest.class)
-            .testEvents()
-            .assertThatEvents()
-            .filteredOn(type(EventType.FINISHED))
-            .isNotEmpty()
-            .are(finishedSuccessfully());
+        assertExecutesSuccessfully(NormalFieldInjectionTest.class);
+    }
+
+    /**
+     * Test class for the {@link #testMultipleMethodsInjection()} test.
+     */
+    @ExtendWith(WorkDirectoryExtension.class)
+    static class MultipleMethodsInjectionTest {
+        /** */
+        @BeforeEach
+        void setUp(@WorkDirectory Path workDir) throws IOException {
+            Files.createFile(workDir.resolve("foo"));
+        }
+
+        /** */
+        @Test
+        void test(@WorkDirectory Path workDir) {
+            assertTrue(Files.exists(workDir.resolve("foo")));
+        }
+    }
+
+    /**
+     * Tests a scenario when a folder is injected into both {@code BeforeEach} and test method and checks that it is
+     * the same folder, and it does not get re-created.
+     */
+    @Test
+    void testMultipleMethodsInjection() {
+        assertExecutesSuccessfully(MultipleMethodsInjectionTest.class);
     }
 
     /**
@@ -207,11 +226,66 @@ public class WorkDirectoryExtensionTest {
     }
 
     /**
+     * Test class for the {@link #testSystemProperty()} test.
+     */
+    @ExtendWith(SystemPropertiesExtension.class)
+    @ExtendWith(WorkDirectoryExtension.class)
+    static class SystemPropertiesTest {
+        /** */
+        private static Path file1;
+
+        /** */
+        private static Path file2;
+
+        /** */
+        @AfterAll
+        static void verify() throws IOException {
+            assertTrue(Files.exists(file1));
+            assertFalse(Files.exists(file2));
+
+            Files.delete(file1);
+        }
+
+        /** */
+        @WithSystemProperty(key = WorkDirectoryExtension.KEEP_WORK_DIR_PROPERTY, value = "true")
+        @Test
+        void test1(@WorkDirectory Path workDir) throws IOException {
+            file1 = Files.createFile(workDir.resolve("foo"));
+        }
+
+        /** */
+        @Test
+        void test2(@WorkDirectory Path workDir) throws IOException {
+            file2 = Files.createFile(workDir.resolve("foo"));
+        }
+    }
+
+    /**
+     * Tests that a work directory can be preserved when a special system property is set.
+     */
+    @Test
+    void testSystemProperty() {
+        assertExecutesSuccessfully(SystemPropertiesTest.class);
+    }
+
+    /**
      * Executes the given test class on the test engine.
      */
     private static EngineExecutionResults execute(Class<?> testClass) {
         return EngineTestKit.engine("junit-jupiter")
             .selectors(selectClass(testClass))
             .execute();
+    }
+
+    /**
+     * Executes the given test class and checks that it has run all its tests successfully.
+     */
+    private static void assertExecutesSuccessfully(Class<?> testClass) {
+        execute(testClass)
+            .allEvents()
+            .assertThatEvents()
+            .filteredOn(type(EventType.FINISHED))
+            .isNotEmpty()
+            .are(finishedSuccessfully());
     }
 }

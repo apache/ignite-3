@@ -24,6 +24,7 @@ import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteSystemProperties;
 import org.jetbrains.annotations.Nullable;
@@ -70,18 +71,13 @@ public class WorkDirectoryExtension
      * System property that, when set to {@code true}, will make the extension preserve the created directories.
      * Default is {@code false}.
      */
-    private static final String KEEP_WORK_DIR_PROPERTY = "KEEP_WORK_DIR";
+    public static final String KEEP_WORK_DIR_PROPERTY = "KEEP_WORK_DIR";
 
     /** Base path for all temporary folders in a module. */
     private static final Path BASE_PATH = Path.of("target", "work");
 
     /** Name of the work directory that will be injected into {@link BeforeAll} methods or static members. */
     private static final String STATIC_FOLDER_NAME = "static";
-
-    /**
-     * Flag that, when set to {@code true}, indicates that the extension should remove the created directories.
-     */
-    private static final boolean SHOULD_REMOVE_DIR = !IgniteSystemProperties.getBoolean(KEEP_WORK_DIR_PROPERTY);
 
     /**
      * Creates and injects a temporary directory into a static field.
@@ -99,8 +95,10 @@ public class WorkDirectoryExtension
 
     /** {@inheritDoc} */
     @Override public void afterAll(ExtensionContext context) throws Exception {
-        if (SHOULD_REMOVE_DIR)
-            IgniteUtils.deleteIfExists(BASE_PATH);
+        try (Stream<Path> list = Files.list(BASE_PATH)) {
+            if (list.findAny().isEmpty())
+                IgniteUtils.deleteIfExists(BASE_PATH);
+        }
     }
 
     /**
@@ -119,7 +117,7 @@ public class WorkDirectoryExtension
 
     /** {@inheritDoc} */
     @Override public void afterEach(ExtensionContext context) throws Exception {
-        if (SHOULD_REMOVE_DIR) {
+        if (shouldRemoveDir()) {
             Path workDir = context.getStore(NAMESPACE).get(context.getUniqueId(), Path.class);
 
             if (workDir != null)
@@ -157,6 +155,11 @@ public class WorkDirectoryExtension
      * Creates a temporary folder for the given test method.
      */
     private static Path createWorkDir(ExtensionContext context) throws IOException {
+        Path existingDir = context.getStore(NAMESPACE).get(context.getUniqueId(), Path.class);
+
+        if (existingDir != null)
+            return existingDir;
+
         String testClassDir = context.getRequiredTestClass().getSimpleName();
 
         String testMethodDir = context.getTestMethod()
@@ -199,5 +202,12 @@ public class WorkDirectoryExtension
         }
 
         return fields.get(0);
+    }
+
+    /**
+     * Returns {@code true} if the extension should remove the created directories.
+     */
+    private static boolean shouldRemoveDir() {
+        return !IgniteSystemProperties.getBoolean(KEEP_WORK_DIR_PROPERTY);
     }
 }
