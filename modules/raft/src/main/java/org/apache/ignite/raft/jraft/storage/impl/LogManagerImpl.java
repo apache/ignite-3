@@ -564,7 +564,9 @@ public class LogManagerImpl implements LogManager {
                     done.run(Status.OK());
                 }
             }
-            if (endOfBatch) {
+
+            //TODO: IGNITE-15568 This limitation is used until the issue have not fixed yet.
+            if (nodeOptions.getRaftOptions().getApplyBatch() == 1 || endOfBatch) {
                 this.lastId = this.ab.flush();
                 setDiskId(this.lastId);
             }
