@@ -600,8 +600,6 @@ public abstract class AbstractStorageTest {
 
         storage.removeAll(rows);
 
-        Thread.sleep(100);
-
         storage.restoreSnapshot(snapshotDir);
 
         rows.forEach(this::checkHasSameEntry);
