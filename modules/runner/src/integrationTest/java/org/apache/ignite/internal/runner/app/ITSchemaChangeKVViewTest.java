@@ -114,7 +114,6 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             kvView.put(
                 Tuple.create().set("key", 2L),
                 Tuple.create().set("valInt", 222).set("valStrNew", "str")
-
             );
 
             Tuple keyTuple2 = Tuple.create().set("key", 2L);
