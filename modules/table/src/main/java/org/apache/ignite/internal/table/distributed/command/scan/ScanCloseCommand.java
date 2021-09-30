@@ -15,41 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.table.distributed.command.scan;
 
-import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.raft.client.WriteCommand;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Variable-length native type.
+ * Scan close command for PartitionListener that closes scan with given id.
  */
-public class VarlenNativeType extends NativeType {
-    /** Length of the type. */
-    private final int len;
+public class ScanCloseCommand implements WriteCommand {
+    /** Id of scan that is associated with the current command. */
+    @NotNull private final IgniteUuid scanId;
 
     /**
-     * @param typeSpec Type spec.
-     * @param len Type length.
+     * The Constructor.
+     *
+     * @param scanId Id of scan that is associated with the current command.
      */
-    protected VarlenNativeType(NativeTypeSpec typeSpec, int len) {
-        super(typeSpec);
-
-        this.len = len;
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean mismatch(NativeType type) {
-        return super.mismatch(type) || len < ((VarlenNativeType)type).len;
+    public ScanCloseCommand(@NotNull IgniteUuid scanId) {
+        this.scanId = scanId;
     }
 
     /**
-     * @return Length of the type.
+     * @return Id of scan that is associated with the current command.
      */
-    public int length() {
-        return len;
-    }
-
-    /** {@inheritDoc} */
-    @Override public String toString() {
-        return S.toString(VarlenNativeType.class.getSimpleName(), "name", spec(), "len", len);
+    public @NotNull IgniteUuid scanId() {
+        return scanId;
     }
 }
