@@ -261,7 +261,7 @@ public abstract class ITAbstractListenerSnapshotTest<T extends RaftGroupListener
     /**
      * Creates raft group listener.
      *
-     * @param listenerPersistencePath Path to stora persistent data.
+     * @param listenerPersistencePath Path to storage persistent data.
      * @return Raft group listener.
      */
     public abstract RaftGroupListener createListener(Path listenerPersistencePath);
