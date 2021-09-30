@@ -28,9 +28,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
@@ -104,7 +106,7 @@ public abstract class ITAbstractListenerSnapshotTest<T extends RaftGroupListener
      */
     @BeforeEach
     public void beforeTest() {
-        executor = new ScheduledThreadPoolExecutor(20);
+        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
     }
 
     /**

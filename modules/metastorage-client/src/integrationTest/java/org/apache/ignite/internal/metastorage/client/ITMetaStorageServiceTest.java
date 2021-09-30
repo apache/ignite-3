@@ -36,10 +36,12 @@ import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.server.EntryEvent;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
+import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
@@ -224,7 +226,7 @@ public class ITMetaStorageServiceTest {
 
         LOG.info("Cluster started.");
 
-        executor = new ScheduledThreadPoolExecutor(20);
+        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
 
         metaStorageSvc = prepareMetaStorage();
     }

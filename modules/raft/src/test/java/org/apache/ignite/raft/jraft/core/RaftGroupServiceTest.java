@@ -30,6 +30,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -116,7 +118,7 @@ public class RaftGroupServiceTest {
     void before(TestInfo testInfo) {
         when(cluster.messagingService()).thenReturn(messagingService);
 
-        executor = new ScheduledThreadPoolExecutor(20);
+        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
 
         LOG.info(">>>> Starting test {}", testInfo.getTestMethod().orElseThrow().getName());
     }

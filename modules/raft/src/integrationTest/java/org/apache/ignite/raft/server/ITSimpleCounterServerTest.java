@@ -22,10 +22,12 @@ import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -109,7 +111,7 @@ class ITSimpleCounterServerTest extends RaftServerAbstractTest {
 
         ClusterService clientNode1 = clusterService(PORT + 1, List.of(addr), true);
 
-        executor = new ScheduledThreadPoolExecutor(20);
+        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
 
         client1 = RaftGroupServiceImpl.start(COUNTER_GROUP_ID_0, clientNode1, FACTORY, 1000,
             List.of(new Peer(serverNode.address())), false, 200, executor).get(3, TimeUnit.SECONDS);

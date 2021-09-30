@@ -94,12 +94,12 @@ public class ITLozaTest {
     }
 
     /**
-     * @param name Node name.
+     * @param testInfo Test info.
      * @param port Local port.
      * @param srvs Server nodes of the cluster.
      * @return The client cluster view.
      */
-    private static ClusterService clusterService(String name, int port, List<NetworkAddress> srvs, TestInfo testInfo) {
+    private static ClusterService clusterService(TestInfo testInfo, int port, List<NetworkAddress> srvs) {
         var network = ClusterServiceTestUtils.clusterService(
             testInfo,
             port,
@@ -123,7 +123,7 @@ public class ITLozaTest {
         Loza loza = null;
 
         try {
-            service = spy(clusterService(node.name(), PORT, List.of(node.address()), testInfo));
+            service = spy(clusterService(testInfo, PORT, List.of(node.address())));
 
             MessagingService messagingServiceMock = spy(service.messagingService());
 
