@@ -40,6 +40,7 @@ import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
@@ -95,14 +96,14 @@ public class ITLozaTest {
     /**
      * @param name Node name.
      * @param port Local port.
-     * @param servers Server nodes of the cluster.
+     * @param srvs Server nodes of the cluster.
      * @return The client cluster view.
      */
-    private static ClusterService clusterService(String name, int port, List<NetworkAddress> servers) {
+    private static ClusterService clusterService(String name, int port, List<NetworkAddress> srvs, TestInfo testInfo) {
         var network = ClusterServiceTestUtils.clusterService(
-            name,
+            testInfo,
             port,
-            new StaticNodeFinder(servers),
+            new StaticNodeFinder(srvs),
             SERIALIZATION_REGISTRY,
             NETWORK_FACTORY
         );
@@ -116,13 +117,13 @@ public class ITLozaTest {
      * Tests that RaftGroupServiceImpl uses shared executor for retrying RaftGroupServiceImpl#sendWithRetry()
      */
     @Test
-    public void testRaftServiceUsingSharedExecutor() throws Exception {
+    public void testRaftServiceUsingSharedExecutor(TestInfo testInfo) throws Exception {
         ClusterService service = null;
 
         Loza loza = null;
 
         try {
-            service = spy(clusterService(node.name(), PORT, List.of(node.address())));
+            service = spy(clusterService(node.name(), PORT, List.of(node.address()), testInfo));
 
             MessagingService messagingServiceMock = spy(service.messagingService());
 
