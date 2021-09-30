@@ -19,14 +19,12 @@ package org.apache.ignite.internal.raft;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Consumer;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterNode;
@@ -39,9 +37,6 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.raft.client.ReadCommand;
-import org.apache.ignite.raft.client.WriteCommand;
-import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.Test;
@@ -53,6 +48,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -67,10 +63,10 @@ public class ITLozaTest {
     private static final String NODE_NAME = "node1";
 
     /** Network factory. */
-    protected static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
+    private static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
     /** Server port offset. */
-    protected static final int PORT = 20010;
+    private static final int PORT = 20010;
 
     /** */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
@@ -87,29 +83,13 @@ public class ITLozaTest {
     );
 
     /**
-     * @param groupId Raft group id.
+     * Starts a raft group service with a provided group id on a provided Loza instance.
      */
-    private void startClient(String groupId, Loza loza) throws ExecutionException, InterruptedException, TimeoutException {
-        loza.prepareRaftGroup(groupId, List.of(node), () -> new RaftGroupListener() {
-            @Override public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
-            }
-
-            @Override public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
-
-            }
-
-            @Override public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-
-            }
-
-            @Override public boolean onSnapshotLoad(Path path) {
-                return false;
-            }
-
-            @Override public void onShutdown() {
-
-            }
-        }).get(10, TimeUnit.SECONDS);
+    private void startClient(String groupId,
+        Loza loza) throws ExecutionException, InterruptedException, TimeoutException {
+        loza.prepareRaftGroup(groupId,
+            List.of(node), () -> mock(RaftGroupListener.class)
+        ).get(10, TimeUnit.SECONDS);
     }
 
     /**
@@ -118,7 +98,7 @@ public class ITLozaTest {
      * @param servers Server nodes of the cluster.
      * @return The client cluster view.
      */
-    protected ClusterService clusterService(String name, int port, List<NetworkAddress> servers) {
+    private static ClusterService clusterService(String name, int port, List<NetworkAddress> servers) {
         var network = ClusterServiceTestUtils.clusterService(
             name,
             port,
@@ -137,39 +117,48 @@ public class ITLozaTest {
      */
     @Test
     public void testRaftServiceUsingSharedExecutor() throws Exception {
-        ClusterService service = spy(clusterService(node.name(), PORT, List.of(node.address())));
+        ClusterService service = null;
 
-        MessagingService messagingServiceMock = spy(service.messagingService());
+        Loza loza = null;
 
-        when(service.messagingService()).thenReturn(messagingServiceMock);
+        try {
+            service = spy(clusterService(node.name(), PORT, List.of(node.address())));
 
-        CompletableFuture<NetworkMessage> exception = CompletableFuture.failedFuture(new Exception(new IOException()));
+            MessagingService messagingServiceMock = spy(service.messagingService());
 
-        Loza loza = new Loza(service, dataPath);
+            when(service.messagingService()).thenReturn(messagingServiceMock);
 
-        loza.start();
+            CompletableFuture<NetworkMessage> exception = CompletableFuture.failedFuture(new Exception(new IOException()));
 
-        for (int i = 0; i < 5; i++) {
-            // return an error on first invocation
-            doReturn(exception)
-                // assert that a retry has been issued on the executor
-                .doAnswer(invocation -> {
-                    assertThat(Thread.currentThread().getName(), containsString(Loza.CLIENT_POOL_NAME));
+            loza = new Loza(service, dataPath);
 
-                    return exception;
-                })
-                // finally call the real method
-                .doCallRealMethod()
-                .when(messagingServiceMock).invoke(any(NetworkAddress.class), any(), anyLong());
+            loza.start();
 
-            startClient(Integer.toString(i), loza);
+            for (int i = 0; i < 5; i++) {
+                // return an error on first invocation
+                doReturn(exception)
+                    // assert that a retry has been issued on the executor
+                    .doAnswer(invocation -> {
+                        assertThat(Thread.currentThread().getName(), containsString(Loza.CLIENT_POOL_NAME));
 
-            verify(messagingServiceMock, times(3 * (i + 1)))
-                .invoke(any(NetworkAddress.class), any(), anyLong());
+                        return exception;
+                    })
+                    // finally call the real method
+                    .doCallRealMethod()
+                    .when(messagingServiceMock).invoke(any(NetworkAddress.class), any(), anyLong());
+
+                startClient(Integer.toString(i), loza);
+
+                verify(messagingServiceMock, times(3 * (i + 1)))
+                    .invoke(any(NetworkAddress.class), any(), anyLong());
+            }
         }
+        finally {
+            if (loza != null)
+                loza.stop();
 
-        loza.stop();
-
-        service.stop();
+            if (service != null)
+                service.stop();
+        }
     }
 }

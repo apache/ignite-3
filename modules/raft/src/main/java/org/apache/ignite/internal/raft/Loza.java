@@ -67,7 +67,7 @@ public class Loza implements IgniteComponent {
     private final RaftServer raftServer;
 
     /** Executor for raft group services. */
-    private ScheduledExecutorService executor;
+    private final ScheduledExecutorService executor;
 
     /**
      * Constructor.
@@ -79,7 +79,11 @@ public class Loza implements IgniteComponent {
 
         this.raftServer = new JRaftServerImpl(clusterNetSvc, dataPath);
 
-        this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE, new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(), CLIENT_POOL_NAME)));
+        this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
+            new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),
+                CLIENT_POOL_NAME)
+            )
+        );
     }
 
     /** {@inheritDoc} */

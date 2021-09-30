@@ -112,6 +112,9 @@ public class ITDistributedTableTest {
     /** Client. */
     private ClusterService client;
 
+    /** Executor for raft group services. */
+    ScheduledExecutorService executor;
+
     /** Schema. */
     public static SchemaDescriptor SCHEMA = new SchemaDescriptor(
         1,
@@ -147,6 +150,8 @@ public class ITDistributedTableTest {
         assertTrue(waitForTopology(client, NODES + 1, 1000));
 
         LOG.info("Client started.");
+
+        executor = new ScheduledThreadPoolExecutor(20);
     }
 
     /**
@@ -159,6 +164,8 @@ public class ITDistributedTableTest {
         for (ClusterService node : cluster) {
             node.stop();
         }
+
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
         client.stop();
     }
@@ -184,8 +191,6 @@ public class ITDistributedTableTest {
             conf
         );
 
-        ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(20);
-
         RaftGroupService partRaftGrp =
             RaftGroupServiceImpl
                 .start(grpId, client, FACTORY, 10_000, conf, true, 200, executor)
@@ -207,8 +212,6 @@ public class ITDistributedTableTest {
         assertEquals(testRow.longValue(1), new Row(SCHEMA, getFut.get().getValue()).longValue(1));
 
         partSrv.stop();
-
-        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
     }
 
     /**
@@ -267,8 +270,6 @@ public class ITDistributedTableTest {
 
         Map<Integer, RaftGroupService> partMap = new HashMap<>();
 
-        ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(20);
-
         for (List<ClusterNode> partNodes : assignment) {
             RaftServer rs = raftServers.get(partNodes.get(0));
 
@@ -282,8 +283,15 @@ public class ITDistributedTableTest {
                 conf
             );
 
-            RaftGroupService service = RaftGroupServiceImpl.start(grpId, client, FACTORY, 10_000, conf, true, 200, executor)
-                .get(3, TimeUnit.SECONDS);
+            RaftGroupService service = RaftGroupServiceImpl.start(grpId,
+                client,
+                FACTORY,
+                10_000,
+                conf,
+                true,
+                200,
+                executor
+            ).get(3, TimeUnit.SECONDS);
 
             partMap.put(p, service);
 
@@ -316,8 +324,6 @@ public class ITDistributedTableTest {
         partitionedTableRecordView(tbl.recordView(), PARTS * 10);
 
         partitionedTableKeyValueView(tbl.keyValueView(), PARTS * 10);
-
-        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
     }
 
     /**
