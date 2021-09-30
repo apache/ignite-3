@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.function.LongFunction;
 
 import org.apache.ignite.lang.IgniteInternalException;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Test Ignite SQL functions.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ITFunctionsTest extends AbstractBasicIntegrationTest {
     /** */
     @Test

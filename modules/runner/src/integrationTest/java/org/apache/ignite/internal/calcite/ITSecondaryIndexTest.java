@@ -36,7 +36,7 @@ import static org.hamcrest.Matchers.not;
 /**
  * Basic index tests.
  */
-@Disabled
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-14925")
 public class ITSecondaryIndexTest extends AbstractBasicIntegrationTest {
     /** */
     private static final String PK_IDX = "PK_IDX";

@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Test SQL data types.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ITDataTypesTest extends AbstractBasicIntegrationTest {
     /** */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15107")

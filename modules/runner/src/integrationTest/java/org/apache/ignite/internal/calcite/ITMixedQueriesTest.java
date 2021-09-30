@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /** */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ITMixedQueriesTest extends AbstractBasicIntegrationTest {
     /** {@inheritDoc} */
     @Override protected void initTestData() {
