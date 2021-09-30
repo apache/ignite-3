@@ -26,7 +26,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.BiFunction;
+import java.util.stream.IntStream;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
@@ -94,8 +96,8 @@ public class RocksDbTableStorage implements TableStorage {
     @SuppressWarnings("unused")
     private ColumnFamilyHandle metaCfHandle;
 
-    /** Column families for partitions. Stored as a list for the quick access by an index. */
-    private Map<Integer, ColumnFamily> partitionCfs = new ConcurrentHashMap<>();
+    /** Column families for partitions. Stored as an array for the quick access by an index. */
+    private AtomicReferenceArray<ColumnFamily> partitionCfs;
 
     /** Max number of partitions in the table. */
     private int partitions;
@@ -152,6 +154,8 @@ public class RocksDbTableStorage implements TableStorage {
 
         partitions = tableCfg.value().partitions();
 
+        partitionCfs = new AtomicReferenceArray<>(partitions);
+
         for (int cfListIndex = 0; cfListIndex < cfHandles.size(); cfListIndex++) {
             ColumnFamilyHandle cfHandle = cfHandles.get(cfListIndex);
 
@@ -170,7 +174,7 @@ public class RocksDbTableStorage implements TableStorage {
 
                 ColumnFamilyDescriptor cfDescriptor = cfDescriptors.get(cfListIndex);
 
-                partitionCfs.put(partId, new ColumnFamily(db, cfHandle, handleName, cfDescriptor.getOptions(), null));
+                partitionCfs.set(partId, new ColumnFamily(db, cfHandle, handleName, cfDescriptor.getOptions(), null));
             }
             else {
                 String indexName = handleName.substring(CF_INDEX_PREFIX.length());
@@ -188,7 +192,7 @@ public class RocksDbTableStorage implements TableStorage {
             Collections.reverse(copy);
 
             IgniteUtils.closeAll(concat(
-                concat(partitionCfs.values().stream(), indicesCfHandles.values().stream()),
+                concat(IntStream.range(0, partitions).mapToObj(partitionCfs::get), indicesCfHandles.values().stream()),
                 copy.stream()
             ));
         }
@@ -226,7 +230,7 @@ public class RocksDbTableStorage implements TableStorage {
                 throw new StorageException("Failed to create new RocksDB column family " + handleName, e);
             }
 
-            partitionCfs.put(partId, partitionCf);
+            partitionCfs.set(partId, partitionCf);
         }
 
         return new RocksDbPartitionStorage(db, partitionCf);
