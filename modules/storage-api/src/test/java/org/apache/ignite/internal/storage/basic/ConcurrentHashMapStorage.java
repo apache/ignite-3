@@ -198,7 +198,7 @@ public class ConcurrentHashMapStorage implements Storage {
     @Override public @NotNull CompletableFuture<Void> snapshot(Path snapshotPath) {
         return CompletableFuture.runAsync(() -> {
             try (
-                OutputStream out = Files.newOutputStream(snapshotPath.resolve("snapshot_file"));
+                OutputStream out = Files.newOutputStream(snapshotPath.resolve(SNAPSHOT_FILE));
                 ObjectOutputStream objOut = new ObjectOutputStream(out)
             ) {
                 objOut.writeObject(map.keySet().stream().map(ByteArray::bytes).collect(toList()));
