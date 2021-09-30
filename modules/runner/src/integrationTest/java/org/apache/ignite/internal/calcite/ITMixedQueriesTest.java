@@ -48,7 +48,7 @@ public class ITMixedQueriesTest extends AbstractBasicIntegrationTest {
             {idx++, "Igor1", 13d},
             {idx++, "Igor1", 13d},
             {idx++, "Igor1", 13d},
-            {idx++, "Roman", 14d}
+            {idx, "Roman", 14d}
         });
 
         idx = 0;
@@ -58,7 +58,7 @@ public class ITMixedQueriesTest extends AbstractBasicIntegrationTest {
             {idx++, "Roman", 12d},
             {idx++, "Roman", 13d},
             {idx++, "Igor1", 13d},
-            {idx++, "Igor1", 13d}
+            {idx, "Igor1", 13d}
         });
 
         /*

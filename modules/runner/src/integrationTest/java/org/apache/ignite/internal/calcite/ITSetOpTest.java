@@ -51,7 +51,7 @@ public class ITSetOpTest extends AbstractBasicIntegrationTest {
             {idx++, "Igor1", 13d},
             {idx++, "Igor1", 13d},
             {idx++, "Igor1", 13d},
-            {idx++, "Roman", 14d}
+            {idx, "Roman", 14d}
         });
 
         idx = 0;
@@ -61,7 +61,7 @@ public class ITSetOpTest extends AbstractBasicIntegrationTest {
             {idx++, "Roman", 12d},
             {idx++, "Roman", 13d},
             {idx++, "Igor1", 13d},
-            {idx++, "Igor1", 13d}
+            {idx, "Igor1", 13d}
         });
     }
 
@@ -160,10 +160,8 @@ public class ITSetOpTest extends AbstractBasicIntegrationTest {
             }
         }
 
-        List<List<?>> rows;
-
         // Check 2 partitioned caches.
-        rows = sql("SELECT val FROM BIG_TABLE1 EXCEPT SELECT val FROM BIG_TABLE2");
+        List<List<?>> rows = sql("SELECT val FROM BIG_TABLE1 EXCEPT SELECT val FROM BIG_TABLE2");
 
         assertEquals(3, rows.size());
         assertEquals(1, countIf(rows, r -> r.get(0).equals(0)));
