@@ -108,9 +108,6 @@ public class WorkDirectoryExtension implements BeforeEachCallback, AfterEachCall
      * Creates the temporary folder for the given test method.
      */
     private static Path createWorkDir(ExtensionContext extensionContext) throws IOException {
-        if (shouldRemoveDir())
-            IgniteUtils.deleteIfExists(BASE_PATH);
-
         String testClassDir = extensionContext.getRequiredTestClass().getSimpleName();
 
         String testMethodDir = extensionContext.getRequiredTestMethod().getName() + '_' + System.currentTimeMillis();
