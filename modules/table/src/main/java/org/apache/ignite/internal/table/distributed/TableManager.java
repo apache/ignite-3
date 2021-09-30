@@ -264,7 +264,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 tableStorage.stop();
             }
             catch (Exception e) {
-                LOG.error("", e);
+                LOG.error("Failed to stop table storage " + tableStorage, e);
             }
         }
 
@@ -272,7 +272,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             defaultDataRegion.stop();
         }
         catch (Exception e) {
-            LOG.error("", e);
+            LOG.error("Failed to stop data region " + defaultDataRegion, e);
         }
         // TODO: IGNITE-15161 Implement component's stop.
     }
