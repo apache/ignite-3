@@ -247,6 +247,7 @@ public class WorkDirectoryExtensionTest {
         }
 
         /** */
+        @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
         @WithSystemProperty(key = WorkDirectoryExtension.KEEP_WORK_DIR_PROPERTY, value = "true")
         @Test
         void test1(@WorkDirectory Path workDir) throws IOException {
@@ -254,6 +255,7 @@ public class WorkDirectoryExtensionTest {
         }
 
         /** */
+        @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
         @Test
         void test2(@WorkDirectory Path workDir) throws IOException {
             file2 = Files.createFile(workDir.resolve("foo"));
