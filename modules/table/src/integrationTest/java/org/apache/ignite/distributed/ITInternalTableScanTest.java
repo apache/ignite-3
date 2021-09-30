@@ -37,7 +37,7 @@ import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.DataRow;
-import org.apache.ignite.internal.storage.Storage;
+import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
 import org.apache.ignite.internal.table.InternalTable;
@@ -97,7 +97,7 @@ public class ITInternalTableScanTest {
 
     /** Mock partition storage. */
     @Mock
-    private Storage mockStorage;
+    private PartitionStorage mockStorage;
 
     /** */
     private ClusterService network;
@@ -142,7 +142,7 @@ public class ITInternalTableScanTest {
 
         List<Peer> conf = List.of(new Peer(nodeNetworkAddress));
 
-        mockStorage = mock(Storage.class);
+        mockStorage = mock(PartitionStorage.class);
 
         raftSrv.startRaftGroup(
             grpName,
