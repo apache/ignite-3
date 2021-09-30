@@ -27,15 +27,19 @@ import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.table.KeyValueBinaryView;
+import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -45,114 +49,11 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-14578")
 @ExtendWith(WorkDirectoryExtension.class)
 class ITTableCreationTest {
+    /** Network ports of the test nodes. */
+    private static final int[] PORTS = { 3344, 3345, 3346 };
+
     /** Nodes bootstrap configuration with preconfigured tables. */
-    private final LinkedHashMap<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {{
-        put("node0", "{\n" +
-            "  \"node\": {\n" +
-            "    \"name\":node0,\n" +
-            "    \"metastorageNodes\":[ \"node0\", \"node1\" ]\n" +
-            "  },\n" +
-            "  \"network\": {\n" +
-            "    \"port\":3344,\n" +
-            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-            "  },\n" +
-            "  \"table\": {\n" +
-            "       \"tables\": {\n" +
-            "           \"tbl1\": {\n" +
-            "               \"partitions\":10,\n" +
-            "               \"replicas\":2,\n" +
-            "               \"columns\": { \n" +
-            "                   \"key\": {\n" +
-            "                       \"type\": {" +
-            "                           \"type\":UUID\n" +
-            "                       },\n" +
-            "                       \"nullable\":false\n" +
-            "                   },\n" +
-            "                   \"affKey\": {\n" +
-            "                       \"type\": {" +
-            "                           \"type\":INT64\n" +
-            "                       },\n" +
-            "                       \"nullable\":false\n" +
-            "                   },\n" +
-            "                   \"valString\": {\n" +
-            "                       \"type\": {" +
-            "                           \"type\":String\n" +
-            "                       },\n" +
-            "                       \"nullable\":false\n" +
-            "                   },\n" +
-            "                   \"valInt\": {\n" +
-            "                       \"type\": {" +
-            "                           \"type\":INT32\n" +
-            "                       },\n" +
-            "                       \"nullable\":false\n" +
-            "                   },\n" +
-            "                   \"valNullable\": {\n" +
-            "                       \"type\": {" +
-            "                           \"type\":String\n" +
-            "                       },\n" +
-            "                       \"nullable\":true\n" +
-            "                   }\n" +
-            "               },\n" + /* Columns. */
-            "               \"indices\": {\n" +
-            "                   \"PK\": {\n" +
-            "                       \"type\":PRIMARY,\n" +
-            "                       \"columns\": {\n" +
-            "                           \"key\": {\n" +
-            "                               \"asc\":true\n" +
-            "                           },\n" +
-            "                           \"affKey\": {}\n" +
-            "                       },\n" + /* Columns. */
-            "                       \"affinityColumns\":[ \"affKey\" ]\n" +
-            "                   }\n" +
-            "               }\n" + /* Indices. */
-            "           },\n" + /* Table. */
-            "\n" +
-            "           \"tbl2\": {\n" + // Table minimal configuration.
-            "               \"columns\": { \n" +
-            "                   \"key\": {\n" +
-            "                       \"type\": {" +
-            "                           \"type\":INT64\n" +
-            "                       },\n" +
-            "                   },\n" +
-            "                   \"val\": {\n" +
-            "                       \"type\": {" +
-            "                           \"type\":INT64\n" +
-            "                       },\n" +
-            "                   }\n" +
-            "               },\n" + /* Columns. */
-            "               \"indices\": {\n" +
-            "                   \"PK\": {\n" +
-            "                       \"type\":PRIMARY,\n" +
-            "                       \"columns\": {\n" +
-            "                           \"key\": {}\n" +
-            "                       },\n" + /* Columns. */
-            "                   }\n" +
-            "               }\n" + /* Indices. */
-            "           }\n" + /* Table. */
-            "       }\n" + /* Tables. */
-            "  }\n" + /* Root. */
-            "}");
-
-        put("node1", "{\n" +
-            "  \"node\": {\n" +
-            "    \"metastorageNodes\":[ \"node0\", \"node1\" ]\n" +
-            "  },\n" +
-            "  \"network\": {\n" +
-            "    \"port\":3345,\n" +
-            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-            "  }\n" +
-            "}");
-
-        put("node2", "{\n" +
-            "  \"node\": {\n" +
-            "    \"metastorageNodes\":[ \"node0\", \"node1\" ]\n" +
-            "  },\n" +
-            "  \"network\": {\n" +
-            "    \"port\":3346,\n" +
-            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-            "  }\n" +
-            "}");
-    }};
+    private final LinkedHashMap<String, String> nodesBootstrapCfg = new LinkedHashMap<>();
 
     /** */
     private final List<Ignite> clusterNodes = new ArrayList<>();
@@ -160,6 +61,122 @@ class ITTableCreationTest {
     /** */
     @WorkDirectory
     private Path workDir;
+
+    /** */
+    @BeforeEach
+    void setUp(TestInfo testInfo) {
+        String node0Name = testNodeName(testInfo, PORTS[0]);
+        String node1Name = testNodeName(testInfo, PORTS[1]);
+        String node2Name = testNodeName(testInfo, PORTS[2]);
+
+        nodesBootstrapCfg.put(
+            node0Name,
+            "{\n" +
+                "  node.metastorageNodes: [ \"" + node0Name + "\", \"" + node1Name + "\" ],\n" +
+                "  network: {\n" +
+                "    port: " + PORTS[0] + "\n" +
+                "    netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+                "  },\n" +
+                "  \"table\": {\n" +
+                "       \"tables\": {\n" +
+                "           \"tbl1\": {\n" +
+                "               \"partitions\":10,\n" +
+                "               \"replicas\":2,\n" +
+                "               \"columns\": { \n" +
+                "                   \"key\": {\n" +
+                "                       \"type\": {" +
+                "                           \"type\":UUID\n" +
+                "                       },\n" +
+                "                       \"nullable\":false\n" +
+                "                   },\n" +
+                "                   \"affKey\": {\n" +
+                "                       \"type\": {" +
+                "                           \"type\":INT64\n" +
+                "                       },\n" +
+                "                       \"nullable\":false\n" +
+                "                   },\n" +
+                "                   \"valString\": {\n" +
+                "                       \"type\": {" +
+                "                           \"type\":String\n" +
+                "                       },\n" +
+                "                       \"nullable\":false\n" +
+                "                   },\n" +
+                "                   \"valInt\": {\n" +
+                "                       \"type\": {" +
+                "                           \"type\":INT32\n" +
+                "                       },\n" +
+                "                       \"nullable\":false\n" +
+                "                   },\n" +
+                "                   \"valNullable\": {\n" +
+                "                       \"type\": {" +
+                "                           \"type\":String\n" +
+                "                       },\n" +
+                "                       \"nullable\":true\n" +
+                "                   }\n" +
+                "               },\n" + /* Columns. */
+                "               \"indices\": {\n" +
+                "                   \"PK\": {\n" +
+                "                       \"type\":PRIMARY,\n" +
+                "                       \"columns\": {\n" +
+                "                           \"key\": {\n" +
+                "                               \"asc\":true\n" +
+                "                           },\n" +
+                "                           \"affKey\": {}\n" +
+                "                       },\n" + /* Columns. */
+                "                       \"affinityColumns\":[ \"affKey\" ]\n" +
+                "                   }\n" +
+                "               }\n" + /* Indices. */
+                "           },\n" + /* Table. */
+                "\n" +
+                "           \"tbl2\": {\n" + // Table minimal configuration.
+                "               \"columns\": { \n" +
+                "                   \"key\": {\n" +
+                "                       \"type\": {" +
+                "                           \"type\":INT64\n" +
+                "                       },\n" +
+                "                   },\n" +
+                "                   \"val\": {\n" +
+                "                       \"type\": {" +
+                "                           \"type\":INT64\n" +
+                "                       },\n" +
+                "                   }\n" +
+                "               },\n" + /* Columns. */
+                "               \"indices\": {\n" +
+                "                   \"PK\": {\n" +
+                "                       \"type\":PRIMARY,\n" +
+                "                       \"columns\": {\n" +
+                "                           \"key\": {}\n" +
+                "                       },\n" + /* Columns. */
+                "                   }\n" +
+                "               }\n" + /* Indices. */
+                "           }\n" + /* Table. */
+                "       }\n" + /* Tables. */
+                "  }\n" + /* Root. */
+                "}"
+        );
+
+        nodesBootstrapCfg.put(
+            node1Name,
+            "{\n" +
+                "  node.metastorageNodes: [ \"" + node0Name + "\", \"" + node1Name + "\" ],\n" +
+                "  network: {\n" +
+                "    port: " + PORTS[1] + "\n" +
+                "    netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+                "  }\n" +
+                "}"
+        );
+
+        nodesBootstrapCfg.put(
+            node2Name,
+            "{\n" +
+                "  node.metastorageNodes: [ \"" + node0Name + "\", \"" + node1Name + "\" ],\n" +
+                "  network: {\n" +
+                "    port: " + PORTS[2] + "\n" +
+                "    netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+                "  }\n" +
+                "}"
+        );
+    }
 
     /** */
     @AfterEach
@@ -182,21 +199,23 @@ class ITTableCreationTest {
 
         { /* Table 1. */
             Table tbl1 = clusterNodes.get(1).tables().table("tbl1");
-            KeyValueBinaryView kvView1 = tbl1.kvView();
+            RecordView<Tuple> recView = tbl1.recordView();
+            KeyValueView<Tuple, Tuple> kvView1 = tbl1.keyValueView();
 
-            tbl1.insert(Tuple.create().set("key", 1L).set("val", 111));
+            recView.insert(Tuple.create().set("key", 1L).set("val", 111));
             kvView1.put(Tuple.create().set("key", 2L), Tuple.create().set("val", 222));
 
             Table tbl2 = clusterNodes.get(2).tables().table("tbl1");
-            KeyValueBinaryView kvView2 = tbl2.kvView();
+            RecordView<Tuple> recView2 = tbl2.recordView();
+            KeyValueView<Tuple, Tuple> kvView2 = tbl2.keyValueView();
 
             final Tuple keyTuple1 = Tuple.create().set("key", 1L);
             final Tuple keyTuple2 = Tuple.create().set("key", 2L);
 
-            assertEquals(111, (Integer)tbl2.get(keyTuple1).value("val"));
-            assertEquals(111, (Integer)kvView1.get(keyTuple1).value("val"));
-            assertEquals(222, (Integer)tbl2.get(keyTuple2).value("val"));
-            assertEquals(222, (Integer)kvView1.get(keyTuple2).value("val"));
+            assertEquals(111, (Integer)recView2.get(keyTuple1).value("val"));
+            assertEquals(111, (Integer)kvView2.get(keyTuple1).value("val"));
+            assertEquals(222, (Integer)recView2.get(keyTuple2).value("val"));
+            assertEquals(222, (Integer)kvView2.get(keyTuple2).value("val"));
         }
 
         { /* Table 2. */
@@ -205,9 +224,10 @@ class ITTableCreationTest {
 
             // Put data on node 1.
             Table tbl1 = clusterNodes.get(1).tables().table("tbl1");
-            KeyValueBinaryView kvView1 = tbl1.kvView();
+            RecordView<Tuple> recView = tbl1.recordView();
+            KeyValueView<Tuple, Tuple> kvView1 = tbl1.keyValueView();
 
-            tbl1.insert(Tuple.create().set("key", uuid).set("affKey", 42L)
+            recView.insert(Tuple.create().set("key", uuid).set("affKey", 42L)
                 .set("valStr", "String value").set("valInt", 73).set("valNullable", null));
 
             kvView1.put(Tuple.create().set("key", uuid2).set("affKey", 4242L),
@@ -215,22 +235,23 @@ class ITTableCreationTest {
 
             // Get data on node 2.
             Table tbl2 = clusterNodes.get(2).tables().table("tbl1");
-            KeyValueBinaryView kvView2 = tbl2.kvView();
+            RecordView<Tuple> recView2 = tbl2.recordView();
+            KeyValueView<Tuple, Tuple> kvView2 = tbl2.keyValueView();
 
             final Tuple keyTuple1 = Tuple.create().set("key", uuid).set("affKey", 42L);
             final Tuple keyTuple2 = Tuple.create().set("key", uuid2).set("affKey", 4242L);
 
-            assertEquals("String value", tbl2.get(keyTuple1).value("valStr"));
+            assertEquals("String value", recView2.get(keyTuple1).value("valStr"));
             assertEquals("String value", kvView2.get(keyTuple1).value("valStr"));
-            assertEquals("String value 2", tbl2.get(keyTuple2).value("valStr"));
+            assertEquals("String value 2", recView2.get(keyTuple2).value("valStr"));
             assertEquals("String value 2", kvView2.get(keyTuple2).value("valStr"));
-            assertEquals(73, (Integer)tbl2.get(keyTuple1).value("valInt"));
+            assertEquals(73, (Integer)recView2.get(keyTuple1).value("valInt"));
             assertEquals(73, (Integer)kvView2.get(keyTuple1).value("valInt"));
-            assertEquals(7373, (Integer)tbl2.get(keyTuple2).value("valInt"));
+            assertEquals(7373, (Integer)recView2.get(keyTuple2).value("valInt"));
             assertEquals(7373, (Integer)kvView2.get(keyTuple2).value("valInt"));
-            assertNull(tbl2.get(keyTuple1).value("valNullable"));
+            assertNull(recView2.get(keyTuple1).value("valNullable"));
             assertNull(kvView2.get(keyTuple1).value("valNullable"));
-            assertNull(tbl2.get(keyTuple2).value("valNullable"));
+            assertNull(recView2.get(keyTuple2).value("valNullable"));
             assertNull(kvView2.get(keyTuple2).value("valNullable"));
         }
     }

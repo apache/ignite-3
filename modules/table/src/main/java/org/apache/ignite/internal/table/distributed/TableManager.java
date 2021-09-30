@@ -54,6 +54,7 @@ import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
+import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
@@ -184,9 +185,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         @Override public @NotNull CompletableFuture<?> onCreate(
                             @NotNull ConfigurationNotificationEvent<SchemaView> schemasCtx) {
                             try {
-                                ((SchemaRegistryImpl)tables.get(ctx.newValue().name()).schemaRegistry()).
-                                    onSchemaRegistered((SchemaDescriptor)ByteUtils.
-                                        fromBytes(schemasCtx.newValue().schema()));
+                                ((SchemaRegistryImpl)tables.get(ctx.newValue().name()).schemaView()).
+                                    onSchemaRegistered(
+                                        SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema()))
+                                    );
 
                                 fireEvent(TableEvent.ALTER, new TableEventParameters(tablesById.get(tblId)), null);
                             }
@@ -218,7 +220,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     ctx.newValue().name(),
                     IgniteUuid.fromString(((ExtendedTableView)ctx.newValue()).id()),
                     (List<List<ClusterNode>>)ByteUtils.fromBytes(((ExtendedTableView)ctx.newValue()).assignments()),
-                    (SchemaDescriptor)ByteUtils.fromBytes(((ExtendedTableView)ctx.newValue()).schemas().
+                    SchemaSerializerImpl.INSTANCE.deserialize(((ExtendedTableView)ctx.newValue()).schemas().
                         get(String.valueOf(INITIAL_SCHEMA_VERSION)).schema())
                 );
 
@@ -352,8 +354,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 var table = new TableImpl(
                     internalTable,
                     schemaRegistry,
-                    TableManager.this,
-                    null
+                    TableManager.this
                 );
 
                 tables.put(name, table);
@@ -500,7 +501,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         schemasCh -> schemasCh.create(
                                             String.valueOf(INITIAL_SCHEMA_VERSION),
                                             schemaCh -> schemaCh.changeSchema(
-                                                ByteUtils.toBytes(
+                                                SchemaSerializerImpl.INSTANCE.serialize(
                                                     SchemaUtils.prepareSchemaDescriptor(
                                                         ((ExtendedTableView)ch).schemas().size(),
                                                         ch
@@ -581,13 +582,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             );
 
                                             descriptor.columnMapping(SchemaUtils.columnMapper(
-                                                tablesById.get(tblId).schemaRegistry().schema(currTableView.schemas().size()),
+                                                tablesById.get(tblId).schemaView().schema(currTableView.schemas().size()),
                                                 currTableView,
                                                 descriptor,
                                                 tblCh
                                             ));
 
-                                            schemaCh.changeSchema(ByteUtils.toBytes(descriptor));
+                                            schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(descriptor));
                                         }
                                     )
                             ));
