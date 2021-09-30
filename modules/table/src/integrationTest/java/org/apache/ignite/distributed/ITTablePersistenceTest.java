@@ -135,11 +135,12 @@ public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
 
     /** {@inheritDoc} */
     @Override public RaftGroupListener createListener(Path workDir) {
-        Path tableDir = workDir.resolve(UUID.randomUUID().toString());
+        if (paths.containsValue(workDir))
+            return paths.entrySet().stream().filter(entry -> entry.getValue().equals(workDir)).findAny().get().getKey();
 
         PartitionListener listener = new PartitionListener(new ConcurrentHashMapStorage());
 
-        paths.put(listener, tableDir);
+        paths.put(listener, workDir);
 
         return listener;
     }

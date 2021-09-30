@@ -354,9 +354,11 @@ public abstract class ITAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         server.start();
 
+        Path listenerPersistencePath = workDir.resolve("db" + idx);
+
         server.startRaftGroup(
             raftGroupId(),
-            createListener(workDir),
+            createListener(listenerPersistencePath),
             INITIAL_CONF
         );
 
