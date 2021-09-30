@@ -55,13 +55,12 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
         GroupAwareTestObjHandler handler1 = new GroupAwareTestObjHandler();
         GroupAwareTestObjHandler handler2 = new GroupAwareTestObjHandler();
 
-        RingBuffer<GroupAwareTestObj>  taskQueue1 = disruptor.subscribe("grp1", handler1);
-        RingBuffer<GroupAwareTestObj>  taskQueue2 = disruptor.subscribe("grp2", handler2);
+        RingBuffer<GroupAwareTestObj> taskQueue1 = disruptor.subscribe("grp1", handler1);
+        RingBuffer<GroupAwareTestObj> taskQueue2 = disruptor.subscribe("grp2", handler2);
 
         assertSame(taskQueue1, taskQueue2);
 
-
-        for (int i=0; i<1_000; i++) {
+        for (int i = 0; i < 1_000; i++) {
             int finalInt = i;
 
             taskQueue1.tryPublishEvent((event, sequence) -> {
