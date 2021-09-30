@@ -40,7 +40,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
@@ -109,7 +108,7 @@ public class ITLozaTest {
         Loza loza = null;
 
         try {
-            service = spy(clusterService(testInfo, PORT, List.of(new NetworkAddress(getLocalAddress(), PORT))));
+            service = spy(clusterService(testInfo, PORT, List.of()));
 
             MessagingService messagingServiceMock = spy(service.messagingService());
 
