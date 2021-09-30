@@ -58,7 +58,7 @@ public class ITProcessorTest extends AbstractProcessorTest {
 
     /** */
     @Test
-    void testSuccessInternalConfigCodeGeneration() {
+    void testSuccessInternalConfigCodeGeneration() throws Exception {
         String packageName = "org.apache.ignite.internal.configuration.processor.internal";
 
         ClassName cls0 = ClassName.get(packageName, "SimpleRootConfigurationSchema");
@@ -207,7 +207,7 @@ public class ITProcessorTest extends AbstractProcessorTest {
 
     /** */
     @Test
-    void testSuccessPolymorphicConfigCodeGeneration() throws Exception {
+    void testSuccessPolymorphicConfigCodeGeneration() {
         String packageName = "org.apache.ignite.internal.configuration.processor.polymorphic";
 
         ClassName cls0 = ClassName.get(packageName, "SimplePolymorphicConfigurationSchema");

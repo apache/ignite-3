@@ -48,6 +48,7 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
+import com.squareup.javapoet.TypeVariableName;
 import com.squareup.javapoet.WildcardTypeName;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListChange;
@@ -446,14 +447,22 @@ public class Processor extends AbstractProcessor {
         }
 
         if (isPolymorphicConfig) {
-            // TODO: implement
+            // Parameter type, for example: Class<? extends SimpleConfiguration>.
+            ParameterizedTypeName parameterType = ParameterizedTypeName.get(
+                ClassName.get(Class.class),
+                WildcardTypeName.subtypeOf(Utils.getConfigurationInterfaceName(schemaClassName))
+            );
+
+            // Variable type, for example: <T extends SimpleChange>.
+            TypeVariableName typeVariable = TypeVariableName.get("T", changeClsName);
 
             MethodSpec.Builder convertMtdBuilder = MethodSpec.methodBuilder("convert")
                 .addModifiers(PUBLIC, ABSTRACT)
-                .addParameter(null)
-                .returns((TypeName)null);
+                .addTypeVariable(typeVariable)
+                .addParameter(parameterType, "configClass")
+                .returns(TypeVariableName.get("T"));
 
-            //changeClsBuilder.addMethod(convertMtdBuilder.build());
+            changeClsBuilder.addMethod(convertMtdBuilder.build());
         }
         
         TypeSpec viewCls = viewClsBuilder.build();
