@@ -39,7 +39,7 @@ namespace Apache.Ignite.Tests
         private const string MavenCommandExec = "exec:java@platform-test-node-runner";
 
         /** Maven arg to perform a dry run to ensure that code is compiled and all artifacts are downloaded. */
-        private const string MavenCommandDryRunArg = "-Dexec.args=dry-run";
+        private const string MavenCommandDryRunArg = " -Dexec.args=dry-run";
 
         /** Full path to Maven binary. */
         private static readonly string MavenPath = GetMaven();
@@ -155,7 +155,8 @@ namespace Apache.Ignite.Tests
             process.BeginErrorReadLine();
             process.BeginOutputReadLine();
 
-            if (!process.WaitForExit(300_000))
+            // 5 min timeout for the build process (may take time to download artifacts on slow networks).
+            if (!process.WaitForExit(5 * 60_000))
             {
                 process.Kill();
                 throw new Exception("Failed to wait for Maven exec dry run.");
