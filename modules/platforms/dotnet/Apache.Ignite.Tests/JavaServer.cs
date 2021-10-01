@@ -38,7 +38,7 @@ namespace Apache.Ignite.Tests
         /** Maven command to execute the main class. */
         private const string MavenCommandExec = "exec:java@platform-test-node-runner";
 
-        /** Maven arg to perform a dry run to ensure that code is compiled. */
+        /** Maven arg to perform a dry run to ensure that code is compiled and all artifacts are downloaded. */
         private const string MavenCommandDryRunArg = "-Dexec.args=dry-run";
 
         /** Full path to Maven binary. */

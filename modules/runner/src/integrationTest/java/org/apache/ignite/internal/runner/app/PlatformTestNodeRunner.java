@@ -70,6 +70,12 @@ public class PlatformTestNodeRunner {
      * @param args Args.
      */
     public static void main(String[] args) throws Exception {
+        if (args.length > 0 && "dry-run".equals(args[0]))
+        {
+            System.out.println("Dry run succeeded.");
+            return;
+        }
+
         IgniteUtils.deleteIfExists(BASE_PATH);
         Files.createDirectories(BASE_PATH);
 
