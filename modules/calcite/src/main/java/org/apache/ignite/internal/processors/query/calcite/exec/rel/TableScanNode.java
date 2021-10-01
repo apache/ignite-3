@@ -103,7 +103,7 @@ public class TableScanNode<Row> extends AbstractNode<Row> {
     ) {
         super(ctx, rowType);
 
-        assert nullOrEmpty(parts);
+        assert !nullOrEmpty(parts);
 
         table = desc.table();
         this.desc = desc;
