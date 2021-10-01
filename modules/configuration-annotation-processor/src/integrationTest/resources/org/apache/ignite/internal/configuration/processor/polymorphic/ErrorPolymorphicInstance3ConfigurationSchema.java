@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.configuration.processor.polymorphic;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 
 /**
- * Class with {@link PolymorphicConfig} must have a super class.
+ * Class with {@link PolymorphicConfigInstance} must have a super class.
  */
 @PolymorphicConfigInstance(id = "error")
 public class ErrorPolymorphicInstance3ConfigurationSchema {

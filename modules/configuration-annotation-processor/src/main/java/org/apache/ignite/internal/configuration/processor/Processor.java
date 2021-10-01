@@ -97,6 +97,10 @@ public class Processor extends AbstractProcessor {
     /** Format of class annotation incompatibility error. */
     private static final String INCOMPATIBLE_CLASS_ANNOTATION_ERROR_FORMAT = "Class with %s is not allowed with %s: %s";
 
+    /** Error format for the presence of duplicate class fields (by names). */
+    private static final String DUPLICATE_FIELD_NAMES_ERROR_FORMAT =
+        "Duplicate field names are not allowed [class=%s, superClass=%s, fields=%s]";
+
     /** {@inheritDoc} */
     @Override public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnvironment) {
         try {
@@ -595,18 +599,11 @@ public class Processor extends AbstractProcessor {
                     ));
                 }
                 else {
-                    Set<Name> superClazzFieldNames = fields(superClazz).stream()
-                        .map(VariableElement::getSimpleName)
-                        .collect(toSet());
-
-                    Collection<Name> duplicateFieldNames = fields.stream()
-                        .map(VariableElement::getSimpleName)
-                        .filter(superClazzFieldNames::contains)
-                        .collect(toList());
+                    Collection<Name> duplicateFieldNames = duplicates(fields(superClazz), fields);
 
                     if (!duplicateFieldNames.isEmpty()) {
                         throw new ProcessorException(String.format(
-                            "Duplicate field names are not allowed [class=%s, superClass=%s, fields=%s]",
+                            DUPLICATE_FIELD_NAMES_ERROR_FORMAT,
                             clazz.getQualifiedName(),
                             superClazz.getQualifiedName(),
                             duplicateFieldNames
@@ -672,6 +669,20 @@ public class Processor extends AbstractProcessor {
                     clazz.getQualifiedName())
                 );
             }
+            else {
+                TypeElement superClazz = superClass(clazz);
+
+                Collection<Name> duplicateFieldNames = duplicates(fields(superClazz), fields);
+
+                if (!duplicateFieldNames.isEmpty()) {
+                    throw new ProcessorException(String.format(
+                        DUPLICATE_FIELD_NAMES_ERROR_FORMAT,
+                        clazz.getQualifiedName(),
+                        superClazz.getQualifiedName(),
+                        duplicateFieldNames
+                    ));
+                }
+            }
         }
     }
 
@@ -721,5 +732,29 @@ public class Processor extends AbstractProcessor {
         Class<? extends Annotation>... annotationClasses
     ) {
         return Stream.of(annotationClasses).map(clazz::getAnnotation).filter(Objects::nonNull).findAny().orElse(null);
+    }
+
+    /**
+     * Search for duplicate class fields by name.
+     *
+     * @param fields1 First class fields.
+     * @param fields2 Second class fields.
+     * @return Field names.
+     */
+    public static Collection<Name> duplicates(
+        Collection<VariableElement> fields1,
+        Collection<VariableElement> fields2
+    ) {
+        if (fields1.isEmpty() || fields2.isEmpty())
+            return List.of();
+
+        Set<Name> filedNames1 = fields1.stream()
+            .map(VariableElement::getSimpleName)
+            .collect(toSet());
+
+        return fields2.stream()
+            .map(VariableElement::getSimpleName)
+            .filter(filedNames1::contains)
+            .collect(toList());
     }
 }

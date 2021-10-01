@@ -203,6 +203,11 @@ public class ITProcessorTest extends AbstractProcessorTest {
             IllegalStateException.class,
             () -> batchCompile(packageName, "ErrorPolymorphicInstance4ConfigurationSchema")
         );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> batchCompile(packageName, "ErrorPolymorphicInstance5ConfigurationSchema")
+        );
     }
 
     /** */

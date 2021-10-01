@@ -21,7 +21,6 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Class with {@link PolymorphicConfig} cannot have a super class.
  * Class with {@link PolymorphicConfig} cannot contain field with name equal {@link PolymorphicConfig#fieldName}.
  */
 @PolymorphicConfig(fieldName = "type")

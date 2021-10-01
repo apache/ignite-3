@@ -30,7 +30,7 @@ public class SimplePolymorphicInstanceConfigurationSchema extends SimplePolymorp
     @Value
     public int i;
 
-    /** String value, duplicate {@link SimplePolymorphicConfigurationSchema#str}. */
+    /** String value. */
     @Value
-    public String str;
+    public String str1;
 }
