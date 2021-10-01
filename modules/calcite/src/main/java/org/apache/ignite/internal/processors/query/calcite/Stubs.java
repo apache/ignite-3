@@ -16,81 +16,10 @@
  */
 package org.apache.ignite.internal.processors.query.calcite;
 
-import java.lang.reflect.Type;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
-
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
-
 /** Stubs */
 public class Stubs {
     /** */
     public static int intFoo(Object... args) {
         return args == null ? 0 : args.length;
-    }
-
-    public static boolean boolFoo(Object... args) {
-        return args == null;
-    }
-
-    /** */
-    public static String stringFoo(Object... args) {
-        return args == null ? "null" : "not null";
-    }
-
-    public static Collection<Object[]> resultSetGenerator(int cnt, IgniteTypeFactory factory, RelDataType type) {
-        List<Object[]> res = new ArrayList<>(cnt);
-
-        for (int row = 0; row < cnt; row++) {
-            Object[] tmp = new Object[type.getFieldCount()];
-
-            res.add(tmp);
-
-            for (RelDataTypeField field : type.getFieldList())
-                tmp[field.getIndex()] = rndValueOfType(factory.getJavaClass(field.getType()));
-        }
-
-        return res;
-    }
-
-    private static Object rndValueOfType(Type type) {
-        if (type == byte.class || type == Byte.class)
-            return (byte)ThreadLocalRandom.current().nextInt(100);
-
-        if (type == short.class || type == Short.class)
-            return (short)ThreadLocalRandom.current().nextInt(100);
-
-        if (type == int.class || type == Integer.class)
-            return ThreadLocalRandom.current().nextInt(100);
-
-        if (type == long.class || type == Long.class)
-            return (long)ThreadLocalRandom.current().nextInt(100);
-
-        if (type == float.class || type == Float.class)
-            return ThreadLocalRandom.current().nextFloat();
-
-        if (type == double.class || type == Double.class)
-            return ThreadLocalRandom.current().nextDouble();
-
-        if (type == UUID.class)
-            return UUID.randomUUID();
-
-        if (type == String.class)
-            return UUID.randomUUID().toString();
-
-        if (type == BigDecimal.class)
-            return BigDecimal.valueOf(ThreadLocalRandom.current().nextDouble());
-
-        if (type == BigInteger.class)
-            return BigDecimal.valueOf(ThreadLocalRandom.current().nextDouble()).unscaledValue();
-
-        throw new IllegalStateException("Can't generate value of type " + type.getTypeName());
     }
 }
