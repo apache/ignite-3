@@ -150,8 +150,7 @@ public class IgniteImpl implements Ignite {
                 NetworkConfiguration.KEY,
                 NodeConfiguration.KEY,
                 RestConfiguration.KEY,
-                ClientConnectorConfiguration.KEY,
-                DataStorageConfiguration.KEY
+                ClientConnectorConfiguration.KEY
             ),
             Map.of(),
             new LocalConfigurationStorage(vaultMgr),
@@ -182,7 +181,8 @@ public class IgniteImpl implements Ignite {
         clusterCfgMgr = new ConfigurationManager(
             Arrays.asList(
                 ClusterConfiguration.KEY,
-                TablesConfiguration.KEY
+                TablesConfiguration.KEY,
+                DataStorageConfiguration.KEY
             ),
             Map.of(),
             new DistributedConfigurationStorage(metaStorageMgr, vaultMgr),
@@ -197,7 +197,7 @@ public class IgniteImpl implements Ignite {
 
         distributedTblMgr = new TableManager(
             clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
-            nodeCfgMgr.configurationRegistry().getConfiguration(DataStorageConfiguration.KEY),
+            clusterCfgMgr.configurationRegistry().getConfiguration(DataStorageConfiguration.KEY),
             raftMgr,
             baselineMgr,
             metaStorageMgr,

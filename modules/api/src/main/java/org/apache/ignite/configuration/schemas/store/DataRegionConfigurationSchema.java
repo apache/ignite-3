@@ -19,6 +19,7 @@ package org.apache.ignite.configuration.schemas.store;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Min;
 import org.apache.ignite.configuration.validation.OneOf;
 
@@ -28,6 +29,7 @@ import org.apache.ignite.configuration.validation.OneOf;
 @Config
 public class DataRegionConfigurationSchema {
     /** Type for the future polymorphic configuration schemas. */
+    @Immutable
     @OneOf("rocksdb")
     @Value(hasDefault = true)
     public String type = "rocksdb";

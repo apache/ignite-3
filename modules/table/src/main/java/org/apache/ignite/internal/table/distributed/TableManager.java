@@ -269,7 +269,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         try {
-            defaultDataRegion.stop();
+            if (defaultDataRegion != null)
+                defaultDataRegion.stop();
         }
         catch (Exception e) {
             LOG.error("Failed to stop data region " + defaultDataRegion, e);

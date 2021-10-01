@@ -25,7 +25,7 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 /**
  * Root configuration for data storages.
  */
-@ConfigurationRoot(rootName = "db", type = ConfigurationType.LOCAL)
+@ConfigurationRoot(rootName = "db", type = ConfigurationType.DISTRIBUTED)
 public class DataStorageConfigurationSchema {
     /** Default data region. */
     @ConfigValue
