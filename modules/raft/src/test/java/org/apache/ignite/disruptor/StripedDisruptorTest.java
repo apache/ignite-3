@@ -37,9 +37,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class StripedDisruptorTest extends IgniteAbstractTest {
     /** Default RAFT options. */
-    private static RaftOptions options = new RaftOptions();
+    private static final RaftOptions options = new RaftOptions();
 
     /**
+     * Checks the correctness of disruptor batching in a handler.
+     * This test creates only one stripe in order to the real Disruptor is shared between two groups.
+     *
      * @throws Exception If fialed.
      */
     @Test
@@ -49,7 +52,7 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
 
         StripedDisruptor<GroupAwareTestObj> disruptor = new StripedDisruptor<>("test-disruptor",
             16384,
-            () -> new GroupAwareTestObj(),
+            GroupAwareTestObj::new,
             1);
 
         GroupAwareTestObjHandler handler1 = new GroupAwareTestObjHandler();
@@ -87,6 +90,9 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
     }
 
     /**
+     * The test checks that the Striped Disruptor work same as real one
+     * in the circumstances when we have only one consumer group.
+     *
      * @throws Exception If fialed.
      */
     @Test
