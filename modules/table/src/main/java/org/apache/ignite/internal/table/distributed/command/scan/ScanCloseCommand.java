@@ -15,41 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration;
+package org.apache.ignite.internal.table.distributed.command.scan;
 
-import org.apache.ignite.configuration.notifications.ConfigurationListener;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.raft.client.WriteCommand;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Base interface for configuration.
- *
- * @param <VIEW> Type of the value.
+ * Scan close command for PartitionListener that closes scan with given id.
  */
-public interface ConfigurationProperty<VIEW> {
-    /**
-     * Get key of this node.
-     *
-     * @return Key.
-     */
-    String key();
+public class ScanCloseCommand implements WriteCommand {
+    /** Id of scan that is associated with the current command. */
+    @NotNull private final IgniteUuid scanId;
 
     /**
-     * Get value of this property.
+     * The Constructor.
      *
-     * @return Value of this property.
+     * @param scanId Id of scan that is associated with the current command.
      */
-    VIEW value();
+    public ScanCloseCommand(@NotNull IgniteUuid scanId) {
+        this.scanId = scanId;
+    }
 
     /**
-     * Add configuration values listener.
-     *
-     * @param listener Listener.
+     * @return Id of scan that is associated with the current command.
      */
-    void listen(ConfigurationListener<VIEW> listener);
-
-    /**
-     * Remove configuration values listener.
-     *
-     * @param listener Listener.
-     */
-    void stopListen(ConfigurationListener<VIEW> listener);
+    public @NotNull IgniteUuid scanId() {
+        return scanId;
+    }
 }
