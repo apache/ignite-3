@@ -33,6 +33,8 @@ namespace Apache.Ignite.Tests
     {
         private const int DefaultClientPort = 10942;
 
+        private const int ConnectTimeoutSeconds = 20;
+
         /** Maven command to execute the main class. */
         private const string MavenCommandExec = "exec:java@platform-test-node-runner";
 
@@ -115,7 +117,7 @@ namespace Apache.Ignite.Tests
 
             var port = ports?.FirstOrDefault() ?? DefaultClientPort;
 
-            if (!evt.Wait(TimeSpan.FromSeconds(15)) || !WaitForServer(port))
+            if (!evt.Wait(TimeSpan.FromSeconds(ConnectTimeoutSeconds)) || !WaitForServer(port))
             {
                 process.Kill(true);
 
@@ -148,7 +150,7 @@ namespace Apache.Ignite.Tests
 
             try
             {
-                return TryConnectForever(port, cts.Token).Wait(TimeSpan.FromSeconds(15));
+                return TryConnectForever(port, cts.Token).Wait(TimeSpan.FromSeconds(ConnectTimeoutSeconds));
             }
             finally
             {
