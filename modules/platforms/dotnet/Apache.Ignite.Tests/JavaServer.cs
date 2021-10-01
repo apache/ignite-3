@@ -38,8 +38,13 @@ namespace Apache.Ignite.Tests
         /** Maven command to execute the main class. */
         private const string MavenCommandExec = "exec:java@platform-test-node-runner";
 
+        /** Maven arg to perform a dry run to ensure that code is compiled. */
+        private const string MavenCommandDryRunArg = "-Dexec.args=dry-run";
+
         /** Full path to Maven binary. */
         private static readonly string MavenPath = GetMaven();
+
+        private static volatile bool _dryRunComplete;
 
         private readonly Process? _process;
 
@@ -67,25 +72,7 @@ namespace Apache.Ignite.Tests
 
             Log(">>> Java server is not detected, starting...");
 
-            var file = TestUtils.IsWindows ? "cmd.exe" : "/bin/bash";
-
-            var process = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = file,
-                    ArgumentList =
-                    {
-                        TestUtils.IsWindows ? "/c" : "-c",
-                        $"{MavenPath} {MavenCommandExec}"
-                    },
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    WorkingDirectory = Path.Combine(TestUtils.RepoRootDir, "modules", "runner"),
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                }
-            };
+            var process = CreateProcess();
 
             var evt = new ManualResetEventSlim(false);
             int[]? ports = null;
@@ -133,6 +120,72 @@ namespace Apache.Ignite.Tests
         {
             _process?.Kill();
             _process?.Dispose();
+        }
+
+        private static void ExecDryRun()
+        {
+            if (_dryRunComplete)
+            {
+                return;
+            }
+
+            using var process = CreateProcess(dryRun: true);
+
+            DataReceivedEventHandler handler = (_, eventArgs) =>
+            {
+                var line = eventArgs.Data;
+                if (line == null)
+                {
+                    return;
+                }
+
+                Log(line);
+            };
+
+            process.OutputDataReceived += handler;
+            process.ErrorDataReceived += handler;
+
+            process.Start();
+
+            process.BeginErrorReadLine();
+            process.BeginOutputReadLine();
+
+            if (!process.WaitForExit(300_000))
+            {
+                process.Kill();
+                throw new Exception("Failed to wait for Maven exec dry run.");
+            }
+
+            if (process.ExitCode != 0)
+            {
+                throw new Exception($"Maven exec failed with code {process.ExitCode}, check log for details.");
+            }
+
+            _dryRunComplete = true;
+        }
+
+        private static Process CreateProcess(bool dryRun = false)
+        {
+            var file = TestUtils.IsWindows ? "cmd.exe" : "/bin/bash";
+
+            var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = file,
+                    ArgumentList =
+                    {
+                        TestUtils.IsWindows ? "/c" : "-c",
+                        $"{MavenPath} {MavenCommandExec}" + (dryRun ? MavenCommandDryRunArg : string.Empty)
+                    },
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    WorkingDirectory = Path.Combine(TestUtils.RepoRootDir, "modules", "runner"),
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                }
+            };
+            return process;
         }
 
         private static void Log(string? line)
