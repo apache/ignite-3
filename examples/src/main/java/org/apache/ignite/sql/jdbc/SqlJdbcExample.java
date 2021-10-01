@@ -26,7 +26,11 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
-import org.apache.ignite.jdbc.IgniteJdbcDriver;
+import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.TableDefinition;
+import org.apache.ignite.table.Table;
 
 /**
  * This example demonstrates usage of Ignite JDBC driver.
@@ -45,8 +49,6 @@ public class SqlJdbcExample {
      * @throws Exception If example execution failed.
      */
     public static void main(String[] args) throws Exception {
-        IgniteJdbcDriver.register();
-
         Ignite ignite = IgnitionManager.start(
             "node-0",
             Files.readString(Path.of( "examples/config/ignite-config.json").toAbsolutePath()),
@@ -70,14 +72,22 @@ public class SqlJdbcExample {
                 //     )
                 //
                 //---------------------------------------------------------------------------------
-                stmt.executeUpdate("CREATE TABLE city (id INT PRIMARY KEY, name VARCHAR)");
+                TableDefinition cityTbl = SchemaBuilders.tableBuilder("PUBLIC", "CITY").columns(
+                    SchemaBuilders.column("ID", ColumnType.INT32).asNonNull().build(),
+                    SchemaBuilders.column("NAME", ColumnType.string()).asNullable().build()
+                ).withPrimaryKey("ID").build();
 
+                ignite.tables().createTable(cityTbl.canonicalName(), tblCh ->
+                    SchemaConfigurationConverter.convert(cityTbl, tblCh)
+                        .changeReplicas(1)
+                        .changePartitions(3)
+                );
                 //---------------------------------------------------------------------------------
                 //
                 // Creating accounts table.
                 //
                 //     CREATE TABLE accounts (
-                //         accountNumber INT PRIMARY KEY,
+                //         accountId INT PRIMARY KEY,
                 //         cityId        INT,
                 //         firstName     VARCHAR,
                 //         lastName      VARCHAR,
@@ -85,8 +95,20 @@ public class SqlJdbcExample {
                 //     )
                 //
                 //---------------------------------------------------------------------------------
-                stmt.executeUpdate("CREATE TABLE accounts (accountNumber INT PRIMARY KEY, cityId INT, " +
-                    "firstName VARCHAR, lastName VARCHAR, balance DOUBLE)");
+
+                TableDefinition accountsTbl = SchemaBuilders.tableBuilder("PUBLIC", "ACCOUNTS").columns(
+                    SchemaBuilders.column("ACCOUNTID", ColumnType.INT32).asNonNull().build(),
+                    SchemaBuilders.column("CITYID", ColumnType.INT32).asNonNull().build(),
+                    SchemaBuilders.column("FIRSTNAME", ColumnType.string()).asNullable().build(),
+                    SchemaBuilders.column("LASTNAME", ColumnType.string()).asNullable().build(),
+                    SchemaBuilders.column("BALANCE", ColumnType.DOUBLE).asNullable().build()
+                ).withPrimaryKey("ACCOUNTID").build();
+
+                ignite.tables().createTable(accountsTbl.canonicalName(), tblCh ->
+                    SchemaConfigurationConverter.convert(accountsTbl, tblCh)
+                        .changeReplicas(1)
+                        .changePartitions(3)
+                );
             }
 
             print("Created database objects.");
@@ -108,7 +130,7 @@ public class SqlJdbcExample {
 
             // Populate Person table with PreparedStatement.
             try (PreparedStatement stmt =
-                conn.prepareStatement("INSERT INTO accounts (accountNumber, cityId, firstName, lastName, balance)" +
+                conn.prepareStatement("INSERT INTO accounts (accountId, cityId, firstName, lastName, balance)" +
                     " values (?, ?, ?, ?, ?)")) {
                 stmt.setInt(1, 1);
                 stmt.setInt(2, 1);
@@ -139,7 +161,7 @@ public class SqlJdbcExample {
                 stmt.executeUpdate();
             }
 
-            print("Populated data.");
+            print("Accounts with city.");
 
             //---------------------------------------------------------------------------------
             //
@@ -149,7 +171,7 @@ public class SqlJdbcExample {
 
             try (Statement stmt = conn.createStatement()) {
                 try (ResultSet rs =
-                    stmt.executeQuery("SELECT a.firstName, a.secondName, c.name FROM accounts a " +
+                    stmt.executeQuery("SELECT a.firstName, a.lastName, c.name FROM accounts a " +
                         "INNER JOIN city c on c.id = a.cityId")) {
                     print("Query results:");
 
@@ -169,7 +191,7 @@ public class SqlJdbcExample {
 
             try (Statement stmt = conn.createStatement()) {
                 try (ResultSet rs =
-                         stmt.executeQuery("SELECT a.firstName, a.secondName, a.balance FROM accounts a " +
+                         stmt.executeQuery("SELECT a.firstName, a.lastName, a.balance FROM accounts a " +
                              "WHERE a.balance < 1500.0")) {
                     print("Query results:");
 
@@ -185,8 +207,10 @@ public class SqlJdbcExample {
             //
             //---------------------------------------------------------------------------------
 
-            try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM person WHERE id = ?")) {
-                stmt.setLong(1, 1L);
+            print("Delete an account with id '1'.");
+
+            try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM accounts WHERE accountId = ?")) {
+                stmt.setInt(1, 1);
                 stmt.executeUpdate();
             }
 
@@ -194,7 +218,7 @@ public class SqlJdbcExample {
 
             try (Statement stmt = conn.createStatement()) {
                 try (ResultSet rs =
-                         stmt.executeQuery("SELECT a.firstName, a.secondName, c.name FROM accounts a " +
+                         stmt.executeQuery("SELECT a.firstName, a.lastName, c.name FROM accounts a " +
                              "INNER JOIN city c on c.id = a.cityId")) {
                     print("Query results:");
 
@@ -205,12 +229,11 @@ public class SqlJdbcExample {
             }
 
             // Drop database objects.
-            try (Statement stmt = conn.createStatement()) {
-                stmt.executeUpdate("DROP TABLE accounts");
-                stmt.executeUpdate("DROP TABLE city");
-            }
+            for (Table table : ignite.tables().tables()) {
+                print("Drop table: " + table.tableName());
 
-            print("Dropped database objects.");
+                ignite.tables().dropTable(table.tableName());
+            }
         }
 
         print("JDBC example finished.");
