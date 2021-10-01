@@ -72,6 +72,7 @@ namespace Apache.Ignite.Tests
 
             Log(">>> Java server is not detected, starting...");
 
+            EnsureBuild();
             var process = CreateProcess();
 
             var evt = new ManualResetEventSlim(false);
@@ -122,7 +123,11 @@ namespace Apache.Ignite.Tests
             _process?.Dispose();
         }
 
-        private static void ExecDryRun()
+        /// <summary>
+        /// Performs a dry run of the Maven executable to ensure that code is compiled and all artifacts are downloaded.
+        /// Does not start the actual node.
+        /// </summary>
+        private static void EnsureBuild()
         {
             if (_dryRunComplete)
             {
