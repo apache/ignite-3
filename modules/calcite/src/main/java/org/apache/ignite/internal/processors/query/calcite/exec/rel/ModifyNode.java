@@ -47,6 +47,7 @@ public class ModifyNode<Row> extends AbstractNode<Row> implements SingleNode<Row
     /** */
     private final List<String> cols;
 
+    /** */
     private final RecordView<Tuple> tableView;
 
     /** */
@@ -201,9 +202,13 @@ public class ModifyNode<Row> extends AbstractNode<Row> implements SingleNode<Row
                         desc.insertRowType(typeFactory)
                     );
 
-                    throw new IgniteInternalException("Failed to INSERT some keys because they are already in cache. " +
-                        "[tuples=" + duplicates.stream().map(tup -> desc.toRow(context(), tup, rowFactory, null))
-                        .map(context().rowHandler()::toString).collect(Collectors.toList()) + ']');
+                    throw new IgniteInternalException(
+                        "Failed to INSERT some keys because they are already in cache. " +
+                        "[tuples=" + duplicates.stream()
+                            .map(tup -> desc.toRow(context(), tup, rowFactory, null))
+                            .map(context().rowHandler()::toString)
+                            .collect(Collectors.toList()) + ']'
+                    );
                 }
 
                 break;

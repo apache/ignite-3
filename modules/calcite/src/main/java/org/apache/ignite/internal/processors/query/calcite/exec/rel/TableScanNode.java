@@ -35,6 +35,8 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableRow;
 import org.jetbrains.annotations.Nullable;
 
+import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
+
 /**
  * Scan node.
  */
@@ -100,6 +102,8 @@ public class TableScanNode<Row> extends AbstractNode<Row> {
         @Nullable ImmutableBitSet requiredColumns
     ) {
         super(ctx, rowType);
+
+        assert nullOrEmpty(parts);
 
         table = desc.table();
         this.desc = desc;
