@@ -173,9 +173,10 @@ public class SqlJdbcExample {
                         "INNER JOIN city c on c.id = a.cityId")) {
                     print("Query results:");
 
-                    while (rs.next())
+                    while (rs.next()) {
                         System.out.println(">>>    " + rs.getString(1) + ", " + rs.getString(2)
                             + ", " + rs.getString(3));
+                    }
                 }
             }
 
@@ -193,9 +194,10 @@ public class SqlJdbcExample {
                              "WHERE a.balance < 1500.0")) {
                     print("Query results:");
 
-                    while (rs.next())
+                    while (rs.next()) {
                         System.out.println(">>>    " + rs.getString(1) + ", " + rs.getString(2)
                             + ", " + rs.getDouble(3));
+                    }
                 }
             }
 
@@ -220,9 +222,10 @@ public class SqlJdbcExample {
                              "INNER JOIN city c on c.id = a.cityId")) {
                     print("Query results:");
 
-                    while (rs.next())
+                    while (rs.next()) {
                         System.out.println(">>>    " + rs.getString(1) + ", " + rs.getString(2)
                             + ", " + rs.getString(3));
+                    }
                 }
             }
 
@@ -245,7 +248,6 @@ public class SqlJdbcExample {
      * @param msg Message to print before all objects are printed.
      */
     private static void print(String msg) {
-        System.out.println();
-        System.out.println(">>> " + msg);
+        System.out.println("\n>>> " + msg);
     }
 }
