@@ -61,55 +61,53 @@ public class SqlJdbcExample {
         try (Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.1.1:10800/")) {
             print("Connected to server.");
 
-            try (Statement stmt = conn.createStatement()) {
-                //---------------------------------------------------------------------------------
-                //
-                // Creating City table.
-                //
-                //     CREATE TABLE city (
-                //         id       INT PRIMARY KEY,
-                //         name     VARCHAR
-                //     )
-                //
-                //---------------------------------------------------------------------------------
-                TableDefinition cityTbl = SchemaBuilders.tableBuilder("PUBLIC", "CITY").columns(
-                    SchemaBuilders.column("ID", ColumnType.INT32).asNonNull().build(),
-                    SchemaBuilders.column("NAME", ColumnType.string()).asNullable().build()
-                ).withPrimaryKey("ID").build();
+            //---------------------------------------------------------------------------------
+            //
+            // Creating City table.
+            //
+            //     CREATE TABLE city (
+            //         id       INT PRIMARY KEY,
+            //         name     VARCHAR
+            //     )
+            //
+            //---------------------------------------------------------------------------------
+            TableDefinition cityTbl = SchemaBuilders.tableBuilder("PUBLIC", "CITY").columns(
+                SchemaBuilders.column("ID", ColumnType.INT32).asNonNull().build(),
+                SchemaBuilders.column("NAME", ColumnType.string()).asNullable().build()
+            ).withPrimaryKey("ID").build();
 
-                ignite.tables().createTable(cityTbl.canonicalName(), tblCh ->
-                    SchemaConfigurationConverter.convert(cityTbl, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(3)
-                );
-                //---------------------------------------------------------------------------------
-                //
-                // Creating accounts table.
-                //
-                //     CREATE TABLE accounts (
-                //         accountId INT PRIMARY KEY,
-                //         cityId        INT,
-                //         firstName     VARCHAR,
-                //         lastName      VARCHAR,
-                //         balance       DOUBLE
-                //     )
-                //
-                //---------------------------------------------------------------------------------
+            ignite.tables().createTable(cityTbl.canonicalName(), tblCh ->
+                SchemaConfigurationConverter.convert(cityTbl, tblCh)
+                    .changeReplicas(1)
+                    .changePartitions(3)
+            );
+            //---------------------------------------------------------------------------------
+            //
+            // Creating accounts table.
+            //
+            //     CREATE TABLE accounts (
+            //         accountId INT PRIMARY KEY,
+            //         cityId        INT,
+            //         firstName     VARCHAR,
+            //         lastName      VARCHAR,
+            //         balance       DOUBLE
+            //     )
+            //
+            //---------------------------------------------------------------------------------
 
-                TableDefinition accountsTbl = SchemaBuilders.tableBuilder("PUBLIC", "ACCOUNTS").columns(
-                    SchemaBuilders.column("ACCOUNTID", ColumnType.INT32).asNonNull().build(),
-                    SchemaBuilders.column("CITYID", ColumnType.INT32).asNonNull().build(),
-                    SchemaBuilders.column("FIRSTNAME", ColumnType.string()).asNullable().build(),
-                    SchemaBuilders.column("LASTNAME", ColumnType.string()).asNullable().build(),
-                    SchemaBuilders.column("BALANCE", ColumnType.DOUBLE).asNullable().build()
-                ).withPrimaryKey("ACCOUNTID").build();
+            TableDefinition accountsTbl = SchemaBuilders.tableBuilder("PUBLIC", "ACCOUNTS").columns(
+                SchemaBuilders.column("ACCOUNTID", ColumnType.INT32).asNonNull().build(),
+                SchemaBuilders.column("CITYID", ColumnType.INT32).asNonNull().build(),
+                SchemaBuilders.column("FIRSTNAME", ColumnType.string()).asNullable().build(),
+                SchemaBuilders.column("LASTNAME", ColumnType.string()).asNullable().build(),
+                SchemaBuilders.column("BALANCE", ColumnType.DOUBLE).asNullable().build()
+            ).withPrimaryKey("ACCOUNTID").build();
 
-                ignite.tables().createTable(accountsTbl.canonicalName(), tblCh ->
-                    SchemaConfigurationConverter.convert(accountsTbl, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(3)
-                );
-            }
+            ignite.tables().createTable(accountsTbl.canonicalName(), tblCh ->
+                SchemaConfigurationConverter.convert(accountsTbl, tblCh)
+                    .changeReplicas(1)
+                    .changePartitions(3)
+            );
 
             print("Created database objects.");
 
