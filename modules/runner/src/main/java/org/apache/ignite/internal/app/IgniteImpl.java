@@ -200,6 +200,7 @@ public class IgniteImpl implements Ignite {
             clusterCfgMgr.configurationRegistry().getConfiguration(DataStorageConfiguration.KEY),
             raftMgr,
             baselineMgr,
+            clusterSvc.topologyService(),
             metaStorageMgr,
             getPartitionsStorePath(workDir)
         );

@@ -53,6 +53,7 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
@@ -126,6 +127,10 @@ public class TableManagerTest {
     @Mock(lenient = true)
     private BaselineManager bm;
 
+    /** Topology service. */
+    @Mock(lenient = true)
+    private TopologyService ts;
+
     /** Raft manager. */
     @Mock(lenient = true)
     private Loza rm;
@@ -191,6 +196,7 @@ public class TableManagerTest {
             clusterCfgMgr.configurationRegistry().getConfiguration(DataStorageConfiguration.KEY),
             rm,
             bm,
+            ts,
             mm,
             workDir
         );
@@ -361,6 +367,7 @@ public class TableManagerTest {
             clusterCfgMgr.configurationRegistry().getConfiguration(DataStorageConfiguration.KEY),
             rm,
             bm,
+            ts,
             mm,
             workDir
         );

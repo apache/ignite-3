@@ -56,7 +56,6 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
-import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
@@ -78,6 +77,7 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -131,6 +131,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Tables. */
     private final Map<IgniteUuid, TableImpl> tablesById = new ConcurrentHashMap<>();
 
+    /** Resolver that resolves a network address to node id. */
+    private final Function<NetworkAddress, String> netAddrResolver;
+
     /** Default data region instance. */
     private DataRegion defaultDataRegion;
 
@@ -153,6 +156,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         DataStorageConfiguration dataStorageCfg,
         Loza raftMgr,
         BaselineManager baselineMgr,
+        TopologyService topologyService,
         MetaStorageManager metaStorageMgr,
         Path partitionsStoreDir
     ) {
@@ -162,6 +166,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.baselineMgr = baselineMgr;
         this.metaStorageMgr = metaStorageMgr;
         this.partitionsStoreDir = partitionsStoreDir;
+
+        netAddrResolver = addr -> {
+            ClusterNode node = topologyService.getByAddress(addr);
+
+            if (node == null)
+                throw new IllegalStateException("Can't resolve ClusterNode by its networkAddress=" + addr);
+
+            return node.id();
+        };
 
         engine = new RocksDbStorageEngine();
     }
@@ -346,7 +359,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     partitionMap.put(p, service);
                 }
 
-                InternalTableImpl internalTable = new InternalTableImpl(name, tblId, partitionMap, partitions);
+                InternalTableImpl internalTable = new InternalTableImpl(name, tblId, partitionMap, partitions, netAddrResolver);
 
                 var schemaRegistry = new SchemaRegistryImpl(v -> schemaDesc);
 
