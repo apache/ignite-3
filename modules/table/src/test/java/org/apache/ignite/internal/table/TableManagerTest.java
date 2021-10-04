@@ -152,6 +152,7 @@ public class TableManagerTest {
                 List.of(NodeConfiguration.KEY),
                 Map.of(),
                 new TestConfigurationStorage(LOCAL),
+                List.of(),
                 List.of()
             );
 
@@ -159,7 +160,8 @@ public class TableManagerTest {
                 List.of(ClusterConfiguration.KEY, TablesConfiguration.KEY),
                 Map.of(),
                 new TestConfigurationStorage(DISTRIBUTED),
-                Collections.singletonList(ExtendedTableConfigurationSchema.class)
+                Collections.singletonList(ExtendedTableConfigurationSchema.class),
+                List.of()
             );
 
             nodeCfgMgr.start();

@@ -44,6 +44,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.DirectAccess;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
@@ -663,46 +664,48 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Collect all configuration schemes with {@link ConfigurationRoot} or {@link Config}
+     * Collect all configuration schemes with {@link ConfigurationRoot}, {@link Config} or {@link PolymorphicConfig}
      * including all sub configuration schemes for fields with {@link ConfigValue} or {@link NamedConfigValue}.
      *
-     * @param schemaClasses Configuration schemas (starting points) with {@link ConfigurationRoot} or {@link Config}.
-     * @return All configuration schemes with {@link ConfigurationRoot} or {@link Config}.
+     * @param schemaClasses Configuration schemas (starting points) with {@link ConfigurationRoot}, {@link Config}
+     *      or {@link PolymorphicConfig}.
+     * @return All configuration schemes with {@link ConfigurationRoot}, {@link Config}, or {@link PolymorphicConfig}.
      * @throws IllegalArgumentException If the configuration schemas does not contain
-     *      {@link ConfigurationRoot} or {@link Config}.
+     *      {@link ConfigurationRoot}, {@link Config} or {@link PolymorphicConfig}.
      */
     public static Set<Class<?>> collectSchemas(Collection<Class<?>> schemaClasses) {
         if (schemaClasses.isEmpty())
             return Set.of();
-        else {
-            Set<Class<?>> res = new HashSet<>();
 
-            Queue<Class<?>> queue = new ArrayDeque<>(Set.copyOf(schemaClasses));
+        Set<Class<?>> res = new HashSet<>();
 
-            while (!queue.isEmpty()) {
-                Class<?> cls = queue.poll();
+        Queue<Class<?>> queue = new ArrayDeque<>(Set.copyOf(schemaClasses));
 
-                if (!cls.isAnnotationPresent(ConfigurationRoot.class) && !cls.isAnnotationPresent(Config.class)) {
-                    throw new IllegalArgumentException(String.format(
-                        "Configuration schema must contain @%s or @%s: %s",
-                        ConfigurationRoot.class.getSimpleName(),
-                        Config.class.getSimpleName(),
-                        cls.getName()
-                    ));
-                }
-                else {
-                    res.add(cls);
+        while (!queue.isEmpty()) {
+            Class<?> cls = queue.poll();
 
-                    for (Field f : cls.getDeclaredFields()) {
-                        if ((f.isAnnotationPresent(ConfigValue.class) || f.isAnnotationPresent(NamedConfigValue.class))
-                            && !res.contains(f.getType()))
-                            queue.add(f.getType());
-                    }
+            if (!cls.isAnnotationPresent(ConfigurationRoot.class) && !cls.isAnnotationPresent(Config.class) &&
+                !cls.isAnnotationPresent(PolymorphicConfig.class)) {
+                throw new IllegalArgumentException(String.format(
+                    "Configuration schema must contain @%s or @%s or @%s: %s",
+                    ConfigurationRoot.class.getSimpleName(),
+                    Config.class.getSimpleName(),
+                    PolymorphicConfig.class.getSimpleName(),
+                    cls.getName()
+                ));
+            }
+            else {
+                res.add(cls);
+
+                for (Field f : cls.getDeclaredFields()) {
+                    if ((f.isAnnotationPresent(ConfigValue.class) || f.isAnnotationPresent(NamedConfigValue.class))
+                        && !res.contains(f.getType()))
+                        queue.add(f.getType());
                 }
             }
-
-            return res;
         }
+
+        return res;
     }
 
     /**
@@ -735,6 +738,7 @@ public class ConfigurationUtil {
      * @param extensions Schema extensions with {@link InternalConfiguration}.
      * @return Mapping: original of the scheme -> schema extensions.
      * @throws IllegalArgumentException If the schema extension is invalid.
+     * @see InternalConfiguration
      */
     public static Map<Class<?>, Set<Class<?>>> internalSchemaExtensions(Collection<Class<?>> extensions) {
         return schemaExtensions(extensions, InternalConfiguration.class);
@@ -744,8 +748,10 @@ public class ConfigurationUtil {
      * Get polymorphic extensions of configuration schemas.
      *
      * @param extensions Schema extensions with {@link PolymorphicConfigInstance}.
-     * @return Mapping: original of the scheme -> schema extensions.
+     * @return Mapping: polymorphic scheme -> extensions (instances) of polymorphic configuration.
      * @throws IllegalArgumentException If the schema extension is invalid.
+     * @see PolymorphicConfig
+     * @see PolymorphicConfigInstance
      */
     public static Map<Class<?>, Set<Class<?>>> polymorphicSchemaExtensions(Collection<Class<?>> extensions) {
         return schemaExtensions(extensions, PolymorphicConfigInstance.class);

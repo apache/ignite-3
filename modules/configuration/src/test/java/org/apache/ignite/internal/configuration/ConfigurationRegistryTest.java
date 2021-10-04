@@ -19,8 +19,11 @@ package org.apache.ignite.internal.configuration;
 
 import java.util.List;
 import java.util.Map;
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.junit.jupiter.api.Test;
@@ -41,7 +44,8 @@ public class ConfigurationRegistryTest {
                 List.of(SecondRootConfiguration.KEY),
                 Map.of(),
                 new TestConfigurationStorage(LOCAL),
-                List.of(ExtendedFirstRootConfigurationSchema.class)
+                List.of(ExtendedFirstRootConfigurationSchema.class),
+                List.of()
             )
         );
 
@@ -50,7 +54,58 @@ public class ConfigurationRegistryTest {
             List.of(FirstRootConfiguration.KEY, SecondRootConfiguration.KEY),
             Map.of(),
             new TestConfigurationStorage(LOCAL),
-            List.of(ExtendedFirstRootConfigurationSchema.class)
+            List.of(ExtendedFirstRootConfigurationSchema.class),
+            List.of()
+        );
+    }
+
+    /** */
+    @Test
+    void testValidationPolymorphicConfigurationExtensions() {
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> new ConfigurationRegistry(
+                List.of(ThirdRootConfiguration.KEY),
+                Map.of(),
+                new TestConfigurationStorage(LOCAL),
+                List.of(),
+                List.of(Second0PolymorphicConfigurationSchema.class)
+            )
+        );
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> new ConfigurationRegistry(
+                List.of(ThirdRootConfiguration.KEY),
+                Map.of(),
+                new TestConfigurationStorage(LOCAL),
+                List.of(),
+                List.of(ErrorFirst0PolymorphicConfigurationSchema.class)
+            )
+        );
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> new ConfigurationRegistry(
+                List.of(ThirdRootConfiguration.KEY),
+                Map.of(),
+                new TestConfigurationStorage(LOCAL),
+                List.of(),
+                List.of(First0PolymorphicConfigurationSchema.class, ErrorFirst1PolymorphicConfigurationSchema.class)
+            )
+        );
+
+        // Check that everything is fine.
+        new ConfigurationRegistry(
+            List.of(ThirdRootConfiguration.KEY, FourthRootConfiguration.KEY),
+            Map.of(),
+            new TestConfigurationStorage(LOCAL),
+            List.of(),
+            List.of(
+                First0PolymorphicConfigurationSchema.class,
+                First1PolymorphicConfigurationSchema.class,
+                Second0PolymorphicConfigurationSchema.class
+            )
         );
     }
 
@@ -82,5 +137,74 @@ public class ConfigurationRegistryTest {
         /** String field. */
         @Value(hasDefault = true)
         public String strEx = "str";
+    }
+
+    /**
+     * Third root configuration.
+     */
+    @ConfigurationRoot(rootName = "third")
+    public static class ThirdRootConfigurationSchema {
+        /** First polymorphic configuration scheme */
+        @ConfigValue
+        public FirstPolymorphicConfigurationSchema polymorphicConfig;
+    }
+
+    /**
+     * Fourth root configuration.
+     */
+    @ConfigurationRoot(rootName = "fourth")
+    public static class FourthRootConfigurationSchema {
+        /** First polymorphic configuration scheme */
+        @ConfigValue
+        public SecondPolymorphicConfigurationSchema polymorphicConfig;
+    }
+
+    /**
+     * Simple first polymorphic configuration scheme.
+     */
+    @PolymorphicConfig(id = "first")
+    public static class FirstPolymorphicConfigurationSchema {
+    }
+
+    /**
+     * First {@link FirstPolymorphicConfigurationSchema} extension.
+     */
+    @PolymorphicConfigInstance(id = "first0")
+    public static class First0PolymorphicConfigurationSchema extends FirstPolymorphicConfigurationSchema {
+    }
+
+    /**
+     * Second {@link FirstPolymorphicConfigurationSchema} extension.
+     */
+    @PolymorphicConfigInstance(id = "first1")
+    public static class First1PolymorphicConfigurationSchema extends FirstPolymorphicConfigurationSchema {
+    }
+
+    /**
+     * Second first polymorphic configuration scheme.
+     */
+    @PolymorphicConfig(id = "second")
+    public static class SecondPolymorphicConfigurationSchema {
+    }
+
+    /**
+     * First {@link SecondPolymorphicConfigurationSchema} extension.
+     */
+    @PolymorphicConfigInstance(id = "first0")
+    public static class Second0PolymorphicConfigurationSchema extends SecondPolymorphicConfigurationSchema {
+    }
+
+    /**
+     * First error {@link FirstPolymorphicConfigurationSchema} extension.
+     */
+    @PolymorphicConfigInstance(id = "first")
+    public static class ErrorFirst0PolymorphicConfigurationSchema extends FirstPolymorphicConfigurationSchema {
+    }
+
+    /**
+     * Second error {@link FirstPolymorphicConfigurationSchema} extension.
+     */
+    @PolymorphicConfigInstance(id = "first0")
+    public static class ErrorFirst1PolymorphicConfigurationSchema extends FirstPolymorphicConfigurationSchema {
     }
 }

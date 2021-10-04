@@ -193,6 +193,35 @@ public final class CollectionUtils {
         }
     }
 
+    /**
+     * Difference of two sets.
+     *
+     * @param a First set.
+     * @param b Second set.
+     * @param <T> Type of the elements.
+     * @return Immutable set of elements of the first without the second.
+     */
+    public static <T> Set<T> difference(@Nullable Set<T> a, @Nullable Set<T> b) {
+        if (nullOrEmpty(a))
+            return Set.of();
+        else if (nullOrEmpty(b))
+            return unmodifiableSet(a);
+
+        // Lazy initialization.
+        Set<T> res = null;
+
+        for (T t : a) {
+            if (!b.contains(t)) {
+                if (res == null)
+                    res = new HashSet<>();
+
+                res.add(t);
+            }
+        }
+
+        return res == null ? Set.of() : unmodifiableSet(res);
+    }
+
     /** Stub. */
     private CollectionUtils() {
         // No op.

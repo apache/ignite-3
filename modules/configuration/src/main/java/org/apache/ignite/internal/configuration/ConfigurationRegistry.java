@@ -33,6 +33,8 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Max;
 import org.apache.ignite.configuration.validation.Min;
@@ -52,13 +54,14 @@ import org.apache.ignite.internal.configuration.validation.MinValidator;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.lang.IgniteLogger;
 
-import static java.util.function.Predicate.not;
-import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.configuration.util.ConfigurationNotificationsUtil.notifyListeners;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectSchemas;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicSchemaExtensions;
+import static org.apache.ignite.internal.util.CollectionUtils.difference;
+import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 
 /** */
 public class ConfigurationRegistry implements IgniteComponent {
@@ -85,30 +88,43 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @param storage Configuration storage.
      * @param internalSchemaExtensions Internal extensions ({@link InternalConfiguration})
      *      of configuration schemas ({@link ConfigurationRoot} and {@link Config}).
+     * @param polymorphicSchemaExtensions Polymorphic extensions ({@link PolymorphicConfigInstance})
+     *      of configuration schemes.
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type,
-     *      or if the schema or its extensions are not valid.
+     *      or if the schema or its extensions (and polymorphic) are not valid.
      */
     public ConfigurationRegistry(
         Collection<RootKey<?, ?>> rootKeys,
         Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators,
         ConfigurationStorage storage,
-        Collection<Class<?>> internalSchemaExtensions
+        Collection<Class<?>> internalSchemaExtensions,
+        Collection<Class<?>> polymorphicSchemaExtensions
     ) {
         checkConfigurationType(rootKeys, storage);
 
-        Set<Class<?>> allSchemas = collectSchemas(rootKeys.stream().map(RootKey::schemaClass).collect(toSet()));
+        Set<Class<?>> allSchemas = collectSchemas(viewReadOnly(rootKeys, RootKey::schemaClass));
 
-        Map<Class<?>, Set<Class<?>>> extensions = internalSchemaExtensions(internalSchemaExtensions);
+        Map<Class<?>, Set<Class<?>>> internalExtensions = internalSchemaExtensions(internalSchemaExtensions);
 
-        if (!allSchemas.containsAll(extensions.keySet())) {
-            Set<Class<?>> notInAllSchemas = extensions.keySet().stream()
-                .filter(not(allSchemas::contains))
-                .collect(toSet());
+        Set<Class<?>> notInAllSchemas = difference(internalExtensions.keySet(), allSchemas);
 
+        if (!notInAllSchemas.isEmpty()) {
             throw new IllegalArgumentException(
                 "Internal extensions for which no parent configuration schemes were found: " + notInAllSchemas
             );
         }
+
+        Map<Class<?>, Set<Class<?>>> polymorphicExtensions = polymorphicSchemaExtensions(polymorphicSchemaExtensions);
+
+        notInAllSchemas = difference(polymorphicExtensions.keySet(), allSchemas);
+
+        if (!notInAllSchemas.isEmpty()) {
+            throw new IllegalArgumentException(
+                "Polymorphic extensions for which no polymorphic configuration schemes were found: " + notInAllSchemas
+            );
+        }
+        else
+            checkPolymorphicConfigIds(polymorphicExtensions);
 
         this.rootKeys = rootKeys;
 
@@ -126,7 +142,7 @@ public class ConfigurationRegistry implements IgniteComponent {
         };
 
         rootKeys.forEach(rootKey -> {
-            cgen.compileRootSchema(rootKey.schemaClass(), extensions);
+            cgen.compileRootSchema(rootKey.schemaClass(), internalExtensions);
 
             DynamicConfiguration<?, ?> cfg = cgen.instantiateCfg(rootKey, changer);
 
@@ -244,5 +260,37 @@ public class ConfigurationRegistry implements IgniteComponent {
         CompletableFuture<?>[] resultFutures = futures.stream().map(mapping).toArray(CompletableFuture[]::new);
 
         return CompletableFuture.allOf(resultFutures);
+    }
+
+    /**
+     * Checks that there are no conflicts between ids of a polymorphic configuration and its extensions (instances).
+     *
+     * @param polymorphicExtensions Mapping: polymorphic scheme -> extensions (instances) of polymorphic configuration.
+     * @throws IllegalArgumentException If a polymorphic configuration id conflict is found.
+     * @see PolymorphicConfig#id
+     * @see PolymorphicConfigInstance#id
+     */
+    private void checkPolymorphicConfigIds(Map<Class<?>, Set<Class<?>>> polymorphicExtensions) {
+        if (polymorphicExtensions.isEmpty())
+            return;
+
+        // Mapping: id -> configuration schema.
+        Map<String, Class<?>> ids = new HashMap<>();
+
+        for (Map.Entry<Class<?>, Set<Class<?>>> e : polymorphicExtensions.entrySet()) {
+            ids.put(e.getKey().getAnnotation(PolymorphicConfig.class).id(), e.getKey());
+
+            for (Class<?> schemaClass : e.getValue()) {
+                String id = schemaClass.getAnnotation(PolymorphicConfigInstance.class).id();
+                Class<?> prev = ids.put(id, schemaClass);
+
+                if (prev != null) {
+                    throw new IllegalArgumentException("Found an id conflict for a polymorphic configuration [id=" +
+                        id + ", schemas=" + List.of(prev, schemaClass));
+                }
+            }
+
+            ids.clear();
+        }
     }
 }

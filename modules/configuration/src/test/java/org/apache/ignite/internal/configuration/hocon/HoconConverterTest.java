@@ -161,6 +161,7 @@ public class HoconConverterTest {
             List.of(HoconRootConfiguration.KEY),
             Map.of(),
             new TestConfigurationStorage(LOCAL),
+            List.of(),
             List.of()
         );
 

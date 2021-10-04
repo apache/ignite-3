@@ -540,7 +540,7 @@ public class ConfigurationUtilTest {
 
         // Check that no internal configuration will be received.
 
-        assertEquals(4, config.size());
+        assertEquals(5, config.size());
         assertNull(config.get("str0"));
         assertEquals("foo", config.get("str1"));
         assertNotNull(config.get("subCfg"));
@@ -555,7 +555,7 @@ public class ConfigurationUtilTest {
 
         config = (Map<String, Object>)innerNode.accept(null, new ConverterToMapVisitor(true));
 
-        assertEquals(7, config.size());
+        assertEquals(8, config.size());
         assertNull(config.get("str0"));
         assertNull(config.get("str2"));
         assertEquals("foo", config.get("str1"));
@@ -621,13 +621,20 @@ public class ConfigurationUtilTest {
 
         assertThrows(IllegalArgumentException.class, () -> collectSchemas(List.of(Object.class)));
 
-        assertEquals(
-            Set.of(LocalFirstConfigurationSchema.class, SimpleConfigurationSchema.class),
-            collectSchemas(List.of(LocalFirstConfigurationSchema.class, SimpleConfigurationSchema.class))
+        List<Class<?>> schemas = List.of(
+            LocalFirstConfigurationSchema.class,
+            SimpleConfigurationSchema.class,
+            SimplePolymorphicConfigurationSchema.class
         );
 
+        assertEquals(Set.copyOf(schemas), collectSchemas(schemas));
+
         assertEquals(
-            Set.of(SimpleRootConfigurationSchema.class, SimpleConfigurationSchema.class),
+            Set.of(
+                SimpleRootConfigurationSchema.class,
+                SimpleConfigurationSchema.class,
+                SimplePolymorphicConfigurationSchema.class
+            ),
             collectSchemas(List.of(SimpleRootConfigurationSchema.class))
         );
     }
@@ -737,6 +744,10 @@ public class ConfigurationUtilTest {
         /** Named configuration schema. */
         @NamedConfigValue
         public SimpleConfigurationSchema namedCfg;
+
+        /** Polymorphic sub configuration schema. */
+        @ConfigValue
+        public SimplePolymorphicConfigurationSchema polymorphicSubCfg;
     }
 
     /**

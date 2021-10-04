@@ -62,6 +62,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.DirectAccess;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.DirectDynamicConfiguration;
 import org.apache.ignite.internal.configuration.DirectDynamicProperty;
@@ -304,6 +305,7 @@ public class ConfigurationAsmGenerator {
 
             assert schemaClass.isAnnotationPresent(ConfigurationRoot.class)
                 || schemaClass.isAnnotationPresent(Config.class)
+                || schemaClass.isAnnotationPresent(PolymorphicConfig.class)
                 : schemaClass + " is not properly annotated";
 
             assert schemasInfo.containsKey(schemaClass) : schemaClass;
