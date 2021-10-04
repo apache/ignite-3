@@ -158,44 +158,16 @@ public class Processor extends AbstractProcessor {
                 if (!field.getModifiers().contains(PUBLIC))
                     throw new ProcessorException("Field " + clazz.getQualifiedName() + "." + field + " must be public");
 
-                Element fieldTypeElement = processingEnv.getTypeUtils().asElement(field.asType());
-
                 String fieldName = field.getSimpleName().toString();
 
                 // Get configuration types (VIEW, CHANGE and so on)
                 TypeName interfaceGetMethodType = getInterfaceGetMethodType(field);
 
-                ConfigValue confAnnotation = field.getAnnotation(ConfigValue.class);
-                if (confAnnotation != null) {
-                    if (fieldTypeElement.getAnnotation(Config.class) == null) {
-                        throw new ProcessorException(
-                            "Class for @ConfigValue field must be defined as @Config: " +
-                                clazz.getQualifiedName() + "." + field.getSimpleName()
-                        );
-                    }
+                if (field.getAnnotation(ConfigValue.class) != null)
+                    checkConfigField(field, ConfigValue.class);
 
-                    if (field.getAnnotation(DirectAccess.class) != null) {
-                        throw new ProcessorException(
-                            "@DirectAccess annotation must not be present on nested configuration fields"
-                        );
-                    }
-                }
-
-                NamedConfigValue namedConfigAnnotation = field.getAnnotation(NamedConfigValue.class);
-                if (namedConfigAnnotation != null) {
-                    if (fieldTypeElement.getAnnotation(Config.class) == null) {
-                        throw new ProcessorException(
-                            "Class for @NamedConfigValue field must be defined as @Config: " +
-                                clazz.getQualifiedName() + "." + field.getSimpleName()
-                        );
-                    }
-
-                    if (field.getAnnotation(DirectAccess.class) != null) {
-                        throw new ProcessorException(
-                            "@DirectAccess annotation must not be present on nested configuration fields"
-                        );
-                    }
-                }
+                if (field.getAnnotation(NamedConfigValue.class) != null)
+                    checkConfigField(field, NamedConfigValue.class);
 
                 Value valueAnnotation = field.getAnnotation(Value.class);
                 if (valueAnnotation != null) {
@@ -727,7 +699,7 @@ public class Processor extends AbstractProcessor {
      * @return First annotation found.
      */
     @SafeVarargs
-    @Nullable public static Annotation findFirst(
+    @Nullable private static Annotation findFirst(
         TypeElement clazz,
         Class<? extends Annotation>... annotationClasses
     ) {
@@ -741,7 +713,7 @@ public class Processor extends AbstractProcessor {
      * @param fields2 Second class fields.
      * @return Field names.
      */
-    public static Collection<Name> duplicates(
+    private static Collection<Name> duplicates(
         Collection<VariableElement> fields1,
         Collection<VariableElement> fields2
     ) {
@@ -756,5 +728,42 @@ public class Processor extends AbstractProcessor {
             .map(VariableElement::getSimpleName)
             .filter(filedNames1::contains)
             .collect(toList());
+    }
+
+    /**
+     * Checking a class field with annotations {@link ConfigValue} or {@link NamedConfigValue}.
+     *
+     * @param field Class field.
+     * @param annotationClass Field annotation: {@link ConfigValue} or {@link NamedConfigValue}.
+     * @throws ProcessorException If the check is not successful.
+     */
+    private void checkConfigField(
+        VariableElement field,
+        Class<? extends Annotation> annotationClass
+    ) {
+        assert annotationClass == ConfigValue.class || annotationClass == NamedConfigValue.class : annotationClass;
+        assert field.getAnnotation(annotationClass) != null : field.getEnclosingElement() + "." + field;
+
+        Element fieldTypeElement = processingEnv.getTypeUtils().asElement(field.asType());
+
+        if (fieldTypeElement.getAnnotation(Config.class) == null &&
+            fieldTypeElement.getAnnotation(PolymorphicConfig.class) == null) {
+            throw new ProcessorException(String.format(
+                "Class for %s field must be defined as %s: %s.%s",
+                simpleName(annotationClass),
+                joinSimpleName(" or ", Config.class, PolymorphicConfig.class),
+                field.getEnclosingElement(),
+                field.getSimpleName()
+            ));
+        }
+
+        if (field.getAnnotation(DirectAccess.class) != null) {
+            throw new ProcessorException(String.format(
+                "%s annotation must not be present on nested configuration fields: %s.%s",
+                simpleName(DirectAccess.class),
+                field.getEnclosingElement(),
+                field.getSimpleName()
+            ));
+        }
     }
 }

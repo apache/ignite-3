@@ -217,15 +217,19 @@ public class ITProcessorTest extends AbstractProcessorTest {
 
         ClassName cls0 = ClassName.get(packageName, "SimplePolymorphicConfigurationSchema");
         ClassName cls1 = ClassName.get(packageName, "SimplePolymorphicInstanceConfigurationSchema");
+        ClassName cls2 = ClassName.get(packageName, "SimpleConfigurationSchema");
+        ClassName cls3 = ClassName.get(packageName, "SimpleRootConfigurationSchema");
 
-        BatchCompilation batchCompile = batchCompile(cls0, cls1);
+        BatchCompilation batchCompile = batchCompile(cls0, cls1, cls2, cls3);
 
         assertNotEquals(Compilation.Status.FAILURE, batchCompile.getCompilationStatus().status());
 
-        assertEquals(2 * 3, batchCompile.generated().size());
+        assertEquals(4 * 3, batchCompile.generated().size());
 
         assertTrue(batchCompile.getBySchema(cls0).allGenerated());
         assertTrue(batchCompile.getBySchema(cls1).allGenerated());
+        assertTrue(batchCompile.getBySchema(cls2).allGenerated());
+        assertTrue(batchCompile.getBySchema(cls3).allGenerated());
     }
 
     /**
