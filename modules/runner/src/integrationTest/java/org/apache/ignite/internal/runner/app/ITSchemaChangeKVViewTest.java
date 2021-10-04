@@ -27,6 +27,7 @@ import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -176,6 +177,7 @@ class ITSchemaChangeKVViewTest extends AbstractSchemaChangeTest {
      * Check merge table schema changes.
      */
     @Test
+    @RepeatedTest(100)
     public void testMergeChangesAddDropAdd() {
         List<Ignite> grid = startGrid();
 
