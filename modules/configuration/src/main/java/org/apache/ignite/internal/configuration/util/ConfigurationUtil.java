@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.util;
 
 import java.io.Serializable;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -43,6 +44,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.DirectAccess;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
@@ -551,35 +553,6 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Get and check schemas and their extensions.
-     *
-     * @param extensions Schema extensions with {@link InternalConfiguration}.
-     * @return Internal schema extensions. Mapping: original of the scheme -> internal extensions.
-     * @throws IllegalArgumentException If the schema or its extensions are not valid.
-     */
-    public static Map<Class<?>, Set<Class<?>>> internalSchemaExtensions(Collection<Class<?>> extensions) {
-        if (extensions.isEmpty())
-            return Map.of();
-        else {
-            Map<Class<?>, Set<Class<?>>> res = new HashMap<>();
-
-            for (Class<?> extension : extensions) {
-                if (!extension.isAnnotationPresent(InternalConfiguration.class)) {
-                    throw new IllegalArgumentException(String.format(
-                        "Extension should contain @%s: %s",
-                        InternalConfiguration.class.getSimpleName(),
-                        extension.getName()
-                    ));
-                }
-                else
-                    res.computeIfAbsent(extension.getSuperclass(), cls -> new HashSet<>()).add(extension);
-            }
-
-            return res;
-        }
-    }
-
-    /**
      * Checks whether configuration schema field represents primitive configuration value.
      *
      * @param schemaField Configuration Schema class field.
@@ -754,5 +727,60 @@ public class ConfigurationUtil {
      */
     public static <T> T directValue(ConfigurationProperty<T> property) {
         return ((DirectConfigurationProperty<T>)property).directValue();
+    }
+
+    /**
+     * Get configuration schemas and their validated internal extensions.
+     *
+     * @param extensions Schema extensions with {@link InternalConfiguration}.
+     * @return Mapping: original of the scheme -> schema extensions.
+     * @throws IllegalArgumentException If the schema extension is invalid.
+     */
+    public static Map<Class<?>, Set<Class<?>>> internalSchemaExtensions(Collection<Class<?>> extensions) {
+        return schemaExtensions(extensions, InternalConfiguration.class);
+    }
+
+    /**
+     * Get polymorphic extensions of configuration schemas.
+     *
+     * @param extensions Schema extensions with {@link PolymorphicConfigInstance}.
+     * @return Mapping: original of the scheme -> schema extensions.
+     * @throws IllegalArgumentException If the schema extension is invalid.
+     */
+    public static Map<Class<?>, Set<Class<?>>> polymorphicSchemaExtensions(Collection<Class<?>> extensions) {
+        return schemaExtensions(extensions, PolymorphicConfigInstance.class);
+    }
+
+    /**
+     * Get configuration schemas and their validated extensions.
+     * Configuration schema is the parent class of the extension.
+     *
+     * @param extensions Schema extensions.
+     * @param annotationClass Annotation class that the extension should have.
+     * @return Mapping: original of the scheme -> schema extensions.
+     * @throws IllegalArgumentException If the schema extension is invalid.
+     */
+    private static Map<Class<?>, Set<Class<?>>> schemaExtensions(
+        Collection<Class<?>> extensions,
+        Class<? extends Annotation> annotationClass
+    ) {
+        if (extensions.isEmpty())
+            return Map.of();
+
+        Map<Class<?>, Set<Class<?>>> res = new HashMap<>();
+
+        for (Class<?> extension : extensions) {
+            if (!extension.isAnnotationPresent(annotationClass)) {
+                throw new IllegalArgumentException(String.format(
+                    "Extension should contain @%s: %s",
+                    annotationClass.getSimpleName(),
+                    extension.getName()
+                ));
+            }
+            else
+                res.computeIfAbsent(extension.getSuperclass(), cls -> new HashSet<>()).add(extension);
+        }
+
+        return res;
     }
 }

@@ -31,6 +31,8 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.RootInnerNode;
 import org.apache.ignite.internal.configuration.SuperRoot;
@@ -58,6 +60,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.co
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.extensionsFields;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.find;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicSchemaExtensions;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.allOf;
@@ -629,6 +632,29 @@ public class ConfigurationUtilTest {
         );
     }
 
+    /** */
+    @Test
+    void testPolymorphicSchemaExtensions() {
+        assertTrue(polymorphicSchemaExtensions(List.of()).isEmpty());
+
+        assertThrows(IllegalArgumentException.class, () -> polymorphicSchemaExtensions(List.of(Object.class)));
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> polymorphicSchemaExtensions(List.of(LocalFirstConfigurationSchema.class))
+        );
+
+        Set<Class<?>> extensions = Set.of(
+            FirstPolymorphicInstanceConfigurationSchema.class,
+            SecondPolymorphicInstanceConfigurationSchema.class
+        );
+
+        assertEquals(
+            Map.of(SimplePolymorphicConfigurationSchema.class, extensions),
+            polymorphicSchemaExtensions(extensions)
+        );
+    }
+
     /**
      * Patches super root and returns flat representation of the changes. Passed {@code superRoot} object will contain
      * patched tree when method execution is completed.
@@ -805,5 +831,26 @@ public class ConfigurationUtilTest {
         /** String value without default. */
         @Value
         public String str00;
+    }
+
+    /**
+     * Simple polymorphic configuration.
+     */
+    @PolymorphicConfig
+    public static class SimplePolymorphicConfigurationSchema {
+    }
+
+    /**
+     * First {@link SimplePolymorphicConfigurationSchema} extension.
+     */
+    @PolymorphicConfigInstance(id = "first")
+    public static class FirstPolymorphicInstanceConfigurationSchema extends SimplePolymorphicConfigurationSchema {
+    }
+
+    /**
+     * Second {@link SimplePolymorphicConfigurationSchema} extension.
+     */
+    @PolymorphicConfigInstance(id = "second")
+    public static class SecondPolymorphicInstanceConfigurationSchema extends SimplePolymorphicConfigurationSchema {
     }
 }
