@@ -85,7 +85,7 @@
 
         <!-- Plugins versions -->
         <apache.rat.plugin.version>0.13</apache.rat.plugin.version>
-        <checkstyle.puppycrawl.version>8.41.1</checkstyle.puppycrawl.version>
+        <checkstyle.puppycrawl.version>8.45</checkstyle.puppycrawl.version>
         <launch.maven.plugin.version>1.7.25</launch.maven.plugin.version>
         <maven.antrun.plugin.version>3.0.0</maven.antrun.plugin.version>
         <maven.assembly.plugin.version>3.2.0</maven.assembly.plugin.version>
