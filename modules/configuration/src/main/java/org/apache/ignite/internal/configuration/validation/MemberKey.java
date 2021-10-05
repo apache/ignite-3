@@ -50,8 +50,7 @@ public class MemberKey {
             return false;
         }
         MemberKey key = (MemberKey) o;
-        return clazz.equals(key.clazz) &&
-                fieldName.equals(key.fieldName);
+        return clazz.equals(key.clazz) && fieldName.equals(key.fieldName);
     }
 
     /** {@inheritDoc} */

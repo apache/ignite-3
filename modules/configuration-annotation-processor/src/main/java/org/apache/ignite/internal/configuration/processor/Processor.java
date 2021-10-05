@@ -155,8 +155,8 @@ public class Processor extends AbstractProcessor {
                 if (confAnnotation != null) {
                     if (fieldTypeElement.getAnnotation(Config.class) == null) {
                         throw new ProcessorException(
-                                "Class for @ConfigValue field must be defined as @Config: " +
-                                        clazz.getQualifiedName() + "." + field.getSimpleName()
+                                "Class for @ConfigValue field must be defined as @Config: "
+                                        + clazz.getQualifiedName() + "." + field.getSimpleName()
                         );
                     }
 
@@ -171,8 +171,8 @@ public class Processor extends AbstractProcessor {
                 if (namedConfigAnnotation != null) {
                     if (fieldTypeElement.getAnnotation(Config.class) == null) {
                         throw new ProcessorException(
-                                "Class for @NamedConfigValue field must be defined as @Config: " +
-                                        clazz.getQualifiedName() + "." + field.getSimpleName()
+                                "Class for @NamedConfigValue field must be defined as @Config: "
+                                        + clazz.getQualifiedName() + "." + field.getSimpleName()
                         );
                     }
 
@@ -188,9 +188,9 @@ public class Processor extends AbstractProcessor {
                     // Must be a primitive or an array of the primitives (including java.lang.String)
                     if (!isPrimitiveOrArray(field.asType())) {
                         throw new ProcessorException(
-                                "@Value " + clazz.getQualifiedName() + "." + field.getSimpleName() + " field must" +
-                                        " have one of the following types: boolean, int, long, double, String or an array of " +
-                                        "aforementioned type."
+                                "@Value " + clazz.getQualifiedName() + "." + field.getSimpleName() + " field must"
+                                        + " have one of the following types: boolean, int, long, double, String or an array of "
+                                        + "aforementioned type."
                         );
                     }
                 }

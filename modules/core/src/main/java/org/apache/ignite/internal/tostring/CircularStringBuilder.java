@@ -112,9 +112,7 @@ class CircularStringBuilder {
             pos = buf.length;
 
             full = true;
-        }
-        // String is shorter value length
-        else if (buf.length - pos < strLen) {
+        } else if (buf.length - pos < strLen) { // String is shorter value length
             // String doesn't fit into remaining part of value array
             int firstPart = buf.length - pos;
 
@@ -166,9 +164,7 @@ class CircularStringBuilder {
             pos = buf.length;
 
             full = true;
-        }
-        // String is shorter value length
-        else if (buf.length - pos < strLen) {
+        } else if (buf.length - pos < strLen) { // String is shorter value length
             // String doesn't fit into remaining part of value array
             int firstPart = buf.length - pos;
 
@@ -220,9 +216,7 @@ class CircularStringBuilder {
             pos = buf.length;
 
             full = true;
-        }
-        // String is shorter value length
-        else if (buf.length - pos < strLen) {
+        } else if (buf.length - pos < strLen) { // String is shorter value length
             // String doesn't fit into remaining part of value array
             int firstPart = buf.length - pos;
 

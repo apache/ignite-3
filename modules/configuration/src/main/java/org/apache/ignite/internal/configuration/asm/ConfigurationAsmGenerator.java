@@ -1050,8 +1050,8 @@ public class ConfigurationAsmGenerator {
         Variable changerVar = ctor.getScope().getVariable("changer");
         Variable listenOnlyVar = ctor.getScope().getVariable("listenOnly");
 
-        Constructor<?> superCtor = schemaClassInfo.direct ?
-                DIRECT_DYNAMIC_CONFIGURATION_CTOR : DYNAMIC_CONFIGURATION_CTOR;
+        Constructor<?> superCtor = schemaClassInfo.direct
+                ? DIRECT_DYNAMIC_CONFIGURATION_CTOR : DYNAMIC_CONFIGURATION_CTOR;
 
         BytecodeBlock ctorBody = ctor.getBody()
                 .append(ctor.getThis())
@@ -1071,8 +1071,8 @@ public class ConfigurationAsmGenerator {
             BytecodeExpression newValue;
 
             if (isValue(schemaField)) {
-                Class<?> fieldImplClass = schemaField.isAnnotationPresent(DirectAccess.class) ?
-                        DirectDynamicProperty.class : DynamicProperty.class;
+                Class<?> fieldImplClass = schemaField.isAnnotationPresent(DirectAccess.class)
+                        ? DirectDynamicProperty.class : DynamicProperty.class;
 
                 // newValue = new DynamicProperty(super.keys, fieldName, rootKey, changer, listenOnly);
                 newValue = newInstance(
@@ -1112,8 +1112,8 @@ public class ConfigurationAsmGenerator {
                             arg("key", String.class)
                     );
 
-                    Class<?> fieldImplClass = fieldInfo.direct ?
-                            DirectNamedListConfiguration.class : NamedListConfiguration.class;
+                    Class<?> fieldImplClass = fieldInfo.direct
+                            ? DirectNamedListConfiguration.class : NamedListConfiguration.class;
 
                     // newValue = new NamedListConfiguration(this.keys, fieldName, rootKey, changer, listenOnly,
                     //      (p, k) -> new ValueConfigurationImpl(p, k, rootKey, changer, listenOnly),
@@ -1263,8 +1263,8 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Create bytecode blocks that invokes of {@link ConfigurationVisitor}'s methods for {@link InnerNode#traverseChildren(ConfigurationVisitor,
-     * boolean)}.
+     * Create bytecode blocks that invokes of {@link ConfigurationVisitor}'s methods for
+     * {@link InnerNode#traverseChildren(ConfigurationVisitor, boolean)}.
      *
      * @param schemaFields        Fields of the schema.
      * @param fieldDefs           Definitions for all fields in {@code schemaFields}.
@@ -1357,9 +1357,7 @@ public class ConfigurationAsmGenerator {
                         constantNull(fieldDef.getType()),
                         srcVar.invoke(UNWRAP, constantClass(fieldDef.getType())).cast(fieldDef.getType())
                 )));
-            }
-            // this.field = src == null ? null : src.descend(field = (field == null ? new FieldType() : field.copy()));
-            else if (isConfigValue(schemaField)) {
+            } else if (isConfigValue(schemaField)) { // this.field = src == null ? null : src.descend(field = (field == null ? new FieldType() : field.copy()));
                 caseClause.append(new IfStatement()
                         .condition(isNull(srcVar))
                         .ifTrue(constructMtd.getThis().setField(fieldDef, constantNull(fieldDef.getType())))
@@ -1368,9 +1366,7 @@ public class ConfigurationAsmGenerator {
                                 .append(srcVar.invoke(DESCEND, constructMtd.getThis().getField(fieldDef)))
                         )
                 );
-            }
-            // this.field = src == null ? new NamedListNode<>(key, ValueNode::new) : src.descend(field = field.copy()));
-            else {
+            } else { // this.field = src == null ? new NamedListNode<>(key, ValueNode::new) : src.descend(field = field.copy()));
                 NamedConfigValue namedCfgAnnotation = schemaField.getAnnotation(NamedConfigValue.class);
 
                 String fieldNodeClassName = schemasInfo.get(schemaField.getType()).nodeClassName;

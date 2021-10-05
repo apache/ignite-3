@@ -175,6 +175,25 @@ public class IgniteIntList implements Externalizable {
     }
 
     /**
+     * @param to   To list.
+     * @param from From list.
+     * @return To list (passed in or created).
+     */
+    public static IgniteIntList addAll(@Nullable IgniteIntList to, IgniteIntList from) {
+        if (to == null) {
+            IgniteIntList res = new IgniteIntList(from.size());
+
+            res.addAll(from);
+
+            return res;
+        } else {
+            to.addAll(from);
+
+            return to;
+        }
+    }
+
+    /**
      * Add element to this array.
      *
      * @param x Value.
@@ -492,25 +511,6 @@ public class IgniteIntList implements Externalizable {
             for (int i = 0; i < list.idx; i++) {
                 out.writeInt(list.arr[i]);
             }
-        }
-    }
-
-    /**
-     * @param to   To list.
-     * @param from From list.
-     * @return To list (passed in or created).
-     */
-    public static IgniteIntList addAll(@Nullable IgniteIntList to, IgniteIntList from) {
-        if (to == null) {
-            IgniteIntList res = new IgniteIntList(from.size());
-
-            res.addAll(from);
-
-            return res;
-        } else {
-            to.addAll(from);
-
-            return to;
         }
     }
 

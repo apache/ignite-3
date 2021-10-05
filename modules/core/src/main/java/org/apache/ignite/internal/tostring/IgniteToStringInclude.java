@@ -37,7 +37,7 @@ public @interface IgniteToStringInclude {
      * toString()} output according to {@link IgniteSystemProperties#IGNITE_SENSITIVE_DATA_LOGGING} policy.
      *
      * @return Attribute value.
-     * @see SensitiveDataLoggingPolicy}.
+     * @see SensitiveDataLoggingPolicy
      */
     boolean sensitive() default false;
 }

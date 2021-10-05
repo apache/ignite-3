@@ -119,11 +119,11 @@ public class ValidationUtil {
                     for (Validator<?, ?> validator : validators.getOrDefault(annotation.annotationType(), emptySet())) {
                         // Making this a compile-time check would be too expensive to implement.
                         assert assertValidatorTypesCoherence(validator.getClass(), annotation.annotationType(), val)
-                                : "Validator coherence is violated [" +
-                                "class=" + lastInnerNode.getClass().getCanonicalName() + ", " +
-                                "field=" + fieldName + ", " +
-                                "annotation=" + annotation.annotationType().getCanonicalName() + ", " +
-                                "validator=" + validator.getClass().getName() + ']';
+                                : "Validator coherence is violated ["
+                                + "class=" + lastInnerNode.getClass().getCanonicalName() + ", "
+                                + "field=" + fieldName + ", "
+                                + "annotation=" + annotation.annotationType().getCanonicalName() + ", "
+                                + "validator=" + validator.getClass().getName() + ']';
 
                         ValidationContextImpl<Object> ctx = new ValidationContextImpl<>(
                                 oldRoots,

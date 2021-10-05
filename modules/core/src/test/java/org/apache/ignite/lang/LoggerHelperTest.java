@@ -282,18 +282,16 @@ public class LoggerHelperTest {
      */
     @Test
     public void testCyclicArrays() {
-        {
-            Object[] cyclicA = new Object[1];
-            cyclicA[0] = cyclicA;
-            assertEquals("[[...]]", LoggerMessageHelper.format("{}", cyclicA));
-        }
-        {
-            Object[] a = new Object[2];
-            a[0] = i1;
-            Object[] c = new Object[]{i3, a};
-            Object[] b = new Object[]{i2, c};
-            a[1] = b;
-            assertEquals("1[2, [3, [1, [...]]]]", LoggerMessageHelper.format("{}{}", a));
-        }
+        Object[] cyclicA = new Object[1];
+        cyclicA[0] = cyclicA;
+        assertEquals("[[...]]", LoggerMessageHelper.format("{}", cyclicA));
+
+        Object[] a = new Object[2];
+        a[0] = i1;
+        Object[] c = new Object[]{i3, a};
+        Object[] b = new Object[]{i2, c};
+        a[1] = b;
+        assertEquals("1[2, [3, [1, [...]]]]", LoggerMessageHelper.format("{}{}", a));
+
     }
 }

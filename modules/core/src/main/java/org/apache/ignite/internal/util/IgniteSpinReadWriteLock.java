@@ -34,7 +34,7 @@ public class IgniteSpinReadWriteLock {
      */
     private static final long STATE_OFFS;
 
-    /**
+    /*
      * TODO: replace UNSAFE usage using VarHandle https://issues.apache.org/jira/browse/IGNITE-15536
      */
     static {

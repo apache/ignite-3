@@ -100,12 +100,12 @@ public class JavaLoggerFormatter extends Formatter {
             ex = "\n" + stackTrace;
         }
 
-        return DATE_FORMATTER.get().format(Instant.ofEpochMilli(record.getMillis()).atZone(ZoneId.systemDefault())) +
-                " [" + toLevel(record.getLevel().intValue()) + "][" +
-                threadName + "][" +
-                logName + "] " +
-                formatMessage(record) +
-                (ex == null ? "\n" : ex);
+        return DATE_FORMATTER.get().format(Instant.ofEpochMilli(record.getMillis()).atZone(ZoneId.systemDefault()))
+                + " [" + toLevel(record.getLevel().intValue()) + "]["
+                + threadName + "]["
+                + logName + "] " +
+                formatMessage(record)
+                + (ex == null ? "\n" : ex);
     }
 
     /** {@inheritDoc} */

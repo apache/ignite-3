@@ -50,7 +50,7 @@ public interface ConfigurationStorage {
      * @param newValues Key-value pairs.
      * @param ver       Last known version.
      * @return Future that gives you {@code true} if successfully written, {@code false} if version of the storage is different from the
-     * passed argument and {@link StorageException} if failed to write data.
+     *      passed argument and {@link StorageException} if failed to write data.
      */
     CompletableFuture<Boolean> write(Map<String, ? extends Serializable> newValues, long ver);
 

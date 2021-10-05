@@ -288,8 +288,8 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
 
         arrStr = resultSB.toString();
 
-        assertEquals(arrStr, arrOfStr, "Collection limit error in array of type " +
-                arrOf.getClass().getName() + " error, normal arr: <" + arrStr + ">, overflowed arr: <" + arrOfStr + ">");
+        assertEquals(arrStr, arrOfStr, "Collection limit error in array of type "
+                + arrOf.getClass().getName() + " error, normal arr: <" + arrStr + ">, overflowed arr: <" + arrOfStr + ">");
     }
 
     /**
@@ -492,8 +492,8 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
 
         p.pa[0] = p;
 
-        assertEquals("Wrapper [p=Child" + hash + " [b=0, pb=Parent[] [null]," +
-                " super=Parent [a=0, pa=Parent[] [Child" + hash + "]]]]", w.toString());
+        assertEquals("Wrapper [p=Child" + hash + " [b=0, pb=Parent[] [null],"
+                + " super=Parent [a=0, pa=Parent[] [Child" + hash + "]]]]", w.toString());
 
         ((Child) p).pb[0] = p;
 

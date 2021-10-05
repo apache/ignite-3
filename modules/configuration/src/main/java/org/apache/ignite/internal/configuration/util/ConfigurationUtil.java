@@ -566,8 +566,8 @@ public class ConfigurationUtil {
     public static void checkConfigurationType(Collection<RootKey<?, ?>> rootKeys, ConfigurationStorage storage) {
         for (RootKey<?, ?> key : rootKeys) {
             if (key.type() != storage.type()) {
-                throw new IllegalArgumentException("Invalid root key configuration type [key=" + key +
-                        ", storage=" + storage.getClass().getName() + ", storageType=" + storage.type() + "]");
+                throw new IllegalArgumentException("Invalid root key configuration type [key=" + key
+                        + ", storage=" + storage.getClass().getName() + ", storageType=" + storage.type() + "]");
             }
         }
     }

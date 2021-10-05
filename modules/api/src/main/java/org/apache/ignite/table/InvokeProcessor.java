@@ -31,7 +31,7 @@ import java.io.Serializable;
  * @param <V> Value type.
  * @param <R> Processor result type.
  * @apiNote Distributed deployment MUST be used for processor code load instead of load form the classpath to guarantee same code revision
- * in the grid.
+ *      in the grid.
  */
 public interface InvokeProcessor<K, V, R extends Serializable> extends Serializable {
     /**

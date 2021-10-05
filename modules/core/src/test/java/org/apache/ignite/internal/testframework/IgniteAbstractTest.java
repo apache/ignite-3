@@ -45,7 +45,7 @@ public abstract class IgniteAbstractTest {
     /** Work directory. */
     protected Path workDir;
 
-    /** Init test env. */
+    /* Init test env. */
     static {
         S.setSensitiveDataLoggingPolicySupplier(() ->
                 SensitiveDataLoggingPolicy.valueOf(getString(IGNITE_SENSITIVE_DATA_LOGGING, "hash").toUpperCase()));

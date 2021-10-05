@@ -131,7 +131,7 @@ public class IgniteToStringBuilder {
      * Initialization-on-demand holder.
      *
      * @see <a href= "https://en.wikipedia.org/wiki/Initialization-on-demand_holder_idiom">
-     * "Initialization-on-demand holder idiom"</a>.
+     * "Initialization-on-demand holder idiom"</a>
      */
     private static final class Holder {
         /** Supplier holder for {@link #includeSensitive} and {@link #getSensitiveDataLogging}. */
@@ -1170,8 +1170,8 @@ public class IgniteToStringBuilder {
                             toString(buf, fd.fieldClass(), fH.get(obj));
                         } catch (RuntimeException e) {
                             if (IGNORE_RUNTIME_EXCEPTION) {
-                                buf.a("Runtime exception was caught when building string representation: " +
-                                        e.getMessage());
+                                buf.a("Runtime exception was caught when building string representation: "
+                                        + e.getMessage());
                             } else {
                                 throw e;
                             }
@@ -1218,9 +1218,7 @@ public class IgniteToStringBuilder {
             buf.a(']');
 
             return buf.toString();
-        }
-        // Specifically catching all exceptions.
-        catch (Exception e) {
+        } catch (Exception e) { // Specifically catching all exceptions.
             // Remove entry from cache to avoid potential memory leak
             // in case new class loader got loaded under the same identity hash.
             classCache.remove(cls.getName() + System.identityHashCode(cls.getClassLoader()));
@@ -1817,7 +1815,7 @@ public class IgniteToStringBuilder {
     private static String toStringImpl(String str, SBLimitedLength buf, Object[] propNames, Object[] propVals,
             boolean[] propSens, int propCnt) {
 
-        boolean newStr = buf.length() == 0;
+        final boolean newStr = buf.length() == 0;
 
         if (str != null) {
             buf.a(str).a(" ");
@@ -1916,32 +1914,31 @@ public class IgniteToStringBuilder {
                 // When @IgniteToStringInclude is not present then the flag is false by default for that attribute.
                 final boolean notSens = (incFld == null || !incFld.sensitive()) && (incType == null || !incType.sensitive());
                 add = notSens || includeSensitive();
-            } else if (!f.isAnnotationPresent(IgniteToStringExclude.class) &&
-                    !type.isAnnotationPresent(IgniteToStringExclude.class)
+            } else if (!f.isAnnotationPresent(IgniteToStringExclude.class)
+                    && !type.isAnnotationPresent(IgniteToStringExclude.class)
             ) {
                 if (
-                    // Include only private non-static
-                        Modifier.isPrivate(f.getModifiers()) && !Modifier.isStatic(f.getModifiers()) &&
-
+                        // Include only private non-static
+                        Modifier.isPrivate(f.getModifiers()) && !Modifier.isStatic(f.getModifiers())
                                 // No direct objects & serializable.
-                                Object.class != type &&
-                                Serializable.class != type &&
-                                Externalizable.class != type &&
+                                && Object.class != type
+                                && Serializable.class != type
+                                && Externalizable.class != type
 
                                 // No arrays.
-                                !type.isArray() &&
+                                && !type.isArray()
 
                                 // Exclude collections, IO, etc.
-                                !EventListener.class.isAssignableFrom(type) &&
-                                !Map.class.isAssignableFrom(type) &&
-                                !Collection.class.isAssignableFrom(type) &&
-                                !InputStream.class.isAssignableFrom(type) &&
-                                !OutputStream.class.isAssignableFrom(type) &&
-                                !Thread.class.isAssignableFrom(type) &&
-                                !Runnable.class.isAssignableFrom(type) &&
-                                !Lock.class.isAssignableFrom(type) &&
-                                !ReadWriteLock.class.isAssignableFrom(type) &&
-                                !Condition.class.isAssignableFrom(type)
+                                && !EventListener.class.isAssignableFrom(type)
+                                && !Map.class.isAssignableFrom(type)
+                                && !Collection.class.isAssignableFrom(type)
+                                && !InputStream.class.isAssignableFrom(type)
+                                && !OutputStream.class.isAssignableFrom(type)
+                                && !Thread.class.isAssignableFrom(type)
+                                && !Runnable.class.isAssignableFrom(type)
+                                && !Lock.class.isAssignableFrom(type)
+                                && !ReadWriteLock.class.isAssignableFrom(type)
+                                && !Condition.class.isAssignableFrom(type)
                 ) {
                     add = true;
                 }
@@ -2004,7 +2001,8 @@ public class IgniteToStringBuilder {
         List<T> l = new ArrayList<>(col);
         Collections.sort(l);
 
-        T left = l.get(0), right = left;
+        T left = l.get(0);
+        T right = left;
         for (int i = 1; i < l.size(); i++) {
             T val = l.get(i);
 
@@ -2044,7 +2042,7 @@ public class IgniteToStringBuilder {
      * @param cls     Class.
      * @param svdObjs Map with saved objects to handle recursion.
      * @return {@code True} if object is already saved and name@hash was added to buffer. {@code False} if it wasn't saved previously and it
-     * should be saved.
+     *      should be saved.
      */
     private static boolean handleRecursion(
             SBLimitedLength buf,

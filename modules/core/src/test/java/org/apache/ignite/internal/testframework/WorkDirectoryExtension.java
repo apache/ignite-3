@@ -212,8 +212,8 @@ public class WorkDirectoryExtension
 
         if (fields.size() != 1) {
             throw new IllegalStateException(String.format(
-                    "Test class must have a single field of type 'java.nio.file.Path' annotated with '@WorkDirectory', " +
-                            "but %d fields have been found",
+                    "Test class must have a single field of type 'java.nio.file.Path' annotated with '@WorkDirectory', "
+                            + "but %d fields have been found",
                     fields.size()
             ));
         }

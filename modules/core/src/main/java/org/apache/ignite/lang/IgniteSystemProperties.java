@@ -162,7 +162,7 @@ public final class IgniteSystemProperties {
      *
      * @param name Name of the system property or environment variable.
      * @return Boolean value of the system property or environment variable. Returns {@code False} in case neither system property nor
-     * environment variable with given name is found.
+     *      environment variable with given name is found.
      */
     public static boolean getBoolean(String name) {
         return getBoolean(name, false);
@@ -175,7 +175,7 @@ public final class IgniteSystemProperties {
      * @param name Name of the system property or environment variable.
      * @param dflt Default value.
      * @return Boolean value of the system property or environment variable. Returns default value in case neither system property nor
-     * environment variable with given name is found.
+     *      environment variable with given name is found.
      */
     public static boolean getBoolean(String name, boolean dflt) {
         String val = getString(name);
@@ -190,7 +190,7 @@ public final class IgniteSystemProperties {
      * @param name Name of the system property or environment variable.
      * @param dflt Default value.
      * @return Integer value of the system property or environment variable. Returns default value in case neither system property nor
-     * environment variable with given name is found.
+     *      environment variable with given name is found.
      */
     public static int getInteger(String name, int dflt) {
         String s = getString(name);
@@ -217,7 +217,7 @@ public final class IgniteSystemProperties {
      * @param name Name of the system property or environment variable.
      * @param dflt Default value.
      * @return Float value of the system property or environment variable. Returns default value in case neither system property nor
-     * environment variable with given name is found.
+     *      environment variable with given name is found.
      */
     public static float getFloat(String name, float dflt) {
         String s = getString(name);
@@ -244,7 +244,7 @@ public final class IgniteSystemProperties {
      * @param name Name of the system property or environment variable.
      * @param dflt Default value.
      * @return Integer value of the system property or environment variable. Returns default value in case neither system property nor
-     * environment variable with given name is found.
+     *      environment variable with given name is found.
      */
     public static long getLong(String name, long dflt) {
         String s = getString(name);
@@ -271,7 +271,7 @@ public final class IgniteSystemProperties {
      * @param name Name of the system property or environment variable.
      * @param dflt Default value.
      * @return Integer value of the system property or environment variable. Returns default value in case neither system property nor
-     * environment variable with given name is found.
+     *      environment variable with given name is found.
      */
     public static double getDouble(String name, double dflt) {
         String s = getString(name);

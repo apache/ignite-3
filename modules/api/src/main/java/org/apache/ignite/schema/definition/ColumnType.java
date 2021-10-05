@@ -162,8 +162,8 @@ public class ColumnType {
         }
 
         if (precision < scale) {
-            throw new IllegalArgumentException("Precision [" + precision + "] must be" +
-                    " not lower than scale [ " + scale + " ].");
+            throw new IllegalArgumentException("Precision [" + precision + "] must be"
+                    + " not lower than scale [ " + scale + " ].");
         }
 
         return new DecimalColumnType(ColumnTypeSpec.DECIMAL, precision, scale);
