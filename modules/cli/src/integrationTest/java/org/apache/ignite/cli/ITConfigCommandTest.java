@@ -28,7 +28,7 @@ import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.env.Environment;
 import net.minidev.json.JSONObject;
 import net.minidev.json.JSONValue;
-import org.apache.ignite.app.Ignite;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.cli.spec.IgniteCliSpec;
 import org.junit.jupiter.api.AfterEach;

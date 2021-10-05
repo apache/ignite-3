@@ -39,9 +39,8 @@ import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.TestInfo;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 
 /**
  * Test utils that provide sort of cluster service mock that manages required node configuration internally.
@@ -73,11 +72,6 @@ public class ClusterServiceTestUtils {
             Map.of(),
             new TestConfigurationStorage(ConfigurationType.LOCAL),
             List.of()
-        );
-
-        var ctx = new ClusterLocalConfiguration(
-            nodeName,
-            msgSerializationRegistry
         );
 
         var clusterSvc = clusterSvcFactory.createClusterService(

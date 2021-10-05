@@ -159,7 +159,9 @@ public class ITIgniteNodeRestartTest extends IgniteAbstractTest {
             "  },\n" +
             "  \"network\": {\n" +
             "    \"port\":3344,\n" +
-            "    \"netClusterNodes\":[ \"localhost:3344\" ]\n" +
+            "    \"nodeFinder\": {\n" +
+            "      \"netClusterNodes\":[ \"localhost:3344\" ] \n" +
+            "    }\n" +
             "  }\n" +
             "}", workDir);
 
