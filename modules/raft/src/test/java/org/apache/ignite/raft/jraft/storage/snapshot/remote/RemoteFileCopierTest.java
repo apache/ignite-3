@@ -14,7 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage.snapshot.remote;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.ignite.raft.jraft.core.TimerManager;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -28,10 +33,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(MockitoExtension.class)
 public class RemoteFileCopierTest {
@@ -50,7 +51,7 @@ public class RemoteFileCopierTest {
     public void testInit() {
         Mockito.when(rpcService.connect(new Endpoint("localhost", 8081))).thenReturn(true);
         assertTrue(copier.init("remote://localhost:8081/999", null, new SnapshotCopierOptions(rpcService, timerManager,
-            new RaftOptions(), new NodeOptions())));
+                new RaftOptions(), new NodeOptions())));
         assertEquals(999, copier.getReaderId());
         assertEquals("localhost", copier.getEndpoint().getIp());
         assertEquals(8081, copier.getEndpoint().getPort());
@@ -60,6 +61,6 @@ public class RemoteFileCopierTest {
     public void testInitFail() {
         Mockito.when(rpcService.connect(new Endpoint("localhost", 8081))).thenReturn(false);
         assertFalse(copier.init("remote://localhost:8081/999", null, new SnapshotCopierOptions(rpcService,
-            timerManager, new RaftOptions(), new NodeOptions())));
+                timerManager, new RaftOptions(), new NodeOptions())));
     }
 }

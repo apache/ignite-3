@@ -22,7 +22,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.schema.Column;
@@ -33,10 +32,14 @@ import org.apache.ignite.internal.table.TableImpl;
  * Holds actual schema and mutates it on schema change, requested by Ignite.
  */
 public class SchemaHolderImpl implements SchemaHolder {
-    /** */
+    /**
+     *
+     */
     private final Map<String, IgniteSchema> igniteSchemas = new HashMap<>();
 
-    /** */
+    /**
+     *
+     */
     private volatile SchemaPlus calciteSchema;
 
     public SchemaHolderImpl() {
@@ -46,7 +49,8 @@ public class SchemaHolderImpl implements SchemaHolder {
     }
 
     /** {@inheritDoc} */
-    @Override public SchemaPlus schema() {
+    @Override
+    public SchemaPlus schema() {
         return calciteSchema;
     }
 
@@ -61,24 +65,24 @@ public class SchemaHolderImpl implements SchemaHolder {
     }
 
     public synchronized void onSqlTypeCreated(
-        String schemaName,
-        TableImpl table
+            String schemaName,
+            TableImpl table
     ) {
         IgniteSchema schema = igniteSchemas.computeIfAbsent(schemaName, IgniteSchema::new);
 
         SchemaDescriptor descriptor = table.schemaView().schema();
 
         List<ColumnDescriptor> colDescriptors = descriptor.columnNames().stream()
-            .map(descriptor::column)
-            .sorted(Comparator.comparingInt(Column::schemaIndex))
-            .map(col -> new ColumnDescriptorImpl(
-                col.name(),
-                descriptor.isKeyColumn(col.schemaIndex()),
-                col.schemaIndex(),
-                col.type(),
-                col::defaultValue
-            ))
-            .collect(Collectors.toList());
+                .map(descriptor::column)
+                .sorted(Comparator.comparingInt(Column::schemaIndex))
+                .map(col -> new ColumnDescriptorImpl(
+                        col.name(),
+                        descriptor.isKeyColumn(col.schemaIndex()),
+                        col.schemaIndex(),
+                        col.type(),
+                        col::defaultValue
+                ))
+                .collect(Collectors.toList());
 
         TableDescriptorImpl desc = new TableDescriptorImpl(table, colDescriptors);
 
@@ -87,16 +91,16 @@ public class SchemaHolderImpl implements SchemaHolder {
         rebuild();
     }
 
-     public void onSqlTypeUpdated(
-         String schemaName,
-         TableImpl table
+    public void onSqlTypeUpdated(
+            String schemaName,
+            TableImpl table
     ) {
         onSqlTypeCreated(schemaName, table);
     }
 
     public synchronized void onSqlTypeDropped(
-        String schemaName,
-        String tableName
+            String schemaName,
+            String tableName
     ) {
         IgniteSchema schema = igniteSchemas.computeIfAbsent(schemaName, IgniteSchema::new);
 

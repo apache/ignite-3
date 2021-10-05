@@ -17,6 +17,14 @@
 
 package org.apache.ignite.internal.configuration.asm;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -37,14 +45,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 /**
  * Testing the {@link ConfigurationAsmGenerator}.
  */
@@ -55,31 +55,35 @@ public class ConfigurationAsmGeneratorTest {
     /** Configuration generator. */
     private static ConfigurationAsmGenerator generator;
 
-    /** */
+    /**
+     *
+     */
     @BeforeAll
     public static void beforeAll() {
         Collection<Class<?>> extensions = List.of(
-            ExtendedTestRootConfigurationSchema.class,
-            ExtendedSecondTestRootConfigurationSchema.class,
-            ExtendedTestConfigurationSchema.class,
-            ExtendedSecondTestConfigurationSchema.class
+                ExtendedTestRootConfigurationSchema.class,
+                ExtendedSecondTestRootConfigurationSchema.class,
+                ExtendedTestConfigurationSchema.class,
+                ExtendedSecondTestConfigurationSchema.class
         );
 
         generator = new ConfigurationAsmGenerator();
 
         changer = new TestConfigurationChanger(
-            generator,
-            List.of(TestRootConfiguration.KEY),
-            Map.of(),
-            new TestConfigurationStorage(LOCAL),
-            extensions
+                generator,
+                List.of(TestRootConfiguration.KEY),
+                Map.of(),
+                new TestConfigurationStorage(LOCAL),
+                extensions
         );
 
         changer.start();
         changer.initializeDefaults();
     }
 
-    /** */
+    /**
+     *
+     */
     @AfterAll
     public static void after() {
         changer.stop();
@@ -88,16 +92,18 @@ public class ConfigurationAsmGeneratorTest {
         changer = null;
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testExtendedRootConfiguration() throws Exception {
         DynamicConfiguration<?, ?> config = generator.instantiateCfg(TestRootConfiguration.KEY, changer);
 
-        TestRootConfiguration baseRootConfig = (TestRootConfiguration)config;
+        TestRootConfiguration baseRootConfig = (TestRootConfiguration) config;
 
-        ExtendedTestRootConfiguration extendedRootConfig = (ExtendedTestRootConfiguration)config;
+        ExtendedTestRootConfiguration extendedRootConfig = (ExtendedTestRootConfiguration) config;
 
-        ExtendedSecondTestRootConfiguration extendedSecondRootConfig = (ExtendedSecondTestRootConfiguration)config;
+        ExtendedSecondTestRootConfiguration extendedSecondRootConfig = (ExtendedSecondTestRootConfiguration) config;
 
         assertSame(baseRootConfig.i0(), extendedRootConfig.i0());
         assertSame(baseRootConfig.i0(), extendedSecondRootConfig.i0());
@@ -127,24 +133,26 @@ public class ConfigurationAsmGeneratorTest {
 
             c.changeI0(10).changeStr0("str0");
 
-            ((ExtendedTestRootChange)c).changeStr1("str1").changeStr0("str0");
-            ((ExtendedSecondTestRootChange)c).changeI1(200).changeStr0("str0");
+            ((ExtendedTestRootChange) c).changeStr1("str1").changeStr0("str0");
+            ((ExtendedSecondTestRootChange) c).changeI1(200).changeStr0("str0");
         }).get(1, SECONDS);
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testExtendedSubConfiguration() throws Exception {
         DynamicConfiguration<?, ?> config = generator.instantiateCfg(TestRootConfiguration.KEY, changer);
 
-        TestRootConfiguration rootConfig = (TestRootConfiguration)config;
+        TestRootConfiguration rootConfig = (TestRootConfiguration) config;
 
         TestConfiguration baseSubConfig = rootConfig.subCfg();
 
-        ExtendedTestConfiguration extendedSubConfig = (ExtendedTestConfiguration)rootConfig.subCfg();
+        ExtendedTestConfiguration extendedSubConfig = (ExtendedTestConfiguration) rootConfig.subCfg();
 
         ExtendedSecondTestConfiguration extendedSecondSubConfig =
-            (ExtendedSecondTestConfiguration)rootConfig.subCfg();
+                (ExtendedSecondTestConfiguration) rootConfig.subCfg();
 
         assertSame(baseSubConfig.i0(), extendedSubConfig.i0());
         assertSame(baseSubConfig.i0(), extendedSecondSubConfig.i0());
@@ -168,17 +176,19 @@ public class ConfigurationAsmGeneratorTest {
 
             c.changeI0(10).changeStr2("str2");
 
-            ((ExtendedTestChange)c).changeStr3("str3").changeStr2("str2");
-            ((ExtendedSecondTestChange)c).changeI1(200).changeStr2("str2");
+            ((ExtendedTestChange) c).changeStr3("str3").changeStr2("str2");
+            ((ExtendedSecondTestChange) c).changeI1(200).changeStr2("str2");
         }).get(1, SECONDS);
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testExtendedNamedConfiguration() throws Exception {
         DynamicConfiguration<?, ?> config = generator.instantiateCfg(TestRootConfiguration.KEY, changer);
 
-        TestRootConfiguration rootConfig = (TestRootConfiguration)config;
+        TestRootConfiguration rootConfig = (TestRootConfiguration) config;
 
         String key = UUID.randomUUID().toString();
 
@@ -200,19 +210,21 @@ public class ConfigurationAsmGeneratorTest {
 
             c.changeStr2("str2").changeI0(10);
 
-            ((ExtendedTestChange)c).changeStr3("str3").changeStr2("str2");
-            ((ExtendedSecondTestChange)c).changeI1(100).changeStr2("str2");
+            ((ExtendedTestChange) c).changeStr3("str3").changeStr2("str2");
+            ((ExtendedSecondTestChange) c).changeI1(100).changeStr2("str2");
         }).get(1, SECONDS);
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testConstructInternalConfig() {
         InnerNode innerNode = generator.instantiateNode(TestRootConfiguration.KEY.schemaClass());
 
         addDefaults(innerNode);
 
-        InnerNode subInnerNode = (InnerNode)((TestRootView)innerNode).subCfg();
+        InnerNode subInnerNode = (InnerNode) ((TestRootView) innerNode).subCfg();
 
         // Check that no fields for internal configuration will be changed.
 

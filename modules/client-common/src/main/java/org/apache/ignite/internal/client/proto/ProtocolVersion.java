@@ -18,13 +18,12 @@
 package org.apache.ignite.internal.client.proto;
 
 import java.io.IOException;
-
 import org.apache.ignite.internal.tostring.S;
 
 /** Thin client protocol version. */
 public final class ProtocolVersion implements Comparable<ProtocolVersion> {
     /** Protocol version: 3.0.0. */
-    public static final ProtocolVersion V3_0_0 = new ProtocolVersion((short)3, (short)0, (short)0);
+    public static final ProtocolVersion V3_0_0 = new ProtocolVersion((short) 3, (short) 0, (short) 0);
 
     /** The most actual version. */
     public static final ProtocolVersion LATEST_VER = V3_0_0;
@@ -100,11 +99,13 @@ public final class ProtocolVersion implements Comparable<ProtocolVersion> {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean equals(Object obj) {
-        if (!(obj instanceof ProtocolVersion))
+    @Override
+    public boolean equals(Object obj) {
+        if (!(obj instanceof ProtocolVersion)) {
             return false;
+        }
 
-        ProtocolVersion other = (ProtocolVersion)obj;
+        ProtocolVersion other = (ProtocolVersion) obj;
 
         return major == other.major &&
                 minor == other.minor &&
@@ -112,7 +113,8 @@ public final class ProtocolVersion implements Comparable<ProtocolVersion> {
     }
 
     /** {@inheritDoc} */
-    @Override public int hashCode() {
+    @Override
+    public int hashCode() {
         int res = 31 * major;
         res += ((minor & 0xFFFF) << 16) & (patch & 0xFFFF);
 
@@ -120,22 +122,26 @@ public final class ProtocolVersion implements Comparable<ProtocolVersion> {
     }
 
     /** {@inheritDoc} */
-    @Override public int compareTo(ProtocolVersion other) {
+    @Override
+    public int compareTo(ProtocolVersion other) {
         int diff = major - other.major;
 
-        if (diff != 0)
+        if (diff != 0) {
             return diff;
+        }
 
         diff = minor - other.minor;
 
-        if (diff != 0)
+        if (diff != 0) {
             return diff;
+        }
 
         return patch - other.patch;
     }
 
     /** {@inheritDoc} */
-    @Override public String toString() {
+    @Override
+    public String toString() {
         return S.toString(ProtocolVersion.class, this);
     }
 }

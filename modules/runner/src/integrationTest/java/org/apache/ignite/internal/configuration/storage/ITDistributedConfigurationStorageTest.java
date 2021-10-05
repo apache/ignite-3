@@ -17,6 +17,14 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.metastorage.MetaStorageManager.APPLIED_REV;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.List;
@@ -44,14 +52,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.metastorage.MetaStorageManager.APPLIED_REV;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
-
 /**
  * Tests for the {@link DistributedConfigurationStorage}.
  */
@@ -61,25 +61,39 @@ public class ITDistributedConfigurationStorageTest {
      * An emulation of an Ignite node, that only contains components necessary for tests.
      */
     private static class Node {
-        /** */
+        /**
+         *
+         */
         private final String name;
 
-        /** */
+        /**
+         *
+         */
         private final VaultManager vaultManager;
 
-        /** */
+        /**
+         *
+         */
         private final ClusterService clusterService;
 
-        /** */
+        /**
+         *
+         */
         private final Loza raftManager;
 
-        /** */
+        /**
+         *
+         */
         private final ConfigurationManager cfgManager;
 
-        /** */
+        /**
+         *
+         */
         private final MetaStorageManager metaStorageManager;
 
-        /** */
+        /**
+         *
+         */
         private final DistributedConfigurationStorage cfgStorage;
 
         /**
@@ -93,11 +107,11 @@ public class ITDistributedConfigurationStorageTest {
             vaultManager = new VaultManager(new PersistentVaultService(workDir.resolve("vault")));
 
             clusterService = ClusterServiceTestUtils.clusterService(
-                testInfo,
-                addr.port(),
-                new StaticNodeFinder(List.of(addr)),
-                new MessageSerializationRegistryImpl(),
-                new TestScaleCubeClusterServiceFactory()
+                    testInfo,
+                    addr.port(),
+                    new StaticNodeFinder(List.of(addr)),
+                    new MessageSerializationRegistryImpl(),
+                    new TestScaleCubeClusterServiceFactory()
             );
 
             raftManager = new Loza(clusterService, workDir);
@@ -105,18 +119,18 @@ public class ITDistributedConfigurationStorageTest {
             List<RootKey<?, ?>> rootKeys = List.of(NodeConfiguration.KEY);
 
             cfgManager = new ConfigurationManager(
-                rootKeys,
-                Map.of(),
-                new LocalConfigurationStorage(vaultManager),
-                List.of()
+                    rootKeys,
+                    Map.of(),
+                    new LocalConfigurationStorage(vaultManager),
+                    List.of()
             );
 
             metaStorageManager = new MetaStorageManager(
-                vaultManager,
-                cfgManager,
-                clusterService,
-                raftManager,
-                new SimpleInMemoryKeyValueStorage()
+                    vaultManager,
+                    cfgManager,
+                    clusterService,
+                    raftManager,
+                    new SimpleInMemoryKeyValueStorage()
             );
 
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);
@@ -149,20 +163,21 @@ public class ITDistributedConfigurationStorageTest {
          */
         void stop() throws Exception {
             var components =
-                List.of(metaStorageManager, raftManager, clusterService, cfgManager, vaultManager);
+                    List.of(metaStorageManager, raftManager, clusterService, cfgManager, vaultManager);
 
-            for (IgniteComponent igniteComponent : components)
+            for (IgniteComponent igniteComponent : components) {
                 igniteComponent.beforeNodeStop();
+            }
 
-            for (IgniteComponent component : components)
+            for (IgniteComponent component : components) {
                 component.stop();
+            }
         }
     }
 
     /**
-     * Tests a scenario when a node is restarted with an existing PDS folder. A node is started and some data is written
-     * to the distributed configuration storage. We then expect that the same data can be read by the node after
-     * restart.
+     * Tests a scenario when a node is restarted with an existing PDS folder. A node is started and some data is written to the distributed
+     * configuration storage. We then expect that the same data can be read by the node after restart.
      *
      * @see <a href="https://issues.apache.org/jira/browse/IGNITE-15213">IGNITE-15213</a>
      */
@@ -178,8 +193,7 @@ public class ITDistributedConfigurationStorageTest {
             assertThat(node.cfgStorage.write(data, 0), willBe(equalTo(true)));
 
             waitForCondition(() -> Objects.nonNull(node.vaultManager.get(APPLIED_REV).join().value()), 3000);
-        }
-        finally {
+        } finally {
             node.stop();
         }
 
@@ -191,8 +205,7 @@ public class ITDistributedConfigurationStorageTest {
             Data storageData = node2.cfgStorage.readAll();
 
             assertThat(storageData.values(), equalTo(data));
-        }
-        finally {
+        } finally {
             node2.stop();
         }
     }

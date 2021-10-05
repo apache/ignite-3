@@ -17,6 +17,16 @@
 
 package org.apache.ignite.distributed;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -73,41 +83,43 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 /**
  * Tests for {@link InternalTable#scan(int, org.apache.ignite.tx.Transaction)}
  */
 @ExtendWith(MockitoExtension.class)
 public class ITInternalTableScanTest {
-    /** */
+    /**
+     *
+     */
     private static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
-    /** */
+    /**
+     *
+     */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
 
-    /** */
+    /**
+     *
+     */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
-    /** */
+    /**
+     *
+     */
     private static final String TEST_TABLE_NAME = "testTbl";
 
     /** Mock partition storage. */
     @Mock
     private Storage mockStorage;
 
-    /** */
+    /**
+     *
+     */
     private ClusterService network;
 
-    /** */
+    /**
+     *
+     */
     private RaftServer raftSrv;
 
     /** Internal table to test. */
@@ -133,11 +145,11 @@ public class ITInternalTableScanTest {
         NetworkAddress nodeNetworkAddress = new NetworkAddress("localhost", 20_000);
 
         network = ClusterServiceTestUtils.clusterService(
-            testInfo,
-            20_000,
-            new StaticNodeFinder(List.of(nodeNetworkAddress)),
-            SERIALIZATION_REGISTRY,
-            NETWORK_FACTORY
+                testInfo,
+                20_000,
+                new StaticNodeFinder(List.of(nodeNetworkAddress)),
+                SERIALIZATION_REGISTRY,
+                NETWORK_FACTORY
         );
 
         network.start();
@@ -153,30 +165,30 @@ public class ITInternalTableScanTest {
         mockStorage = mock(Storage.class);
 
         raftSrv.startRaftGroup(
-            grpName,
-            new PartitionListener(mockStorage),
-            conf
+                grpName,
+                new PartitionListener(mockStorage),
+                conf
         );
 
         executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
 
         RaftGroupService raftGrpSvc = RaftGroupServiceImpl.start(
-            grpName,
-            network,
-            FACTORY,
-            10_000,
-            conf,
-            true,
-            200,
-            executor
+                grpName,
+                network,
+                FACTORY,
+                10_000,
+                conf,
+                true,
+                200,
+                executor
         ).get(3, TimeUnit.SECONDS);
 
         internalTbl = new InternalTableImpl(
-            TEST_TABLE_NAME,
-            new IgniteUuidGenerator(UUID.randomUUID(), 0).randomUuid(),
-            Map.of(0, raftGrpSvc),
-            1,
-            NetworkAddress::toString
+                TEST_TABLE_NAME,
+                new IgniteUuidGenerator(UUID.randomUUID(), 0).randomUuid(),
+                Map.of(0, raftGrpSvc),
+                1,
+                NetworkAddress::toString
         );
     }
 
@@ -187,19 +199,23 @@ public class ITInternalTableScanTest {
      */
     @AfterEach
     public void tearDown() throws Exception {
-        if (raftSrv != null)
+        if (raftSrv != null) {
             raftSrv.beforeNodeStop();
+        }
 
-        if (network != null)
+        if (network != null) {
             network.beforeNodeStop();
+        }
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
-        if (raftSrv != null)
+        if (raftSrv != null) {
             raftSrv.stop();
+        }
 
-        if (network != null)
+        if (network != null) {
             network.stop();
+        }
     }
 
     /**
@@ -208,11 +224,11 @@ public class ITInternalTableScanTest {
     @Test
     public void testOneRowScan() throws Exception {
         requestNTest(
-            List.of(
-                prepareDataRow("key1", "val1"),
-                prepareDataRow("key2", "val2")
-            ),
-            1);
+                List.of(
+                        prepareDataRow("key1", "val1"),
+                        prepareDataRow("key2", "val2")
+                ),
+                1);
     }
 
     /**
@@ -221,19 +237,19 @@ public class ITInternalTableScanTest {
     @Test
     public void testMultipleRowScan() throws Exception {
         requestNTest(
-            List.of(
-                prepareDataRow("key1", "val1"),
-                prepareDataRow("key2", "val2"),
-                prepareDataRow("key3", "val3"),
-                prepareDataRow("key4", "val4"),
-                prepareDataRow("key5", "val5")
-            ),
-            2);
+                List.of(
+                        prepareDataRow("key1", "val1"),
+                        prepareDataRow("key2", "val2"),
+                        prepareDataRow("key3", "val3"),
+                        prepareDataRow("key4", "val4"),
+                        prepareDataRow("key5", "val5")
+                ),
+                2);
     }
 
     /**
-     * Checks whether {@link IllegalArgumentException} is thrown and inner storage cursor is closes in case of invalid
-     * requested amount of items.
+     * Checks whether {@link IllegalArgumentException} is thrown and inner storage cursor is closes in case of invalid requested amount of
+     * items.
      *
      * @throws Exception If any.
      */
@@ -245,10 +261,10 @@ public class ITInternalTableScanTest {
             var cursor = mock(Cursor.class);
 
             doAnswer(
-                invocationClose -> {
-                    cursorClosed.set(true);
-                    return null;
-                }
+                    invocationClose -> {
+                        cursorClosed.set(true);
+                        return null;
+                    }
             ).when(cursor).close();
 
             when(cursor.hasNext()).thenAnswer(hnInvocation -> {
@@ -258,25 +274,29 @@ public class ITInternalTableScanTest {
             return cursor;
         });
 
-        for (long n : new long[] {-1, 0}) {
+        for (long n : new long[]{-1, 0}) {
             AtomicReference<Throwable> gotException = new AtomicReference<>();
 
             cursorClosed.set(false);
 
             internalTbl.scan(0, null).subscribe(new Subscriber<>() {
-                @Override public void onSubscribe(Subscription subscription) {
+                @Override
+                public void onSubscribe(Subscription subscription) {
                     subscription.request(n);
                 }
 
-                @Override public void onNext(BinaryRow item) {
+                @Override
+                public void onNext(BinaryRow item) {
                     fail("Should never get here.");
                 }
 
-                @Override public void onError(Throwable throwable) {
+                @Override
+                public void onError(Throwable throwable) {
                     gotException.set(throwable);
                 }
 
-                @Override public void onComplete() {
+                @Override
+                public void onComplete() {
                     fail("Should never get here.");
                 }
             });
@@ -286,10 +306,10 @@ public class ITInternalTableScanTest {
             assertTrue(waitForCondition(cursorClosed::get, 1_000));
 
             assertThrows(
-                IllegalArgumentException.class,
-                () -> {
-                    throw gotException.get();
-                }
+                    IllegalArgumentException.class,
+                    () -> {
+                        throw gotException.get();
+                    }
             );
         }
     }
@@ -312,10 +332,10 @@ public class ITInternalTableScanTest {
             });
 
             doAnswer(
-                invocationClose -> {
-                    cursorClosed.set(true);
-                    return null;
-                }
+                    invocationClose -> {
+                        cursorClosed.set(true);
+                        return null;
+                    }
             ).when(cursor).close();
 
             return cursor;
@@ -323,19 +343,23 @@ public class ITInternalTableScanTest {
 
         internalTbl.scan(0, null).subscribe(new Subscriber<>() {
 
-            @Override public void onSubscribe(Subscription subscription) {
+            @Override
+            public void onSubscribe(Subscription subscription) {
                 subscription.request(1);
             }
 
-            @Override public void onNext(BinaryRow item) {
+            @Override
+            public void onNext(BinaryRow item) {
                 fail("Should never get here.");
             }
 
-            @Override public void onError(Throwable throwable) {
+            @Override
+            public void onError(Throwable throwable) {
                 gotException.set(throwable);
             }
 
-            @Override public void onComplete() {
+            @Override
+            public void onComplete() {
                 fail("Should never get here.");
             }
         });
@@ -359,19 +383,23 @@ public class ITInternalTableScanTest {
 
         internalTbl.scan(0, null).subscribe(new Subscriber<>() {
 
-            @Override public void onSubscribe(Subscription subscription) {
+            @Override
+            public void onSubscribe(Subscription subscription) {
                 subscription.request(1);
             }
 
-            @Override public void onNext(BinaryRow item) {
+            @Override
+            public void onNext(BinaryRow item) {
                 fail("Should never get here.");
             }
 
-            @Override public void onError(Throwable throwable) {
+            @Override
+            public void onError(Throwable throwable) {
                 gotException.set(throwable);
             }
 
-            @Override public void onComplete() {
+            @Override
+            public void onComplete() {
                 fail("Should never get here.");
             }
         });
@@ -388,13 +416,13 @@ public class ITInternalTableScanTest {
     @Test()
     public void testInvalidPartitionParameterScan() {
         assertThrows(
-            IllegalArgumentException.class,
-            () -> internalTbl.scan(-1, null)
+                IllegalArgumentException.class,
+                () -> internalTbl.scan(-1, null)
         );
 
         assertThrows(
-            IllegalArgumentException.class,
-            () -> internalTbl.scan(1, null)
+                IllegalArgumentException.class,
+                () -> internalTbl.scan(1, null)
         );
     }
 
@@ -408,19 +436,23 @@ public class ITInternalTableScanTest {
         Flow.Publisher<BinaryRow> scan = internalTbl.scan(0, null);
 
         scan.subscribe(new Subscriber<>() {
-            @Override public void onSubscribe(Subscription subscription) {
+            @Override
+            public void onSubscribe(Subscription subscription) {
 
             }
 
-            @Override public void onNext(BinaryRow item) {
+            @Override
+            public void onNext(BinaryRow item) {
 
             }
 
-            @Override public void onError(Throwable throwable) {
+            @Override
+            public void onError(Throwable throwable) {
 
             }
 
-            @Override public void onComplete() {
+            @Override
+            public void onComplete() {
 
             }
         });
@@ -428,19 +460,23 @@ public class ITInternalTableScanTest {
         AtomicReference<Throwable> gotException = new AtomicReference<>();
 
         scan.subscribe(new Subscriber<>() {
-            @Override public void onSubscribe(Subscription subscription) {
+            @Override
+            public void onSubscribe(Subscription subscription) {
 
             }
 
-            @Override public void onNext(BinaryRow item) {
+            @Override
+            public void onNext(BinaryRow item) {
 
             }
 
-            @Override public void onError(Throwable throwable) {
+            @Override
+            public void onError(Throwable throwable) {
                 gotException.set(throwable);
             }
 
-            @Override public void onComplete() {
+            @Override
+            public void onComplete() {
 
             }
         });
@@ -456,8 +492,8 @@ public class ITInternalTableScanTest {
     @Test
     public void testNullPointerExceptionIsThrownInCaseOfNullSubscription() {
         assertThrows(
-            NullPointerException.class,
-            () -> internalTbl.scan(0, null).subscribe(null)
+                NullPointerException.class,
+                () -> internalTbl.scan(0, null).subscribe(null)
         );
     }
 
@@ -470,7 +506,7 @@ public class ITInternalTableScanTest {
      * @throws java.io.IOException If failed to close output stream that was used to convertation.
      */
     private static @NotNull DataRow prepareDataRow(@NotNull String entryKey,
-        @NotNull String entryVal) throws IOException {
+            @NotNull String entryVal) throws IOException {
         byte[] keyBytes = ByteUtils.toBytes(entryKey);
 
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
@@ -485,7 +521,7 @@ public class ITInternalTableScanTest {
      * Checks whether publisher provides all existing data and then completes if requested by reqAmount rows at a time.
      *
      * @param submittedItems Items to be pushed by ublisher.
-     * @param reqAmount Amount of rows to request at a time.
+     * @param reqAmount      Amount of rows to request at a time.
      * @throws Exception If Any.
      */
     private void requestNTest(List<DataRow> submittedItems, int reqAmount) throws Exception {
@@ -508,24 +544,29 @@ public class ITInternalTableScanTest {
         internalTbl.scan(0, null).subscribe(new Subscriber<>() {
             private Subscription subscription;
 
-            @Override public void onSubscribe(Subscription subscription) {
+            @Override
+            public void onSubscribe(Subscription subscription) {
                 this.subscription = subscription;
 
                 subscription.request(reqAmount);
             }
 
-            @Override public void onNext(BinaryRow item) {
+            @Override
+            public void onNext(BinaryRow item) {
                 retrievedItems.add(item);
 
-                if (retrievedItems.size() % reqAmount == 0)
+                if (retrievedItems.size() % reqAmount == 0) {
                     subscription.request(reqAmount);
+                }
             }
 
-            @Override public void onError(Throwable throwable) {
+            @Override
+            public void onError(Throwable throwable) {
                 fail("onError call is not expected.");
             }
 
-            @Override public void onComplete() {
+            @Override
+            public void onComplete() {
                 noMoreData.set(true);
             }
         });
@@ -535,8 +576,9 @@ public class ITInternalTableScanTest {
         List<byte[]> expItems = submittedItems.stream().map(DataRow::valueBytes).collect(Collectors.toList());
         List<byte[]> gotItems = retrievedItems.stream().map(BinaryRow::bytes).collect(Collectors.toList());
 
-        for (int i = 0; i < expItems.size(); i++)
+        for (int i = 0; i < expItems.size(); i++) {
             assertTrue(Arrays.equals(expItems.get(i), gotItems.get(i)));
+        }
 
         assertTrue(noMoreData.get(), "More data is not expected.");
     }

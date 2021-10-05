@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util.concurrent;
 
 import java.util.concurrent.ExecutorService;
@@ -61,8 +62,7 @@ public final class DefaultSingleThreadExecutor implements SingleThreadExecutor {
     private static SingleThreadExecutor wrapSingleThreadExecutor(final ExecutorService executor) {
         if (executor instanceof SingleThreadExecutor) {
             return (SingleThreadExecutor) executor;
-        }
-        else {
+        } else {
             return new SingleThreadExecutor() {
 
                 @Override
@@ -85,14 +85,14 @@ public final class DefaultSingleThreadExecutor implements SingleThreadExecutor {
 
     private static SingleThreadExecutor createSingleThreadExecutor(final String poolName, final int maxPendingTasks) {
         final ExecutorService singleThreadPool = ThreadPoolUtil.newBuilder() //
-            .poolName(poolName) //
-            .enableMetric(true) //
-            .coreThreads(1) //
-            .maximumThreads(1) //
-            .keepAliveSeconds(60L) //
-            .workQueue(new LinkedBlockingQueue<>(maxPendingTasks)) //
-            .threadFactory(new NamedThreadFactory(poolName, true)) //
-            .build();
+                .poolName(poolName) //
+                .enableMetric(true) //
+                .coreThreads(1) //
+                .maximumThreads(1) //
+                .keepAliveSeconds(60L) //
+                .workQueue(new LinkedBlockingQueue<>(maxPendingTasks)) //
+                .threadFactory(new NamedThreadFactory(poolName, true)) //
+                .build();
 
         return new SingleThreadExecutor() {
 

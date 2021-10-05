@@ -27,7 +27,10 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 package com.facebook.presto.bytecode;
+
+import static com.facebook.presto.bytecode.ParameterizedType.typeFromPathName;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -41,11 +44,9 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.util.CheckClassAdapter;
 
-import static com.facebook.presto.bytecode.ParameterizedType.typeFromPathName;
-
 public class ClassInfoLoader {
     public static ClassInfoLoader createClassInfoLoader(Collection<ClassDefinition> classDefinitions,
-        ClassLoader classLoader) {
+            ClassLoader classLoader) {
         Map<ParameterizedType, ClassNode> classNodes = new HashMap<>();
         for (ClassDefinition classDefinition : classDefinitions) {
             ClassNode classNode = new ClassNode();
@@ -62,7 +63,7 @@ public class ClassInfoLoader {
     private final boolean loadMethodNodes;
 
     public ClassInfoLoader(Map<ParameterizedType, ClassNode> classNodes, Map<ParameterizedType, byte[]> bytecodes,
-        ClassLoader classLoader, boolean loadMethodNodes) {
+            ClassLoader classLoader, boolean loadMethodNodes) {
         this.classNodes = Map.copyOf(classNodes);
         this.bytecodes = Map.copyOf(bytecodes);
         this.classLoader = classLoader;
@@ -90,20 +91,17 @@ public class ClassInfoLoader {
         byte[] bytecode = bytecodes.get(type);
         if (bytecode != null) {
             classReader = new ClassReader(bytecode);
-        }
-        else {
+        } else {
             // load class file from class loader
             String classFileName = type.getClassName() + ".class";
             try (InputStream is = classLoader.getResourceAsStream(classFileName)) {
                 classReader = new ClassReader(is);
-            }
-            catch (IOException e) {
+            } catch (IOException e) {
                 // check if class is already loaded
                 try {
                     Class<?> aClass = classLoader.loadClass(type.getJavaClassName());
                     return new ClassInfo(this, aClass);
-                }
-                catch (ClassNotFoundException e1) {
+                } catch (ClassNotFoundException e1) {
                     throw new RuntimeException("Class not found " + type, e);
                 }
             }
@@ -115,8 +113,7 @@ public class ClassInfoLoader {
             classReader.accept(new CheckClassAdapter(classNode, false), ClassReader.SKIP_DEBUG);
 
             return new ClassInfo(this, classNode);
-        }
-        else {
+        } else {
             // optimized version
             int header = classReader.header;
             int access = classReader.readUnsignedShort(header);
@@ -128,8 +125,7 @@ public class ClassInfoLoader {
             ParameterizedType superClass;
             if (superClassIndex == 0) {
                 superClass = null;
-            }
-            else {
+            } else {
                 superClass = typeFromPathName(classReader.readUTF8(superClassIndex, buf));
             }
 

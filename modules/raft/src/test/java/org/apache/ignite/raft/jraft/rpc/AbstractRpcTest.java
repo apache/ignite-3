@@ -14,7 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc;
+
+import static org.apache.ignite.raft.jraft.test.TestUtils.INIT_PORT;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,13 +37,6 @@ import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.apache.ignite.raft.jraft.test.TestUtils.INIT_PORT;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  *
@@ -167,17 +168,17 @@ public abstract class AbstractRpcTest {
             CompletableFuture<Object> fut = new CompletableFuture<>();
 
             client1.invokeAsync(endpoint, request, null, (result, err) -> {
-                if (err == null)
+                if (err == null) {
                     fut.complete(result);
-                else
+                } else {
                     fut.completeExceptionally(err);
+                }
             }, 500);
 
             fut.get(); // Should throw timeout exception.
 
             fail();
-        }
-        catch (Exception ignored) {
+        } catch (Exception ignored) {
             // Expected.
         }
 
@@ -211,74 +212,98 @@ public abstract class AbstractRpcTest {
         resp.get(5_000, TimeUnit.MILLISECONDS);
     }
 
-    /** */
+    /**
+     *
+     */
     private class Request1RpcProcessor implements RpcProcessor<Request1> {
         /** {@inheritDoc} */
-        @Override public void handleRequest(RpcContext rpcCtx, Request1 request) {
-            if (request.val() == 10_000)
+        @Override
+        public void handleRequest(RpcContext rpcCtx, Request1 request) {
+            if (request.val() == 10_000) {
                 try {
                     Thread.sleep(1000);
-                }
-                catch (InterruptedException ignored) {
+                } catch (InterruptedException ignored) {
                     // No-op.
                 }
+            }
 
             Response1 resp1 = msgFactory.response1().val(request.val() + 1).build();
             rpcCtx.sendResponse(resp1);
         }
 
         /** {@inheritDoc} */
-        @Override public String interest() {
+        @Override
+        public String interest() {
             return Request1.class.getName();
         }
     }
 
-    /** */
+    /**
+     *
+     */
     private class Request2RpcProcessor implements RpcProcessor<Request2> {
         /** {@inheritDoc} */
-        @Override public void handleRequest(RpcContext rpcCtx, Request2 request) {
+        @Override
+        public void handleRequest(RpcContext rpcCtx, Request2 request) {
             Response2 resp2 = msgFactory.response2().val(request.val() + 1).build();
             rpcCtx.sendResponse(resp2);
         }
 
         /** {@inheritDoc} */
-        @Override public String interest() {
+        @Override
+        public String interest() {
             return Request2.class.getName();
         }
     }
 
-    /** */
+    /**
+     *
+     */
     @Transferable(value = 0, autoSerializable = false)
     public static interface Request1 extends Message {
-        /** */
-        int val();
-    }
-
-    /** */
-    @Transferable(value = 1, autoSerializable = false)
-    public static interface Request2 extends Message {
-        /** */
-        int val();
-    }
-
-    /** */
-    @Transferable(value = 2, autoSerializable = false)
-    public static interface Response1 extends Message {
-        /** */
-        int val();
-    }
-
-    /** */
-    @Transferable(value = 3, autoSerializable = false)
-    public static interface Response2 extends Message {
-        /** */
+        /**
+         *
+         */
         int val();
     }
 
     /**
-     * @param client The client.
+     *
+     */
+    @Transferable(value = 1, autoSerializable = false)
+    public static interface Request2 extends Message {
+        /**
+         *
+         */
+        int val();
+    }
+
+    /**
+     *
+     */
+    @Transferable(value = 2, autoSerializable = false)
+    public static interface Response1 extends Message {
+        /**
+         *
+         */
+        int val();
+    }
+
+    /**
+     *
+     */
+    @Transferable(value = 3, autoSerializable = false)
+    public static interface Response2 extends Message {
+        /**
+         *
+         */
+        int val();
+    }
+
+    /**
+     * @param client   The client.
      * @param expected Expected count.
-     * @param timeout The timeout in millis.
+     * @param timeout  The timeout in millis.
      */
     protected abstract boolean waitForTopology(RpcClient client, int expected, long timeout);
 }

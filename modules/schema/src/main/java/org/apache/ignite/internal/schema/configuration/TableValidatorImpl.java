@@ -38,12 +38,13 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
     public static final TableValidatorImpl INSTANCE = new TableValidatorImpl();
 
     /** {@inheritDoc} */
-    @Override public void validate(TableValidator annotation, ValidationContext<NamedListView<TableView>> ctx) {
+    @Override
+    public void validate(TableValidator annotation, ValidationContext<NamedListView<TableView>> ctx) {
         NamedListView<TableView> list = ctx.getNewValue();
-        
+
         for (String key : list.namedListKeys()) {
             TableView view = list.get(key);
-            
+
             try {
                 TableDefinitionImpl tbl = SchemaConfigurationConverter.convert(view);
 
@@ -53,11 +54,11 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
                 Collection<ColumnDefinition> allColumns = new ArrayList<>(tbl.keyColumns());
                 allColumns.addAll(tbl.valueColumns());
 
-                TableSchemaBuilderImpl.validateIndices(tbl.indices(), allColumns, tbl.affinityColumns().stream().map(ColumnDefinition::name).collect(Collectors.toSet()));
-            }
-            catch (IllegalArgumentException e) {
+                TableSchemaBuilderImpl.validateIndices(tbl.indices(), allColumns,
+                        tbl.affinityColumns().stream().map(ColumnDefinition::name).collect(Collectors.toSet()));
+            } catch (IllegalArgumentException e) {
                 ctx.addIssue(new ValidationIssue("Validator works success by key " + ctx.currentKey() + ". Found "
-                    + view.columns().size() + " columns"));
+                        + view.columns().size() + " columns"));
             }
         }
 

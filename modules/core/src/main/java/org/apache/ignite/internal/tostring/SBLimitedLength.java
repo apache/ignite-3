@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.tostring;
 
+import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_TO_STRING_MAX_LENGTH;
+
 import java.util.Arrays;
 import org.apache.ignite.lang.IgniteStringBuilder;
 import org.apache.ignite.lang.IgniteSystemProperties;
 import org.jetbrains.annotations.Nullable;
-
-import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_TO_STRING_MAX_LENGTH;
 
 /**
  * String builder with limited length.
@@ -57,8 +57,9 @@ class SBLimitedLength extends IgniteStringBuilder {
     public void reset() {
         setLength(0);
 
-        if (tail != null)
+        if (tail != null) {
             tail.reset();
+        }
     }
 
     /**
@@ -72,11 +73,13 @@ class SBLimitedLength extends IgniteStringBuilder {
      * @return This builder.
      */
     private SBLimitedLength onWrite() {
-        if (!isOverflowed())
+        if (!isOverflowed()) {
             return this;
+        }
 
-        if (tail == null)
+        if (tail == null) {
             tail = new CircularStringBuilder(TAIL_LEN);
+        }
 
         if (tail.length() == 0) {
             int newSbLen = Math.min(length(), HEAD_LEN + 1);
@@ -89,7 +92,8 @@ class SBLimitedLength extends IgniteStringBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public SBLimitedLength a(Object obj) {
+    @Override
+    public SBLimitedLength a(Object obj) {
         if (isOverflowed()) {
             tail.append(obj);
             return this;
@@ -101,7 +105,8 @@ class SBLimitedLength extends IgniteStringBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public SBLimitedLength a(String str) {
+    @Override
+    public SBLimitedLength a(String str) {
         if (isOverflowed()) {
             tail.append(str);
             return this;
@@ -113,7 +118,8 @@ class SBLimitedLength extends IgniteStringBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public SBLimitedLength a(StringBuffer sb) {
+    @Override
+    public SBLimitedLength a(StringBuffer sb) {
         if (isOverflowed()) {
             tail.append(sb);
             return this;
@@ -125,7 +131,8 @@ class SBLimitedLength extends IgniteStringBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public SBLimitedLength a(CharSequence s) {
+    @Override
+    public SBLimitedLength a(CharSequence s) {
         if (isOverflowed()) {
             tail.append(s);
             return this;
@@ -137,7 +144,8 @@ class SBLimitedLength extends IgniteStringBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public SBLimitedLength a(CharSequence s, int start, int end) {
+    @Override
+    public SBLimitedLength a(CharSequence s, int start, int end) {
         if (isOverflowed()) {
             tail.append(s.subSequence(start, end));
             return this;
@@ -149,7 +157,8 @@ class SBLimitedLength extends IgniteStringBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public SBLimitedLength a(char[] str) {
+    @Override
+    public SBLimitedLength a(char[] str) {
         if (isOverflowed()) {
             tail.append(str);
             return this;
@@ -161,7 +170,8 @@ class SBLimitedLength extends IgniteStringBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public SBLimitedLength a(char[] str, int offset, int len) {
+    @Override
+    public SBLimitedLength a(char[] str, int offset, int len) {
         if (isOverflowed()) {
             tail.append(Arrays.copyOfRange(str, offset, len));
             return this;
@@ -174,7 +184,8 @@ class SBLimitedLength extends IgniteStringBuilder {
 
     /** {@inheritDoc} */
     @SuppressWarnings("BooleanParameter")
-    @Override public SBLimitedLength a(boolean b) {
+    @Override
+    public SBLimitedLength a(boolean b) {
         if (isOverflowed()) {
             tail.append(b);
             return this;
@@ -186,7 +197,8 @@ class SBLimitedLength extends IgniteStringBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public SBLimitedLength a(char c) {
+    @Override
+    public SBLimitedLength a(char c) {
         if (isOverflowed()) {
             tail.append(c);
             return this;
@@ -198,7 +210,8 @@ class SBLimitedLength extends IgniteStringBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public SBLimitedLength a(int i) {
+    @Override
+    public SBLimitedLength a(int i) {
         if (isOverflowed()) {
             tail.append(i);
             return this;
@@ -210,7 +223,8 @@ class SBLimitedLength extends IgniteStringBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public SBLimitedLength a(long lng) {
+    @Override
+    public SBLimitedLength a(long lng) {
         if (isOverflowed()) {
             tail.append(lng);
             return this;
@@ -222,7 +236,8 @@ class SBLimitedLength extends IgniteStringBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public SBLimitedLength a(float f) {
+    @Override
+    public SBLimitedLength a(float f) {
         if (isOverflowed()) {
             tail.append(f);
             return this;
@@ -234,7 +249,8 @@ class SBLimitedLength extends IgniteStringBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public SBLimitedLength a(double d) {
+    @Override
+    public SBLimitedLength a(double d) {
         if (isOverflowed()) {
             tail.append(d);
             return this;
@@ -246,7 +262,8 @@ class SBLimitedLength extends IgniteStringBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public SBLimitedLength appendCodePoint(int codePoint) {
+    @Override
+    public SBLimitedLength appendCodePoint(int codePoint) {
         if (isOverflowed()) {
             tail.append(codePoint);
             return this;
@@ -258,10 +275,11 @@ class SBLimitedLength extends IgniteStringBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public String toString() {
-        if (tail == null)
+    @Override
+    public String toString() {
+        if (tail == null) {
             return super.toString();
-        else {
+        } else {
             int tailLen = tail.length();
             StringBuilder res = new StringBuilder(impl().capacity() + tailLen + 100);
 
@@ -269,7 +287,7 @@ class SBLimitedLength extends IgniteStringBuilder {
 
             if (tail.getSkipped() > 0) {
                 res.append("... and ").append((tail.getSkipped() + tailLen))
-                    .append(" skipped ...");
+                        .append(" skipped ...");
             }
 
             res.append(tail.toString());

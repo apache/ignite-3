@@ -14,15 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.internal.processors.query.calcite.exec.rel;
+
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.Comparator;
 import java.util.PriorityQueue;
-
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
-
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 /**
  * Sort node.
@@ -34,14 +34,16 @@ public class SortNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
     /** How many rows are we waiting for from the upstream. {@code -1} means end of stream. */
     private int waiting;
 
-    /**  */
+    /**
+     *
+     */
     private boolean inLoop;
 
     /** Rows buffer. */
     private final PriorityQueue<Row> rows;
 
     /**
-     * @param ctx Execution context.
+     * @param ctx  Execution context.
      * @param comp Rows comparator.
      */
     public SortNode(ExecutionContext<Row> ctx, RelDataType rowType, Comparator<Row> comp) {
@@ -51,22 +53,26 @@ public class SortNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
     }
 
     /** {@inheritDoc} */
-    @Override protected void rewindInternal() {
+    @Override
+    protected void rewindInternal() {
         requested = 0;
         waiting = 0;
         rows.clear();
     }
 
     /** {@inheritDoc} */
-    @Override protected Downstream<Row> requestDownstream(int idx) {
-        if (idx != 0)
+    @Override
+    protected Downstream<Row> requestDownstream(int idx) {
+        if (idx != 0) {
             throw new IndexOutOfBoundsException();
+        }
 
         return this;
     }
 
     /** {@inheritDoc} */
-    @Override public void request(int rowsCnt) throws Exception {
+    @Override
+    public void request(int rowsCnt) throws Exception {
         assert !nullOrEmpty(sources()) && sources().size() == 1;
         assert rowsCnt > 0 && requested == 0;
         assert waiting <= 0;
@@ -75,14 +81,16 @@ public class SortNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
 
         requested = rowsCnt;
 
-        if (waiting == 0)
+        if (waiting == 0) {
             source().request(waiting = inBufSize);
-        else if (!inLoop)
+        } else if (!inLoop) {
             context().execute(this::flush, this::onError);
+        }
     }
 
     /** {@inheritDoc} */
-    @Override public void push(Row row) throws Exception {
+    @Override
+    public void push(Row row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
 
@@ -92,12 +100,14 @@ public class SortNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
 
         rows.add(row);
 
-        if (waiting == 0)
+        if (waiting == 0) {
             source().request(waiting = inBufSize);
+        }
     }
 
     /** {@inheritDoc} */
-    @Override public void end() throws Exception {
+    @Override
+    public void end() throws Exception {
         assert downstream() != null;
         assert waiting > 0;
 
@@ -108,10 +118,13 @@ public class SortNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
         flush();
     }
 
-    /** */
+    /**
+     *
+     */
     private void flush() throws Exception {
-        if (isClosed())
+        if (isClosed()) {
             return;
+        }
 
         assert waiting == -1;
 
@@ -135,13 +148,13 @@ public class SortNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
             }
 
             if (rows.isEmpty()) {
-                if (requested > 0)
+                if (requested > 0) {
                     downstream().end();
+                }
 
                 requested = 0;
             }
-        }
-        finally {
+        } finally {
             inLoop = false;
         }
     }

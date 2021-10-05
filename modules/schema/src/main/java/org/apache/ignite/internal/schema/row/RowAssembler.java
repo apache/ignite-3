@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.schema.row;
 
+import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.KEY_FLAGS_OFFSET;
+import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.VAL_FLAGS_OFFSET;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -45,15 +48,12 @@ import org.apache.ignite.internal.schema.NumberNativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.TemporalNativeType;
 
-import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.KEY_FLAGS_OFFSET;
-import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.VAL_FLAGS_OFFSET;
-
 /**
- * Utility class to build rows using column appending pattern. The external user of this class must consult
- * with the schema and provide the columns in strict internal column sort order during the row construction.
+ * Utility class to build rows using column appending pattern. The external user of this class must consult with the schema and provide the
+ * columns in strict internal column sort order during the row construction.
  * <p>
- * Additionally, the user of this class should pre-calculate the resulting row size when possible to avoid
- * unnecessary data copies and allow some size optimizations to be applied.
+ * Additionally, the user of this class should pre-calculate the resulting row size when possible to avoid unnecessary data copies and allow
+ * some size optimizations to be applied.
  * <p>
  * Natively supported temporal types are encoded automatically with preserving sort order before writing.
  *
@@ -124,16 +124,16 @@ public class RowAssembler {
         for (int i = 0, len = seq.length(); i < len; i++) {
             char ch = seq.charAt(i);
 
-            if (ch <= 0x7F)
+            if (ch <= 0x7F) {
                 cnt++;
-            else if (ch <= 0x7FF)
+            } else if (ch <= 0x7FF) {
                 cnt += 2;
-            else if (Character.isHighSurrogate(ch)) {
+            } else if (Character.isHighSurrogate(ch)) {
                 cnt += 4;
                 ++i;
-            }
-            else
+            } else {
                 cnt += 3;
+            }
         }
 
         return cnt;
@@ -143,8 +143,8 @@ public class RowAssembler {
      * Helper method.
      *
      * @param rowAsm Writes column value to assembler.
-     * @param col Column.
-     * @param val Value.
+     * @param col    Column.
+     * @param val    Value.
      */
     public static void writeValue(RowAssembler rowAsm, Column col, Object val) {
         if (val == null) {
@@ -155,82 +155,82 @@ public class RowAssembler {
 
         switch (col.type().spec()) {
             case INT8: {
-                rowAsm.appendByte((byte)val);
+                rowAsm.appendByte((byte) val);
 
                 break;
             }
             case INT16: {
-                rowAsm.appendShort((short)val);
+                rowAsm.appendShort((short) val);
 
                 break;
             }
             case INT32: {
-                rowAsm.appendInt((int)val);
+                rowAsm.appendInt((int) val);
 
                 break;
             }
             case INT64: {
-                rowAsm.appendLong((long)val);
+                rowAsm.appendLong((long) val);
 
                 break;
             }
             case FLOAT: {
-                rowAsm.appendFloat((float)val);
+                rowAsm.appendFloat((float) val);
 
                 break;
             }
             case DOUBLE: {
-                rowAsm.appendDouble((double)val);
+                rowAsm.appendDouble((double) val);
 
                 break;
             }
             case UUID: {
-                rowAsm.appendUuid((UUID)val);
+                rowAsm.appendUuid((UUID) val);
 
                 break;
             }
             case TIME: {
-                rowAsm.appendTime((LocalTime)val);
+                rowAsm.appendTime((LocalTime) val);
 
                 break;
             }
             case DATE: {
-                rowAsm.appendDate((LocalDate)val);
+                rowAsm.appendDate((LocalDate) val);
 
                 break;
             }
             case DATETIME: {
-                rowAsm.appendDateTime((LocalDateTime)val);
+                rowAsm.appendDateTime((LocalDateTime) val);
 
                 break;
             }
             case TIMESTAMP: {
-                rowAsm.appendTimestamp((Instant)val);
+                rowAsm.appendTimestamp((Instant) val);
 
                 break;
             }
             case STRING: {
-                rowAsm.appendString((String)val);
+                rowAsm.appendString((String) val);
 
                 break;
             }
             case BYTES: {
-                rowAsm.appendBytes((byte[])val);
+                rowAsm.appendBytes((byte[]) val);
 
                 break;
             }
             case BITMASK: {
-                rowAsm.appendBitmask((BitSet)val);
+                rowAsm.appendBitmask((BitSet) val);
 
                 break;
             }
             case NUMBER: {
-                rowAsm.appendNumber((BigInteger)val);
+                rowAsm.appendNumber((BigInteger) val);
 
                 break;
             }
             case DECIMAL: {
-                rowAsm.appendDecimal((BigDecimal)val);
+                rowAsm.appendDecimal((BigDecimal) val);
 
                 break;
             }
@@ -258,20 +258,20 @@ public class RowAssembler {
      * <p>
      * RowAssembler will use adaptive buffer size and omit some optimizations for small key/value chunks.
      *
-     * @param schema Row schema.
+     * @param schema               Row schema.
      * @param nonNullVarlenKeyCols Number of non-null varlen columns in key chunk.
      * @param nonNullVarlenValCols Number of non-null varlen columns in value chunk.
      */
     public RowAssembler(
-        SchemaDescriptor schema,
-        int nonNullVarlenKeyCols,
-        int nonNullVarlenValCols
+            SchemaDescriptor schema,
+            int nonNullVarlenKeyCols,
+            int nonNullVarlenValCols
     ) {
         this(schema,
-            0,
-            nonNullVarlenKeyCols,
-            0,
-            nonNullVarlenValCols);
+                0,
+                nonNullVarlenKeyCols,
+                0,
+                nonNullVarlenValCols);
     }
 
     /**
@@ -279,18 +279,18 @@ public class RowAssembler {
      * <p>
      * RowAssembler will apply optimizations based on chunks sizes estimations.
      *
-     * @param schema Row schema.
+     * @param schema        Row schema.
      * @param keyVarlenSize Key payload size. Estimated upper-bound or zero if unknown.
      * @param keyVarlenCols Number of non-null varlen columns in key chunk.
      * @param valVarlenSize Value data size. Estimated upper-bound or zero if unknown.
      * @param valVarlenCols Number of non-null varlen columns in value chunk.
      */
     public RowAssembler(
-        SchemaDescriptor schema,
-        int keyVarlenSize,
-        int keyVarlenCols,
-        int valVarlenSize,
-        int valVarlenCols
+            SchemaDescriptor schema,
+            int keyVarlenSize,
+            int keyVarlenCols,
+            int valVarlenSize,
+            int valVarlenCols
     ) {
         this.schema = schema;
 
@@ -307,13 +307,13 @@ public class RowAssembler {
         final Columns valCols = schema.valueColumns();
 
         int size = BinaryRow.HEADER_SIZE + 2 * BinaryRow.CHUNK_LEN_FLD_SIZE +
-            keyVarlenSize + valVarlenSize +
-            keyVartblLen + valVartblLen +
-            curCols.fixsizeMaxLen() + valCols.fixsizeMaxLen() +
-            curCols.nullMapSize() + valCols.nullMapSize();
+                keyVarlenSize + valVarlenSize +
+                keyVartblLen + valVartblLen +
+                curCols.fixsizeMaxLen() + valCols.fixsizeMaxLen() +
+                curCols.nullMapSize() + valCols.nullMapSize();
 
         buf = new ExpandableByteBuf(size);
-        buf.putShort(0, (short)schema.version());
+        buf.putShort(0, (short) schema.version());
     }
 
     /**
@@ -322,13 +322,16 @@ public class RowAssembler {
      * @return {@code this} for chaining.
      */
     public RowAssembler appendNull() {
-        if (!curCols.column(curCol).nullable())
-            throw new IllegalArgumentException("Failed to set column (null was passed, but column is not nullable): " + curCols.column(curCol));
+        if (!curCols.column(curCol).nullable()) {
+            throw new IllegalArgumentException(
+                    "Failed to set column (null was passed, but column is not nullable): " + curCols.column(curCol));
+        }
 
         setNull(curCol);
 
-        if (isKeyChunk())
+        if (isKeyChunk()) {
             keyHash *= 31;
+        }
 
         shiftColumn(0);
 
@@ -346,8 +349,9 @@ public class RowAssembler {
 
         buf.put(curOff, val);
 
-        if (isKeyChunk())
+        if (isKeyChunk()) {
             keyHash = 31 * keyHash + Byte.hashCode(val);
+        }
 
         shiftColumn(NativeTypes.INT8.sizeInBytes());
 
@@ -365,8 +369,9 @@ public class RowAssembler {
 
         buf.putShort(curOff, val);
 
-        if (isKeyChunk())
+        if (isKeyChunk()) {
             keyHash = 31 * keyHash + Short.hashCode(val);
+        }
 
         shiftColumn(NativeTypes.INT16.sizeInBytes());
 
@@ -384,8 +389,9 @@ public class RowAssembler {
 
         buf.putInt(curOff, val);
 
-        if (isKeyChunk())
+        if (isKeyChunk()) {
             keyHash = 31 * keyHash + Integer.hashCode(val);
+        }
 
         shiftColumn(NativeTypes.INT32.sizeInBytes());
 
@@ -403,8 +409,9 @@ public class RowAssembler {
 
         buf.putLong(curOff, val);
 
-        if (isKeyChunk())
+        if (isKeyChunk()) {
             keyHash = 31 * keyHash + Long.hashCode(val);
+        }
 
         shiftColumn(NativeTypes.INT64.sizeInBytes());
 
@@ -422,8 +429,9 @@ public class RowAssembler {
 
         buf.putFloat(curOff, val);
 
-        if (isKeyChunk())
+        if (isKeyChunk()) {
             keyHash = 31 * keyHash + Float.hashCode(val);
+        }
 
         shiftColumn(NativeTypes.FLOAT.sizeInBytes());
 
@@ -441,8 +449,9 @@ public class RowAssembler {
 
         buf.putDouble(curOff, val);
 
-        if (isKeyChunk())
+        if (isKeyChunk()) {
             keyHash = 31 * keyHash + Double.hashCode(val);
+        }
 
         shiftColumn(NativeTypes.DOUBLE.sizeInBytes());
 
@@ -460,20 +469,22 @@ public class RowAssembler {
 
         Column col = curCols.column(curCol);
 
-        NumberNativeType type = (NumberNativeType)col.type();
+        NumberNativeType type = (NumberNativeType) col.type();
 
         //0 is a magic number for "unlimited precision"
-        if (type.precision() > 0 && new BigDecimal(val).precision() > type.precision())
+        if (type.precision() > 0 && new BigDecimal(val).precision() > type.precision()) {
             throw new IllegalArgumentException("Failed to set number value for column '" + col.name() + "' " +
-                "(max precision exceeds allocated precision) " +
-                "[number=" + val + ", max precision=" + type.precision() + "]");
+                    "(max precision exceeds allocated precision) " +
+                    "[number=" + val + ", max precision=" + type.precision() + "]");
+        }
 
         byte[] bytes = val.toByteArray();
 
         buf.putBytes(curOff, bytes);
 
-        if (isKeyChunk())
+        if (isKeyChunk()) {
             keyHash = 31 * keyHash + Arrays.hashCode(bytes);
+        }
 
         writeVarlenOffset(curVartblEntry, curOff - dataOff);
 
@@ -495,21 +506,23 @@ public class RowAssembler {
 
         Column col = curCols.column(curCol);
 
-        DecimalNativeType type = (DecimalNativeType)col.type();
+        DecimalNativeType type = (DecimalNativeType) col.type();
 
         val = val.setScale(type.scale(), RoundingMode.HALF_UP);
 
-        if (val.precision() > type.precision())
+        if (val.precision() > type.precision()) {
             throw new IllegalArgumentException("Failed to set decimal value for column '" + col.name() + "' " +
-                "(max precision exceeds allocated precision)" +
-                " [decimal=" + val + ", max precision=" + type.precision() + "]");
+                    "(max precision exceeds allocated precision)" +
+                    " [decimal=" + val + ", max precision=" + type.precision() + "]");
+        }
 
         byte[] bytes = val.unscaledValue().toByteArray();
 
         buf.putBytes(curOff, bytes);
 
-        if (isKeyChunk())
+        if (isKeyChunk()) {
             keyHash = 31 * keyHash + Arrays.hashCode(bytes);
+        }
 
         writeVarlenOffset(curVartblEntry, curOff - dataOff);
 
@@ -532,8 +545,9 @@ public class RowAssembler {
         buf.putLong(curOff, uuid.getLeastSignificantBits());
         buf.putLong(curOff + 8, uuid.getMostSignificantBits());
 
-        if (isKeyChunk())
+        if (isKeyChunk()) {
             keyHash = 31 * keyHash + uuid.hashCode();
+        }
 
         shiftColumn(NativeTypes.UUID.sizeInBytes());
 
@@ -556,14 +570,14 @@ public class RowAssembler {
 
             curVartblEntry++;
 
-            if (isKeyChunk())
+            if (isKeyChunk()) {
                 keyHash = 31 * keyHash + val.hashCode();
+            }
 
             shiftColumn(written);
 
             return this;
-        }
-        catch (CharacterCodingException e) {
+        } catch (CharacterCodingException e) {
             throw new AssemblyException("Failed to encode string", e);
         }
     }
@@ -579,8 +593,9 @@ public class RowAssembler {
 
         buf.putBytes(curOff, val);
 
-        if (isKeyChunk())
+        if (isKeyChunk()) {
             keyHash = 31 * keyHash + Arrays.hashCode(val);
+        }
 
         writeVarlenOffset(curVartblEntry, curOff - dataOff);
 
@@ -602,21 +617,24 @@ public class RowAssembler {
 
         checkType(NativeTypeSpec.BITMASK);
 
-        BitmaskNativeType maskType = (BitmaskNativeType)col.type();
+        BitmaskNativeType maskType = (BitmaskNativeType) col.type();
 
-        if (bitSet.length() > maskType.bits())
+        if (bitSet.length() > maskType.bits()) {
             throw new IllegalArgumentException("Failed to set bitmask for column '" + col.name() + "' " +
-                "(mask size exceeds allocated size) [mask=" + bitSet + ", maxSize=" + maskType.bits() + "]");
+                    "(mask size exceeds allocated size) [mask=" + bitSet + ", maxSize=" + maskType.bits() + "]");
+        }
 
         byte[] arr = bitSet.toByteArray();
 
         buf.putBytes(curOff, arr);
 
-        for (int i = 0; i < maskType.sizeInBytes() - arr.length; i++)
-            buf.put(curOff + arr.length + i, (byte)0);
+        for (int i = 0; i < maskType.sizeInBytes() - arr.length; i++) {
+            buf.put(curOff + arr.length + i, (byte) 0);
+        }
 
-        if (isKeyChunk())
+        if (isKeyChunk()) {
             keyHash = 31 * keyHash + bitSet.hashCode();
+        }
 
         shiftColumn(maskType.sizeInBytes());
 
@@ -636,8 +654,9 @@ public class RowAssembler {
 
         writeDate(curOff, date);
 
-        if (isKeyChunk())
+        if (isKeyChunk()) {
             keyHash += 31 * keyHash + val.hashCode();
+        }
 
         shiftColumn(NativeTypes.DATE.sizeInBytes());
 
@@ -653,12 +672,13 @@ public class RowAssembler {
     public RowAssembler appendTime(LocalTime val) {
         checkType(NativeTypeSpec.TIME);
 
-        TemporalNativeType type = (TemporalNativeType)curCols.column(curCol).type();
+        TemporalNativeType type = (TemporalNativeType) curCols.column(curCol).type();
 
         writeTime(buf, curOff, val, type);
 
-        if (isKeyChunk())
+        if (isKeyChunk()) {
             keyHash += 31 * keyHash + val.hashCode();
+        }
 
         shiftColumn(type.sizeInBytes());
 
@@ -674,15 +694,16 @@ public class RowAssembler {
     public RowAssembler appendDateTime(LocalDateTime val) {
         checkType(NativeTypeSpec.DATETIME);
 
-        TemporalNativeType type = (TemporalNativeType)curCols.column(curCol).type();
+        TemporalNativeType type = (TemporalNativeType) curCols.column(curCol).type();
 
         int date = TemporalTypesHelper.encodeDate(val.toLocalDate());
 
         writeDate(curOff, date);
         writeTime(buf, curOff + 3, val.toLocalTime(), type);
 
-        if (isKeyChunk())
+        if (isKeyChunk()) {
             keyHash += 31 * keyHash + val.hashCode();
+        }
 
         shiftColumn(type.sizeInBytes());
 
@@ -698,7 +719,7 @@ public class RowAssembler {
     public RowAssembler appendTimestamp(Instant val) {
         checkType(NativeTypeSpec.TIMESTAMP);
 
-        TemporalNativeType type = (TemporalNativeType)curCols.column(curCol).type();
+        TemporalNativeType type = (TemporalNativeType) curCols.column(curCol).type();
 
         long seconds = val.getEpochSecond();
         int nanos = TemporalTypesHelper.normalizeNanos(val.getNano(), type.precision());
@@ -706,7 +727,9 @@ public class RowAssembler {
         buf.putLong(curOff, seconds);
 
         if (type.precision() != 0) // Write only meaningful bytes.
+        {
             buf.putInt(curOff + 8, nanos);
+        }
 
         if (isKeyChunk()) {
             keyHash += 31 * keyHash + Long.hashCode(seconds);
@@ -740,15 +763,15 @@ public class RowAssembler {
      * Finish building row.
      */
     private void flush() {
-        if (schema.keyColumns() == curCols)
+        if (schema.keyColumns() == curCols) {
             throw new AssemblyException("Key column missed: colIdx=" + curCol);
-        else {
+        } else {
             if (curCol == 0) {
                 flags &= ~(RowFlags.CHUNK_FLAGS_MASK << VAL_FLAGS_OFFSET);
                 flags |= RowFlags.NO_VALUE_FLAG;
-            }
-            else if (schema.valueColumns().length() != curCol)
+            } else if (schema.valueColumns().length() != curCol) {
                 throw new AssemblyException("Value column missed: colIdx=" + curCol);
+            }
         }
 
         buf.putShort(BinaryRow.FLAGS_FIELD_OFFSET, flags);
@@ -759,8 +782,9 @@ public class RowAssembler {
      * @return UTF-8 string encoder.
      */
     private CharsetEncoder encoder() {
-        if (strEncoder == null)
+        if (strEncoder == null) {
             strEncoder = StandardCharsets.UTF_8.newEncoder();
+        }
 
         return strEncoder;
     }
@@ -769,11 +793,12 @@ public class RowAssembler {
      * Writes the given offset to the varlen table entry with the given index.
      *
      * @param entryIdx Vartable entry index.
-     * @param off Offset to write.
+     * @param off      Offset to write.
      */
     private void writeVarlenOffset(int entryIdx, int off) {
-        if (entryIdx == 0)
+        if (entryIdx == 0) {
             return; // Omit offset for very first varlen.
+        }
 
         buf.putInt(varTblOff + Short.BYTES + (entryIdx - 1) * Integer.BYTES, off);
     }
@@ -781,20 +806,20 @@ public class RowAssembler {
     /**
      * Writes date.
      *
-     * @param off Offset.
+     * @param off  Offset.
      * @param date Compacted date.
      */
     private void writeDate(int off, int date) {
-        buf.putShort(off, (short)(date >>> 8));
-        buf.put(off + 2, (byte)(date & 0xFF));
+        buf.putShort(off, (short) (date >>> 8));
+        buf.put(off + 2, (byte) (date & 0xFF));
     }
 
     /**
      * Writes time.
      *
      * @param buf
-     * @param off Offset.
-     * @param val Time.
+     * @param off  Offset.
+     * @param val  Time.
      * @param type Native type.
      */
     static void writeTime(ExpandableByteBuf buf, int off, LocalTime val, TemporalNativeType type) {
@@ -803,13 +828,12 @@ public class RowAssembler {
         if (type.precision() > 3) {
             time = ((time >>> 32) << TemporalTypesHelper.NANOSECOND_PART_LEN) | (time & TemporalTypesHelper.NANOSECOND_PART_MASK);
 
-            buf.putInt(off, (int)(time >>> 16));
-            buf.putShort(off + 4, (short)(time & 0xFFFF_FFFFL));
-        }
-        else {
+            buf.putInt(off, (int) (time >>> 16));
+            buf.putShort(off + 4, (short) (time & 0xFFFF_FFFFL));
+        } else {
             time = ((time >>> 32) << TemporalTypesHelper.MILLISECOND_PART_LEN) | (time & TemporalTypesHelper.MILLISECOND_PART_MASK);
 
-            buf.putInt(off, (int)time);
+            buf.putInt(off, (int) time);
         }
     }
 
@@ -821,9 +845,10 @@ public class RowAssembler {
     private void checkType(NativeTypeSpec type) {
         Column col = curCols.column(curCol);
 
-        if (col.type().spec() != type)
+        if (col.type().spec() != type) {
             throw new IllegalArgumentException("Failed to set column (int was passed, but column is of different " +
-                "type): " + col);
+                    "type): " + col);
+        }
     }
 
     /**
@@ -848,19 +873,19 @@ public class RowAssembler {
 
         buf.ensureCapacity(nullMapOff + byteInMap + 1);
 
-        buf.put(nullMapOff + byteInMap, (byte)((Byte.toUnsignedInt(buf.get(nullMapOff + byteInMap))) | (1 << bitInByte)));
+        buf.put(nullMapOff + byteInMap, (byte) ((Byte.toUnsignedInt(buf.get(nullMapOff + byteInMap))) | (1 << bitInByte)));
     }
 
     /**
-     * Shifts current column indexes as necessary, also
-     * switch to value chunk writer when moving from key to value columns.
+     * Shifts current column indexes as necessary, also switch to value chunk writer when moving from key to value columns.
      */
     private void shiftColumn(int size) {
         curCol++;
         curOff += size;
 
-        if (curCol == curCols.length())
+        if (curCol == curCols.length()) {
             finishChunk();
+        }
     }
 
     /**
@@ -883,8 +908,9 @@ public class RowAssembler {
 
         buf.putInt(baseOff, chunkLen);
 
-        if (schema.keyColumns() == curCols)
+        if (schema.keyColumns() == curCols) {
             switchToValuChunk(BinaryRow.HEADER_SIZE + chunkLen);
+        }
     }
 
     /**
@@ -902,9 +928,9 @@ public class RowAssembler {
     /**
      * Init chunk offsets and flags.
      *
-     * @param baseOff Chunk base offset.
+     * @param baseOff    Chunk base offset.
      * @param nullMapLen Null-map length in bytes.
-     * @param vartblLen Vartable length in bytes.
+     * @param vartblLen  Vartable length in bytes.
      */
     private void initChunk(int baseOff, int nullMapLen, int vartblLen) {
         this.baseOff = baseOff;
@@ -917,11 +943,13 @@ public class RowAssembler {
 
         int flags = 0;
 
-        if (nullMapLen == 0)
+        if (nullMapLen == 0) {
             flags |= VarTableFormat.OMIT_NULL_MAP_FLAG;
+        }
 
-        if (vartblLen == 0)
+        if (vartblLen == 0) {
             flags |= VarTableFormat.OMIT_VARTBL_FLAG;
+        }
 
         this.flags |= flags << (isKeyChunk() ? KEY_FLAGS_OFFSET : VAL_FLAGS_OFFSET);
     }

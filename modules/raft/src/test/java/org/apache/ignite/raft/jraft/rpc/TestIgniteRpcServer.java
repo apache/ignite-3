@@ -28,18 +28,18 @@ import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
  */
 public class TestIgniteRpcServer extends IgniteRpcServer {
     /**
-     * @param clusterService Cluster service.
-     * @param nodeManager Node manager.
-     * @param nodeOptions Node options.
+     * @param clusterService  Cluster service.
+     * @param nodeManager     Node manager.
+     * @param nodeOptions     Node options.
      * @param requestExecutor Requests executor.
      */
     public TestIgniteRpcServer(ClusterService clusterService, NodeManager nodeManager, NodeOptions nodeOptions,
-        ExecutorService requestExecutor) {
+            ExecutorService requestExecutor) {
         super(
-            clusterService,
-            nodeManager,
-            nodeOptions.getRaftMessagesFactory(),
-            requestExecutor
+                clusterService,
+                nodeManager,
+                nodeOptions.getRaftMessagesFactory(),
+                requestExecutor
         );
 
         clusterService.messagingService().addMessageHandler(TestMessageGroup.class, new RpcMessageHandler());

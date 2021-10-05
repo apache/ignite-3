@@ -32,13 +32,17 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class RocksDbStorageTest extends AbstractStorageTest {
-    /** */
+    /**
+     *
+     */
     @BeforeEach
     public void setUp(@WorkDirectory Path workDir) {
         storage = new RocksDbStorage(workDir, ByteBuffer::compareTo);
     }
 
-    /** */
+    /**
+     *
+     */
     @AfterEach
     public void tearDown() throws Exception {
         IgniteUtils.closeAll(storage);

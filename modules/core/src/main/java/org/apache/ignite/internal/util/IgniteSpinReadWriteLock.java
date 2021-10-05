@@ -24,10 +24,14 @@ import org.apache.ignite.internal.tostring.S;
  * Spin read-write lock.
  */
 public class IgniteSpinReadWriteLock {
-    /** */
+    /**
+     *
+     */
     private static final long PENDING_WLOCKS_OFFS;
 
-    /** */
+    /**
+     *
+     */
     private static final long STATE_OFFS;
 
     /**
@@ -38,30 +42,40 @@ public class IgniteSpinReadWriteLock {
             STATE_OFFS = GridUnsafe.objectFieldOffset(IgniteSpinReadWriteLock.class.getDeclaredField("state"));
 
             PENDING_WLOCKS_OFFS =
-                GridUnsafe.objectFieldOffset(IgniteSpinReadWriteLock.class.getDeclaredField("pendingWLocks"));
-        }
-        catch (NoSuchFieldException e) {
+                    GridUnsafe.objectFieldOffset(IgniteSpinReadWriteLock.class.getDeclaredField("pendingWLocks"));
+        } catch (NoSuchFieldException e) {
             throw new Error(e);
         }
     }
 
-    /** */
+    /**
+     *
+     */
     private final ThreadLocal<Integer> readLockEntryCnt = new ThreadLocal<Integer>() {
-        @Override protected Integer initialValue() {
+        @Override
+        protected Integer initialValue() {
             return 0;
         }
     };
 
-    /** */
+    /**
+     *
+     */
     private volatile int state;
 
-    /** */
+    /**
+     *
+     */
     private volatile int pendingWLocks;
 
-    /** */
+    /**
+     *
+     */
     private long writeLockOwner = -1;
 
-    /** */
+    /**
+     *
+     */
     private int writeLockEntryCnt;
 
     /**
@@ -90,8 +104,7 @@ public class IgniteSpinReadWriteLock {
             if (cur == -1 || pendingWLocks > 0) {
                 try {
                     Thread.sleep(10);
-                }
-                catch (InterruptedException ignored) {
+                } catch (InterruptedException ignored) {
                     interrupted = true;
                 }
 
@@ -99,8 +112,9 @@ public class IgniteSpinReadWriteLock {
             }
 
             if (compareAndSet(STATE_OFFS, cur, cur + 1)) {
-                if (interrupted)
+                if (interrupted) {
                     Thread.currentThread().interrupt();
+                }
 
                 break;
             }
@@ -129,8 +143,9 @@ public class IgniteSpinReadWriteLock {
         while (true) {
             int cur = state;
 
-            if (cur == -1 || pendingWLocks > 0)
+            if (cur == -1 || pendingWLocks > 0) {
                 return false;
+            }
 
             if (compareAndSet(STATE_OFFS, cur, cur + 1)) {
                 readLockEntryCnt.set(1);
@@ -146,8 +161,9 @@ public class IgniteSpinReadWriteLock {
     public void readUnlock() {
         int cnt = readLockEntryCnt.get();
 
-        if (cnt == 0)
+        if (cnt == 0) {
             throw new IllegalMonitorStateException();
+        }
 
         // Read unlock when holding write lock is performed here.
         if (cnt > 1 || Thread.currentThread().getId() == writeLockOwner) {
@@ -190,8 +206,9 @@ public class IgniteSpinReadWriteLock {
         while (true) {
             int pendingWLocks0 = pendingWLocks;
 
-            if (compareAndSet(PENDING_WLOCKS_OFFS, pendingWLocks0, pendingWLocks0 + 1))
+            if (compareAndSet(PENDING_WLOCKS_OFFS, pendingWLocks0, pendingWLocks0 + 1)) {
                 break;
+            }
         }
 
         boolean interrupted = false;
@@ -199,8 +216,7 @@ public class IgniteSpinReadWriteLock {
         while (!compareAndSet(STATE_OFFS, 0, -1)) {
             try {
                 Thread.sleep(10);
-            }
-            catch (InterruptedException ignored) {
+            } catch (InterruptedException ignored) {
                 interrupted = true;
             }
         }
@@ -211,12 +227,14 @@ public class IgniteSpinReadWriteLock {
 
             assert pendingWLocks0 > 0;
 
-            if (compareAndSet(PENDING_WLOCKS_OFFS, pendingWLocks0, pendingWLocks0 - 1))
+            if (compareAndSet(PENDING_WLOCKS_OFFS, pendingWLocks0, pendingWLocks0 - 1)) {
                 break;
+            }
         }
 
-        if (interrupted)
+        if (interrupted) {
             Thread.currentThread().interrupt();
+        }
 
         assert writeLockOwner == -1;
 
@@ -242,13 +260,15 @@ public class IgniteSpinReadWriteLock {
         while (true) {
             int pendingWLocks0 = pendingWLocks;
 
-            if (compareAndSet(PENDING_WLOCKS_OFFS, pendingWLocks0, pendingWLocks0 + 1))
+            if (compareAndSet(PENDING_WLOCKS_OFFS, pendingWLocks0, pendingWLocks0 + 1)) {
                 break;
+            }
         }
 
-        for (;;) {
-            if (compareAndSet(STATE_OFFS, 0, -1))
+        for (; ; ) {
+            if (compareAndSet(STATE_OFFS, 0, -1)) {
                 break;
+            }
         }
 
         // Decrement pending write locks.
@@ -257,8 +277,9 @@ public class IgniteSpinReadWriteLock {
 
             assert pendingWLocks0 > 0;
 
-            if (compareAndSet(PENDING_WLOCKS_OFFS, pendingWLocks0, pendingWLocks0 - 1))
+            if (compareAndSet(PENDING_WLOCKS_OFFS, pendingWLocks0, pendingWLocks0 - 1)) {
                 break;
+            }
         }
 
         assert writeLockOwner == -1;
@@ -304,7 +325,7 @@ public class IgniteSpinReadWriteLock {
 
     /**
      * @param timeout Timeout.
-     * @param unit Unit.
+     * @param unit    Unit.
      * @return {@code True} if write lock has been acquired.
      * @throws InterruptedException If interrupted.
      */
@@ -325,8 +346,9 @@ public class IgniteSpinReadWriteLock {
             while (true) {
                 int pendingWLocks0 = pendingWLocks;
 
-                if (compareAndSet(PENDING_WLOCKS_OFFS, pendingWLocks0, pendingWLocks0 + 1))
+                if (compareAndSet(PENDING_WLOCKS_OFFS, pendingWLocks0, pendingWLocks0 + 1)) {
                     break;
+                }
             }
 
             long startNanos = System.nanoTime();
@@ -345,19 +367,20 @@ public class IgniteSpinReadWriteLock {
 
                 Thread.sleep(10);
 
-                if (System.nanoTime() - startNanos >= timeoutNanos)
+                if (System.nanoTime() - startNanos >= timeoutNanos) {
                     return false;
+                }
             }
-        }
-        finally {
+        } finally {
             // Decrement pending write locks.
             while (true) {
                 int pendingWLocks0 = pendingWLocks;
 
                 assert pendingWLocks0 > 0;
 
-                if (compareAndSet(PENDING_WLOCKS_OFFS, pendingWLocks0, pendingWLocks0 - 1))
+                if (compareAndSet(PENDING_WLOCKS_OFFS, pendingWLocks0, pendingWLocks0 - 1)) {
                     break;
+                }
             }
         }
     }
@@ -368,8 +391,9 @@ public class IgniteSpinReadWriteLock {
     public void writeUnlock() {
         long threadId = Thread.currentThread().getId();
 
-        if (threadId != writeLockOwner)
+        if (threadId != writeLockOwner) {
             throw new IllegalMonitorStateException();
+        }
 
         if (writeLockEntryCnt > 1) {
             writeLockEntryCnt--;
@@ -390,7 +414,7 @@ public class IgniteSpinReadWriteLock {
     }
 
     /**
-     * @param offs Offset.
+     * @param offs   Offset.
      * @param expect Expected.
      * @param update Update.
      * @return {@code True} on success.
@@ -400,7 +424,8 @@ public class IgniteSpinReadWriteLock {
     }
 
     /** {@inheritDoc} */
-    @Override public String toString() {
+    @Override
+    public String toString() {
         return S.toString(IgniteSpinReadWriteLock.class, this);
     }
 }

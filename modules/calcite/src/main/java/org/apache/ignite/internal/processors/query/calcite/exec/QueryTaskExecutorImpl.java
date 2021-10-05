@@ -23,15 +23,23 @@ import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
 
-/** */
+/**
+ *
+ */
 public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.UncaughtExceptionHandler {
-    /** */
+    /**
+     *
+     */
     private static final IgniteLogger LOG = IgniteLogger.forClass(QueryTaskExecutorImpl.class);
 
-    /** */
+    /**
+     *
+     */
     private final StripedThreadPoolExecutor stripedThreadPoolExecutor;
 
-    /** */
+    /**
+     *
+     */
     private Thread.UncaughtExceptionHandler eHnd;
 
     /**
@@ -49,29 +57,30 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
     }
 
     /** {@inheritDoc} */
-    @Override public void execute(UUID qryId, long fragmentId, Runnable qryTask) {
+    @Override
+    public void execute(UUID qryId, long fragmentId, Runnable qryTask) {
         stripedThreadPoolExecutor.execute(
-            () -> {
-                try {
-                    qryTask.run();
-                }
-                catch (Throwable e) {
-                    LOG.warn("Uncaught exception", e);
+                () -> {
+                    try {
+                        qryTask.run();
+                    } catch (Throwable e) {
+                        LOG.warn("Uncaught exception", e);
 
-                    /*
-                     * No exceptions are rethrown here to preserve the current thread from being destroyed,
-                     * because other queries may be pinned to the current thread id.
-                     * However, unrecoverable errors must be processed by FailureHandler.
-                     */
-                    uncaughtException(Thread.currentThread(), e);
-                }
-            },
-            hash(qryId, fragmentId)
+                        /*
+                         * No exceptions are rethrown here to preserve the current thread from being destroyed,
+                         * because other queries may be pinned to the current thread id.
+                         * However, unrecoverable errors must be processed by FailureHandler.
+                         */
+                        uncaughtException(Thread.currentThread(), e);
+                    }
+                },
+                hash(qryId, fragmentId)
         );
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<?> submit(UUID qryId, long fragmentId, Runnable qryTask) {
+    @Override
+    public CompletableFuture<?> submit(UUID qryId, long fragmentId, Runnable qryTask) {
         return stripedThreadPoolExecutor.submit(qryTask, hash(qryId, fragmentId));
     }
 
@@ -81,12 +90,16 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
     }
 
     /** {@inheritDoc} */
-    @Override public void uncaughtException(Thread t, Throwable e) {
-        if (eHnd != null)
+    @Override
+    public void uncaughtException(Thread t, Throwable e) {
+        if (eHnd != null) {
             eHnd.uncaughtException(t, e);
+        }
     }
 
-    /** */
+    /**
+     *
+     */
     private static int hash(UUID qryId, long fragmentId) {
         // inlined Objects.hash(...)
         return IgniteUtils.safeAbs(31 * (31 + (qryId != null ? qryId.hashCode() : 0)) + Long.hashCode(fragmentId));

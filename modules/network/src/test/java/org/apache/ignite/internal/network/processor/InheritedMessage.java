@@ -22,21 +22,33 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TestMessageTypes;
 import org.apache.ignite.network.annotations.Transferable;
 
-/** */
+/**
+ *
+ */
 interface NetworkMessage1 extends NetworkMessage {
-    /** */
+    /**
+     *
+     */
     int y();
 }
 
-/** */
+/**
+ *
+ */
 interface NetworkMessage2 extends NetworkMessage1, Serializable {
-    /** */
+    /**
+     *
+     */
     int x();
 }
 
-/** */
+/**
+ *
+ */
 @Transferable(TestMessageTypes.INHERITED_MESSAGE)
 public interface InheritedMessage extends NetworkMessage2 {
-    /** */
+    /**
+     *
+     */
     int z();
 }

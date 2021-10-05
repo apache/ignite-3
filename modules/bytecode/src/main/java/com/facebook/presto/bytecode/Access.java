@@ -17,9 +17,6 @@
 
 package com.facebook.presto.bytecode;
 
-import java.util.EnumSet;
-import java.util.List;
-
 import static java.util.Locale.ENGLISH;
 import static org.objectweb.asm.Opcodes.ACC_ABSTRACT;
 import static org.objectweb.asm.Opcodes.ACC_ANNOTATION;
@@ -39,6 +36,9 @@ import static org.objectweb.asm.Opcodes.ACC_SYNTHETIC;
 import static org.objectweb.asm.Opcodes.ACC_TRANSIENT;
 import static org.objectweb.asm.Opcodes.ACC_VARARGS;
 import static org.objectweb.asm.Opcodes.ACC_VOLATILE;
+
+import java.util.EnumSet;
+import java.util.List;
 
 public enum Access {
     PUBLIC(ACC_PUBLIC),

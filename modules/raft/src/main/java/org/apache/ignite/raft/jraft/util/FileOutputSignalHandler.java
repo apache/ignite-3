@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
 
 import java.io.File;
@@ -42,8 +43,7 @@ public abstract class FileOutputSignalHandler implements JRaftSignalHandler {
         final File dir = Paths.get(path).toFile().getAbsoluteFile();
         if (dir.exists()) {
             Requires.requireTrue(dir.isDirectory(), String.format("[%s] is not directory.", path));
-        }
-        else {
+        } else {
             dir.mkdirs();
         }
     }

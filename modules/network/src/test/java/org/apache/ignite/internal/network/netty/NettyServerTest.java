@@ -17,9 +17,14 @@
 
 package org.apache.ignite.internal.network.netty;
 
-import java.nio.channels.ClosedChannelException;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyShort;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
@@ -32,6 +37,9 @@ import io.netty.channel.ServerChannel;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import java.nio.channels.ClosedChannelException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.network.handshake.HandshakeAction;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -46,14 +54,6 @@ import org.mockito.InOrder;
 import org.mockito.Mockito;
 import org.mockito.verification.VerificationMode;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyShort;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 /**
  * Tests for {@link NettyServer}.
  */
@@ -61,7 +61,9 @@ public class NettyServerTest {
     /** Server. */
     private NettyServer server;
 
-    /** */
+    /**
+     *
+     */
     @AfterEach
     final void tearDown() {
         server.stop().join();
@@ -184,38 +186,44 @@ public class NettyServerTest {
         MessageSerializationRegistry registry = mock(MessageSerializationRegistry.class);
 
         when(registry.createDeserializer(anyShort(), anyShort()))
-            .thenReturn(new MessageDeserializer<>() {
-                /** {@inheritDoc} */
-                @Override public boolean readMessage(MessageReader reader) throws MessageMappingException {
-                    return true;
-                }
+                .thenReturn(new MessageDeserializer<>() {
+                    /** {@inheritDoc} */
+                    @Override
+                    public boolean readMessage(MessageReader reader) throws MessageMappingException {
+                        return true;
+                    }
 
-                /** {@inheritDoc} */
-                @Override public Class<NetworkMessage> klass() {
-                    return NetworkMessage.class;
-                }
+                    /** {@inheritDoc} */
+                    @Override
+                    public Class<NetworkMessage> klass() {
+                        return NetworkMessage.class;
+                    }
 
-                /** {@inheritDoc} */
-                @Override public NetworkMessage getMessage() {
-                    return mock(NetworkMessage.class);
-                }
-            });
+                    /** {@inheritDoc} */
+                    @Override
+                    public NetworkMessage getMessage() {
+                        return mock(NetworkMessage.class);
+                    }
+                });
 
-        server = new NettyServer(4000, () -> handshakeManager, sender -> {}, (socketAddress, message) -> {}, registry);
+        server = new NettyServer(4000, () -> handshakeManager, sender -> {
+        }, (socketAddress, message) -> {
+        }, registry);
 
         server.start().get(3, TimeUnit.SECONDS);
 
         CompletableFuture<Channel> connectFut = NettyUtils.toChannelCompletableFuture(
-            new Bootstrap()
-                .channel(NioSocketChannel.class)
-                .group(new NioEventLoopGroup())
-                .handler(new ChannelInitializer<>() {
-                    /** {@inheritDoc} */
-                    @Override protected void initChannel(Channel ch) throws Exception {
-                        // No-op.
-                    }
-                })
-                .connect(server.address())
+                new Bootstrap()
+                        .channel(NioSocketChannel.class)
+                        .group(new NioEventLoopGroup())
+                        .handler(new ChannelInitializer<>() {
+                            /** {@inheritDoc} */
+                            @Override
+                            protected void initChannel(Channel ch) throws Exception {
+                                // No-op.
+                            }
+                        })
+                        .connect(server.address())
         );
 
         Channel channel = connectFut.get(3, TimeUnit.SECONDS);
@@ -223,8 +231,9 @@ public class NettyServerTest {
         ByteBuf buffer = ByteBufAllocator.DEFAULT.buffer();
 
         // One message only.
-        for (int i = 0; i < (NetworkMessage.MSG_TYPE_SIZE_BYTES + 1); i++)
+        for (int i = 0; i < (NetworkMessage.MSG_TYPE_SIZE_BYTES + 1); i++) {
             buffer.writeByte(1);
+        }
 
         channel.writeAndFlush(buffer).get(3, TimeUnit.SECONDS);
 
@@ -248,7 +257,7 @@ public class NettyServerTest {
     /**
      * Creates a server from a backing {@link ChannelFuture}.
      *
-     * @param future Server channel future.
+     * @param future      Server channel future.
      * @param shouldStart {@code true} if a server should start successfully
      * @return NettyServer.
      * @throws Exception If failed.
@@ -262,10 +271,10 @@ public class NettyServerTest {
 
         try {
             server.start().get(3, TimeUnit.SECONDS);
-        }
-        catch (Exception e) {
-            if (shouldStart)
+        } catch (Exception e) {
+            if (shouldStart) {
                 fail(e);
+            }
         }
 
         return server;

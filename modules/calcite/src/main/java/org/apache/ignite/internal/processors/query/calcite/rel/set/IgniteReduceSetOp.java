@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.processors.query.calcite.rel.set;
 
-import java.util.List;
-
 import com.google.common.collect.ImmutableList;
+import java.util.List;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.processors.query.calcite.exec.exp.agg.AggregateType;
@@ -33,43 +32,49 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
  */
 public interface IgniteReduceSetOp extends IgniteSetOp {
     /** {@inheritDoc} */
-    @Override public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(
-        RelTraitSet nodeTraits,
-        List<RelTraitSet> inputTraits
+    @Override
+    public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(
+            RelTraitSet nodeTraits,
+            List<RelTraitSet> inputTraits
     ) {
         return ImmutableList.of(
-            Pair.of(nodeTraits.replace(RewindabilityTrait.ONE_WAY), ImmutableList.of(inputTraits.get(0))));
+                Pair.of(nodeTraits.replace(RewindabilityTrait.ONE_WAY), ImmutableList.of(inputTraits.get(0))));
     }
 
     /** {@inheritDoc} */
-    @Override public default Pair<RelTraitSet, List<RelTraitSet>> passThroughDistribution(RelTraitSet nodeTraits,
-        List<RelTraitSet> inTraits) {
-        if (TraitUtils.distribution(nodeTraits) == IgniteDistributions.single())
+    @Override
+    public default Pair<RelTraitSet, List<RelTraitSet>> passThroughDistribution(RelTraitSet nodeTraits,
+            List<RelTraitSet> inTraits) {
+        if (TraitUtils.distribution(nodeTraits) == IgniteDistributions.single()) {
             return Pair.of(nodeTraits, Commons.transform(inTraits, t -> t.replace(IgniteDistributions.single())));
+        }
 
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(
-        RelTraitSet nodeTraits,
-        List<RelTraitSet> inputTraits
+    @Override
+    public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(
+            RelTraitSet nodeTraits,
+            List<RelTraitSet> inputTraits
     ) {
         return ImmutableList.of(Pair.of(nodeTraits.replace(IgniteDistributions.single()),
-            ImmutableList.of(inputTraits.get(0).replace(IgniteDistributions.single()))));
+                ImmutableList.of(inputTraits.get(0).replace(IgniteDistributions.single()))));
     }
 
     /** {@inheritDoc} */
-    @Override public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(
-        RelTraitSet nodeTraits,
-        List<RelTraitSet> inTraits
+    @Override
+    public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(
+            RelTraitSet nodeTraits,
+            List<RelTraitSet> inTraits
     ) {
         return ImmutableList.of(Pair.of(nodeTraits.replace(TraitUtils.correlation(inTraits.get(0))),
-            inTraits));
+                inTraits));
     }
 
     /** {@inheritDoc} */
-    @Override public default AggregateType aggregateType() {
+    @Override
+    public default AggregateType aggregateType() {
         return AggregateType.REDUCE;
     }
 }

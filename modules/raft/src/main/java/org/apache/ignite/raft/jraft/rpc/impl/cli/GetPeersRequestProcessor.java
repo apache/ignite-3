@@ -14,7 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
+
+import static java.util.stream.Collectors.toList;
 
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -22,8 +25,6 @@ import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.GetPeersRequest;
 import org.apache.ignite.raft.jraft.rpc.Message;
-
-import static java.util.stream.Collectors.toList;
 
 /**
  * Process get all peers of the replication group request.
@@ -46,22 +47,21 @@ public class GetPeersRequestProcessor extends BaseCliRequestProcessor<GetPeersRe
 
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final GetPeersRequest request,
-        final IgniteCliRpcRequestClosure done) {
+            final IgniteCliRpcRequestClosure done) {
         final List<PeerId> peers;
         final List<PeerId> learners;
         if (request.onlyAlive()) {
             peers = ctx.node.listAlivePeers();
             learners = ctx.node.listAliveLearners();
-        }
-        else {
+        } else {
             peers = ctx.node.listPeers();
             learners = ctx.node.listLearners();
         }
 
         return msgFactory().getPeersResponse()
-            .peersList(peers.stream().map(Object::toString).collect(toList()))
-            .learnersList(learners.stream().map(Object::toString).collect(toList()))
-            .build();
+                .peersList(peers.stream().map(Object::toString).collect(toList()))
+                .learnersList(learners.stream().map(Object::toString).collect(toList()))
+                .build();
     }
 
     @Override

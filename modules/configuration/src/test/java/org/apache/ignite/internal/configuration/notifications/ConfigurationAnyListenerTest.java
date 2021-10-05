@@ -17,6 +17,21 @@
 
 package org.apache.ignite.internal.configuration.notifications;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.checkContainsListeners;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.checkEqualsListeners;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configListener;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnCreate;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnDelete;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnRename;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnUpdate;
+import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.doNothingConsumer;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -35,21 +50,6 @@ import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
-import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.checkContainsListeners;
-import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.checkEqualsListeners;
-import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configListener;
-import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnCreate;
-import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnDelete;
-import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnRename;
-import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnUpdate;
-import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.doNothingConsumer;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Class for testing notification of listeners for a {@link NamedConfigurationTree#any}.
@@ -106,14 +106,16 @@ public class ConfigurationAnyListenerTest {
     /** Notification events. */
     private final List<String> events = new ArrayList<>();
 
-    /** */
+    /**
+     *
+     */
     @BeforeEach
     public void before() throws Exception {
         registry = new ConfigurationRegistry(
-            List.of(RootConfiguration.KEY),
-            Map.of(),
-            new TestConfigurationStorage(LOCAL),
-            List.of()
+                List.of(RootConfiguration.KEY),
+                Map.of(),
+                new TestConfigurationStorage(LOCAL),
+                List.of()
         );
 
         registry.start();
@@ -185,13 +187,17 @@ public class ConfigurationAnyListenerTest {
         childCfg.elements2().any().i().listen(configListener(ctx -> events.add("root.elements.0.elements2.any.i")));
     }
 
-    /** */
+    /**
+     *
+     */
     @AfterEach
     public void after() {
         registry.stop();
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testNoGetOrUpdateConfigValueForAny() throws Exception {
         FirstSubConfiguration any0 = rootConfig.elements().any();
@@ -231,275 +237,289 @@ public class ConfigurationAnyListenerTest {
         assertThrows(ConfigurationListenOnlyException.class, () -> any2.i().update(300));
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testNoAnyListenerNotification() throws Exception {
         checkEqualsListeners(
-            () -> rootConfig.child().change(c -> c.changeStr("x").changeChild2(c0 -> c0.changeI(100))),
-            List.of(
-                "root",
-                "root.child",
-                "root.child.str",
-                "root.child.child2",
-                "root.child.child2.i"
-            ),
-            events
+                () -> rootConfig.child().change(c -> c.changeStr("x").changeChild2(c0 -> c0.changeI(100))),
+                List.of(
+                        "root",
+                        "root.child",
+                        "root.child.str",
+                        "root.child.child2",
+                        "root.child.child2.i"
+                ),
+                events
         );
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testAnyListenerNotificationOnCreate() throws Exception {
         checkEqualsListeners(
-            () -> rootConfig.elements()
-                .change(c -> c.create("1", c0 -> c0.changeElements2(c1 -> c1.create("2", doNothingConsumer())))),
-            List.of(
-                "root",
-                "root.elements",
-                "root.elements.onCrt",
-                //
-                "root.elements.any",
-                "root.elements.any.str",
-                //
-                "root.elements.any.child2",
-                "root.elements.any.child2.i",
-                //
-                "root.elements.any.elements2",
-                "root.elements.any.elements2.onCrt",
-                "root.elements.any.elements2.any",
-                "root.elements.any.elements2.any.i"
-            ),
-            events
+                () -> rootConfig.elements()
+                        .change(c -> c.create("1", c0 -> c0.changeElements2(c1 -> c1.create("2", doNothingConsumer())))),
+                List.of(
+                        "root",
+                        "root.elements",
+                        "root.elements.onCrt",
+                        //
+                        "root.elements.any",
+                        "root.elements.any.str",
+                        //
+                        "root.elements.any.child2",
+                        "root.elements.any.child2.i",
+                        //
+                        "root.elements.any.elements2",
+                        "root.elements.any.elements2.onCrt",
+                        "root.elements.any.elements2.any",
+                        "root.elements.any.elements2.any.i"
+                ),
+                events
         );
 
         checkEqualsListeners(
-            () -> rootConfig.elements().get("0").elements2().change(c -> c.create("1", doNothingConsumer())),
-            List.of(
-                "root",
-                "root.elements",
-                "root.elements.onUpd",
-                //
-                "root.elements.any",
-                "root.elements.0",
-                //
-                "root.elements.any.elements2",
-                "root.elements.0.elements2",
-                "root.elements.any.elements2.onCrt",
-                "root.elements.0.elements2.onCrt",
-                //
-                "root.elements.any.elements2.any",
-                "root.elements.0.elements2.any",
-                "root.elements.any.elements2.any.i",
-                "root.elements.0.elements2.any.i"
-            ),
-            events
+                () -> rootConfig.elements().get("0").elements2().change(c -> c.create("1", doNothingConsumer())),
+                List.of(
+                        "root",
+                        "root.elements",
+                        "root.elements.onUpd",
+                        //
+                        "root.elements.any",
+                        "root.elements.0",
+                        //
+                        "root.elements.any.elements2",
+                        "root.elements.0.elements2",
+                        "root.elements.any.elements2.onCrt",
+                        "root.elements.0.elements2.onCrt",
+                        //
+                        "root.elements.any.elements2.any",
+                        "root.elements.0.elements2.any",
+                        "root.elements.any.elements2.any.i",
+                        "root.elements.0.elements2.any.i"
+                ),
+                events
         );
 
         checkEqualsListeners(
-            () -> rootConfig.elements().get("1").elements2().change(c -> c.create("3", doNothingConsumer())),
-            List.of(
-                "root",
-                "root.elements",
-                "root.elements.onUpd",
-                //
-                "root.elements.any",
-                "root.elements.any.elements2",
-                "root.elements.any.elements2.onCrt",
-                //
-                "root.elements.any.elements2.any",
-                "root.elements.any.elements2.any.i"
-            ),
-            events
+                () -> rootConfig.elements().get("1").elements2().change(c -> c.create("3", doNothingConsumer())),
+                List.of(
+                        "root",
+                        "root.elements",
+                        "root.elements.onUpd",
+                        //
+                        "root.elements.any",
+                        "root.elements.any.elements2",
+                        "root.elements.any.elements2.onCrt",
+                        //
+                        "root.elements.any.elements2.any",
+                        "root.elements.any.elements2.any.i"
+                ),
+                events
         );
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testAnyListenerNotificationOnRename() throws Exception {
         checkEqualsListeners(
-            () -> rootConfig.elements().get("0").elements2().change(c -> c.rename("0", "0x")),
-            List.of(
-                "root",
-                "root.elements",
-                "root.elements.onUpd",
-                //
-                "root.elements.any",
-                "root.elements.0",
-                //
-                "root.elements.any.elements2",
-                "root.elements.0.elements2",
-                //
-                "root.elements.any.elements2.onRen",
-                "root.elements.0.elements2.onRen"
-            ),
-            events
+                () -> rootConfig.elements().get("0").elements2().change(c -> c.rename("0", "0x")),
+                List.of(
+                        "root",
+                        "root.elements",
+                        "root.elements.onUpd",
+                        //
+                        "root.elements.any",
+                        "root.elements.0",
+                        //
+                        "root.elements.any.elements2",
+                        "root.elements.0.elements2",
+                        //
+                        "root.elements.any.elements2.onRen",
+                        "root.elements.0.elements2.onRen"
+                ),
+                events
         );
 
         rootConfig.elements()
-            .change(c -> c.create("1", c0 -> c0.changeElements2(c1 -> c1.create("2", doNothingConsumer()))))
-            .get(1, SECONDS);
+                .change(c -> c.create("1", c0 -> c0.changeElements2(c1 -> c1.create("2", doNothingConsumer()))))
+                .get(1, SECONDS);
 
         checkEqualsListeners(
-            () -> rootConfig.elements().get("1").elements2().change(c -> c.rename("2", "2x")),
-            List.of(
-                "root",
-                "root.elements",
-                "root.elements.onUpd",
-                //
-                "root.elements.any",
-                "root.elements.any.elements2",
-                "root.elements.any.elements2.onRen"
-            ),
-            events
+                () -> rootConfig.elements().get("1").elements2().change(c -> c.rename("2", "2x")),
+                List.of(
+                        "root",
+                        "root.elements",
+                        "root.elements.onUpd",
+                        //
+                        "root.elements.any",
+                        "root.elements.any.elements2",
+                        "root.elements.any.elements2.onRen"
+                ),
+                events
         );
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testAnyListenerNotificationOnDelete() throws Exception {
         checkEqualsListeners(
-            () -> rootConfig.elements().get("0").elements2().change(c -> c.delete("0")),
-            List.of(
-                "root",
-                "root.elements",
-                "root.elements.onUpd",
-                //
-                "root.elements.any",
-                "root.elements.0",
-                //
-                "root.elements.any.elements2",
-                "root.elements.0.elements2",
-                //
-                "root.elements.any.elements2.onDel",
-                "root.elements.0.elements2.onDel",
-                //
-                "root.elements.any.elements2.any",
-                "root.elements.0.elements2.0"
-            ),
-            events
+                () -> rootConfig.elements().get("0").elements2().change(c -> c.delete("0")),
+                List.of(
+                        "root",
+                        "root.elements",
+                        "root.elements.onUpd",
+                        //
+                        "root.elements.any",
+                        "root.elements.0",
+                        //
+                        "root.elements.any.elements2",
+                        "root.elements.0.elements2",
+                        //
+                        "root.elements.any.elements2.onDel",
+                        "root.elements.0.elements2.onDel",
+                        //
+                        "root.elements.any.elements2.any",
+                        "root.elements.0.elements2.0"
+                ),
+                events
         );
 
         rootConfig.elements()
-            .change(c -> c.create("1", c0 -> c0.changeElements2(c1 -> c1.create("2", doNothingConsumer()))))
-            .get(1, SECONDS);
+                .change(c -> c.create("1", c0 -> c0.changeElements2(c1 -> c1.create("2", doNothingConsumer()))))
+                .get(1, SECONDS);
 
         checkEqualsListeners(
-            () -> rootConfig.elements().get("1").elements2().change(c -> c.delete("2")),
-            List.of(
-                "root",
-                "root.elements",
-                "root.elements.onUpd",
-                //
-                "root.elements.any",
-                "root.elements.any.elements2",
-                "root.elements.any.elements2.onDel",
-                "root.elements.any.elements2.any"
-            ),
-            events
+                () -> rootConfig.elements().get("1").elements2().change(c -> c.delete("2")),
+                List.of(
+                        "root",
+                        "root.elements",
+                        "root.elements.onUpd",
+                        //
+                        "root.elements.any",
+                        "root.elements.any.elements2",
+                        "root.elements.any.elements2.onDel",
+                        "root.elements.any.elements2.any"
+                ),
+                events
         );
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testAnyListenerNotificationForLeaf() throws Exception {
         checkEqualsListeners(
-            () -> rootConfig.elements().get("0").str().update("x"),
-            List.of(
-                "root",
-                "root.elements",
-                "root.elements.onUpd",
-                //
-                "root.elements.any",
-                "root.elements.0",
-                //
-                "root.elements.any.str",
-                "root.elements.0.str"
-            ),
-            events
+                () -> rootConfig.elements().get("0").str().update("x"),
+                List.of(
+                        "root",
+                        "root.elements",
+                        "root.elements.onUpd",
+                        //
+                        "root.elements.any",
+                        "root.elements.0",
+                        //
+                        "root.elements.any.str",
+                        "root.elements.0.str"
+                ),
+                events
         );
 
         checkEqualsListeners(
-            () -> rootConfig.elements().get("0").elements2().get("0").i().update(200),
-            List.of(
-                "root",
-                "root.elements",
-                "root.elements.onUpd",
-                //
-                "root.elements.any",
-                "root.elements.0",
-                //
-                "root.elements.any.elements2",
-                "root.elements.0.elements2",
-                "root.elements.any.elements2.onUpd",
-                "root.elements.0.elements2.onUpd",
-                //
-                "root.elements.any.elements2.any",
-                "root.elements.0.elements2.any",
-                "root.elements.0.elements2.0",
-                //
-                "root.elements.any.elements2.any.i",
-                "root.elements.0.elements2.any.i",
-                "root.elements.0.elements2.0.i"
-            ),
-            events
+                () -> rootConfig.elements().get("0").elements2().get("0").i().update(200),
+                List.of(
+                        "root",
+                        "root.elements",
+                        "root.elements.onUpd",
+                        //
+                        "root.elements.any",
+                        "root.elements.0",
+                        //
+                        "root.elements.any.elements2",
+                        "root.elements.0.elements2",
+                        "root.elements.any.elements2.onUpd",
+                        "root.elements.0.elements2.onUpd",
+                        //
+                        "root.elements.any.elements2.any",
+                        "root.elements.0.elements2.any",
+                        "root.elements.0.elements2.0",
+                        //
+                        "root.elements.any.elements2.any.i",
+                        "root.elements.0.elements2.any.i",
+                        "root.elements.0.elements2.0.i"
+                ),
+                events
         );
 
         rootConfig.elements()
-            .change(c -> c.create("1", c0 -> c0.changeElements2(c1 -> c1.create("2", doNothingConsumer()))))
-            .get(1, SECONDS);
+                .change(c -> c.create("1", c0 -> c0.changeElements2(c1 -> c1.create("2", doNothingConsumer()))))
+                .get(1, SECONDS);
 
         checkEqualsListeners(
-            () -> rootConfig.elements().get("1").elements2().get("2").i().update(200),
-            List.of(
-                "root",
-                "root.elements",
-                "root.elements.onUpd",
-                //
-                "root.elements.any",
-                "root.elements.any.elements2",
-                "root.elements.any.elements2.onUpd",
-                "root.elements.any.elements2.any",
-                "root.elements.any.elements2.any.i"
-            ),
-            events
+                () -> rootConfig.elements().get("1").elements2().get("2").i().update(200),
+                List.of(
+                        "root",
+                        "root.elements",
+                        "root.elements.onUpd",
+                        //
+                        "root.elements.any",
+                        "root.elements.any.elements2",
+                        "root.elements.any.elements2.onUpd",
+                        "root.elements.any.elements2.any",
+                        "root.elements.any.elements2.any.i"
+                ),
+                events
         );
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testAnyStopListen() throws Exception {
         ConfigurationListener<FirstSubView> listener0 = configListener(ctx -> events.add("root.elements.any2"));
 
         ConfigurationNamedListListener<SecondSubView> listener1 = configNamedListenerOnUpdate(
-            ctx -> events.add("root.elements.any2.elements2.onUpd")
+                ctx -> events.add("root.elements.any2.elements2.onUpd")
         );
 
         rootConfig.elements().any().listen(listener0);
         rootConfig.elements().any().elements2().listenElements(listener1);
 
         checkContainsListeners(
-            () -> rootConfig.elements().get("0").elements2().get("0").i().update(Integer.MAX_VALUE),
-            events,
-            List.of(
-                "root.elements.any",
-                "root.elements.any2",
-                "root.elements.any2.elements2.onUpd"
-            ),
-            List.of()
+                () -> rootConfig.elements().get("0").elements2().get("0").i().update(Integer.MAX_VALUE),
+                events,
+                List.of(
+                        "root.elements.any",
+                        "root.elements.any2",
+                        "root.elements.any2.elements2.onUpd"
+                ),
+                List.of()
         );
 
         rootConfig.elements().any().stopListen(listener0);
         rootConfig.elements().any().elements2().stopListenElements(listener1);
 
         checkContainsListeners(
-            () -> rootConfig.elements().get("0").elements2().get("0").i().update(Integer.MIN_VALUE),
-            events,
-            List.of("root.elements.any"),
-            List.of("root.elements.any2", "root.elements.any2.elements2.onUpd")
+                () -> rootConfig.elements().get("0").elements2().get("0").i().update(Integer.MIN_VALUE),
+                events,
+                List.of("root.elements.any"),
+                List.of("root.elements.any2", "root.elements.any2.elements2.onUpd")
         );
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testAnyGetConfigFromNotificationEventOnCreate() throws Exception {
         String key0 = UUID.randomUUID().toString();
@@ -531,7 +551,9 @@ public class ConfigurationAnyListenerTest {
         rootConfig.elements().get(key0).elements2().change(c -> c.create(key1, doNothingConsumer())).get(1, SECONDS);
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testAnyGetConfigFromNotificationEventOnRename() throws Exception {
         String key0 = UUID.randomUUID().toString();
@@ -544,8 +566,8 @@ public class ConfigurationAnyListenerTest {
         }));
 
         rootConfig.elements()
-            .change(c -> c.create(key0, c1 -> c1.changeElements2(c2 -> c2.create(oldKey1, doNothingConsumer()))))
-            .get(1, SECONDS);
+                .change(c -> c.create(key0, c1 -> c1.changeElements2(c2 -> c2.create(oldKey1, doNothingConsumer()))))
+                .get(1, SECONDS);
 
         rootConfig.elements().get(key0).elements2().listenElements(configNamedListenerOnRename(ctx -> {
             assertNotNull(ctx.config(FirstSubConfiguration.class));
@@ -566,7 +588,9 @@ public class ConfigurationAnyListenerTest {
         rootConfig.elements().get(key0).elements2().change(c -> c.rename(oldKey1, newKey1)).get(1, SECONDS);
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testAnyGetConfigFromNotificationEventOnDelete() throws Exception {
         String key0 = UUID.randomUUID().toString();
@@ -578,8 +602,8 @@ public class ConfigurationAnyListenerTest {
         }));
 
         rootConfig.elements()
-            .change(c -> c.create(key0, c1 -> c1.changeElements2(c2 -> c2.create(key1, doNothingConsumer()))))
-            .get(1, SECONDS);
+                .change(c -> c.create(key0, c1 -> c1.changeElements2(c2 -> c2.create(key1, doNothingConsumer()))))
+                .get(1, SECONDS);
 
         rootConfig.elements().any().elements2().listenElements(configNamedListenerOnDelete(ctx -> {
             assertNotNull(ctx.config(FirstSubConfiguration.class));
@@ -616,7 +640,9 @@ public class ConfigurationAnyListenerTest {
         rootConfig.elements().get(key0).elements2().change(c -> c.delete(key1)).get(1, SECONDS);
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testAnyGetConfigFromNotificationEventOnUpdate() throws Exception {
         String key0 = UUID.randomUUID().toString();
@@ -624,8 +650,8 @@ public class ConfigurationAnyListenerTest {
         int newVal = Integer.MAX_VALUE;
 
         rootConfig.elements()
-            .change(c -> c.create(key0, c1 -> c1.changeElements2(c2 -> c2.create(key1, doNothingConsumer()))))
-            .get(1, SECONDS);
+                .change(c -> c.create(key0, c1 -> c1.changeElements2(c2 -> c2.create(key1, doNothingConsumer()))))
+                .get(1, SECONDS);
 
         rootConfig.elements().any().elements2().listenElements(configNamedListenerOnUpdate(ctx -> {
             assertNotNull(ctx.config(FirstSubConfiguration.class));

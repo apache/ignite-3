@@ -27,15 +27,14 @@ import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 /**
  * Annotation that should be placed on classes or interfaces that will be treated as <i>message group descriptors</i>.
  * <p>
- * Such classes represent a group of messages, declared in a single module, and are used by the annotation processor
- * to create module-wide classes, such as message factories (one factory should serve as the only entry point for
- * creating Network Message instances declared in a single module) and serialization registry initializers
- * (helper classes that register all generated {@link MessageSerializationFactory} instances in a
- * {@link MessageSerializationRegistry}). All module-wide generated classes will be placed in the same package as
- * their message group descriptors.
+ * Such classes represent a group of messages, declared in a single module, and are used by the annotation processor to create module-wide
+ * classes, such as message factories (one factory should serve as the only entry point for creating Network Message instances declared in a
+ * single module) and serialization registry initializers (helper classes that register all generated {@link MessageSerializationFactory}
+ * instances in a {@link MessageSerializationRegistry}). All module-wide generated classes will be placed in the same package as their
+ * message group descriptors.
  * <p>
- * The content of these classes is not specified and can be left empty, though the convention is to use them as
- * namespaces for declaring types of all Network Messages in the module.
+ * The content of these classes is not specified and can be left empty, though the convention is to use them as namespaces for declaring
+ * types of all Network Messages in the module.
  *
  * @see Transferable
  */
@@ -52,7 +51,7 @@ public @interface MessageGroup {
      *     <li>Message factories: {@code <GroupName>Factory}</li>
      *     <li>Serialization registry initializers: {@code <GroupName>SerializationRegistryInitializer}</li>
      * </ol>
-     *
+     * <p>
      * Since the group name is interpreted as-is, it should follow the Java class naming convention.
      *
      * @return group name.
@@ -62,8 +61,8 @@ public @interface MessageGroup {
     /**
      * Type of the group.
      * <p>
-     * Group type must be unique across all <i>message group descriptors</i>. Both group type and
-     * message type are used to identify a concrete message implementation during serialization.
+     * Group type must be unique across all <i>message group descriptors</i>. Both group type and message type are used to identify a
+     * concrete message implementation during serialization.
      *
      * @return group type.
      */

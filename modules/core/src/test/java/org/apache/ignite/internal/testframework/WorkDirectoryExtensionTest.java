@@ -17,6 +17,19 @@
 
 package org.apache.ignite.internal.testframework;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.platform.engine.discovery.DiscoverySelectors.selectClass;
+import static org.junit.platform.testkit.engine.EventConditions.finishedSuccessfully;
+import static org.junit.platform.testkit.engine.EventConditions.finishedWithFailure;
+import static org.junit.platform.testkit.engine.EventConditions.type;
+import static org.junit.platform.testkit.engine.TestExecutionResultConditions.instanceOf;
+import static org.junit.platform.testkit.engine.TestExecutionResultConditions.message;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,25 +46,11 @@ import org.junit.platform.testkit.engine.EngineExecutionResults;
 import org.junit.platform.testkit.engine.EngineTestKit;
 import org.junit.platform.testkit.engine.EventType;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.not;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-import static org.junit.platform.engine.discovery.DiscoverySelectors.selectClass;
-import static org.junit.platform.testkit.engine.EventConditions.finishedSuccessfully;
-import static org.junit.platform.testkit.engine.EventConditions.finishedWithFailure;
-import static org.junit.platform.testkit.engine.EventConditions.type;
-import static org.junit.platform.testkit.engine.TestExecutionResultConditions.instanceOf;
-import static org.junit.platform.testkit.engine.TestExecutionResultConditions.message;
-
 /**
  * Tests for the {@link WorkDirectoryExtension}.
  * <p>
- * This class uses an approach when several nested classes are executed manually on the JUnit test engine, because
- * some test methods should fail as part of these meta-tests. Nested classes are skipped by the surefire plugin
- * and must not be executed during the build.
+ * This class uses an approach when several nested classes are executed manually on the JUnit test engine, because some test methods should
+ * fail as part of these meta-tests. Nested classes are skipped by the surefire plugin and must not be executed during the build.
  *
  * @see <a href="https://junit.org/junit5/docs/current/user-guide/#testkit">JUnit Platform Test Kit</a>
  */
@@ -62,20 +61,28 @@ public class WorkDirectoryExtensionTest {
      */
     @ExtendWith(WorkDirectoryExtension.class)
     static class NormalStaticFieldInjectionTest {
-        /** */
+        /**
+         *
+         */
         @WorkDirectory
         private static Path workDir;
 
-        /** */
+        /**
+         *
+         */
         private static Path testFile;
 
-        /** */
+        /**
+         *
+         */
         @BeforeAll
         static void beforeAll() throws IOException {
             testFile = Files.createFile(workDir.resolve("foo"));
         }
 
-        /** */
+        /**
+         *
+         */
         @RepeatedTest(3)
         public void test() {
             assertTrue(Files.exists(testFile));
@@ -83,8 +90,8 @@ public class WorkDirectoryExtensionTest {
     }
 
     /**
-     * Tests temporary folder injection into a static field by running a test multiple times and checking
-     * that the folder persists between the runs.
+     * Tests temporary folder injection into a static field by running a test multiple times and checking that the folder persists between
+     * the runs.
      */
     @Test
     void testStaticFieldInjection() {
@@ -96,28 +103,34 @@ public class WorkDirectoryExtensionTest {
      */
     @ExtendWith(WorkDirectoryExtension.class)
     static class NormalFieldInjectionTest {
-        /** */
+        /**
+         *
+         */
         private static final Set<Path> paths = new HashSet<>();
 
-        /** */
+        /**
+         *
+         */
         @WorkDirectory
         private Path workDir;
 
-        /** */
+        /**
+         *
+         */
         @RepeatedTest(3)
         public void test() {
             assertThat(paths, not(contains(workDir)));
 
-            for (Path path : paths)
+            for (Path path : paths) {
                 assertTrue(Files.notExists(path));
+            }
 
             paths.add(workDir);
         }
     }
 
     /**
-     * Tests temporary folder injection into a field by running a test multiple times and checking
-     * that a new folder is created each time.
+     * Tests temporary folder injection into a field by running a test multiple times and checking that a new folder is created each time.
      */
     @Test
     void testFieldInjection() {
@@ -129,13 +142,17 @@ public class WorkDirectoryExtensionTest {
      */
     @ExtendWith(WorkDirectoryExtension.class)
     static class MultipleMethodsInjectionTest {
-        /** */
+        /**
+         *
+         */
         @BeforeEach
         void setUp(@WorkDirectory Path workDir) throws IOException {
             Files.createFile(workDir.resolve("foo"));
         }
 
-        /** */
+        /**
+         *
+         */
         @Test
         void test(@WorkDirectory Path workDir) {
             assertTrue(Files.exists(workDir.resolve("foo")));
@@ -143,8 +160,8 @@ public class WorkDirectoryExtensionTest {
     }
 
     /**
-     * Tests a scenario when a folder is injected into both {@code BeforeEach} and test method and checks that it is
-     * the same folder, and it does not get re-created.
+     * Tests a scenario when a folder is injected into both {@code BeforeEach} and test method and checks that it is the same folder, and it
+     * does not get re-created.
      */
     @Test
     void testMultipleMethodsInjection() {
@@ -156,17 +173,23 @@ public class WorkDirectoryExtensionTest {
      */
     @ExtendWith(WorkDirectoryExtension.class)
     static class ErrorParameterResolutionTest {
-        /** */
+        /**
+         *
+         */
         @WorkDirectory
         private static Path workDir;
 
-        /** */
+        /**
+         *
+         */
         @BeforeEach
         void setUp(@WorkDirectory Path anotherWorkDir) {
             fail("Should not reach here");
         }
 
-        /** */
+        /**
+         *
+         */
         @Test
         public void test() {
             fail("Should not reach here");
@@ -179,14 +202,14 @@ public class WorkDirectoryExtensionTest {
     @Test
     void testDuplicateFieldAndParameterInjection() {
         execute(ErrorParameterResolutionTest.class)
-            .testEvents()
-            .assertThatEvents()
-            .filteredOn(type(EventType.FINISHED))
-            .isNotEmpty()
-            .are(finishedWithFailure(
-                instanceOf(ParameterResolutionException.class),
-                message(m -> m.contains("there exists a field annotated with @WorkDirectory"))
-            ));
+                .testEvents()
+                .assertThatEvents()
+                .filteredOn(type(EventType.FINISHED))
+                .isNotEmpty()
+                .are(finishedWithFailure(
+                        instanceOf(ParameterResolutionException.class),
+                        message(m -> m.contains("there exists a field annotated with @WorkDirectory"))
+                ));
     }
 
     /**
@@ -194,15 +217,21 @@ public class WorkDirectoryExtensionTest {
      */
     @ExtendWith(WorkDirectoryExtension.class)
     static class ErrorFieldInjectionTest {
-        /** */
+        /**
+         *
+         */
         @WorkDirectory
         private static Path workDir1;
 
-        /** */
+        /**
+         *
+         */
         @WorkDirectory
         private Path workDir2;
 
-        /** */
+        /**
+         *
+         */
         @Test
         public void test() {
             fail("Should not reach here");
@@ -215,14 +244,14 @@ public class WorkDirectoryExtensionTest {
     @Test
     void testDuplicateFieldInjection() {
         execute(ErrorFieldInjectionTest.class)
-            .allEvents()
-            .assertThatEvents()
-            .filteredOn(finishedWithFailure())
-            .isNotEmpty()
-            .are(finishedWithFailure(
-                instanceOf(IllegalStateException.class),
-                message(m -> m.contains("Test class must have a single field of type"))
-            ));
+                .allEvents()
+                .assertThatEvents()
+                .filteredOn(finishedWithFailure())
+                .isNotEmpty()
+                .are(finishedWithFailure(
+                        instanceOf(IllegalStateException.class),
+                        message(m -> m.contains("Test class must have a single field of type"))
+                ));
     }
 
     /**
@@ -231,13 +260,19 @@ public class WorkDirectoryExtensionTest {
     @ExtendWith(SystemPropertiesExtension.class)
     @ExtendWith(WorkDirectoryExtension.class)
     static class SystemPropertiesTest {
-        /** */
+        /**
+         *
+         */
         private static Path file1;
 
-        /** */
+        /**
+         *
+         */
         private static Path file2;
 
-        /** */
+        /**
+         *
+         */
         @AfterAll
         static void verify() throws IOException {
             assertTrue(Files.exists(file1));
@@ -246,7 +281,9 @@ public class WorkDirectoryExtensionTest {
             Files.delete(file1);
         }
 
-        /** */
+        /**
+         *
+         */
         @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
         @WithSystemProperty(key = WorkDirectoryExtension.KEEP_WORK_DIR_PROPERTY, value = "true")
         @Test
@@ -254,7 +291,9 @@ public class WorkDirectoryExtensionTest {
             file1 = Files.createFile(workDir.resolve("foo"));
         }
 
-        /** */
+        /**
+         *
+         */
         @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
         @Test
         void test2(@WorkDirectory Path workDir) throws IOException {
@@ -275,8 +314,8 @@ public class WorkDirectoryExtensionTest {
      */
     private static EngineExecutionResults execute(Class<?> testClass) {
         return EngineTestKit.engine("junit-jupiter")
-            .selectors(selectClass(testClass))
-            .execute();
+                .selectors(selectClass(testClass))
+                .execute();
     }
 
     /**
@@ -284,10 +323,10 @@ public class WorkDirectoryExtensionTest {
      */
     private static void assertExecutesSuccessfully(Class<?> testClass) {
         execute(testClass)
-            .allEvents()
-            .assertThatEvents()
-            .filteredOn(type(EventType.FINISHED))
-            .isNotEmpty()
-            .are(finishedSuccessfully());
+                .allEvents()
+                .assertThatEvents()
+                .filteredOn(type(EventType.FINISHED))
+                .isNotEmpty()
+                .are(finishedSuccessfully());
     }
 }

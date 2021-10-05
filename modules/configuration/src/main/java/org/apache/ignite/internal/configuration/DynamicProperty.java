@@ -28,40 +28,42 @@ import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 
 /**
- * Holder for property value.
- * Expected to be used with numbers, strings and other immutable objects, e.g. IP addresses.
+ * Holder for property value. Expected to be used with numbers, strings and other immutable objects, e.g. IP addresses.
  */
 public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T> implements ConfigurationValue<T> {
     /**
      * Constructor.
      *
-     * @param prefix Property prefix.
-     * @param key Property name.
-     * @param rootKey Root key.
-     * @param changer Configuration changer.
+     * @param prefix     Property prefix.
+     * @param key        Property name.
+     * @param rootKey    Root key.
+     * @param changer    Configuration changer.
      * @param listenOnly Only adding listeners mode, without the ability to get or update the property value.
      */
     public DynamicProperty(
-        List<String> prefix,
-        String key,
-        RootKey<?, ?> rootKey,
-        DynamicConfigurationChanger changer,
-        boolean listenOnly
+            List<String> prefix,
+            String key,
+            RootKey<?, ?> rootKey,
+            DynamicConfigurationChanger changer,
+            boolean listenOnly
     ) {
         super(prefix, key, rootKey, changer, listenOnly);
     }
 
     /** {@inheritDoc} */
-    @Override public T value() {
+    @Override
+    public T value() {
         return refreshValue();
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> update(T newValue) {
+    @Override
+    public CompletableFuture<Void> update(T newValue) {
         Objects.requireNonNull(newValue, "Configuration value cannot be null.");
 
-        if (listenOnly)
+        if (listenOnly) {
             throw listenOnlyException();
+        }
 
         assert keys instanceof RandomAccess;
         assert !keys.isEmpty();
@@ -71,14 +73,16 @@ public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T
             private int level = 0;
 
             /** {@inheritDoc} */
-            @Override public void descend(ConstructableTreeNode node) {
+            @Override
+            public void descend(ConstructableTreeNode node) {
                 assert level < keys.size();
 
                 node.construct(keys.get(level++), this, true);
             }
 
             /** {@inheritDoc} */
-            @Override public <T> T unwrap(Class<T> clazz) {
+            @Override
+            public <T> T unwrap(Class<T> clazz) {
                 assert level == keys.size();
 
                 assert clazz.isInstance(newValue);
@@ -87,7 +91,8 @@ public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T
             }
 
             /** {@inheritDoc} */
-            @Override public void reset() {
+            @Override
+            public void reset() {
                 level = 0;
             }
         };
@@ -97,7 +102,8 @@ public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T
     }
 
     /** {@inheritDoc} */
-    @Override public String key() {
+    @Override
+    public String key() {
         return key;
     }
 }

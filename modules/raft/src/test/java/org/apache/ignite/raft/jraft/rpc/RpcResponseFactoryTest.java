@@ -14,16 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
 public class RpcResponseFactoryTest {
     private final RaftMessagesFactory msgFactory = new RaftMessagesFactory();
@@ -38,7 +39,7 @@ public class RpcResponseFactoryTest {
     @Test
     public void testNewResponseWithErrorStatus() {
         ErrorResponse response = (ErrorResponse) RaftRpcFactory.DEFAULT.newResponse(msgFactory,
-            new Status(300, "test"));
+                new Status(300, "test"));
         assertEquals(300, response.errorCode());
         assertEquals("test", response.errorMsg());
     }
@@ -46,7 +47,7 @@ public class RpcResponseFactoryTest {
     @Test
     public void testNewResponseWithVaridicArgs() {
         ErrorResponse response = (ErrorResponse) RaftRpcFactory.DEFAULT.newResponse(msgFactory, 300,
-            "hello %s %d", "world", 99);
+                "hello %s %d", "world", 99);
         assertEquals(300, response.errorCode());
         assertEquals("hello world 99", response.errorMsg());
     }
@@ -54,7 +55,7 @@ public class RpcResponseFactoryTest {
     @Test
     public void testNewResponseWithArgs() {
         ErrorResponse response = (ErrorResponse) RaftRpcFactory.DEFAULT.newResponse(msgFactory, 300,
-            "hello world");
+                "hello world");
         assertEquals(300, response.errorCode());
         assertEquals("hello world", response.errorMsg());
     }
@@ -62,7 +63,7 @@ public class RpcResponseFactoryTest {
     @Test
     public void testNewResponseWithRaftError() {
         ErrorResponse response = (ErrorResponse) RaftRpcFactory.DEFAULT.newResponse(msgFactory, RaftError.EAGAIN,
-            "hello world");
+                "hello world");
         assertEquals(response.errorCode(), RaftError.EAGAIN.getNumber());
         assertEquals("hello world", response.errorMsg());
     }

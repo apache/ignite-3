@@ -17,14 +17,14 @@
 
 package com.facebook.presto.bytecode.control;
 
-import java.util.Objects;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.instruction.LabelNode;
-
 import static java.util.Objects.requireNonNull;
 
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.instruction.LabelNode;
+import java.util.Objects;
+
 public class CaseStatement
-    implements Comparable<CaseStatement> {
+        implements Comparable<CaseStatement> {
     private final int key;
     private final BytecodeNode body;
     private final LabelNode label;
@@ -65,7 +65,7 @@ public class CaseStatement
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        CaseStatement other = (CaseStatement)obj;
+        CaseStatement other = (CaseStatement) obj;
         return Objects.equals(this.key, other.key);
     }
 

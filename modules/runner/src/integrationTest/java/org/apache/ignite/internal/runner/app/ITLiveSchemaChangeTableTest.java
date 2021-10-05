@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.Ignite;
@@ -29,11 +34,6 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Live schema tests.
@@ -67,7 +67,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
         Table tbl = grid.get(0).tables().table(TABLE);
         RecordView<Tuple> recView = tbl.recordView();
 
-        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
+        ((TableImpl) tbl).schemaMode(SchemaManagementMode.LIVE);
 
         Tuple row = Tuple.create().set("key", 1L).set("valStrNew", "111").set("valIntNew", 333);
 
@@ -95,7 +95,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         recView.insert(oldSchemaTuple);
 
-        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
+        ((TableImpl) tbl).schemaMode(SchemaManagementMode.LIVE);
 
         Tuple upsertOldSchemaTuple = Tuple.create().set("key", 32L).set("valStrNew", "111").set("valIntNew", 333);
 
@@ -121,7 +121,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         Tuple oldSchemaTuple = Tuple.create().set("key", 32L).set("valInt", 111).set("valStr", "str");
 
-        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
+        ((TableImpl) tbl).schemaMode(SchemaManagementMode.LIVE);
 
         Tuple row = Tuple.create().set("key", 1L).set("valStrNew", "111").set("valIntNew", 333);
 
@@ -133,7 +133,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
         assertEquals("111", res.value("valStrNew"));
         assertEquals(Integer.valueOf(333), res.value("valIntNew"));
 
-        SchemaDescriptor schema = ((TableImpl)tbl).schemaView().schema();
+        SchemaDescriptor schema = ((TableImpl) tbl).schemaView().schema();
 
         assertTrue(schema.columnNames().contains("valStrNew"));
         assertTrue(schema.columnNames().contains("valIntNew"));
@@ -151,7 +151,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
         Table tbl = grid.get(0).tables().table(TABLE);
         RecordView<Tuple> recView = tbl.recordView();
 
-        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
+        ((TableImpl) tbl).schemaMode(SchemaManagementMode.LIVE);
 
         Tuple val = Tuple.create().set("key", 1L).set("valStrNew", "111").set("valIntNew", 333);
 
@@ -161,7 +161,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
         assertEquals("111", res.value("valStrNew"));
         assertEquals(Integer.valueOf(333), res.value("valIntNew"));
 
-        ((TableImpl)tbl).schemaMode(SchemaManagementMode.STRICT);
+        ((TableImpl) tbl).schemaMode(SchemaManagementMode.STRICT);
 
         Tuple anotherKey = Tuple.create().set("key", 2L).set("valStrNew", "111").set("valIntNew", 333);
 
@@ -187,11 +187,12 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
         Table tbl = grid.get(0).tables().table(TABLE);
         RecordView<Tuple> recView = tbl.recordView();
 
-        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
+        ((TableImpl) tbl).schemaMode(SchemaManagementMode.LIVE);
 
         Tuple oldSchemaVal = Tuple.create().set("key", 32L).set("valInt", 111).set("valStr", "str");
         Tuple upsertOldSchemaVal = Tuple.create().set("key", 32L).set("valStrNew", "111").set("valIntNew", 333);
-        Tuple secondUpsertOldSchemaVal = Tuple.create().set("key", 32L).set("valStrNew", "111").set("valIntNew", 333).set("anotherNewVal", 48L);
+        Tuple secondUpsertOldSchemaVal = Tuple.create().set("key", 32L).set("valStrNew", "111").set("valIntNew", 333)
+                .set("anotherNewVal", 48L);
 
         recView.insert(oldSchemaVal);
         recView.upsert(upsertOldSchemaVal);
@@ -216,27 +217,27 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
         Table tbl = grid.get(0).tables().table(TABLE);
         RecordView<Tuple> recView = tbl.recordView();
 
-        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
+        ((TableImpl) tbl).schemaMode(SchemaManagementMode.LIVE);
 
         UUID uuid = UUID.randomUUID();
 
         Tuple row = Tuple.create()
-            .set("key", 1L)
-            .set("valByteNew", (byte)10)
-            .set("valShortNew", (short)48)
-            .set("valIntNew", 333)
-            .set("valLongNew", 55L)
-            .set("valFloatNew", 32.23f)
-            .set("valDoubleNew", 100.101d)
-            .set("valStrNew", "111")
-            .set("valUUIDNew", uuid);
+                .set("key", 1L)
+                .set("valByteNew", (byte) 10)
+                .set("valShortNew", (short) 48)
+                .set("valIntNew", 333)
+                .set("valLongNew", 55L)
+                .set("valFloatNew", 32.23f)
+                .set("valDoubleNew", 100.101d)
+                .set("valStrNew", "111")
+                .set("valUUIDNew", uuid);
 
         recView.insert(row);
 
         Tuple res = recView.get(Tuple.create().set("key", 1L));
 
-        assertEquals(Byte.valueOf((byte)10), res.value("valByteNew"));
-        assertEquals(Short.valueOf((short)48), res.value("valShortNew"));
+        assertEquals(Byte.valueOf((byte) 10), res.value("valByteNew"));
+        assertEquals(Short.valueOf((short) 48), res.value("valShortNew"));
         assertEquals(Integer.valueOf(333), res.value("valIntNew"));
         assertEquals(Long.valueOf(55L), res.value("valLongNew"));
         assertEquals(32.23f, res.value("valFloatNew"), 0.001f);
@@ -273,24 +274,24 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
         Table tbl = grid.get(0).tables().table(TABLE);
         RecordView<Tuple> recView = tbl.recordView();
 
-        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
+        ((TableImpl) tbl).schemaMode(SchemaManagementMode.LIVE);
 
         UUID uuid = UUID.randomUUID();
 
         Tuple row = Tuple.create()
-            .set("key", 1L)
-            .set("valByteNew", (byte)10)
-            .set("valShortNew", (short)48)
-            .set("valIntNew", 333)
-            .set("valLongNew", 55L)
-            .set("valFloatNew", 32.23f)
-            .set("valDoubleNew", 100.101d)
-            .set("valStrNew", "111")
-            .set("valUUIDNew", uuid);
+                .set("key", 1L)
+                .set("valByteNew", (byte) 10)
+                .set("valShortNew", (short) 48)
+                .set("valIntNew", 333)
+                .set("valLongNew", 55L)
+                .set("valFloatNew", 32.23f)
+                .set("valDoubleNew", 100.101d)
+                .set("valStrNew", "111")
+                .set("valUUIDNew", uuid);
 
         recView.insert(row);
 
-        SchemaDescriptor schema = ((TableImpl)tbl).schemaView().schema();
+        SchemaDescriptor schema = ((TableImpl) tbl).schemaView().schema();
 
         assertEquals(2, schema.version());
     }
@@ -307,7 +308,7 @@ class ITLiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
         Table tbl = grid.get(0).tables().table(TABLE);
         RecordView<Tuple> recView = tbl.recordView();
 
-        ((TableImpl)tbl).schemaMode(SchemaManagementMode.LIVE);
+        ((TableImpl) tbl).schemaMode(SchemaManagementMode.LIVE);
 
         Tuple rowWithObject = Tuple.create().set("key", 1L).set("newBrokenColumn", new Object());
 

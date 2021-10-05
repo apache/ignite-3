@@ -50,29 +50,41 @@ import org.msgpack.core.MessageFormat;
  * Client table API implementation.
  */
 public class ClientTable implements Table {
-    /** */
+    /**
+     *
+     */
     private final IgniteUuid id;
 
-    /** */
+    /**
+     *
+     */
     private final String name;
 
-    /** */
+    /**
+     *
+     */
     private final ReliableChannel ch;
 
-    /** */
+    /**
+     *
+     */
     private final ConcurrentHashMap<Integer, ClientSchema> schemas = new ConcurrentHashMap<>();
 
-    /** */
+    /**
+     *
+     */
     private volatile int latestSchemaVer = -1;
 
-    /** */
+    /**
+     *
+     */
     private final Object latestSchemaLock = new Object();
 
     /**
      * Constructor.
      *
-     * @param ch Channel.
-     * @param id Table id.
+     * @param ch   Channel.
+     * @param id   Table id.
      * @param name Table name.
      */
     public ClientTable(ReliableChannel ch, IgniteUuid id, String name) {
@@ -95,32 +107,38 @@ public class ClientTable implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull String tableName() {
+    @Override
+    public @NotNull String tableName() {
         return name;
     }
 
     /** {@inheritDoc} */
-    @Override public <R> RecordView<R> recordView(RecordMapper<R> recMapper) {
+    @Override
+    public <R> RecordView<R> recordView(RecordMapper<R> recMapper) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
-    @Override public <K, V> KeyValueView<K, V> keyValueView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper) {
+    @Override
+    public <K, V> KeyValueView<K, V> keyValueView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
-    @Override public RecordView<Tuple> recordView() {
+    @Override
+    public RecordView<Tuple> recordView() {
         return new ClientRecordBinaryView(this);
     }
 
     /** {@inheritDoc} */
-    @Override public KeyValueView<Tuple, Tuple> keyValueView() {
+    @Override
+    public KeyValueView<Tuple, Tuple> keyValueView() {
         return new ClientKeyValueBinaryView(this);
     }
 
     private CompletableFuture<ClientSchema> getLatestSchema() {
-        if (latestSchemaVer >= 0)
+        if (latestSchemaVer >= 0) {
             return CompletableFuture.completedFuture(schemas.get(latestSchemaVer));
+        }
 
         return loadSchema(null);
     }
@@ -128,8 +146,9 @@ public class ClientTable implements Table {
     private CompletableFuture<ClientSchema> getSchema(int ver) {
         var schema = schemas.get(ver);
 
-        if (schema != null)
+        if (schema != null) {
             return CompletableFuture.completedFuture(schema);
+        }
 
         return loadSchema(ver);
     }
@@ -138,22 +157,24 @@ public class ClientTable implements Table {
         return ch.serviceAsync(ClientOp.SCHEMAS_GET, w -> {
             w.out().packIgniteUuid(id);
 
-            if (ver == null)
+            if (ver == null) {
                 w.out().packNil();
-            else {
+            } else {
                 w.out().packArrayHeader(1);
                 w.out().packInt(ver);
             }
         }, r -> {
             int schemaCnt = r.in().unpackMapHeader();
 
-            if (schemaCnt == 0)
+            if (schemaCnt == 0) {
                 throw new IgniteClientException("Schema not found: " + ver);
+            }
 
             ClientSchema last = null;
 
-            for (var i = 0; i < schemaCnt; i++)
+            for (var i = 0; i < schemaCnt; i++) {
                 last = readSchema(r.in());
+            }
 
             return last;
         });
@@ -196,7 +217,8 @@ public class ClientTable implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public String toString() {
+    @Override
+    public String toString() {
         return IgniteToStringBuilder.toString(ClientTable.class, this);
     }
 
@@ -232,8 +254,9 @@ public class ClientTable implements Table {
             var colName = tuple.columnName(i);
             var col = schema.column(colName);
 
-            if (keyOnly && !col.key())
+            if (keyOnly && !col.key()) {
                 continue;
+            }
 
             vals[col.schemaIndex()] = tuple.value(i);
         }
@@ -243,8 +266,9 @@ public class ClientTable implements Table {
             out.packInt(schema.version());
         }
 
-        for (var val : vals)
+        for (var val : vals) {
             out.packObject(val);
+        }
     }
 
     public void writeKvTuple(
@@ -260,8 +284,9 @@ public class ClientTable implements Table {
             var colName = key.columnName(i);
             var col = schema.column(colName);
 
-            if (!col.key())
+            if (!col.key()) {
                 continue;
+            }
 
             vals[col.schemaIndex()] = key.value(i);
         }
@@ -271,8 +296,9 @@ public class ClientTable implements Table {
                 var colName = val.columnName(i);
                 var col = schema.column(colName);
 
-                if (col.key())
+                if (col.key()) {
                     continue;
+                }
 
                 vals[col.schemaIndex()] = val.value(i);
             }
@@ -283,8 +309,9 @@ public class ClientTable implements Table {
             out.packInt(schema.version());
         }
 
-        for (var v : vals)
+        for (var v : vals) {
             out.packObject(v);
+        }
     }
 
     public void writeKvTuples(Map<Tuple, Tuple> pairs, ClientSchema schema, ClientMessagePacker out) {
@@ -292,8 +319,9 @@ public class ClientTable implements Table {
         out.packInt(schema.version());
         out.packInt(pairs.size());
 
-        for (Map.Entry<Tuple, Tuple> pair : pairs.entrySet())
+        for (Map.Entry<Tuple, Tuple> pair : pairs.entrySet()) {
             writeKvTuple(pair.getKey(), pair.getValue(), schema, out, true);
+        }
     }
 
     public void writeTuples(
@@ -306,8 +334,9 @@ public class ClientTable implements Table {
         out.packInt(schema.version());
         out.packInt(tuples.size());
 
-        for (var tuple : tuples)
+        for (var tuple : tuples) {
             writeTuple(tuple, schema, out, keyOnly, true);
+        }
     }
 
     private static Tuple readTuple(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
@@ -315,8 +344,9 @@ public class ClientTable implements Table {
 
         var colCnt = keyOnly ? schema.keyColumnCount() : schema.columns().length;
 
-        for (var i = 0; i < colCnt; i++)
+        for (var i = 0; i < colCnt; i++) {
             tuple.setInternal(i, in.unpackObject(schema.columns()[i].type()));
+        }
 
         return tuple;
     }
@@ -364,10 +394,11 @@ public class ClientTable implements Table {
             ClientColumn col = schema.columns()[i];
             Object val = in.unpackObject(col.type());
 
-            if (i < keyColCnt)
+            if (i < keyColCnt) {
                 keyTuple.setInternal(i, val);
-            else
+            } else {
                 valTuple.setInternal(i - keyColCnt, val);
+            }
         }
 
         return new IgniteBiTuple<>(keyTuple, valTuple);
@@ -393,8 +424,9 @@ public class ClientTable implements Table {
         var cnt = in.unpackInt();
         var res = new ArrayList<Tuple>(cnt);
 
-        for (int i = 0; i < cnt; i++)
+        for (int i = 0; i < cnt; i++) {
             res.add(readTuple(schema, in, keyOnly));
+        }
 
         return res;
     }
@@ -438,15 +470,17 @@ public class ClientTable implements Table {
             BiFunction<ClientSchema, ClientMessageUnpacker, T> fn,
             T defaultValue
     ) {
-        if (in.getNextFormat() == MessageFormat.NIL)
+        if (in.getNextFormat() == MessageFormat.NIL) {
             return defaultValue;
+        }
 
         var schemaVer = in.unpackInt();
 
         var resSchema = schemaVer == knownSchema.version() ? knownSchema : schemas.get(schemaVer);
 
-        if (resSchema != null)
+        if (resSchema != null) {
             return fn.apply(knownSchema, in);
+        }
 
         // Schema is not yet known - request.
         // Retain unpacker - normally it is closed when this method exits.
@@ -457,8 +491,9 @@ public class ClientTable implements Table {
             Object data,
             BiFunction<ClientSchema, ClientMessageUnpacker, T> fn
     ) {
-        if (!(data instanceof IgniteBiTuple))
+        if (!(data instanceof IgniteBiTuple)) {
             return CompletableFuture.completedFuture((T) data);
+        }
 
         var biTuple = (IgniteBiTuple<ClientMessageUnpacker, Integer>) data;
 

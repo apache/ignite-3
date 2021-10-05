@@ -14,7 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.test;
+
+import static java.lang.Thread.sleep;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
@@ -39,8 +42,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.mockito.ArgumentCaptor;
 
-import static java.lang.Thread.sleep;
-
 /**
  * Test helper
  */
@@ -55,8 +56,9 @@ public class TestUtils {
     public static void dumpThreads() {
         ThreadMXBean bean = ManagementFactory.getThreadMXBean();
         ThreadInfo[] infos = bean.dumpAllThreads(true, true);
-        for (ThreadInfo info : infos)
+        for (ThreadInfo info : infos) {
             System.out.println(info);
+        }
     }
 
     public static LogEntry mockEntry(int index, int term) {
@@ -86,8 +88,7 @@ public class TestUtils {
     public static String getLocalAddress() {
         try {
             return InetAddress.getLocalHost().getHostAddress();
-        }
-        catch (UnknownHostException e) {
+        } catch (UnknownHostException e) {
             throw new IgniteInternalException(e);
         }
     }
@@ -96,8 +97,9 @@ public class TestUtils {
         List<LogEntry> entries = new ArrayList<>();
         for (int i = 0; i < n; i++) {
             LogEntry entry = mockEntry(i, i);
-            if (i > 0)
+            if (i > 0) {
                 entry.setData(ByteBuffer.wrap(String.valueOf(i).getBytes()));
+            }
             entries.add(entry);
         }
         return entries;
@@ -105,17 +107,18 @@ public class TestUtils {
 
     public static RpcRequests.PingRequest createPingRequest() {
         return new RaftMessagesFactory()
-            .pingRequest()
-            .sendTimestamp(System.currentTimeMillis())
-            .build();
+                .pingRequest()
+                .sendTimestamp(System.currentTimeMillis())
+                .build();
     }
 
     public static final int INIT_PORT = 5003;
 
     public static List<PeerId> generatePeers(int n) {
         List<PeerId> ret = new ArrayList<>();
-        for (int i = 0; i < n; i++)
+        for (int i = 0; i < n; i++) {
             ret.add(new PeerId(getLocalAddress(), INIT_PORT + i));
+        }
         return ret;
     }
 
@@ -136,9 +139,9 @@ public class TestUtils {
     }
 
     /**
-     * @param cluster The cluster.
+     * @param cluster  The cluster.
      * @param expected Expected count.
-     * @param timeout The timeout in millis.
+     * @param timeout  The timeout in millis.
      * @return {@code True} if topology size is equal to expected.
      */
     public static boolean waitForTopology(ClusterService cluster, int expected, int timeout) {
@@ -146,21 +149,22 @@ public class TestUtils {
     }
 
     /**
-     * @param cond The condition.
+     * @param cond    The condition.
      * @param timeout The timeout.
      * @return {@code True} if condition has happened within the timeout.
      */
-    @SuppressWarnings("BusyWait") public static boolean waitForCondition(BooleanSupplier cond, long timeout) {
+    @SuppressWarnings("BusyWait")
+    public static boolean waitForCondition(BooleanSupplier cond, long timeout) {
         long stop = System.currentTimeMillis() + timeout;
 
         while (System.currentTimeMillis() < stop) {
-            if (cond.getAsBoolean())
+            if (cond.getAsBoolean()) {
                 return true;
+            }
 
             try {
                 sleep(50);
-            }
-            catch (InterruptedException e) {
+            } catch (InterruptedException e) {
                 return false;
             }
         }
@@ -169,7 +173,7 @@ public class TestUtils {
     }
 
     /**
-     * @param captor The captor.
+     * @param captor  The captor.
      * @param timeout The timeout.
      * @return {@code True} if condition has happened within the timeout.
      */
@@ -177,8 +181,7 @@ public class TestUtils {
         return waitForCondition(() -> {
             try {
                 return captor.getValue() != null;
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 return false;
             }
         }, timeout);

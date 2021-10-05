@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.conf;
 
 import java.util.ArrayList;
@@ -68,7 +69,7 @@ public class Configuration implements Iterable<PeerId>, Copiable<Configuration> 
     /**
      * Construct a Configuration instance with peers and learners.
      *
-     * @param conf peers configuration
+     * @param conf     peers configuration
      * @param learners learners
      */
     public Configuration(final Iterable<PeerId> conf, final Iterable<PeerId> learners) {
@@ -238,14 +239,12 @@ public class Configuration implements Iterable<PeerId>, Copiable<Configuration> 
             if (other.learners != null) {
                 return false;
             }
-        }
-        else if (!this.learners.equals(other.learners)) {
+        } else if (!this.learners.equals(other.learners)) {
             return false;
         }
         if (this.peers == null) {
             return other.peers == null;
-        }
-        else {
+        } else {
             return this.peers.equals(other.peers);
         }
     }
@@ -295,12 +294,10 @@ public class Configuration implements Iterable<PeerId>, Copiable<Configuration> 
             if (peer.parse(peerStr)) {
                 if (isLearner) {
                     addLearner(peer);
-                }
-                else {
+                } else {
                     addPeer(peer);
                 }
-            }
-            else {
+            } else {
                 LOG.error("Fail to parse peer {} in {}, ignore it.", peerStr, conf);
             }
         }
@@ -308,8 +305,8 @@ public class Configuration implements Iterable<PeerId>, Copiable<Configuration> 
     }
 
     /**
-     * Get the difference between |*this| and |rhs| |included| would be assigned to |*this| - |rhs| |excluded| would be
-     * assigned to |rhs| - |*this|
+     * Get the difference between |*this| and |rhs| |included| would be assigned to |*this| - |rhs| |excluded| would be assigned to |rhs| -
+     * |*this|
      */
     public void diff(final Configuration rhs, final Configuration included, final Configuration excluded) {
         included.peers = new ArrayList<>(this.peers);

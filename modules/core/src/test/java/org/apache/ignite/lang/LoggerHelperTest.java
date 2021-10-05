@@ -17,9 +17,9 @@
 
 package org.apache.ignite.lang;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.Test;
 
 /**
  * Test for logger helper.
@@ -35,10 +35,10 @@ public class LoggerHelperTest {
     Integer i3 = new Integer(3);
 
     /** Array message parameter 0. */
-    Integer[] ia0 = new Integer[] {i1, i2, i3};
+    Integer[] ia0 = new Integer[]{i1, i2, i3};
 
     /** Array message parameter 1. */
-    Integer[] ia1 = new Integer[] {new Integer(10), new Integer(20), new Integer(30)};
+    Integer[] ia1 = new Integer[]{new Integer(10), new Integer(20), new Integer(30)};
 
     /** Variable for the result message. */
     String result;
@@ -57,7 +57,7 @@ public class LoggerHelperTest {
      */
     @Test
     public void nullParametersShouldBeHandledWithoutBarfing() {
-        result = LoggerMessageHelper.format("Value is {}.", new Object[] {null});
+        result = LoggerMessageHelper.format("Value is {}.", new Object[]{null});
         assertEquals("Value is null.", result);
 
         result = LoggerMessageHelper.format("Val1 is {}, val2 is {}.", null, null);
@@ -69,13 +69,13 @@ public class LoggerHelperTest {
         result = LoggerMessageHelper.format("Val1 is {}, val2 is {}.", null, i2);
         assertEquals("Val1 is null, val2 is 2.", result);
 
-        result = LoggerMessageHelper.format("Val1 is {}, val2 is {}, val3 is {}", new Integer[] {null, null, null});
+        result = LoggerMessageHelper.format("Val1 is {}, val2 is {}, val3 is {}", new Integer[]{null, null, null});
         assertEquals("Val1 is null, val2 is null, val3 is null", result);
 
-        result = LoggerMessageHelper.format("Val1 is {}, val2 is {}, val3 is {}", new Integer[] {null, i2, i3});
+        result = LoggerMessageHelper.format("Val1 is {}, val2 is {}, val3 is {}", new Integer[]{null, i2, i3});
         assertEquals("Val1 is null, val2 is 2, val3 is 3", result);
 
-        result = LoggerMessageHelper.format("Val1 is {}, val2 is {}, val3 is {}", new Integer[] {null, null, i3});
+        result = LoggerMessageHelper.format("Val1 is {}, val2 is {}, val3 is {}", new Integer[]{null, null, i3});
         assertEquals("Val1 is null, val2 is null, val3 is 3", result);
     }
 
@@ -164,7 +164,7 @@ public class LoggerHelperTest {
         };
         result = LoggerMessageHelper.format("Troublesome object {}", o);
         assertEquals("Troublesome object Failed toString() invocation on an object of type [cls=" + o.getClass().getName()
-            + ", errMsg=java.lang.IllegalStateException, errMsg=a]", result);
+                + ", errMsg=java.lang.IllegalStateException, errMsg=a]", result);
     }
 
     /**
@@ -225,29 +225,29 @@ public class LoggerHelperTest {
     @Test
     public void testArrayValues() {
         Integer p0 = i1;
-        Integer[] p1 = new Integer[] {i2, i3};
+        Integer[] p1 = new Integer[]{i2, i3};
 
         result = LoggerMessageHelper.format("{}{}", p0, p1);
         assertEquals("1[2, 3]", result);
 
         // Integer[]
-        result = LoggerMessageHelper.format("{}{}", new Object[] {"a", p1});
+        result = LoggerMessageHelper.format("{}{}", new Object[]{"a", p1});
         assertEquals("a[2, 3]", result);
 
         // byte[]
-        result = LoggerMessageHelper.format("{}{}", new Object[] {"a", new byte[] {1, 2}});
+        result = LoggerMessageHelper.format("{}{}", new Object[]{"a", new byte[]{1, 2}});
         assertEquals("a[1, 2]", result);
 
         // int[]
-        result = LoggerMessageHelper.format("{}{}", new Object[] {"a", new int[] {1, 2}});
+        result = LoggerMessageHelper.format("{}{}", new Object[]{"a", new int[]{1, 2}});
         assertEquals("a[1, 2]", result);
 
         // float[]
-        result = LoggerMessageHelper.format("{}{}", new Object[] {"a", new float[] {1, 2}});
+        result = LoggerMessageHelper.format("{}{}", new Object[]{"a", new float[]{1, 2}});
         assertEquals("a[1.0, 2.0]", result);
 
         // double[]
-        result = LoggerMessageHelper.format("{}{}", new Object[] {"a", new double[] {1, 2}});
+        result = LoggerMessageHelper.format("{}{}", new Object[]{"a", new double[]{1, 2}});
         assertEquals("a[1.0, 2.0]", result);
     }
 
@@ -256,24 +256,24 @@ public class LoggerHelperTest {
      */
     @Test
     public void testMultiDimensionalArrayValues() {
-        Integer[][] multiIntegerA = new Integer[][] {ia0, ia1};
-        result = LoggerMessageHelper.format("{}{}", new Object[] {"a", multiIntegerA});
+        Integer[][] multiIntegerA = new Integer[][]{ia0, ia1};
+        result = LoggerMessageHelper.format("{}{}", new Object[]{"a", multiIntegerA});
         assertEquals("a[[1, 2, 3], [10, 20, 30]]", result);
 
-        int[][] multiIntA = new int[][] {{1, 2}, {10, 20}};
-        result = LoggerMessageHelper.format("{}{}", new Object[] {"a", multiIntA});
+        int[][] multiIntA = new int[][]{{1, 2}, {10, 20}};
+        result = LoggerMessageHelper.format("{}{}", new Object[]{"a", multiIntA});
         assertEquals("a[[1, 2], [10, 20]]", result);
 
-        float[][] multiFloatA = new float[][] {{1, 2}, {10, 20}};
-        result = LoggerMessageHelper.format("{}{}", new Object[] {"a", multiFloatA});
+        float[][] multiFloatA = new float[][]{{1, 2}, {10, 20}};
+        result = LoggerMessageHelper.format("{}{}", new Object[]{"a", multiFloatA});
         assertEquals("a[[1.0, 2.0], [10.0, 20.0]]", result);
 
-        Object[][] multiOA = new Object[][] {ia0, ia1};
-        result = LoggerMessageHelper.format("{}{}", new Object[] {"a", multiOA});
+        Object[][] multiOA = new Object[][]{ia0, ia1};
+        result = LoggerMessageHelper.format("{}{}", new Object[]{"a", multiOA});
         assertEquals("a[[1, 2, 3], [10, 20, 30]]", result);
 
-        Object[][][] _3DOA = new Object[][][] {multiOA, multiOA};
-        result = LoggerMessageHelper.format("{}{}", new Object[] {"a", _3DOA});
+        Object[][][] _3DOA = new Object[][][]{multiOA, multiOA};
+        result = LoggerMessageHelper.format("{}{}", new Object[]{"a", _3DOA});
         assertEquals("a[[[1, 2, 3], [10, 20, 30]], [[1, 2, 3], [10, 20, 30]]]", result);
     }
 
@@ -290,8 +290,8 @@ public class LoggerHelperTest {
         {
             Object[] a = new Object[2];
             a[0] = i1;
-            Object[] c = new Object[] {i3, a};
-            Object[] b = new Object[] {i2, c};
+            Object[] c = new Object[]{i3, a};
+            Object[] b = new Object[]{i2, c};
             a[1] = b;
             assertEquals("1[2, [3, [1, [...]]]]", LoggerMessageHelper.format("{}{}", a));
         }

@@ -34,19 +34,23 @@ public class FakeCursor implements SqlCursor<List<?>> {
         random = new Random();
     }
 
-    @Override public void close() throws Exception {
+    @Override
+    public void close() throws Exception {
 
     }
 
-    @Override public Iterator<List<?>> iterator() {
+    @Override
+    public Iterator<List<?>> iterator() {
         return null;
     }
 
-    @Override public boolean hasNext() {
+    @Override
+    public boolean hasNext() {
         return true;
     }
 
-    @Override public List<?> next() {
+    @Override
+    public List<?> next() {
         List<Object> result = new ArrayList<>();
         result.add(random.nextInt());
         result.add(random.nextLong());
@@ -58,11 +62,13 @@ public class FakeCursor implements SqlCursor<List<?>> {
         return result;
     }
 
-    @Override public SqlQueryType getQueryType() {
+    @Override
+    public SqlQueryType getQueryType() {
         return SqlQueryType.QUERY;
     }
 
-    @Override public FieldsMetadata getColumnMetadata() {
+    @Override
+    public FieldsMetadata getColumnMetadata() {
         return null;
     }
 }

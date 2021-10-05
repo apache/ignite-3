@@ -44,18 +44,20 @@ public class IgniteMdDistribution implements MetadataHandler<BuiltInMetadata.Dis
      * Metadata provider, responsible for distribution type request. It uses this implementation class under the hood.
      */
     public static final RelMetadataProvider SOURCE =
-        ReflectiveRelMetadataProvider.reflectiveSource(
-            BuiltInMethod.DISTRIBUTION.method, new IgniteMdDistribution());
+            ReflectiveRelMetadataProvider.reflectiveSource(
+                    BuiltInMethod.DISTRIBUTION.method, new IgniteMdDistribution());
 
     /** {@inheritDoc} */
-    @Override public MetadataDef<BuiltInMetadata.Distribution> getDef() {
+    @Override
+    public MetadataDef<BuiltInMetadata.Distribution> getDef() {
         return BuiltInMetadata.Distribution.DEF;
     }
 
     /**
      * Requests actual distribution type of the given relational node.
+     *
      * @param rel Relational node.
-     * @param mq Metadata query instance. Used to request appropriate metadata from node children.
+     * @param mq  Metadata query instance. Used to request appropriate metadata from node children.
      * @return Distribution type of the given relational node.
      */
     public IgniteDistribution distribution(RelNode rel, RelMetadataQuery mq) {
@@ -99,8 +101,9 @@ public class IgniteMdDistribution implements MetadataHandler<BuiltInMetadata.Dis
 
     /**
      * Distribution request entry point.
+     *
      * @param rel Relational node.
-     * @param mq Metadata query instance.
+     * @param mq  Metadata query instance.
      * @return Actual distribution of the given relational node.
      */
     public static IgniteDistribution _distribution(RelNode rel, RelMetadataQuery mq) {

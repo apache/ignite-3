@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.processors.query.calcite.message;
 
+import static org.apache.ignite.internal.processors.query.calcite.message.SqlQueryMessageGroup.GROUP_TYPE;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
-
 import org.apache.ignite.internal.processors.query.calcite.exec.QueryTaskExecutor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -32,8 +33,6 @@ import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyService;
-
-import static org.apache.ignite.internal.processors.query.calcite.message.SqlQueryMessageGroup.GROUP_TYPE;
 
 /**
  *
@@ -47,20 +46,28 @@ public class MessageServiceImpl implements MessageService {
 
     private final MessagingService messagingSrvc;
 
-    /** */
+    /**
+     *
+     */
     private final String locNodeId;
 
-    /** */
+    /**
+     *
+     */
     private final QueryTaskExecutor taskExecutor;
 
-    /** */
+    /**
+     *
+     */
     private Map<Short, MessageListener> lsnrs;
 
-    /** */
+    /**
+     *
+     */
     public MessageServiceImpl(
-        TopologyService topSrvc,
-        MessagingService messagingSrvc,
-        QueryTaskExecutor taskExecutor
+            TopologyService topSrvc,
+            MessagingService messagingSrvc,
+            QueryTaskExecutor taskExecutor
     ) {
         this.topSrvc = topSrvc;
         this.messagingSrvc = messagingSrvc;
@@ -72,20 +79,22 @@ public class MessageServiceImpl implements MessageService {
     }
 
     /** {@inheritDoc} */
-    @Override public void send(String nodeId, NetworkMessage msg) throws IgniteInternalCheckedException {
-        if (locNodeId.equals(nodeId))
+    @Override
+    public void send(String nodeId, NetworkMessage msg) throws IgniteInternalCheckedException {
+        if (locNodeId.equals(nodeId)) {
             onMessage(nodeId, msg);
-        else {
+        } else {
             ClusterNode node = topSrvc.allMembers().stream()
-                .filter(cn -> nodeId.equals(cn.id()))
-                .findFirst()
-                .orElseThrow(() -> new IgniteInternalException("Failed to send message to node (has node left grid?): " + nodeId));
+                    .filter(cn -> nodeId.equals(cn.id()))
+                    .findFirst()
+                    .orElseThrow(() -> new IgniteInternalException("Failed to send message to node (has node left grid?): " + nodeId));
 
             try {
                 messagingSrvc.send(node, msg).get();
             } catch (Exception ex) {
-                if (ex instanceof IgniteInternalCheckedException)
-                    throw (IgniteInternalCheckedException)ex;
+                if (ex instanceof IgniteInternalCheckedException) {
+                    throw (IgniteInternalCheckedException) ex;
+                }
 
                 throw new IgniteInternalCheckedException(ex);
             }
@@ -93,9 +102,11 @@ public class MessageServiceImpl implements MessageService {
     }
 
     /** {@inheritDoc} */
-    @Override public void register(MessageListener lsnr, short type) {
-        if (lsnrs == null)
+    @Override
+    public void register(MessageListener lsnr, short type) {
+        if (lsnrs == null) {
             lsnrs = new HashMap<>();
+        }
 
         MessageListener old = lsnrs.put(type, lsnr);
 
@@ -103,28 +114,32 @@ public class MessageServiceImpl implements MessageService {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean alive(String nodeId) {
+    @Override
+    public boolean alive(String nodeId) {
         return topSrvc.allMembers().stream()
-            .map(ClusterNode::id)
-            .anyMatch(id -> id.equals(nodeId));
+                .map(ClusterNode::id)
+                .anyMatch(id -> id.equals(nodeId));
     }
 
-    /** */
+    /**
+     *
+     */
     protected void onMessage(String nodeId, NetworkMessage msg) {
         if (msg instanceof ExecutionContextAwareMessage) {
             ExecutionContextAwareMessage msg0 = (ExecutionContextAwareMessage) msg;
             taskExecutor.execute(msg0.queryId(), msg0.fragmentId(), () -> onMessageInternal(nodeId, msg));
-        }
-        else {
+        } else {
             taskExecutor.execute(
-                QUERY_ID_STUB,
-                ThreadLocalRandom.current().nextLong(1024),
-                () -> onMessageInternal(nodeId, msg)
+                    QUERY_ID_STUB,
+                    ThreadLocalRandom.current().nextLong(1024),
+                    () -> onMessageInternal(nodeId, msg)
             );
         }
     }
 
-    /** */
+    /**
+     *
+     */
     private void onMessage(NetworkMessage msg, NetworkAddress addr, String correlationId) {
         assert msg.groupType() == GROUP_TYPE : "unexpected message group grpType=" + msg.groupType();
 
@@ -139,7 +154,9 @@ public class MessageServiceImpl implements MessageService {
         onMessage(node.id(), msg);
     }
 
-    /** */
+    /**
+     *
+     */
     private void onMessageInternal(String nodeId, NetworkMessage msg) {
         MessageListener lsnr = Objects.requireNonNull(
                 lsnrs.get(msg.messageType()),

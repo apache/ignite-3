@@ -36,7 +36,7 @@ import org.apache.ignite.table.Tuple;
  *         {@code ignite node start --config=$IGNITE_HOME/examples/config/ignite-config.json node-1}<br>
  *         {@code ignite node start --config=$IGNITE_HOME/examples/config/ignite-config.json node-2}<br>
  *         {@code ...}<br>
-*          {@code ignite node start --config=$IGNITE_HOME/examples/config/ignite-config.json node-n}<br>
+ *          {@code ignite node start --config=$IGNITE_HOME/examples/config/ignite-config.json node-n}<br>
  *     </li>
  *     <li>Run the example in the IDE.</li>
  * </ol>
@@ -44,9 +44,9 @@ import org.apache.ignite.table.Tuple;
 public class KeyValueBinaryViewExample {
     public static void main(String[] args) throws Exception {
         Ignite ignite = IgnitionManager.start(
-            "node-0",
-            Files.readString(Path.of("config", "ignite-config.json").toAbsolutePath()),
-            Path.of("work")
+                "node-0",
+                Files.readString(Path.of("config", "ignite-config.json").toAbsolutePath()),
+                Path.of("work")
         );
 
         //---------------------------------------------------------------------------------
@@ -63,20 +63,20 @@ public class KeyValueBinaryViewExample {
         //---------------------------------------------------------------------------------
 
         Table accounts = ignite.tables().createTable("PUBLIC.accounts", tbl -> tbl
-            .changeName("PUBLIC.accounts")
-            .changeColumns(cols -> cols
-                .create("0", c -> c.changeName("accountNumber").changeType(t -> t.changeType("int32")).changeNullable(false))
-                .create("1", c -> c.changeName("firstName").changeType(t -> t.changeType("string")).changeNullable(true))
-                .create("2", c -> c.changeName("lastName").changeType(t -> t.changeType("string")).changeNullable(true))
-                .create("3", c -> c.changeName("balance").changeType(t -> t.changeType("double")).changeNullable(true))
-            )
-            .changeIndices(idxs -> idxs
-                .create("PK", idx -> idx
-                    .changeName("PK")
-                    .changeType("PK")
-                    .changeColumns(cols -> cols.create("0", c -> c.changeName("accountNumber").changeAsc(true)))
+                .changeName("PUBLIC.accounts")
+                .changeColumns(cols -> cols
+                        .create("0", c -> c.changeName("accountNumber").changeType(t -> t.changeType("int32")).changeNullable(false))
+                        .create("1", c -> c.changeName("firstName").changeType(t -> t.changeType("string")).changeNullable(true))
+                        .create("2", c -> c.changeName("lastName").changeType(t -> t.changeType("string")).changeNullable(true))
+                        .create("3", c -> c.changeName("balance").changeType(t -> t.changeType("double")).changeNullable(true))
                 )
-            )
+                .changeIndices(idxs -> idxs
+                        .create("PK", idx -> idx
+                                .changeName("PK")
+                                .changeType("PK")
+                                .changeColumns(cols -> cols.create("0", c -> c.changeName("accountNumber").changeAsc(true)))
+                        )
+                )
         );
 
         KeyValueView<Tuple, Tuple> kvView = accounts.keyValueView();
@@ -88,12 +88,12 @@ public class KeyValueBinaryViewExample {
         //---------------------------------------------------------------------------------
 
         Tuple key = Tuple.create()
-            .set("accountNumber", 123456);
+                .set("accountNumber", 123456);
 
         Tuple value = Tuple.create()
-            .set("firstName", "Val")
-            .set("lastName", "Kulichenko")
-            .set("balance", 100.00d);
+                .set("firstName", "Val")
+                .set("lastName", "Kulichenko")
+                .set("balance", 100.00d);
 
         kvView.put(key, value);
 
@@ -106,9 +106,9 @@ public class KeyValueBinaryViewExample {
         value = accounts.recordView().get(key);
 
         System.out.println(
-            "Retrieved using Key-Value API\n" +
-            "    Account Number: " + key.intValue("accountNumber") + '\n' +
-            "    Owner: " + value.stringValue("firstName") + " " + value.stringValue("lastName") + '\n' +
-            "    Balance: $" + value.doubleValue("balance"));
+                "Retrieved using Key-Value API\n" +
+                        "    Account Number: " + key.intValue("accountNumber") + '\n' +
+                        "    Owner: " + value.stringValue("firstName") + " " + value.stringValue("lastName") + '\n' +
+                        "    Balance: $" + value.doubleValue("balance"));
     }
 }

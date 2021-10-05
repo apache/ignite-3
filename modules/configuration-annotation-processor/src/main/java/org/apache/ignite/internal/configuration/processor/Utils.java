@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.internal.configuration.processor;
 
 import com.squareup.javapoet.ClassName;
@@ -34,8 +35,8 @@ public class Utils {
      */
     public static ClassName getConfigurationInterfaceName(ClassName schemaClassName) {
         return ClassName.get(
-            schemaClassName.packageName(),
-            schemaClassName.simpleName().replaceAll("Schema$", "")
+                schemaClassName.packageName(),
+                schemaClassName.simpleName().replaceAll("Schema$", "")
         );
     }
 
@@ -47,8 +48,8 @@ public class Utils {
      */
     public static ClassName getViewName(ClassName schemaClassName) {
         return ClassName.get(
-            schemaClassName.packageName(),
-            schemaClassName.simpleName().replace("ConfigurationSchema", "View")
+                schemaClassName.packageName(),
+                schemaClassName.simpleName().replace("ConfigurationSchema", "View")
         );
     }
 
@@ -60,8 +61,8 @@ public class Utils {
      */
     public static ClassName getChangeName(ClassName schemaClassName) {
         return ClassName.get(
-            schemaClassName.packageName(),
-            schemaClassName.simpleName().replace("ConfigurationSchema", "Change")
+                schemaClassName.packageName(),
+                schemaClassName.simpleName().replace("ConfigurationSchema", "Change")
         );
     }
 }

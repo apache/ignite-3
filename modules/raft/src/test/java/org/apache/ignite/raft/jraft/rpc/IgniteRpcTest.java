@@ -17,6 +17,8 @@
 
 package org.apache.ignite.raft.jraft.rpc;
 
+import static org.apache.ignite.raft.jraft.JRaftUtils.addressFromEndpoint;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -35,8 +37,6 @@ import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.TestInfo;
 
-import static org.apache.ignite.raft.jraft.JRaftUtils.addressFromEndpoint;
-
 /**
  *
  */
@@ -50,27 +50,31 @@ public class IgniteRpcTest extends AbstractRpcTest {
     /** Test info. */
     private final TestInfo testInfo;
 
-    /** */
+    /**
+     *
+     */
     public IgniteRpcTest(TestInfo testInfo) {
         this.testInfo = testInfo;
     }
 
     /** {@inheritDoc} */
     @AfterEach
-    @Override public void tearDown() {
+    @Override
+    public void tearDown() {
         super.tearDown();
 
         ExecutorServiceHelper.shutdownAndAwaitTermination(requestExecutor);
     }
 
     /** {@inheritDoc} */
-    @Override public RpcServer<?> createServer(Endpoint endpoint) {
+    @Override
+    public RpcServer<?> createServer(Endpoint endpoint) {
         ClusterService service = ClusterServiceTestUtils.clusterService(
-            testInfo,
-            endpoint.getPort(),
-            new StaticNodeFinder(Collections.emptyList()),
-            new MessageSerializationRegistryImpl(),
-            new TestScaleCubeClusterServiceFactory()
+                testInfo,
+                endpoint.getPort(),
+                new StaticNodeFinder(Collections.emptyList()),
+                new MessageSerializationRegistryImpl(),
+                new TestScaleCubeClusterServiceFactory()
         );
 
         NodeOptions nodeOptions = new NodeOptions();
@@ -78,7 +82,8 @@ public class IgniteRpcTest extends AbstractRpcTest {
         requestExecutor = JRaftUtils.createRequestExecutor(nodeOptions);
 
         var server = new TestIgniteRpcServer(service, new NodeManager(), nodeOptions, requestExecutor) {
-            @Override public void shutdown() {
+            @Override
+            public void shutdown() {
                 super.shutdown();
 
                 service.stop();
@@ -91,19 +96,21 @@ public class IgniteRpcTest extends AbstractRpcTest {
     }
 
     /** {@inheritDoc} */
-    @Override public RpcClient createClient0() {
+    @Override
+    public RpcClient createClient0() {
         int i = cntr.incrementAndGet();
 
         ClusterService service = ClusterServiceTestUtils.clusterService(
-            testInfo,
-            endpoint.getPort() - i,
-            new StaticNodeFinder(List.of(addressFromEndpoint(endpoint))),
-            new MessageSerializationRegistryImpl(),
-            new TestScaleCubeClusterServiceFactory()
+                testInfo,
+                endpoint.getPort() - i,
+                new StaticNodeFinder(List.of(addressFromEndpoint(endpoint))),
+                new MessageSerializationRegistryImpl(),
+                new TestScaleCubeClusterServiceFactory()
         );
 
         IgniteRpcClient client = new IgniteRpcClient(service) {
-            @Override public void shutdown() {
+            @Override
+            public void shutdown() {
                 super.shutdown();
 
                 service.stop();
@@ -118,7 +125,8 @@ public class IgniteRpcTest extends AbstractRpcTest {
     }
 
     /** {@inheritDoc} */
-    @Override protected boolean waitForTopology(RpcClient client, int expected, long timeout) {
+    @Override
+    protected boolean waitForTopology(RpcClient client, int expected, long timeout) {
         IgniteRpcClient client0 = (IgniteRpcClient) client;
 
         ClusterService service = client0.clusterService();
@@ -127,22 +135,22 @@ public class IgniteRpcTest extends AbstractRpcTest {
     }
 
     /**
-     * @param service The service.
+     * @param service  The service.
      * @param expected Expected count.
-     * @param timeout The timeout.
+     * @param timeout  The timeout.
      * @return Wait status.
      */
     protected boolean waitForTopology(ClusterService service, int expected, long timeout) {
         long stop = System.currentTimeMillis() + timeout;
 
         while (System.currentTimeMillis() < stop) {
-            if (service.topologyService().allMembers().size() == expected)
+            if (service.topologyService().allMembers().size() == expected) {
                 return true;
+            }
 
             try {
                 Thread.sleep(50);
-            }
-            catch (InterruptedException e) {
+            } catch (InterruptedException e) {
                 return false;
             }
         }

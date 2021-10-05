@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.tostring;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  *
@@ -32,7 +32,7 @@ public class CircularStringBuilderSelfTest extends IgniteAbstractTest {
     @Test
     public void testCSBPrimitive() {
         CircularStringBuilder csb = new CircularStringBuilder(1);
-        csb.append((String)null);
+        csb.append((String) null);
         assertEquals("l", csb.toString());
         csb.append('1');
         assertEquals("1", csb.toString());
@@ -57,15 +57,16 @@ public class CircularStringBuilderSelfTest extends IgniteAbstractTest {
 
     /**
      * @param capacity Capacity.
-     * @param pattern Pattern to add.
-     * @param num How many times pattern should be added.
+     * @param pattern  Pattern to add.
+     * @param num      How many times pattern should be added.
      * @param expected Expected string.
      */
     private void testSB(int capacity, String pattern, int num, String expected) {
         CircularStringBuilder csb = new CircularStringBuilder(capacity);
 
-        for (int i = 0; i < num; i++)
+        for (int i = 0; i < num; i++) {
             csb.append(pattern);
+        }
 
         assertEquals(expected, csb.toString());
     }

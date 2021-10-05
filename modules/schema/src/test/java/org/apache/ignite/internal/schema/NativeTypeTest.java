@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.schema;
 
-import org.apache.ignite.schema.definition.ColumnType;
-import org.junit.jupiter.api.Test;
-
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.DATE;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
@@ -42,6 +39,9 @@ import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.apache.ignite.schema.definition.ColumnType;
+import org.junit.jupiter.api.Test;
 
 /**
  *

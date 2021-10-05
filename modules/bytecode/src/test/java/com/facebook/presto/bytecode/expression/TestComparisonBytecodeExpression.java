@@ -14,9 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.bytecode.expression;
 
-import org.junit.jupiter.api.Test;
+package com.facebook.presto.bytecode.expression;
 
 import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantDouble;
@@ -31,10 +30,12 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.lessTh
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.lessThanOrEqual;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.notEqual;
 
+import org.junit.jupiter.api.Test;
+
 public class TestComparisonBytecodeExpression {
     @Test
     public void testLessThan()
-        throws Exception {
+            throws Exception {
         assertBytecodeExpression(lessThan(constantInt(3), constantInt(7)), 3 < 7, "(3 < 7)");
         assertBytecodeExpression(lessThan(constantInt(7), constantInt(3)), 7 < 3, "(7 < 3)");
         assertBytecodeExpression(lessThan(constantInt(7), constantInt(7)), 7 < 7, "(7 < 7)");
@@ -58,7 +59,7 @@ public class TestComparisonBytecodeExpression {
 
     @Test
     public void testGreaterThan()
-        throws Exception {
+            throws Exception {
         assertBytecodeExpression(greaterThan(constantInt(3), constantInt(7)), 3 > 7, "(3 > 7)");
         assertBytecodeExpression(greaterThan(constantInt(7), constantInt(3)), 7 > 3, "(7 > 3)");
         assertBytecodeExpression(greaterThan(constantInt(7), constantInt(7)), 7 > 7, "(7 > 7)");
@@ -82,7 +83,7 @@ public class TestComparisonBytecodeExpression {
 
     @Test
     public void testLessThanOrEqual()
-        throws Exception {
+            throws Exception {
         assertBytecodeExpression(lessThanOrEqual(constantInt(3), constantInt(7)), 3 <= 7, "(3 <= 7)");
         assertBytecodeExpression(lessThanOrEqual(constantInt(7), constantInt(3)), 7 <= 3, "(7 <= 3)");
         assertBytecodeExpression(lessThanOrEqual(constantInt(7), constantInt(7)), 7 <= 7, "(7 <= 7)");
@@ -106,7 +107,7 @@ public class TestComparisonBytecodeExpression {
 
     @Test
     public void testGreaterThanOrEqual()
-        throws Exception {
+            throws Exception {
         assertBytecodeExpression(greaterThanOrEqual(constantInt(3), constantInt(7)), 3 >= 7, "(3 >= 7)");
         assertBytecodeExpression(greaterThanOrEqual(constantInt(7), constantInt(3)), 7 >= 3, "(7 >= 3)");
         assertBytecodeExpression(greaterThanOrEqual(constantInt(7), constantInt(7)), 7 >= 7, "(7 >= 7)");
@@ -131,7 +132,7 @@ public class TestComparisonBytecodeExpression {
     @SuppressWarnings({"FloatingPointEquality", "ComparisonToNaN", "EqualsNaN", "EqualsWithItself"})
     @Test
     public void testEqual()
-        throws Exception {
+            throws Exception {
         assertBytecodeExpression(equal(constantInt(7), constantInt(3)), 7 == 3, "(7 == 3)");
         assertBytecodeExpression(equal(constantInt(7), constantInt(7)), 7 == 7, "(7 == 7)");
 
@@ -157,7 +158,7 @@ public class TestComparisonBytecodeExpression {
     @SuppressWarnings({"FloatingPointEquality", "ComparisonToNaN", "EqualsNaN", "EqualsWithItself"})
     @Test
     public void testNotEqual()
-        throws Exception {
+            throws Exception {
         assertBytecodeExpression(notEqual(constantInt(7), constantInt(3)), 7 != 3, "(7 != 3)");
         assertBytecodeExpression(notEqual(constantInt(7), constantInt(7)), 7 != 7, "(7 != 7)");
 
@@ -173,7 +174,8 @@ public class TestComparisonBytecodeExpression {
         assertBytecodeExpression(notEqual(constantDouble(7.7), constantDouble(7.7)), 7.7 != 7.7, "(7.7 != 7.7)");
         assertBytecodeExpression(notEqual(constantDouble(Double.NaN), constantDouble(7.7)), Double.NaN != 7.7, "(NaN != 7.7)");
         assertBytecodeExpression(notEqual(constantDouble(7.7), constantDouble(Double.NaN)), 7.7 != Double.NaN, "(7.7 != NaN)");
-        assertBytecodeExpression(notEqual(constantDouble(Double.NaN), constantDouble(Double.NaN)), Double.NaN != Double.NaN, "(NaN != NaN)");
+        assertBytecodeExpression(notEqual(constantDouble(Double.NaN), constantDouble(Double.NaN)), Double.NaN != Double.NaN,
+                "(NaN != NaN)");
 
         // the byte code is verifying with != but that breaks check style so we use
         assertBytecodeExpression(notEqual(constantString("foo"), constantString("bar")), !"foo".equals("bar"), "(\"foo\" != \"bar\")");

@@ -17,33 +17,36 @@
 
 package org.apache.ignite.network;
 
+import static java.util.stream.Collectors.toUnmodifiableList;
+
 import java.util.List;
 import java.util.stream.IntStream;
 
-import static java.util.stream.Collectors.toUnmodifiableList;
-
 /**
- * {@code NodeFinder} implementation similar to the {@link StaticNodeFinder} but encapsulates a list of static local
- * addresses over a port range.
+ * {@code NodeFinder} implementation similar to the {@link StaticNodeFinder} but encapsulates a list of static local addresses over a port
+ * range.
  */
 public class LocalPortRangeNodeFinder implements NodeFinder {
-    /** */
+    /**
+     *
+     */
     private final List<NetworkAddress> addresses;
 
     /**
      * Creates a node finder that contains local network addresses over the given port range.
      *
      * @param startPort Start port (including).
-     * @param endPort End port (excluding).
+     * @param endPort   End port (excluding).
      */
     public LocalPortRangeNodeFinder(int startPort, int endPort) {
         addresses = IntStream.range(startPort, endPort)
-            .mapToObj(port -> new NetworkAddress("localhost", port))
-            .collect(toUnmodifiableList());
+                .mapToObj(port -> new NetworkAddress("localhost", port))
+                .collect(toUnmodifiableList());
     }
 
     /** {@inheritDoc} */
-    @Override public List<NetworkAddress> findNodes() {
+    @Override
+    public List<NetworkAddress> findNodes() {
         return addresses;
     }
 }

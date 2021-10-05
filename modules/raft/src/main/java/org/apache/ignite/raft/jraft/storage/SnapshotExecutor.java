@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage;
 
 import org.apache.ignite.raft.jraft.Closure;
@@ -43,25 +44,22 @@ public interface SnapshotExecutor extends Lifecycle<SnapshotExecutorOptions>, De
     void doSnapshot(final Closure done);
 
     /**
-     * Install snapshot according to the very RPC from leader After the installing succeeds (StateMachine is reset with
-     * the snapshot) or fails, done will be called to respond Errors: - Term mismatches: which happens
-     * interrupt_downloading_snapshot was called before install_snapshot, indicating that this RPC was issued by the old
-     * leader. - Interrupted: happens when interrupt_downloading_snapshot is called or a new RPC with the same or newer
-     * snapshot arrives - Busy: the state machine is saving or loading snapshot
+     * Install snapshot according to the very RPC from leader After the installing succeeds (StateMachine is reset with the snapshot) or
+     * fails, done will be called to respond Errors: - Term mismatches: which happens interrupt_downloading_snapshot was called before
+     * install_snapshot, indicating that this RPC was issued by the old leader. - Interrupted: happens when interrupt_downloading_snapshot
+     * is called or a new RPC with the same or newer snapshot arrives - Busy: the state machine is saving or loading snapshot
      */
     void installSnapshot(final InstallSnapshotRequest request, final InstallSnapshotResponseBuilder response,
-        final RpcRequestClosure done);
+            final RpcRequestClosure done);
 
     /**
-     * Interrupt the downloading if possible. This is called when the term of node increased to |new_term|, which
-     * happens when receiving RPC from new peer. In this case, it's hard to determine whether to keep downloading
-     * snapshot as the new leader possibly contains the missing logs and is going to send AppendEntries. To make things
-     * simplicity and leader changing during snapshot installing is very rare. So we interrupt snapshot downloading when
-     * leader changes, and let the new leader decide whether to install a new snapshot or continue appending log
-     * entries.
-     *
-     * NOTE: we can't interrupt the snapshot installing which has finished downloading and is reseting the State
-     * Machine.
+     * Interrupt the downloading if possible. This is called when the term of node increased to |new_term|, which happens when receiving RPC
+     * from new peer. In this case, it's hard to determine whether to keep downloading snapshot as the new leader possibly contains the
+     * missing logs and is going to send AppendEntries. To make things simplicity and leader changing during snapshot installing is very
+     * rare. So we interrupt snapshot downloading when leader changes, and let the new leader decide whether to install a new snapshot or
+     * continue appending log entries.
+     * <p>
+     * NOTE: we can't interrupt the snapshot installing which has finished downloading and is reseting the State Machine.
      *
      * @param newTerm new term num
      */

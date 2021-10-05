@@ -14,7 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -23,9 +27,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class CountDownEventTest {
     private static final IgniteLogger LOG = IgniteLogger.forClass(CountDownEventTest.class);
@@ -52,8 +53,7 @@ public class CountDownEventTest {
                     long start = System.currentTimeMillis();
                     e.await();
                     cost.set(System.currentTimeMillis() - start);
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                     LOG.error("Failed to wait", e);
                 }
                 latch.countDown();
@@ -80,8 +80,7 @@ public class CountDownEventTest {
                 try {
                     Thread.sleep(100);
                     thread.interrupt();
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                     LOG.error("Failed to wait", e);
                 }
             }

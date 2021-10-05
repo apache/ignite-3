@@ -36,8 +36,8 @@ import org.junit.jupiter.params.provider.MethodSource;
  *
  */
 @SuppressWarnings({
-    "PMD.EmptyLineSeparatorCheck", "emptylineseparator",
-    "unused", "UnusedAssignment", "InstanceVariableMayNotBeInitialized", "JoinDeclarationAndAssignmentJava"})
+        "PMD.EmptyLineSeparatorCheck", "emptylineseparator",
+        "unused", "UnusedAssignment", "InstanceVariableMayNotBeInitialized", "JoinDeclarationAndAssignmentJava"})
 public class Example {
     /**
      * @return Table implementation.
@@ -47,12 +47,8 @@ public class Example {
     }
 
     /**
-     * Use case 1: a simple one. The table has the structure
-     * [
-     * [id int, orgId int] // key
-     * [name varchar, lastName varchar, decimal salary, int department] // value
-     * ]
-     * We show how to use the raw TableRow and a mapped class.
+     * Use case 1: a simple one. The table has the structure [ [id int, orgId int] // key [name varchar, lastName varchar, decimal salary,
+     * int department] // value ] We show how to use the raw TableRow and a mapped class.
      */
     @Disabled
     @ParameterizedTest
@@ -109,12 +105,8 @@ public class Example {
     }
 
     /**
-     * Use case 2: using simple KV mappings
-     * The table has structure is
-     * [
-     * [id int, orgId int] // key
-     * [name varchar, lastName varchar, decimal salary, int department] // value
-     * ]
+     * Use case 2: using simple KV mappings The table has structure is [ [id int, orgId int] // key [name varchar, lastName varchar, decimal
+     * salary, int department] // value ]
      */
     @Disabled
     @ParameterizedTest
@@ -153,12 +145,8 @@ public class Example {
     }
 
     /**
-     * Use case 3: Single table strategy for inherited objects.
-     * The table has structure is
-     * [
-     * [id long] // key
-     * [owner varchar, cardNumber long, expYear int, expMonth int, accountNum long, bankName varchar] // value
-     * ]
+     * Use case 3: Single table strategy for inherited objects. The table has structure is [ [id long] // key [owner varchar, cardNumber
+     * long, expYear int, expMonth int, accountNum long, bankName varchar] // value ]
      */
     @Disabled
     @ParameterizedTest
@@ -217,12 +205,8 @@ public class Example {
     }
 
     /**
-     * Use case 4: Conditional serialization.
-     * The table has structure is
-     * [
-     * [id int, orgId int] // key
-     * [owner varchar, type int, conditionalDetails byte[]] // value
-     * ]
+     * Use case 4: Conditional serialization. The table has structure is [ [id int, orgId int] // key [owner varchar, type int,
+     * conditionalDetails byte[]] // value ]
      */
     @Disabled
     @ParameterizedTest
@@ -256,15 +240,15 @@ public class Example {
         }
 
         KeyValueView<OrderKey, OrderValue> orderKvView = t.keyValueView(Mappers.ofKeyClass(OrderKey.class),
-            Mappers.ofValueClassBuilder(OrderValue.class)
-                .map("billingDetails", (row) -> {
-                    BinaryObject bObj = row.binaryObjectValue("conditionalDetails");
-                    int type = row.intValue("type");
+                Mappers.ofValueClassBuilder(OrderValue.class)
+                        .map("billingDetails", (row) -> {
+                            BinaryObject bObj = row.binaryObjectValue("conditionalDetails");
+                            int type = row.intValue("type");
 
-                    return type == 0 ?
-                        BinaryObjects.deserialize(bObj, CreditCard.class) :
-                        BinaryObjects.deserialize(bObj, BankAccount.class);
-                }).build());
+                            return type == 0 ?
+                                    BinaryObjects.deserialize(bObj, CreditCard.class) :
+                                    BinaryObjects.deserialize(bObj, BankAccount.class);
+                        }).build());
 
         OrderValue ov = orderKvView.get(new OrderKey(1, 1));
 
@@ -300,18 +284,13 @@ public class Example {
 
         // Manual deserialization is possible as well.
         Object billingDetails = orderRecord.type == 0 ?
-            BinaryObjects.deserialize(binObj, CreditCard.class) :
-            BinaryObjects.deserialize(binObj, BankAccount.class);
+                BinaryObjects.deserialize(binObj, CreditCard.class) :
+                BinaryObjects.deserialize(binObj, BankAccount.class);
     }
 
     /**
-     * Use case 5: using byte[] and binary objects in columns.
-     * The table has structure
-     * [
-     * [id int, orgId int] // key
-     * [originalObject byte[], upgradedObject byte[], int department] // value
-     * ]
-     * Where {@code originalObject} is some value that was originally put to the column,
+     * Use case 5: using byte[] and binary objects in columns. The table has structure [ [id int, orgId int] // key [originalObject byte[],
+     * upgradedObject byte[], int department] // value ] Where {@code originalObject} is some value that was originally put to the column,
      * {@code upgradedObject} is a version 2 of the object, and department is an extracted field.
      */
     @Disabled
@@ -373,29 +352,25 @@ public class Example {
         }
 
         RecordView<TruncatedRecord> truncatedView = t.recordView(
-            Mappers.ofRecordClassBuilder(TruncatedRecord.class)
-                .map("upgradedObject", JavaPersonV2.class).build());
+                Mappers.ofRecordClassBuilder(TruncatedRecord.class)
+                        .map("upgradedObject", JavaPersonV2.class).build());
 
         // Or we can have a custom conditional type selection.
         RecordView<TruncatedRecord> truncatedView2 = t.recordView(
-            Mappers.ofRecordClassBuilder(TruncatedRecord.class)
-                .map("upgradedObject", (row) -> {
-                    BinaryObject bObj = row.binaryObjectValue("upgradedObject");
-                    int dept = row.intValue("department");
+                Mappers.ofRecordClassBuilder(TruncatedRecord.class)
+                        .map("upgradedObject", (row) -> {
+                            BinaryObject bObj = row.binaryObjectValue("upgradedObject");
+                            int dept = row.intValue("department");
 
-                    return dept == 0 ?
-                        BinaryObjects.deserialize(bObj, JavaPerson.class) :
-                        BinaryObjects.deserialize(bObj, JavaPersonV2.class);
-                }).build());
+                            return dept == 0 ?
+                                    BinaryObjects.deserialize(bObj, JavaPerson.class) :
+                                    BinaryObjects.deserialize(bObj, JavaPersonV2.class);
+                        }).build());
     }
 
     /**
-     * Use case 1: a simple one. The table has the structure
-     * [
-     * [id long] // key
-     * [name varchar, lastName varchar, decimal salary, int department] // value
-     * ]
-     * We show how to use the raw TableRow and a mapped class.
+     * Use case 1: a simple one. The table has the structure [ [id long] // key [name varchar, lastName varchar, decimal salary, int
+     * department] // value ] We show how to use the raw TableRow and a mapped class.
      */
     @Disabled
     @ParameterizedTest
@@ -430,12 +405,8 @@ public class Example {
     }
 
     /**
-     * Use case 1: a simple one. The table has the structure
-     * [
-     * [byte[]] // key
-     * [name varchar, lastName varchar, decimal salary, int department] // value
-     * ]
-     * We show how to use the raw TableRow and a mapped class.
+     * Use case 1: a simple one. The table has the structure [ [byte[]] // key [name varchar, lastName varchar, decimal salary, int
+     * department] // value ] We show how to use the raw TableRow and a mapped class.
      */
     @Disabled
     @ParameterizedTest
@@ -454,7 +425,7 @@ public class Example {
         employeeView.put(1L, BinaryObjects.wrap(new byte[0] /* serialized Employee */));
 
         t.keyValueView(
-            Mappers.identity(),
-            Mappers.ofValueClassBuilder(BinaryObject.class).deserializeTo(Employee.class).build());
+                Mappers.identity(),
+                Mappers.ofValueClassBuilder(BinaryObject.class).deserializeTo(Employee.class).build());
     }
 }

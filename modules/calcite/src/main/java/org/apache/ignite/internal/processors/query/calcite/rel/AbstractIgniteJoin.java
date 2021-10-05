@@ -17,14 +17,22 @@
 
 package org.apache.ignite.internal.processors.query.calcite.rel;
 
+import static org.apache.calcite.rel.RelDistribution.Type.HASH_DISTRIBUTED;
+import static org.apache.calcite.rel.core.JoinRelType.RIGHT;
+import static org.apache.ignite.internal.processors.query.calcite.metadata.IgniteMdRowCount.joinRowCount;
+import static org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions.broadcast;
+import static org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions.hash;
+import static org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions.random;
+import static org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions.single;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import com.google.common.collect.ImmutableList;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollation;
@@ -51,32 +59,29 @@ import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
 import org.apache.ignite.internal.processors.query.calcite.trait.TraitsAwareIgniteRel;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 
-import static org.apache.calcite.rel.RelDistribution.Type.HASH_DISTRIBUTED;
-import static org.apache.calcite.rel.core.JoinRelType.RIGHT;
-import static org.apache.ignite.internal.processors.query.calcite.metadata.IgniteMdRowCount.joinRowCount;
-import static org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions.broadcast;
-import static org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions.hash;
-import static org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions.random;
-import static org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions.single;
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-
-/** */
+/**
+ *
+ */
 public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgniteRel {
-    /** */
+    /**
+     *
+     */
     protected AbstractIgniteJoin(RelOptCluster cluster, RelTraitSet traitSet, RelNode left, RelNode right,
-        RexNode condition, Set<CorrelationId> variablesSet, JoinRelType joinType) {
+            RexNode condition, Set<CorrelationId> variablesSet, JoinRelType joinType) {
         super(cluster, traitSet, left, right, condition, variablesSet, joinType);
     }
 
     /** {@inheritDoc} */
-    @Override public RelWriter explainTerms(RelWriter pw) {
+    @Override
+    public RelWriter explainTerms(RelWriter pw) {
         return super.explainTerms(pw)
-            .itemIf("variablesSet", Commons.transform(variablesSet.asList(), CorrelationId::getId),
-                pw.getDetailLevel() == SqlExplainLevel.ALL_ATTRIBUTES);
+                .itemIf("variablesSet", Commons.transform(variablesSet.asList(), CorrelationId::getId),
+                        pw.getDetailLevel() == SqlExplainLevel.ALL_ATTRIBUTES);
     }
 
     /** {@inheritDoc} */
-    @Override public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCollation(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
+    @Override
+    public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCollation(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
         // We preserve left collation since it's translated into a nested loop join with an outer loop
         // over a left edge. The code below checks and projects left collation on an output row type.
 
@@ -103,7 +108,8 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
     }
 
     /** {@inheritDoc} */
-    @Override public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
+    @Override
+    public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
         // The node is rewindable only if both sources are rewindable.
 
         RelTraitSet left = inputTraits.get(0), right = inputTraits.get(1);
@@ -114,17 +120,19 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
         List<Pair<RelTraitSet, List<RelTraitSet>>> pairs = new ArrayList<>();
 
         pairs.add(Pair.of(nodeTraits.replace(RewindabilityTrait.ONE_WAY),
-            ImmutableList.of(left.replace(RewindabilityTrait.ONE_WAY), right.replace(RewindabilityTrait.ONE_WAY))));
+                ImmutableList.of(left.replace(RewindabilityTrait.ONE_WAY), right.replace(RewindabilityTrait.ONE_WAY))));
 
-        if (leftRewindability.rewindable() && rightRewindability.rewindable())
+        if (leftRewindability.rewindable() && rightRewindability.rewindable()) {
             pairs.add(Pair.of(nodeTraits.replace(RewindabilityTrait.REWINDABLE),
-                ImmutableList.of(left.replace(RewindabilityTrait.REWINDABLE), right.replace(RewindabilityTrait.REWINDABLE))));
+                    ImmutableList.of(left.replace(RewindabilityTrait.REWINDABLE), right.replace(RewindabilityTrait.REWINDABLE))));
+        }
 
         return ImmutableList.copyOf(pairs);
     }
 
     /** {@inheritDoc} */
-    @Override public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
+    @Override
+    public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
         // There are several rules:
         // 1) any join is possible on broadcast or single distribution
         // 2) hash distributed join is possible when join keys are superset of source distribution keys
@@ -152,8 +160,7 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
             outTraits = nodeTraits.replace(broadcast());
             leftTraits = left.replace(broadcast());
             rightTraits = right.replace(broadcast());
-        }
-        else {
+        } else {
             outTraits = nodeTraits.replace(single());
             leftTraits = left.replace(single());
             rightTraits = right.replace(single());
@@ -161,8 +168,9 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
 
         res.add(Pair.of(outTraits, ImmutableList.of(leftTraits, rightTraits)));
 
-        if (nullOrEmpty(joinInfo.pairs()))
+        if (nullOrEmpty(joinInfo.pairs())) {
             return ImmutableList.copyOf(res);
+        }
 
         if (leftDistr.getType() == HASH_DISTRIBUTED && left2rightProjectedDistr != random()) {
             outTraits = nodeTraits.replace(leftDistr);
@@ -193,8 +201,9 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
     }
 
     /** {@inheritDoc} */
-    @Override public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(RelTraitSet nodeTraits,
-        List<RelTraitSet> inTraits) {
+    @Override
+    public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(RelTraitSet nodeTraits,
+            List<RelTraitSet> inTraits) {
         // left correlations
         Set<CorrelationId> corrIds = new HashSet<>(TraitUtils.correlation(inTraits.get(0)).correlationIds());
         // right correlations
@@ -204,7 +213,8 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
     }
 
     /** {@inheritDoc} */
-    @Override public Pair<RelTraitSet, List<RelTraitSet>> passThroughCollation(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
+    @Override
+    public Pair<RelTraitSet, List<RelTraitSet>> passThroughCollation(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
         // We preserve left collation since it's translated into a nested loop join with an outer loop
         // over a left edge. The code below checks whether a desired collation is possible and requires
         // appropriate collation from the left edge.
@@ -213,13 +223,14 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
 
         RelTraitSet left = inputTraits.get(0), right = inputTraits.get(1);
 
-        if (collation.equals(RelCollations.EMPTY))
+        if (collation.equals(RelCollations.EMPTY)) {
             return Pair.of(nodeTraits,
-                ImmutableList.of(left.replace(RelCollations.EMPTY), right.replace(RelCollations.EMPTY)));
+                    ImmutableList.of(left.replace(RelCollations.EMPTY), right.replace(RelCollations.EMPTY)));
+        }
 
-        if (!projectsLeft(collation))
+        if (!projectsLeft(collation)) {
             collation = RelCollations.EMPTY;
-        else if (joinType == RIGHT || joinType == JoinRelType.FULL) {
+        } else if (joinType == RIGHT || joinType == JoinRelType.FULL) {
             for (RelFieldCollation field : collation.getFieldCollations()) {
                 if (RelFieldCollation.NullDirection.LAST != field.nullDirection) {
                     collation = RelCollations.EMPTY;
@@ -229,13 +240,14 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
         }
 
         return Pair.of(nodeTraits.replace(collation),
-            ImmutableList.of(left.replace(collation), right.replace(RelCollations.EMPTY)));
+                ImmutableList.of(left.replace(collation), right.replace(RelCollations.EMPTY)));
     }
 
     /** {@inheritDoc} */
-    @Override public Pair<RelTraitSet, List<RelTraitSet>> passThroughDistribution(
-        RelTraitSet nodeTraits,
-        List<RelTraitSet> inputTraits
+    @Override
+    public Pair<RelTraitSet, List<RelTraitSet>> passThroughDistribution(
+            RelTraitSet nodeTraits,
+            List<RelTraitSet> inputTraits
     ) {
         // Tere are several rules:
         // 1) any join is possible on broadcast or single distribution
@@ -260,20 +272,21 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
             case RANDOM_DISTRIBUTED:
                 // Such join may be replaced as a cross join with a filter uppon it.
                 // It's impossible to get random or hash distribution from a cross join.
-                if (nullOrEmpty(joinInfo.pairs()))
+                if (nullOrEmpty(joinInfo.pairs())) {
                     break;
+                }
 
                 // We cannot provide random distribution without unique constrain on join keys,
                 // so, we require hash distribution (wich satisfies random distribution) instead.
                 DistributionFunction function = distrType == HASH_DISTRIBUTED
-                    ? distribution.function()
-                    : DistributionFunction.hash();
+                        ? distribution.function()
+                        : DistributionFunction.hash();
 
                 IgniteDistribution outDistr = hash(joinInfo.leftKeys, function);
 
                 if (distrType != HASH_DISTRIBUTED || outDistr.satisfies(distribution)) {
                     return Pair.of(nodeTraits.replace(outDistr),
-                        ImmutableList.of(left.replace(outDistr), right.replace(hash(joinInfo.rightKeys, function))));
+                            ImmutableList.of(left.replace(outDistr), right.replace(hash(joinInfo.rightKeys, function))));
                 }
 
                 break;
@@ -286,16 +299,20 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
     }
 
     /** {@inheritDoc} */
-    @Override public double estimateRowCount(RelMetadataQuery mq) {
+    @Override
+    public double estimateRowCount(RelMetadataQuery mq) {
         return Util.first(joinRowCount(mq, this), 1D);
     }
 
-    /** */
+    /**
+     *
+     */
     protected boolean projectsLeft(RelCollation collation) {
         int leftFieldCount = getLeft().getRowType().getFieldCount();
         for (int field : RelCollations.ordinals(collation)) {
-            if (field >= leftFieldCount)
+            if (field >= leftFieldCount) {
                 return false;
+            }
         }
         return true;
     }
@@ -306,13 +323,14 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
         ImmutableIntList targetKeys = left2Right ? joinInfo.rightKeys : joinInfo.leftKeys;
 
         Map<Integer, Integer> keyMap = new HashMap<>();
-        for (int i = 0; i < joinInfo.leftKeys.size(); i++)
+        for (int i = 0; i < joinInfo.leftKeys.size(); i++) {
             keyMap.put(sourceKeys.get(i), targetKeys.get(i));
+        }
 
         return Mappings.target(
-            keyMap,
-            (left2Right ? left : right).getRowType().getFieldCount(),
-            (left2Right ? right : left).getRowType().getFieldCount()
+                keyMap,
+                (left2Right ? left : right).getRowType().getFieldCount(),
+                (left2Right ? right : left).getRowType().getFieldCount()
         );
     }
 }

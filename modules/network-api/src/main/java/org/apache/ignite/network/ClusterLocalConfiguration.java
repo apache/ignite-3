@@ -21,7 +21,7 @@ import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**
  * Network configuration of a node.
- *
+ * <p>
  * TODO: migrate to common configuration class when it's available, see
  *  https://issues.apache.org/jira/browse/IGNITE-14496
  */
@@ -35,7 +35,7 @@ public class ClusterLocalConfiguration {
     /**
      * Constructor.
      *
-     * @param name Local name.
+     * @param name                  Local name.
      * @param serializationRegistry Message serialization registry.
      */
     public ClusterLocalConfiguration(String name, MessageSerializationRegistry serializationRegistry) {

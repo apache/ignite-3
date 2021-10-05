@@ -14,7 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
@@ -29,10 +34,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(MockitoExtension.class)
 public class LocalSnapshotReaderTest extends BaseStorageTest {
@@ -51,7 +52,7 @@ public class LocalSnapshotReaderTest extends BaseStorageTest {
         this.table.addFile("testFile", opts.getRaftMessagesFactory().localFileMeta().checksum("test").build());
         table.saveToFile(snapPath + File.separator + Snapshot.JRAFT_SNAPSHOT_META_FILE);
         this.reader = new LocalSnapshotReader(snapshotStorage, null, new Endpoint("localhost", 8081),
-            opts, snapPath);
+                opts, snapPath);
         assertTrue(this.reader.init(null));
     }
 

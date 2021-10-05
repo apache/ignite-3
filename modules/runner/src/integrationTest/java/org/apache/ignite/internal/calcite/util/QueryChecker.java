@@ -17,6 +17,14 @@
 
 package org.apache.ignite.internal.calcite.util;
 
+import static org.apache.ignite.internal.calcite.util.Commons.getAllFromCursor;
+import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
+import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
+import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
+
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,7 +35,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
 import org.apache.ignite.internal.processors.query.calcite.SqlCursor;
@@ -39,16 +46,8 @@ import org.hamcrest.Matcher;
 import org.hamcrest.core.SubstringMatcher;
 import org.jetbrains.annotations.Nullable;
 
-import static org.apache.ignite.internal.calcite.util.Commons.getAllFromCursor;
-import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
-import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
-import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
-
 /**
- *  Query checker.
+ * Query checker.
  */
 public abstract class QueryChecker {
     /** Partition release timeout. */
@@ -97,7 +96,7 @@ public abstract class QueryChecker {
      */
     public static Matcher<String> notContainsProject(String schema, String tblName) {
         return CoreMatchers.not(containsSubPlan("Scan(table=[[" + schema + ", " +
-            tblName + "]], " + "requiredColunms="));
+                tblName + "]], " + "requiredColunms="));
     }
 
     /**
@@ -110,34 +109,34 @@ public abstract class QueryChecker {
     /**
      * Ignite table|index scan with projects matcher.
      *
-     * @param schema  Schema name.
-     * @param tblName Table name.
+     * @param schema          Schema name.
+     * @param tblName         Table name.
      * @param requiredColunms columns in projection.
      * @return Matcher.
      */
     public static Matcher<String> containsProject(String schema, String tblName, int... requiredColunms) {
         Matcher<String> res = matches(".*Ignite(Table|Index)Scan\\(table=\\[\\[" + schema + ", " +
-            tblName + "\\]\\], " + ".*requiredColumns=\\[\\{" +
-            Arrays.toString(requiredColunms)
-                .replaceAll("\\[", "")
-                .replaceAll("]", "") + "\\}\\].*");
+                tblName + "\\]\\], " + ".*requiredColumns=\\[\\{" +
+                Arrays.toString(requiredColunms)
+                        .replaceAll("\\[", "")
+                        .replaceAll("]", "") + "\\}\\].*");
         return res;
     }
 
     /**
      * Ignite table|index scan with only one project matcher.
      *
-     * @param schema  Schema name.
-     * @param tblName Table name.
+     * @param schema          Schema name.
+     * @param tblName         Table name.
      * @param requiredColunms columns in projection.
      * @return Matcher.
      */
     public static Matcher<String> containsOneProject(String schema, String tblName, int... requiredColunms) {
         return matchesOnce(".*Ignite(Table|Index)Scan\\(table=\\[\\[" + schema + ", " +
-            tblName + "\\]\\], " + ".*requiredColumns=\\[\\{" +
-            Arrays.toString(requiredColunms)
-                .replaceAll("\\[", "")
-                .replaceAll("]", "") + "\\}\\].*");
+                tblName + "\\]\\], " + ".*requiredColumns=\\[\\{" +
+                Arrays.toString(requiredColunms)
+                        .replaceAll("\\[", "")
+                        .replaceAll("]", "") + "\\}\\].*");
     }
 
     /**
@@ -149,24 +148,27 @@ public abstract class QueryChecker {
      */
     public static Matcher<String> containsAnyProject(String schema, String tblName) {
         return matchesOnce(".*Ignite(Table|Index)Scan\\(table=\\[\\[" + schema + ", " +
-            tblName + "\\]\\],.*requiredColumns=\\[\\{(\\d|\\W|,)+\\}\\].*");
+                tblName + "\\]\\],.*requiredColumns=\\[\\{(\\d|\\W|,)+\\}\\].*");
     }
 
     /**
      * Sub plan matcher.
      *
-     * @param subPlan  Subplan.
+     * @param subPlan Subplan.
      * @return Matcher.
      */
     public static Matcher<String> containsSubPlan(String subPlan) {
         return CoreMatchers.containsString(subPlan);
     }
 
-    /** */
+    /**
+     *
+     */
     public static Matcher<String> matches(final String substring) {
         return new SubstringMatcher("contains", false, substring) {
             /** {@inheritDoc} */
-            @Override protected boolean evalSubstringOf(String sIn) {
+            @Override
+            protected boolean evalSubstringOf(String sIn) {
                 sIn = sIn.replaceAll("\n", "");
 
                 return sIn.matches(substring);
@@ -178,7 +180,8 @@ public abstract class QueryChecker {
     public static Matcher<String> matchesOnce(final String substring) {
         return new SubstringMatcher("contains once", false, substring) {
             /** {@inheritDoc} */
-            @Override protected boolean evalSubstringOf(String sIn) {
+            @Override
+            protected boolean evalSubstringOf(String sIn) {
                 sIn = sIn.replaceAll("\n", "");
 
                 return containsOnce(sIn, substring);
@@ -191,8 +194,9 @@ public abstract class QueryChecker {
         Pattern pattern = Pattern.compile(substring.toString());
         java.util.regex.Matcher matcher = pattern.matcher(s);
 
-        if (matcher.find())
+        if (matcher.find()) {
             return !matcher.find();
+        }
 
         return false;
     }
@@ -200,129 +204,169 @@ public abstract class QueryChecker {
     /**
      * Ignite any index can matcher.
      *
-     * @param schema  Schema name.
-     * @param tblName Table name.
+     * @param schema   Schema name.
+     * @param tblName  Table name.
      * @param idxNames Index names.
      * @return Matcher.
      */
     public static Matcher<String> containsAnyScan(final String schema, final String tblName, String... idxNames) {
-        if (nullOrEmpty(idxNames))
+        if (nullOrEmpty(idxNames)) {
             return matchesOnce(".*Ignite(Table|Index)Scan\\(table=\\[\\[" + schema + ", " + tblName + "\\]\\].*");
+        }
 
         return CoreMatchers.anyOf(
-            Arrays.stream(idxNames).map(idx -> containsIndexScan(schema, tblName, idx)).collect(Collectors.toList())
+                Arrays.stream(idxNames).map(idx -> containsIndexScan(schema, tblName, idx)).collect(Collectors.toList())
         );
     }
 
-    /** */
+    /**
+     *
+     */
     private final String qry;
 
-    /** */
+    /**
+     *
+     */
     private final ArrayList<Matcher<String>> planMatchers = new ArrayList<>();
 
-    /** */
+    /**
+     *
+     */
     private List<List<?>> expectedResult;
 
-    /** */
+    /**
+     *
+     */
     private List<String> expectedColumnNames;
 
-    /** */
+    /**
+     *
+     */
     private List<Type> expectedColumnTypes;
 
-    /** */
+    /**
+     *
+     */
     private boolean ordered;
 
-    /** */
+    /**
+     *
+     */
     private Object[] params = OBJECT_EMPTY_ARRAY;
 
-    /** */
+    /**
+     *
+     */
     private String exactPlan;
 
-    /** */
+    /**
+     *
+     */
     public QueryChecker(String qry) {
         this.qry = qry;
     }
 
-    /** */
+    /**
+     *
+     */
     public QueryChecker ordered() {
         ordered = true;
 
         return this;
     }
 
-    /** */
+    /**
+     *
+     */
     public QueryChecker withParams(Object... params) {
         this.params = params;
 
         return this;
     }
 
-    /** */
+    /**
+     *
+     */
     public QueryChecker returns(Object... res) {
-        if (expectedResult == null)
+        if (expectedResult == null) {
             expectedResult = new ArrayList<>();
+        }
 
         expectedResult.add(Arrays.asList(res));
 
         return this;
     }
 
-    /** */
+    /**
+     *
+     */
     public static Matcher<String> containsUnion(boolean all) {
         return CoreMatchers.containsString("IgniteUnionAll(all=[" + all + "])");
     }
 
-    /** */
+    /**
+     *
+     */
     public QueryChecker columnNames(String... columns) {
         expectedColumnNames = Arrays.asList(columns);
 
         return this;
     }
 
-    /** */
+    /**
+     *
+     */
     public QueryChecker columnTypes(Type... columns) {
         expectedColumnTypes = Arrays.asList(columns);
 
         return this;
     }
 
-    /** */
+    /**
+     *
+     */
     public QueryChecker matches(Matcher<String>... planMatcher) {
         Collections.addAll(planMatchers, planMatcher);
 
         return this;
     }
 
-    /** */
+    /**
+     *
+     */
     public QueryChecker planEquals(String plan) {
         exactPlan = plan;
 
         return this;
     }
 
-    /** */
+    /**
+     *
+     */
     public void check() {
         // Check plan.
         QueryProcessor qryProc = getEngine();
 
         List<SqlCursor<List<?>>> explainCursors =
-            qryProc.query("PUBLIC", "EXPLAIN PLAN FOR " + qry);
+                qryProc.query("PUBLIC", "EXPLAIN PLAN FOR " + qry);
 
         Cursor<List<?>> explainCursor = explainCursors.get(0);
         List<List<?>> explainRes = getAllFromCursor(explainCursor);
-        String actualPlan = (String)explainRes.get(0).get(0);
+        String actualPlan = (String) explainRes.get(0).get(0);
 
         if (!CollectionUtils.nullOrEmpty(planMatchers)) {
-            for (Matcher<String> matcher : planMatchers)
+            for (Matcher<String> matcher : planMatchers) {
                 assertThat("Invalid plan:\n" + actualPlan, actualPlan, matcher);
+            }
         }
 
-        if (exactPlan != null)
+        if (exactPlan != null) {
             assertEquals(exactPlan, actualPlan);
+        }
 
         // Check result.
         List<SqlCursor<List<?>>> cursors =
-            qryProc.query( "PUBLIC", qry, params);
+                qryProc.query("PUBLIC", qry, params);
 
         SqlCursor<List<?>> cur = cursors.get(0);
 
@@ -336,9 +380,9 @@ public abstract class QueryChecker {
             IgniteTypeFactory typeFactory = new IgniteTypeFactory();
 
             List<Type> colNames = cur.getColumnMetadata().rowType().getFieldList().stream()
-                .map(RelDataTypeField::getType)
-                .map(typeFactory::getResultClass)
-                .collect(Collectors.toList());
+                    .map(RelDataTypeField::getType)
+                    .map(typeFactory::getResultClass)
+                    .collect(Collectors.toList());
 
             assertThat("Column types don't match", colNames, equalTo(expectedColumnTypes));
         }
@@ -356,11 +400,14 @@ public abstract class QueryChecker {
         }
     }
 
-    /** */
+    /**
+     *
+     */
     protected abstract QueryProcessor getEngine();
 
     /**
      * Check collections equals (ordered).
+     *
      * @param exp Expected collection.
      * @param act Actual collection.
      */
@@ -376,8 +423,9 @@ public abstract class QueryChecker {
             Object item1 = it1.next();
             Object item2 = it2.next();
 
-            if (!eq(item1, item2))
-            fail("Collections are not equal (position " + idx + "):\nExpected: " + exp + "\nActual:   " + act);
+            if (!eq(item1, item2)) {
+                fail("Collections are not equal (position " + idx + "):\nExpected: " + exp + "\nActual:   " + act);
+            }
 
             idx++;
         }
@@ -402,9 +450,11 @@ public abstract class QueryChecker {
          * {@inheritDoc}
          */
         @SuppressWarnings({"rawtypes", "unchecked"})
-        @Override public int compare(List<?> o1, List<?> o2) {
-            if (o1.size() != o2.size())
+        @Override
+        public int compare(List<?> o1, List<?> o2) {
+            if (o1.size() != o2.size()) {
                 fail("Collections are not equal:\nExpected:\t" + o1 + "\nActual:\t" + o2);
+            }
 
             Iterator<?> it1 = o1.iterator();
             Iterator<?> it2 = o2.iterator();
@@ -413,25 +463,30 @@ public abstract class QueryChecker {
                 Object item1 = it1.next();
                 Object item2 = it2.next();
 
-                if (eq(item1, item2))
+                if (eq(item1, item2)) {
                     continue;
+                }
 
-                if (item1 == null)
+                if (item1 == null) {
                     return 1;
+                }
 
-                if (item2 == null)
+                if (item2 == null) {
                     return -1;
+                }
 
-                if (!(item1 instanceof Comparable) && !(item2 instanceof Comparable))
+                if (!(item1 instanceof Comparable) && !(item2 instanceof Comparable)) {
                     continue;
+                }
 
-                Comparable c1 = (Comparable)item1;
-                Comparable c2 = (Comparable)item2;
+                Comparable c1 = (Comparable) item1;
+                Comparable c2 = (Comparable) item2;
 
                 int c = c1.compareTo(c2);
 
-                if (c != 0)
+                if (c != 0) {
                     return c;
+                }
             }
 
             return 0;

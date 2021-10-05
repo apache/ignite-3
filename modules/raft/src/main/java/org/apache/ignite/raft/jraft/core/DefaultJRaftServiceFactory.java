@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.core;
 
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
@@ -35,26 +36,31 @@ import org.apache.ignite.raft.jraft.util.timer.RaftTimerFactory;
  * The default factory for JRaft services.
  */
 public class DefaultJRaftServiceFactory implements JRaftServiceFactory {
-    @Override public LogStorage createLogStorage(final String uri, final RaftOptions raftOptions) {
+    @Override
+    public LogStorage createLogStorage(final String uri, final RaftOptions raftOptions) {
         Requires.requireTrue(StringUtils.isNotBlank(uri), "Blank log storage uri.");
         return new RocksDBLogStorage(uri, raftOptions);
     }
 
-    @Override public SnapshotStorage createSnapshotStorage(final String uri, final RaftOptions raftOptions) {
+    @Override
+    public SnapshotStorage createSnapshotStorage(final String uri, final RaftOptions raftOptions) {
         Requires.requireTrue(!StringUtils.isBlank(uri), "Blank snapshot storage uri.");
         return new LocalSnapshotStorage(uri, raftOptions);
     }
 
-    @Override public RaftMetaStorage createRaftMetaStorage(final String uri, final RaftOptions raftOptions) {
+    @Override
+    public RaftMetaStorage createRaftMetaStorage(final String uri, final RaftOptions raftOptions) {
         Requires.requireTrue(!StringUtils.isBlank(uri), "Blank raft meta storage uri.");
         return new LocalRaftMetaStorage(uri, raftOptions);
     }
 
-    @Override public LogEntryCodecFactory createLogEntryCodecFactory() {
+    @Override
+    public LogEntryCodecFactory createLogEntryCodecFactory() {
         return LogEntryV1CodecFactory.getInstance();
     }
 
-    @Override public RaftTimerFactory createRaftTimerFactory() {
+    @Override
+    public RaftTimerFactory createRaftTimerFactory() {
         return new DefaultRaftTimerFactory();
     }
 }

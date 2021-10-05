@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util.concurrent;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -30,8 +31,7 @@ public final class DefaultExecutorChooserFactory implements ExecutorChooserFacto
     public ExecutorChooser newChooser(final SingleThreadExecutor[] executors) {
         if (Ints.isPowerOfTwo(executors.length)) {
             return new PowerOfTwoExecutorChooser(executors);
-        }
-        else {
+        } else {
             return new GenericExecutorChooser(executors);
         }
     }

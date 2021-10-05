@@ -17,42 +17,39 @@
 
 package com.facebook.presto.bytecode.expression;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.BytecodeVisitor;
-import com.facebook.presto.bytecode.FieldDefinition;
-import com.facebook.presto.bytecode.MethodDefinition;
-import com.facebook.presto.bytecode.MethodGenerationContext;
-import com.facebook.presto.bytecode.ParameterizedType;
-import org.objectweb.asm.MethodVisitor;
-
 import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.BytecodeVisitor;
+import com.facebook.presto.bytecode.FieldDefinition;
+import com.facebook.presto.bytecode.MethodDefinition;
+import com.facebook.presto.bytecode.MethodGenerationContext;
+import com.facebook.presto.bytecode.ParameterizedType;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.objectweb.asm.MethodVisitor;
+
 /**
- * A BytecodeExpression is chain of Java like expressions that results in at most
- * a single value being pushed on the stack.  The chain starts with a constant,
- * local variable, static field, static method or invoke dynamic followed
- * by zero or more invocations, field dereferences, array element fetches, or casts.
- * The expression can optionally be terminated by a set expression, and in this
- * case no value is pushed on the stack.
+ * A BytecodeExpression is chain of Java like expressions that results in at most a single value being pushed on the stack.  The chain
+ * starts with a constant, local variable, static field, static method or invoke dynamic followed by zero or more invocations, field
+ * dereferences, array element fetches, or casts. The expression can optionally be terminated by a set expression, and in this case no value
+ * is pushed on the stack.
  * <p>
  * A BytecodeExpression is a BytecodeNode so it works with tools like tree dump.
  * <p>
- * This abstraction makes it easy to write generic byte code generators that can
- * work with data that may come from a parameter, field or the result of a method
- * invocation.
+ * This abstraction makes it easy to write generic byte code generators that can work with data that may come from a parameter, field or the
+ * result of a method invocation.
  */
 public abstract class BytecodeExpression
-    implements BytecodeNode {
+        implements BytecodeNode {
     private final ParameterizedType type;
 
     protected BytecodeExpression(ParameterizedType type) {
@@ -117,21 +114,22 @@ public abstract class BytecodeExpression
     }
 
     public final BytecodeExpression invoke(MethodDefinition method,
-        Collection<? extends BytecodeExpression> parameters) {
+            Collection<? extends BytecodeExpression> parameters) {
         List<BytecodeExpression> params = new ArrayList<>(parameters);
 
-        checkArgument(method.getParameters().size() == params.size(), "Expected %s params found %s", method.getParameters().size(), params.size());
+        checkArgument(method.getParameters().size() == params.size(), "Expected %s params found %s", method.getParameters().size(),
+                params.size());
         return invoke(method.getName(), method.getReturnType(), method.getParameterTypes(), parameters);
     }
 
     public final BytecodeExpression invoke(Method method, Collection<? extends BytecodeExpression> parameters) {
         return invoke(
-            method.getName(),
-            type(method.getReturnType()),
-            stream(method.getParameterTypes())
-                .map(ParameterizedType::type)
-                .collect(Collectors.toList()),
-            parameters);
+                method.getName(),
+                type(method.getReturnType()),
+                stream(method.getParameterTypes())
+                        .map(ParameterizedType::type)
+                        .collect(Collectors.toList()),
+                parameters);
     }
 
     public final BytecodeExpression invoke(String methodName, Class<?> returnType, BytecodeExpression... parameters) {
@@ -139,43 +137,43 @@ public abstract class BytecodeExpression
     }
 
     public final BytecodeExpression invoke(String methodName, Class<?> returnType,
-        Collection<? extends BytecodeExpression> parameters) {
+            Collection<? extends BytecodeExpression> parameters) {
         return invoke(methodName, type(returnType), parameters);
     }
 
     public final BytecodeExpression invoke(String methodName, ParameterizedType returnType,
-        Collection<? extends BytecodeExpression> parameters) {
+            Collection<? extends BytecodeExpression> parameters) {
         requireNonNull(parameters, "parameters is null");
 
         return invoke(methodName,
-            returnType,
-            parameters.stream().map(BytecodeExpression::getType).collect(Collectors.toList()),
-            parameters);
+                returnType,
+                parameters.stream().map(BytecodeExpression::getType).collect(Collectors.toList()),
+                parameters);
     }
 
     public final BytecodeExpression invoke(String methodName, Class<?> returnType,
-        Collection<? extends Class<?>> parameterTypes, BytecodeExpression... parameters) {
+            Collection<? extends Class<?>> parameterTypes, BytecodeExpression... parameters) {
         return invoke(methodName, type(returnType),
-            parameterTypes.stream().map(ParameterizedType::type).collect(Collectors.toList()),
-            List.of(requireNonNull(parameters, "parameters is null")));
+                parameterTypes.stream().map(ParameterizedType::type).collect(Collectors.toList()),
+                List.of(requireNonNull(parameters, "parameters is null")));
     }
 
     public final BytecodeExpression invoke(String methodName, ParameterizedType returnType,
-        Collection<ParameterizedType> parameterTypes, BytecodeExpression... parameters) {
+            Collection<ParameterizedType> parameterTypes, BytecodeExpression... parameters) {
         return invoke(methodName, returnType, parameterTypes, List.of(requireNonNull(parameters, "parameters is null")));
     }
 
     public final BytecodeExpression invoke(
-        String methodName,
-        ParameterizedType returnType,
-        Collection<ParameterizedType> parameterTypes,
-        Collection<? extends BytecodeExpression> parameters) {
+            String methodName,
+            ParameterizedType returnType,
+            Collection<ParameterizedType> parameterTypes,
+            Collection<? extends BytecodeExpression> parameters) {
         return InvokeBytecodeExpression.createInvoke(
-            this,
-            methodName,
-            returnType,
-            parameterTypes,
-            parameters);
+                this,
+                methodName,
+                returnType,
+                parameterTypes,
+                parameters);
     }
 
     public final BytecodeExpression getElement(int index) {

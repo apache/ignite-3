@@ -157,9 +157,9 @@ public class IgniteStringBuilder implements Serializable {
     /**
      * Appends a subsequence of the specified {@code CharSequence} to this sequence.
      *
-     * @param s Element to add.
+     * @param s     Element to add.
      * @param start Start position.
-     * @param end End position.
+     * @param end   End position.
      * @return This buffer for chaining method calls.
      */
     public IgniteStringBuilder a(CharSequence s, int start, int end) {
@@ -183,9 +183,9 @@ public class IgniteStringBuilder implements Serializable {
     /**
      * Appends the string representation of a subarray of the {@code char} array argument to this sequence.
      *
-     * @param str Element to add.
+     * @param str    Element to add.
      * @param offset Start offset.
-     * @param len Length.
+     * @param len    Length.
      * @return This buffer for chaining method calls.
      */
     public IgniteStringBuilder a(char[] str, int offset, int len) {
@@ -283,7 +283,7 @@ public class IgniteStringBuilder implements Serializable {
      * Removes the characters in a substring of this sequence.
      *
      * @param start Start position to delete from.
-     * @param end End position.
+     * @param end   End position.
      * @return This buffer for chaining method calls.
      */
     public IgniteStringBuilder d(int start, int end) {
@@ -319,8 +319,8 @@ public class IgniteStringBuilder implements Serializable {
      * Replaces the characters in a substring of this sequence with characters in the specified {@code String}.
      *
      * @param start Start position to replace from.
-     * @param end End position.
-     * @param str String to replace with.
+     * @param end   End position.
+     * @param str   String to replace with.
      * @return This buffer for chaining method calls.
      */
     public IgniteStringBuilder r(int start, int end, String str) {
@@ -333,9 +333,9 @@ public class IgniteStringBuilder implements Serializable {
      * Inserts the string representation of a subarray of the {@code str} array argument into this sequence.
      *
      * @param index Start index to insert to.
-     * @param str String to insert.
-     * @param off Offset in the string to be inserted.
-     * @param len Length of the substring to be inserted.
+     * @param str   String to insert.
+     * @param off   Offset in the string to be inserted.
+     * @param len   Length of the substring to be inserted.
      * @return This buffer for chaining method calls.
      */
     public IgniteStringBuilder i(int index, char[] str, int off, int len) {
@@ -385,7 +385,7 @@ public class IgniteStringBuilder implements Serializable {
      * Inserts the specified {@code CharSequence} into this sequence.
      *
      * @param dstOff Offset to insert at.
-     * @param s String to insert.
+     * @param s      String to insert.
      * @return This buffer for chaining method calls.
      */
     public IgniteStringBuilder i(int dstOff, CharSequence s) {
@@ -398,9 +398,9 @@ public class IgniteStringBuilder implements Serializable {
      * Inserts a subsequence of the specified {@code CharSequence} into this sequence.
      *
      * @param dstOff Offset to insert at.
-     * @param s String to insert.
-     * @param start Start index to insert from.
-     * @param end End index to insert up to.
+     * @param s      String to insert.
+     * @param start  Start index to insert from.
+     * @param end    End index to insert up to.
      * @return This buffer for chaining method calls.
      */
     public IgniteStringBuilder i(int dstOff, CharSequence s, int start, int end) {
@@ -413,7 +413,7 @@ public class IgniteStringBuilder implements Serializable {
      * Inserts the string representation of the {@code boolean} argument into this sequence.
      *
      * @param off Offset to insert at.
-     * @param b Element to insert.
+     * @param b   Element to insert.
      * @return This buffer for chaining method calls.
      */
     public IgniteStringBuilder i(int off, boolean b) {
@@ -426,7 +426,7 @@ public class IgniteStringBuilder implements Serializable {
      * Inserts the string representation of the {@code char} argument into this sequence.
      *
      * @param off Offset to insert at.
-     * @param c Element to insert.
+     * @param c   Element to insert.
      * @return This buffer for chaining method calls.
      */
     public IgniteStringBuilder i(int off, char c) {
@@ -439,7 +439,7 @@ public class IgniteStringBuilder implements Serializable {
      * Inserts the string representation of the {@code int} argument into this sequence.
      *
      * @param off Offset to insert at.
-     * @param i Element to insert.
+     * @param i   Element to insert.
      * @return This buffer for chaining method calls.
      */
     public IgniteStringBuilder i(int off, int i) {
@@ -450,7 +450,7 @@ public class IgniteStringBuilder implements Serializable {
      * Inserts the string representation of the {@code long} argument into this sequence.
      *
      * @param off Offset to insert at.
-     * @param l Element to insert.
+     * @param l   Element to insert.
      * @return This buffer for chaining method calls.
      */
     public IgniteStringBuilder i(int off, long l) {
@@ -461,7 +461,7 @@ public class IgniteStringBuilder implements Serializable {
      * Inserts the string representation of the {@code float} argument into this sequence.
      *
      * @param off Offset to insert at.
-     * @param f Element to insert.
+     * @param f   Element to insert.
      * @return This buffer for chaining method calls.
      */
     public IgniteStringBuilder i(int off, float f) {
@@ -472,7 +472,7 @@ public class IgniteStringBuilder implements Serializable {
      * Inserts the string representation of the {@code double} argument into this sequence.
      *
      * @param off Offset to insert at.
-     * @param d Element to insert.
+     * @param d   Element to insert.
      * @return This buffer for chaining method calls.
      */
     public IgniteStringBuilder i(int off, double d) {
@@ -490,8 +490,9 @@ public class IgniteStringBuilder implements Serializable {
 
         int len = hex.length();
 
-        for (int i = 0; i < 16 - len; i++)
+        for (int i = 0; i < 16 - len; i++) {
             a('0');
+        }
 
         a(hex);
 
@@ -509,8 +510,9 @@ public class IgniteStringBuilder implements Serializable {
 
         int len = hex.length();
 
-        for (int i = 0; i < 8 - len; i++)
+        for (int i = 0; i < 8 - len; i++) {
             a('0');
+        }
 
         a(hex);
 
@@ -531,15 +533,16 @@ public class IgniteStringBuilder implements Serializable {
      * Restores the state of the underlying StringBuffer from a stream.
      *
      * @param s Stream to read from.
-     * @throws IOException Thrown in case of any IO errors.
+     * @throws IOException            Thrown in case of any IO errors.
      * @throws ClassNotFoundException Thrown if read class cannot be found.
      */
     private void readObject(ObjectInputStream s) throws IOException, ClassNotFoundException {
-        impl = (StringBuilder)s.readObject();
+        impl = (StringBuilder) s.readObject();
     }
 
     /** {@inheritDoc} */
-    @Override public String toString() {
+    @Override
+    public String toString() {
         return impl.toString();
     }
 }

@@ -14,7 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -42,16 +53,6 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -100,7 +101,7 @@ public class AbstractClientServiceTest {
         MockRpcResponseClosure<ErrorResponse> done = new MockRpcResponseClosure<>();
         Future<Message> future = this.clientService.invokeWithDone(this.endpoint, request, done, -1);
         Mockito.verify(this.rpcClient).invokeAsync(eq(this.endpoint), eq(request), Mockito.any(),
-            callbackArg.capture(), eq((long) this.rpcOptions.getRpcDefaultTimeout()));
+                callbackArg.capture(), eq((long) this.rpcOptions.getRpcDefaultTimeout()));
         InvokeCallback cb = callbackArg.getValue();
         assertNotNull(cb);
         assertNotNull(future);
@@ -124,10 +125,10 @@ public class AbstractClientServiceTest {
         PingRequest request = TestUtils.createPingRequest();
 
         Mockito
-            .doThrow(new RemotingException())
-            .when(this.rpcClient)
-            .invokeAsync(eq(this.endpoint), eq(request), eq(invokeCtx), callbackArg.capture(),
-                eq((long) this.rpcOptions.getRpcDefaultTimeout()));
+                .doThrow(new RemotingException())
+                .when(this.rpcClient)
+                .invokeAsync(eq(this.endpoint), eq(request), eq(invokeCtx), callbackArg.capture(),
+                        eq((long) this.rpcOptions.getRpcDefaultTimeout()));
 
         MockRpcResponseClosure<ErrorResponse> done = new MockRpcResponseClosure<>();
         Future<Message> future = this.clientService.invokeWithDone(this.endpoint, request, invokeCtx, done, -1);
@@ -151,7 +152,7 @@ public class AbstractClientServiceTest {
         MockRpcResponseClosure<ErrorResponse> done = new MockRpcResponseClosure<>();
         Future<Message> future = this.clientService.invokeWithDone(this.endpoint, request, invokeCtx, done, -1);
         Mockito.verify(this.rpcClient).invokeAsync(eq(this.endpoint), eq(request), eq(invokeCtx),
-            callbackArg.capture(), eq((long) this.rpcOptions.getRpcDefaultTimeout()));
+                callbackArg.capture(), eq((long) this.rpcOptions.getRpcDefaultTimeout()));
         InvokeCallback cb = callbackArg.getValue();
         assertNotNull(cb);
         assertNotNull(future);
@@ -172,15 +173,15 @@ public class AbstractClientServiceTest {
         final InvokeContext invokeCtx = new InvokeContext();
         final ArgumentCaptor<InvokeCallback> callbackArg = ArgumentCaptor.forClass(InvokeCallback.class);
         final CliRequests.GetPeersRequest request = rpcOptions.getRaftMessagesFactory()
-            .getPeersRequest()
-            .groupId("id")
-            .leaderId("127.0.0.1:8001")
-            .build();
+                .getPeersRequest()
+                .groupId("id")
+                .leaderId("127.0.0.1:8001")
+                .build();
 
         MockRpcResponseClosure<ErrorResponse> done = new MockRpcResponseClosure<>();
         Future<Message> future = this.clientService.invokeWithDone(this.endpoint, request, invokeCtx, done, -1);
         Mockito.verify(this.rpcClient).invokeAsync(eq(this.endpoint), eq(request), eq(invokeCtx),
-            callbackArg.capture(), eq((long) this.rpcOptions.getRpcDefaultTimeout()));
+                callbackArg.capture(), eq((long) this.rpcOptions.getRpcDefaultTimeout()));
         InvokeCallback cb = callbackArg.getValue();
         assertNotNull(cb);
         assertNotNull(future);
@@ -190,7 +191,7 @@ public class AbstractClientServiceTest {
         assertFalse(future.isDone());
 
         final Message resp = this.rpcResponseFactory.newResponse(rpcOptions.getRaftMessagesFactory(),
-            new Status(-1, "failed"));
+                new Status(-1, "failed"));
         cb.complete(resp, null);
 
         done.latch.await();

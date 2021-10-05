@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.processors.query.calcite.planner;
 
-import java.util.List;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -35,17 +38,12 @@ import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactor
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeSystem;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 /**
  *
  */
 public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
     /**
-     * Check equi-join on not colocated fields.
-     * CorrelatedNestedLoopJoinTest is applicable for this case only with IndexSpool.
+     * Check equi-join on not colocated fields. CorrelatedNestedLoopJoinTest is applicable for this case only with IndexSpool.
      */
     @Test
     public void testNotColocatedEqJoin() throws Exception {
@@ -53,45 +51,47 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
         publicSchema.addTable(
-            "T0",
-            new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                    .add("ID", f.createJavaType(Integer.class))
-                    .add("JID", f.createJavaType(Integer.class))
-                    .add("VAL", f.createJavaType(String.class))
-                    .build()) {
+                "T0",
+                new TestTable(
+                        new RelDataTypeFactory.Builder(f)
+                                .add("ID", f.createJavaType(Integer.class))
+                                .add("JID", f.createJavaType(Integer.class))
+                                .add("VAL", f.createJavaType(String.class))
+                                .build()) {
 
-                @Override public IgniteDistribution distribution() {
-                    return IgniteDistributions.affinity(0, "T0", "hash");
+                    @Override
+                    public IgniteDistribution distribution() {
+                        return IgniteDistributions.affinity(0, "T0", "hash");
+                    }
                 }
-            }
-                .addIndex(RelCollations.of(ImmutableIntList.of(1, 0)), "t0_jid_idx")
+                        .addIndex(RelCollations.of(ImmutableIntList.of(1, 0)), "t0_jid_idx")
         );
 
         publicSchema.addTable(
-            "T1",
-            new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                    .add("ID", f.createJavaType(Integer.class))
-                    .add("JID", f.createJavaType(Integer.class))
-                    .add("VAL", f.createJavaType(String.class))
-                    .build()) {
+                "T1",
+                new TestTable(
+                        new RelDataTypeFactory.Builder(f)
+                                .add("ID", f.createJavaType(Integer.class))
+                                .add("JID", f.createJavaType(Integer.class))
+                                .add("VAL", f.createJavaType(String.class))
+                                .build()) {
 
-                @Override public IgniteDistribution distribution() {
-                    return IgniteDistributions.affinity(0, "T1", "hash");
+                    @Override
+                    public IgniteDistribution distribution() {
+                        return IgniteDistributions.affinity(0, "T1", "hash");
+                    }
                 }
-            }
-                .addIndex(RelCollations.of(ImmutableIntList.of(1, 0)), "t1_jid_idx")
+                        .addIndex(RelCollations.of(ImmutableIntList.of(1, 0)), "t1_jid_idx")
         );
 
         String sql = "select * " +
-            "from t0 " +
-            "join t1 on t0.jid = t1.jid";
+                "from t0 " +
+                "join t1 on t0.jid = t1.jid";
 
         IgniteRel phys = physicalPlan(
-            sql,
-            publicSchema,
-            "MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeToHashIndexSpoolRule"
+                sql,
+                publicSchema,
+                "MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeToHashIndexSpoolRule"
         );
 
         IgniteSortedIndexSpool idxSpool = findFirstNode(phys, byClass(IgniteSortedIndexSpool.class));
@@ -101,8 +101,8 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
         assertNotNull(lBound);
         assertEquals(3, lBound.size());
 
-        assertTrue(((RexLiteral)lBound.get(0)).isNull());
-        assertTrue(((RexLiteral)lBound.get(2)).isNull());
+        assertTrue(((RexLiteral) lBound.get(0)).isNull());
+        assertTrue(((RexLiteral) lBound.get(2)).isNull());
         assertTrue(lBound.get(1) instanceof RexFieldAccess);
 
         List<RexNode> uBound = idxSpool.indexCondition().upperBound();
@@ -110,14 +110,13 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
         assertNotNull(uBound);
         assertEquals(3, uBound.size());
 
-        assertTrue(((RexLiteral)uBound.get(0)).isNull());
-        assertTrue(((RexLiteral)uBound.get(2)).isNull());
+        assertTrue(((RexLiteral) uBound.get(0)).isNull());
+        assertTrue(((RexLiteral) uBound.get(2)).isNull());
         assertTrue(uBound.get(1) instanceof RexFieldAccess);
     }
 
     /**
-     * Check case when exists index (collation) isn't applied not for whole join condition
-     * but may be used by part of condition.
+     * Check case when exists index (collation) isn't applied not for whole join condition but may be used by part of condition.
      */
     @Test
     public void testPartialIndexForCondition() throws Exception {
@@ -125,46 +124,48 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
         publicSchema.addTable(
-            "T0",
-            new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                    .add("ID", f.createJavaType(Integer.class))
-                    .add("JID0", f.createJavaType(Integer.class))
-                    .add("JID1", f.createJavaType(Integer.class))
-                    .add("VAL", f.createJavaType(String.class))
-                    .build()) {
+                "T0",
+                new TestTable(
+                        new RelDataTypeFactory.Builder(f)
+                                .add("ID", f.createJavaType(Integer.class))
+                                .add("JID0", f.createJavaType(Integer.class))
+                                .add("JID1", f.createJavaType(Integer.class))
+                                .add("VAL", f.createJavaType(String.class))
+                                .build()) {
 
-                @Override public IgniteDistribution distribution() {
-                    return IgniteDistributions.affinity(0, "T0", "hash");
+                    @Override
+                    public IgniteDistribution distribution() {
+                        return IgniteDistributions.affinity(0, "T0", "hash");
+                    }
                 }
-            }
         );
 
         publicSchema.addTable(
-            "T1",
-            new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                    .add("ID", f.createJavaType(Integer.class))
-                    .add("JID0", f.createJavaType(Integer.class))
-                    .add("JID1", f.createJavaType(Integer.class))
-                    .add("VAL", f.createJavaType(String.class))
-                    .build()) {
+                "T1",
+                new TestTable(
+                        new RelDataTypeFactory.Builder(f)
+                                .add("ID", f.createJavaType(Integer.class))
+                                .add("JID0", f.createJavaType(Integer.class))
+                                .add("JID1", f.createJavaType(Integer.class))
+                                .add("VAL", f.createJavaType(String.class))
+                                .build()) {
 
-                @Override public IgniteDistribution distribution() {
-                    return IgniteDistributions.affinity(0, "T1", "hash");
+                    @Override
+                    public IgniteDistribution distribution() {
+                        return IgniteDistributions.affinity(0, "T1", "hash");
+                    }
                 }
-            }
-                .addIndex(RelCollations.of(ImmutableIntList.of(1, 0)), "t1_jid0_idx")
+                        .addIndex(RelCollations.of(ImmutableIntList.of(1, 0)), "t1_jid0_idx")
         );
 
         String sql = "select * " +
-            "from t0 " +
-            "join t1 on t0.jid0 = t1.jid0 and t0.jid1 = t1.jid1";
+                "from t0 " +
+                "join t1 on t0.jid0 = t1.jid0 and t0.jid1 = t1.jid1";
 
         IgniteRel phys = physicalPlan(
-            sql,
-            publicSchema,
-            "MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeToHashIndexSpoolRule"
+                sql,
+                publicSchema,
+                "MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeToHashIndexSpoolRule"
         );
 
         System.out.println("+++ \n" + RelOptUtil.toString(phys));
@@ -176,9 +177,9 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
         assertNotNull(lBound);
         assertEquals(4, lBound.size());
 
-        assertTrue(((RexLiteral)lBound.get(0)).isNull());
-        assertTrue(((RexLiteral)lBound.get(2)).isNull());
-        assertTrue(((RexLiteral)lBound.get(3)).isNull());
+        assertTrue(((RexLiteral) lBound.get(0)).isNull());
+        assertTrue(((RexLiteral) lBound.get(2)).isNull());
+        assertTrue(((RexLiteral) lBound.get(3)).isNull());
         assertTrue(lBound.get(1) instanceof RexFieldAccess);
 
         List<RexNode> uBound = idxSpool.indexCondition().upperBound();
@@ -186,9 +187,9 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
         assertNotNull(uBound);
         assertEquals(4, uBound.size());
 
-        assertTrue(((RexLiteral)uBound.get(0)).isNull());
-        assertTrue(((RexLiteral)lBound.get(2)).isNull());
-        assertTrue(((RexLiteral)lBound.get(3)).isNull());
+        assertTrue(((RexLiteral) uBound.get(0)).isNull());
+        assertTrue(((RexLiteral) lBound.get(2)).isNull());
+        assertTrue(((RexLiteral) lBound.get(3)).isNull());
         assertTrue(uBound.get(1) instanceof RexFieldAccess);
     }
 }

@@ -17,30 +17,27 @@
 
 package com.facebook.presto.bytecode.expression;
 
-import java.util.List;
+import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.instruction.LabelNode;
-
-import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
-import static com.facebook.presto.bytecode.ParameterizedType.type;
+import java.util.List;
 
 class NotBytecodeExpression
-        extends BytecodeExpression
-{
+        extends BytecodeExpression {
     private final BytecodeExpression value;
 
-    NotBytecodeExpression(BytecodeExpression value)
-    {
+    NotBytecodeExpression(BytecodeExpression value) {
         super(type(boolean.class));
         this.value = value;
         checkArgument(value.getType().getPrimitiveType() == boolean.class, "Expected value to be type boolean but is %s", value.getType());
     }
 
     @Override
-    public BytecodeNode getBytecode(MethodGenerationContext generationContext)
-    {
+    public BytecodeNode getBytecode(MethodGenerationContext generationContext) {
         LabelNode trueLabel = new LabelNode("true");
         LabelNode endLabel = new LabelNode("end");
         return new BytecodeBlock()
@@ -54,14 +51,12 @@ class NotBytecodeExpression
     }
 
     @Override
-    public List<BytecodeNode> getChildNodes()
-    {
+    public List<BytecodeNode> getChildNodes() {
         return List.of(value);
     }
 
     @Override
-    protected String formatOneLine()
-    {
+    protected String formatOneLine() {
         return "(!" + value + ")";
     }
 }

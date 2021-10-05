@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft;
 
 import java.util.List;
@@ -36,7 +37,7 @@ public interface ReplicatorGroup extends Describer {
      * Init the replicator group.
      *
      * @param nodeId node id
-     * @param opts options of replicator grop
+     * @param opts   options of replicator grop
      * @return true if init success
      */
     boolean init(final NodeId nodeId, final ReplicatorGroupOptions opts);
@@ -53,11 +54,11 @@ public interface ReplicatorGroup extends Describer {
     }
 
     /**
-     * Add a replicator attached with |peer| will be a notification when the replicator catches up according to the
-     * arguments. NOTE: when calling this function, the replicators starts to work immediately, and might call
-     * Node#stepDown which might have race with the caller, you should deal with this situation.
+     * Add a replicator attached with |peer| will be a notification when the replicator catches up according to the arguments. NOTE: when
+     * calling this function, the replicators starts to work immediately, and might call Node#stepDown which might have race with the
+     * caller, you should deal with this situation.
      *
-     * @param peer target peer
+     * @param peer           target peer
      * @param replicatorType replicator type
      * @return true on success
      */
@@ -66,13 +67,13 @@ public interface ReplicatorGroup extends Describer {
     }
 
     /**
-     * Try to add a replicator attached with |peer| will be a notification when the replicator catches up according to
-     * the arguments. NOTE: when calling this function, the replicators starts to work immediately, and might call
-     * Node#stepDown which might have race with the caller, you should deal with this situation.
+     * Try to add a replicator attached with |peer| will be a notification when the replicator catches up according to the arguments. NOTE:
+     * when calling this function, the replicators starts to work immediately, and might call Node#stepDown which might have race with the
+     * caller, you should deal with this situation.
      *
-     * @param peer target peer
+     * @param peer           target peer
      * @param replicatorType replicator type
-     * @param sync synchronous
+     * @param sync           synchronous
      * @return true on success
      */
     boolean addReplicator(final PeerId peer, ReplicatorType replicatorType, boolean sync);
@@ -80,7 +81,7 @@ public interface ReplicatorGroup extends Describer {
     /**
      * Send heartbeat to a peer.
      *
-     * @param peer target peer
+     * @param peer    target peer
      * @param closure callback
      */
     void sendHeartbeat(final PeerId peer, final RpcResponseClosure<AppendEntriesResponse> closure);
@@ -94,10 +95,9 @@ public interface ReplicatorGroup extends Describer {
     ThreadId getReplicator(final PeerId peer);
 
     /**
-     * Check replicator state, if it's not started, start it; if it is blocked, unblock it. It should be called by
-     * leader.
+     * Check replicator state, if it's not started, start it; if it is blocked, unblock it. It should be called by leader.
      *
-     * @param peer peer of replicator
+     * @param peer     peer of replicator
      * @param lockNode if lock with node
      */
     void checkReplicator(final PeerId peer, final boolean lockNode);
@@ -133,8 +133,8 @@ public interface ReplicatorGroup extends Describer {
     boolean stopReplicator(final PeerId peer);
 
     /**
-     * Reset the term of all to-add replicators. This method is supposed to be called when the very candidate becomes
-     * the leader, so we suppose that there are no running replicators. Return true on success, false otherwise
+     * Reset the term of all to-add replicators. This method is supposed to be called when the very candidate becomes the leader, so we
+     * suppose that there are no running replicators. Return true on success, false otherwise
      *
      * @param newTerm new term num
      * @return true on success
@@ -142,8 +142,8 @@ public interface ReplicatorGroup extends Describer {
     boolean resetTerm(final long newTerm);
 
     /**
-     * Reset the interval of heartbeat, This method is supposed to be called when the very candidate becomes the leader,
-     * so we suppose that there are no running replicators. return true when success, false otherwise.
+     * Reset the interval of heartbeat, This method is supposed to be called when the very candidate becomes the leader, so we suppose that
+     * there are no running replicators. return true when success, false otherwise.
      *
      * @param newIntervalMs new heartbeat interval millis
      * @return true on success
@@ -169,7 +169,7 @@ public interface ReplicatorGroup extends Describer {
     /**
      * Transfer leadership to the given |peer|
      *
-     * @param peer target peer
+     * @param peer     target peer
      * @param logIndex log index
      * @return true on success
      */
@@ -184,10 +184,9 @@ public interface ReplicatorGroup extends Describer {
     boolean stopTransferLeadership(final PeerId peer);
 
     /**
-     * Stop all the replicators except for the one that we think can be the candidate of the next leader, which has the
-     * largest `last_log_id' among peers in |current_conf|. |candidate| would be returned if we found one and the caller
-     * is responsible for stopping it, or an invalid value if we found none. Returns candidate replicator id on success
-     * and null otherwise.
+     * Stop all the replicators except for the one that we think can be the candidate of the next leader, which has the largest
+     * `last_log_id' among peers in |current_conf|. |candidate| would be returned if we found one and the caller is responsible for stopping
+     * it, or an invalid value if we found none. Returns candidate replicator id on success and null otherwise.
      *
      * @param conf configuration of all replicators
      * @return candidate replicator id on success
@@ -195,8 +194,8 @@ public interface ReplicatorGroup extends Describer {
     ThreadId stopAllAndFindTheNextCandidate(final ConfigurationEntry conf);
 
     /**
-     * Find the follower with the most log entries in this group, which is likely becomes the leader according to the
-     * election algorithm of raft. Returns the follower peerId on success and null otherwise.
+     * Find the follower with the most log entries in this group, which is likely becomes the leader according to the election algorithm of
+     * raft. Returns the follower peerId on success and null otherwise.
      *
      * @param conf configuration of all replicators
      * @return the follower peerId on success

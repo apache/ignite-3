@@ -17,6 +17,14 @@
 
 package org.apache.ignite.internal.runner.app.jdbc;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -28,14 +36,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-
 /**
  * Statement test.
  */
@@ -43,7 +43,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
     /** SQL query. */
     private static final String SQL =
-        "select 1::INTEGER, true, 1::TINYINT, 1::SMALLINT, 1::INTEGER, 1::BIGINT, 1.0::FLOAT, 1.0::DOUBLE, 1.0::DOUBLE, '1';";
+            "select 1::INTEGER, true, 1::TINYINT, 1::SMALLINT, 1::INTEGER, 1::BIGINT, 1.0::FLOAT, 1.0::DOUBLE, 1.0::DOUBLE, '1';";
 
     /** Statement. */
     private Statement stmt;
@@ -59,7 +59,7 @@ public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
     @BeforeEach
     protected void beforeTest() throws Exception {
         conn = DriverManager.getConnection(URL);
-        
+
         stmt = conn.createStatement();
 
         assertNotNull(stmt);
@@ -104,14 +104,13 @@ public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
                 assertEquals("Joe", rs.getString("firstName"));
                 assertEquals("Black", rs.getString("lastName"));
                 assertEquals(35, rs.getInt("age"));
-            }
-            else if (id == 3) {
+            } else if (id == 3) {
                 assertEquals("Mike", rs.getString("firstName"));
                 assertEquals("Green", rs.getString("lastName"));
                 assertEquals(40, rs.getInt("age"));
-            }
-            else
+            } else {
                 fail("Wrong ID: " + id);
+            }
 
             cnt++;
         }
@@ -165,14 +164,13 @@ public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
                 assertEquals("Joe", rs.getString("firstName"));
                 assertEquals("Black", rs.getString("lastName"));
                 assertEquals(35, rs.getInt("age"));
-            }
-            else if (id == 3) {
-                assertEquals( "Mike", rs.getString("firstName"));
-                assertEquals( "Green", rs.getString("lastName"));
+            } else if (id == 3) {
+                assertEquals("Mike", rs.getString("firstName"));
+                assertEquals("Green", rs.getString("lastName"));
                 assertEquals(40, rs.getInt("age"));
-            }
-            else
+            } else {
                 fail("Wrong ID: " + id);
+            }
 
             cnt++;
         }
@@ -205,14 +203,13 @@ public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
                 assertEquals("Joe", rs.getString("firstName"));
                 assertEquals("Black", rs.getString("lastName"));
                 assertEquals(35, rs.getInt("age"));
-            }
-            else if (id == 3) {
-                assertEquals( "Mike", rs.getString("firstName"));
-                assertEquals( "Green", rs.getString("lastName"));
+            } else if (id == 3) {
+                assertEquals("Mike", rs.getString("firstName"));
+                assertEquals("Green", rs.getString("lastName"));
                 assertEquals(40, rs.getInt("age"));
-            }
-            else
+            } else {
                 fail("Wrong ID: " + id);
+            }
 
             cnt++;
         }
@@ -234,14 +231,13 @@ public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
                 assertEquals("Joe", rs.getString("firstName"));
                 assertEquals("Black", rs.getString("lastName"));
                 assertEquals(35, rs.getInt("age"));
-            }
-            else if (id == 3) {
-                assertEquals( "Mike", rs.getString("firstName"));
-                assertEquals( "Green", rs.getString("lastName"));
+            } else if (id == 3) {
+                assertEquals("Mike", rs.getString("firstName"));
+                assertEquals("Green", rs.getString("lastName"));
                 assertEquals(40, rs.getInt("age"));
-            }
-            else
+            } else {
                 fail("Wrong ID: " + id);
+            }
 
             cnt++;
         }
@@ -366,8 +362,9 @@ public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
 
         StringBuilder sql = new StringBuilder();
 
-        for (int i = 0; i < stmtCnt; ++i)
+        for (int i = 0; i < stmtCnt; ++i) {
             sql.append("select ").append(i).append("; ");
+        }
 
         assertTrue(stmt.execute(sql.toString()));
 
@@ -404,8 +401,9 @@ public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
 
         StringBuilder sql = new StringBuilder("drop table if exists test; create table test(ID int primary key, NAME varchar(20)); ");
 
-        for (int i = 0; i < stmtCnt; ++i)
+        for (int i = 0; i < stmtCnt; ++i) {
             sql.append("insert into test (ID, NAME) values (" + i + ", 'name_" + i + "'); ");
+        }
 
         assertFalse(stmt0.execute(sql.toString()));
 
@@ -444,10 +442,11 @@ public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
         StringBuilder sql = new StringBuilder("drop table if exists test; create table test(ID int primary key, NAME varchar(20)); ");
 
         for (int i = 0; i < stmtCnt; ++i) {
-            if (i % 2 == 0)
+            if (i % 2 == 0) {
                 sql.append(" insert into test (ID, NAME) values (" + i + ", 'name_" + i + "'); ");
-            else
+            } else {
                 sql.append(" select * from test where id < " + i + "; ");
+            }
         }
 
         assertFalse(stmt0.execute(sql.toString()));
@@ -470,21 +469,22 @@ public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
             if (i % 2 == 0) {
                 assertNull(stmt0.getResultSet());
                 assertEquals(1, stmt0.getUpdateCount());
-            }
-            else {
+            } else {
                 assertEquals(-1, stmt0.getUpdateCount());
 
                 ResultSet rs = stmt0.getResultSet();
 
                 int rowsCnt = 0;
 
-                while (rs.next())
+                while (rs.next()) {
                     rowsCnt++;
+                }
 
                 assertTrue(rowsCnt <= (i + 1) / 2);
 
-                if (rowsCnt == (i + 1) / 2)
+                if (rowsCnt == (i + 1) / 2) {
                     notEmptyResult = true;
+                }
 
                 assertTrue(notEmptyResult);
 
@@ -516,7 +516,7 @@ public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
         final String sqlText = "select * from test";
 
         assertThrows(SQLException.class, () -> stmt.executeUpdate(sqlText),
-            "Given statement type does not match that declared by JDBC driver"
+                "Given statement type does not match that declared by JDBC driver"
         );
     }
 
@@ -551,7 +551,7 @@ public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
         assertEquals(0, stmt.getMaxFieldSize());
 
         assertThrows(SQLFeatureNotSupportedException.class, () -> stmt.setMaxFieldSize(100),
-            "Field size limitation is not supported");
+                "Field size limitation is not supported");
 
         assertEquals(0, stmt.getMaxFieldSize());
 
@@ -573,7 +573,7 @@ public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
         assertEquals(0, stmt.getMaxRows());
 
         assertThrows(SQLException.class, () -> stmt.setMaxRows(-1),
-            "Invalid max rows value");
+                "Invalid max rows value");
 
         assertEquals(0, stmt.getMaxRows());
 
@@ -607,7 +607,7 @@ public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
         assertEquals(0, stmt.getQueryTimeout());
 
         assertThrows(SQLException.class, () -> stmt.setQueryTimeout(-1),
-            "Invalid timeout value");
+                "Invalid timeout value");
 
         assertEquals(0, stmt.getQueryTimeout());
 
@@ -633,8 +633,8 @@ public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
     public void testMaxFieldSize() throws Exception {
         assertTrue(stmt.getMaxFieldSize() >= 0);
 
-        assertThrows(SQLException.class, () -> stmt.setMaxFieldSize(-1),            
-            "Invalid field limit");
+        assertThrows(SQLException.class, () -> stmt.setMaxFieldSize(-1),
+                "Invalid field limit");
 
         checkNotSupported(() -> stmt.setMaxFieldSize(100));
     }
@@ -747,7 +747,7 @@ public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
 
     /**
      * TODO Enable when batch query is supported
-     *
+     * <p>
      * Verifies that empty batch can be performed.
      *
      * @throws Exception If failed.
@@ -772,9 +772,9 @@ public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
         assertEquals(ResultSet.FETCH_FORWARD, stmt.getFetchDirection());
 
         assertThrows(
-            SQLFeatureNotSupportedException.class,
-            () -> stmt.setFetchDirection(ResultSet.FETCH_REVERSE),
-            "Only forward direction is supported."
+                SQLFeatureNotSupportedException.class,
+                () -> stmt.setFetchDirection(ResultSet.FETCH_REVERSE),
+                "Only forward direction is supported."
         );
 
         stmt.close();
@@ -790,15 +790,15 @@ public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
     @Test
     public void testAutogenerated() throws Exception {
         assertThrows(
-            SQLException.class,
-            () -> stmt.executeUpdate("select 1", -1),
-            "Invalid autoGeneratedKeys value"
+                SQLException.class,
+                () -> stmt.executeUpdate("select 1", -1),
+                "Invalid autoGeneratedKeys value"
         );
 
         assertThrows(
-            SQLException.class,
-            () -> stmt.execute("select 1", -1),
-            "Invalid autoGeneratedKeys value"
+                SQLException.class,
+                () -> stmt.execute("select 1", -1),
+                "Invalid autoGeneratedKeys value"
         );
 
 //        assertFalse(conn.getMetaData().supportsGetGeneratedKeys());
@@ -807,15 +807,15 @@ public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
 
         checkNotSupported(() -> stmt.executeUpdate("select 1", Statement.RETURN_GENERATED_KEYS));
 
-        checkNotSupported(() -> stmt.executeUpdate("select 1", new int[] {1, 2}));
+        checkNotSupported(() -> stmt.executeUpdate("select 1", new int[]{1, 2}));
 
-        checkNotSupported(() -> stmt.executeUpdate("select 1", new String[] {"a", "b"}));
+        checkNotSupported(() -> stmt.executeUpdate("select 1", new String[]{"a", "b"}));
 
         checkNotSupported(() -> stmt.execute("select 1", Statement.RETURN_GENERATED_KEYS));
 
-        checkNotSupported(() -> stmt.execute("select 1", new int[] {1, 2}));
+        checkNotSupported(() -> stmt.execute("select 1", new int[]{1, 2}));
 
-        checkNotSupported(() -> stmt.execute("select 1", new String[] {"a", "b"}));
+        checkNotSupported(() -> stmt.execute("select 1", new String[]{"a", "b"}));
     }
 
     /**
@@ -827,9 +827,9 @@ public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
         stmt.executeQuery("select 1;");
 
         assertThrows(
-            SQLException.class,                    
-            () -> stmt.executeUpdate("select 1;"),
-            "Given statement type does not match that declared by JDBC driver"
+                SQLException.class,
+                () -> stmt.executeUpdate("select 1;"),
+                "Given statement type does not match that declared by JDBC driver"
         );
 
         assertNull(stmt.getResultSet(), "Not results expected. Last statement is executed with exception");
@@ -842,11 +842,11 @@ public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
     @Disabled("IGNITE-15108")
     public void testStatementTypeMismatchUpdate() throws Exception {
         assertThrows(
-            SQLException.class,
-            () -> stmt.executeQuery("update test set val=28 where _key=1"), 
-            "Given statement type does not match that declared by JDBC driver"
+                SQLException.class,
+                () -> stmt.executeQuery("update test set val=28 where _key=1"),
+                "Given statement type does not match that declared by JDBC driver"
         );
-        
+
         ResultSet rs = stmt.executeQuery("select val from test where _key=1");
 
         boolean next = rs.next();
@@ -854,11 +854,11 @@ public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
         assertTrue(next);
 
         assertEquals(
-            1,
-            rs.getInt(1),
-            "The data must not be updated. " +
-                "Because update statement is executed via 'executeQuery' method." +
-                " Data [val=" + rs.getInt(1) + ']'
+                1,
+                rs.getInt(1),
+                "The data must not be updated. " +
+                        "Because update statement is executed via 'executeQuery' method." +
+                        " Data [val=" + rs.getInt(1) + ']'
         );
     }
 }

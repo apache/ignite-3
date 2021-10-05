@@ -54,10 +54,8 @@ import com.facebook.presto.bytecode.instruction.VariableInstruction.IncrementVar
 import com.facebook.presto.bytecode.instruction.VariableInstruction.LoadVariableInstruction;
 import com.facebook.presto.bytecode.instruction.VariableInstruction.StoreVariableInstruction;
 
-public class BytecodeVisitor<T>
-{
-    public T visitClass(ClassDefinition classDefinition)
-    {
+public class BytecodeVisitor<T> {
+    public T visitClass(ClassDefinition classDefinition) {
         for (AnnotationDefinition annotationDefinition : classDefinition.getAnnotations()) {
             visitAnnotation(classDefinition, annotationDefinition);
         }
@@ -70,21 +68,18 @@ public class BytecodeVisitor<T>
         return null;
     }
 
-    public T visitAnnotation(Object parent, AnnotationDefinition annotationDefinition)
-    {
+    public T visitAnnotation(Object parent, AnnotationDefinition annotationDefinition) {
         return null;
     }
 
-    public T visitField(ClassDefinition classDefinition, FieldDefinition fieldDefinition)
-    {
+    public T visitField(ClassDefinition classDefinition, FieldDefinition fieldDefinition) {
         for (AnnotationDefinition annotationDefinition : fieldDefinition.getAnnotations()) {
             visitAnnotation(fieldDefinition, annotationDefinition);
         }
         return null;
     }
 
-    public T visitMethod(ClassDefinition classDefinition, MethodDefinition methodDefinition)
-    {
+    public T visitMethod(ClassDefinition classDefinition, MethodDefinition methodDefinition) {
         for (AnnotationDefinition annotationDefinition : methodDefinition.getAnnotations()) {
             visitAnnotation(methodDefinition, annotationDefinition);
         }
@@ -92,8 +87,7 @@ public class BytecodeVisitor<T>
         return null;
     }
 
-    public T visitNode(BytecodeNode parent, BytecodeNode node)
-    {
+    public T visitNode(BytecodeNode parent, BytecodeNode node) {
         for (BytecodeNode child : node.getChildNodes()) {
             child.accept(node, this);
         }
@@ -104,8 +98,7 @@ public class BytecodeVisitor<T>
     // Comment
     //
 
-    public T visitComment(BytecodeNode parent, Comment node)
-    {
+    public T visitComment(BytecodeNode parent, Comment node) {
         return visitNode(parent, node);
     }
 
@@ -113,16 +106,14 @@ public class BytecodeVisitor<T>
     // Block
     //
 
-    public T visitBlock(BytecodeNode parent, BytecodeBlock block)
-    {
+    public T visitBlock(BytecodeNode parent, BytecodeBlock block) {
         return visitNode(parent, block);
     }
 
     //
     // Bytecode Expression
     //
-    public T visitBytecodeExpression(BytecodeNode parent, BytecodeExpression expression)
-    {
+    public T visitBytecodeExpression(BytecodeNode parent, BytecodeExpression expression) {
         return visitNode(parent, expression);
     }
 
@@ -130,38 +121,31 @@ public class BytecodeVisitor<T>
     // Flow Control
     //
 
-    public T visitFlowControl(BytecodeNode parent, FlowControl flowControl)
-    {
+    public T visitFlowControl(BytecodeNode parent, FlowControl flowControl) {
         return visitNode(parent, flowControl);
     }
 
-    public T visitTryCatch(BytecodeNode parent, TryCatch tryCatch)
-    {
+    public T visitTryCatch(BytecodeNode parent, TryCatch tryCatch) {
         return visitFlowControl(parent, tryCatch);
     }
 
-    public T visitIf(BytecodeNode parent, IfStatement ifStatement)
-    {
+    public T visitIf(BytecodeNode parent, IfStatement ifStatement) {
         return visitFlowControl(parent, ifStatement);
     }
 
-    public T visitFor(BytecodeNode parent, ForLoop forLoop)
-    {
+    public T visitFor(BytecodeNode parent, ForLoop forLoop) {
         return visitFlowControl(parent, forLoop);
     }
 
-    public T visitWhile(BytecodeNode parent, WhileLoop whileLoop)
-    {
+    public T visitWhile(BytecodeNode parent, WhileLoop whileLoop) {
         return visitFlowControl(parent, whileLoop);
     }
 
-    public T visitDoWhile(BytecodeNode parent, DoWhileLoop doWhileLoop)
-    {
+    public T visitDoWhile(BytecodeNode parent, DoWhileLoop doWhileLoop) {
         return visitFlowControl(parent, doWhileLoop);
     }
 
-    public T visitSwitch(BytecodeNode parent, SwitchStatement switchStatement)
-    {
+    public T visitSwitch(BytecodeNode parent, SwitchStatement switchStatement) {
         return visitFlowControl(parent, switchStatement);
     }
 
@@ -169,18 +153,15 @@ public class BytecodeVisitor<T>
     // Instructions
     //
 
-    public T visitInstruction(BytecodeNode parent, InstructionNode node)
-    {
+    public T visitInstruction(BytecodeNode parent, InstructionNode node) {
         return visitNode(parent, node);
     }
 
-    public T visitLabel(BytecodeNode parent, LabelNode labelNode)
-    {
+    public T visitLabel(BytecodeNode parent, LabelNode labelNode) {
         return visitInstruction(parent, labelNode);
     }
 
-    public T visitJumpInstruction(BytecodeNode parent, JumpInstruction jumpInstruction)
-    {
+    public T visitJumpInstruction(BytecodeNode parent, JumpInstruction jumpInstruction) {
         return visitInstruction(parent, jumpInstruction);
     }
 
@@ -188,68 +169,55 @@ public class BytecodeVisitor<T>
     // Constants
     //
 
-    public T visitConstant(BytecodeNode parent, Constant constant)
-    {
+    public T visitConstant(BytecodeNode parent, Constant constant) {
         return visitInstruction(parent, constant);
     }
 
-    public T visitBoxedBooleanConstant(BytecodeNode parent, BoxedBooleanConstant boxedBooleanConstant)
-    {
+    public T visitBoxedBooleanConstant(BytecodeNode parent, BoxedBooleanConstant boxedBooleanConstant) {
         return visitConstant(parent, boxedBooleanConstant);
     }
 
-    public T visitBooleanConstant(BytecodeNode parent, BooleanConstant booleanConstant)
-    {
+    public T visitBooleanConstant(BytecodeNode parent, BooleanConstant booleanConstant) {
         return visitConstant(parent, booleanConstant);
     }
 
-    public T visitIntConstant(BytecodeNode parent, IntConstant intConstant)
-    {
+    public T visitIntConstant(BytecodeNode parent, IntConstant intConstant) {
         return visitConstant(parent, intConstant);
     }
 
-    public T visitBoxedIntegerConstant(BytecodeNode parent, BoxedIntegerConstant boxedIntegerConstant)
-    {
+    public T visitBoxedIntegerConstant(BytecodeNode parent, BoxedIntegerConstant boxedIntegerConstant) {
         return visitConstant(parent, boxedIntegerConstant);
     }
 
-    public T visitFloatConstant(BytecodeNode parent, FloatConstant floatConstant)
-    {
+    public T visitFloatConstant(BytecodeNode parent, FloatConstant floatConstant) {
         return visitConstant(parent, floatConstant);
     }
 
-    public T visitBoxedFloatConstant(BytecodeNode parent, BoxedFloatConstant boxedFloatConstant)
-    {
+    public T visitBoxedFloatConstant(BytecodeNode parent, BoxedFloatConstant boxedFloatConstant) {
         return visitConstant(parent, boxedFloatConstant);
     }
 
-    public T visitLongConstant(BytecodeNode parent, LongConstant longConstant)
-    {
+    public T visitLongConstant(BytecodeNode parent, LongConstant longConstant) {
         return visitConstant(parent, longConstant);
     }
 
-    public T visitBoxedLongConstant(BytecodeNode parent, BoxedLongConstant boxedLongConstant)
-    {
+    public T visitBoxedLongConstant(BytecodeNode parent, BoxedLongConstant boxedLongConstant) {
         return visitConstant(parent, boxedLongConstant);
     }
 
-    public T visitDoubleConstant(BytecodeNode parent, DoubleConstant doubleConstant)
-    {
+    public T visitDoubleConstant(BytecodeNode parent, DoubleConstant doubleConstant) {
         return visitConstant(parent, doubleConstant);
     }
 
-    public T visitBoxedDoubleConstant(BytecodeNode parent, BoxedDoubleConstant boxedDoubleConstant)
-    {
+    public T visitBoxedDoubleConstant(BytecodeNode parent, BoxedDoubleConstant boxedDoubleConstant) {
         return visitConstant(parent, boxedDoubleConstant);
     }
 
-    public T visitStringConstant(BytecodeNode parent, StringConstant stringConstant)
-    {
+    public T visitStringConstant(BytecodeNode parent, StringConstant stringConstant) {
         return visitConstant(parent, stringConstant);
     }
 
-    public T visitClassConstant(BytecodeNode parent, ClassConstant classConstant)
-    {
+    public T visitClassConstant(BytecodeNode parent, ClassConstant classConstant) {
         return visitConstant(parent, classConstant);
     }
 
@@ -257,23 +225,19 @@ public class BytecodeVisitor<T>
     // Local Variable Instructions
     //
 
-    public T visitVariableInstruction(BytecodeNode parent, VariableInstruction variableInstruction)
-    {
+    public T visitVariableInstruction(BytecodeNode parent, VariableInstruction variableInstruction) {
         return visitInstruction(parent, variableInstruction);
     }
 
-    public T visitLoadVariable(BytecodeNode parent, LoadVariableInstruction loadVariableInstruction)
-    {
+    public T visitLoadVariable(BytecodeNode parent, LoadVariableInstruction loadVariableInstruction) {
         return visitVariableInstruction(parent, loadVariableInstruction);
     }
 
-    public T visitStoreVariable(BytecodeNode parent, StoreVariableInstruction storeVariableInstruction)
-    {
+    public T visitStoreVariable(BytecodeNode parent, StoreVariableInstruction storeVariableInstruction) {
         return visitVariableInstruction(parent, storeVariableInstruction);
     }
 
-    public T visitIncrementVariable(BytecodeNode parent, IncrementVariableInstruction incrementVariableInstruction)
-    {
+    public T visitIncrementVariable(BytecodeNode parent, IncrementVariableInstruction incrementVariableInstruction) {
         return visitVariableInstruction(parent, incrementVariableInstruction);
     }
 
@@ -281,18 +245,15 @@ public class BytecodeVisitor<T>
     // Field Instructions
     //
 
-    public T visitFieldInstruction(BytecodeNode parent, FieldInstruction fieldInstruction)
-    {
+    public T visitFieldInstruction(BytecodeNode parent, FieldInstruction fieldInstruction) {
         return visitInstruction(parent, fieldInstruction);
     }
 
-    public T visitGetField(BytecodeNode parent, GetFieldInstruction getFieldInstruction)
-    {
+    public T visitGetField(BytecodeNode parent, GetFieldInstruction getFieldInstruction) {
         return visitFieldInstruction(parent, getFieldInstruction);
     }
 
-    public T visitPutField(BytecodeNode parent, PutFieldInstruction putFieldInstruction)
-    {
+    public T visitPutField(BytecodeNode parent, PutFieldInstruction putFieldInstruction) {
         return visitFieldInstruction(parent, putFieldInstruction);
     }
 
@@ -300,13 +261,11 @@ public class BytecodeVisitor<T>
     // Invoke
     //
 
-    public T visitInvoke(BytecodeNode parent, InvokeInstruction invokeInstruction)
-    {
+    public T visitInvoke(BytecodeNode parent, InvokeInstruction invokeInstruction) {
         return visitInstruction(parent, invokeInstruction);
     }
 
-    public T visitInvokeDynamic(BytecodeNode parent, InvokeDynamicInstruction invokeDynamicInstruction)
-    {
+    public T visitInvokeDynamic(BytecodeNode parent, InvokeDynamicInstruction invokeDynamicInstruction) {
         return visitInvoke(parent, invokeDynamicInstruction);
     }
 
@@ -314,18 +273,15 @@ public class BytecodeVisitor<T>
     // Debug
     //
 
-    public T visitDebug(BytecodeNode parent, DebugNode debugNode)
-    {
+    public T visitDebug(BytecodeNode parent, DebugNode debugNode) {
         return visitNode(parent, debugNode);
     }
 
-    public T visitLineNumber(BytecodeNode parent, LineNumberNode lineNumberNode)
-    {
+    public T visitLineNumber(BytecodeNode parent, LineNumberNode lineNumberNode) {
         return visitDebug(parent, lineNumberNode);
     }
 
-    public T visitLocalVariable(BytecodeNode parent, LocalVariableNode localVariableNode)
-    {
+    public T visitLocalVariable(BytecodeNode parent, LocalVariableNode localVariableNode) {
         return visitDebug(parent, localVariableNode);
     }
 }

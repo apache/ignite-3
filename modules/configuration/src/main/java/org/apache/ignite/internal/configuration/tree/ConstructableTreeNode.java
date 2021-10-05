@@ -19,22 +19,24 @@ package org.apache.ignite.internal.configuration.tree;
 
 import java.util.NoSuchElementException;
 
-/** */
+/**
+ *
+ */
 public interface ConstructableTreeNode {
     /**
-     * Initializes {@code key} element of the object with the content from the source.
-     * Please refer to implementation to find out exact details.
+     * Initializes {@code key} element of the object with the content from the source. Please refer to implementation to find out exact
+     * details.
      *
-     * @param key Field / named list element name to be constructed.
-     * @param src Source that provides data for construction.
+     * @param key             Field / named list element name to be constructed.
+     * @param src             Source that provides data for construction.
      * @param includeInternal Include internal configuration nodes (private configuration extensions).
      * @throws NoSuchElementException If {@code key} cannot be constructed.
      */
     void construct(String key, ConfigurationSource src, boolean includeInternal) throws NoSuchElementException;
 
     /**
-     * Public equivalent of {@link Object#clone()} method. Creates a copy with effectively the same content.
-     * Helps to preserve trees immutability after construction is completed.
+     * Public equivalent of {@link Object#clone()} method. Creates a copy with effectively the same content. Helps to preserve trees
+     * immutability after construction is completed.
      *
      * @return Copy of the object.
      */

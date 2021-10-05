@@ -14,7 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.core;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -52,10 +57,6 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 @ExtendWith(MockitoExtension.class)
 public class FSMCallerTest {
     private FSMCallerImpl fsmCaller;
@@ -91,9 +92,9 @@ public class FSMCallerTest {
         opts.setRaftMessagesFactory(new RaftMessagesFactory());
         opts.setGroupId("TestSrv");
         opts.setfSMCallerExecutorDisruptor(disruptor = new StripedDisruptor<>("TestFSMDisruptor",
-            1024,
-            () -> new FSMCallerImpl.ApplyTask(),
-            1));
+                1024,
+                () -> new FSMCallerImpl.ApplyTask(),
+                1));
         assertTrue(this.fsmCaller.init(opts));
     }
 
@@ -126,7 +127,7 @@ public class FSMCallerTest {
         Mockito.verify(this.logManager).setAppliedId(new LogId(10, 1));
         assertFalse(this.fsmCaller.getError().getStatus().isOk());
         assertEquals("Fail to get entry at index=11 while committed_index=11", this.fsmCaller.getError().getStatus()
-            .getErrorMsg());
+                .getErrorMsg());
     }
 
     @Test
@@ -155,10 +156,10 @@ public class FSMCallerTest {
         final SnapshotReader reader = Mockito.mock(SnapshotReader.class);
 
         final SnapshotMeta meta = opts.getRaftMessagesFactory()
-            .snapshotMeta()
-            .lastIncludedIndex(12)
-            .lastIncludedTerm(1)
-            .build();
+                .snapshotMeta()
+                .lastIncludedIndex(12)
+                .lastIncludedTerm(1)
+                .build();
         Mockito.when(reader.load()).thenReturn(meta);
         Mockito.when(this.fsm.onSnapshotLoad(reader)).thenReturn(true);
         final CountDownLatch latch = new CountDownLatch(1);
@@ -185,10 +186,10 @@ public class FSMCallerTest {
         final SnapshotReader reader = Mockito.mock(SnapshotReader.class);
 
         final SnapshotMeta meta = opts.getRaftMessagesFactory()
-            .snapshotMeta()
-            .lastIncludedIndex(12)
-            .lastIncludedTerm(1)
-            .build();
+                .snapshotMeta()
+                .lastIncludedIndex(12)
+                .lastIncludedTerm(1)
+                .build();
         Mockito.when(reader.load()).thenReturn(meta);
         Mockito.when(this.fsm.onSnapshotLoad(reader)).thenReturn(false);
         final CountDownLatch latch = new CountDownLatch(1);
@@ -235,7 +236,7 @@ public class FSMCallerTest {
     public void testOnSnapshotSave() throws Exception {
         final SnapshotWriter writer = Mockito.mock(SnapshotWriter.class);
         Mockito.when(this.logManager.getConfiguration(10)).thenReturn(
-            TestUtils.getConfEntry("localhost:8081,localhost:8082,localhost:8083", "localhost:8081"));
+                TestUtils.getConfEntry("localhost:8081,localhost:8082,localhost:8083", "localhost:8081"));
         final SaveSnapshotClosure done = new SaveSnapshotClosure() {
 
             @Override
@@ -293,10 +294,10 @@ public class FSMCallerTest {
         final SnapshotReader reader = Mockito.mock(SnapshotReader.class);
 
         final SnapshotMeta meta = opts.getRaftMessagesFactory()
-            .snapshotMeta()
-            .lastIncludedIndex(5)
-            .lastIncludedTerm(1)
-            .build();
+                .snapshotMeta()
+                .lastIncludedIndex(5)
+                .lastIncludedTerm(1)
+                .build();
         Mockito.when(reader.load()).thenReturn(meta);
 
         final CountDownLatch latch = new CountDownLatch(1);

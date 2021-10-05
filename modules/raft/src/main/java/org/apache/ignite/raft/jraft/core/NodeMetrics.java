@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.core;
 
 import com.codahale.metrics.Metric;
@@ -32,8 +33,7 @@ public class NodeMetrics {
     public NodeMetrics(final boolean enableMetrics) {
         if (enableMetrics) {
             this.metrics = new MetricRegistry();
-        }
-        else {
+        } else {
             this.metrics = null;
         }
     }
@@ -71,7 +71,7 @@ public class NodeMetrics {
     /**
      * Records operation times.
      *
-     * @param key key of operation
+     * @param key   key of operation
      * @param times times of operation
      */
     public void recordTimes(final String key, final long times) {
@@ -83,7 +83,7 @@ public class NodeMetrics {
     /**
      * Records operation batch size.
      *
-     * @param key key of operation
+     * @param key  key of operation
      * @param size size of operation
      */
     public void recordSize(final String key, final long size) {
@@ -95,7 +95,7 @@ public class NodeMetrics {
     /**
      * Records operation latency.
      *
-     * @param key key of operation
+     * @param key      key of operation
      * @param duration duration of operation
      */
     public void recordLatency(final String key, final long duration) {

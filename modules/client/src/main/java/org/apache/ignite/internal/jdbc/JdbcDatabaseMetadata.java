@@ -17,6 +17,14 @@
 
 package org.apache.ignite.internal.jdbc;
 
+import static java.sql.Connection.TRANSACTION_NONE;
+import static java.sql.ResultSet.CONCUR_READ_ONLY;
+import static java.sql.ResultSet.HOLD_CURSORS_OVER_COMMIT;
+import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
+import static java.sql.RowIdLifetime.ROWID_UNSUPPORTED;
+import static java.util.Arrays.asList;
+import static java.util.Collections.singletonList;
+
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
@@ -41,14 +49,6 @@ import org.apache.ignite.client.proto.query.event.JdbcMetaTablesResult;
 import org.apache.ignite.client.proto.query.event.JdbcPrimaryKeyMeta;
 import org.apache.ignite.client.proto.query.event.JdbcTableMeta;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
-
-import static java.sql.Connection.TRANSACTION_NONE;
-import static java.sql.ResultSet.CONCUR_READ_ONLY;
-import static java.sql.ResultSet.HOLD_CURSORS_OVER_COMMIT;
-import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
-import static java.sql.RowIdLifetime.ROWID_UNSUPPORTED;
-import static java.util.Arrays.asList;
-import static java.util.Collections.singletonList;
 
 /**
  * JDBC database metadata implementation.
@@ -76,658 +76,779 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean allProceduresAreCallable() {
+    @Override
+    public boolean allProceduresAreCallable() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean allTablesAreSelectable() {
+    @Override
+    public boolean allTablesAreSelectable() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public String getURL() {
+    @Override
+    public String getURL() {
         return conn.url();
     }
 
     /** {@inheritDoc} */
-    @Override public String getUserName() {
+    @Override
+    public String getUserName() {
         return "";
     }
 
     /** {@inheritDoc} */
-    @Override public boolean isReadOnly() {
+    @Override
+    public boolean isReadOnly() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean nullsAreSortedHigh() {
+    @Override
+    public boolean nullsAreSortedHigh() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean nullsAreSortedLow() {
+    @Override
+    public boolean nullsAreSortedLow() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean nullsAreSortedAtStart() {
+    @Override
+    public boolean nullsAreSortedAtStart() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean nullsAreSortedAtEnd() {
+    @Override
+    public boolean nullsAreSortedAtEnd() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public String getDatabaseProductName() {
+    @Override
+    public String getDatabaseProductName() {
         return "Apache Ignite";
     }
 
     /** {@inheritDoc} */
-    @Override public String getDatabaseProductVersion() {
+    @Override
+    public String getDatabaseProductVersion() {
         return ProtocolVersion.LATEST_VER.toString();
     }
 
     /** {@inheritDoc} */
-    @Override public String getDriverName() {
+    @Override
+    public String getDriverName() {
         return DRIVER_NAME;
     }
 
     /** {@inheritDoc} */
-    @Override public String getDriverVersion() {
+    @Override
+    public String getDriverVersion() {
         return ProtocolVersion.LATEST_VER.toString();
     }
 
     /** {@inheritDoc} */
-    @Override public int getDriverMajorVersion() {
+    @Override
+    public int getDriverMajorVersion() {
         return ProtocolVersion.LATEST_VER.major();
     }
 
     /** {@inheritDoc} */
-    @Override public int getDriverMinorVersion() {
+    @Override
+    public int getDriverMinorVersion() {
         return ProtocolVersion.LATEST_VER.minor();
     }
 
     /** {@inheritDoc} */
-    @Override public boolean usesLocalFiles() {
+    @Override
+    public boolean usesLocalFiles() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean usesLocalFilePerTable() {
+    @Override
+    public boolean usesLocalFilePerTable() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsMixedCaseIdentifiers() {
+    @Override
+    public boolean supportsMixedCaseIdentifiers() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean storesUpperCaseIdentifiers() {
+    @Override
+    public boolean storesUpperCaseIdentifiers() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean storesLowerCaseIdentifiers() {
+    @Override
+    public boolean storesLowerCaseIdentifiers() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean storesMixedCaseIdentifiers() {
+    @Override
+    public boolean storesMixedCaseIdentifiers() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsMixedCaseQuotedIdentifiers() {
+    @Override
+    public boolean supportsMixedCaseQuotedIdentifiers() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean storesUpperCaseQuotedIdentifiers() {
+    @Override
+    public boolean storesUpperCaseQuotedIdentifiers() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean storesLowerCaseQuotedIdentifiers() {
+    @Override
+    public boolean storesLowerCaseQuotedIdentifiers() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean storesMixedCaseQuotedIdentifiers() {
+    @Override
+    public boolean storesMixedCaseQuotedIdentifiers() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public String getIdentifierQuoteString() {
+    @Override
+    public String getIdentifierQuoteString() {
         return "\"";
     }
 
     /** {@inheritDoc} */
-    @Override public String getSQLKeywords() {
+    @Override
+    public String getSQLKeywords() {
         return "";
     }
 
     /** {@inheritDoc} */
-    @Override public String getNumericFunctions() {
+    @Override
+    public String getNumericFunctions() {
         return "";
     }
 
     /** {@inheritDoc} */
-    @Override public String getStringFunctions() {
+    @Override
+    public String getStringFunctions() {
         return "";
     }
 
     /** {@inheritDoc} */
-    @Override public String getSystemFunctions() {
+    @Override
+    public String getSystemFunctions() {
         return "";
     }
 
     /** {@inheritDoc} */
-    @Override public String getTimeDateFunctions() {
+    @Override
+    public String getTimeDateFunctions() {
         return "";
     }
 
     /** {@inheritDoc} */
-    @Override public String getSearchStringEscape() {
+    @Override
+    public String getSearchStringEscape() {
         return "\\";
     }
 
     /** {@inheritDoc} */
-    @Override public String getExtraNameCharacters() {
+    @Override
+    public String getExtraNameCharacters() {
         return "";
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsAlterTableWithAddColumn() {
+    @Override
+    public boolean supportsAlterTableWithAddColumn() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsAlterTableWithDropColumn() {
+    @Override
+    public boolean supportsAlterTableWithDropColumn() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsColumnAliasing() {
+    @Override
+    public boolean supportsColumnAliasing() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean nullPlusNonNullIsNull() {
+    @Override
+    public boolean nullPlusNonNullIsNull() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsConvert() {
+    @Override
+    public boolean supportsConvert() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsConvert(int fromType, int toType) {
+    @Override
+    public boolean supportsConvert(int fromType, int toType) {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsTableCorrelationNames() {
+    @Override
+    public boolean supportsTableCorrelationNames() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsDifferentTableCorrelationNames() {
+    @Override
+    public boolean supportsDifferentTableCorrelationNames() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsExpressionsInOrderBy() {
+    @Override
+    public boolean supportsExpressionsInOrderBy() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsOrderByUnrelated() {
+    @Override
+    public boolean supportsOrderByUnrelated() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsGroupBy() {
+    @Override
+    public boolean supportsGroupBy() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsGroupByUnrelated() {
+    @Override
+    public boolean supportsGroupByUnrelated() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsGroupByBeyondSelect() {
+    @Override
+    public boolean supportsGroupByBeyondSelect() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsLikeEscapeClause() {
+    @Override
+    public boolean supportsLikeEscapeClause() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsMultipleResultSets() {
+    @Override
+    public boolean supportsMultipleResultSets() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsMultipleTransactions() {
+    @Override
+    public boolean supportsMultipleTransactions() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsNonNullableColumns() {
+    @Override
+    public boolean supportsNonNullableColumns() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsMinimumSQLGrammar() {
+    @Override
+    public boolean supportsMinimumSQLGrammar() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsCoreSQLGrammar() {
+    @Override
+    public boolean supportsCoreSQLGrammar() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsExtendedSQLGrammar() {
+    @Override
+    public boolean supportsExtendedSQLGrammar() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsANSI92EntryLevelSQL() {
+    @Override
+    public boolean supportsANSI92EntryLevelSQL() {
         //TODO IGNITE-15527
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsANSI92IntermediateSQL() {
+    @Override
+    public boolean supportsANSI92IntermediateSQL() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsANSI92FullSQL() {
+    @Override
+    public boolean supportsANSI92FullSQL() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsIntegrityEnhancementFacility() {
+    @Override
+    public boolean supportsIntegrityEnhancementFacility() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsOuterJoins() {
+    @Override
+    public boolean supportsOuterJoins() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsFullOuterJoins() {
+    @Override
+    public boolean supportsFullOuterJoins() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsLimitedOuterJoins() {
+    @Override
+    public boolean supportsLimitedOuterJoins() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public String getSchemaTerm() {
+    @Override
+    public String getSchemaTerm() {
         return "";
     }
 
     /** {@inheritDoc} */
-    @Override public String getProcedureTerm() {
+    @Override
+    public String getProcedureTerm() {
         return "";
     }
 
     /** {@inheritDoc} */
-    @Override public String getCatalogTerm() {
+    @Override
+    public String getCatalogTerm() {
         return "";
     }
 
     /** {@inheritDoc} */
-    @Override public boolean isCatalogAtStart() {
+    @Override
+    public boolean isCatalogAtStart() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public String getCatalogSeparator() {
+    @Override
+    public String getCatalogSeparator() {
         return "";
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsSchemasInDataManipulation() {
+    @Override
+    public boolean supportsSchemasInDataManipulation() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsSchemasInProcedureCalls() {
+    @Override
+    public boolean supportsSchemasInProcedureCalls() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsSchemasInTableDefinitions() {
+    @Override
+    public boolean supportsSchemasInTableDefinitions() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsSchemasInIndexDefinitions() {
+    @Override
+    public boolean supportsSchemasInIndexDefinitions() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsSchemasInPrivilegeDefinitions() {
+    @Override
+    public boolean supportsSchemasInPrivilegeDefinitions() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsCatalogsInDataManipulation() {
+    @Override
+    public boolean supportsCatalogsInDataManipulation() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsCatalogsInProcedureCalls() {
+    @Override
+    public boolean supportsCatalogsInProcedureCalls() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsCatalogsInTableDefinitions() {
+    @Override
+    public boolean supportsCatalogsInTableDefinitions() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsCatalogsInIndexDefinitions() {
+    @Override
+    public boolean supportsCatalogsInIndexDefinitions() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsCatalogsInPrivilegeDefinitions() {
+    @Override
+    public boolean supportsCatalogsInPrivilegeDefinitions() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsPositionedDelete() {
+    @Override
+    public boolean supportsPositionedDelete() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsPositionedUpdate() {
+    @Override
+    public boolean supportsPositionedUpdate() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsSelectForUpdate() {
+    @Override
+    public boolean supportsSelectForUpdate() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsStoredProcedures() {
+    @Override
+    public boolean supportsStoredProcedures() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsSubqueriesInComparisons() {
+    @Override
+    public boolean supportsSubqueriesInComparisons() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsSubqueriesInExists() {
+    @Override
+    public boolean supportsSubqueriesInExists() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsSubqueriesInIns() {
+    @Override
+    public boolean supportsSubqueriesInIns() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsSubqueriesInQuantifieds() {
+    @Override
+    public boolean supportsSubqueriesInQuantifieds() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsCorrelatedSubqueries() {
+    @Override
+    public boolean supportsCorrelatedSubqueries() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsUnion() {
+    @Override
+    public boolean supportsUnion() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsUnionAll() {
+    @Override
+    public boolean supportsUnionAll() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsOpenCursorsAcrossCommit() {
+    @Override
+    public boolean supportsOpenCursorsAcrossCommit() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsOpenCursorsAcrossRollback() {
+    @Override
+    public boolean supportsOpenCursorsAcrossRollback() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsOpenStatementsAcrossCommit() {
+    @Override
+    public boolean supportsOpenStatementsAcrossCommit() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsOpenStatementsAcrossRollback() {
+    @Override
+    public boolean supportsOpenStatementsAcrossRollback() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public int getMaxBinaryLiteralLength() {
+    @Override
+    public int getMaxBinaryLiteralLength() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public int getMaxCharLiteralLength() {
+    @Override
+    public int getMaxCharLiteralLength() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public int getMaxColumnNameLength() {
+    @Override
+    public int getMaxColumnNameLength() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public int getMaxColumnsInGroupBy() {
+    @Override
+    public int getMaxColumnsInGroupBy() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public int getMaxColumnsInIndex() {
+    @Override
+    public int getMaxColumnsInIndex() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public int getMaxColumnsInOrderBy() {
+    @Override
+    public int getMaxColumnsInOrderBy() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public int getMaxColumnsInSelect() {
+    @Override
+    public int getMaxColumnsInSelect() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public int getMaxColumnsInTable() {
+    @Override
+    public int getMaxColumnsInTable() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public int getMaxConnections() {
+    @Override
+    public int getMaxConnections() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public int getMaxCursorNameLength() {
+    @Override
+    public int getMaxCursorNameLength() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public int getMaxIndexLength() {
+    @Override
+    public int getMaxIndexLength() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public int getMaxSchemaNameLength() {
+    @Override
+    public int getMaxSchemaNameLength() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public int getMaxProcedureNameLength() {
+    @Override
+    public int getMaxProcedureNameLength() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public int getMaxCatalogNameLength() {
+    @Override
+    public int getMaxCatalogNameLength() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public int getMaxRowSize() {
+    @Override
+    public int getMaxRowSize() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean doesMaxRowSizeIncludeBlobs() {
+    @Override
+    public boolean doesMaxRowSizeIncludeBlobs() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public int getMaxStatementLength() {
+    @Override
+    public int getMaxStatementLength() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public int getMaxStatements() {
+    @Override
+    public int getMaxStatements() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public int getMaxTableNameLength() {
+    @Override
+    public int getMaxTableNameLength() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public int getMaxTablesInSelect() {
+    @Override
+    public int getMaxTablesInSelect() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public int getMaxUserNameLength() {
+    @Override
+    public int getMaxUserNameLength() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public int getDefaultTransactionIsolation() {
+    @Override
+    public int getDefaultTransactionIsolation() {
         return TRANSACTION_NONE;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsTransactions() {
+    @Override
+    public boolean supportsTransactions() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsTransactionIsolationLevel(int level) {
+    @Override
+    public boolean supportsTransactionIsolationLevel(int level) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsDataDefinitionAndDataManipulationTransactions() {
+    @Override
+    public boolean supportsDataDefinitionAndDataManipulationTransactions() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsDataManipulationTransactionsOnly() {
+    @Override
+    public boolean supportsDataManipulationTransactionsOnly() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean dataDefinitionCausesTransactionCommit() {
+    @Override
+    public boolean dataDefinitionCausesTransactionCommit() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean dataDefinitionIgnoredInTransactions() {
+    @Override
+    public boolean dataDefinitionIgnoredInTransactions() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSet getProcedures(String catalog, String schemaPtrn,
-        String procedureNamePtrn) {
+    @Override
+    public ResultSet getProcedures(String catalog, String schemaPtrn,
+            String procedureNamePtrn) {
         return new JdbcResultSet(Collections.emptyList(), asList(
-            new JdbcColumnMeta(null, null, "PROCEDURE_CAT", String.class),
-            new JdbcColumnMeta(null, null, "PROCEDURE_SCHEM", String.class),
-            new JdbcColumnMeta(null, null, "PROCEDURE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "REMARKS", String.class),
-            new JdbcColumnMeta(null, null, "PROCEDURE_TYPE", String.class),
-            new JdbcColumnMeta(null, null, "SPECIFIC_NAME", String.class)
+                new JdbcColumnMeta(null, null, "PROCEDURE_CAT", String.class),
+                new JdbcColumnMeta(null, null, "PROCEDURE_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "PROCEDURE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "REMARKS", String.class),
+                new JdbcColumnMeta(null, null, "PROCEDURE_TYPE", String.class),
+                new JdbcColumnMeta(null, null, "SPECIFIC_NAME", String.class)
         ));
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSet getProcedureColumns(String catalog, String schemaPtrn, String procedureNamePtrn,
-        String colNamePtrn) {
+    @Override
+    public ResultSet getProcedureColumns(String catalog, String schemaPtrn, String procedureNamePtrn,
+            String colNamePtrn) {
         return new JdbcResultSet(Collections.emptyList(), asList(
-            new JdbcColumnMeta(null, null, "PROCEDURE_CAT", String.class),
-            new JdbcColumnMeta(null, null, "PROCEDURE_SCHEM", String.class),
-            new JdbcColumnMeta(null, null, "PROCEDURE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "COLUMN_NAME", String.class),
-            new JdbcColumnMeta(null, null, "COLUMN_TYPE", Short.class),
-            new JdbcColumnMeta(null, null, "COLUMN_TYPE", Integer.class),
-            new JdbcColumnMeta(null, null, "TYPE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "PRECISION", Integer.class),
-            new JdbcColumnMeta(null, null, "LENGTH", Integer.class),
-            new JdbcColumnMeta(null, null, "SCALE", Short.class),
-            new JdbcColumnMeta(null, null, "RADIX", Short.class),
-            new JdbcColumnMeta(null, null, "NULLABLE", Short.class),
-            new JdbcColumnMeta(null, null, "REMARKS", String.class),
-            new JdbcColumnMeta(null, null, "COLUMN_DEF", String.class),
-            new JdbcColumnMeta(null, null, "SQL_DATA_TYPE", Integer.class),
-            new JdbcColumnMeta(null, null, "SQL_DATETIME_SUB", Integer.class),
-            new JdbcColumnMeta(null, null, "CHAR_OCTET_LENGTH", Integer.class),
-            new JdbcColumnMeta(null, null, "ORDINAL_POSITION", Integer.class),
-            new JdbcColumnMeta(null, null, "IS_NULLABLE", String.class),
-            new JdbcColumnMeta(null, null, "SPECIFIC_NAME", String.class)
-            ));
+                new JdbcColumnMeta(null, null, "PROCEDURE_CAT", String.class),
+                new JdbcColumnMeta(null, null, "PROCEDURE_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "PROCEDURE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "COLUMN_NAME", String.class),
+                new JdbcColumnMeta(null, null, "COLUMN_TYPE", Short.class),
+                new JdbcColumnMeta(null, null, "COLUMN_TYPE", Integer.class),
+                new JdbcColumnMeta(null, null, "TYPE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "PRECISION", Integer.class),
+                new JdbcColumnMeta(null, null, "LENGTH", Integer.class),
+                new JdbcColumnMeta(null, null, "SCALE", Short.class),
+                new JdbcColumnMeta(null, null, "RADIX", Short.class),
+                new JdbcColumnMeta(null, null, "NULLABLE", Short.class),
+                new JdbcColumnMeta(null, null, "REMARKS", String.class),
+                new JdbcColumnMeta(null, null, "COLUMN_DEF", String.class),
+                new JdbcColumnMeta(null, null, "SQL_DATA_TYPE", Integer.class),
+                new JdbcColumnMeta(null, null, "SQL_DATETIME_SUB", Integer.class),
+                new JdbcColumnMeta(null, null, "CHAR_OCTET_LENGTH", Integer.class),
+                new JdbcColumnMeta(null, null, "ORDINAL_POSITION", Integer.class),
+                new JdbcColumnMeta(null, null, "IS_NULLABLE", String.class),
+                new JdbcColumnMeta(null, null, "SPECIFIC_NAME", String.class)
+        ));
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSet getTables(String catalog, String schemaPtrn, String tblNamePtrn, String[] tblTypes)
-        throws SQLException {
+    @Override
+    public ResultSet getTables(String catalog, String schemaPtrn, String tblNamePtrn, String[] tblTypes)
+            throws SQLException {
         conn.ensureNotClosed();
 
         final List<JdbcColumnMeta> meta = asList(
-            new JdbcColumnMeta(null, null, "TABLE_CAT", String.class),
-            new JdbcColumnMeta(null, null, "TABLE_SCHEM", String.class),
-            new JdbcColumnMeta(null, null, "TABLE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "TABLE_TYPE", String.class),
-            new JdbcColumnMeta(null, null, "REMARKS", String.class),
-            new JdbcColumnMeta(null, null, "TYPE_CAT", String.class),
-            new JdbcColumnMeta(null, null, "TYPE_SCHEM", String.class),
-            new JdbcColumnMeta(null, null, "TYPE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "SELF_REFERENCING_COL_NAME", String.class),
-            new JdbcColumnMeta(null, null, "REF_GENERATION", String.class));
+                new JdbcColumnMeta(null, null, "TABLE_CAT", String.class),
+                new JdbcColumnMeta(null, null, "TABLE_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "TABLE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "TABLE_TYPE", String.class),
+                new JdbcColumnMeta(null, null, "REMARKS", String.class),
+                new JdbcColumnMeta(null, null, "TYPE_CAT", String.class),
+                new JdbcColumnMeta(null, null, "TYPE_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "TYPE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "SELF_REFERENCING_COL_NAME", String.class),
+                new JdbcColumnMeta(null, null, "REF_GENERATION", String.class));
 
         boolean tblTypeMatch = false;
 
-        if (tblTypes == null)
+        if (tblTypes == null) {
             tblTypeMatch = true;
-        else {
+        } else {
             for (String type : tblTypes) {
                 if (TYPE_TABLE.equals(type)) {
                     tblTypeMatch = true;
@@ -737,590 +858,648 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
             }
         }
 
-        if (!isValidCatalog(catalog) || !tblTypeMatch)
+        if (!isValidCatalog(catalog) || !tblTypeMatch) {
             return new JdbcResultSet(Collections.emptyList(), meta);
+        }
 
         JdbcMetaTablesResult res
-            = conn.handler().tablesMeta(new JdbcMetaTablesRequest(schemaPtrn, tblNamePtrn, tblTypes));
+                = conn.handler().tablesMeta(new JdbcMetaTablesRequest(schemaPtrn, tblNamePtrn, tblTypes));
 
-        if (!res.hasResults())
+        if (!res.hasResults()) {
             throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+        }
 
         List<List<Object>> rows = new LinkedList<>();
 
-        for (JdbcTableMeta tblMeta : res.meta())
+        for (JdbcTableMeta tblMeta : res.meta()) {
             rows.add(tableRow(tblMeta));
+        }
 
         return new JdbcResultSet(rows, meta);
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSet getSchemas() throws SQLException {
+    @Override
+    public ResultSet getSchemas() throws SQLException {
         return getSchemas(null, "%");
     }
 
     /** {@inheritDoc} */
     @SuppressWarnings("ArraysAsListWithZeroOrOneArgument")
-    @Override public ResultSet getCatalogs() {
+    @Override
+    public ResultSet getCatalogs() {
         return new JdbcResultSet(singletonList(singletonList(CATALOG_NAME)),
-            asList(new JdbcColumnMeta(null, null, "TABLE_CAT", String.class)));
+                asList(new JdbcColumnMeta(null, null, "TABLE_CAT", String.class)));
     }
 
     /** {@inheritDoc} */
     @SuppressWarnings("ArraysAsListWithZeroOrOneArgument")
-    @Override public ResultSet getTableTypes() {
+    @Override
+    public ResultSet getTableTypes() {
         return new JdbcResultSet(
-            asList(singletonList(TYPE_TABLE)),
-            asList(new JdbcColumnMeta(null, null, "TABLE_TYPE", String.class)));
+                asList(singletonList(TYPE_TABLE)),
+                asList(new JdbcColumnMeta(null, null, "TABLE_TYPE", String.class)));
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSet getColumns(String catalog, String schemaPtrn, String tblNamePtrn, String colNamePtrn) throws SQLException {
+    @Override
+    public ResultSet getColumns(String catalog, String schemaPtrn, String tblNamePtrn, String colNamePtrn) throws SQLException {
         conn.ensureNotClosed();
 
         final List<JdbcColumnMeta> meta = asList(
-            new JdbcColumnMeta(null, null, "TABLE_CAT", String.class),      // 1
-            new JdbcColumnMeta(null, null, "TABLE_SCHEM", String.class),    // 2
-            new JdbcColumnMeta(null, null, "TABLE_NAME", String.class),     // 3
-            new JdbcColumnMeta(null, null, "COLUMN_NAME", String.class),    // 4
-            new JdbcColumnMeta(null, null, "DATA_TYPE", Short.class),       // 5
-            new JdbcColumnMeta(null, null, "TYPE_NAME", String.class),      // 6
-            new JdbcColumnMeta(null, null, "COLUMN_SIZE", Integer.class),   // 7
-            new JdbcColumnMeta(null, null, "BUFFER_LENGTH", Integer.class), // 8
-            new JdbcColumnMeta(null, null, "DECIMAL_DIGITS", Integer.class), // 9
-            new JdbcColumnMeta(null, null, "NUM_PREC_RADIX", Short.class),  // 10
-            new JdbcColumnMeta(null, null, "NULLABLE", Short.class),        // 11
-            new JdbcColumnMeta(null, null, "REMARKS", String.class),        // 12
-            new JdbcColumnMeta(null, null, "COLUMN_DEF", String.class),     // 13
-            new JdbcColumnMeta(null, null, "SQL_DATA_TYPE", Integer.class), // 14
-            new JdbcColumnMeta(null, null, "SQL_DATETIME_SUB", Integer.class), // 15
-            new JdbcColumnMeta(null, null, "CHAR_OCTET_LENGTH", Integer.class), // 16
-            new JdbcColumnMeta(null, null, "ORDINAL_POSITION", Integer.class), // 17
-            new JdbcColumnMeta(null, null, "IS_NULLABLE", String.class),    // 18
-            new JdbcColumnMeta(null, null, "SCOPE_CATLOG", String.class),   // 19
-            new JdbcColumnMeta(null, null, "SCOPE_SCHEMA", String.class),   // 20
-            new JdbcColumnMeta(null, null, "SCOPE_TABLE", String.class),    // 21
-            new JdbcColumnMeta(null, null, "SOURCE_DATA_TYPE", Short.class), // 22
-            new JdbcColumnMeta(null, null, "IS_AUTOINCREMENT", String.class), // 23
-            new JdbcColumnMeta(null, null, "IS_GENERATEDCOLUMN", String.class) // 24
+                new JdbcColumnMeta(null, null, "TABLE_CAT", String.class),      // 1
+                new JdbcColumnMeta(null, null, "TABLE_SCHEM", String.class),    // 2
+                new JdbcColumnMeta(null, null, "TABLE_NAME", String.class),     // 3
+                new JdbcColumnMeta(null, null, "COLUMN_NAME", String.class),    // 4
+                new JdbcColumnMeta(null, null, "DATA_TYPE", Short.class),       // 5
+                new JdbcColumnMeta(null, null, "TYPE_NAME", String.class),      // 6
+                new JdbcColumnMeta(null, null, "COLUMN_SIZE", Integer.class),   // 7
+                new JdbcColumnMeta(null, null, "BUFFER_LENGTH", Integer.class), // 8
+                new JdbcColumnMeta(null, null, "DECIMAL_DIGITS", Integer.class), // 9
+                new JdbcColumnMeta(null, null, "NUM_PREC_RADIX", Short.class),  // 10
+                new JdbcColumnMeta(null, null, "NULLABLE", Short.class),        // 11
+                new JdbcColumnMeta(null, null, "REMARKS", String.class),        // 12
+                new JdbcColumnMeta(null, null, "COLUMN_DEF", String.class),     // 13
+                new JdbcColumnMeta(null, null, "SQL_DATA_TYPE", Integer.class), // 14
+                new JdbcColumnMeta(null, null, "SQL_DATETIME_SUB", Integer.class), // 15
+                new JdbcColumnMeta(null, null, "CHAR_OCTET_LENGTH", Integer.class), // 16
+                new JdbcColumnMeta(null, null, "ORDINAL_POSITION", Integer.class), // 17
+                new JdbcColumnMeta(null, null, "IS_NULLABLE", String.class),    // 18
+                new JdbcColumnMeta(null, null, "SCOPE_CATLOG", String.class),   // 19
+                new JdbcColumnMeta(null, null, "SCOPE_SCHEMA", String.class),   // 20
+                new JdbcColumnMeta(null, null, "SCOPE_TABLE", String.class),    // 21
+                new JdbcColumnMeta(null, null, "SOURCE_DATA_TYPE", Short.class), // 22
+                new JdbcColumnMeta(null, null, "IS_AUTOINCREMENT", String.class), // 23
+                new JdbcColumnMeta(null, null, "IS_GENERATEDCOLUMN", String.class) // 24
         );
 
-        if (!isValidCatalog(catalog))
+        if (!isValidCatalog(catalog)) {
             return new JdbcResultSet(Collections.emptyList(), meta);
+        }
 
         JdbcMetaColumnsResult res = conn.handler().columnsMeta(new JdbcMetaColumnsRequest(schemaPtrn, tblNamePtrn, colNamePtrn));
 
-        if (!res.hasResults())
+        if (!res.hasResults()) {
             throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+        }
 
         List<List<Object>> rows = new LinkedList<>();
 
-        for (int i = 0; i < res.meta().size(); ++i)
+        for (int i = 0; i < res.meta().size(); ++i) {
             rows.add(columnRow(res.meta().get(i), i + 1));
+        }
 
         return new JdbcResultSet(rows, meta);
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSet getColumnPrivileges(String catalog, String schema, String tbl,
-        String colNamePtrn) {
+    @Override
+    public ResultSet getColumnPrivileges(String catalog, String schema, String tbl,
+            String colNamePtrn) {
         return new JdbcResultSet(Collections.emptyList(), asList(
-            new JdbcColumnMeta(null, null, "TABLE_CAT", String.class),
-            new JdbcColumnMeta(null, null, "TABLE_SCHEM", String.class),
-            new JdbcColumnMeta(null, null, "TABLE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "COLUMN_NAME", String.class),
-            new JdbcColumnMeta(null, null, "GRANTOR", String.class),
-            new JdbcColumnMeta(null, null, "GRANTEE", String.class),
-            new JdbcColumnMeta(null, null, "PRIVILEGE", String.class),
-            new JdbcColumnMeta(null, null, "IS_GRANTABLE", String.class)
+                new JdbcColumnMeta(null, null, "TABLE_CAT", String.class),
+                new JdbcColumnMeta(null, null, "TABLE_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "TABLE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "COLUMN_NAME", String.class),
+                new JdbcColumnMeta(null, null, "GRANTOR", String.class),
+                new JdbcColumnMeta(null, null, "GRANTEE", String.class),
+                new JdbcColumnMeta(null, null, "PRIVILEGE", String.class),
+                new JdbcColumnMeta(null, null, "IS_GRANTABLE", String.class)
         ));
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSet getTablePrivileges(String catalog, String schemaPtrn,
-        String tblNamePtrn) {
+    @Override
+    public ResultSet getTablePrivileges(String catalog, String schemaPtrn,
+            String tblNamePtrn) {
         return new JdbcResultSet(Collections.emptyList(), asList(
-            new JdbcColumnMeta(null, null, "TABLE_CAT", String.class),
-            new JdbcColumnMeta(null, null, "TABLE_SCHEM", String.class),
-            new JdbcColumnMeta(null, null, "TABLE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "GRANTOR", String.class),
-            new JdbcColumnMeta(null, null, "GRANTEE", String.class),
-            new JdbcColumnMeta(null, null, "PRIVILEGE", String.class),
-            new JdbcColumnMeta(null, null, "IS_GRANTABLE", String.class)
+                new JdbcColumnMeta(null, null, "TABLE_CAT", String.class),
+                new JdbcColumnMeta(null, null, "TABLE_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "TABLE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "GRANTOR", String.class),
+                new JdbcColumnMeta(null, null, "GRANTEE", String.class),
+                new JdbcColumnMeta(null, null, "PRIVILEGE", String.class),
+                new JdbcColumnMeta(null, null, "IS_GRANTABLE", String.class)
         ));
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSet getBestRowIdentifier(String catalog, String schema, String tbl, int scope,
-        boolean nullable) {
+    @Override
+    public ResultSet getBestRowIdentifier(String catalog, String schema, String tbl, int scope,
+            boolean nullable) {
         return new JdbcResultSet(Collections.emptyList(), asList(
-            new JdbcColumnMeta(null, null, "SCOPE", Short.class),
-            new JdbcColumnMeta(null, null, "COLUMN_NAME", String.class),
-            new JdbcColumnMeta(null, null, "DATA_TYPE", Integer.class),
-            new JdbcColumnMeta(null, null, "TYPE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "COLUMN_SIZE", Integer.class),
-            new JdbcColumnMeta(null, null, "BUFFER_LENGTH", Integer.class),
-            new JdbcColumnMeta(null, null, "DECIMAL_DIGITS", Short.class),
-            new JdbcColumnMeta(null, null, "PSEUDO_COLUMN", Short.class)
+                new JdbcColumnMeta(null, null, "SCOPE", Short.class),
+                new JdbcColumnMeta(null, null, "COLUMN_NAME", String.class),
+                new JdbcColumnMeta(null, null, "DATA_TYPE", Integer.class),
+                new JdbcColumnMeta(null, null, "TYPE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "COLUMN_SIZE", Integer.class),
+                new JdbcColumnMeta(null, null, "BUFFER_LENGTH", Integer.class),
+                new JdbcColumnMeta(null, null, "DECIMAL_DIGITS", Short.class),
+                new JdbcColumnMeta(null, null, "PSEUDO_COLUMN", Short.class)
         ));
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSet getVersionColumns(String catalog, String schema, String tbl) {
+    @Override
+    public ResultSet getVersionColumns(String catalog, String schema, String tbl) {
         return new JdbcResultSet(Collections.emptyList(), asList(
-            new JdbcColumnMeta(null, null, "SCOPE", Short.class),
-            new JdbcColumnMeta(null, null, "COLUMN_NAME", String.class),
-            new JdbcColumnMeta(null, null, "DATA_TYPE", Integer.class),
-            new JdbcColumnMeta(null, null, "TYPE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "COLUMN_SIZE", Integer.class),
-            new JdbcColumnMeta(null, null, "BUFFER_LENGTH", Integer.class),
-            new JdbcColumnMeta(null, null, "DECIMAL_DIGITS", Short.class),
-            new JdbcColumnMeta(null, null, "PSEUDO_COLUMN", Short.class)
+                new JdbcColumnMeta(null, null, "SCOPE", Short.class),
+                new JdbcColumnMeta(null, null, "COLUMN_NAME", String.class),
+                new JdbcColumnMeta(null, null, "DATA_TYPE", Integer.class),
+                new JdbcColumnMeta(null, null, "TYPE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "COLUMN_SIZE", Integer.class),
+                new JdbcColumnMeta(null, null, "BUFFER_LENGTH", Integer.class),
+                new JdbcColumnMeta(null, null, "DECIMAL_DIGITS", Short.class),
+                new JdbcColumnMeta(null, null, "PSEUDO_COLUMN", Short.class)
         ));
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSet getPrimaryKeys(String catalog, String schema, String tbl) throws SQLException {
+    @Override
+    public ResultSet getPrimaryKeys(String catalog, String schema, String tbl) throws SQLException {
         conn.ensureNotClosed();
 
         final List<JdbcColumnMeta> meta = asList(
-            new JdbcColumnMeta(null, null, "TABLE_CAT", String.class),
-            new JdbcColumnMeta(null, null, "TABLE_SCHEM", String.class),
-            new JdbcColumnMeta(null, null, "TABLE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "COLUMN_NAME", String.class),
-            new JdbcColumnMeta(null, null, "KEY_SEQ", Short.class),
-            new JdbcColumnMeta(null, null, "PK_NAME", String.class));
+                new JdbcColumnMeta(null, null, "TABLE_CAT", String.class),
+                new JdbcColumnMeta(null, null, "TABLE_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "TABLE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "COLUMN_NAME", String.class),
+                new JdbcColumnMeta(null, null, "KEY_SEQ", Short.class),
+                new JdbcColumnMeta(null, null, "PK_NAME", String.class));
 
-        if (!isValidCatalog(catalog))
+        if (!isValidCatalog(catalog)) {
             return new JdbcResultSet(Collections.emptyList(), meta);
+        }
 
         JdbcMetaPrimaryKeysResult res = conn.handler().primaryKeysMeta(new JdbcMetaPrimaryKeysRequest(schema, tbl));
 
-        if (!res.hasResults())
+        if (!res.hasResults()) {
             throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+        }
 
         List<List<Object>> rows = new LinkedList<>();
 
-        for (JdbcPrimaryKeyMeta pkMeta : res.meta())
+        for (JdbcPrimaryKeyMeta pkMeta : res.meta()) {
             rows.addAll(primaryKeyRows(pkMeta));
+        }
 
         return new JdbcResultSet(rows, meta);
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSet getImportedKeys(String catalog, String schema, String tbl) {
+    @Override
+    public ResultSet getImportedKeys(String catalog, String schema, String tbl) {
         return new JdbcResultSet(Collections.emptyList(), asList(
-            new JdbcColumnMeta(null, null, "PKTABLE_CAT", String.class),
-            new JdbcColumnMeta(null, null, "PKTABLE_SCHEM", String.class),
-            new JdbcColumnMeta(null, null, "PKTABLE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "PKCOLUMN_NAME", String.class),
-            new JdbcColumnMeta(null, null, "FKTABLE_CAT", String.class),
-            new JdbcColumnMeta(null, null, "FKTABLE_SCHEM", String.class),
-            new JdbcColumnMeta(null, null, "FKTABLE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "FKCOLUMN_NAME", String.class),
-            new JdbcColumnMeta(null, null, "KEY_SEQ", Short.class),
-            new JdbcColumnMeta(null, null, "UPDATE_RULE", Short.class),
-            new JdbcColumnMeta(null, null, "DELETE_RULE", Short.class),
-            new JdbcColumnMeta(null, null, "FK_NAME", String.class),
-            new JdbcColumnMeta(null, null, "PK_NAME", String.class),
-            new JdbcColumnMeta(null, null, "DEFERRABILITY", Short.class)
+                new JdbcColumnMeta(null, null, "PKTABLE_CAT", String.class),
+                new JdbcColumnMeta(null, null, "PKTABLE_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "PKTABLE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "PKCOLUMN_NAME", String.class),
+                new JdbcColumnMeta(null, null, "FKTABLE_CAT", String.class),
+                new JdbcColumnMeta(null, null, "FKTABLE_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "FKTABLE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "FKCOLUMN_NAME", String.class),
+                new JdbcColumnMeta(null, null, "KEY_SEQ", Short.class),
+                new JdbcColumnMeta(null, null, "UPDATE_RULE", Short.class),
+                new JdbcColumnMeta(null, null, "DELETE_RULE", Short.class),
+                new JdbcColumnMeta(null, null, "FK_NAME", String.class),
+                new JdbcColumnMeta(null, null, "PK_NAME", String.class),
+                new JdbcColumnMeta(null, null, "DEFERRABILITY", Short.class)
         ));
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSet getExportedKeys(String catalog, String schema, String tbl) {
+    @Override
+    public ResultSet getExportedKeys(String catalog, String schema, String tbl) {
         return new JdbcResultSet(Collections.emptyList(), asList(
-            new JdbcColumnMeta(null, null, "PKTABLE_CAT", String.class),
-            new JdbcColumnMeta(null, null, "PKTABLE_SCHEM", String.class),
-            new JdbcColumnMeta(null, null, "PKTABLE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "PKCOLUMN_NAME", String.class),
-            new JdbcColumnMeta(null, null, "FKTABLE_CAT", String.class),
-            new JdbcColumnMeta(null, null, "FKTABLE_SCHEM", String.class),
-            new JdbcColumnMeta(null, null, "FKTABLE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "FKCOLUMN_NAME", String.class),
-            new JdbcColumnMeta(null, null, "KEY_SEQ", Short.class),
-            new JdbcColumnMeta(null, null, "UPDATE_RULE", Short.class),
-            new JdbcColumnMeta(null, null, "DELETE_RULE", Short.class),
-            new JdbcColumnMeta(null, null, "FK_NAME", String.class),
-            new JdbcColumnMeta(null, null, "PK_NAME", String.class),
-            new JdbcColumnMeta(null, null, "DEFERRABILITY", Short.class)
+                new JdbcColumnMeta(null, null, "PKTABLE_CAT", String.class),
+                new JdbcColumnMeta(null, null, "PKTABLE_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "PKTABLE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "PKCOLUMN_NAME", String.class),
+                new JdbcColumnMeta(null, null, "FKTABLE_CAT", String.class),
+                new JdbcColumnMeta(null, null, "FKTABLE_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "FKTABLE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "FKCOLUMN_NAME", String.class),
+                new JdbcColumnMeta(null, null, "KEY_SEQ", Short.class),
+                new JdbcColumnMeta(null, null, "UPDATE_RULE", Short.class),
+                new JdbcColumnMeta(null, null, "DELETE_RULE", Short.class),
+                new JdbcColumnMeta(null, null, "FK_NAME", String.class),
+                new JdbcColumnMeta(null, null, "PK_NAME", String.class),
+                new JdbcColumnMeta(null, null, "DEFERRABILITY", Short.class)
         ));
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSet getCrossReference(String parentCatalog, String parentSchema, String parentTbl,
-        String foreignCatalog, String foreignSchema, String foreignTbl) {
+    @Override
+    public ResultSet getCrossReference(String parentCatalog, String parentSchema, String parentTbl,
+            String foreignCatalog, String foreignSchema, String foreignTbl) {
         return new JdbcResultSet(Collections.emptyList(), asList(
-            new JdbcColumnMeta(null, null, "PKTABLE_CAT", String.class),
-            new JdbcColumnMeta(null, null, "PKTABLE_SCHEM", String.class),
-            new JdbcColumnMeta(null, null, "PKTABLE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "PKCOLUMN_NAME", String.class),
-            new JdbcColumnMeta(null, null, "FKTABLE_CAT", String.class),
-            new JdbcColumnMeta(null, null, "FKTABLE_SCHEM", String.class),
-            new JdbcColumnMeta(null, null, "FKTABLE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "FKCOLUMN_NAME", String.class),
-            new JdbcColumnMeta(null, null, "KEY_SEQ", Short.class),
-            new JdbcColumnMeta(null, null, "UPDATE_RULE", Short.class),
-            new JdbcColumnMeta(null, null, "DELETE_RULE", Short.class),
-            new JdbcColumnMeta(null, null, "FK_NAME", String.class),
-            new JdbcColumnMeta(null, null, "PK_NAME", String.class),
-            new JdbcColumnMeta(null, null, "DEFERRABILITY", Short.class)
+                new JdbcColumnMeta(null, null, "PKTABLE_CAT", String.class),
+                new JdbcColumnMeta(null, null, "PKTABLE_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "PKTABLE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "PKCOLUMN_NAME", String.class),
+                new JdbcColumnMeta(null, null, "FKTABLE_CAT", String.class),
+                new JdbcColumnMeta(null, null, "FKTABLE_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "FKTABLE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "FKCOLUMN_NAME", String.class),
+                new JdbcColumnMeta(null, null, "KEY_SEQ", Short.class),
+                new JdbcColumnMeta(null, null, "UPDATE_RULE", Short.class),
+                new JdbcColumnMeta(null, null, "DELETE_RULE", Short.class),
+                new JdbcColumnMeta(null, null, "FK_NAME", String.class),
+                new JdbcColumnMeta(null, null, "PK_NAME", String.class),
+                new JdbcColumnMeta(null, null, "DEFERRABILITY", Short.class)
         ));
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSet getTypeInfo() {
+    @Override
+    public ResultSet getTypeInfo() {
         List<List<Object>> types = new ArrayList<>(21);
 
         types.add(Arrays.asList("BOOLEAN", Types.BOOLEAN, 1, null, null, null,
-            (short)typeNullable, false, (short)typeSearchable, false, false, false, "BOOLEAN", 0, 0,
-            Types.BOOLEAN, 0, 10));
+                (short) typeNullable, false, (short) typeSearchable, false, false, false, "BOOLEAN", 0, 0,
+                Types.BOOLEAN, 0, 10));
 
         types.add(Arrays.asList("TINYINT", Types.TINYINT, 3, null, null, null,
-            (short)typeNullable, false, (short)typeSearchable, false, false, false, "TINYINT", 0, 0,
-            Types.TINYINT, 0, 10));
+                (short) typeNullable, false, (short) typeSearchable, false, false, false, "TINYINT", 0, 0,
+                Types.TINYINT, 0, 10));
 
         types.add(Arrays.asList("SMALLINT", Types.SMALLINT, 5, null, null, null,
-            (short)typeNullable, false, (short)typeSearchable, false, false, false, "SMALLINT", 0, 0,
-            Types.SMALLINT, 0, 10));
+                (short) typeNullable, false, (short) typeSearchable, false, false, false, "SMALLINT", 0, 0,
+                Types.SMALLINT, 0, 10));
 
         types.add(Arrays.asList("INTEGER", Types.INTEGER, 10, null, null, null,
-            (short)typeNullable, false, (short)typeSearchable, false, false, false, "INTEGER", 0, 0,
-            Types.INTEGER, 0, 10));
+                (short) typeNullable, false, (short) typeSearchable, false, false, false, "INTEGER", 0, 0,
+                Types.INTEGER, 0, 10));
 
         types.add(Arrays.asList("BIGINT", Types.BIGINT, 19, null, null, null,
-            (short)typeNullable, false, (short)typeSearchable, false, false, false, "BIGINT", 0, 0,
-            Types.BIGINT, 0, 10));
+                (short) typeNullable, false, (short) typeSearchable, false, false, false, "BIGINT", 0, 0,
+                Types.BIGINT, 0, 10));
 
         types.add(Arrays.asList("FLOAT", Types.FLOAT, 17, null, null, null,
-            (short)typeNullable, false, (short)typeSearchable, false, false, false, "FLOAT", 0, 0,
-            Types.FLOAT, 0, 10));
+                (short) typeNullable, false, (short) typeSearchable, false, false, false, "FLOAT", 0, 0,
+                Types.FLOAT, 0, 10));
 
         types.add(Arrays.asList("REAL", Types.REAL, 7, null, null, null,
-            (short)typeNullable, false, (short)typeSearchable, false, false, false, "REAL", 0, 0,
-            Types.REAL, 0, 10));
+                (short) typeNullable, false, (short) typeSearchable, false, false, false, "REAL", 0, 0,
+                Types.REAL, 0, 10));
 
         types.add(Arrays.asList("DOUBLE", Types.DOUBLE, 17, null, null, null,
-            (short)typeNullable, false, (short)typeSearchable, false, false, false, "DOUBLE", 0, 0,
-            Types.DOUBLE, 0, 10));
+                (short) typeNullable, false, (short) typeSearchable, false, false, false, "DOUBLE", 0, 0,
+                Types.DOUBLE, 0, 10));
 
         types.add(Arrays.asList("NUMERIC", Types.NUMERIC, Integer.MAX_VALUE, null, null, "PRECISION,SCALE",
-            (short)typeNullable, false, (short)typeSearchable, false, false, false, "NUMERIC", 0, 0,
-            Types.NUMERIC, 0, 10));
+                (short) typeNullable, false, (short) typeSearchable, false, false, false, "NUMERIC", 0, 0,
+                Types.NUMERIC, 0, 10));
 
         types.add(Arrays.asList("DECIMAL", Types.DECIMAL, Integer.MAX_VALUE, null, null, "PRECISION,SCALE",
-            (short)typeNullable, false, (short)typeSearchable, false, false, false, "DECIMAL", 0, 0,
-            Types.DECIMAL, 0, 10));
+                (short) typeNullable, false, (short) typeSearchable, false, false, false, "DECIMAL", 0, 0,
+                Types.DECIMAL, 0, 10));
 
         types.add(Arrays.asList("DATE", Types.DATE, 8, "DATE '", "'", null,
-            (short)typeNullable, false, (short)typeSearchable, false, false, false, "DATE", 0, 0,
-            Types.DATE, 0, null));
+                (short) typeNullable, false, (short) typeSearchable, false, false, false, "DATE", 0, 0,
+                Types.DATE, 0, null));
 
         types.add(Arrays.asList("TIME", Types.TIME, 6, "TIME '", "'", null,
-            (short)typeNullable, false, (short)typeSearchable, false, false, false, "TIME", 0, 0,
-            Types.TIME, 0, null));
+                (short) typeNullable, false, (short) typeSearchable, false, false, false, "TIME", 0, 0,
+                Types.TIME, 0, null));
 
         types.add(Arrays.asList("TIMESTAMP", Types.TIMESTAMP, 23, "TIMESTAMP '", "'", null,
-            (short)typeNullable, false, (short)typeSearchable, false, false, false, "TIMESTAMP", 0, 10,
-            Types.TIMESTAMP, 0, null));
+                (short) typeNullable, false, (short) typeSearchable, false, false, false, "TIMESTAMP", 0, 10,
+                Types.TIMESTAMP, 0, null));
 
         types.add(Arrays.asList("CHAR", Types.CHAR, Integer.MAX_VALUE, "'", "'", "LENGTH",
-            (short)typeNullable, true, (short)typeSearchable, false, false, false, "CHAR", 0, 0,
-            Types.CHAR, 0, null));
+                (short) typeNullable, true, (short) typeSearchable, false, false, false, "CHAR", 0, 0,
+                Types.CHAR, 0, null));
 
         types.add(Arrays.asList("VARCHAR", Types.VARCHAR, Integer.MAX_VALUE, "'", "'", "LENGTH",
-            (short)typeNullable, true, (short)typeSearchable, false, false, false, "VARCHAR", 0, 0,
-            Types.VARCHAR, 0, null));
+                (short) typeNullable, true, (short) typeSearchable, false, false, false, "VARCHAR", 0, 0,
+                Types.VARCHAR, 0, null));
 
         types.add(Arrays.asList("LONGVARCHAR", Types.LONGVARCHAR, Integer.MAX_VALUE, "'", "'", "LENGTH",
-            (short)typeNullable, true, (short)typeSearchable, false, false, false, "LONGVARCHAR", 0, 0,
-            Types.LONGVARCHAR, 0, null));
+                (short) typeNullable, true, (short) typeSearchable, false, false, false, "LONGVARCHAR", 0, 0,
+                Types.LONGVARCHAR, 0, null));
 
         types.add(Arrays.asList("BINARY", Types.BINARY, Integer.MAX_VALUE, "'", "'", "LENGTH",
-            (short)typeNullable, false, (short)typeSearchable, false, false, false, "BINARY", 0, 0,
-            Types.BINARY, 0, null));
+                (short) typeNullable, false, (short) typeSearchable, false, false, false, "BINARY", 0, 0,
+                Types.BINARY, 0, null));
 
         types.add(Arrays.asList("VARBINARY", Types.VARBINARY, Integer.MAX_VALUE, "'", "'", "LENGTH",
-            (short)typeNullable, false, (short)typeSearchable, false, false, false, "VARBINARY", 0, 0,
-            Types.VARBINARY, 0, null));
+                (short) typeNullable, false, (short) typeSearchable, false, false, false, "VARBINARY", 0, 0,
+                Types.VARBINARY, 0, null));
 
         types.add(Arrays.asList("LONGVARBINARY", Types.LONGVARBINARY, Integer.MAX_VALUE, "'", "'", "LENGTH",
-            (short)typeNullable, false, (short)typeSearchable, false, false, false, "LONGVARBINARY", 0, 0,
-            Types.LONGVARBINARY, 0, null));
+                (short) typeNullable, false, (short) typeSearchable, false, false, false, "LONGVARBINARY", 0, 0,
+                Types.LONGVARBINARY, 0, null));
 
         types.add(Arrays.asList("OTHER", Types.OTHER, Integer.MAX_VALUE, "'", "'", "LENGTH",
-            (short)typeNullable, false, (short)typeSearchable, false, false, false, "OTHER", 0, 0,
-            Types.OTHER, 0, null));
+                (short) typeNullable, false, (short) typeSearchable, false, false, false, "OTHER", 0, 0,
+                Types.OTHER, 0, null));
 
         types.add(Arrays.asList("ARRAY", Types.ARRAY, 0, "(", "')", null,
-            (short)typeNullable, false, (short)typeSearchable, false, false, false, "ARRAY", 0, 0,
-            Types.ARRAY, 0, null));
+                (short) typeNullable, false, (short) typeSearchable, false, false, false, "ARRAY", 0, 0,
+                Types.ARRAY, 0, null));
 
         return new JdbcResultSet(types, asList(
-            new JdbcColumnMeta(null, null, "TYPE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "DATA_TYPE", Integer.class),
-            new JdbcColumnMeta(null, null, "PRECISION", Integer.class),
-            new JdbcColumnMeta(null, null, "LITERAL_PREFIX", String.class),
-            new JdbcColumnMeta(null, null, "LITERAL_SUFFIX", String.class),
-            new JdbcColumnMeta(null, null, "CREATE_PARAMS", String.class),
-            new JdbcColumnMeta(null, null, "NULLABLE", Short.class),
-            new JdbcColumnMeta(null, null, "CASE_SENSITIVE", Boolean.class),
-            new JdbcColumnMeta(null, null, "SEARCHABLE", Short.class),
-            new JdbcColumnMeta(null, null, "UNSIGNED_ATTRIBUTE", Boolean.class),
-            new JdbcColumnMeta(null, null, "FIXED_PREC_SCALE", Boolean.class),
-            new JdbcColumnMeta(null, null, "AUTO_INCREMENT", Boolean.class),
-            new JdbcColumnMeta(null, null, "LOCAL_TYPE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "MINIMUM_SCALE", Short.class),
-            new JdbcColumnMeta(null, null, "MAXIMUM_SCALE", Short.class),
-            new JdbcColumnMeta(null, null, "SQL_DATA_TYPE", Integer.class),
-            new JdbcColumnMeta(null, null, "SQL_DATETIME_SUB", Integer.class),
-            new JdbcColumnMeta(null, null, "NUM_PREC_RADIX", Integer.class)
+                new JdbcColumnMeta(null, null, "TYPE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "DATA_TYPE", Integer.class),
+                new JdbcColumnMeta(null, null, "PRECISION", Integer.class),
+                new JdbcColumnMeta(null, null, "LITERAL_PREFIX", String.class),
+                new JdbcColumnMeta(null, null, "LITERAL_SUFFIX", String.class),
+                new JdbcColumnMeta(null, null, "CREATE_PARAMS", String.class),
+                new JdbcColumnMeta(null, null, "NULLABLE", Short.class),
+                new JdbcColumnMeta(null, null, "CASE_SENSITIVE", Boolean.class),
+                new JdbcColumnMeta(null, null, "SEARCHABLE", Short.class),
+                new JdbcColumnMeta(null, null, "UNSIGNED_ATTRIBUTE", Boolean.class),
+                new JdbcColumnMeta(null, null, "FIXED_PREC_SCALE", Boolean.class),
+                new JdbcColumnMeta(null, null, "AUTO_INCREMENT", Boolean.class),
+                new JdbcColumnMeta(null, null, "LOCAL_TYPE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "MINIMUM_SCALE", Short.class),
+                new JdbcColumnMeta(null, null, "MAXIMUM_SCALE", Short.class),
+                new JdbcColumnMeta(null, null, "SQL_DATA_TYPE", Integer.class),
+                new JdbcColumnMeta(null, null, "SQL_DATETIME_SUB", Integer.class),
+                new JdbcColumnMeta(null, null, "NUM_PREC_RADIX", Integer.class)
         ));
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSet getIndexInfo(String catalog, String schema, String tbl, boolean unique,
-        boolean approximate) throws SQLException {
+    @Override
+    public ResultSet getIndexInfo(String catalog, String schema, String tbl, boolean unique,
+            boolean approximate) throws SQLException {
         conn.ensureNotClosed();
 
         final List<JdbcColumnMeta> meta = asList(
-            new JdbcColumnMeta(null, null, "TABLE_CAT", String.class),
-            new JdbcColumnMeta(null, null, "TABLE_SCHEM", String.class),
-            new JdbcColumnMeta(null, null, "TABLE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "NON_UNIQUE", Boolean.class),
-            new JdbcColumnMeta(null, null, "INDEX_QUALIFIER", String.class),
-            new JdbcColumnMeta(null, null, "INDEX_NAME", String.class),
-            new JdbcColumnMeta(null, null, "TYPE", Short.class),
-            new JdbcColumnMeta(null, null, "ORDINAL_POSITION", Short.class),
-            new JdbcColumnMeta(null, null, "COLUMN_NAME", String.class),
-            new JdbcColumnMeta(null, null, "ASC_OR_DESC", String.class),
-            new JdbcColumnMeta(null, null, "CARDINALITY", Integer.class),
-            new JdbcColumnMeta(null, null, "PAGES", Integer.class),
-            new JdbcColumnMeta(null, null, "FILTER_CONDITION", String.class));
+                new JdbcColumnMeta(null, null, "TABLE_CAT", String.class),
+                new JdbcColumnMeta(null, null, "TABLE_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "TABLE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "NON_UNIQUE", Boolean.class),
+                new JdbcColumnMeta(null, null, "INDEX_QUALIFIER", String.class),
+                new JdbcColumnMeta(null, null, "INDEX_NAME", String.class),
+                new JdbcColumnMeta(null, null, "TYPE", Short.class),
+                new JdbcColumnMeta(null, null, "ORDINAL_POSITION", Short.class),
+                new JdbcColumnMeta(null, null, "COLUMN_NAME", String.class),
+                new JdbcColumnMeta(null, null, "ASC_OR_DESC", String.class),
+                new JdbcColumnMeta(null, null, "CARDINALITY", Integer.class),
+                new JdbcColumnMeta(null, null, "PAGES", Integer.class),
+                new JdbcColumnMeta(null, null, "FILTER_CONDITION", String.class));
 
-        if (!isValidCatalog(catalog))
+        if (!isValidCatalog(catalog)) {
             return new JdbcResultSet(Collections.emptyList(), meta);
+        }
 
         throw new UnsupportedOperationException("Index info is not supported yet.");
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsResultSetType(int type) {
+    @Override
+    public boolean supportsResultSetType(int type) {
         return type == TYPE_FORWARD_ONLY;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsResultSetConcurrency(int type, int concurrency) {
+    @Override
+    public boolean supportsResultSetConcurrency(int type, int concurrency) {
         return supportsResultSetType(type) && concurrency == CONCUR_READ_ONLY;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean ownUpdatesAreVisible(int type) {
+    @Override
+    public boolean ownUpdatesAreVisible(int type) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean ownDeletesAreVisible(int type) {
+    @Override
+    public boolean ownDeletesAreVisible(int type) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean ownInsertsAreVisible(int type) {
+    @Override
+    public boolean ownInsertsAreVisible(int type) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean othersUpdatesAreVisible(int type) {
+    @Override
+    public boolean othersUpdatesAreVisible(int type) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean othersDeletesAreVisible(int type) {
+    @Override
+    public boolean othersDeletesAreVisible(int type) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean othersInsertsAreVisible(int type) {
+    @Override
+    public boolean othersInsertsAreVisible(int type) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean updatesAreDetected(int type) {
+    @Override
+    public boolean updatesAreDetected(int type) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean deletesAreDetected(int type) {
+    @Override
+    public boolean deletesAreDetected(int type) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean insertsAreDetected(int type) {
+    @Override
+    public boolean insertsAreDetected(int type) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsBatchUpdates() {
+    @Override
+    public boolean supportsBatchUpdates() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSet getUDTs(String catalog, String schemaPtrn, String typeNamePtrn,
-        int[] types) {
+    @Override
+    public ResultSet getUDTs(String catalog, String schemaPtrn, String typeNamePtrn,
+            int[] types) {
         return new JdbcResultSet(Collections.emptyList(), asList(
-            new JdbcColumnMeta(null, null, "TYPE_CAT", String.class),
-            new JdbcColumnMeta(null, null, "TYPE_SCHEM", String.class),
-            new JdbcColumnMeta(null, null, "TYPE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "CLASS_NAME", String.class),
-            new JdbcColumnMeta(null, null, "DATA_TYPE", Integer.class),
-            new JdbcColumnMeta(null, null, "REMARKS", String.class),
-            new JdbcColumnMeta(null, null, "BASE_TYPE", Short.class)
+                new JdbcColumnMeta(null, null, "TYPE_CAT", String.class),
+                new JdbcColumnMeta(null, null, "TYPE_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "TYPE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "CLASS_NAME", String.class),
+                new JdbcColumnMeta(null, null, "DATA_TYPE", Integer.class),
+                new JdbcColumnMeta(null, null, "REMARKS", String.class),
+                new JdbcColumnMeta(null, null, "BASE_TYPE", Short.class)
         ));
     }
 
     /** {@inheritDoc} */
-    @Override public Connection getConnection() {
+    @Override
+    public Connection getConnection() {
         return conn;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsSavepoints() {
+    @Override
+    public boolean supportsSavepoints() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsNamedParameters() {
+    @Override
+    public boolean supportsNamedParameters() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsMultipleOpenResults() {
+    @Override
+    public boolean supportsMultipleOpenResults() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsGetGeneratedKeys() {
+    @Override
+    public boolean supportsGetGeneratedKeys() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSet getSuperTypes(String catalog, String schemaPtrn,
-        String typeNamePtrn) {
+    @Override
+    public ResultSet getSuperTypes(String catalog, String schemaPtrn,
+            String typeNamePtrn) {
         return new JdbcResultSet(Collections.emptyList(), asList(
-            new JdbcColumnMeta(null, null, "TYPE_CAT", String.class),
-            new JdbcColumnMeta(null, null, "TYPE_SCHEM", String.class),
-            new JdbcColumnMeta(null, null, "TYPE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "SUPERTYPE_CAT", String.class),
-            new JdbcColumnMeta(null, null, "SUPERTYPE_SCHEM", String.class),
-            new JdbcColumnMeta(null, null, "SUPERTYPE_NAME", String.class)
+                new JdbcColumnMeta(null, null, "TYPE_CAT", String.class),
+                new JdbcColumnMeta(null, null, "TYPE_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "TYPE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "SUPERTYPE_CAT", String.class),
+                new JdbcColumnMeta(null, null, "SUPERTYPE_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "SUPERTYPE_NAME", String.class)
         ));
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSet getSuperTables(String catalog, String schemaPtrn,
-        String tblNamePtrn) {
+    @Override
+    public ResultSet getSuperTables(String catalog, String schemaPtrn,
+            String tblNamePtrn) {
         return new JdbcResultSet(Collections.emptyList(), asList(
-            new JdbcColumnMeta(null, null, "TABLE_CAT", String.class),
-            new JdbcColumnMeta(null, null, "TABLE_SCHEM", String.class),
-            new JdbcColumnMeta(null, null, "TABLE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "SUPERTABLE_NAME", String.class)
+                new JdbcColumnMeta(null, null, "TABLE_CAT", String.class),
+                new JdbcColumnMeta(null, null, "TABLE_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "TABLE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "SUPERTABLE_NAME", String.class)
         ));
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSet getAttributes(String catalog, String schemaPtrn, String typeNamePtrn,
-        String attributeNamePtrn) {
+    @Override
+    public ResultSet getAttributes(String catalog, String schemaPtrn, String typeNamePtrn,
+            String attributeNamePtrn) {
         return new JdbcResultSet(Collections.emptyList(), asList(
-            new JdbcColumnMeta(null, null, "TYPE_CAT", String.class),
-            new JdbcColumnMeta(null, null, "TYPE_SCHEM", String.class),
-            new JdbcColumnMeta(null, null, "TYPE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "ATTR_NAME", String.class),
-            new JdbcColumnMeta(null, null, "DATA_TYPE", Integer.class),
-            new JdbcColumnMeta(null, null, "ATTR_TYPE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "ATTR_SIZE", Integer.class),
-            new JdbcColumnMeta(null, null, "DECIMAL_DIGITS", Integer.class),
-            new JdbcColumnMeta(null, null, "NUM_PREC_RADIX", Integer.class),
-            new JdbcColumnMeta(null, null, "NULLABLE", Integer.class),
-            new JdbcColumnMeta(null, null, "REMARKS", String.class),
-            new JdbcColumnMeta(null, null, "ATTR_DEF", String.class),
-            new JdbcColumnMeta(null, null, "SQL_DATA_TYPE", Integer.class),
-            new JdbcColumnMeta(null, null, "SQL_DATETIME_SUB", Integer.class),
-            new JdbcColumnMeta(null, null, "CHAR_OCTET_LENGTH", Integer.class),
-            new JdbcColumnMeta(null, null, "ORDINAL_POSITION", Integer.class),
-            new JdbcColumnMeta(null, null, "IS_NULLABLE", String.class),
-            new JdbcColumnMeta(null, null, "SCOPE_CATALOG", String.class),
-            new JdbcColumnMeta(null, null, "SCOPE_SCHEMA", String.class),
-            new JdbcColumnMeta(null, null, "SCOPE_TABLE", String.class),
-            new JdbcColumnMeta(null, null, "SOURCE_DATA_TYPE", Short.class)
+                new JdbcColumnMeta(null, null, "TYPE_CAT", String.class),
+                new JdbcColumnMeta(null, null, "TYPE_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "TYPE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "ATTR_NAME", String.class),
+                new JdbcColumnMeta(null, null, "DATA_TYPE", Integer.class),
+                new JdbcColumnMeta(null, null, "ATTR_TYPE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "ATTR_SIZE", Integer.class),
+                new JdbcColumnMeta(null, null, "DECIMAL_DIGITS", Integer.class),
+                new JdbcColumnMeta(null, null, "NUM_PREC_RADIX", Integer.class),
+                new JdbcColumnMeta(null, null, "NULLABLE", Integer.class),
+                new JdbcColumnMeta(null, null, "REMARKS", String.class),
+                new JdbcColumnMeta(null, null, "ATTR_DEF", String.class),
+                new JdbcColumnMeta(null, null, "SQL_DATA_TYPE", Integer.class),
+                new JdbcColumnMeta(null, null, "SQL_DATETIME_SUB", Integer.class),
+                new JdbcColumnMeta(null, null, "CHAR_OCTET_LENGTH", Integer.class),
+                new JdbcColumnMeta(null, null, "ORDINAL_POSITION", Integer.class),
+                new JdbcColumnMeta(null, null, "IS_NULLABLE", String.class),
+                new JdbcColumnMeta(null, null, "SCOPE_CATALOG", String.class),
+                new JdbcColumnMeta(null, null, "SCOPE_SCHEMA", String.class),
+                new JdbcColumnMeta(null, null, "SCOPE_TABLE", String.class),
+                new JdbcColumnMeta(null, null, "SOURCE_DATA_TYPE", Short.class)
         ));
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsResultSetHoldability(int holdability) {
+    @Override
+    public boolean supportsResultSetHoldability(int holdability) {
         return holdability == HOLD_CURSORS_OVER_COMMIT;
     }
 
     /** {@inheritDoc} */
-    @Override public int getResultSetHoldability() {
+    @Override
+    public int getResultSetHoldability() {
         return HOLD_CURSORS_OVER_COMMIT;
     }
 
     /** {@inheritDoc} */
-    @Override public int getDatabaseMajorVersion() {
+    @Override
+    public int getDatabaseMajorVersion() {
         return ProtocolVersion.LATEST_VER.major();
     }
 
     /** {@inheritDoc} */
-    @Override public int getDatabaseMinorVersion() {
+    @Override
+    public int getDatabaseMinorVersion() {
         return ProtocolVersion.LATEST_VER.minor();
     }
 
     /** {@inheritDoc} */
-    @Override public int getJDBCMajorVersion() {
+    @Override
+    public int getJDBCMajorVersion() {
         return 4;
     }
 
     /** {@inheritDoc} */
-    @Override public int getJDBCMinorVersion() {
+    @Override
+    public int getJDBCMinorVersion() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public int getSQLStateType() {
+    @Override
+    public int getSQLStateType() {
         return DatabaseMetaData.sqlStateSQL99;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean locatorsUpdateCopy() {
+    @Override
+    public boolean locatorsUpdateCopy() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsStatementPooling() {
+    @Override
+    public boolean supportsStatementPooling() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public RowIdLifetime getRowIdLifetime() {
+    @Override
+    public RowIdLifetime getRowIdLifetime() {
         return ROWID_UNSUPPORTED;
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSet getSchemas(String catalog, String schemaPtrn) throws SQLException {
+    @Override
+    public ResultSet getSchemas(String catalog, String schemaPtrn) throws SQLException {
         conn.ensureNotClosed();
 
         final List<JdbcColumnMeta> meta = asList(
-            new JdbcColumnMeta(null, null, "TABLE_SCHEM", String.class),
-            new JdbcColumnMeta(null, null, "TABLE_CATALOG", String.class)
+                new JdbcColumnMeta(null, null, "TABLE_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "TABLE_CATALOG", String.class)
         );
 
-        if (!isValidCatalog(catalog))
+        if (!isValidCatalog(catalog)) {
             return new JdbcResultSet(Collections.emptyList(), meta);
+        }
 
         JdbcMetaSchemasResult res = conn.handler().schemasMeta(new JdbcMetaSchemasRequest(schemaPtrn));
 
-        if (!res.hasResults())
+        if (!res.hasResults()) {
             throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+        }
 
         List<List<Object>> rows = new LinkedList<>();
 
@@ -1337,92 +1516,102 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean supportsStoredFunctionsUsingCallSyntax() {
+    @Override
+    public boolean supportsStoredFunctionsUsingCallSyntax() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean autoCommitFailureClosesAllResultSets() {
+    @Override
+    public boolean autoCommitFailureClosesAllResultSets() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSet getClientInfoProperties() {
+    @Override
+    public ResultSet getClientInfoProperties() {
         return new JdbcResultSet(Collections.emptyList(), asList(
-            new JdbcColumnMeta(null, null, "NAME", String.class),
-            new JdbcColumnMeta(null, null, "MAX_LEN", Integer.class),
-            new JdbcColumnMeta(null, null, "DEFAULT_VALUE", String.class),
-            new JdbcColumnMeta(null, null, "DESCRIPTION", String.class)
+                new JdbcColumnMeta(null, null, "NAME", String.class),
+                new JdbcColumnMeta(null, null, "MAX_LEN", Integer.class),
+                new JdbcColumnMeta(null, null, "DEFAULT_VALUE", String.class),
+                new JdbcColumnMeta(null, null, "DESCRIPTION", String.class)
         ));
     }
 
     //TODO IGNITE-15529 List all supported functions
+
     /** {@inheritDoc} */
-    @Override public ResultSet getFunctions(String catalog, String schemaPtrn,
-        String functionNamePtrn) {
+    @Override
+    public ResultSet getFunctions(String catalog, String schemaPtrn,
+            String functionNamePtrn) {
         return new JdbcResultSet(Collections.emptyList(), asList(
-            new JdbcColumnMeta(null, null, "FUNCTION_CAT", String.class),
-            new JdbcColumnMeta(null, null, "FUNCTION_SCHEM", String.class),
-            new JdbcColumnMeta(null, null, "FUNCTION_NAME", String.class),
-            new JdbcColumnMeta(null, null, "REMARKS", String.class),
-            new JdbcColumnMeta(null, null, "FUNCTION_TYPE", String.class),
-            new JdbcColumnMeta(null, null, "SPECIFIC_NAME", String.class)
+                new JdbcColumnMeta(null, null, "FUNCTION_CAT", String.class),
+                new JdbcColumnMeta(null, null, "FUNCTION_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "FUNCTION_NAME", String.class),
+                new JdbcColumnMeta(null, null, "REMARKS", String.class),
+                new JdbcColumnMeta(null, null, "FUNCTION_TYPE", String.class),
+                new JdbcColumnMeta(null, null, "SPECIFIC_NAME", String.class)
         ));
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSet getFunctionColumns(String catalog, String schemaPtrn, String functionNamePtrn,
-        String colNamePtrn) {
+    @Override
+    public ResultSet getFunctionColumns(String catalog, String schemaPtrn, String functionNamePtrn,
+            String colNamePtrn) {
         return new JdbcResultSet(Collections.emptyList(), asList(
-            new JdbcColumnMeta(null, null, "FUNCTION_CAT", String.class),
-            new JdbcColumnMeta(null, null, "FUNCTION_SCHEM", String.class),
-            new JdbcColumnMeta(null, null, "FUNCTION_NAME", String.class),
-            new JdbcColumnMeta(null, null, "COLUMN_NAME", String.class),
-            new JdbcColumnMeta(null, null, "COLUMN_TYPE", Short.class),
-            new JdbcColumnMeta(null, null, "DATA_TYPE", Integer.class),
-            new JdbcColumnMeta(null, null, "TYPE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "PRECISION", Integer.class),
-            new JdbcColumnMeta(null, null, "LENGTH", Integer.class),
-            new JdbcColumnMeta(null, null, "SCALE", Short.class),
-            new JdbcColumnMeta(null, null, "RADIX", Short.class),
-            new JdbcColumnMeta(null, null, "NULLABLE", Short.class),
-            new JdbcColumnMeta(null, null, "REMARKS", String.class),
-            new JdbcColumnMeta(null, null, "CHAR_OCTET_LENGTH", Integer.class),
-            new JdbcColumnMeta(null, null, "ORDINAL_POSITION", Integer.class),
-            new JdbcColumnMeta(null, null, "IS_NULLABLE", String.class),
-            new JdbcColumnMeta(null, null, "SPECIFIC_NAME", String.class)
+                new JdbcColumnMeta(null, null, "FUNCTION_CAT", String.class),
+                new JdbcColumnMeta(null, null, "FUNCTION_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "FUNCTION_NAME", String.class),
+                new JdbcColumnMeta(null, null, "COLUMN_NAME", String.class),
+                new JdbcColumnMeta(null, null, "COLUMN_TYPE", Short.class),
+                new JdbcColumnMeta(null, null, "DATA_TYPE", Integer.class),
+                new JdbcColumnMeta(null, null, "TYPE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "PRECISION", Integer.class),
+                new JdbcColumnMeta(null, null, "LENGTH", Integer.class),
+                new JdbcColumnMeta(null, null, "SCALE", Short.class),
+                new JdbcColumnMeta(null, null, "RADIX", Short.class),
+                new JdbcColumnMeta(null, null, "NULLABLE", Short.class),
+                new JdbcColumnMeta(null, null, "REMARKS", String.class),
+                new JdbcColumnMeta(null, null, "CHAR_OCTET_LENGTH", Integer.class),
+                new JdbcColumnMeta(null, null, "ORDINAL_POSITION", Integer.class),
+                new JdbcColumnMeta(null, null, "IS_NULLABLE", String.class),
+                new JdbcColumnMeta(null, null, "SPECIFIC_NAME", String.class)
         ));
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T unwrap(Class<T> iface) throws SQLException {
-        if (!isWrapperFor(iface))
+    @Override
+    public <T> T unwrap(Class<T> iface) throws SQLException {
+        if (!isWrapperFor(iface)) {
             throw new SQLException("Database meta data is not a wrapper for " + iface.getName());
+        }
 
-        return (T)this;
+        return (T) this;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean isWrapperFor(Class<?> iface) {
+    @Override
+    public boolean isWrapperFor(Class<?> iface) {
         return iface != null && iface.isAssignableFrom(JdbcDatabaseMetadata.class);
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSet getPseudoColumns(String catalog, String schemaPtrn, String tblNamePtrn,
-        String colNamePtrn) {
+    @Override
+    public ResultSet getPseudoColumns(String catalog, String schemaPtrn, String tblNamePtrn,
+            String colNamePtrn) {
         return new JdbcResultSet(Collections.emptyList(), asList(
-            new JdbcColumnMeta(null, null, "TABLE_CAT", String.class),
-            new JdbcColumnMeta(null, null, "TABLE_SCHEM", String.class),
-            new JdbcColumnMeta(null, null, "TABLE_NAME", String.class),
-            new JdbcColumnMeta(null, null, "COLUMN_NAME", String.class),
-            new JdbcColumnMeta(null, null, "DATA_TYPE", Integer.class),
-            new JdbcColumnMeta(null, null, "COLUMN_SIZE", Integer.class),
-            new JdbcColumnMeta(null, null, "DECIMAL_DIGITS", Integer.class),
-            new JdbcColumnMeta(null, null, "NUM_PREC_RADIX", Integer.class),
-            new JdbcColumnMeta(null, null, "COLUMN_USAGE", Integer.class),
-            new JdbcColumnMeta(null, null, "REMARKS", String.class),
-            new JdbcColumnMeta(null, null, "CHAR_OCTET_LENGTH", Integer.class),
-            new JdbcColumnMeta(null, null, "IS_NULLABLE", String.class)
+                new JdbcColumnMeta(null, null, "TABLE_CAT", String.class),
+                new JdbcColumnMeta(null, null, "TABLE_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "TABLE_NAME", String.class),
+                new JdbcColumnMeta(null, null, "COLUMN_NAME", String.class),
+                new JdbcColumnMeta(null, null, "DATA_TYPE", Integer.class),
+                new JdbcColumnMeta(null, null, "COLUMN_SIZE", Integer.class),
+                new JdbcColumnMeta(null, null, "DECIMAL_DIGITS", Integer.class),
+                new JdbcColumnMeta(null, null, "NUM_PREC_RADIX", Integer.class),
+                new JdbcColumnMeta(null, null, "COLUMN_USAGE", Integer.class),
+                new JdbcColumnMeta(null, null, "REMARKS", String.class),
+                new JdbcColumnMeta(null, null, "CHAR_OCTET_LENGTH", Integer.class),
+                new JdbcColumnMeta(null, null, "IS_NULLABLE", String.class)
         ));
     }
 
@@ -1430,16 +1619,16 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
      * Checks if specified catalog matches the only possible catalog value. See {@link JdbcDatabaseMetadata#CATALOG_NAME}.
      *
      * @param catalog Catalog name or {@code null}.
-     * @return {@code true} If catalog equal ignoring case to {@link JdbcDatabaseMetadata#CATALOG_NAME}
-     * or null (which means any catalog).
-     *  Otherwise returns {@code false}.
+     * @return {@code true} If catalog equal ignoring case to {@link JdbcDatabaseMetadata#CATALOG_NAME} or null (which means any catalog).
+     * Otherwise returns {@code false}.
      */
     private static boolean isValidCatalog(String catalog) {
         return catalog == null || catalog.equalsIgnoreCase(CATALOG_NAME);
     }
 
     /** {@inheritDoc} */
-    @Override public boolean generatedKeyAlwaysReturned() {
+    @Override
+    public boolean generatedKeyAlwaysReturned() {
         return false;
     }
 
@@ -1470,7 +1659,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
      * Constructs a list of rows in jdbc format for a given column metadata.
      *
      * @param colMeta Column metadata.
-     * @param pos Ordinal position.
+     * @param pos     Ordinal position.
      * @return Column metadata row.
      */
     public static List<Object> columnRow(JdbcColumnMeta colMeta, int pos) {
@@ -1483,21 +1672,21 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
         row.add(colMeta.dataType());            // 5. DATA_TYPE
         row.add(colMeta.dataTypeName());        // 6. TYPE_NAME
         row.add(colMeta.precision() == -1 ? null : colMeta.precision()); // 7. COLUMN_SIZE
-        row.add((Integer)null);                 // 8. BUFFER_LENGTH
+        row.add((Integer) null);                 // 8. BUFFER_LENGTH
         row.add(colMeta.scale() == -1 ? null : colMeta.scale());           // 9. DECIMAL_DIGITS
         row.add(10);                            // 10. NUM_PREC_RADIX
         row.add(colMeta.isNullable() ? columnNullable : columnNoNulls);  // 11. NULLABLE
-        row.add((String)null);                  // 12. REMARKS
+        row.add((String) null);                  // 12. REMARKS
         row.add(colMeta.defaultValue());        // 13. COLUMN_DEF
         row.add(colMeta.dataType());            // 14. SQL_DATA_TYPE
-        row.add((Integer)null);                 // 15. SQL_DATETIME_SUB
+        row.add((Integer) null);                 // 15. SQL_DATETIME_SUB
         row.add(Integer.MAX_VALUE);             // 16. CHAR_OCTET_LENGTH
         row.add(pos);                           // 17. ORDINAL_POSITION
         row.add(colMeta.isNullable() ? "YES" : "NO"); // 18. IS_NULLABLE
-        row.add((String)null);                  // 19. SCOPE_CATALOG
-        row.add((String)null);                  // 20. SCOPE_SCHEMA
-        row.add((String)null);                  // 21. SCOPE_TABLE
-        row.add((Short)null);                   // 22. SOURCE_DATA_TYPE
+        row.add((String) null);                  // 19. SCOPE_CATALOG
+        row.add((String) null);                  // 20. SCOPE_SCHEMA
+        row.add((String) null);                  // 21. SCOPE_TABLE
+        row.add((Short) null);                   // 22. SOURCE_DATA_TYPE
         row.add("NO");                          // 23. IS_AUTOINCREMENT
         row.add("NO");                          // 23. IS_GENERATEDCOLUMN
 

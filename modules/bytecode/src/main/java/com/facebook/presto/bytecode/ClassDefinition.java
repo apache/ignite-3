@@ -17,15 +17,6 @@
 
 package com.facebook.presto.bytecode;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import org.objectweb.asm.ClassVisitor;
-
 import static com.facebook.presto.bytecode.Access.BRIDGE;
 import static com.facebook.presto.bytecode.Access.INTERFACE;
 import static com.facebook.presto.bytecode.Access.STATIC;
@@ -35,6 +26,15 @@ import static com.facebook.presto.bytecode.Access.toAccessModifier;
 import static java.util.Objects.requireNonNull;
 import static org.objectweb.asm.Opcodes.ACC_SUPER;
 import static org.objectweb.asm.Opcodes.V11;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.objectweb.asm.ClassVisitor;
 
 public class ClassDefinition {
     private final EnumSet<Access> access;
@@ -49,18 +49,18 @@ public class ClassDefinition {
     private String debug;
 
     public ClassDefinition(
-        EnumSet<Access> access,
-        String name,
-        ParameterizedType superClass,
-        ParameterizedType... interfaces) {
+            EnumSet<Access> access,
+            String name,
+            ParameterizedType superClass,
+            ParameterizedType... interfaces) {
         this(access, new ParameterizedType(name), superClass, interfaces);
     }
 
     public ClassDefinition(
-        EnumSet<Access> access,
-        ParameterizedType type,
-        ParameterizedType superClass,
-        ParameterizedType... interfaces) {
+            EnumSet<Access> access,
+            ParameterizedType type,
+            ParameterizedType superClass,
+            ParameterizedType... interfaces) {
         requireNonNull(access, "access is null");
         requireNonNull(type, "type is null");
         requireNonNull(superClass, "superClass is null");
@@ -126,7 +126,8 @@ public class ClassDefinition {
             interfaces[i] = this.interfaces.get(i).getClassName();
         }
         int accessModifier = toAccessModifier(access);
-        visitor.visit(V11, isInterface() ? accessModifier : accessModifier | ACC_SUPER, type.getClassName(), signature, superClass.getClassName(), interfaces);
+        visitor.visit(V11, isInterface() ? accessModifier : accessModifier | ACC_SUPER, type.getClassName(), signature,
+                superClass.getClassName(), interfaces);
 
         // visit source
         if (source != null) {
@@ -204,24 +205,24 @@ public class ClassDefinition {
     }
 
     public MethodDefinition declareConstructor(
-        EnumSet<Access> access,
-        Parameter... parameters) {
+            EnumSet<Access> access,
+            Parameter... parameters) {
         return declareMethod(access, "<init>", ParameterizedType.type(void.class), List.of(parameters));
     }
 
     public MethodDefinition declareConstructor(
-        EnumSet<Access> access,
-        Collection<Parameter> parameters) {
+            EnumSet<Access> access,
+            Collection<Parameter> parameters) {
         return declareMethod(access, "<init>", ParameterizedType.type(void.class), List.copyOf(parameters));
     }
 
     public ClassDefinition declareDefaultConstructor(EnumSet<Access> access) {
         MethodDefinition constructor = declareConstructor(access);
         constructor
-            .getBody()
-            .append(constructor.getThis())
-            .invokeConstructor(superClass)
-            .ret();
+                .getBody()
+                .append(constructor.getThis())
+                .invokeConstructor(superClass)
+                .ret();
         return this;
     }
 
@@ -237,18 +238,18 @@ public class ClassDefinition {
     }
 
     public MethodDefinition declareMethod(
-        EnumSet<Access> access,
-        String name,
-        ParameterizedType returnType,
-        Parameter... parameters) {
+            EnumSet<Access> access,
+            String name,
+            ParameterizedType returnType,
+            Parameter... parameters) {
         return declareMethod(access, name, returnType, List.of(parameters));
     }
 
     public MethodDefinition declareMethod(
-        EnumSet<Access> access,
-        String name,
-        ParameterizedType returnType,
-        Collection<Parameter> parameters
+            EnumSet<Access> access,
+            String name,
+            ParameterizedType returnType,
+            Collection<Parameter> parameters
     ) {
         MethodDefinition methodDefinition = new MethodDefinition(this, access, name, returnType, parameters);
 
@@ -259,8 +260,9 @@ public class ClassDefinition {
                 boolean curBridge = method.getAccess().containsAll(bridgeAccess);
                 boolean newBridge = methodDefinition.getAccess().containsAll(bridgeAccess);
 
-                if ((!curBridge && !newBridge) || method.getReturnType().equals(methodDefinition.getReturnType()))
+                if ((!curBridge && !newBridge) || method.getReturnType().equals(methodDefinition.getReturnType())) {
                     throw new IllegalArgumentException("Method with same name and signature already exists: " + name);
+                }
             }
         }
         methods.add(methodDefinition);
@@ -268,19 +270,19 @@ public class ClassDefinition {
     }
 
     public static String genericClassSignature(
-        ParameterizedType classType,
-        ParameterizedType... interfaceTypes) {
+            ParameterizedType classType,
+            ParameterizedType... interfaceTypes) {
 
         return Stream.concat(Stream.of(classType), Stream.of(interfaceTypes))
-            .map(ParameterizedType::toString).collect(Collectors.joining(""));
+                .map(ParameterizedType::toString).collect(Collectors.joining(""));
     }
 
     public static String genericClassSignature(
-        ParameterizedType classType,
-        List<ParameterizedType> interfaceTypes) {
+            ParameterizedType classType,
+            List<ParameterizedType> interfaceTypes) {
 
         return Stream.concat(Stream.of(classType), interfaceTypes.stream())
-            .map(ParameterizedType::toString).collect(Collectors.joining(""));
+                .map(ParameterizedType::toString).collect(Collectors.joining(""));
     }
 
     @Override

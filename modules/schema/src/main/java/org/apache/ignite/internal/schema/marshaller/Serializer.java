@@ -35,7 +35,7 @@ public interface Serializer {
 
     /**
      * @param data Key bytes.
-     * @param <K> Key object type.
+     * @param <K>  Key object type.
      * @return Key object.
      * @throws SerializationException If deserialization failed.
      */
@@ -43,7 +43,7 @@ public interface Serializer {
 
     /**
      * @param data Value bytes.
-     * @param <V> Value object type.
+     * @param <V>  Value object type.
      * @return Value object.
      * @throws SerializationException If deserialization failed.
      */
@@ -51,10 +51,10 @@ public interface Serializer {
 
     /**
      * @param data Row bytes.
-     * @param <K> Key object type.
-     * @param <V> Value object type.
+     * @param <K>  Key object type.
+     * @param <V>  Value object type.
      * @return Key-value pair.
      * @throws SerializationException If deserialization failed.
      */
-    <K, V> Pair<K,V> deserialize(byte[] data) throws SerializationException;
+    <K, V> Pair<K, V> deserialize(byte[] data) throws SerializationException;
 }

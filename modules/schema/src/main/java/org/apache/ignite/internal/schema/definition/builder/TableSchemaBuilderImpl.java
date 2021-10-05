@@ -57,7 +57,7 @@ public class TableSchemaBuilderImpl implements TableSchemaBuilder {
      * Constructor.
      *
      * @param schemaName Schema name.
-     * @param tableName Table name.
+     * @param tableName  Table name.
      */
     public TableSchemaBuilderImpl(String schemaName, String tableName) {
         this.schemaName = schemaName;
@@ -65,45 +65,53 @@ public class TableSchemaBuilderImpl implements TableSchemaBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public TableSchemaBuilderImpl columns(ColumnDefinition... columns) {
+    @Override
+    public TableSchemaBuilderImpl columns(ColumnDefinition... columns) {
         for (ColumnDefinition column : columns) {
-            if (this.columns.put(column.name(), column) != null)
+            if (this.columns.put(column.name(), column) != null) {
                 throw new IllegalArgumentException("Column with same name already exists: columnName=" + column.name());
+            }
         }
 
         return this;
     }
 
     /** {@inheritDoc} */
-    @Override public TableSchemaBuilder withIndex(IndexDefinition indexDefinition) {
-        if (indices.put(indexDefinition.name(), indexDefinition) != null)
+    @Override
+    public TableSchemaBuilder withIndex(IndexDefinition indexDefinition) {
+        if (indices.put(indexDefinition.name(), indexDefinition) != null) {
             throw new IllegalArgumentException("Index with same name already exists: " + indexDefinition.name());
+        }
 
         return this;
     }
 
     /** {@inheritDoc} */
-    @Override public TableSchemaBuilder withPrimaryKey(String colName) {
+    @Override
+    public TableSchemaBuilder withPrimaryKey(String colName) {
         primaryKeyDefinition = SchemaBuilders.primaryKey().withColumns(colName).build();
 
         return this;
     }
 
     /** {@inheritDoc} */
-    @Override public TableSchemaBuilder withPrimaryKey(PrimaryKeyDefinition primaryKeyDefinition) {
+    @Override
+    public TableSchemaBuilder withPrimaryKey(PrimaryKeyDefinition primaryKeyDefinition) {
         this.primaryKeyDefinition = primaryKeyDefinition;
 
         return this;
     }
 
     /** {@inheritDoc} */
-    @Override public TableSchemaBuilder withHints(Map<String, String> hints) {
+    @Override
+    public TableSchemaBuilder withHints(Map<String, String> hints) {
         // No op.
         return this;
     }
 
     /** {@inheritDoc} */
-    @Override public TableDefinition build() {
+    @Override
+    public TableDefinition build() {
         assert schemaName != null : "Database schema name must be specified.";
 
         assert columns.size() > primaryKeyDefinition.columns().size() : "Key or/and value columns must be defined.";
@@ -112,19 +120,19 @@ public class TableSchemaBuilderImpl implements TableSchemaBuilder {
         validateIndices(indices.values(), columns.values(), primaryKeyDefinition.affinityColumns());
 
         return new TableDefinitionImpl(
-            schemaName,
-            tableName,
-            columns,
-            primaryKeyDefinition,
-            Collections.unmodifiableMap(indices)
+                schemaName,
+                tableName,
+                columns,
+                primaryKeyDefinition,
+                Collections.unmodifiableMap(indices)
         );
     }
 
     /**
      * Validate indices.
      *
-     * @param indices Table indices.
-     * @param cols Table columns.
+     * @param indices     Table indices.
+     * @param cols        Table columns.
      * @param affColNames Affinity columns names.
      */
     public static void validateIndices(Collection<IndexDefinition> indices, Collection<ColumnDefinition> cols, Set<String> affColNames) {
@@ -134,14 +142,16 @@ public class TableSchemaBuilderImpl implements TableSchemaBuilder {
             assert idx instanceof ColumnarIndexDefinition : "Only columnar indices are supported.";
             // Note: E.g. functional index is not columnar index as it index an expression result only.
 
-            ColumnarIndexDefinition idx0 = (ColumnarIndexDefinition)idx;
+            ColumnarIndexDefinition idx0 = (ColumnarIndexDefinition) idx;
 
-            if (!idx0.columns().stream().map(IndexColumnDefinition::name).allMatch(colNames::contains))
+            if (!idx0.columns().stream().map(IndexColumnDefinition::name).allMatch(colNames::contains)) {
                 throw new IllegalStateException("Index column must exist in the schema.");
+            }
 
             if (idx0.unique() &&
-                    !(idx0.columns().stream().map(IndexColumnDefinition::name).allMatch(affColNames::contains)))
+                    !(idx0.columns().stream().map(IndexColumnDefinition::name).allMatch(affColNames::contains))) {
                 throw new IllegalStateException("Unique index must contains all affinity columns.");
+            }
         }
     }
 }

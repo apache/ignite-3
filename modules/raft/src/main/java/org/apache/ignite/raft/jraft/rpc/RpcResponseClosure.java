@@ -14,14 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc;
 
 import org.apache.ignite.raft.jraft.Closure;
 
 /**
  * RPC response closure.
- *
- *
+ * <p>
+ * <p>
  * 2018-Apr-08 5:55:01 PM
  *
  * @param <T>

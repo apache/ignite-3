@@ -58,8 +58,8 @@ public class IgniteUtils {
     private static final boolean assertionsEnabled;
 
     /**
-     * Gets the current monotonic time in milliseconds.
-     * This is the amount of milliseconds which passed from an arbitrary moment in the past.
+     * Gets the current monotonic time in milliseconds. This is the amount of milliseconds which passed from an arbitrary moment in the
+     * past.
      */
     public static long monotonicMs() {
         return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - BEGINNING_OF_TIME);
@@ -67,20 +67,22 @@ public class IgniteUtils {
 
     /** Primitive class map. */
     private static final Map<String, Class<?>> primitiveMap = Map.of(
-        "byte", byte.class,
-        "short", short.class,
-        "int", int.class,
-        "long", long.class,
-        "float", float.class,
-        "double", double.class,
-        "char", char.class,
-        "boolean", boolean.class,
-        "void", void.class
+            "byte", byte.class,
+            "short", short.class,
+            "int", int.class,
+            "long", long.class,
+            "float", float.class,
+            "double", double.class,
+            "char", char.class,
+            "boolean", boolean.class,
+            "void", void.class
     );
 
-    /** */
+    /**
+     *
+     */
     private static final ConcurrentMap<ClassLoader, ConcurrentMap<String, Class<?>>> classCache =
-        new ConcurrentHashMap<>();
+            new ConcurrentHashMap<>();
 
     /*
       Initializes enterprise check.
@@ -92,11 +94,9 @@ public class IgniteUtils {
             assert false;
 
             assertionsEnabled0 = false;
-        }
-        catch (AssertionError ignored) {
+        } catch (AssertionError ignored) {
             assertionsEnabled0 = true;
-        }
-        finally {
+        } finally {
             assertionsEnabled = assertionsEnabled0;
         }
     }
@@ -117,42 +117,44 @@ public class IgniteUtils {
      * @return Major version or zero if failed to resolve.
      */
     public static int majorJavaVersion(String verStr) {
-        if (verStr == null || verStr.isEmpty())
+        if (verStr == null || verStr.isEmpty()) {
             return 0;
+        }
 
         try {
             String[] parts = verStr.split("\\.");
 
             int major = Integer.parseInt(parts[0]);
 
-            if (parts.length == 1)
+            if (parts.length == 1) {
                 return major;
+            }
 
             int minor = Integer.parseInt(parts[1]);
 
             return major == 1 ? minor : major;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             return 0;
         }
     }
 
     /**
-     * Returns a capacity that is sufficient to keep the map from being resized as
-     * long as it grows no larger than expSize and the load factor is &gt;= its
-     * default (0.75).
-     *
+     * Returns a capacity that is sufficient to keep the map from being resized as long as it grows no larger than expSize and the load
+     * factor is &gt;= its default (0.75).
+     * <p>
      * Copy pasted from guava. See com.google.common.collect.Maps#capacity(int)
      *
      * @param expSize Expected size of the created map.
      * @return Capacity.
      */
     public static int capacity(int expSize) {
-        if (expSize < 3)
+        if (expSize < 3) {
             return expSize + 1;
+        }
 
-        if (expSize < (1 << 30))
+        if (expSize < (1 << 30)) {
             return expSize + expSize / 3;
+        }
 
         return Integer.MAX_VALUE; // any large value
     }
@@ -161,8 +163,8 @@ public class IgniteUtils {
      * Creates new {@link HashMap} with expected size.
      *
      * @param expSize Expected size of the created map.
-     * @param <K> Type of the map's keys.
-     * @param <V> Type of the map's values.
+     * @param <K>     Type of the map's keys.
+     * @param <V>     Type of the map's values.
      * @return New map.
      */
     public static <K, V> HashMap<K, V> newHashMap(int expSize) {
@@ -173,8 +175,8 @@ public class IgniteUtils {
      * Creates new {@link LinkedHashMap} with expected size.
      *
      * @param expSize Expected size of created map.
-     * @param <K> Type of the map's keys.
-     * @param <V> Type of the map's values.
+     * @param <K>     Type of the map's keys.
+     * @param <V>     Type of the map's values.
      * @return New map.
      */
     public static <K, V> LinkedHashMap<K, V> newLinkedHashMap(int expSize) {
@@ -182,14 +184,11 @@ public class IgniteUtils {
     }
 
     /**
-     * Applies a supplemental hash function to a given hashCode, which
-     * defends against poor quality hash functions.  This is critical
-     * because ConcurrentHashMap uses power-of-two length hash tables,
-     * that otherwise encounter collisions for hashCodes that do not
-     * differ in lower or upper bits.
+     * Applies a supplemental hash function to a given hashCode, which defends against poor quality hash functions.  This is critical
+     * because ConcurrentHashMap uses power-of-two length hash tables, that otherwise encounter collisions for hashCodes that do not differ
+     * in lower or upper bits.
      * <p>
-     * This function has been taken from Java 8 ConcurrentHashMap with
-     * slightly modifications.
+     * This function has been taken from Java 8 ConcurrentHashMap with slightly modifications.
      *
      * @param h Value to hash.
      * @return Hash value.
@@ -207,14 +206,11 @@ public class IgniteUtils {
     }
 
     /**
-     * Applies a supplemental hash function to a given hashCode, which
-     * defends against poor quality hash functions.  This is critical
-     * because ConcurrentHashMap uses power-of-two length hash tables,
-     * that otherwise encounter collisions for hashCodes that do not
-     * differ in lower or upper bits.
+     * Applies a supplemental hash function to a given hashCode, which defends against poor quality hash functions.  This is critical
+     * because ConcurrentHashMap uses power-of-two length hash tables, that otherwise encounter collisions for hashCodes that do not differ
+     * in lower or upper bits.
      * <p>
-     * This function has been taken from Java 8 ConcurrentHashMap with
-     * slightly modifications.
+     * This function has been taken from Java 8 ConcurrentHashMap with slightly modifications.
      *
      * @param obj Value to hash.
      * @return Hash value.
@@ -230,7 +226,7 @@ public class IgniteUtils {
      * @return Hash value.
      */
     public static int hash(long key) {
-        int val = (int)(key ^ (key >>> 32));
+        int val = (int) (key ^ (key >>> 32));
 
         return hash(val);
     }
@@ -248,7 +244,7 @@ public class IgniteUtils {
     /**
      * Converts byte array to hex string.
      *
-     * @param arr Array of bytes.
+     * @param arr    Array of bytes.
      * @param maxLen Maximum length of result string. Rounds down to a power of two.
      * @return Hex string.
      */
@@ -261,15 +257,16 @@ public class IgniteUtils {
 
         StringBuilder sb = new StringBuilder(capacity);
 
-        for (int i = 0; i < lim; i++)
+        for (int i = 0; i < lim; i++) {
             addByteAsHex(sb, arr[i]);
+        }
 
         return sb.toString().toUpperCase();
     }
 
     /**
      * @param sb String builder.
-     * @param b Byte to add in hexadecimal format.
+     * @param b  Byte to add in hexadecimal format.
      */
     private static void addByteAsHex(StringBuilder sb, byte b) {
         sb.append(Integer.toHexString(MASK & b >>> 4)).append(Integer.toHexString(MASK & b));
@@ -291,17 +288,19 @@ public class IgniteUtils {
      * Returns a first non-null value in a given array, if such is present.
      *
      * @param vals Input array.
-     * @return First non-null value, or {@code null}, if array is empty or contains
-     *      only nulls.
+     * @return First non-null value, or {@code null}, if array is empty or contains only nulls.
      */
     @SafeVarargs
-    @Nullable public static <T> T firstNotNull(@Nullable T... vals) {
-        if (vals == null)
+    @Nullable
+    public static <T> T firstNotNull(@Nullable T... vals) {
+        if (vals == null) {
             return null;
+        }
 
         for (T val : vals) {
-            if (val != null)
+            if (val != null) {
                 return val;
+            }
         }
 
         return null;
@@ -318,7 +317,7 @@ public class IgniteUtils {
      * Gets class for provided name. Accepts primitive types names.
      *
      * @param clsName Class name.
-     * @param ldr Class loader.
+     * @param ldr     Class loader.
      * @return Class.
      * @throws ClassNotFoundException If class not found.
      */
@@ -329,48 +328,53 @@ public class IgniteUtils {
     /**
      * Gets class for provided name. Accepts primitive types names.
      *
-     * @param clsName Class name.
-     * @param ldr Class loader.
+     * @param clsName   Class name.
+     * @param ldr       Class loader.
      * @param clsFilter Predicate to filter class names.
      * @return Class.
      * @throws ClassNotFoundException If class not found.
      */
     public static Class<?> forName(
-        String clsName,
-        @Nullable ClassLoader ldr,
-        Predicate<String> clsFilter
+            String clsName,
+            @Nullable ClassLoader ldr,
+            Predicate<String> clsFilter
     ) throws ClassNotFoundException {
         assert clsName != null;
 
         Class<?> cls = primitiveMap.get(clsName);
 
-        if (cls != null)
+        if (cls != null) {
             return cls;
+        }
 
-        if (ldr == null)
+        if (ldr == null) {
             ldr = igniteClassLoader;
+        }
 
         ConcurrentMap<String, Class<?>> ldrMap = classCache.get(ldr);
 
         if (ldrMap == null) {
             ConcurrentMap<String, Class<?>> old = classCache.putIfAbsent(ldr, ldrMap = new ConcurrentHashMap<>());
 
-            if (old != null)
+            if (old != null) {
                 ldrMap = old;
+            }
         }
 
         cls = ldrMap.get(clsName);
 
         if (cls == null) {
-            if (clsFilter != null && !clsFilter.test(clsName))
+            if (clsFilter != null && !clsFilter.test(clsName)) {
                 throw new ClassNotFoundException("Deserialization of class " + clsName + " is disallowed.");
+            }
 
             cls = Class.forName(clsName, true, ldr);
 
             Class<?> old = ldrMap.putIfAbsent(clsName, cls);
 
-            if (old != null)
+            if (old != null) {
                 cls = old;
+            }
         }
 
         return cls;
@@ -385,16 +389,19 @@ public class IgniteUtils {
     public static boolean deleteIfExists(Path path) {
         try {
             Files.walkFileTree(path, new SimpleFileVisitor<>() {
-                @Override public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-                    if (exc != null)
+                @Override
+                public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                    if (exc != null) {
                         throw exc;
+                    }
 
                     Files.delete(dir);
 
                     return FileVisitResult.CONTINUE;
                 }
 
-                @Override public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                     Files.delete(file);
 
                     return FileVisitResult.CONTINUE;
@@ -402,11 +409,9 @@ public class IgniteUtils {
             });
 
             return true;
-        }
-        catch (NoSuchFileException e) {
+        } catch (NoSuchFileException e) {
             return true;
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             return false;
         }
     }
@@ -419,8 +424,8 @@ public class IgniteUtils {
     }
 
     /**
-     * Shuts down the given executor service gradually, first disabling new submissions and later, if
-     * necessary, cancelling remaining tasks.
+     * Shuts down the given executor service gradually, first disabling new submissions and later, if necessary, cancelling remaining
+     * tasks.
      *
      * <p>The method takes the following steps:
      *
@@ -437,7 +442,7 @@ public class IgniteUtils {
      *
      * @param service the {@code ExecutorService} to shut down
      * @param timeout the maximum time to wait for the {@code ExecutorService} to terminate
-     * @param unit the time unit of the timeout argument
+     * @param unit    the time unit of the timeout argument
      */
     public static void shutdownAndAwaitTermination(ExecutorService service, long timeout, TimeUnit unit) {
         long halfTimeoutNanos = unit.toNanos(timeout) / 2;
@@ -453,8 +458,7 @@ public class IgniteUtils {
                 // Wait the other half of the timeout for tasks to respond to being cancelled
                 service.awaitTermination(halfTimeoutNanos, TimeUnit.NANOSECONDS);
             }
-        }
-        catch (InterruptedException ie) {
+        } catch (InterruptedException ie) {
             // Preserve interrupt status
             Thread.currentThread().interrupt();
             // (Re-)Cancel if current thread also interrupted
@@ -463,9 +467,8 @@ public class IgniteUtils {
     }
 
     /**
-     * Closes all provided objects. If any of the {@link AutoCloseable#close} methods throw an exception, only the first
-     * thrown exception will be propagated to the caller, after all other objects are closed, similar to
-     * the try-with-resources block.
+     * Closes all provided objects. If any of the {@link AutoCloseable#close} methods throw an exception, only the first thrown exception
+     * will be propagated to the caller, after all other objects are closed, similar to the try-with-resources block.
      *
      * @param closeables Collection of objects to close.
      * @throws Exception If failed to close.
@@ -475,19 +478,21 @@ public class IgniteUtils {
 
         for (AutoCloseable closeable : closeables) {
             try {
-                if (closeable != null)
+                if (closeable != null) {
                     closeable.close();
-            }
-            catch (Exception e) {
-                if (ex == null)
+                }
+            } catch (Exception e) {
+                if (ex == null) {
                     ex = e;
-                else
+                } else {
                     ex.addSuppressed(e);
+                }
             }
         }
 
-        if (ex != null)
+        if (ex != null) {
             throw ex;
+        }
     }
 
     /**
@@ -495,7 +500,6 @@ public class IgniteUtils {
      *
      * @param closeables Array of closeable objects to close.
      * @throws Exception If failed to close.
-     *
      * @see #closeAll(Collection)
      */
     public static void closeAll(AutoCloseable... closeables) throws Exception {
@@ -503,9 +507,8 @@ public class IgniteUtils {
     }
 
     /**
-     * Short date format pattern for log messages in "quiet" mode.
-     * Only time is included since we don't expect "quiet" mode to be used
-     * for longer runs.
+     * Short date format pattern for log messages in "quiet" mode. Only time is included since we don't expect "quiet" mode to be used for
+     * longer runs.
      */
     private static final DateTimeFormatter SHORT_DATE_FMT = DateTimeFormatter.ofPattern("HH:mm:ss");
 
@@ -514,7 +517,6 @@ public class IgniteUtils {
      *
      * @param log Logger.
      * @param msg Message to print with the stack.
-     *
      * @deprecated Calls to this method should never be committed to master.
      */
     public static void dumpStack(IgniteLogger log, String msg) {
@@ -522,9 +524,9 @@ public class IgniteUtils {
 
         var err = new Exception(msg);
 
-        if (log != null)
+        if (log != null) {
             log.error(reason, err);
-        else {
+        } else {
             System.err.println("[" + LocalDateTime.now().format(SHORT_DATE_FMT) + "] (err) " + reason);
 
             err.printStackTrace(System.err);

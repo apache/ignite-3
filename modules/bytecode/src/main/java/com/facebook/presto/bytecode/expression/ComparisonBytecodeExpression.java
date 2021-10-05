@@ -17,14 +17,6 @@
 
 package com.facebook.presto.bytecode.expression;
 
-import java.util.List;
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.MethodGenerationContext;
-import com.facebook.presto.bytecode.OpCode;
-import com.facebook.presto.bytecode.instruction.JumpInstruction;
-import com.facebook.presto.bytecode.instruction.LabelNode;
-
 import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
 import static com.facebook.presto.bytecode.OpCode.DCMPG;
 import static com.facebook.presto.bytecode.OpCode.DCMPL;
@@ -48,11 +40,17 @@ import static com.facebook.presto.bytecode.OpCode.LCMP;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static java.util.Objects.requireNonNull;
 
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.MethodGenerationContext;
+import com.facebook.presto.bytecode.OpCode;
+import com.facebook.presto.bytecode.instruction.JumpInstruction;
+import com.facebook.presto.bytecode.instruction.LabelNode;
+import java.util.List;
+
 class ComparisonBytecodeExpression
-        extends BytecodeExpression
-{
-    static BytecodeExpression lessThan(BytecodeExpression left, BytecodeExpression right)
-    {
+        extends BytecodeExpression {
+    static BytecodeExpression lessThan(BytecodeExpression left, BytecodeExpression right) {
         checkArgumentTypes(left, right);
 
         OpCode comparisonInstruction;
@@ -62,28 +60,23 @@ class ComparisonBytecodeExpression
         if (type == int.class) {
             comparisonInstruction = null;
             noMatchJumpInstruction = IF_ICMPGE;
-        }
-        else if (type == long.class) {
+        } else if (type == long.class) {
             comparisonInstruction = LCMP;
             noMatchJumpInstruction = IFGE;
-        }
-        else if (type == float.class) {
+        } else if (type == float.class) {
             comparisonInstruction = FCMPG;
             noMatchJumpInstruction = IFGE;
-        }
-        else if (type == double.class) {
+        } else if (type == double.class) {
             comparisonInstruction = DCMPG;
             noMatchJumpInstruction = IFGE;
-        }
-        else {
+        } else {
             throw new IllegalArgumentException("Less than does not support " + type);
         }
 
         return new ComparisonBytecodeExpression("<", comparisonInstruction, noMatchJumpInstruction, left, right);
     }
 
-    static BytecodeExpression greaterThan(BytecodeExpression left, BytecodeExpression right)
-    {
+    static BytecodeExpression greaterThan(BytecodeExpression left, BytecodeExpression right) {
         checkArgumentTypes(left, right);
 
         OpCode comparisonInstruction;
@@ -93,27 +86,22 @@ class ComparisonBytecodeExpression
         if (type == int.class) {
             comparisonInstruction = null;
             noMatchJumpInstruction = IF_ICMPLE;
-        }
-        else if (type == long.class) {
+        } else if (type == long.class) {
             comparisonInstruction = LCMP;
             noMatchJumpInstruction = IFLE;
-        }
-        else if (type == float.class) {
+        } else if (type == float.class) {
             comparisonInstruction = FCMPL;
             noMatchJumpInstruction = IFLE;
-        }
-        else if (type == double.class) {
+        } else if (type == double.class) {
             comparisonInstruction = DCMPL;
             noMatchJumpInstruction = IFLE;
-        }
-        else {
+        } else {
             throw new IllegalArgumentException("Greater than does not support " + type);
         }
         return new ComparisonBytecodeExpression(">", comparisonInstruction, noMatchJumpInstruction, left, right);
     }
 
-    static BytecodeExpression lessThanOrEqual(BytecodeExpression left, BytecodeExpression right)
-    {
+    static BytecodeExpression lessThanOrEqual(BytecodeExpression left, BytecodeExpression right) {
         checkArgumentTypes(left, right);
 
         OpCode comparisonInstruction;
@@ -123,27 +111,22 @@ class ComparisonBytecodeExpression
         if (type == int.class) {
             comparisonInstruction = null;
             noMatchJumpInstruction = IF_ICMPGT;
-        }
-        else if (type == long.class) {
+        } else if (type == long.class) {
             comparisonInstruction = LCMP;
             noMatchJumpInstruction = IFGT;
-        }
-        else if (type == float.class) {
+        } else if (type == float.class) {
             comparisonInstruction = FCMPG;
             noMatchJumpInstruction = IFGT;
-        }
-        else if (type == double.class) {
+        } else if (type == double.class) {
             comparisonInstruction = DCMPG;
             noMatchJumpInstruction = IFGT;
-        }
-        else {
+        } else {
             throw new IllegalArgumentException("Less than or equal does not support " + type);
         }
         return new ComparisonBytecodeExpression("<=", comparisonInstruction, noMatchJumpInstruction, left, right);
     }
 
-    static BytecodeExpression greaterThanOrEqual(BytecodeExpression left, BytecodeExpression right)
-    {
+    static BytecodeExpression greaterThanOrEqual(BytecodeExpression left, BytecodeExpression right) {
         checkArgumentTypes(left, right);
 
         OpCode comparisonInstruction;
@@ -153,27 +136,22 @@ class ComparisonBytecodeExpression
         if (type == int.class) {
             comparisonInstruction = null;
             noMatchJumpInstruction = IF_ICMPLT;
-        }
-        else if (type == long.class) {
+        } else if (type == long.class) {
             comparisonInstruction = LCMP;
             noMatchJumpInstruction = IFLT;
-        }
-        else if (type == float.class) {
+        } else if (type == float.class) {
             comparisonInstruction = FCMPL;
             noMatchJumpInstruction = IFLT;
-        }
-        else if (type == double.class) {
+        } else if (type == double.class) {
             comparisonInstruction = DCMPL;
             noMatchJumpInstruction = IFLT;
-        }
-        else {
+        } else {
             throw new IllegalArgumentException("Greater than or equal does not support " + type);
         }
         return new ComparisonBytecodeExpression(">=", comparisonInstruction, noMatchJumpInstruction, left, right);
     }
 
-    static BytecodeExpression equal(BytecodeExpression left, BytecodeExpression right)
-    {
+    static BytecodeExpression equal(BytecodeExpression left, BytecodeExpression right) {
         requireNonNull(left, "left is null");
         requireNonNull(right, "right is null");
         checkArgument(left.getType().equals(right.getType()), "left and right must be the same type");
@@ -185,31 +163,25 @@ class ComparisonBytecodeExpression
         if (type == int.class) {
             comparisonInstruction = null;
             noMatchJumpInstruction = IF_ICMPNE;
-        }
-        else if (type == long.class) {
+        } else if (type == long.class) {
             comparisonInstruction = LCMP;
             noMatchJumpInstruction = IFNE;
-        }
-        else if (type == float.class) {
+        } else if (type == float.class) {
             comparisonInstruction = FCMPL;
             noMatchJumpInstruction = IFNE;
-        }
-        else if (type == double.class) {
+        } else if (type == double.class) {
             comparisonInstruction = DCMPL;
             noMatchJumpInstruction = IFNE;
-        }
-        else if (type == null) {
+        } else if (type == null) {
             comparisonInstruction = null;
             noMatchJumpInstruction = IF_ACMPNE;
-        }
-        else {
+        } else {
             throw new IllegalArgumentException("Equal does not support " + type);
         }
         return new ComparisonBytecodeExpression("==", comparisonInstruction, noMatchJumpInstruction, left, right);
     }
 
-    static BytecodeExpression notEqual(BytecodeExpression left, BytecodeExpression right)
-    {
+    static BytecodeExpression notEqual(BytecodeExpression left, BytecodeExpression right) {
         requireNonNull(left, "left is null");
         requireNonNull(right, "right is null");
         checkArgument(left.getType().equals(right.getType()), "left and right must be the same type");
@@ -221,38 +193,31 @@ class ComparisonBytecodeExpression
         if (type == int.class) {
             comparisonInstruction = null;
             noMatchJumpInstruction = IF_ICMPEQ;
-        }
-        else if (type == long.class) {
+        } else if (type == long.class) {
             comparisonInstruction = LCMP;
             noMatchJumpInstruction = IFEQ;
-        }
-        else if (type == float.class) {
+        } else if (type == float.class) {
             comparisonInstruction = FCMPL;
             noMatchJumpInstruction = IFEQ;
-        }
-        else if (type == double.class) {
+        } else if (type == double.class) {
             comparisonInstruction = DCMPL;
             noMatchJumpInstruction = IFEQ;
-        }
-        else if (type == null) {
+        } else if (type == null) {
             comparisonInstruction = null;
             noMatchJumpInstruction = IF_ACMPEQ;
-        }
-        else {
+        } else {
             throw new IllegalArgumentException("Not equal than does not support " + type);
         }
         return new ComparisonBytecodeExpression("!=", comparisonInstruction, noMatchJumpInstruction, left, right);
     }
 
-    private static void checkArgumentTypes(BytecodeExpression left, BytecodeExpression right)
-    {
+    private static void checkArgumentTypes(BytecodeExpression left, BytecodeExpression right) {
         Class<?> leftType = getPrimitiveType(left, "left");
         Class<?> rightType = getPrimitiveType(right, "right");
         checkArgument(leftType == rightType, "left and right must be the same type");
     }
 
-    private static Class<?> getPrimitiveType(BytecodeExpression expression, String name)
-    {
+    private static Class<?> getPrimitiveType(BytecodeExpression expression, String name) {
         requireNonNull(expression, name + " is null");
         Class<?> leftType = expression.getType().getPrimitiveType();
         checkArgument(leftType != null, name + " is not a primitive");
@@ -271,8 +236,7 @@ class ComparisonBytecodeExpression
             OpCode comparisonInstruction,
             OpCode noMatchJumpInstruction,
             BytecodeExpression left,
-            BytecodeExpression right)
-    {
+            BytecodeExpression right) {
         super(type(boolean.class));
         this.infixSymbol = infixSymbol;
         this.comparisonInstruction = comparisonInstruction;
@@ -282,8 +246,7 @@ class ComparisonBytecodeExpression
     }
 
     @Override
-    public BytecodeNode getBytecode(MethodGenerationContext generationContext)
-    {
+    public BytecodeNode getBytecode(MethodGenerationContext generationContext) {
         BytecodeBlock block = new BytecodeBlock()
                 .append(left)
                 .append(right);
@@ -304,14 +267,12 @@ class ComparisonBytecodeExpression
     }
 
     @Override
-    public List<BytecodeNode> getChildNodes()
-    {
+    public List<BytecodeNode> getChildNodes() {
         return List.of(left, right);
     }
 
     @Override
-    protected String formatOneLine()
-    {
+    protected String formatOneLine() {
         return "(" + left + " " + infixSymbol + " " + right + ")";
     }
 }

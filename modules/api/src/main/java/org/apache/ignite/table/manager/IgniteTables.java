@@ -29,10 +29,9 @@ import org.apache.ignite.table.Table;
  */
 public interface IgniteTables {
     /**
-     * Creates a new table with the given {@code name}.
-     * If a table with the same name already exists, an exception will be thrown.
+     * Creates a new table with the given {@code name}. If a table with the same name already exists, an exception will be thrown.
      *
-     * @param name Table name.
+     * @param name            Table name.
      * @param tableInitChange Table changer.
      * @return Newly created table.
      * @throws TableAlreadyExistsException If table with given name already exists.
@@ -40,10 +39,10 @@ public interface IgniteTables {
     Table createTable(String name, Consumer<TableChange> tableInitChange);
 
     /**
-     * Creates a new table with the given {@code name} asynchronously.
-     * If a table with the same name already exists, a future will be completed with exception.
+     * Creates a new table with the given {@code name} asynchronously. If a table with the same name already exists, a future will be
+     * completed with exception.
      *
-     * @param name Table name.
+     * @param name            Table name.
      * @param tableInitChange Table changer.
      * @return Future representing pending completion of the operation.
      * @see TableAlreadyExistsException
@@ -52,10 +51,10 @@ public interface IgniteTables {
 
     /**
      * Creates a new table with the given {@code name} or returns an existing one with the same {@code name}.
-     *
+     * <p>
      * Note: the configuration of the existed table will NOT be validated against the given {@code tableInitChange}.
      *
-     * @param name Table name.
+     * @param name            Table name.
      * @param tableInitChange Table changer.
      * @return Existing or newly created table.
      */
@@ -63,10 +62,10 @@ public interface IgniteTables {
 
     /**
      * Creates a new table with the given {@code name} or returns an existing one with the same {@code name}.
-     *
+     * <p>
      * Note: the configuration of the existed table will NOT be validated against the given {@code tableInitChange}.
      *
-     * @param name Table name.
+     * @param name            Table name.
      * @param tableInitChange Table changer.
      * @return Future representing pending completion of the operation.
      */
@@ -75,7 +74,7 @@ public interface IgniteTables {
     /**
      * Alter a cluster table.
      *
-     * @param name Table name.
+     * @param name        Table name.
      * @param tableChange Table changer.
      */
     void alterTable(String name, Consumer<TableChange> tableChange);
@@ -83,23 +82,23 @@ public interface IgniteTables {
     /**
      * Alter a cluster table.
      *
-     * @param name Table name.
+     * @param name        Table name.
      * @param tableChange Table changer.
      * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange);
 
     /**
-     * Drops a table with the name specified.
-     * If a table with the specified name does not exist in the cluster, the operation has no effect.
+     * Drops a table with the name specified. If a table with the specified name does not exist in the cluster, the operation has no
+     * effect.
      *
      * @param name Table name.
      */
     void dropTable(String name);
 
     /**
-     * Drops a table with the name specified.
-     * If a table with the specified name does not exist in the cluster, the operation has no effect.
+     * Drops a table with the name specified. If a table with the specified name does not exist in the cluster, the operation has no
+     * effect.
      *
      * @param name Table name.
      * @return Future representing pending completion of the operation.

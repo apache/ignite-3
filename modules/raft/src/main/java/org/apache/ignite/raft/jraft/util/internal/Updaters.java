@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util.internal;
 
 /**
@@ -24,11 +25,11 @@ public class Updaters {
     /**
      * Creates and returns an updater for objects with the given field.
      *
-     * @param tClass the class of the objects holding the field.
+     * @param tClass    the class of the objects holding the field.
      * @param fieldName the name of the field to be updated.
      */
     public static <U> IntegerFieldUpdater<U> newIntegerFieldUpdater(final Class<? super U> tClass,
-        final String fieldName) {
+            final String fieldName) {
         try {
 //            if (UnsafeUtil.hasUnsafe()) {
 //                return new UnsafeIntegerFieldUpdater<>(UnsafeUtil.getUnsafeAccessor().getUnsafe(), tClass, fieldName);
@@ -37,8 +38,7 @@ public class Updaters {
 //            }
 
             return new ReflectionIntegerFieldUpdater<>(tClass, fieldName);
-        }
-        catch (final Throwable t) {
+        } catch (final Throwable t) {
             throw new RuntimeException(t);
         }
     }
@@ -46,7 +46,7 @@ public class Updaters {
     /**
      * Creates and returns an updater for objects with the given field.
      *
-     * @param tClass the class of the objects holding the field.
+     * @param tClass    the class of the objects holding the field.
      * @param fieldName the name of the field to be updated.
      */
     public static <U> LongFieldUpdater<U> newLongFieldUpdater(final Class<? super U> tClass, final String fieldName) {
@@ -58,8 +58,7 @@ public class Updaters {
 //            }
 
             return new ReflectionLongFieldUpdater<>(tClass, fieldName);
-        }
-        catch (final Throwable t) {
+        } catch (final Throwable t) {
             throw new RuntimeException(t);
         }
     }
@@ -67,11 +66,11 @@ public class Updaters {
     /**
      * Creates and returns an updater for objects with the given field.
      *
-     * @param tClass the class of the objects holding the field.
+     * @param tClass    the class of the objects holding the field.
      * @param fieldName the name of the field to be updated.
      */
     public static <U, W> ReferenceFieldUpdater<U, W> newReferenceFieldUpdater(final Class<? super U> tClass,
-        final String fieldName) {
+            final String fieldName) {
         try {
 //            if (UnsafeUtil.hasUnsafe()) {
 //                return new UnsafeReferenceFieldUpdater<>(UnsafeUtil.getUnsafeAccessor().getUnsafe(), tClass, fieldName);
@@ -80,8 +79,7 @@ public class Updaters {
 //            }
 
             return new ReflectionReferenceFieldUpdater<>(tClass, fieldName);
-        }
-        catch (final Throwable t) {
+        } catch (final Throwable t) {
             throw new RuntimeException(t);
         }
     }

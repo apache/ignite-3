@@ -17,6 +17,18 @@
 
 package org.apache.ignite.internal.configuration;
 
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directValue;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -54,18 +66,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directValue;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.nullValue;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 /**
  * Integration test for checking different aspects of distributed configuration.
  */
@@ -74,7 +74,9 @@ public class ITDistributedConfigurationPropertiesTest {
     /** Test distributed configuration schema. */
     @ConfigurationRoot(rootName = "root", type = ConfigurationType.DISTRIBUTED)
     public static class DistributedConfigurationSchema {
-        /** */
+        /**
+         *
+         */
         @Value(hasDefault = true)
         @DirectAccess
         public String str = "foo";
@@ -84,25 +86,39 @@ public class ITDistributedConfigurationPropertiesTest {
      * An emulation of an Ignite node, that only contains components necessary for tests.
      */
     private static class Node {
-        /** */
+        /**
+         *
+         */
         private final List<String> metaStorageNodes;
 
-        /** */
+        /**
+         *
+         */
         private final VaultManager vaultManager;
 
-        /** */
+        /**
+         *
+         */
         private final ClusterService clusterService;
 
-        /** */
+        /**
+         *
+         */
         private final Loza raftManager;
 
-        /** */
+        /**
+         *
+         */
         private final ConfigurationManager cfgManager;
 
-        /** */
+        /**
+         *
+         */
         private final MetaStorageManager metaStorageManager;
 
-        /** */
+        /**
+         *
+         */
         private final ConfigurationManager distributedCfgManager;
 
         /** Flag that disables storage updates. */
@@ -112,39 +128,39 @@ public class ITDistributedConfigurationPropertiesTest {
          * Constructor that simply creates a subset of components of this node.
          */
         Node(
-            TestInfo testInfo,
-            Path workDir,
-            NetworkAddress addr,
-            List<NetworkAddress> memberAddrs,
-            List<String> metaStorageNodes
+                TestInfo testInfo,
+                Path workDir,
+                NetworkAddress addr,
+                List<NetworkAddress> memberAddrs,
+                List<String> metaStorageNodes
         ) {
             this.metaStorageNodes = metaStorageNodes;
 
             vaultManager = new VaultManager(new InMemoryVaultService());
 
             clusterService = ClusterServiceTestUtils.clusterService(
-                testInfo,
-                addr.port(),
-                new StaticNodeFinder(memberAddrs),
-                new MessageSerializationRegistryImpl(),
-                new TestScaleCubeClusterServiceFactory()
+                    testInfo,
+                    addr.port(),
+                    new StaticNodeFinder(memberAddrs),
+                    new MessageSerializationRegistryImpl(),
+                    new TestScaleCubeClusterServiceFactory()
             );
 
             raftManager = new Loza(clusterService, workDir);
 
             cfgManager = new ConfigurationManager(
-                List.of(NodeConfiguration.KEY),
-                Map.of(),
-                new LocalConfigurationStorage(vaultManager),
-                List.of()
+                    List.of(NodeConfiguration.KEY),
+                    Map.of(),
+                    new LocalConfigurationStorage(vaultManager),
+                    List.of()
             );
 
             metaStorageManager = new MetaStorageManager(
-                vaultManager,
-                cfgManager,
-                clusterService,
-                raftManager,
-                new SimpleInMemoryKeyValueStorage()
+                    vaultManager,
+                    cfgManager,
+                    clusterService,
+                    raftManager,
+                    new SimpleInMemoryKeyValueStorage()
             );
 
             // create a custom storage implementation that is able to "lose" some storage updates
@@ -153,19 +169,20 @@ public class ITDistributedConfigurationPropertiesTest {
                 @Override
                 public synchronized void registerConfigurationListener(@NotNull ConfigurationStorageListener listener) {
                     super.registerConfigurationListener(changedEntries -> {
-                        if (receivesUpdates)
+                        if (receivesUpdates) {
                             return listener.onEntriesChanged(changedEntries);
-                        else
+                        } else {
                             return CompletableFuture.completedFuture(null);
+                        }
                     });
                 }
             };
 
             distributedCfgManager = new ConfigurationManager(
-                List.of(DistributedConfiguration.KEY),
-                Map.of(),
-                distributedCfgStorage,
-                List.of()
+                    List.of(DistributedConfiguration.KEY),
+                    Map.of(),
+                    distributedCfgStorage,
+                    List.of()
             );
         }
 
@@ -179,15 +196,15 @@ public class ITDistributedConfigurationPropertiesTest {
 
             // metastorage configuration
             String metaStorageCfg = metaStorageNodes.stream()
-                .map(Object::toString)
-                .collect(joining("\", \"", "\"", "\""));
+                    .map(Object::toString)
+                    .collect(joining("\", \"", "\"", "\""));
 
             var config = String.format("{ node: { metastorageNodes : [ %s ] } }", metaStorageCfg);
 
             cfgManager.bootstrap(config);
 
             Stream.of(clusterService, raftManager, metaStorageManager)
-                .forEach(IgniteComponent::start);
+                    .forEach(IgniteComponent::start);
 
             // deploy watches to propagate data from the metastore into the vault
             metaStorageManager.deployWatches();
@@ -202,14 +219,16 @@ public class ITDistributedConfigurationPropertiesTest {
          */
         void stop() throws Exception {
             var components = List.of(
-                distributedCfgManager, metaStorageManager, raftManager, clusterService, cfgManager, vaultManager
+                    distributedCfgManager, metaStorageManager, raftManager, clusterService, cfgManager, vaultManager
             );
 
-            for (IgniteComponent igniteComponent : components)
+            for (IgniteComponent igniteComponent : components) {
                 igniteComponent.beforeNodeStop();
+            }
 
-            for (IgniteComponent component : components)
+            for (IgniteComponent component : components) {
                 component.stop();
+            }
         }
 
         /**
@@ -220,13 +239,19 @@ public class ITDistributedConfigurationPropertiesTest {
         }
     }
 
-    /** */
+    /**
+     *
+     */
     private Node firstNode;
 
-    /** */
+    /**
+     *
+     */
     private Node secondNode;
 
-    /** */
+    /**
+     *
+     */
     @BeforeEach
     void setUp(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
         var firstNodeAddr = new NetworkAddress("localhost", 10000);
@@ -236,51 +261,53 @@ public class ITDistributedConfigurationPropertiesTest {
         var secondNodeAddr = new NetworkAddress("localhost", 10001);
 
         firstNode = new Node(
-            testInfo,
-            workDir.resolve("firstNode"),
-            firstNodeAddr,
-            List.of(firstNodeAddr, secondNodeAddr),
-            List.of(firstNodeName)
+                testInfo,
+                workDir.resolve("firstNode"),
+                firstNodeAddr,
+                List.of(firstNodeAddr, secondNodeAddr),
+                List.of(firstNodeName)
         );
 
         secondNode = new Node(
-            testInfo,
-            workDir.resolve("secondNode"),
-            secondNodeAddr,
-            List.of(firstNodeAddr, secondNodeAddr),
-            List.of(firstNodeName)
+                testInfo,
+                workDir.resolve("secondNode"),
+                secondNodeAddr,
+                List.of(firstNodeAddr, secondNodeAddr),
+                List.of(firstNodeName)
         );
 
         firstNode.start();
         secondNode.start();
     }
 
-    /** */
+    /**
+     *
+     */
     @AfterEach
     void tearDown() throws Exception {
         List<AutoCloseable> closeables = Stream.of(firstNode, secondNode)
-            .filter(Objects::nonNull)
-            .map(n -> (AutoCloseable)n::stop)
-            .collect(toUnmodifiableList());
+                .filter(Objects::nonNull)
+                .map(n -> (AutoCloseable) n::stop)
+                .collect(toUnmodifiableList());
 
         IgniteUtils.closeAll(closeables);
     }
 
     /**
-     * Tests a scenario when a distributed property is lagging behind the latest value (e.g. due to network delays.
-     * storage listeners logic, etc.). In this case the "direct" value should always be in the up-to-date state.
+     * Tests a scenario when a distributed property is lagging behind the latest value (e.g. due to network delays. storage listeners logic,
+     * etc.). In this case the "direct" value should always be in the up-to-date state.
      *
      * @see DirectAccess
      */
     @Test
     public void testFallingBehindDistributedStorageValue() throws Exception {
         ConfigurationValue<String> firstValue = firstNode.distributedCfgManager.configurationRegistry()
-            .getConfiguration(DistributedConfiguration.KEY)
-            .str();
+                .getConfiguration(DistributedConfiguration.KEY)
+                .str();
 
         ConfigurationValue<String> secondValue = secondNode.distributedCfgManager.configurationRegistry()
-            .getConfiguration(DistributedConfiguration.KEY)
-            .str();
+                .getConfiguration(DistributedConfiguration.KEY)
+                .str();
 
         // check initial values
         assertThat(firstValue.value(), is("foo"));

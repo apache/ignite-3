@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.internal.thread;
 
 import java.util.concurrent.ThreadFactory;
@@ -66,7 +67,7 @@ public class NamedThreadFactory implements ThreadFactory {
      *
      * @param prefix Thread name prefix.
      * @param daemon Daemon flag.
-     * @param eHnd Uncaught exception handler.
+     * @param eHnd   Uncaught exception handler.
      */
     public NamedThreadFactory(String prefix, boolean daemon, Thread.UncaughtExceptionHandler eHnd) {
         super();
@@ -76,7 +77,8 @@ public class NamedThreadFactory implements ThreadFactory {
     }
 
     /** {@inheritDoc} */
-    @Override public Thread newThread(Runnable r) {
+    @Override
+    public Thread newThread(Runnable r) {
         Thread t = new Thread(r);
 
         t.setDaemon(this.daemon);
@@ -94,12 +96,12 @@ public class NamedThreadFactory implements ThreadFactory {
     }
 
     /**
-     * Print uncaught exceptions to log.
-     * Default handler of uncaught exceptions for thread pools.
+     * Print uncaught exceptions to log. Default handler of uncaught exceptions for thread pools.
      */
     private static final class LogUncaughtExceptionHandler implements Thread.UncaughtExceptionHandler {
         /** {@inheritDoc} */
-        @Override public void uncaughtException(Thread t, Throwable e) {
+        @Override
+        public void uncaughtException(Thread t, Throwable e) {
             LOG.error("Uncaught exception in thread {}", e, t);
         }
     }

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.core;
 
 import java.util.ArrayList;
@@ -154,7 +155,7 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
 
     @Override
     public boolean waitCaughtUp(final PeerId peer, final long maxMargin, final long dueTime,
-        final CatchUpClosure done) {
+            final CatchUpClosure done) {
         final ThreadId rid = this.replicatorMap.get(peer);
         if (rid == null) {
             return false;
@@ -200,8 +201,7 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
                         this.failureReplicators.remove(peer, rType);
                     }
                 }
-            }
-            finally {
+            } finally {
                 if (lockNode) {
                     node.writeLock.unlock();
                 }
@@ -266,8 +266,7 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
         final PeerId candidateId = findTheNextCandidate(conf);
         if (candidateId != null) {
             candidate = this.replicatorMap.get(candidateId);
-        }
-        else {
+        } else {
             LOG.info("Fail to find the next candidate.");
         }
         for (final ThreadId r : this.replicatorMap.values()) {
@@ -298,8 +297,7 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
                 maxIndex = nextIndex;
                 peerId = entry.getKey();
                 priority = peerId.getPriority();
-            }
-            else if (nextIndex == maxIndex && nextPriority > priority) {
+            } else if (nextIndex == maxIndex && nextPriority > priority) {
                 peerId = entry.getKey();
                 priority = peerId.getPriority();
             }
@@ -307,8 +305,7 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
 
         if (maxIndex == -1L) {
             return null;
-        }
-        else {
+        } else {
             return peerId;
         }
     }
@@ -321,8 +318,8 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
     @Override
     public void describe(final Printer out) {
         out.print("  replicators: ") //
-            .println(this.replicatorMap.values());
+                .println(this.replicatorMap.values());
         out.print("  failureReplicators: ") //
-            .println(this.failureReplicators);
+                .println(this.failureReplicators);
     }
 }

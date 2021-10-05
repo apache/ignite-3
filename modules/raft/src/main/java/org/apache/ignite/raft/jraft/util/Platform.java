@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
 
 import java.util.Locale;
@@ -46,8 +47,8 @@ public class Platform {
 
     private static boolean isMac0() {
         final boolean mac = SystemPropertyUtil.get("os.name", "") //
-            .toLowerCase(Locale.US) //
-            .contains("mac os x");
+                .toLowerCase(Locale.US) //
+                .contains("mac os x");
         if (mac) {
             LOG.debug("Platform: Mac OS X");
         }
@@ -56,8 +57,8 @@ public class Platform {
 
     private static boolean isWindows0() {
         final boolean windows = SystemPropertyUtil.get("os.name", "") //
-            .toLowerCase(Locale.US) //
-            .contains("win");
+                .toLowerCase(Locale.US) //
+                .contains("win");
         if (windows) {
             LOG.debug("Platform: Windows");
         }

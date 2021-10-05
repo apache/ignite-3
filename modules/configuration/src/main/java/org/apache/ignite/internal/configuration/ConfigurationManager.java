@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.configuration;
 
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
+
+import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigObject;
 import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigObject;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -32,8 +34,6 @@ import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
-
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
 
 /**
  * Configuration manager is responsible for handling configuration lifecycle and provides configuration API.
@@ -45,19 +45,19 @@ public class ConfigurationManager implements IgniteComponent {
     /**
      * Constructor.
      *
-     * @param rootKeys Configuration root keys.
-     * @param validators Validators.
-     * @param storage Configuration storage.
-     * @param internalSchemaExtensions Internal extensions ({@link InternalConfiguration})
-     *      of configuration schemas ({@link ConfigurationRoot} and {@link Config}).
-     * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type,
-     *      or if the schema or its extensions are not valid.
+     * @param rootKeys                 Configuration root keys.
+     * @param validators               Validators.
+     * @param storage                  Configuration storage.
+     * @param internalSchemaExtensions Internal extensions ({@link InternalConfiguration}) of configuration schemas ({@link
+     *                                 ConfigurationRoot} and {@link Config}).
+     * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the schema or its
+     *                                  extensions are not valid.
      */
     public ConfigurationManager(
-        Collection<RootKey<?, ?>> rootKeys,
-        Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators,
-        ConfigurationStorage storage,
-        Collection<Class<?>> internalSchemaExtensions
+            Collection<RootKey<?, ?>> rootKeys,
+            Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators,
+            ConfigurationStorage storage,
+            Collection<Class<?>> internalSchemaExtensions
     ) {
         checkConfigurationType(rootKeys, storage);
 
@@ -65,12 +65,14 @@ public class ConfigurationManager implements IgniteComponent {
     }
 
     /** {@inheritDoc} */
-    @Override public void start() {
+    @Override
+    public void start() {
         registry.start();
     }
 
     /** {@inheritDoc} */
-    @Override public void stop() {
+    @Override
+    public void stop() {
         // TODO: IGNITE-15161 Implement component's stop.
         registry.stop();
     }
@@ -80,7 +82,7 @@ public class ConfigurationManager implements IgniteComponent {
      *
      * @param hoconStr Customer configuration in hocon format.
      * @throws InterruptedException If thread is interrupted during bootstrap.
-     * @throws ExecutionException If configuration update failed for some reason.
+     * @throws ExecutionException   If configuration update failed for some reason.
      */
     public void bootstrap(String hoconStr) throws InterruptedException, ExecutionException {
         ConfigObject hoconCfg = ConfigFactory.parseString(hoconStr).root();

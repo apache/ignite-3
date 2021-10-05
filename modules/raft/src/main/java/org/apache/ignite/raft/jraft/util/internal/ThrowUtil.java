@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util.internal;
 
 import org.jetbrains.annotations.Nullable;
@@ -30,9 +31,8 @@ public final class ThrowUtil {
     }
 
     /**
-     * private static <E extends java/lang/Throwable> void throwException0(java.lang.Throwable) throws E; flags:
-     * ACC_PRIVATE, ACC_STATIC Code: stack=1, locals=1, args_size=1 0: aload_0 1: athrow ... Exceptions: throws
-     * java.lang.Throwable
+     * private static <E extends java/lang/Throwable> void throwException0(java.lang.Throwable) throws E; flags: ACC_PRIVATE, ACC_STATIC
+     * Code: stack=1, locals=1, args_size=1 0: aload_0 1: athrow ... Exceptions: throws java.lang.Throwable
      */
     private static <E extends Throwable> void throwException0(final Throwable t) throws E {
         throw (E) t;
@@ -42,27 +42,27 @@ public final class ThrowUtil {
      * Checks if passed in {@code 'Throwable'} has given class in {@code 'cause'} hierarchy
      * <b>including</b> that throwable itself.
      * <p>
-     * Note that this method follows includes {@link Throwable#getSuppressed()}
-     * into check.
+     * Note that this method follows includes {@link Throwable#getSuppressed()} into check.
      *
-     * @param t Throwable to check (if {@code null}, {@code false} is returned).
+     * @param t   Throwable to check (if {@code null}, {@code false} is returned).
      * @param msg Message text that should be in cause.
      * @param cls Cause classes to check (if {@code null} or empty, {@code false} is returned).
-     * @return {@code True} if one of the causing exception is an instance of passed in classes,
-     *      {@code false} otherwise.
+     * @return {@code True} if one of the causing exception is an instance of passed in classes, {@code false} otherwise.
      */
-    public static boolean hasCause(@Nullable Throwable t, @Nullable String msg, Class<?> @Nullable... cls) {
-        if (t == null || cls == null || cls.length == 0)
+    public static boolean hasCause(@Nullable Throwable t, @Nullable String msg, Class<?> @Nullable ... cls) {
+        if (t == null || cls == null || cls.length == 0) {
             return false;
+        }
 
         for (Throwable th = t; th != null; th = th.getCause()) {
             for (Class<?> c : cls) {
                 if (c.isAssignableFrom(th.getClass())) {
                     if (msg != null) {
-                        if (th.getMessage() != null && th.getMessage().contains(msg))
+                        if (th.getMessage() != null && th.getMessage().contains(msg)) {
                             return true;
-                        else
+                        } else {
                             continue;
+                        }
                     }
 
                     return true;
@@ -70,12 +70,14 @@ public final class ThrowUtil {
             }
 
             for (Throwable n : th.getSuppressed()) {
-                if (hasCause(n, msg, cls))
+                if (hasCause(n, msg, cls)) {
                     return true;
+                }
             }
 
-            if (th.getCause() == th)
+            if (th.getCause() == th) {
                 break;
+            }
         }
 
         return false;

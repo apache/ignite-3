@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.configuration.tree;
 
-/** */
+/**
+ *
+ */
 public interface ConfigurationSource {
     /**
-     * Treat current configuration source as a leaf value and try to convert it to the specific class.
-     * Failing behaviour is not specified and depends on the implementation.
+     * Treat current configuration source as a leaf value and try to convert it to the specific class. Failing behaviour is not specified
+     * and depends on the implementation.
      *
-     * @param <T> Type of the object for type safety during compilation.
+     * @param <T>   Type of the object for type safety during compilation.
      * @param clazz Class instance of type to convert to.
      * @return Converted leaf object.
      */
@@ -32,8 +34,8 @@ public interface ConfigurationSource {
     }
 
     /**
-     * Treats current configuration source as an inner node. Tries to construct the content of {@code node} using
-     * available data from the source.
+     * Treats current configuration source as an inner node. Tries to construct the content of {@code node} using available data from the
+     * source.
      *
      * @param node Constructable node which content will be modified by the configuration source.
      */

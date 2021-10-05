@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
 import java.util.concurrent.Executor;
@@ -49,15 +50,14 @@ public class ReadIndexRequestProcessor extends NodeRequestProcessor<ReadIndexReq
 
     @Override
     public Message processRequest0(final RaftServerService service, final ReadIndexRequest request,
-        final RpcRequestClosure done) {
+            final RpcRequestClosure done) {
         service.handleReadIndexRequest(request, new RpcResponseClosureAdapter<RpcRequests.ReadIndexResponse>() {
 
             @Override
             public void run(final Status status) {
                 if (getResponse() != null) {
                     done.sendResponse(getResponse());
-                }
-                else {
+                } else {
                     done.run(status);
                 }
             }

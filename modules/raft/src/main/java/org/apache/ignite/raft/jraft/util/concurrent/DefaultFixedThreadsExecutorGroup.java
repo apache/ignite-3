@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util.concurrent;
 
 import java.util.Collections;
@@ -37,7 +38,7 @@ public final class DefaultFixedThreadsExecutorGroup implements FixedThreadsExecu
     }
 
     public DefaultFixedThreadsExecutorGroup(SingleThreadExecutor[] children,
-        ExecutorChooserFactory.ExecutorChooser chooser) {
+            ExecutorChooserFactory.ExecutorChooser chooser) {
         this.children = children;
         this.readonlyChildren = toUnmodifiableSet(this.children);
         this.chooser = chooser;
@@ -50,7 +51,7 @@ public final class DefaultFixedThreadsExecutorGroup implements FixedThreadsExecu
     }
 
     public DefaultFixedThreadsExecutorGroup(ExecutorService[] executors,
-        ExecutorChooserFactory.ExecutorChooser chooser) {
+            ExecutorChooserFactory.ExecutorChooser chooser) {
         this.children = toSingleThreadExecutors(executors);
         this.readonlyChildren = toUnmodifiableSet(this.children);
         this.chooser = chooser;
@@ -105,8 +106,7 @@ public final class DefaultFixedThreadsExecutorGroup implements FixedThreadsExecu
         for (int i = 0; i < executors.length; i++) {
             if (executors[i] instanceof SingleThreadExecutor) {
                 array[i] = (SingleThreadExecutor) executors[i];
-            }
-            else {
+            } else {
                 array[i] = new DefaultSingleThreadExecutor(executors[i]);
             }
         }

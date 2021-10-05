@@ -14,7 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.core;
+
+import static java.lang.Thread.sleep;
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toList;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
@@ -58,16 +69,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import static java.lang.Thread.sleep;
-import static java.util.stream.Collectors.collectingAndThen;
-import static java.util.stream.Collectors.toList;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-
 /**
  * Jraft cli tests.
  */
@@ -90,7 +91,9 @@ public class ITCliServiceTest {
 
     private ExecutorService clientExecutor;
 
-    /** */
+    /**
+     *
+     */
     @BeforeEach
     public void setup(TestInfo testInfo, @WorkDirectory Path dataPath) throws Exception {
         LOG.info(">>>>>>>>>>>>>>> Start test method: " + testInfo.getDisplayName());
@@ -100,15 +103,18 @@ public class ITCliServiceTest {
         LinkedHashSet<PeerId> learners = new LinkedHashSet<>();
 
         // 2 learners
-        for (int i = 0; i < 2; i++)
+        for (int i = 0; i < 2; i++) {
             learners.add(new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + LEARNER_PORT_STEP + i));
+        }
 
         cluster = new TestCluster(groupId, dataPath.toString(), peers, learners, 300, testInfo);
-        for (PeerId peer : peers)
+        for (PeerId peer : peers) {
             cluster.start(peer.getEndpoint());
+        }
 
-        for (PeerId peer : learners)
+        for (PeerId peer : learners) {
             cluster.startLearner(peer);
+        }
 
         cluster.waitLeader();
         cluster.ensureLeader(cluster.getLeader());
@@ -121,24 +127,25 @@ public class ITCliServiceTest {
         opts.setClientExecutor(clientExecutor);
 
         NodeFinder nodeFinder = peers.stream()
-            .map(PeerId::getEndpoint)
-            .map(JRaftUtils::addressFromEndpoint)
-            .collect(collectingAndThen(toList(), StaticNodeFinder::new));
+                .map(PeerId::getEndpoint)
+                .map(JRaftUtils::addressFromEndpoint)
+                .collect(collectingAndThen(toList(), StaticNodeFinder::new));
 
         var registry = new MessageSerializationRegistryImpl();
 
         ClusterService clientSvc = ClusterServiceTestUtils.clusterService(
-            testInfo,
-            TestUtils.INIT_PORT - 1,
-            nodeFinder,
-            registry,
-            new TestScaleCubeClusterServiceFactory()
+                testInfo,
+                TestUtils.INIT_PORT - 1,
+                nodeFinder,
+                registry,
+                new TestScaleCubeClusterServiceFactory()
         );
 
         clientSvc.start();
 
         IgniteRpcClient rpcClient = new IgniteRpcClient(clientSvc) {
-            @Override public void shutdown() {
+            @Override
+            public void shutdown() {
                 super.shutdown();
 
                 clientSvc.stop();
@@ -197,8 +204,9 @@ public class ITCliServiceTest {
         cluster.ensureSame(addr -> addr.equals(learner3.getEndpoint()));
 
         for (MockStateMachine fsm : cluster.getFsms()) {
-            if (!fsm.getAddress().equals(learner3.getEndpoint()))
+            if (!fsm.getAddress().equals(learner3.getEndpoint())) {
                 assertEquals(10, fsm.getLogs().size());
+            }
         }
 
         assertEquals(0, cluster.getFsmByPeer(learner3).getLogs().size());
@@ -215,8 +223,9 @@ public class ITCliServiceTest {
 
         cluster.ensureSame();
 
-        for (MockStateMachine fsm : cluster.getFsms())
+        for (MockStateMachine fsm : cluster.getFsms()) {
             assertEquals(20, fsm.getLogs().size());
+        }
 
         List<PeerId> newLearners = new ArrayList<>(oldLearners);
         newLearners.add(learner3);
@@ -230,8 +239,9 @@ public class ITCliServiceTest {
         cluster.ensureSame(addr -> addr.equals(learner3.getEndpoint()));
 
         for (MockStateMachine fsm : cluster.getFsms()) {
-            if (!fsm.getAddress().equals(learner3.getEndpoint()))
+            if (!fsm.getAddress().equals(learner3.getEndpoint())) {
                 assertEquals(30, fsm.getLogs().size());
+            }
         }
 
         // Latest 10 logs are not replicated to learner3, because it's removed.
@@ -250,10 +260,11 @@ public class ITCliServiceTest {
 
         // Latest 10 logs are not replicated to learner1 and learner2, because they were removed by resetting learners set.
         for (MockStateMachine fsm : cluster.getFsms()) {
-            if (!oldLearners.contains(new PeerId(fsm.getAddress(), 0)))
+            if (!oldLearners.contains(new PeerId(fsm.getAddress(), 0))) {
                 assertEquals(40, fsm.getLogs().size());
-            else
+            } else {
                 assertEquals(30, fsm.getLogs().size());
+            }
         }
 
         assertEquals(Collections.singletonList(learner3), cliService.getLearners(groupId, conf));
@@ -284,8 +295,9 @@ public class ITCliServiceTest {
 
         cluster.ensureSame();
 
-        for (MockStateMachine fsm : cluster.getFsms())
+        for (MockStateMachine fsm : cluster.getFsms()) {
             assertEquals(20, fsm.getLogs().size());
+        }
 
         //remove peer3
         assertTrue(cliService.removePeer(groupId, conf, peer3).isOk());
@@ -297,10 +309,11 @@ public class ITCliServiceTest {
         cluster.ensureSame(addr -> addr.equals(peer3.getEndpoint()));
 
         for (MockStateMachine fsm : cluster.getFsms()) {
-            if (fsm.getAddress().equals(peer3.getEndpoint()))
+            if (fsm.getAddress().equals(peer3.getEndpoint())) {
                 assertEquals(20, fsm.getLogs().size());
-            else
+            } else {
                 assertEquals(30, fsm.getLogs().size());
+            }
         }
     }
 
@@ -308,8 +321,9 @@ public class ITCliServiceTest {
     public void testChangePeers() throws Exception {
         List<PeerId> newPeers = TestUtils.generatePeers(10);
         newPeers.removeAll(conf.getPeerSet());
-        for (PeerId peer : newPeers)
+        for (PeerId peer : newPeers) {
             assertTrue(cluster.start(peer.getEndpoint()));
+        }
         cluster.waitLeader();
         Node oldLeaderNode = cluster.getLeader();
         assertNotNull(oldLeaderNode);
@@ -326,17 +340,21 @@ public class ITCliServiceTest {
     public void testSnapshot() throws Exception {
         sendTestTaskAndWait(cluster.getLeader(), 0);
         assertEquals(5, cluster.getFsms().size());
-        for (MockStateMachine fsm : cluster.getFsms())
+        for (MockStateMachine fsm : cluster.getFsms()) {
             assertEquals(0, fsm.getSaveSnapshotTimes());
+        }
 
-        for (PeerId peer : conf)
+        for (PeerId peer : conf) {
             assertTrue(cliService.snapshot(groupId, peer).isOk());
+        }
 
-        for (PeerId peer : conf.getLearners())
+        for (PeerId peer : conf.getLearners()) {
             assertTrue(cliService.snapshot(groupId, peer).isOk());
+        }
 
-        for (MockStateMachine fsm : cluster.getFsms())
+        for (MockStateMachine fsm : cluster.getFsms()) {
             assertEquals(1, fsm.getSaveSnapshotTimes());
+        }
     }
 
     @Test
@@ -344,7 +362,7 @@ public class ITCliServiceTest {
         PeerId leader = cluster.getLeader().getNodeId().getPeerId();
         assertNotNull(leader);
         assertArrayEquals(conf.getPeerSet().toArray(),
-            new HashSet<>(cliService.getPeers(groupId, conf)).toArray());
+                new HashSet<>(cliService.getPeers(groupId, conf)).toArray());
 
         // stop one peer
         List<PeerId> peers = conf.getPeers();
@@ -355,15 +373,14 @@ public class ITCliServiceTest {
         leader = cluster.getLeader().getNodeId().getPeerId();
         assertNotNull(leader);
         assertArrayEquals(conf.getPeerSet().toArray(),
-            new HashSet<>(cliService.getPeers(groupId, conf)).toArray());
+                new HashSet<>(cliService.getPeers(groupId, conf)).toArray());
 
         cluster.stopAll();
 
         try {
             cliService.getPeers(groupId, conf);
             fail();
-        }
-        catch (IllegalStateException e) {
+        } catch (IllegalStateException e) {
             assertTrue(e.getMessage().startsWith("Fail to get leader of group " + groupId), e.getMessage());
         }
     }
@@ -373,7 +390,7 @@ public class ITCliServiceTest {
         PeerId leader = cluster.getLeader().getNodeId().getPeerId();
         assertNotNull(leader);
         assertArrayEquals(conf.getPeerSet().toArray(),
-            new HashSet<>(cliService.getAlivePeers(groupId, conf)).toArray());
+                new HashSet<>(cliService.getAlivePeers(groupId, conf)).toArray());
 
         // stop one peer
         List<PeerId> peers = conf.getPeers();
@@ -387,15 +404,14 @@ public class ITCliServiceTest {
         leader = cluster.getLeader().getNodeId().getPeerId();
         assertNotNull(leader);
         assertArrayEquals(new HashSet<>(peers).toArray(),
-            new HashSet<>(cliService.getAlivePeers(groupId, conf)).toArray());
+                new HashSet<>(cliService.getAlivePeers(groupId, conf)).toArray());
 
         cluster.stopAll();
 
         try {
             cliService.getAlivePeers(groupId, conf);
             fail();
-        }
-        catch (IllegalStateException e) {
+        } catch (IllegalStateException e) {
             assertTrue(e.getMessage().startsWith("Fail to get leader of group " + groupId), e.getMessage());
         }
     }
@@ -424,8 +440,9 @@ public class ITCliServiceTest {
         assertEquals(groupIds.size(), rebalancedLeaderIds.size());
 
         Map<PeerId, Integer> ret = new HashMap<>();
-        for (Map.Entry<String, PeerId> entry : rebalancedLeaderIds.entrySet())
+        for (Map.Entry<String, PeerId> entry : rebalancedLeaderIds.entrySet()) {
             ret.compute(entry.getValue(), (ignored, num) -> num == null ? 1 : num + 1);
+        }
         int expectedAvgLeaderNum = (int) Math.ceil((double) groupIds.size() / conf.size());
         for (Map.Entry<PeerId, Integer> entry : ret.entrySet()) {
             System.out.println(entry);
@@ -470,15 +487,16 @@ public class ITCliServiceTest {
         Map<String, PeerId> rebalancedLeaderIds = new HashMap<>();
 
         CliService cliService = new MockTransferLeaderFailCliService(rebalancedLeaderIds,
-            new PeerId("host_1", 8080));
+                new PeerId("host_1", 8080));
 
         assertEquals("Fail to transfer leader",
-            cliService.rebalance(groupIds, conf, rebalancedLeaderIds).getErrorMsg());
+                cliService.rebalance(groupIds, conf, rebalancedLeaderIds).getErrorMsg());
         assertTrue(groupIds.size() >= rebalancedLeaderIds.size());
 
         Map<PeerId, Integer> ret = new HashMap<>();
-        for (Map.Entry<String, PeerId> entry : rebalancedLeaderIds.entrySet())
+        for (Map.Entry<String, PeerId> entry : rebalancedLeaderIds.entrySet()) {
             ret.compute(entry.getValue(), (ignored, num) -> num == null ? 1 : num + 1);
+        }
         for (Map.Entry<PeerId, Integer> entry : ret.entrySet()) {
             System.out.println(entry);
             assertEquals(new PeerId("host_1", 8080), entry.getKey());
@@ -498,10 +516,11 @@ public class ITCliServiceTest {
         @Override
         public Status getLeader(String groupId, Configuration conf, PeerId leaderId) {
             PeerId ret = rebalancedLeaderIds.get(groupId);
-            if (ret != null)
+            if (ret != null) {
                 leaderId.parse(ret.toString());
-            else
+            } else {
                 leaderId.parse(initialLeaderId.toString());
+            }
             return Status.OK();
         }
 
@@ -543,21 +562,22 @@ public class ITCliServiceTest {
     }
 
     /**
-     * @param cond The condition.
+     * @param cond    The condition.
      * @param timeout The timeout.
      * @return {@code True} if condition has happened within the timeout.
      */
-    @SuppressWarnings("BusyWait") protected static boolean waitForCondition(BooleanSupplier cond, long timeout) {
+    @SuppressWarnings("BusyWait")
+    protected static boolean waitForCondition(BooleanSupplier cond, long timeout) {
         long stop = System.currentTimeMillis() + timeout;
 
         while (System.currentTimeMillis() < stop) {
-            if (cond.getAsBoolean())
+            if (cond.getAsBoolean()) {
                 return true;
+            }
 
             try {
                 sleep(50);
-            }
-            catch (InterruptedException e) {
+            } catch (InterruptedException e) {
                 return false;
             }
         }

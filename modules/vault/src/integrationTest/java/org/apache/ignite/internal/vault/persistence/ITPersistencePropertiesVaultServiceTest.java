@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.vault.persistence;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
+
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -32,20 +37,19 @@ import org.apache.ignite.lang.ByteArray;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.is;
-
 /**
  * Test suite for testing persistence properties of {@link PersistentVaultService}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
 class ITPersistencePropertiesVaultServiceTest {
-    /** */
+    /**
+     *
+     */
     private static final int TIMEOUT_SECONDS = 1;
 
-    /** */
+    /**
+     *
+     */
     @WorkDirectory
     private Path vaultDir;
 
@@ -55,9 +59,9 @@ class ITPersistencePropertiesVaultServiceTest {
     @Test
     void testPersistentRestart() throws Exception {
         var data = Map.of(
-            new ByteArray("key" + 1), fromString("value" + 1),
-            new ByteArray("key" + 2), fromString("value" + 2),
-            new ByteArray("key" + 3), fromString("value" + 3)
+                new ByteArray("key" + 1), fromString("value" + 1),
+                new ByteArray("key" + 2), fromString("value" + 2),
+                new ByteArray("key" + 3), fromString("value" + 3)
         );
 
         try (var vaultService = new PersistentVaultService(vaultDir)) {
@@ -70,8 +74,8 @@ class ITPersistencePropertiesVaultServiceTest {
             vaultService.start();
 
             assertThat(
-                vaultService.get(new ByteArray("key" + 1)),
-                willBe(equalTo(new VaultEntry(new ByteArray("key" + 1), fromString("value" + 1))))
+                    vaultService.get(new ByteArray("key" + 1)),
+                    willBe(equalTo(new VaultEntry(new ByteArray("key" + 1), fromString("value" + 1))))
             );
         }
 
@@ -85,9 +89,9 @@ class ITPersistencePropertiesVaultServiceTest {
                 cursor.forEachRemaining(actualData::add);
 
                 List<VaultEntry> expectedData = data.entrySet().stream()
-                    .map(e -> new VaultEntry(e.getKey(), e.getValue()))
-                    .sorted(Comparator.comparing(VaultEntry::key))
-                    .collect(Collectors.toList());
+                        .map(e -> new VaultEntry(e.getKey(), e.getValue()))
+                        .sorted(Comparator.comparing(VaultEntry::key))
+                        .collect(Collectors.toList());
 
                 assertThat(actualData, is(expectedData));
             }

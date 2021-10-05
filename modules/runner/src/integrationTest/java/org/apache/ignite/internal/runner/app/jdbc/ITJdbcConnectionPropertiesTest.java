@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.runner.app.jdbc;
 
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.sql.DriverPropertyInfo;
 import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * {@link ConnectionPropertiesImpl} unit tests.

@@ -17,20 +17,6 @@
 
 package org.apache.ignite.internal.configuration.asm;
 
-import java.lang.reflect.Method;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.Scope;
-import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.control.IfStatement;
-import com.facebook.presto.bytecode.control.SwitchStatement.SwitchBuilder;
-import com.facebook.presto.bytecode.expression.BytecodeExpression;
-
 import static com.facebook.presto.bytecode.BytecodeUtils.checkState;
 import static com.facebook.presto.bytecode.control.SwitchStatement.switchBuilder;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
@@ -38,6 +24,20 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.IntStream.range;
+
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.control.IfStatement;
+import com.facebook.presto.bytecode.control.SwitchStatement.SwitchBuilder;
+import com.facebook.presto.bytecode.expression.BytecodeExpression;
+import java.lang.reflect.Method;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * Class similar to {@link SwitchBuilder} but it allows to use {@link String}s as switch keys.
@@ -54,8 +54,7 @@ class StringSwitchBuilder {
             EQUALS = Object.class.getDeclaredMethod("equals", Object.class);
 
             HASH_CODE = Object.class.getDeclaredMethod("hashCode");
-        }
-        catch (NoSuchMethodException e) {
+        } catch (NoSuchMethodException e) {
             throw new ExceptionInInitializerError(e);
         }
     }
@@ -89,7 +88,7 @@ class StringSwitchBuilder {
     }
 
     /**
-     * @param key Key for matching.
+     * @param key  Key for matching.
      * @param body Case statement.
      * @return {@code this} for chaining.
      */
@@ -113,6 +112,7 @@ class StringSwitchBuilder {
 
     /**
      * Produces "compiled" switch statement, ready to be inserted into method.
+     *
      * @return Bytecode block.
      */
     public BytecodeBlock build() {
@@ -125,8 +125,8 @@ class StringSwitchBuilder {
         Variable idxVar = scope.createTempVariable(int.class);
 
         BytecodeBlock res = new BytecodeBlock()
-            .append(expVar.set(expression)) // expVar = evaluate(expression);
-            .append(idxVar.set(constantInt(-1))); // idxVar = -1;
+                .append(expVar.set(expression)) // expVar = evaluate(expression);
+                .append(idxVar.set(constantInt(-1))); // idxVar = -1;
 
         BytecodeNode[] caseBodies = new BytecodeNode[cases.size()];
 
@@ -140,11 +140,11 @@ class StringSwitchBuilder {
         //     ...
         // }
         SwitchBuilder hashSwitch = switchBuilder()
-            .expression(expVar.invoke(HASH_CODE));
+                .expression(expVar.invoke(HASH_CODE));
 
         // Case for each hash value may have multiple matching strings due to collisions.
         Map<Integer, List<CaseStatement>> groupedCases = cases.stream().collect(
-            groupingBy(statement -> statement.key.hashCode())
+                groupingBy(statement -> statement.key.hashCode())
         );
 
         int idx = 0;
@@ -153,8 +153,8 @@ class StringSwitchBuilder {
 
             for (CaseStatement caseStmt : entry.getValue()) {
                 caseBody.append(new IfStatement()
-                    .condition(expVar.invoke(EQUALS, constantString(caseStmt.key)))
-                    .ifTrue(idxVar.set(constantInt(idx)))
+                        .condition(expVar.invoke(EQUALS, constantString(caseStmt.key)))
+                        .ifTrue(idxVar.set(constantInt(idx)))
                 );
 
                 caseBodies[idx++] = caseStmt.body;
@@ -168,13 +168,13 @@ class StringSwitchBuilder {
 
         // Here's the actual switch by "idxVar" variable that uses user-defined "case" and "default" clauses.
         res.append(range(0, caseBodies.length).boxed()
-            .reduce(
-                switchBuilder().expression(idxVar),
-                (builder, i) -> builder.addCase(i, caseBodies[i]),
-                (b0, b1) -> b0 // Won't be used by sequential stream but required to be non-null.
-            )
-            .defaultCase(defaultBody)
-            .build()
+                .reduce(
+                        switchBuilder().expression(idxVar),
+                        (builder, i) -> builder.addCase(i, caseBodies[i]),
+                        (b0, b1) -> b0 // Won't be used by sequential stream but required to be non-null.
+                )
+                .defaultCase(defaultBody)
+                .build()
         );
 
         return res;
@@ -191,7 +191,7 @@ class StringSwitchBuilder {
         private final BytecodeNode body;
 
         /**
-         * @param key String key of the case statement.
+         * @param key  String key of the case statement.
          * @param body Body of the case statement.
          */
         CaseStatement(String key, BytecodeNode body) {
@@ -200,24 +200,29 @@ class StringSwitchBuilder {
         }
 
         /** {@inheritDoc} */
-        @Override public int hashCode() {
+        @Override
+        public int hashCode() {
             return key.hashCode();
         }
 
         /** {@inheritDoc} */
-        @Override public boolean equals(Object obj) {
-            if (this == obj)
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
                 return true;
+            }
 
-            if (obj == null || getClass() != obj.getClass())
+            if (obj == null || getClass() != obj.getClass()) {
                 return false;
+            }
 
-            CaseStatement other = (CaseStatement)obj;
+            CaseStatement other = (CaseStatement) obj;
             return Objects.equals(this.key, other.key);
         }
 
         /** {@inheritDoc} */
-        @Override public String toString() {
+        @Override
+        public String toString() {
             return getClass().getSimpleName() + "[key=" + key + ']';
         }
     }

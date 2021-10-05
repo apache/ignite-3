@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.processors.query.calcite.rel.set;
 
+import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import com.google.common.collect.ImmutableList;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.type.RelDataType;
@@ -41,50 +40,55 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
  */
 public interface IgniteMapSetOp extends IgniteSetOp {
     /** {@inheritDoc} */
-    @Override public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(
-        RelTraitSet nodeTraits,
-        List<RelTraitSet> inputTraits
+    @Override
+    public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(
+            RelTraitSet nodeTraits,
+            List<RelTraitSet> inputTraits
     ) {
         boolean rewindable = inputTraits.stream()
-            .map(TraitUtils::rewindability)
-            .allMatch(RewindabilityTrait::rewindable);
+                .map(TraitUtils::rewindability)
+                .allMatch(RewindabilityTrait::rewindable);
 
-        if (rewindable)
+        if (rewindable) {
             return ImmutableList.of(Pair.of(nodeTraits.replace(RewindabilityTrait.REWINDABLE), inputTraits));
+        }
 
         return ImmutableList.of(Pair.of(nodeTraits.replace(RewindabilityTrait.ONE_WAY),
-            Commons.transform(inputTraits, t -> t.replace(RewindabilityTrait.ONE_WAY))));
+                Commons.transform(inputTraits, t -> t.replace(RewindabilityTrait.ONE_WAY))));
     }
 
     /** {@inheritDoc} */
-    @Override public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(
-        RelTraitSet nodeTraits,
-        List<RelTraitSet> inputTraits
+    @Override
+    public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(
+            RelTraitSet nodeTraits,
+            List<RelTraitSet> inputTraits
     ) {
-        if (inputTraits.stream().allMatch(t -> TraitUtils.distribution(t).satisfies(IgniteDistributions.single())))
+        if (inputTraits.stream().allMatch(t -> TraitUtils.distribution(t).satisfies(IgniteDistributions.single()))) {
             return ImmutableList.of(); // If all distributions are single or broadcast IgniteSingleMinus should be used.
+        }
 
         return ImmutableList.of(
-            Pair.of(nodeTraits.replace(IgniteDistributions.random()), Commons.transform(inputTraits,
-                t -> TraitUtils.distribution(t) == IgniteDistributions.broadcast() ?
-                    // Allow broadcast with trim-exchange to be used in map-reduce set-op.
-                    t.replace(IgniteDistributions.hash(ImmutableList.of(0))) :
-                    t.replace(IgniteDistributions.random())))
+                Pair.of(nodeTraits.replace(IgniteDistributions.random()), Commons.transform(inputTraits,
+                        t -> TraitUtils.distribution(t) == IgniteDistributions.broadcast() ?
+                                // Allow broadcast with trim-exchange to be used in map-reduce set-op.
+                                t.replace(IgniteDistributions.hash(ImmutableList.of(0))) :
+                                t.replace(IgniteDistributions.random())))
         );
     }
 
     /** {@inheritDoc} */
-    @Override public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(
-        RelTraitSet nodeTraits,
-        List<RelTraitSet> inTraits
+    @Override
+    public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(
+            RelTraitSet nodeTraits,
+            List<RelTraitSet> inTraits
     ) {
         Set<CorrelationId> correlationIds = inTraits.stream()
-            .map(TraitUtils::correlation)
-            .flatMap(corrTr -> corrTr.correlationIds().stream())
-            .collect(Collectors.toSet());
+                .map(TraitUtils::correlation)
+                .flatMap(corrTr -> corrTr.correlationIds().stream())
+                .collect(Collectors.toSet());
 
         return ImmutableList.of(Pair.of(nodeTraits.replace(CorrelationTrait.correlations(correlationIds)),
-            inTraits));
+                inTraits));
     }
 
     /** Build RowType for MAP node. */
@@ -102,7 +106,8 @@ public interface IgniteMapSetOp extends IgniteSetOp {
     }
 
     /** {@inheritDoc} */
-    @Override public default AggregateType aggregateType() {
+    @Override
+    public default AggregateType aggregateType() {
         return AggregateType.MAP;
     }
 }

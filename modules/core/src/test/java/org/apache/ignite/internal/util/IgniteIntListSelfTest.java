@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.util;
 
-import org.junit.jupiter.api.Test;
-
 import static org.apache.ignite.internal.util.IgniteIntList.asList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
 
 /**
  *
@@ -35,36 +35,36 @@ public class IgniteIntListSelfTest {
     @Test
     public void testCopyWithout() throws Exception {
         assertCopy(
-            new IgniteIntList(new int[] {}),
-            new IgniteIntList(new int[] {}));
+                new IgniteIntList(new int[]{}),
+                new IgniteIntList(new int[]{}));
 
         assertCopy(
-            new IgniteIntList(new int[] {}),
-            new IgniteIntList(new int[] {1}));
+                new IgniteIntList(new int[]{}),
+                new IgniteIntList(new int[]{1}));
 
         assertCopy(
-            new IgniteIntList(new int[] {1}),
-            new IgniteIntList(new int[] {}));
+                new IgniteIntList(new int[]{1}),
+                new IgniteIntList(new int[]{}));
 
         assertCopy(
-            new IgniteIntList(new int[] {1, 2, 3}),
-            new IgniteIntList(new int[] {4, 5, 6}));
+                new IgniteIntList(new int[]{1, 2, 3}),
+                new IgniteIntList(new int[]{4, 5, 6}));
 
         assertCopy(
-            new IgniteIntList(new int[] {1, 2, 3}),
-            new IgniteIntList(new int[] {1, 2, 3}));
+                new IgniteIntList(new int[]{1, 2, 3}),
+                new IgniteIntList(new int[]{1, 2, 3}));
 
         assertCopy(
-            new IgniteIntList(new int[] {1, 2, 3, 4, 5, 1}),
-            new IgniteIntList(new int[] {1, 1}));
+                new IgniteIntList(new int[]{1, 2, 3, 4, 5, 1}),
+                new IgniteIntList(new int[]{1, 1}));
 
         assertCopy(
-            new IgniteIntList(new int[] {1, 1, 1, 2, 3, 4, 5, 1, 1, 1}),
-            new IgniteIntList(new int[] {1, 1}));
+                new IgniteIntList(new int[]{1, 1, 1, 2, 3, 4, 5, 1, 1, 1}),
+                new IgniteIntList(new int[]{1, 1}));
 
         assertCopy(
-            new IgniteIntList(new int[] {1, 2, 3}),
-            new IgniteIntList(new int[] {1, 1, 2, 2, 3, 3}));
+                new IgniteIntList(new int[]{1, 2, 3}),
+                new IgniteIntList(new int[]{1, 1, 2, 2, 3, 3}));
     }
 
     /**
@@ -102,10 +102,11 @@ public class IgniteIntListSelfTest {
         for (int i = 0; i < lst.size(); i++) {
             int v = lst.get(i);
 
-            if (rmv.contains(v))
+            if (rmv.contains(v)) {
                 assertFalse(res.contains(v));
-            else
+            } else {
                 assertTrue(res.contains(v));
+            }
         }
     }
 

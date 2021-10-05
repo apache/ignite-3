@@ -17,18 +17,18 @@
 
 package org.apache.ignite.internal.configuration.testframework;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.sample.DiscoveryConfiguration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.hamcrest.CoreMatchers.instanceOf;
-import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Test basic scenarios of {@link ConfigurationExtension}.
@@ -42,7 +42,7 @@ class ConfigurationExtensionTest {
     /** Test that contains injected parameter. */
     @Test
     public void injectConfiguration(
-        @InjectConfiguration("mock.joinTimeout=100") DiscoveryConfiguration paramCfg
+            @InjectConfiguration("mock.joinTimeout=100") DiscoveryConfiguration paramCfg
     ) throws Exception {
         assertEquals(5000, fieldCfg.joinTimeout().value());
 
@@ -94,24 +94,24 @@ class ConfigurationExtensionTest {
     /** Tests that internal configuration extensions work properly on injected configuration instance. */
     @Test
     public void internalConfiguration(
-        @InjectConfiguration(extensions = {ExtendedConfigurationSchema.class}) BasicConfiguration cfg
+            @InjectConfiguration(extensions = {ExtendedConfigurationSchema.class}) BasicConfiguration cfg
     ) throws Exception {
         assertThat(cfg, is(instanceOf(ExtendedConfiguration.class)));
 
         assertEquals(1, cfg.visible().value());
 
-        assertEquals(2, ((ExtendedConfiguration)cfg).invisible().value());
+        assertEquals(2, ((ExtendedConfiguration) cfg).invisible().value());
 
         cfg.change(change -> {
             assertThat(change, is(instanceOf(ExtendedChange.class)));
 
             change.changeVisible(3);
 
-            ((ExtendedChange)change).changeInvisible(4);
+            ((ExtendedChange) change).changeInvisible(4);
         }).get(1, TimeUnit.SECONDS);
 
         assertEquals(3, cfg.visible().value());
 
-        assertEquals(4, ((ExtendedConfiguration)cfg).invisible().value());
+        assertEquals(4, ((ExtendedConfiguration) cfg).invisible().value());
     }
 }

@@ -27,7 +27,14 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 package com.facebook.presto.bytecode;
+
+import static com.facebook.presto.bytecode.BytecodeUtils.checkState;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.bytecode.ParameterizedType.typeFromPathName;
+import static java.util.Arrays.stream;
+import static java.util.Objects.requireNonNull;
 
 import java.util.Collection;
 import java.util.List;
@@ -35,12 +42,6 @@ import java.util.stream.Collectors;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
-
-import static com.facebook.presto.bytecode.BytecodeUtils.checkState;
-import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static com.facebook.presto.bytecode.ParameterizedType.typeFromPathName;
-import static java.util.Arrays.stream;
-import static java.util.Objects.requireNonNull;
 
 /**
  * @author Eugene Kuleshov
@@ -55,24 +56,24 @@ public class ClassInfo {
 
     public ClassInfo(ClassInfoLoader loader, ClassNode classNode) {
         this(loader,
-            typeFromPathName(classNode.name),
-            classNode.access,
-            classNode.superName == null ? null : typeFromPathName(classNode.superName),
-            classNode.interfaces.stream().map(ParameterizedType::typeFromPathName).collect(Collectors.toList()),
-            classNode.methods);
+                typeFromPathName(classNode.name),
+                classNode.access,
+                classNode.superName == null ? null : typeFromPathName(classNode.superName),
+                classNode.interfaces.stream().map(ParameterizedType::typeFromPathName).collect(Collectors.toList()),
+                classNode.methods);
     }
 
     public ClassInfo(ClassInfoLoader loader, Class<?> aClass) {
         this(loader,
-            type(aClass),
-            aClass.getModifiers(),
-            aClass.getSuperclass() == null ? null : type(aClass.getSuperclass()),
-            stream(aClass.getInterfaces()).map(ParameterizedType::type).collect(Collectors.toList()),
-            null);
+                type(aClass),
+                aClass.getModifiers(),
+                aClass.getSuperclass() == null ? null : type(aClass.getSuperclass()),
+                stream(aClass.getInterfaces()).map(ParameterizedType::type).collect(Collectors.toList()),
+                null);
     }
 
     public ClassInfo(ClassInfoLoader loader, ParameterizedType type, int access, ParameterizedType superClass,
-        Collection<ParameterizedType> interfaces, Collection<MethodNode> methods) {
+            Collection<ParameterizedType> interfaces, Collection<MethodNode> methods) {
         requireNonNull(loader, "loader is null");
         requireNonNull(type, "type is null");
         requireNonNull(interfaces, "interfaces is null");
@@ -84,8 +85,7 @@ public class ClassInfo {
         this.interfaces = List.copyOf(interfaces);
         if (methods != null) {
             this.methods = List.copyOf(methods);
-        }
-        else {
+        } else {
             this.methods = null;
         }
     }
@@ -135,7 +135,7 @@ public class ClassInfo {
     private boolean isSubclassOf(ClassInfo that) {
         for (ClassInfo classInfo = this; classInfo != null; classInfo = classInfo.getSuperclass()) {
             if (classInfo.getSuperclass() != null &&
-                classInfo.getSuperclass().type.equals(that.type)) {
+                    classInfo.getSuperclass().type.equals(that.type)) {
                 return true;
             }
         }

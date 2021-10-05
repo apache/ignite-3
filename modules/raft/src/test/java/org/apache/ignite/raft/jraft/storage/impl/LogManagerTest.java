@@ -14,7 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage.impl;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -49,13 +57,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(MockitoExtension.class)
 public class LogManagerTest extends BaseStorageTest {
@@ -100,9 +101,9 @@ public class LogManagerTest extends BaseStorageTest {
         opts.setRaftOptions(raftOptions);
         opts.setGroupId("TestSrv");
         opts.setLogManagerDisruptor(disruptor = new StripedDisruptor<>("TestLogManagerDisruptor",
-            1024,
-            () -> new LogManagerImpl.StableClosureEvent(),
-            1));
+                1024,
+                () -> new LogManagerImpl.StableClosureEvent(),
+                1));
         assertTrue(this.logManager.init(opts));
     }
 
@@ -264,8 +265,7 @@ public class LogManagerTest extends BaseStorageTest {
         for (int i = 0; i < 20; i++) {
             if (11 + i >= 15) {
                 mockEntries.get(i).getId().setTerm(2);
-            }
-            else {
+            } else {
                 mockEntries.get(i).getId().setTerm(1);
             }
             mockEntries.get(i).getId().setIndex(11 + i);
@@ -288,8 +288,7 @@ public class LogManagerTest extends BaseStorageTest {
             assertEquals(i + 1, entry.getId().getIndex());
             if (i + 1 >= 15) {
                 assertEquals(2, entry.getId().getTerm());
-            }
-            else {
+            } else {
                 assertEquals(1, entry.getId().getTerm());
             }
         }
@@ -381,28 +380,27 @@ public class LogManagerTest extends BaseStorageTest {
     public void testSetSnapshot() throws Exception {
         final List<LogEntry> entries = mockAddEntries();
         RaftOutter.SnapshotMeta meta = raftOptions.getRaftMessagesFactory().snapshotMeta()
-            .lastIncludedIndex(3)
-            .lastIncludedTerm(2)
-            .peersList(List.of("localhost:8081"))
-            .build();
+                .lastIncludedIndex(3)
+                .lastIncludedTerm(2)
+                .peersList(List.of("localhost:8081"))
+                .build();
         this.logManager.setSnapshot(meta);
         //Still valid
         for (int i = 0; i < 10; i++) {
             assertEquals(entries.get(i), this.logManager.getEntry(i + 1));
         }
         meta = raftOptions.getRaftMessagesFactory().snapshotMeta()
-            .lastIncludedIndex(5)
-            .lastIncludedTerm(4)
-            .peersList(List.of("localhost:8081"))
-            .build();
+                .lastIncludedIndex(5)
+                .lastIncludedTerm(4)
+                .peersList(List.of("localhost:8081"))
+                .build();
         this.logManager.setSnapshot(meta);
 
         Thread.sleep(1000);
         for (int i = 0; i < 10; i++) {
             if (i > 2) {
                 assertEquals(entries.get(i), this.logManager.getEntry(i + 1));
-            }
-            else {
+            } else {
                 //before index=3 logs were dropped.
                 assertNull(this.logManager.getEntry(i + 1));
             }

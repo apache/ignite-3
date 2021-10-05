@@ -17,6 +17,14 @@
 
 package org.apache.ignite.internal.tostring;
 
+import static java.util.Objects.nonNull;
+import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
+import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_TO_STRING_COLLECTION_LIMIT;
+import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_TO_STRING_IGNORE_RUNTIME_EXCEPTION;
+import static org.apache.ignite.lang.IgniteSystemProperties.getBoolean;
+import static org.apache.ignite.lang.IgniteSystemProperties.getInteger;
+import static org.apache.ignite.lang.IgniteSystemProperties.getString;
+
 import java.io.Externalizable;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -49,19 +57,11 @@ import org.apache.ignite.lang.IgniteSystemProperties;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import static java.util.Objects.nonNull;
-import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
-import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_TO_STRING_COLLECTION_LIMIT;
-import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_TO_STRING_IGNORE_RUNTIME_EXCEPTION;
-import static org.apache.ignite.lang.IgniteSystemProperties.getBoolean;
-import static org.apache.ignite.lang.IgniteSystemProperties.getInteger;
-import static org.apache.ignite.lang.IgniteSystemProperties.getString;
-
 /**
  * Provides auto-generation framework for {@code toString()} output.
  * <p>
- * In case of recursion, object fields will be printed only for the first entry to prevent recursion,
- * and all the next repeated entrances will be shown as "ClassName@hash".
+ * In case of recursion, object fields will be printed only for the first entry to prevent recursion, and all the next repeated entrances
+ * will be shown as "ClassName@hash".
  * <p>
  * Default exclusion policy (can be overridden with {@link IgniteToStringInclude} annotation):
  * <ul>
@@ -98,27 +98,27 @@ public class IgniteToStringBuilder {
 
     /** Supplier for {@link #includeSensitive} with default behavior. */
     private static final AtomicReference<Supplier<SensitiveDataLoggingPolicy>> SENS_DATA_LOG_SUP_REF =
-        new AtomicReference<>(new Supplier<>() {
-            /** Sensitive data logging policy. */
-            final SensitiveDataLoggingPolicy sensitiveDataLoggingPolicy =
-                SensitiveDataLoggingPolicy.valueOf(getString(IGNITE_SENSITIVE_DATA_LOGGING, "hash").toUpperCase());
+            new AtomicReference<>(new Supplier<>() {
+                /** Sensitive data logging policy. */
+                final SensitiveDataLoggingPolicy sensitiveDataLoggingPolicy =
+                        SensitiveDataLoggingPolicy.valueOf(getString(IGNITE_SENSITIVE_DATA_LOGGING, "hash").toUpperCase());
 
-            /** {@inheritDoc} */
-            @Override public SensitiveDataLoggingPolicy get() {
-                return sensitiveDataLoggingPolicy;
-            }
-        });
+                /** {@inheritDoc} */
+                @Override
+                public SensitiveDataLoggingPolicy get() {
+                    return sensitiveDataLoggingPolicy;
+                }
+            });
 
     /** Every thread has its own string builder. */
     private static final ThreadLocal<SBLimitedLength> threadLocSB = ThreadLocal.withInitial(() ->
-        new SBLimitedLength(256));
+            new SBLimitedLength(256));
 
     /**
      * Tracks the objects currently printing in the string builder.
      * <p>
-     * Since {@code toString()} methods can be chain-called from the same thread we
-     * have to keep a map of this objects pointed to the position of previous occurrence
-     * and remove/add them in each {@code toString(...)} apply.
+     * Since {@code toString()} methods can be chain-called from the same thread we have to keep a map of this objects pointed to the
+     * position of previous occurrence and remove/add them in each {@code toString(...)} apply.
      */
     private static final ThreadLocal<IdentityHashMap<Object, EntryReference>> savedObjects = ThreadLocal.withInitial(IdentityHashMap::new);
 
@@ -148,8 +148,7 @@ public class IgniteToStringBuilder {
     /**
      * Setting the logic of the {@link #includeSensitive} and {@link #getSensitiveDataLogging} methods.
      * <p>
-     * Overrides default supplier that uses {@link IgniteSystemProperties#IGNITE_SENSITIVE_DATA_LOGGING}
-     * system property.
+     * Overrides default supplier that uses {@link IgniteSystemProperties#IGNITE_SENSITIVE_DATA_LOGGING} system property.
      *
      * <b>Important!</b> Changing the logic is possible only until the first
      * call of {@link #includeSensitive} or {@link #getSensitiveDataLogging} methods.
@@ -183,143 +182,143 @@ public class IgniteToStringBuilder {
     /**
      * Produces auto-generated output of string presentation for given object and its declaration class.
      *
-     * @param <T> Type of the object.
-     * @param cls Declaration class of the object. Note that this should not be a runtime class.
-     * @param obj Object to get a string presentation for.
+     * @param <T>   Type of the object.
+     * @param cls   Declaration class of the object. Note that this should not be a runtime class.
+     * @param obj   Object to get a string presentation for.
      * @param name0 Additional parameter name.
-     * @param val0 Additional parameter value.
+     * @param val0  Additional parameter value.
      * @param name1 Additional parameter name.
-     * @param val1 Additional parameter value.
+     * @param val1  Additional parameter value.
      * @param name2 Additional parameter name.
-     * @param val2 Additional parameter value.
+     * @param val2  Additional parameter value.
      * @param name3 Additional parameter name.
-     * @param val3 Additional parameter value.
+     * @param val3  Additional parameter value.
      * @param name4 Additional parameter name.
-     * @param val4 Additional parameter value.
+     * @param val4  Additional parameter value.
      * @return String presentation of the given object.
      */
     public static <T> String toString(Class<T> cls, T obj,
-        String name0, Object val0,
-        String name1, Object val1,
-        String name2, Object val2,
-        String name3, Object val3,
-        String name4, Object val4) {
+            String name0, Object val0,
+            String name1, Object val1,
+            String name2, Object val2,
+            String name3, Object val3,
+            String name4, Object val4) {
         return toString(cls,
-            obj,
-            name0, val0, false,
-            name1, val1, false,
-            name2, val2, false,
-            name3, val3, false,
-            name4, val4, false);
+                obj,
+                name0, val0, false,
+                name1, val1, false,
+                name2, val2, false,
+                name3, val3, false,
+                name4, val4, false);
     }
 
     /**
      * Produces auto-generated output of string presentation for given object and its declaration class.
      *
-     * @param <T> Type of the object.
-     * @param cls Declaration class of the object. Note that this should not be a runtime class.
-     * @param obj Object to get a string presentation for.
+     * @param <T>   Type of the object.
+     * @param cls   Declaration class of the object. Note that this should not be a runtime class.
+     * @param obj   Object to get a string presentation for.
      * @param name0 Additional parameter name.
-     * @param val0 Additional parameter value.
+     * @param val0  Additional parameter value.
      * @param name1 Additional parameter name.
-     * @param val1 Additional parameter value.
+     * @param val1  Additional parameter value.
      * @param name2 Additional parameter name.
-     * @param val2 Additional parameter value.
+     * @param val2  Additional parameter value.
      * @param name3 Additional parameter name.
-     * @param val3 Additional parameter value.
+     * @param val3  Additional parameter value.
      * @param name4 Additional parameter name.
-     * @param val4 Additional parameter value.
+     * @param val4  Additional parameter value.
      * @param name5 Additional parameter name.
-     * @param val5 Additional parameter value.
+     * @param val5  Additional parameter value.
      * @return String presentation of the given object.
      */
     public static <T> String toString(Class<T> cls, T obj,
-        String name0, Object val0,
-        String name1, Object val1,
-        String name2, Object val2,
-        String name3, Object val3,
-        String name4, Object val4,
-        String name5, Object val5) {
+            String name0, Object val0,
+            String name1, Object val1,
+            String name2, Object val2,
+            String name3, Object val3,
+            String name4, Object val4,
+            String name5, Object val5) {
         return toString(cls,
-            obj,
-            name0, val0, false,
-            name1, val1, false,
-            name2, val2, false,
-            name3, val3, false,
-            name4, val4, false,
-            name5, val5, false);
+                obj,
+                name0, val0, false,
+                name1, val1, false,
+                name2, val2, false,
+                name3, val3, false,
+                name4, val4, false,
+                name5, val5, false);
     }
 
     /**
      * Produces auto-generated output of string presentation for given object and its declaration class.
      *
-     * @param <T> Type of the object.
-     * @param cls Declaration class of the object. Note that this should not be a runtime class.
-     * @param obj Object to get a string presentation for.
+     * @param <T>   Type of the object.
+     * @param cls   Declaration class of the object. Note that this should not be a runtime class.
+     * @param obj   Object to get a string presentation for.
      * @param name0 Additional parameter name.
-     * @param val0 Additional parameter value.
+     * @param val0  Additional parameter value.
      * @param name1 Additional parameter name.
-     * @param val1 Additional parameter value.
+     * @param val1  Additional parameter value.
      * @param name2 Additional parameter name.
-     * @param val2 Additional parameter value.
+     * @param val2  Additional parameter value.
      * @param name3 Additional parameter name.
-     * @param val3 Additional parameter value.
+     * @param val3  Additional parameter value.
      * @param name4 Additional parameter name.
-     * @param val4 Additional parameter value.
+     * @param val4  Additional parameter value.
      * @param name5 Additional parameter name.
-     * @param val5 Additional parameter value.
+     * @param val5  Additional parameter value.
      * @param name6 Additional parameter name.
-     * @param val6 Additional parameter value.
+     * @param val6  Additional parameter value.
      * @return String presentation of the given object.
      */
     public static <T> String toString(Class<T> cls, T obj,
-        String name0, Object val0,
-        String name1, Object val1,
-        String name2, Object val2,
-        String name3, Object val3,
-        String name4, Object val4,
-        String name5, Object val5,
-        String name6, Object val6) {
+            String name0, Object val0,
+            String name1, Object val1,
+            String name2, Object val2,
+            String name3, Object val3,
+            String name4, Object val4,
+            String name5, Object val5,
+            String name6, Object val6) {
         return toString(cls,
-            obj,
-            name0, val0, false,
-            name1, val1, false,
-            name2, val2, false,
-            name3, val3, false,
-            name4, val4, false,
-            name5, val5, false,
-            name6, val6, false);
+                obj,
+                name0, val0, false,
+                name1, val1, false,
+                name2, val2, false,
+                name3, val3, false,
+                name4, val4, false,
+                name5, val5, false,
+                name6, val6, false);
     }
 
     /**
      * Produces auto-generated output of string presentation for given object and its declaration class.
      *
-     * @param <T> Type of the object.
-     * @param cls Declaration class of the object. Note that this should not be a runtime class.
-     * @param obj Object to get a string presentation for.
+     * @param <T>   Type of the object.
+     * @param cls   Declaration class of the object. Note that this should not be a runtime class.
+     * @param obj   Object to get a string presentation for.
      * @param name0 Additional parameter name.
-     * @param val0 Additional parameter value.
+     * @param val0  Additional parameter value.
      * @param sens0 Property sensitive flag.
      * @param name1 Additional parameter name.
-     * @param val1 Additional parameter value.
+     * @param val1  Additional parameter value.
      * @param sens1 Property sensitive flag.
      * @param name2 Additional parameter name.
-     * @param val2 Additional parameter value.
+     * @param val2  Additional parameter value.
      * @param sens2 Property sensitive flag.
      * @param name3 Additional parameter name.
-     * @param val3 Additional parameter value.
+     * @param val3  Additional parameter value.
      * @param sens3 Property sensitive flag.
      * @param name4 Additional parameter name.
-     * @param val4 Additional parameter value.
+     * @param val4  Additional parameter value.
      * @param sens4 Property sensitive flag.
      * @return String presentation of the given object.
      */
     public static <T> String toString(Class<T> cls, T obj,
-        String name0, Object val0, boolean sens0,
-        String name1, Object val1, boolean sens1,
-        String name2, Object val2, boolean sens2,
-        String name3, Object val3, boolean sens3,
-        String name4, Object val4, boolean sens4) {
+            String name0, Object val0, boolean sens0,
+            String name1, Object val1, boolean sens1,
+            String name2, Object val2, boolean sens2,
+            String name3, Object val3, boolean sens3,
+            String name4, Object val4, boolean sens4) {
         assert cls != null;
         assert obj != null;
         assert name0 != null;
@@ -354,46 +353,46 @@ public class IgniteToStringBuilder {
 
         try {
             return toStringImpl(cls, sb, obj, addNames, addVals, addSens, 5);
-        }
-        finally {
-            if (newStr)
+        } finally {
+            if (newStr) {
                 sb.reset();
+            }
         }
     }
 
     /**
      * Produces auto-generated output of string presentation for given object and its declaration class.
      *
-     * @param <T> Type of the object.
-     * @param cls Declaration class of the object. Note that this should not be a runtime class.
-     * @param obj Object to get a string presentation for.
+     * @param <T>   Type of the object.
+     * @param cls   Declaration class of the object. Note that this should not be a runtime class.
+     * @param obj   Object to get a string presentation for.
      * @param name0 Additional parameter name.
-     * @param val0 Additional parameter value.
+     * @param val0  Additional parameter value.
      * @param sens0 Property sensitive flag.
      * @param name1 Additional parameter name.
-     * @param val1 Additional parameter value.
+     * @param val1  Additional parameter value.
      * @param sens1 Property sensitive flag.
      * @param name2 Additional parameter name.
-     * @param val2 Additional parameter value.
+     * @param val2  Additional parameter value.
      * @param sens2 Property sensitive flag.
      * @param name3 Additional parameter name.
-     * @param val3 Additional parameter value.
+     * @param val3  Additional parameter value.
      * @param sens3 Property sensitive flag.
      * @param name4 Additional parameter name.
-     * @param val4 Additional parameter value.
+     * @param val4  Additional parameter value.
      * @param sens4 Property sensitive flag.
      * @param name5 Additional parameter name.
-     * @param val5 Additional parameter value.
+     * @param val5  Additional parameter value.
      * @param sens5 Property sensitive flag.
      * @return String presentation of the given object.
      */
     public static <T> String toString(Class<T> cls, T obj,
-        String name0, Object val0, boolean sens0,
-        String name1, Object val1, boolean sens1,
-        String name2, Object val2, boolean sens2,
-        String name3, Object val3, boolean sens3,
-        String name4, Object val4, boolean sens4,
-        String name5, Object val5, boolean sens5) {
+            String name0, Object val0, boolean sens0,
+            String name1, Object val1, boolean sens1,
+            String name2, Object val2, boolean sens2,
+            String name3, Object val3, boolean sens3,
+            String name4, Object val4, boolean sens4,
+            String name5, Object val5, boolean sens5) {
         assert cls != null;
         assert obj != null;
         assert name0 != null;
@@ -432,50 +431,50 @@ public class IgniteToStringBuilder {
 
         try {
             return toStringImpl(cls, sb, obj, addNames, addVals, addSens, 6);
-        }
-        finally {
-            if (newStr)
+        } finally {
+            if (newStr) {
                 sb.reset();
+            }
         }
     }
 
     /**
      * Produces auto-generated output of string presentation for given object and its declaration class.
      *
-     * @param <T> Type of the object.
-     * @param cls Declaration class of the object. Note that this should not be a runtime class.
-     * @param obj Object to get a string presentation for.
+     * @param <T>   Type of the object.
+     * @param cls   Declaration class of the object. Note that this should not be a runtime class.
+     * @param obj   Object to get a string presentation for.
      * @param name0 Additional parameter name.
-     * @param val0 Additional parameter value.
+     * @param val0  Additional parameter value.
      * @param sens0 Property sensitive flag.
      * @param name1 Additional parameter name.
-     * @param val1 Additional parameter value.
+     * @param val1  Additional parameter value.
      * @param sens1 Property sensitive flag.
      * @param name2 Additional parameter name.
-     * @param val2 Additional parameter value.
+     * @param val2  Additional parameter value.
      * @param sens2 Property sensitive flag.
      * @param name3 Additional parameter name.
-     * @param val3 Additional parameter value.
+     * @param val3  Additional parameter value.
      * @param sens3 Property sensitive flag.
      * @param name4 Additional parameter name.
-     * @param val4 Additional parameter value.
+     * @param val4  Additional parameter value.
      * @param sens4 Property sensitive flag.
      * @param name5 Additional parameter name.
-     * @param val5 Additional parameter value.
+     * @param val5  Additional parameter value.
      * @param sens5 Property sensitive flag.
      * @param name6 Additional parameter name.
-     * @param val6 Additional parameter value.
+     * @param val6  Additional parameter value.
      * @param sens6 Property sensitive flag.
      * @return String presentation of the given object.
      */
     public static <T> String toString(Class<T> cls, T obj,
-        String name0, Object val0, boolean sens0,
-        String name1, Object val1, boolean sens1,
-        String name2, Object val2, boolean sens2,
-        String name3, Object val3, boolean sens3,
-        String name4, Object val4, boolean sens4,
-        String name5, Object val5, boolean sens5,
-        String name6, Object val6, boolean sens6) {
+            String name0, Object val0, boolean sens0,
+            String name1, Object val1, boolean sens1,
+            String name2, Object val2, boolean sens2,
+            String name3, Object val3, boolean sens3,
+            String name4, Object val4, boolean sens4,
+            String name5, Object val5, boolean sens5,
+            String name6, Object val6, boolean sens6) {
         assert cls != null;
         assert obj != null;
         assert name0 != null;
@@ -518,66 +517,66 @@ public class IgniteToStringBuilder {
 
         try {
             return toStringImpl(cls, sb, obj, addNames, addVals, addSens, 7);
-        }
-        finally {
-            if (newStr)
+        } finally {
+            if (newStr) {
                 sb.reset();
+            }
         }
     }
 
     /**
      * Produces auto-generated output of string presentation for given object and its declaration class.
      *
-     * @param <T> Type of the object.
-     * @param cls Declaration class of the object. Note that this should not be a runtime class.
-     * @param obj Object to get a string presentation for.
+     * @param <T>   Type of the object.
+     * @param cls   Declaration class of the object. Note that this should not be a runtime class.
+     * @param obj   Object to get a string presentation for.
      * @param name0 Additional parameter name.
-     * @param val0 Additional parameter value.
+     * @param val0  Additional parameter value.
      * @param name1 Additional parameter name.
-     * @param val1 Additional parameter value.
+     * @param val1  Additional parameter value.
      * @param name2 Additional parameter name.
-     * @param val2 Additional parameter value.
+     * @param val2  Additional parameter value.
      * @param name3 Additional parameter name.
-     * @param val3 Additional parameter value.
+     * @param val3  Additional parameter value.
      * @return String presentation of the given object.
      */
     public static <T> String toString(Class<T> cls, T obj,
-        String name0, Object val0,
-        String name1, Object val1,
-        String name2, Object val2,
-        String name3, Object val3) {
+            String name0, Object val0,
+            String name1, Object val1,
+            String name2, Object val2,
+            String name3, Object val3) {
         return toString(cls, obj,
-            name0, val0, false,
-            name1, val1, false,
-            name2, val2, false,
-            name3, val3, false);
+                name0, val0, false,
+                name1, val1, false,
+                name2, val2, false,
+                name3, val3, false);
     }
 
     /**
      * Produces auto-generated output of string presentation for given object and its declaration class.
      *
-     * @param <T> Type of the object.
-     * @param cls Declaration class of the object. Note that this should not be a runtime class.
-     * @param obj Object to get a string presentation for.
+     * @param <T>   Type of the object.
+     * @param cls   Declaration class of the object. Note that this should not be a runtime class.
+     * @param obj   Object to get a string presentation for.
      * @param name0 Additional parameter name.
-     * @param val0 Additional parameter value.
+     * @param val0  Additional parameter value.
      * @param sens0 Property sensitive flag.
      * @param name1 Additional parameter name.
-     * @param val1 Additional parameter value.
+     * @param val1  Additional parameter value.
      * @param sens1 Property sensitive flag.
      * @param name2 Additional parameter name.
-     * @param val2 Additional parameter value.
+     * @param val2  Additional parameter value.
      * @param sens2 Property sensitive flag.
      * @param name3 Additional parameter name.
-     * @param val3 Additional parameter value.
+     * @param val3  Additional parameter value.
      * @param sens3 Property sensitive flag.
      * @return String presentation of the given object.
      */
     public static <T> String toString(Class<T> cls, T obj,
-        String name0, Object val0, boolean sens0,
-        String name1, Object val1, boolean sens1,
-        String name2, Object val2, boolean sens2,
-        String name3, Object val3, boolean sens3) {
+            String name0, Object val0, boolean sens0,
+            String name1, Object val1, boolean sens1,
+            String name2, Object val2, boolean sens2,
+            String name3, Object val3, boolean sens3) {
         assert cls != null;
         assert obj != null;
         assert name0 != null;
@@ -608,59 +607,59 @@ public class IgniteToStringBuilder {
 
         try {
             return toStringImpl(cls, sb, obj, addNames, addVals, addSens, 4);
-        }
-        finally {
-            if (newStr)
+        } finally {
+            if (newStr) {
                 sb.reset();
+            }
         }
     }
 
     /**
      * Produces auto-generated output of string presentation for given object and its declaration class.
      *
-     * @param <T> Type of the object.
-     * @param cls Declaration class of the object. Note that this should not be a runtime class.
-     * @param obj Object to get a string presentation for.
+     * @param <T>   Type of the object.
+     * @param cls   Declaration class of the object. Note that this should not be a runtime class.
+     * @param obj   Object to get a string presentation for.
      * @param name0 Additional parameter name.
-     * @param val0 Additional parameter value.
+     * @param val0  Additional parameter value.
      * @param name1 Additional parameter name.
-     * @param val1 Additional parameter value.
+     * @param val1  Additional parameter value.
      * @param name2 Additional parameter name.
-     * @param val2 Additional parameter value.
+     * @param val2  Additional parameter value.
      * @return String presentation of the given object.
      */
     public static <T> String toString(Class<T> cls, T obj,
-        String name0, Object val0,
-        String name1, Object val1,
-        String name2, Object val2) {
+            String name0, Object val0,
+            String name1, Object val1,
+            String name2, Object val2) {
         return toString(cls,
-            obj,
-            name0, val0, false,
-            name1, val1, false,
-            name2, val2, false);
+                obj,
+                name0, val0, false,
+                name1, val1, false,
+                name2, val2, false);
     }
 
     /**
      * Produces auto-generated output of string presentation for given object and its declaration class.
      *
-     * @param <T> Type of the object.
-     * @param cls Declaration class of the object. Note that this should not be a runtime class.
-     * @param obj Object to get a string presentation for.
+     * @param <T>   Type of the object.
+     * @param cls   Declaration class of the object. Note that this should not be a runtime class.
+     * @param obj   Object to get a string presentation for.
      * @param name0 Additional parameter name.
-     * @param val0 Additional parameter value.
+     * @param val0  Additional parameter value.
      * @param sens0 Property sensitive flag.
      * @param name1 Additional parameter name.
-     * @param val1 Additional parameter value.
+     * @param val1  Additional parameter value.
      * @param sens1 Property sensitive flag.
      * @param name2 Additional parameter name.
-     * @param val2 Additional parameter value.
+     * @param val2  Additional parameter value.
      * @param sens2 Property sensitive flag.
      * @return String presentation of the given object.
      */
     public static <T> String toString(Class<T> cls, T obj,
-        String name0, Object val0, boolean sens0,
-        String name1, Object val1, boolean sens1,
-        String name2, Object val2, boolean sens2) {
+            String name0, Object val0, boolean sens0,
+            String name1, Object val1, boolean sens1,
+            String name2, Object val2, boolean sens2) {
         assert cls != null;
         assert obj != null;
         assert name0 != null;
@@ -687,48 +686,48 @@ public class IgniteToStringBuilder {
 
         try {
             return toStringImpl(cls, sb, obj, addNames, addVals, addSens, 3);
-        }
-        finally {
-            if (newStr)
+        } finally {
+            if (newStr) {
                 sb.reset();
+            }
         }
     }
 
     /**
      * Produces auto-generated output of string presentation for given object and its declaration class.
      *
-     * @param <T> Type of the object.
-     * @param cls Declaration class of the object. Note that this should not be a runtime class.
-     * @param obj Object to get a string presentation for.
+     * @param <T>   Type of the object.
+     * @param cls   Declaration class of the object. Note that this should not be a runtime class.
+     * @param obj   Object to get a string presentation for.
      * @param name0 Additional parameter name.
-     * @param val0 Additional parameter value.
+     * @param val0  Additional parameter value.
      * @param name1 Additional parameter name.
-     * @param val1 Additional parameter value.
+     * @param val1  Additional parameter value.
      * @return String presentation of the given object.
      */
     public static <T> String toString(Class<T> cls, T obj,
-        String name0, Object val0,
-        String name1, Object val1) {
+            String name0, Object val0,
+            String name1, Object val1) {
         return toString(cls, obj, name0, val0, false, name1, val1, false);
     }
 
     /**
      * Produces auto-generated output of string presentation for given object and its declaration class.
      *
-     * @param <T> Type of the object.
-     * @param cls Declaration class of the object. Note that this should not be a runtime class.
-     * @param obj Object to get a string presentation for.
+     * @param <T>   Type of the object.
+     * @param cls   Declaration class of the object. Note that this should not be a runtime class.
+     * @param obj   Object to get a string presentation for.
      * @param name0 Additional parameter name.
-     * @param val0 Additional parameter value.
+     * @param val0  Additional parameter value.
      * @param sens0 Property sensitive flag.
      * @param name1 Additional parameter name.
-     * @param val1 Additional parameter value.
+     * @param val1  Additional parameter value.
      * @param sens1 Property sensitive flag.
      * @return String presentation of the given object.
      */
     public static <T> String toString(Class<T> cls, T obj,
-        String name0, Object val0, boolean sens0,
-        String name1, Object val1, boolean sens1) {
+            String name0, Object val0, boolean sens0,
+            String name1, Object val1, boolean sens1) {
         assert cls != null;
         assert obj != null;
         assert name0 != null;
@@ -751,21 +750,21 @@ public class IgniteToStringBuilder {
 
         try {
             return toStringImpl(cls, sb, obj, addNames, addVals, addSens, 2);
-        }
-        finally {
-            if (newStr)
+        } finally {
+            if (newStr) {
                 sb.reset();
+            }
         }
     }
 
     /**
      * Produces auto-generated output of string presentation for given object and its declaration class.
      *
-     * @param <T> Type of the object.
-     * @param cls Declaration class of the object. Note that this should not be a runtime class.
-     * @param obj Object to get a string presentation for.
+     * @param <T>  Type of the object.
+     * @param cls  Declaration class of the object. Note that this should not be a runtime class.
+     * @param obj  Object to get a string presentation for.
      * @param name Additional parameter name.
-     * @param val Additional parameter value.
+     * @param val  Additional parameter value.
      * @return String presentation of the given object.
      */
     public static <T> String toString(Class<T> cls, T obj, String name, @Nullable Object val) {
@@ -775,11 +774,11 @@ public class IgniteToStringBuilder {
     /**
      * Produces auto-generated output of string presentation for given object and its declaration class.
      *
-     * @param <T> Type of the object.
-     * @param cls Declaration class of the object. Note that this should not be a runtime class.
-     * @param obj Object to get a string presentation for.
+     * @param <T>  Type of the object.
+     * @param cls  Declaration class of the object. Note that this should not be a runtime class.
+     * @param obj  Object to get a string presentation for.
      * @param name Additional parameter name.
-     * @param val Additional parameter value.
+     * @param val  Additional parameter value.
      * @param sens Property sensitive flag.
      * @return String presentation of the given object.
      */
@@ -802,10 +801,10 @@ public class IgniteToStringBuilder {
 
         try {
             return toStringImpl(cls, sb, obj, addNames, addVals, addSens, 1);
-        }
-        finally {
-            if (newStr)
+        } finally {
+            if (newStr) {
                 sb.reset();
+            }
         }
     }
 
@@ -827,19 +826,19 @@ public class IgniteToStringBuilder {
 
         try {
             return toStringImpl(cls, sb, obj, EMPTY_ARRAY, EMPTY_ARRAY, null, 0);
-        }
-        finally {
-            if (newStr)
+        } finally {
+            if (newStr) {
                 sb.reset();
+            }
         }
     }
 
     /**
      * Produces auto-generated output of string presentation for given object and its declaration class.
      *
-     * @param <T> Type of the object.
-     * @param cls Declaration class of the object. Note that this should not be a runtime class.
-     * @param obj Object to get a string presentation for.
+     * @param <T>    Type of the object.
+     * @param cls    Declaration class of the object. Note that this should not be a runtime class.
+     * @param obj    Object to get a string presentation for.
      * @param parent String representation of parent.
      * @return String presentation of the given object.
      */
@@ -871,8 +870,9 @@ public class IgniteToStringBuilder {
             return;
         }
 
-        if (cls == null)
+        if (cls == null) {
             cls = val.getClass();
+        }
 
         if (cls.isPrimitive()) {
             buf.a(val);
@@ -882,22 +882,23 @@ public class IgniteToStringBuilder {
 
         IdentityHashMap<Object, EntryReference> svdObjs = savedObjects.get();
 
-        if (handleRecursion(buf, val, cls, svdObjs))
+        if (handleRecursion(buf, val, cls, svdObjs)) {
             return;
+        }
 
         svdObjs.put(val, new EntryReference(buf.length()));
 
         try {
-            if (cls.isArray())
+            if (cls.isArray()) {
                 addArray(buf, cls, val);
-            else if (val instanceof Collection)
-                addCollection(buf, (Collection<?>)val);
-            else if (val instanceof Map)
-                addMap(buf, (Map<?, ?>)val);
-            else
+            } else if (val instanceof Collection) {
+                addCollection(buf, (Collection<?>) val);
+            } else if (val instanceof Map) {
+                addMap(buf, (Map<?, ?>) val);
+            } else {
                 buf.a(val);
-        }
-        finally {
+            }
+        } finally {
             svdObjs.remove(val);
         }
     }
@@ -905,9 +906,9 @@ public class IgniteToStringBuilder {
     /**
      * Writes array to buffer.
      *
-     * @param buf String builder buffer.
+     * @param buf     String builder buffer.
      * @param arrType Type of the array.
-     * @param obj Array object.
+     * @param obj     Array object.
      */
     private static void addArray(SBLimitedLength buf, Class arrType, Object obj) {
         if (arrType.getComponentType().isPrimitive()) {
@@ -916,15 +917,16 @@ public class IgniteToStringBuilder {
             return;
         }
 
-        Object[] arr = (Object[])obj;
+        Object[] arr = (Object[]) obj;
 
         buf.a(arrType.getSimpleName()).a(" [");
 
         for (int i = 0; i < arr.length; i++) {
             toString(buf, arr[i]);
 
-            if (i == COLLECTION_LIMIT - 1 || i == arr.length - 1)
+            if (i == COLLECTION_LIMIT - 1 || i == arr.length - 1) {
                 break;
+            }
 
             buf.a(", ");
         }
@@ -954,8 +956,7 @@ public class IgniteToStringBuilder {
 
             try {
                 obj = iter.next();
-            }
-            catch (ConcurrentModificationException e) {
+            } catch (ConcurrentModificationException e) {
                 handleConcurrentModification(buf, cnt, colSize);
 
                 needHandleOverflow = false;
@@ -964,14 +965,16 @@ public class IgniteToStringBuilder {
 
             toString(buf, obj);
 
-            if (++cnt == COLLECTION_LIMIT || cnt == colSize)
+            if (++cnt == COLLECTION_LIMIT || cnt == colSize) {
                 break;
+            }
 
             buf.a(", ");
         }
 
-        if (needHandleOverflow)
+        if (needHandleOverflow) {
             handleOverflow(buf, colSize);
+        }
 
         buf.a(']');
     }
@@ -1000,8 +1003,7 @@ public class IgniteToStringBuilder {
 
                 key = entry.getKey();
                 value = entry.getValue();
-            }
-            catch (ConcurrentModificationException e) {
+            } catch (ConcurrentModificationException e) {
                 handleConcurrentModification(buf, cnt, mapSize);
 
                 needHandleOverflow = false;
@@ -1014,14 +1016,16 @@ public class IgniteToStringBuilder {
 
             toString(buf, value);
 
-            if (++cnt == COLLECTION_LIMIT || cnt == mapSize)
+            if (++cnt == COLLECTION_LIMIT || cnt == mapSize) {
                 break;
+            }
 
             buf.a(", ");
         }
 
-        if (needHandleOverflow)
+        if (needHandleOverflow) {
             handleOverflow(buf, mapSize);
+        }
 
         buf.a('}');
     }
@@ -1029,49 +1033,50 @@ public class IgniteToStringBuilder {
     /**
      * Writes overflow message to buffer if needed.
      *
-     * @param buf String builder buffer.
+     * @param buf  String builder buffer.
      * @param size Size to compare with limit.
      */
     private static void handleOverflow(SBLimitedLength buf, int size) {
         int overflow = size - COLLECTION_LIMIT;
 
-        if (overflow > 0)
+        if (overflow > 0) {
             buf.a("... and ").a(overflow).a(" more");
+        }
     }
 
     /**
      * Writes message about situation of ConcurrentModificationException caught when iterating over collection.
      *
-     * @param buf String builder buffer.
+     * @param buf             String builder buffer.
      * @param writtenElements Number of elements successfully written to output.
-     * @param size Overall size of collection.
+     * @param size            Overall size of collection.
      */
     private static void handleConcurrentModification(SBLimitedLength buf, int writtenElements, int size) {
         buf.a("... concurrent modification was detected, ").a(writtenElements).a(" out of ").a(size)
-            .a(" were written");
+                .a(" were written");
     }
 
     /**
      * Creates an uniformed string presentation for the given object.
      *
-     * @param <T> Type of object.
-     * @param cls Class of the object.
-     * @param buf String builder buffer.
-     * @param obj Object for which to get string presentation.
+     * @param <T>      Type of object.
+     * @param cls      Class of the object.
+     * @param buf      String builder buffer.
+     * @param obj      Object for which to get string presentation.
      * @param addNames Names of additional values to be included.
-     * @param addVals Additional values to be included.
-     * @param addSens Sensitive flag of values or {@code null} if all values are not sensitive.
-     * @param addLen How many additional values will be included.
+     * @param addVals  Additional values to be included.
+     * @param addSens  Sensitive flag of values or {@code null} if all values are not sensitive.
+     * @param addLen   How many additional values will be included.
      * @return String presentation of the given object.
      */
     private static <T> String toStringImpl(
-        Class<T> cls,
-        SBLimitedLength buf,
-        T obj,
-        Object[] addNames,
-        Object[] addVals,
-        @Nullable boolean[] addSens,
-        int addLen) {
+            Class<T> cls,
+            SBLimitedLength buf,
+            T obj,
+            Object[] addNames,
+            Object[] addVals,
+            @Nullable boolean[] addSens,
+            int addLen) {
         assert cls != null;
         assert buf != null;
         assert obj != null;
@@ -1084,48 +1089,50 @@ public class IgniteToStringBuilder {
 
         IdentityHashMap<Object, EntryReference> svdObjs = savedObjects.get();
 
-        if (newStr)
+        if (newStr) {
             svdObjs.put(obj, new EntryReference(buf.length()));
+        }
 
         try {
             int len = buf.length();
 
             String s = toStringImpl0(cls, buf, obj, addNames, addVals, addSens, addLen);
 
-            if (newStr)
+            if (newStr) {
                 return s;
+            }
 
             buf.setLength(len);
 
             return s.substring(len);
-        }
-        finally {
-            if (newStr)
+        } finally {
+            if (newStr) {
                 svdObjs.remove(obj);
+            }
         }
     }
 
     /**
      * Creates an uniformed string presentation for the given object.
      *
-     * @param cls Class of the object.
-     * @param buf String builder buffer.
-     * @param obj Object for which to get string presentation.
+     * @param cls      Class of the object.
+     * @param buf      String builder buffer.
+     * @param obj      Object for which to get string presentation.
      * @param addNames Names of additional values to be included.
-     * @param addVals Additional values to be included.
-     * @param addSens Sensitive flag of values or {@code null} if all values are not sensitive.
-     * @param addLen How many additional values will be included.
-     * @param <T> Type of object.
+     * @param addVals  Additional values to be included.
+     * @param addSens  Sensitive flag of values or {@code null} if all values are not sensitive.
+     * @param addLen   How many additional values will be included.
+     * @param <T>      Type of object.
      * @return String presentation of the given object.
      */
     private static <T> String toStringImpl0(
-        Class<T> cls,
-        SBLimitedLength buf,
-        T obj,
-        Object[] addNames,
-        Object[] addVals,
-        @Nullable boolean[] addSens,
-        int addLen
+            Class<T> cls,
+            SBLimitedLength buf,
+            T obj,
+            Object[] addNames,
+            Object[] addVals,
+            @Nullable boolean[] addSens,
+            int addLen
     ) {
         try {
             ClassDescriptor cd = getClassDescriptor(cls);
@@ -1147,10 +1154,11 @@ public class IgniteToStringBuilder {
             boolean first = true;
 
             for (FieldDescriptor fd : cd.getFields()) {
-                if (!first)
+                if (!first) {
                     buf.a(", ");
-                else
+                } else {
                     first = false;
+                }
 
                 buf.a(fd.getName()).a('=');
 
@@ -1160,47 +1168,46 @@ public class IgniteToStringBuilder {
                     case FieldDescriptor.FIELD_TYPE_OBJECT:
                         try {
                             toString(buf, fd.fieldClass(), fH.get(obj));
-                        }
-                        catch (RuntimeException e) {
+                        } catch (RuntimeException e) {
                             if (IGNORE_RUNTIME_EXCEPTION) {
                                 buf.a("Runtime exception was caught when building string representation: " +
-                                    e.getMessage());
-                            }
-                            else
+                                        e.getMessage());
+                            } else {
                                 throw e;
+                            }
                         }
 
                         break;
                     case FieldDescriptor.FIELD_TYPE_BYTE:
-                        buf.a((byte)fH.get(obj));
+                        buf.a((byte) fH.get(obj));
 
                         break;
                     case FieldDescriptor.FIELD_TYPE_BOOLEAN:
-                        buf.a((boolean)fH.get(obj));
+                        buf.a((boolean) fH.get(obj));
 
                         break;
                     case FieldDescriptor.FIELD_TYPE_CHAR:
-                        buf.a((char)fH.get(obj));
+                        buf.a((char) fH.get(obj));
 
                         break;
                     case FieldDescriptor.FIELD_TYPE_SHORT:
-                        buf.a((short)fH.get(obj));
+                        buf.a((short) fH.get(obj));
 
                         break;
                     case FieldDescriptor.FIELD_TYPE_INT:
-                        buf.a((int)fH.get(obj));
+                        buf.a((int) fH.get(obj));
 
                         break;
                     case FieldDescriptor.FIELD_TYPE_FLOAT:
-                        buf.a((float)fH.get(obj));
+                        buf.a((float) fH.get(obj));
 
                         break;
                     case FieldDescriptor.FIELD_TYPE_LONG:
-                        buf.a((long)fH.get(obj));
+                        buf.a((long) fH.get(obj));
 
                         break;
                     case FieldDescriptor.FIELD_TYPE_DOUBLE:
-                        buf.a((double)fH.get(obj));
+                        buf.a((double) fH.get(obj));
 
                         break;
                 }
@@ -1226,9 +1233,9 @@ public class IgniteToStringBuilder {
     /**
      * Produces uniformed output of string with context properties
      *
-     * @param str Output prefix or {@code null} if empty.
+     * @param str  Output prefix or {@code null} if empty.
      * @param name Property name.
-     * @param val Property value.
+     * @param val  Property value.
      * @return String presentation.
      */
     public static String toString(String str, String name, @Nullable Object val) {
@@ -1242,24 +1249,25 @@ public class IgniteToStringBuilder {
      * @return String representation of an array.
      */
     public static String arrayToString(Object arr) {
-        if (arr == null)
+        if (arr == null) {
             return "null";
+        }
 
         String res;
 
         int arrLen;
 
         if (arr instanceof Object[]) {
-            Object[] objArr = (Object[])arr;
+            Object[] objArr = (Object[]) arr;
 
             arrLen = objArr.length;
 
-            if (arrLen > COLLECTION_LIMIT)
+            if (arrLen > COLLECTION_LIMIT) {
                 objArr = Arrays.copyOf(objArr, COLLECTION_LIMIT);
+            }
 
             res = Arrays.toString(objArr);
-        }
-        else {
+        } else {
             res = toStringWithLimit(arr, COLLECTION_LIMIT);
 
             arrLen = Array.getLength(arr);
@@ -1281,15 +1289,16 @@ public class IgniteToStringBuilder {
     /**
      * Returns limited string representation of array.
      *
-     * @param arr Input array. Each value is automatically wrapped if it has a primitive type.
+     * @param arr   Input array. Each value is automatically wrapped if it has a primitive type.
      * @param limit max array items to string limit.
      * @return String representation of an array.
      */
     private static String toStringWithLimit(Object arr, int limit) {
         int arrIdxMax = Array.getLength(arr) - 1;
 
-        if (arrIdxMax == -1)
+        if (arrIdxMax == -1) {
             return "[]";
+        }
 
         int idxMax = Math.min(arrIdxMax, limit);
 
@@ -1300,8 +1309,9 @@ public class IgniteToStringBuilder {
         for (int i = 0; i <= idxMax; ++i) {
             b.append(Array.get(arr, i));
 
-            if (i == idxMax)
+            if (i == idxMax) {
                 return b.append(']').toString();
+            }
 
             b.append(", ");
         }
@@ -1312,9 +1322,9 @@ public class IgniteToStringBuilder {
     /**
      * Produces uniformed output of string with context properties
      *
-     * @param str Output prefix or {@code null} if empty.
+     * @param str  Output prefix or {@code null} if empty.
      * @param name Property name.
-     * @param val Property value.
+     * @param val  Property value.
      * @param sens Property sensitive flag.
      * @return String presentation.
      */
@@ -1335,60 +1345,60 @@ public class IgniteToStringBuilder {
 
         try {
             return toStringImpl(str, sb, propNames, propVals, propSens, 1);
-        }
-        finally {
-            if (newStr)
+        } finally {
+            if (newStr) {
                 sb.reset();
+            }
         }
     }
 
     /**
      * Produces uniformed output of string with context properties
      *
-     * @param str Output prefix or {@code null} if empty.
+     * @param str   Output prefix or {@code null} if empty.
      * @param name0 Property name.
-     * @param val0 Property value.
+     * @param val0  Property value.
      * @param name1 Property name.
-     * @param val1 Property value.
+     * @param val1  Property value.
      * @return String presentation.
      */
     public static String toString(String str, String name0, @Nullable Object val0, String name1,
-        @Nullable Object val1) {
+            @Nullable Object val1) {
         return toString(str, name0, val0, false, name1, val1, false);
     }
 
     /**
      * Produces uniformed output of string with context properties
      *
-     * @param str Output prefix or {@code null} if empty.
+     * @param str   Output prefix or {@code null} if empty.
      * @param name0 Property name.
-     * @param val0 Property value.
+     * @param val0  Property value.
      * @param name1 Property name.
-     * @param val1 Property value.
+     * @param val1  Property value.
      * @param name2 Property name.
-     * @param val2 Property value.
+     * @param val2  Property value.
      * @return String presentation.
      */
     public static String toString(String str, String name0, @Nullable Object val0, String name1,
-        @Nullable Object val1, String name2, @Nullable Object val2) {
+            @Nullable Object val1, String name2, @Nullable Object val2) {
         return toString(str, name0, val0, false, name1, val1, false, name2, val2, false);
     }
 
     /**
      * Produces uniformed output of string with context properties
      *
-     * @param str Output prefix or {@code null} if empty.
+     * @param str   Output prefix or {@code null} if empty.
      * @param name0 Property name.
-     * @param val0 Property value.
+     * @param val0  Property value.
      * @param sens0 Property sensitive flag.
      * @param name1 Property name.
-     * @param val1 Property value.
+     * @param val1  Property value.
      * @param sens1 Property sensitive flag.
      * @return String presentation.
      */
     public static String toString(String str,
-        String name0, @Nullable Object val0, boolean sens0,
-        String name1, @Nullable Object val1, boolean sens1) {
+            String name0, @Nullable Object val0, boolean sens0,
+            String name1, @Nullable Object val1, boolean sens1) {
         assert name0 != null;
         assert name1 != null;
 
@@ -1409,32 +1419,32 @@ public class IgniteToStringBuilder {
 
         try {
             return toStringImpl(str, sb, propNames, propVals, propSens, 2);
-        }
-        finally {
-            if (newStr)
+        } finally {
+            if (newStr) {
                 sb.reset();
+            }
         }
     }
 
     /**
      * Produces uniformed output of string with context properties
      *
-     * @param str Output prefix or {@code null} if empty.
+     * @param str   Output prefix or {@code null} if empty.
      * @param name0 Property name.
-     * @param val0 Property value.
+     * @param val0  Property value.
      * @param sens0 Property sensitive flag.
      * @param name1 Property name.
-     * @param val1 Property value.
+     * @param val1  Property value.
      * @param sens1 Property sensitive flag.
      * @param name2 Property name.
-     * @param val2 Property value.
+     * @param val2  Property value.
      * @param sens2 Property sensitive flag.
      * @return String presentation.
      */
     public static String toString(String str,
-        String name0, @Nullable Object val0, boolean sens0,
-        String name1, @Nullable Object val1, boolean sens1,
-        String name2, @Nullable Object val2, boolean sens2) {
+            String name0, @Nullable Object val0, boolean sens0,
+            String name1, @Nullable Object val1, boolean sens1,
+            String name2, @Nullable Object val2, boolean sens2) {
         assert name0 != null;
         assert name1 != null;
         assert name2 != null;
@@ -1459,36 +1469,36 @@ public class IgniteToStringBuilder {
 
         try {
             return toStringImpl(str, sb, propNames, propVals, propSens, 3);
-        }
-        finally {
-            if (newStr)
+        } finally {
+            if (newStr) {
                 sb.reset();
+            }
         }
     }
 
     /**
      * Produces uniformed output of string with context properties
      *
-     * @param str Output prefix or {@code null} if empty.
+     * @param str   Output prefix or {@code null} if empty.
      * @param name0 Property name.
-     * @param val0 Property value.
+     * @param val0  Property value.
      * @param sens0 Property sensitive flag.
      * @param name1 Property name.
-     * @param val1 Property value.
+     * @param val1  Property value.
      * @param sens1 Property sensitive flag.
      * @param name2 Property name.
-     * @param val2 Property value.
+     * @param val2  Property value.
      * @param sens2 Property sensitive flag.
      * @param name3 Property name.
-     * @param val3 Property value.
+     * @param val3  Property value.
      * @param sens3 Property sensitive flag.
      * @return String presentation.
      */
     public static String toString(String str,
-        String name0, @Nullable Object val0, boolean sens0,
-        String name1, @Nullable Object val1, boolean sens1,
-        String name2, @Nullable Object val2, boolean sens2,
-        String name3, @Nullable Object val3, boolean sens3) {
+            String name0, @Nullable Object val0, boolean sens0,
+            String name1, @Nullable Object val1, boolean sens1,
+            String name2, @Nullable Object val2, boolean sens2,
+            String name3, @Nullable Object val3, boolean sens3) {
         assert name0 != null;
         assert name1 != null;
         assert name2 != null;
@@ -1517,40 +1527,40 @@ public class IgniteToStringBuilder {
 
         try {
             return toStringImpl(str, sb, propNames, propVals, propSens, 4);
-        }
-        finally {
-            if (newStr)
+        } finally {
+            if (newStr) {
                 sb.reset();
+            }
         }
     }
 
     /**
      * Produces uniformed output of string with context properties
      *
-     * @param str Output prefix or {@code null} if empty.
+     * @param str   Output prefix or {@code null} if empty.
      * @param name0 Property name.
-     * @param val0 Property value.
+     * @param val0  Property value.
      * @param sens0 Property sensitive flag.
      * @param name1 Property name.
-     * @param val1 Property value.
+     * @param val1  Property value.
      * @param sens1 Property sensitive flag.
      * @param name2 Property name.
-     * @param val2 Property value.
+     * @param val2  Property value.
      * @param sens2 Property sensitive flag.
      * @param name3 Property name.
-     * @param val3 Property value.
+     * @param val3  Property value.
      * @param sens3 Property sensitive flag.
      * @param name4 Property name.
-     * @param val4 Property value.
+     * @param val4  Property value.
      * @param sens4 Property sensitive flag.
      * @return String presentation.
      */
     public static String toString(String str,
-        String name0, @Nullable Object val0, boolean sens0,
-        String name1, @Nullable Object val1, boolean sens1,
-        String name2, @Nullable Object val2, boolean sens2,
-        String name3, @Nullable Object val3, boolean sens3,
-        String name4, @Nullable Object val4, boolean sens4) {
+            String name0, @Nullable Object val0, boolean sens0,
+            String name1, @Nullable Object val1, boolean sens1,
+            String name2, @Nullable Object val2, boolean sens2,
+            String name3, @Nullable Object val3, boolean sens3,
+            String name4, @Nullable Object val4, boolean sens4) {
         assert name0 != null;
         assert name1 != null;
         assert name2 != null;
@@ -1583,44 +1593,44 @@ public class IgniteToStringBuilder {
 
         try {
             return toStringImpl(str, sb, propNames, propVals, propSens, 5);
-        }
-        finally {
-            if (newStr)
+        } finally {
+            if (newStr) {
                 sb.reset();
+            }
         }
     }
 
     /**
      * Produces uniformed output of string with context properties
      *
-     * @param str Output prefix or {@code null} if empty.
+     * @param str   Output prefix or {@code null} if empty.
      * @param name0 Property name.
-     * @param val0 Property value.
+     * @param val0  Property value.
      * @param sens0 Property sensitive flag.
      * @param name1 Property name.
-     * @param val1 Property value.
+     * @param val1  Property value.
      * @param sens1 Property sensitive flag.
      * @param name2 Property name.
-     * @param val2 Property value.
+     * @param val2  Property value.
      * @param sens2 Property sensitive flag.
      * @param name3 Property name.
-     * @param val3 Property value.
+     * @param val3  Property value.
      * @param sens3 Property sensitive flag.
      * @param name4 Property name.
-     * @param val4 Property value.
+     * @param val4  Property value.
      * @param sens4 Property sensitive flag.
      * @param name5 Property name.
-     * @param val5 Property value.
+     * @param val5  Property value.
      * @param sens5 Property sensitive flag.
      * @return String presentation.
      */
     public static String toString(String str,
-        String name0, @Nullable Object val0, boolean sens0,
-        String name1, @Nullable Object val1, boolean sens1,
-        String name2, @Nullable Object val2, boolean sens2,
-        String name3, @Nullable Object val3, boolean sens3,
-        String name4, @Nullable Object val4, boolean sens4,
-        String name5, @Nullable Object val5, boolean sens5) {
+            String name0, @Nullable Object val0, boolean sens0,
+            String name1, @Nullable Object val1, boolean sens1,
+            String name2, @Nullable Object val2, boolean sens2,
+            String name3, @Nullable Object val3, boolean sens3,
+            String name4, @Nullable Object val4, boolean sens4,
+            String name5, @Nullable Object val5, boolean sens5) {
         assert name0 != null;
         assert name1 != null;
         assert name2 != null;
@@ -1657,48 +1667,48 @@ public class IgniteToStringBuilder {
 
         try {
             return toStringImpl(str, sb, propNames, propVals, propSens, 6);
-        }
-        finally {
-            if (newStr)
+        } finally {
+            if (newStr) {
                 sb.reset();
+            }
         }
     }
 
     /**
      * Produces uniformed output of string with context properties
      *
-     * @param str Output prefix or {@code null} if empty.
+     * @param str   Output prefix or {@code null} if empty.
      * @param name0 Property name.
-     * @param val0 Property value.
+     * @param val0  Property value.
      * @param sens0 Property sensitive flag.
      * @param name1 Property name.
-     * @param val1 Property value.
+     * @param val1  Property value.
      * @param sens1 Property sensitive flag.
      * @param name2 Property name.
-     * @param val2 Property value.
+     * @param val2  Property value.
      * @param sens2 Property sensitive flag.
      * @param name3 Property name.
-     * @param val3 Property value.
+     * @param val3  Property value.
      * @param sens3 Property sensitive flag.
      * @param name4 Property name.
-     * @param val4 Property value.
+     * @param val4  Property value.
      * @param sens4 Property sensitive flag.
      * @param name5 Property name.
-     * @param val5 Property value.
+     * @param val5  Property value.
      * @param sens5 Property sensitive flag.
      * @param name6 Property name.
-     * @param val6 Property value.
+     * @param val6  Property value.
      * @param sens6 Property sensitive flag.
      * @return String presentation.
      */
     public static String toString(String str,
-        String name0, @Nullable Object val0, boolean sens0,
-        String name1, @Nullable Object val1, boolean sens1,
-        String name2, @Nullable Object val2, boolean sens2,
-        String name3, @Nullable Object val3, boolean sens3,
-        String name4, @Nullable Object val4, boolean sens4,
-        String name5, @Nullable Object val5, boolean sens5,
-        String name6, @Nullable Object val6, boolean sens6) {
+            String name0, @Nullable Object val0, boolean sens0,
+            String name1, @Nullable Object val1, boolean sens1,
+            String name2, @Nullable Object val2, boolean sens2,
+            String name3, @Nullable Object val3, boolean sens3,
+            String name4, @Nullable Object val4, boolean sens4,
+            String name5, @Nullable Object val5, boolean sens5,
+            String name6, @Nullable Object val6, boolean sens6) {
         assert name0 != null;
         assert name1 != null;
         assert name2 != null;
@@ -1739,23 +1749,24 @@ public class IgniteToStringBuilder {
 
         try {
             return toStringImpl(str, sb, propNames, propVals, propSens, 7);
-        }
-        finally {
-            if (newStr)
+        } finally {
+            if (newStr) {
                 sb.reset();
+            }
         }
     }
 
     /**
      * Produces uniformed output of string with context properties
      *
-     * @param str Output prefix or {@code null} if empty.
+     * @param str      Output prefix or {@code null} if empty.
      * @param triplets Triplets {@code {name, value, sensitivity}}.
      * @return String presentation.
      */
     public static String toString(String str, Object... triplets) {
-        if (triplets.length % 3 != 0)
+        if (triplets.length % 3 != 0) {
             throw new IllegalArgumentException("Array length must be a multiple of 3");
+        }
 
         int propCnt = triplets.length / 3;
 
@@ -1776,7 +1787,7 @@ public class IgniteToStringBuilder {
 
             assert sens instanceof Boolean;
 
-            propSens[i] = (Boolean)sens;
+            propSens[i] = (Boolean) sens;
         }
 
         SBLimitedLength sb = threadLocSB.get();
@@ -1785,31 +1796,32 @@ public class IgniteToStringBuilder {
 
         try {
             return toStringImpl(str, sb, propNames, propVals, propSens, propCnt);
-        }
-        finally {
-            if (newStr)
+        } finally {
+            if (newStr) {
                 sb.reset();
+            }
         }
     }
 
     /**
      * Creates an uniformed string presentation for the binary-like object.
      *
-     * @param str Output prefix or {@code null} if empty.
-     * @param buf String builder buffer.
+     * @param str       Output prefix or {@code null} if empty.
+     * @param buf       String builder buffer.
      * @param propNames Names of object properties.
-     * @param propVals Property values.
-     * @param propSens Sensitive flag of values or {@code null} if all values is not sensitive.
-     * @param propCnt Properties count.
+     * @param propVals  Property values.
+     * @param propSens  Sensitive flag of values or {@code null} if all values is not sensitive.
+     * @param propCnt   Properties count.
      * @return String presentation of the object.
      */
     private static String toStringImpl(String str, SBLimitedLength buf, Object[] propNames, Object[] propVals,
-        boolean[] propSens, int propCnt) {
+            boolean[] propSens, int propCnt) {
 
         boolean newStr = buf.length() == 0;
 
-        if (str != null)
+        if (str != null) {
             buf.a(str).a(" ");
+        }
 
         buf.a("[");
 
@@ -1817,8 +1829,9 @@ public class IgniteToStringBuilder {
 
         buf.a(']');
 
-        if (newStr)
+        if (newStr) {
             return buf.toString();
+        }
 
         // Called from another ITSB.toString(), so this string is already in the buffer and shouldn't be returned.
         return "";
@@ -1827,37 +1840,40 @@ public class IgniteToStringBuilder {
     /**
      * Append additional values to the buffer.
      *
-     * @param buf Buffer.
-     * @param first First value flag.
+     * @param buf      Buffer.
+     * @param first    First value flag.
      * @param addNames Names of additional values to be included.
-     * @param addVals Additional values to be included.
-     * @param addSens Sensitive flag of values or {@code null} if all values are not sensitive.
-     * @param addLen How many additional values will be included.
+     * @param addVals  Additional values to be included.
+     * @param addSens  Sensitive flag of values or {@code null} if all values are not sensitive.
+     * @param addLen   How many additional values will be included.
      */
     private static void appendVals(SBLimitedLength buf,
-        boolean first,
-        Object[] addNames,
-        Object[] addVals,
-        boolean[] addSens,
-        int addLen) {
+            boolean first,
+            Object[] addNames,
+            Object[] addVals,
+            boolean[] addSens,
+            int addLen) {
         if (addLen > 0) {
             for (int i = 0; i < addLen; i++) {
                 Object addVal = addVals[i];
 
                 if (addVal != null) {
-                    if (addSens != null && addSens[i] && !includeSensitive())
+                    if (addSens != null && addSens[i] && !includeSensitive()) {
                         continue;
+                    }
 
                     IgniteToStringInclude incAnn = addVal.getClass().getAnnotation(IgniteToStringInclude.class);
 
-                    if (incAnn != null && incAnn.sensitive() && !includeSensitive())
+                    if (incAnn != null && incAnn.sensitive() && !includeSensitive()) {
                         continue;
+                    }
                 }
 
-                if (!first)
+                if (!first) {
                     buf.a(", ");
-                else
+                } else {
                     first = false;
+                }
 
                 buf.a(addNames[i]).a('=');
 
@@ -1879,8 +1895,9 @@ public class IgniteToStringBuilder {
 
         ClassDescriptor cd = classCache.get(key);
 
-        if (cd != null)
+        if (cd != null) {
             return cd;
+        }
 
         cd = new ClassDescriptor(cls);
 
@@ -1899,35 +1916,35 @@ public class IgniteToStringBuilder {
                 // When @IgniteToStringInclude is not present then the flag is false by default for that attribute.
                 final boolean notSens = (incFld == null || !incFld.sensitive()) && (incType == null || !incType.sensitive());
                 add = notSens || includeSensitive();
-            }
-            else if (!f.isAnnotationPresent(IgniteToStringExclude.class) &&
-                !type.isAnnotationPresent(IgniteToStringExclude.class)
+            } else if (!f.isAnnotationPresent(IgniteToStringExclude.class) &&
+                    !type.isAnnotationPresent(IgniteToStringExclude.class)
             ) {
                 if (
                     // Include only private non-static
-                    Modifier.isPrivate(f.getModifiers()) && !Modifier.isStatic(f.getModifiers()) &&
+                        Modifier.isPrivate(f.getModifiers()) && !Modifier.isStatic(f.getModifiers()) &&
 
-                        // No direct objects & serializable.
-                        Object.class != type &&
-                        Serializable.class != type &&
-                        Externalizable.class != type &&
+                                // No direct objects & serializable.
+                                Object.class != type &&
+                                Serializable.class != type &&
+                                Externalizable.class != type &&
 
-                        // No arrays.
-                        !type.isArray() &&
+                                // No arrays.
+                                !type.isArray() &&
 
-                        // Exclude collections, IO, etc.
-                        !EventListener.class.isAssignableFrom(type) &&
-                        !Map.class.isAssignableFrom(type) &&
-                        !Collection.class.isAssignableFrom(type) &&
-                        !InputStream.class.isAssignableFrom(type) &&
-                        !OutputStream.class.isAssignableFrom(type) &&
-                        !Thread.class.isAssignableFrom(type) &&
-                        !Runnable.class.isAssignableFrom(type) &&
-                        !Lock.class.isAssignableFrom(type) &&
-                        !ReadWriteLock.class.isAssignableFrom(type) &&
-                        !Condition.class.isAssignableFrom(type)
-                )
+                                // Exclude collections, IO, etc.
+                                !EventListener.class.isAssignableFrom(type) &&
+                                !Map.class.isAssignableFrom(type) &&
+                                !Collection.class.isAssignableFrom(type) &&
+                                !InputStream.class.isAssignableFrom(type) &&
+                                !OutputStream.class.isAssignableFrom(type) &&
+                                !Thread.class.isAssignableFrom(type) &&
+                                !Runnable.class.isAssignableFrom(type) &&
+                                !Lock.class.isAssignableFrom(type) &&
+                                !ReadWriteLock.class.isAssignableFrom(type) &&
+                                !Condition.class.isAssignableFrom(type)
+                ) {
                     add = true;
+                }
             }
 
             if (add) {
@@ -1935,8 +1952,9 @@ public class IgniteToStringBuilder {
 
                 // Get order, if any.
                 final IgniteToStringOrder annOrder = f.getAnnotation(IgniteToStringOrder.class);
-                if (annOrder != null)
+                if (annOrder != null) {
                     fd.setOrder(annOrder.value());
+                }
 
                 cd.addField(fd);
             }
@@ -1950,9 +1968,8 @@ public class IgniteToStringBuilder {
     }
 
     /**
-     * Returns sorted and compacted string representation of given {@code col}.
-     * Two nearby numbers with difference at most 1 are compacted to one continuous segment.
-     * E.g. collection of [1, 2, 3, 5, 6, 7, 10] will be compacted to [1-3, 5-7, 10].
+     * Returns sorted and compacted string representation of given {@code col}. Two nearby numbers with difference at most 1 are compacted
+     * to one continuous segment. E.g. collection of [1, 2, 3, 5, 6, 7, 10] will be compacted to [1-3, 5-7, 10].
      *
      * @param col Collection of integers.
      * @return Compacted string representation of given collections.
@@ -1962,25 +1979,24 @@ public class IgniteToStringBuilder {
     }
 
     /**
-     * Returns sorted and compacted string representation of given {@code col}.
-     * Two nearby numbers are compacted to one continuous segment.
-     * E.g. collection of [1, 2, 3, 5, 6, 7, 10] with
-     * {@code nextValFun = i -> i + 1} will be compacted to [1-3, 5-7, 10].
+     * Returns sorted and compacted string representation of given {@code col}. Two nearby numbers are compacted to one continuous segment.
+     * E.g. collection of [1, 2, 3, 5, 6, 7, 10] with {@code nextValFun = i -> i + 1} will be compacted to [1-3, 5-7, 10].
      *
-     * @param col Collection of numbers.
+     * @param col        Collection of numbers.
      * @param nextValFun Function to get nearby number.
-     * @param <T> Comparable number type.
+     * @param <T>        Comparable number type.
      * @return Compacted string representation of given collections.
      */
     public static <T extends Number & Comparable<? super T>> String compact(
-        Collection<T> col,
-        Function<T, T> nextValFun
+            Collection<T> col,
+            Function<T, T> nextValFun
     ) {
         assert nonNull(col);
         assert nonNull(nextValFun);
 
-        if (col.isEmpty())
+        if (col.isEmpty()) {
             return "[]";
+        }
 
         IgniteStringBuilder sb = new IgniteStringBuilder();
         sb.a('[');
@@ -1997,20 +2013,22 @@ public class IgniteToStringBuilder {
                 continue;
             }
 
-            if (left.compareTo(right) == 0)
+            if (left.compareTo(right) == 0) {
                 sb.a(left);
-            else
+            } else {
                 sb.a(left).a('-').a(right);
+            }
 
             sb.a(',').a(' ');
 
             left = right = val;
         }
 
-        if (left.compareTo(right) == 0)
+        if (left.compareTo(right) == 0) {
             sb.a(left);
-        else
+        } else {
             sb.a(left).a('-').a(right);
+        }
 
         sb.a(']');
 
@@ -2018,27 +2036,27 @@ public class IgniteToStringBuilder {
     }
 
     /**
-     * Checks that object is already saved.
-     * In positive case this method inserts hash to the saved object entry (if needed) and name@hash for current entry.
-     * Further toString operations are not needed for current object.
+     * Checks that object is already saved. In positive case this method inserts hash to the saved object entry (if needed) and name@hash
+     * for current entry. Further toString operations are not needed for current object.
      *
-     * @param buf String builder buffer.
-     * @param obj Object.
-     * @param cls Class.
+     * @param buf     String builder buffer.
+     * @param obj     Object.
+     * @param cls     Class.
      * @param svdObjs Map with saved objects to handle recursion.
-     * @return {@code True} if object is already saved and name@hash was added to buffer.
-     * {@code False} if it wasn't saved previously and it should be saved.
+     * @return {@code True} if object is already saved and name@hash was added to buffer. {@code False} if it wasn't saved previously and it
+     * should be saved.
      */
     private static boolean handleRecursion(
-        SBLimitedLength buf,
-        Object obj,
-        @NotNull Class<?> cls,
-        IdentityHashMap<Object, EntryReference> svdObjs
+            SBLimitedLength buf,
+            Object obj,
+            @NotNull Class<?> cls,
+            IdentityHashMap<Object, EntryReference> svdObjs
     ) {
         EntryReference ref = svdObjs.get(obj);
 
-        if (ref == null)
+        if (ref == null) {
             return false;
+        }
 
         int pos = ref.pos;
 
@@ -2052,9 +2070,9 @@ public class IgniteToStringBuilder {
                 buf.i(pos + name.length(), hash);
 
                 incValues(svdObjs, obj, hash.length());
-            }
-            else
+            } else {
                 ref.hashNeeded = true;
+            }
         }
 
         buf.a(savedName);
@@ -2066,7 +2084,7 @@ public class IgniteToStringBuilder {
      * Increment positions of already presented objects afterward given object.
      *
      * @param svdObjs Map with objects already presented in the buffer.
-     * @param obj Object.
+     * @param obj     Object.
      * @param hashLen Length of the object's hash.
      */
     private static void incValues(IdentityHashMap<Object, EntryReference> svdObjs, Object obj, int hashLen) {
@@ -2077,8 +2095,9 @@ public class IgniteToStringBuilder {
 
             int pos = ref.pos;
 
-            if (pos > baseline)
+            if (pos > baseline) {
                 ref.pos = pos + hashLen;
+            }
         }
     }
 

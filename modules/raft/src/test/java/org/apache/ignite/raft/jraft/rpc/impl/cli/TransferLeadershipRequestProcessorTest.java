@@ -14,7 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
@@ -23,18 +27,15 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
 public class TransferLeadershipRequestProcessorTest extends AbstractCliRequestProcessorTest<TransferLeaderRequest> {
 
     @Override
     public TransferLeaderRequest createRequest(String groupId, PeerId peerId) {
         return msgFactory.transferLeaderRequest()
-            .groupId(groupId)
-            .leaderId(peerId.toString())
-            .peerId("localhost:8082")
-            .build();
+                .groupId(groupId)
+                .leaderId(peerId.toString())
+                .peerId("localhost:8082")
+                .build();
     }
 
     @Override

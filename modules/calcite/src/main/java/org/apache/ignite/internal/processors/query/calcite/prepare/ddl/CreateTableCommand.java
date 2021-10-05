@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.processors.query.calcite.prepare.ddl;
 
 import java.util.List;
-
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -26,8 +25,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class CreateTableCommand implements DdlCommand {
     /**
-     * Schema name upon which this statement has been issued - <b>not</b> the name of the schema where this new table
-     * will be created.
+     * Schema name upon which this statement has been issued - <b>not</b> the name of the schema where this new table will be created.
      */
     private String schemaName;
 
@@ -177,7 +175,8 @@ public class CreateTableCommand implements DdlCommand {
     /**
      * @return Backups number for new cache.
      */
-    @Nullable public Integer backups() {
+    @Nullable
+    public Integer backups() {
         return backups;
     }
 

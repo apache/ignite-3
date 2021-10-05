@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.core;
 
 import java.util.List;
@@ -47,8 +48,8 @@ public class IteratorImpl {
     private RaftException error;
 
     public IteratorImpl(final StateMachine fsm, final LogManager logManager, final List<Closure> closures,
-        final long firstClosureIndex, final long lastAppliedIndex, final long committedIndex,
-        final AtomicLong applyingIndex, NodeOptions options) {
+            final long firstClosureIndex, final long lastAppliedIndex, final long committedIndex,
+            final AtomicLong applyingIndex, NodeOptions options) {
         super();
         this.fsm = fsm;
         this.logManager = logManager;
@@ -64,9 +65,9 @@ public class IteratorImpl {
     @Override
     public String toString() {
         return "IteratorImpl [fsm=" + this.fsm + ", logManager=" + this.logManager + ", closures=" + this.closures
-            + ", firstClosureIndex=" + this.firstClosureIndex + ", currentIndex=" + this.currentIndex
-            + ", committedIndex=" + this.committedIndex + ", currEntry=" + this.currEntry + ", applyingIndex="
-            + this.applyingIndex + ", error=" + this.error + "]";
+                + ", firstClosureIndex=" + this.firstClosureIndex + ", currentIndex=" + this.currentIndex
+                + ", committedIndex=" + this.committedIndex + ", currEntry=" + this.currEntry + ", applyingIndex="
+                + this.applyingIndex + ", error=" + this.error + "]";
     }
 
     public LogEntry entry() {
@@ -99,11 +100,10 @@ public class IteratorImpl {
                     if (this.currEntry == null) {
                         getOrCreateError().setType(EnumOutter.ErrorType.ERROR_TYPE_LOG);
                         getOrCreateError().getStatus().setError(-1,
-                            "Fail to get entry at index=%d while committed_index=%d", this.currentIndex,
-                            this.committedIndex);
+                                "Fail to get entry at index=%d while committed_index=%d", this.currentIndex,
+                                this.committedIndex);
                     }
-                }
-                catch (final LogEntryCorruptedException e) {
+                } catch (final LogEntryCorruptedException e) {
                     getOrCreateError().setType(EnumOutter.ErrorType.ERROR_TYPE_LOG);
                     getOrCreateError().getStatus().setError(RaftError.EINVAL, e.getMessage());
                 }
@@ -139,15 +139,14 @@ public class IteratorImpl {
         Requires.requireTrue(ntail > 0, "Invalid ntail=" + ntail);
         if (this.currEntry == null || this.currEntry.getType() != EnumOutter.EntryType.ENTRY_TYPE_DATA) {
             this.currentIndex -= ntail;
-        }
-        else {
+        } else {
             this.currentIndex -= ntail - 1;
         }
         this.currEntry = null;
         getOrCreateError().setType(EnumOutter.ErrorType.ERROR_TYPE_STATE_MACHINE);
         getOrCreateError().getStatus().setError(RaftError.ESTATEMACHINE,
-            "StateMachine meet critical error when applying one or more tasks since index=%d, %s", this.currentIndex,
-            st != null ? st.toString() : "none");
+                "StateMachine meet critical error when applying one or more tasks since index=%d, %s", this.currentIndex,
+                st != null ? st.toString() : "none");
 
     }
 

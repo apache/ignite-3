@@ -53,7 +53,7 @@ public class SchemaDescriptor implements Serializable {
     private ColumnMapper colMapper = ColumnMapping.identityMapping();
 
     /**
-     * @param ver Schema version.
+     * @param ver     Schema version.
      * @param keyCols Key columns.
      * @param valCols Value columns.
      */
@@ -62,7 +62,7 @@ public class SchemaDescriptor implements Serializable {
     }
 
     /**
-     * @param ver Schema version.
+     * @param ver     Schema version.
      * @param keyCols Key columns.
      * @param affCols Affinity column names.
      * @param valCols Value columns.
@@ -83,7 +83,7 @@ public class SchemaDescriptor implements Serializable {
         // Preserving key chunk column order is not actually required.
         // It is sufficient to has same column order for all nodes.
         this.affCols = (ArrayUtils.nullOrEmpty(affCols)) ? keyCols :
-            Arrays.stream(affCols).map(colMap::get).toArray(Column[]::new);
+                Arrays.stream(affCols).map(colMap::get).toArray(Column[]::new);
     }
 
     /**
@@ -182,7 +182,8 @@ public class SchemaDescriptor implements Serializable {
     }
 
     /** {@inheritDoc} */
-    @Override public String toString() {
+    @Override
+    public String toString() {
         return S.toString(SchemaDescriptor.class, this);
     }
 }

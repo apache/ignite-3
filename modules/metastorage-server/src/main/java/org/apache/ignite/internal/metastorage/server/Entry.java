@@ -29,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
  *     Each change (which could include multiple entries) increments the revision. </li>
  *     <li>updateCounter - a number which increments on every update in the change under one revision.</li>
  * </ul>
- *
+ * <p>
  * Instance of {@link #Entry} could represents:
  * <ul>
  *     <li>A regular entry which stores a particular key, a value and a revision number.</li>
@@ -46,7 +46,7 @@ public class Entry {
     /**
      * Entry value.
      * <p>
-     *     {@code val == null} only for {@link #empty()} and {@link #tombstone()} entries.
+     * {@code val == null} only for {@link #empty()} and {@link #tombstone()} entries.
      * </p>
      */
     @Nullable
@@ -55,8 +55,7 @@ public class Entry {
     /**
      * Revision number corresponding to this particular entry.
      * <p>
-     *     {@code rev == 0} for {@link #empty()} entry,
-     *     {@code rev > 0} for regular and {@link #tombstone()} entries.
+     * {@code rev == 0} for {@link #empty()} entry, {@code rev > 0} for regular and {@link #tombstone()} entries.
      * </p>
      */
     private final long rev;
@@ -64,8 +63,7 @@ public class Entry {
     /**
      * Update counter corresponds to this particular entry.
      * <p>
-     *     {@code updCntr == 0} for {@link #empty()} entry,
-     *     {@code updCntr > 0} for regular and {@link #tombstone()} entries.
+     * {@code updCntr == 0} for {@link #empty()} entry, {@code updCntr > 0} for regular and {@link #tombstone()} entries.
      * </p>
      */
     private final long updCntr;
@@ -73,9 +71,9 @@ public class Entry {
     /**
      * Constructor.
      *
-     * @param key Key bytes. Couldn't be {@code null}.
-     * @param val Value bytes. Couldn't be {@code null}.
-     * @param rev Revision.
+     * @param key     Key bytes. Couldn't be {@code null}.
+     * @param val     Value bytes. Couldn't be {@code null}.
+     * @param rev     Revision.
      * @param updCntr Update counter.
      */
     // TODO: It seems user will never create Entry, so we can reduce constructor scope to protected or package-private and reuse it from two-place private constructor.
@@ -92,8 +90,8 @@ public class Entry {
     /**
      * Constructor for empty and tombstone entries.
      *
-     * @param key Key bytes. Couldn't be {@code null}.
-     * @param rev Revision.
+     * @param key     Key bytes. Couldn't be {@code null}.
+     * @param rev     Revision.
      * @param updCntr Update counter.
      */
     private Entry(@NotNull byte[] key, long rev, long updCntr) {
@@ -119,8 +117,8 @@ public class Entry {
     /**
      * Creates an instance of tombstone entry for a given key and a revision.
      *
-     * @param key Key bytes. Couldn't be {@code null}.
-     * @param rev Revision.
+     * @param key     Key bytes. Couldn't be {@code null}.
+     * @param rev     Revision.
      * @param updCntr Update counter.
      * @return Empty entry.
      */

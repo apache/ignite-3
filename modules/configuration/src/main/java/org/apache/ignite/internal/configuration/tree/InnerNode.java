@@ -19,10 +19,13 @@ package org.apache.ignite.internal.configuration.tree;
 
 import java.util.NoSuchElementException;
 
-/** */
+/**
+ *
+ */
 public abstract class InnerNode implements TraversableTreeNode, ConstructableTreeNode, Cloneable {
     /** {@inheritDoc} */
-    @Override public final <T> T accept(String key, ConfigurationVisitor<T> visitor) {
+    @Override
+    public final <T> T accept(String key, ConfigurationVisitor<T> visitor) {
         return visitor.visitInnerNode(key, this);
     }
 
@@ -41,12 +44,12 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      *     }
      * }
      * </code></pre>
-     *
+     * <p>
      * Order of fields must be the same as they are described in configuration schema.
      *
-     * @param visitor Configuration visitor.
+     * @param visitor         Configuration visitor.
      * @param includeInternal Include internal configuration nodes (private configuration extensions).
-     * @param <T> Parameter type of the passed visitor.
+     * @param <T>             Parameter type of the passed visitor.
      */
     public abstract <T> void traverseChildren(ConfigurationVisitor<T> visitor, boolean includeInternal);
 
@@ -88,17 +91,17 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      * }
      * </code></pre>
      *
-     * @param key Name of the child.
-     * @param visitor Configuration visitor.
+     * @param key             Name of the child.
+     * @param visitor         Configuration visitor.
      * @param includeInternal Include internal configuration nodes (private configuration extensions).
-     * @param <T> Parameter type of passed visitor.
+     * @param <T>             Parameter type of passed visitor.
      * @return Whatever {@code visitor} returned.
      * @throws NoSuchElementException If field {@code key} is not found.
      */
     public abstract <T> T traverseChild(
-        String key,
-        ConfigurationVisitor<T> visitor,
-        boolean includeInternal
+            String key,
+            ConfigurationVisitor<T> visitor,
+            boolean includeInternal
     ) throws NoSuchElementException;
 
     /**
@@ -145,10 +148,11 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      * </code></pre>
      * {@inheritDoc}
      */
-    @Override public abstract void construct(
-        String key,
-        ConfigurationSource src,
-        boolean includeInternal
+    @Override
+    public abstract void construct(
+            String key,
+            ConfigurationSource src,
+            boolean includeInternal
     ) throws NoSuchElementException;
 
     /**
@@ -165,11 +169,11 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
     public abstract Class<?> schemaType();
 
     /** {@inheritDoc} */
-    @Override public InnerNode copy() {
+    @Override
+    public InnerNode copy() {
         try {
-            return (InnerNode)clone();
-        }
-        catch (CloneNotSupportedException e) {
+            return (InnerNode) clone();
+        } catch (CloneNotSupportedException e) {
             throw new IllegalStateException(e);
         }
     }

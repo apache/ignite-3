@@ -17,18 +17,19 @@
 
 package org.apache.ignite.internal.processors.query.calcite.exec.rel;
 
-import java.util.function.Function;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import java.util.function.Function;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
-
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 /**
  *
  */
 public class ProjectNode<Row> extends AbstractNode<Row> implements SingleNode<Row>, Downstream<Row> {
-    /** */
+    /**
+     *
+     */
     private final Function<Row, Row> prj;
 
     /**
@@ -42,12 +43,14 @@ public class ProjectNode<Row> extends AbstractNode<Row> implements SingleNode<Ro
     }
 
     /** {@inheritDoc} */
-    @Override protected void rewindInternal() {
+    @Override
+    protected void rewindInternal() {
         // No-op.
     }
 
     /** {@inheritDoc} */
-    @Override public void request(int rowsCnt) throws Exception {
+    @Override
+    public void request(int rowsCnt) throws Exception {
         assert !nullOrEmpty(sources()) && sources().size() == 1;
         assert rowsCnt > 0;
 
@@ -57,7 +60,8 @@ public class ProjectNode<Row> extends AbstractNode<Row> implements SingleNode<Ro
     }
 
     /** {@inheritDoc} */
-    @Override public void push(Row row) throws Exception {
+    @Override
+    public void push(Row row) throws Exception {
         assert downstream() != null;
 
         checkState();
@@ -66,7 +70,8 @@ public class ProjectNode<Row> extends AbstractNode<Row> implements SingleNode<Ro
     }
 
     /** {@inheritDoc} */
-    @Override public void end() throws Exception {
+    @Override
+    public void end() throws Exception {
         assert downstream() != null;
 
         checkState();
@@ -75,9 +80,11 @@ public class ProjectNode<Row> extends AbstractNode<Row> implements SingleNode<Ro
     }
 
     /** {@inheritDoc} */
-    @Override protected Downstream<Row> requestDownstream(int idx) {
-        if (idx != 0)
+    @Override
+    protected Downstream<Row> requestDownstream(int idx) {
+        if (idx != 0) {
             throw new IndexOutOfBoundsException();
+        }
 
         return this;
     }

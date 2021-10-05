@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.processors.query.calcite.rel.agg;
 
-import java.util.List;
+import static org.apache.ignite.internal.processors.query.calcite.util.Commons.maxPrefix;
 
 import com.google.common.collect.ImmutableList;
+import java.util.List;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollations;
@@ -28,8 +29,6 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
 import org.apache.ignite.internal.processors.query.calcite.trait.TraitsAwareIgniteRel;
-
-import static org.apache.ignite.internal.processors.query.calcite.util.Commons.maxPrefix;
 
 /**
  *
@@ -43,29 +42,32 @@ interface IgniteSortAggregateBase extends TraitsAwareIgniteRel {
     ImmutableBitSet getGroupSet();
 
     /** {@inheritDoc} */
-    @Override default Pair<RelTraitSet, List<RelTraitSet>> passThroughCollation(
-        RelTraitSet nodeTraits, List<RelTraitSet> inputTraits
+    @Override
+    default Pair<RelTraitSet, List<RelTraitSet>> passThroughCollation(
+            RelTraitSet nodeTraits, List<RelTraitSet> inputTraits
     ) {
         RelCollation collation = RelCollations.of(ImmutableIntList.copyOf(getGroupSet().asList()));
 
         return Pair.of(nodeTraits.replace(collation),
-            ImmutableList.of(inputTraits.get(0).replace(collation)));
+                ImmutableList.of(inputTraits.get(0).replace(collation)));
     }
 
     /** {@inheritDoc} */
-    @Override default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCollation(
-        RelTraitSet nodeTraits, List<RelTraitSet> inputTraits
+    @Override
+    default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCollation(
+            RelTraitSet nodeTraits, List<RelTraitSet> inputTraits
     ) {
         RelCollation inputCollation = TraitUtils.collation(inputTraits.get(0));
 
         List<Integer> newCollation = maxPrefix(inputCollation.getKeys(), getGroupSet().asSet());
 
-        if (newCollation.size() < getGroupSet().cardinality())
+        if (newCollation.size() < getGroupSet().cardinality()) {
             return ImmutableList.of();
+        }
 
         return ImmutableList.of(Pair.of(
-            nodeTraits.replace(RelCollations.of(ImmutableIntList.copyOf(newCollation))),
-            inputTraits
+                nodeTraits.replace(RelCollations.of(ImmutableIntList.copyOf(newCollation))),
+                inputTraits
         ));
     }
 }

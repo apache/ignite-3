@@ -14,7 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
+
+import static java.util.stream.Collectors.toList;
 
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -26,8 +29,6 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersResponse;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
-
-import static java.util.stream.Collectors.toList;
 
 /**
  * Change peers request processor.
@@ -50,7 +51,7 @@ public class ChangePeersRequestProcessor extends BaseCliRequestProcessor<ChangeP
 
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final ChangePeersRequest request,
-        final IgniteCliRpcRequestClosure done) {
+            final IgniteCliRpcRequestClosure done) {
         final List<PeerId> oldConf = ctx.node.listPeers();
 
         final Configuration conf = new Configuration();
@@ -58,23 +59,21 @@ public class ChangePeersRequestProcessor extends BaseCliRequestProcessor<ChangeP
             final PeerId peer = new PeerId();
             if (peer.parse(peerIdStr)) {
                 conf.addPeer(peer);
-            }
-            else {
+            } else {
                 return RaftRpcFactory.DEFAULT //
-                    .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer id %s", peerIdStr);
+                        .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer id %s", peerIdStr);
             }
         }
         LOG.info("Receive ChangePeersRequest to {} from {}, new conf is {}", ctx.node.getNodeId(), done.getRpcCtx()
-            .getRemoteAddress(), conf);
+                .getRemoteAddress(), conf);
         ctx.node.changePeers(conf, status -> {
             if (!status.isOk()) {
                 done.run(status);
-            }
-            else {
+            } else {
                 ChangePeersResponse req = msgFactory().changePeersResponse()
-                    .oldPeersList(oldConf.stream().map(Object::toString).collect(toList()))
-                    .newPeersList(conf.getPeers().stream().map(Object::toString).collect(toList()))
-                    .build();
+                        .oldPeersList(oldConf.stream().map(Object::toString).collect(toList()))
+                        .newPeersList(conf.getPeers().stream().map(Object::toString).collect(toList()))
+                        .build();
 
                 done.sendResponse(req);
             }

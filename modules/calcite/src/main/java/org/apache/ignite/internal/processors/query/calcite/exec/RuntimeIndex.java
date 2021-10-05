@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.internal.processors.query.calcite.exec;
 
 /**
- * Runtime index interface.
- * The temporary index is built and available only on query execution. Not stored at the schema.
+ * Runtime index interface. The temporary index is built and available only on query execution. Not stored at the schema.
  */
 public interface RuntimeIndex<Row> extends AutoCloseable {
     /**

@@ -17,18 +17,18 @@
 
 package com.facebook.presto.bytecode.control;
 
-import java.util.List;
+import static com.facebook.presto.bytecode.BytecodeUtils.checkState;
+
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.BytecodeVisitor;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.instruction.LabelNode;
+import java.util.List;
 import org.objectweb.asm.MethodVisitor;
 
-import static com.facebook.presto.bytecode.BytecodeUtils.checkState;
-
 public class IfStatement
-    implements FlowControl {
+        implements FlowControl {
     private final String comment;
     private final BytecodeBlock condition = new BytecodeBlock();
     private final BytecodeBlock ifTrue = new BytecodeBlock();
@@ -89,14 +89,14 @@ public class IfStatement
 
         // if !condition goto false;
         block.append(new BytecodeBlock()
-            .setDescription("condition")
-            .append(condition));
+                .setDescription("condition")
+                .append(condition));
         block.ifFalseGoto(falseLabel);
 
         if (!ifTrue.isEmpty()) {
             block.append(new BytecodeBlock()
-                .setDescription("ifTrue")
-                .append(ifTrue));
+                    .setDescription("ifTrue")
+                    .append(ifTrue));
         }
 
         if (!ifFalse.isEmpty()) {
@@ -105,11 +105,10 @@ public class IfStatement
 
             block.visitLabel(falseLabel);
             block.append(new BytecodeBlock()
-                .setDescription("ifFalse")
-                .append(ifFalse));
+                    .setDescription("ifFalse")
+                    .append(ifFalse));
             block.visitLabel(outLabel);
-        }
-        else {
+        } else {
             block.visitLabel(falseLabel);
         }
 

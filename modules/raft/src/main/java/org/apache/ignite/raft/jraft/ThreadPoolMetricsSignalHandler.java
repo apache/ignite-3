@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft;
 
 import java.io.File;
@@ -45,12 +46,11 @@ public class ThreadPoolMetricsSignalHandler extends FileOutputSignalHandler {
 
             try (final PrintStream out = new PrintStream(new FileOutputStream(file, true))) {
                 MetricReporter.forRegistry(ThreadPoolMetricRegistry.metricRegistry()) //
-                    .outputTo(out) //
-                    .build() //
-                    .report();
+                        .outputTo(out) //
+                        .build() //
+                        .report();
             }
-        }
-        catch (final IOException e) {
+        } catch (final IOException e) {
             LOG.error("Fail to print thread pools metrics.", e);
         }
     }

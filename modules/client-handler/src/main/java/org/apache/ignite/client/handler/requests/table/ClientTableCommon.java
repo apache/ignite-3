@@ -51,9 +51,9 @@ class ClientTableCommon {
     /**
      * Writes a schema.
      *
-     * @param packer Packer.
+     * @param packer    Packer.
      * @param schemaVer Schema version.
-     * @param schema Schema.
+     * @param schema    Schema.
      */
     public static void writeSchema(ClientMessagePacker packer, int schemaVer, SchemaDescriptor schema) {
         packer.packInt(schemaVer);
@@ -82,7 +82,7 @@ class ClientTableCommon {
      * Writes a tuple.
      *
      * @param packer Packer.
-     * @param tuple Tuple.
+     * @param tuple  Tuple.
      */
     public static void writeTuple(ClientMessagePacker packer, Tuple tuple) {
         if (tuple == null) {
@@ -91,7 +91,7 @@ class ClientTableCommon {
             return;
         }
 
-        var schema = ((SchemaAware)tuple).schema();
+        var schema = ((SchemaAware) tuple).schema();
 
         writeTuple(packer, tuple, schema);
     }
@@ -100,7 +100,7 @@ class ClientTableCommon {
      * Writes a tuple.
      *
      * @param packer Packer.
-     * @param tuple Tuple.
+     * @param tuple  Tuple.
      */
     public static void writeTuple(ClientMessagePacker packer, Tuple tuple, TuplePart part) {
         if (tuple == null) {
@@ -109,7 +109,7 @@ class ClientTableCommon {
             return;
         }
 
-        var schema = ((SchemaAware)tuple).schema();
+        var schema = ((SchemaAware) tuple).schema();
 
         writeTuple(packer, tuple, schema, false, part);
     }
@@ -118,14 +118,14 @@ class ClientTableCommon {
      * Writes a tuple.
      *
      * @param packer Packer.
-     * @param tuple Tuple.
+     * @param tuple  Tuple.
      * @param schema Tuple schema.
      * @throws IgniteException on failed serialization.
      */
     public static void writeTuple(
-        ClientMessagePacker packer,
-        Tuple tuple,
-        SchemaDescriptor schema
+            ClientMessagePacker packer,
+            Tuple tuple,
+            SchemaDescriptor schema
     ) {
         writeTuple(packer, tuple, schema, false, TuplePart.KEY_AND_VAL);
     }
@@ -133,17 +133,17 @@ class ClientTableCommon {
     /**
      * Writes a tuple.
      *
-     * @param packer Packer.
-     * @param tuple Tuple.
-     * @param schema Tuple schema.
+     * @param packer     Packer.
+     * @param tuple      Tuple.
+     * @param schema     Tuple schema.
      * @param skipHeader Whether to skip the tuple header.
      * @throws IgniteException on failed serialization.
      */
     public static void writeTuple(
-        ClientMessagePacker packer,
-        Tuple tuple,
-        SchemaDescriptor schema,
-        boolean skipHeader
+            ClientMessagePacker packer,
+            Tuple tuple,
+            SchemaDescriptor schema,
+            boolean skipHeader
     ) {
         writeTuple(packer, tuple, schema, skipHeader, TuplePart.KEY_AND_VAL);
     }
@@ -151,19 +151,19 @@ class ClientTableCommon {
     /**
      * Writes a tuple.
      *
-     * @param packer Packer.
-     * @param tuple Tuple.
-     * @param schema Tuple schema.
+     * @param packer     Packer.
+     * @param tuple      Tuple.
+     * @param schema     Tuple schema.
      * @param skipHeader Whether to skip the tuple header.
-     * @param part Which part of tuple to write.
+     * @param part       Which part of tuple to write.
      * @throws IgniteException on failed serialization.
      */
     public static void writeTuple(
-        ClientMessagePacker packer,
-        Tuple tuple,
-        SchemaDescriptor schema,
-        boolean skipHeader,
-        TuplePart part
+            ClientMessagePacker packer,
+            Tuple tuple,
+            SchemaDescriptor schema,
+            boolean skipHeader,
+            TuplePart part
     ) {
         if (tuple == null) {
             packer.packNil();
@@ -171,17 +171,20 @@ class ClientTableCommon {
             return;
         }
 
-        if (!skipHeader)
+        if (!skipHeader) {
             packer.packInt(schema.version());
+        }
 
         if (part != TuplePart.VAL) {
-            for (var col : schema.keyColumns().columns())
+            for (var col : schema.keyColumns().columns()) {
                 writeColumnValue(packer, tuple, col);
+            }
         }
 
         if (part != TuplePart.KEY) {
-            for (var col : schema.valueColumns().columns())
+            for (var col : schema.valueColumns().columns()) {
                 writeColumnValue(packer, tuple, col);
+            }
         }
     }
 
@@ -201,7 +204,7 @@ class ClientTableCommon {
      *
      * @param packer Packer.
      * @param tuples Tuples.
-     * @param part Which part of tuple to write.
+     * @param part   Which part of tuple to write.
      * @throws IgniteException on failed serialization.
      */
     public static void writeTuples(ClientMessagePacker packer, Collection<Tuple> tuples, TuplePart part) {
@@ -215,13 +218,13 @@ class ClientTableCommon {
 
         for (Tuple tuple : tuples) {
             if (schema == null) {
-                schema = ((SchemaAware)tuple).schema();
+                schema = ((SchemaAware) tuple).schema();
 
                 packer.packInt(schema.version());
                 packer.packInt(tuples.size());
+            } else {
+                assert schema.version() == ((SchemaAware) tuple).schema().version();
             }
-            else
-                assert schema.version() == ((SchemaAware)tuple).schema().version();
 
             writeTuple(packer, tuple, schema, true, part);
         }
@@ -231,8 +234,8 @@ class ClientTableCommon {
      * Reads a tuple.
      *
      * @param unpacker Unpacker.
-     * @param table Table.
-     * @param keyOnly Whether only key fields are expected.
+     * @param table    Table.
+     * @param keyOnly  Whether only key fields are expected.
      * @return Tuple.
      */
     public static Tuple readTuple(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) {
@@ -245,8 +248,8 @@ class ClientTableCommon {
      * Reads multiple tuples.
      *
      * @param unpacker Unpacker.
-     * @param table Table.
-     * @param keyOnly Whether only key fields are expected.
+     * @param table    Table.
+     * @param keyOnly  Whether only key fields are expected.
      * @return Tuples.
      */
     public static ArrayList<Tuple> readTuples(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) {
@@ -255,8 +258,9 @@ class ClientTableCommon {
         var rowCnt = unpacker.unpackInt();
         var res = new ArrayList<Tuple>(rowCnt);
 
-        for (int i = 0; i < rowCnt; i++)
+        for (int i = 0; i < rowCnt; i++) {
             res.add(readTuple(unpacker, keyOnly, schema));
+        }
 
         return res;
     }
@@ -265,10 +269,11 @@ class ClientTableCommon {
      * Reads schema.
      *
      * @param unpacker Unpacker.
-     * @param table Table.
+     * @param table    Table.
      * @return Schema descriptor.
      */
-    @NotNull public static SchemaDescriptor readSchema(ClientMessageUnpacker unpacker, TableImpl table) {
+    @NotNull
+    public static SchemaDescriptor readSchema(ClientMessageUnpacker unpacker, TableImpl table) {
         var schemaId = unpacker.unpackInt();
 
         return table.schemaView().schema(schemaId);
@@ -278,8 +283,8 @@ class ClientTableCommon {
      * Reads a tuple.
      *
      * @param unpacker Unpacker.
-     * @param keyOnly Whether only key fields are expected.
-     * @param schema Tuple schema.
+     * @param keyOnly  Whether only key fields are expected.
+     * @param schema   Tuple schema.
      * @return Tuple.
      */
     public static Tuple readTuple(
@@ -333,8 +338,9 @@ class ClientTableCommon {
         var rowCnt = unpacker.unpackArrayHeader();
         var res = new ArrayList<Tuple>(rowCnt);
 
-        for (int i = 0; i < rowCnt; i++)
+        for (int i = 0; i < rowCnt; i++) {
             res.add(readTupleSchemaless(unpacker));
+        }
 
         return res;
     }
@@ -343,13 +349,13 @@ class ClientTableCommon {
      * Reads a table.
      *
      * @param unpacker Unpacker.
-     * @param tables Ignite tables.
+     * @param tables   Ignite tables.
      * @return Table.
      */
     public static TableImpl readTable(ClientMessageUnpacker unpacker, IgniteTables tables) {
         IgniteUuid tableId = unpacker.unpackIgniteUuid();
 
-        return ((IgniteTablesInternal)tables).table(tableId);
+        return ((IgniteTablesInternal) tables).table(tableId);
     }
 
     private static void readAndSetColumnValue(ClientMessageUnpacker unpacker, Tuple tuple, Column col) {
@@ -420,69 +426,69 @@ class ClientTableCommon {
 
         switch (col.type().spec()) {
             case INT8:
-                packer.packByte((byte)val);
+                packer.packByte((byte) val);
                 break;
 
             case INT16:
-                packer.packShort((short)val);
+                packer.packShort((short) val);
                 break;
 
             case INT32:
-                packer.packInt((int)val);
+                packer.packInt((int) val);
                 break;
 
             case INT64:
-                packer.packLong((long)val);
+                packer.packLong((long) val);
                 break;
 
             case FLOAT:
-                packer.packFloat((float)val);
+                packer.packFloat((float) val);
                 break;
 
             case DOUBLE:
-                packer.packDouble((double)val);
+                packer.packDouble((double) val);
                 break;
 
             case DECIMAL:
-                packer.packDecimal((BigDecimal)val);
+                packer.packDecimal((BigDecimal) val);
                 break;
 
             case NUMBER:
-                packer.packNumber((BigInteger)val);
+                packer.packNumber((BigInteger) val);
                 break;
 
             case UUID:
-                packer.packUuid((UUID)val);
+                packer.packUuid((UUID) val);
                 break;
 
             case STRING:
-                packer.packString((String)val);
+                packer.packString((String) val);
                 break;
 
             case BYTES:
-                byte[] bytes = (byte[])val;
+                byte[] bytes = (byte[]) val;
                 packer.packBinaryHeader(bytes.length);
                 packer.writePayload(bytes);
                 break;
 
             case BITMASK:
-                packer.packBitSet((BitSet)val);
+                packer.packBitSet((BitSet) val);
                 break;
 
             case DATE:
-                packer.packDate((LocalDate)val);
+                packer.packDate((LocalDate) val);
                 break;
 
             case TIME:
-                packer.packTime((LocalTime)val);
+                packer.packTime((LocalTime) val);
                 break;
 
             case DATETIME:
-                packer.packDateTime((LocalDateTime)val);
+                packer.packDateTime((LocalDateTime) val);
                 break;
 
             case TIMESTAMP:
-                packer.packTimestamp((Instant)val);
+                packer.packTimestamp((Instant) val);
                 break;
 
             default:

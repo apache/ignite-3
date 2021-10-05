@@ -14,13 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util.concurrent;
 
 import java.util.concurrent.RejectedExecutionException;
 
 /**
  * Expose helper methods which create different {@link RejectedExecutionHandler}s.
- *
+ * <p>
  * Reference from netty project.
  */
 public final class RejectedExecutionHandlers {

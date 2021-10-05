@@ -29,12 +29,14 @@ public class MultiStepDmlPlan extends AbstractMultiStepPlan {
     }
 
     /** {@inheritDoc} */
-    @Override public Type type() {
+    @Override
+    public Type type() {
         return Type.DML;
     }
 
     /** {@inheritDoc} */
-    @Override public QueryPlan copy() {
+    @Override
+    public QueryPlan copy() {
         return new MultiStepDmlPlan(queryTemplate, fieldsMetadata);
     }
 }

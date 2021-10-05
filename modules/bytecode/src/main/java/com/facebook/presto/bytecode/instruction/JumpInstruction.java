@@ -17,13 +17,6 @@
 
 package com.facebook.presto.bytecode.instruction;
 
-import java.util.List;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.BytecodeVisitor;
-import com.facebook.presto.bytecode.MethodGenerationContext;
-import com.facebook.presto.bytecode.OpCode;
-import org.objectweb.asm.MethodVisitor;
-
 import static com.facebook.presto.bytecode.OpCode.GOTO;
 import static com.facebook.presto.bytecode.OpCode.IFEQ;
 import static com.facebook.presto.bytecode.OpCode.IFGE;
@@ -41,9 +34,16 @@ import static com.facebook.presto.bytecode.OpCode.IF_ICMPLE;
 import static com.facebook.presto.bytecode.OpCode.IF_ICMPLT;
 import static com.facebook.presto.bytecode.OpCode.IF_ICMPNE;
 
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.BytecodeVisitor;
+import com.facebook.presto.bytecode.MethodGenerationContext;
+import com.facebook.presto.bytecode.OpCode;
+import java.util.List;
+import org.objectweb.asm.MethodVisitor;
+
 @SuppressWarnings("UnusedDeclaration")
 public class JumpInstruction
-    implements InstructionNode {
+        implements InstructionNode {
     public static InstructionNode jump(LabelNode label) {
         return new JumpInstruction(GOTO, label);
     }

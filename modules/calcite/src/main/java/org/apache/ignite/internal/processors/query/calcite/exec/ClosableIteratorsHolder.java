@@ -24,30 +24,42 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
-
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.lang.IgniteLogger;
 
 /**
+ *
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class ClosableIteratorsHolder {
-    /** */
+    /**
+     *
+     */
     private final ReferenceQueue refQueue;
 
-    /** */
+    /**
+     *
+     */
     private final Map<Reference, Object> refMap;
 
-    /** */
+    /**
+     *
+     */
     private final IgniteLogger log;
 
-    /** */
+    /**
+     *
+     */
     private volatile boolean stopped;
 
-    /** */
+    /**
+     *
+     */
     private Thread cleanWorker;
 
-    /** */
+    /**
+     *
+     */
     public ClosableIteratorsHolder(IgniteLogger log) {
         this.log = log;
 
@@ -65,90 +77,119 @@ public class ClosableIteratorsHolder {
         return new DelegatingIterator<>(src);
     }
 
-    /** */
+    /**
+     *
+     */
     public void init() {
         cleanWorker = new Thread(null, () -> cleanUp(true), "calciteIteratorsCleanWorker");
         cleanWorker.setDaemon(true);
         cleanWorker.start();
     }
 
-    /** */
+    /**
+     *
+     */
     public void tearDown() {
         stopped = true;
         refMap.clear();
 
         Thread t = cleanWorker;
 
-        if (t != null)
+        if (t != null) {
             t.interrupt();
+        }
     }
 
-    /** */
+    /**
+     *
+     */
     private void cleanUp(boolean blocking) {
-        for (Reference<?> ref = nextRef(blocking); !stopped && ref != null; ref = nextRef(blocking))
+        for (Reference<?> ref = nextRef(blocking); !stopped && ref != null; ref = nextRef(blocking)) {
             Commons.close(refMap.remove(ref), log);
+        }
     }
 
-    /** */
+    /**
+     *
+     */
     private Reference nextRef(boolean blocking) {
         try {
             return !blocking ? refQueue.poll() : refQueue.remove();
-        }
-        catch (InterruptedException ignored) {
+        } catch (InterruptedException ignored) {
             return null;
         }
     }
 
-    /** */
+    /**
+     *
+     */
     private AutoCloseable closeable(Object referent, Object resource) {
-        if (!(resource instanceof AutoCloseable))
+        if (!(resource instanceof AutoCloseable)) {
             return null;
+        }
 
         return new CloseableReference(referent, resource);
     }
 
-    /** */
+    /**
+     *
+     */
     private final class DelegatingIterator<T> implements Iterator<T>, AutoCloseable {
-        /** */
+        /**
+         *
+         */
         private final Iterator<T> delegate;
 
-        /** */
+        /**
+         *
+         */
         private final AutoCloseable closeable;
 
-        /** */
+        /**
+         *
+         */
         private DelegatingIterator(Iterator<T> delegate) {
             closeable = closeable(this, this.delegate = delegate);
         }
 
         /** {@inheritDoc} */
-        @Override public boolean hasNext() {
+        @Override
+        public boolean hasNext() {
             return delegate.hasNext();
         }
 
         /** {@inheritDoc} */
-        @Override public T next() {
+        @Override
+        public T next() {
             return delegate.next();
         }
 
         /** {@inheritDoc} */
-        @Override public void remove() {
+        @Override
+        public void remove() {
             delegate.remove();
         }
 
         /** {@inheritDoc} */
-        @Override public void forEachRemaining(Consumer<? super T> action) {
+        @Override
+        public void forEachRemaining(Consumer<? super T> action) {
             delegate.forEachRemaining(action);
         }
 
         /** {@inheritDoc} */
-        @Override public void close() throws Exception {
+        @Override
+        public void close() throws Exception {
             Commons.close(closeable);
         }
     }
 
-    /** */
+    /**
+     *
+     */
     private final class CloseableReference extends WeakReference implements AutoCloseable {
-        /** */
+        /**
+         *
+         */
         private CloseableReference(Object referent, Object resource) {
             super(referent, refQueue);
 
@@ -156,11 +197,11 @@ public class ClosableIteratorsHolder {
         }
 
         /** {@inheritDoc} */
-        @Override public void close() throws Exception {
+        @Override
+        public void close() throws Exception {
             try {
                 Commons.close(refMap.remove(this));
-            }
-            finally {
+            } finally {
                 clear();
             }
         }

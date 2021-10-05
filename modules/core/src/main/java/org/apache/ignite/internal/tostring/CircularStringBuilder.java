@@ -53,7 +53,7 @@ class CircularStringBuilder {
      * Reset internal builder state
      */
     public void reset() {
-        Arrays.fill(buf, (char)0);
+        Arrays.fill(buf, (char) 0);
 
         pos = 0;
         full = false;
@@ -63,8 +63,7 @@ class CircularStringBuilder {
     /**
      * Returns the length (character count).
      *
-     * @return the length of the sequence of characters currently
-     * represented by this object
+     * @return the length of the sequence of characters currently represented by this object
      */
     public int length() {
         return full ? buf.length : pos;
@@ -96,14 +95,15 @@ class CircularStringBuilder {
      * @return {@code this} for chaining.
      */
     public CircularStringBuilder append(String str) {
-        if (str == null)
+        if (str == null) {
             return appendNull();
+        }
 
         int strLen = str.length();
 
-        if (strLen == 0)
+        if (strLen == 0) {
             return this;
-        else if (strLen >= buf.length) {
+        } else if (strLen >= buf.length) {
             // String bigger or equal to value length
             str.getChars(strLen - buf.length, strLen, buf, 0);
 
@@ -118,8 +118,9 @@ class CircularStringBuilder {
             // String doesn't fit into remaining part of value array
             int firstPart = buf.length - pos;
 
-            if (firstPart > 0)
+            if (firstPart > 0) {
                 str.getChars(0, firstPart, buf, pos);
+            }
 
             str.getChars(firstPart, strLen, buf, 0);
 
@@ -128,8 +129,7 @@ class CircularStringBuilder {
             pos = pos + strLen - buf.length;
 
             full = true;
-        }
-        else {
+        } else {
             // Whole string fin into remaining part of value array
             str.getChars(0, strLen, buf, pos);
 
@@ -148,13 +148,15 @@ class CircularStringBuilder {
      * @return {@code this} for chaining.
      */
     public CircularStringBuilder append(StringBuffer sb) {
-        if (sb == null)
+        if (sb == null) {
             return appendNull();
+        }
 
         int strLen = sb.length();
 
-        if (strLen == 0)
+        if (strLen == 0) {
             return this;
+        }
         if (strLen >= buf.length) {
             // String bigger or equal to value length
             sb.getChars(strLen - buf.length, strLen, buf, 0);
@@ -170,8 +172,9 @@ class CircularStringBuilder {
             // String doesn't fit into remaining part of value array
             int firstPart = buf.length - pos;
 
-            if (firstPart > 0)
+            if (firstPart > 0) {
                 sb.getChars(0, firstPart, buf, pos);
+            }
 
             sb.getChars(firstPart, strLen, buf, 0);
 
@@ -180,8 +183,7 @@ class CircularStringBuilder {
             pos = pos + strLen - buf.length;
 
             full = true;
-        }
-        else {
+        } else {
             // Whole string fin into remaining part of value array
             sb.getChars(0, strLen, buf, pos);
 
@@ -200,13 +202,15 @@ class CircularStringBuilder {
      * @return {@code this} for chaining.
      */
     public CircularStringBuilder append(StringBuilder sb) {
-        if (sb == null)
+        if (sb == null) {
             return appendNull();
+        }
 
         int strLen = sb.length();
 
-        if (strLen == 0)
+        if (strLen == 0) {
             return this;
+        }
         if (strLen >= buf.length) {
             // String bigger or equal to value length
             sb.getChars(strLen - buf.length, strLen, buf, 0);
@@ -222,8 +226,9 @@ class CircularStringBuilder {
             // String doesn't fit into remaining part of value array
             int firstPart = buf.length - pos;
 
-            if (firstPart > 0)
+            if (firstPart > 0) {
                 sb.getChars(0, firstPart, buf, pos);
+            }
 
             sb.getChars(firstPart, strLen, buf, 0);
 
@@ -232,8 +237,7 @@ class CircularStringBuilder {
             pos = pos + strLen - buf.length;
 
             full = true;
-        }
-        else {
+        } else {
             // Whole string fin into remaining part of value array
             sb.getChars(0, strLen, buf, pos);
 
@@ -260,7 +264,8 @@ class CircularStringBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public String toString() {
+    @Override
+    public String toString() {
         // Create a copy, don't share the array
         if (full && pos < buf.length) {
             char[] tmpBuf = new char[buf.length];
@@ -270,8 +275,8 @@ class CircularStringBuilder {
             System.arraycopy(buf, 0, tmpBuf, tailLen, buf.length - tailLen);
 
             return new String(tmpBuf, 0, tmpBuf.length);
-        }
-        else
+        } else {
             return new String(buf, 0, pos);
+        }
     }
 }

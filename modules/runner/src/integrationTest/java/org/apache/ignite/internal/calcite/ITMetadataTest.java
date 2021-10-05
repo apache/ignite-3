@@ -18,21 +18,26 @@
 
 package org.apache.ignite.internal.calcite;
 
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
-
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Stream.generate;
 
-/** */
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+
+/**
+ *
+ */
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ITMetadataTest extends AbstractBasicIntegrationTest {
     /** {@inheritDoc} */
-    @Override protected void initTestData() {
+    @Override
+    protected void initTestData() {
         createAndPopulateTable();
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     public void trimColumnNames() {
         String X300 = generate(() -> "X").limit(300).collect(joining());
@@ -41,22 +46,24 @@ public class ITMetadataTest extends AbstractBasicIntegrationTest {
         assertQuery("select '" + X300 + "' from person").columnNames(X256).check();
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     public void columnNames() {
         assertQuery("select (select count(*) from person), (select avg(salary) from person) from person")
-            .columnNames("EXPR$0", "EXPR$1").check();
+                .columnNames("EXPR$0", "EXPR$1").check();
         assertQuery("select (select count(*) from person) as subquery from person")
-            .columnNames("SUBQUERY").check();
+                .columnNames("SUBQUERY").check();
 
         assertQuery("select salary*2, salary/2, salary+2, salary-2, mod(salary, 2)  from person")
-            .columnNames("SALARY * 2", "SALARY / 2", "SALARY + 2", "SALARY - 2", "MOD(SALARY, 2)").check();
+                .columnNames("SALARY * 2", "SALARY / 2", "SALARY + 2", "SALARY - 2", "MOD(SALARY, 2)").check();
         assertQuery("select salary*2 as first, salary/2 as secOND from person").columnNames("FIRST", "SECOND").check();
 
         assertQuery("select trim(name) tr_name from person").columnNames("TR_NAME").check();
         assertQuery("select trim(name) from person").columnNames("TRIM(BOTH ' ' FROM NAME)").check();
         assertQuery("select row(1), ceil(salary), floor(salary), position('text' IN salary) from person")
-            .columnNames("ROW(1)", "CEIL(SALARY)", "FLOOR(SALARY)", "POSITION('text' IN SALARY)").check();
+                .columnNames("ROW(1)", "CEIL(SALARY)", "FLOOR(SALARY)", "POSITION('text' IN SALARY)").check();
 
         assertQuery("select count(*) from person").columnNames("COUNT(*)").check();
         assertQuery("select count(name) from person").columnNames("COUNT(NAME)").check();
@@ -70,12 +77,14 @@ public class ITMetadataTest extends AbstractBasicIntegrationTest {
         assertQuery("select 1, -1, 'some string' from person").columnNames("1", "-1", "'some string'").check();
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     public void infixTypeCast() {
         assertQuery("select id, id::tinyint as tid, id::smallint as sid, id::varchar as vid from person")
-            .columnNames("ID", "TID", "SID", "VID")
-            .columnTypes(Integer.class, Byte.class, Short.class, String.class)
-            .check();
+                .columnNames("ID", "TID", "SID", "VID")
+                .columnTypes(Integer.class, Byte.class, Short.class, String.class)
+                .check();
     }
 }

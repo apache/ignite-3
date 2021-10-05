@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.processors.query.calcite.planner;
 
-import java.util.List;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -35,10 +38,6 @@ import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactor
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeSystem;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 /**
  *
  */
@@ -52,44 +51,46 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
         publicSchema.addTable(
-            "T0",
-            new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                    .add("ID", f.createJavaType(Integer.class))
-                    .add("JID", f.createJavaType(Integer.class))
-                    .add("VAL", f.createJavaType(String.class))
-                    .build()) {
+                "T0",
+                new TestTable(
+                        new RelDataTypeFactory.Builder(f)
+                                .add("ID", f.createJavaType(Integer.class))
+                                .add("JID", f.createJavaType(Integer.class))
+                                .add("VAL", f.createJavaType(String.class))
+                                .build()) {
 
-                @Override public IgniteDistribution distribution() {
-                    return IgniteDistributions.broadcast();
+                    @Override
+                    public IgniteDistribution distribution() {
+                        return IgniteDistributions.broadcast();
+                    }
                 }
-            }
         );
 
         publicSchema.addTable(
-            "T1",
-            new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                    .add("ID", f.createJavaType(Integer.class))
-                    .add("JID", f.createJavaType(Integer.class))
-                    .add("VAL", f.createJavaType(String.class))
-                    .build()) {
+                "T1",
+                new TestTable(
+                        new RelDataTypeFactory.Builder(f)
+                                .add("ID", f.createJavaType(Integer.class))
+                                .add("JID", f.createJavaType(Integer.class))
+                                .add("VAL", f.createJavaType(String.class))
+                                .build()) {
 
-                @Override public IgniteDistribution distribution() {
-                    return IgniteDistributions.broadcast();
+                    @Override
+                    public IgniteDistribution distribution() {
+                        return IgniteDistributions.broadcast();
+                    }
                 }
-            }
-                .addIndex(RelCollations.of(ImmutableIntList.of(1, 0)), "t1_jid_idx")
+                        .addIndex(RelCollations.of(ImmutableIntList.of(1, 0)), "t1_jid_idx")
         );
 
         String sql = "select * " +
-            "from t0 " +
-            "join t1 on t0.jid = t1.jid";
+                "from t0 " +
+                "join t1 on t0.jid = t1.jid";
 
         IgniteRel phys = physicalPlan(
-            sql,
-            publicSchema,
-            "MergeJoinConverter", "NestedLoopJoinConverter"
+                sql,
+                publicSchema,
+                "MergeJoinConverter", "NestedLoopJoinConverter"
         );
 
         System.out.println("+++ " + RelOptUtil.toString(phys));
@@ -103,8 +104,8 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
         assertNotNull(lBound, "Invalid plan\n" + RelOptUtil.toString(phys));
         assertEquals(3, lBound.size());
 
-        assertTrue(((RexLiteral)lBound.get(0)).isNull());
-        assertTrue(((RexLiteral)lBound.get(2)).isNull());
+        assertTrue(((RexLiteral) lBound.get(0)).isNull());
+        assertTrue(((RexLiteral) lBound.get(2)).isNull());
         assertTrue(lBound.get(1) instanceof RexFieldAccess);
 
         List<RexNode> uBound = idxScan.upperBound();
@@ -112,14 +113,13 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
         assertNotNull(uBound, "Invalid plan\n" + RelOptUtil.toString(phys));
         assertEquals(3, uBound.size());
 
-        assertTrue(((RexLiteral)uBound.get(0)).isNull());
-        assertTrue(((RexLiteral)uBound.get(2)).isNull());
+        assertTrue(((RexLiteral) uBound.get(0)).isNull());
+        assertTrue(((RexLiteral) uBound.get(2)).isNull());
         assertTrue(uBound.get(1) instanceof RexFieldAccess);
     }
 
     /**
-     * Check join with not equi condition.
-     * Current implementation of the CorrelatedNestedLoopJoinTest is not applicable for such case.
+     * Check join with not equi condition. Current implementation of the CorrelatedNestedLoopJoinTest is not applicable for such case.
      */
     @Test
     public void testInvalidIndexExpressions() throws Exception {
@@ -127,45 +127,47 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
         publicSchema.addTable(
-            "T0",
-            new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                    .add("ID", f.createJavaType(Integer.class))
-                    .add("JID", f.createJavaType(Integer.class))
-                    .add("VAL", f.createJavaType(String.class))
-                    .build()) {
+                "T0",
+                new TestTable(
+                        new RelDataTypeFactory.Builder(f)
+                                .add("ID", f.createJavaType(Integer.class))
+                                .add("JID", f.createJavaType(Integer.class))
+                                .add("VAL", f.createJavaType(String.class))
+                                .build()) {
 
-                @Override public IgniteDistribution distribution() {
-                    return IgniteDistributions.broadcast();
+                    @Override
+                    public IgniteDistribution distribution() {
+                        return IgniteDistributions.broadcast();
+                    }
                 }
-            }
-                .addIndex(RelCollations.of(ImmutableIntList.of(1, 0)), "t0_jid_idx")
+                        .addIndex(RelCollations.of(ImmutableIntList.of(1, 0)), "t0_jid_idx")
         );
 
         publicSchema.addTable(
-            "T1",
-            new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                    .add("ID", f.createJavaType(Integer.class))
-                    .add("JID", f.createJavaType(Integer.class))
-                    .add("VAL", f.createJavaType(String.class))
-                    .build()) {
+                "T1",
+                new TestTable(
+                        new RelDataTypeFactory.Builder(f)
+                                .add("ID", f.createJavaType(Integer.class))
+                                .add("JID", f.createJavaType(Integer.class))
+                                .add("VAL", f.createJavaType(String.class))
+                                .build()) {
 
-                @Override public IgniteDistribution distribution() {
-                    return IgniteDistributions.broadcast();
+                    @Override
+                    public IgniteDistribution distribution() {
+                        return IgniteDistributions.broadcast();
+                    }
                 }
-            }
-                .addIndex(RelCollations.of(ImmutableIntList.of(1, 0)), "t1_jid_idx")
+                        .addIndex(RelCollations.of(ImmutableIntList.of(1, 0)), "t1_jid_idx")
         );
 
         String sql = "select * " +
-            "from t0 " +
-            "join t1 on t0.jid + 2 > t1.jid * 2";
+                "from t0 " +
+                "join t1 on t0.jid + 2 > t1.jid * 2";
 
         IgniteRel phys = physicalPlan(
-            sql,
-            publicSchema,
-            "MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeRule"
+                sql,
+                publicSchema,
+                "MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeRule"
         );
 
         assertNotNull(phys);

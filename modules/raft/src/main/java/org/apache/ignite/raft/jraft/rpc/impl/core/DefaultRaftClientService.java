@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
 import java.util.concurrent.CompletableFuture;
@@ -66,23 +67,23 @@ public class DefaultRaftClientService extends AbstractClientService implements R
 
     @Override
     public Future<Message> preVote(final Endpoint endpoint, final RequestVoteRequest request,
-        final RpcResponseClosure<RequestVoteResponse> done) {
+            final RpcResponseClosure<RequestVoteResponse> done) {
         return invokeWithDone(endpoint, request, done, this.nodeOptions.getElectionTimeoutMs());
     }
 
     @Override
     public Future<Message> requestVote(final Endpoint endpoint, final RequestVoteRequest request,
-        final RpcResponseClosure<RequestVoteResponse> done) {
+            final RpcResponseClosure<RequestVoteResponse> done) {
         return invokeWithDone(endpoint, request, done, this.nodeOptions.getElectionTimeoutMs());
     }
 
     @Override
     public Future<Message> appendEntries(final Endpoint endpoint, final AppendEntriesRequest request,
-        final int timeoutMs, final RpcResponseClosure<AppendEntriesResponse> done) {
+            final int timeoutMs, final RpcResponseClosure<AppendEntriesResponse> done) {
 
         // Assign an executor in round-robin fasion.
         final Executor executor = this.appendEntriesExecutorMap.computeIfAbsent(endpoint,
-            k -> nodeOptions.getStripedExecutor().next());
+                k -> nodeOptions.getStripedExecutor().next());
 
         if (connect(endpoint)) { // Replicator should be started asynchronously by node joined event.
             return invokeWithDone(endpoint, request, done, timeoutMs, executor);
@@ -93,7 +94,7 @@ public class DefaultRaftClientService extends AbstractClientService implements R
 
     @Override
     public Future<Message> getFile(final Endpoint endpoint, final GetFileRequest request, final int timeoutMs,
-        final RpcResponseClosure<GetFileResponse> done) {
+            final RpcResponseClosure<GetFileResponse> done) {
         // open checksum
         final InvokeContext ctx = new InvokeContext();
 
@@ -102,7 +103,7 @@ public class DefaultRaftClientService extends AbstractClientService implements R
 
     @Override
     public Future<Message> installSnapshot(final Endpoint endpoint, final InstallSnapshotRequest request,
-        final RpcResponseClosure<InstallSnapshotResponse> done) {
+            final RpcResponseClosure<InstallSnapshotResponse> done) {
 
         // Check connection before installing the snapshot to avoid waiting for undelivered message.
         if (connect(endpoint)) {
@@ -114,20 +115,20 @@ public class DefaultRaftClientService extends AbstractClientService implements R
 
     @Override
     public Future<Message> timeoutNow(final Endpoint endpoint, final TimeoutNowRequest request, final int timeoutMs,
-        final RpcResponseClosure<TimeoutNowResponse> done) {
+            final RpcResponseClosure<TimeoutNowResponse> done) {
         return invokeWithDone(endpoint, request, done, timeoutMs);
     }
 
     @Override
     public Future<Message> readIndex(final Endpoint endpoint, final ReadIndexRequest request, final int timeoutMs,
-        final RpcResponseClosure<ReadIndexResponse> done) {
+            final RpcResponseClosure<ReadIndexResponse> done) {
         return invokeWithDone(endpoint, request, done, timeoutMs);
     }
 
     /**
      * @param executor The executor to run done closure.
-     * @param request The request.
-     * @param done The closure.
+     * @param request  The request.
+     * @param done     The closure.
      * @param endpoint The endpoint.
      * @return The future.
      */
@@ -139,14 +140,13 @@ public class DefaultRaftClientService extends AbstractClientService implements R
             if (done != null) {
                 try {
                     done.run(new Status(RaftError.EINTERNAL, "Check connection[%s] fail and try to create new one", endpoint));
-                }
-                catch (final Throwable t) {
+                } catch (final Throwable t) {
                     LOG.error("Fail to run RpcResponseClosure, the request is {}.", t, request);
                 }
             }
 
             future.completeExceptionally(new RemotingException("Check connection[" +
-                endpoint.toString() + "] fail and try to create new one"));
+                    endpoint.toString() + "] fail and try to create new one"));
         });
 
         return future;

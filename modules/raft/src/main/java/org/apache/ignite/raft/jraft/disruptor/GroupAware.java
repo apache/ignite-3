@@ -18,8 +18,7 @@
 package org.apache.ignite.raft.jraft.disruptor;
 
 /**
- * Interface provides group id.
- * It allows to determine a stripe in Striped disruptor.
+ * Interface provides group id. It allows to determine a stripe in Striped disruptor.
  */
 public interface GroupAware {
     /**

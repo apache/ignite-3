@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -29,8 +31,6 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
 /**
  * Check data by strict schema.
  */
@@ -41,9 +41,9 @@ public class StrictSchemaOperationsTest {
     @Test
     public void columnNotExist() {
         SchemaDescriptor schema = new SchemaDescriptor(
-            1,
-            new Column[] {new Column("id", NativeTypes.INT64, false)},
-            new Column[] {new Column("val", NativeTypes.INT64, true)}
+                1,
+                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("val", NativeTypes.INT64, true)}
         );
 
         RecordView<Tuple> recView = createTableImpl(schema).recordView();
@@ -57,26 +57,29 @@ public class StrictSchemaOperationsTest {
     @Test
     public void schemaMismatch() {
         SchemaDescriptor schema = new SchemaDescriptor(
-            1,
-            new Column[] {
-                new Column("id", NativeTypes.INT64, false),
-                new Column("affId", NativeTypes.INT64, false)
-            },
-            new Column[] {new Column("val", NativeTypes.INT64, true)}
+                1,
+                new Column[]{
+                        new Column("id", NativeTypes.INT64, false),
+                        new Column("affId", NativeTypes.INT64, false)
+                },
+                new Column[]{new Column("val", NativeTypes.INT64, true)}
         );
 
         Table tbl = createTableImpl(schema);
 
-        assertThrows(SchemaMismatchException.class, () -> tbl.recordView().get(Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L)));
+        assertThrows(SchemaMismatchException.class,
+                () -> tbl.recordView().get(Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L)));
         assertThrows(SchemaMismatchException.class, () -> tbl.recordView().get(Tuple.create().set("id", 0L)));
 
         assertThrows(SchemaMismatchException.class, () -> tbl.keyValueView().get(Tuple.create().set("id", 0L)));
-        assertThrows(SchemaMismatchException.class, () -> tbl.keyValueView().get(Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L)));
+        assertThrows(SchemaMismatchException.class,
+                () -> tbl.keyValueView().get(Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L)));
 
         assertThrows(SchemaMismatchException.class, () -> tbl.keyValueView().put(Tuple.create().set("id", 0L), Tuple.create()));
-        assertThrows(SchemaMismatchException.class, () -> tbl.keyValueView().put(Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L), Tuple.create()));
+        assertThrows(SchemaMismatchException.class,
+                () -> tbl.keyValueView().put(Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L), Tuple.create()));
         assertThrows(SchemaMismatchException.class, () -> tbl.keyValueView().put(Tuple.create().set("id", 0L).set("affId", 1L),
-            Tuple.create().set("id", 0L).set("val", 0L)));
+                Tuple.create().set("id", 0L).set("val", 0L)));
     }
 
     /**
@@ -85,12 +88,12 @@ public class StrictSchemaOperationsTest {
     @Test
     public void typeMismatch() {
         SchemaDescriptor schema = new SchemaDescriptor(
-            1,
-            new Column[] {new Column("id", NativeTypes.INT64, false)},
-            new Column[] {
-                new Column("valString", NativeTypes.stringOf(3), true),
-                new Column("valBytes", NativeTypes.blobOf(3), true)
-            }
+                1,
+                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{
+                        new Column("valString", NativeTypes.stringOf(3), true),
+                        new Column("valBytes", NativeTypes.blobOf(3), true)
+                }
         );
 
         RecordView<Tuple> tbl = createTableImpl(schema).recordView();
@@ -111,11 +114,11 @@ public class StrictSchemaOperationsTest {
     @Test
     public void stringTypeMatch() {
         SchemaDescriptor schema = new SchemaDescriptor(
-            1,
-            new Column[] {new Column("id", NativeTypes.INT64, false)},
-            new Column[] {
-                new Column("valString", NativeTypes.stringOf(3), true)
-            }
+                1,
+                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{
+                        new Column("valString", NativeTypes.stringOf(3), true)
+                }
         );
 
         RecordView<Tuple> tbl = createTableImpl(schema).recordView();
@@ -138,12 +141,12 @@ public class StrictSchemaOperationsTest {
     @Test
     public void bytesTypeMatch() {
         SchemaDescriptor schema = new SchemaDescriptor(
-            1,
-            new Column[] {new Column("id", NativeTypes.INT64, false)},
-            new Column[] {
-                new Column("valUnlimited", NativeTypes.BYTES, true),
-                new Column("valLimited", NativeTypes.blobOf(2), true)
-            });
+                1,
+                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{
+                        new Column("valUnlimited", NativeTypes.BYTES, true),
+                        new Column("valLimited", NativeTypes.blobOf(2), true)
+                });
 
         RecordView<Tuple> tbl = createTableImpl(schema).recordView();
 

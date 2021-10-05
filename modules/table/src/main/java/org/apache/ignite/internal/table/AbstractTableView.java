@@ -39,9 +39,10 @@ abstract class AbstractTableView {
 
     /**
      * Constructor
-     * @param tbl Internal table.
+     *
+     * @param tbl       Internal table.
      * @param schemaReg Schema registry.
-     * @param tx The transaction.
+     * @param tx        The transaction.
      */
     protected AbstractTableView(InternalTable tbl, SchemaRegistry schemaReg, @Nullable Transaction tx) {
         this.tbl = tbl;
@@ -59,14 +60,12 @@ abstract class AbstractTableView {
     protected <T> T sync(CompletableFuture<T> fut) {
         try {
             return fut.get();
-        }
-        catch (InterruptedException e) {
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
             //TODO: IGNITE-14500 Replace with public exception with an error code.
             throw new IgniteInternalException(e);
-        }
-        catch (ExecutionException e) {
+        } catch (ExecutionException e) {
             //TODO: IGNITE-14500 Replace with public exception with an error code (or unwrap?).
             throw new IgniteInternalException(e);
         }

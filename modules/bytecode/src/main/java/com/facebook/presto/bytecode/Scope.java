@@ -14,20 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.bytecode;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.TreeMap;
-import com.facebook.presto.bytecode.expression.BytecodeExpression;
-import org.objectweb.asm.Type;
+package com.facebook.presto.bytecode;
 
 import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
 import static com.facebook.presto.bytecode.BytecodeUtils.checkState;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static java.util.Objects.requireNonNull;
+
+import com.facebook.presto.bytecode.expression.BytecodeExpression;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.TreeMap;
+import org.objectweb.asm.Type;
 
 public class Scope {
     private final Map<String, Variable> variables = new TreeMap<>();
@@ -43,8 +44,7 @@ public class Scope {
             thisVariable = new Variable("this", thisType.get());
             variables.put("this", thisVariable);
             allVariables.add(thisVariable);
-        }
-        else {
+        } else {
             thisVariable = null;
         }
 

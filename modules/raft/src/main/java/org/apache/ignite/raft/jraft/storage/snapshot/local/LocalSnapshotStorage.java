@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
 
 import java.io.File;
@@ -84,8 +85,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
         this.lock.lock();
         try {
             return this.lastSnapshotIndex;
-        }
-        finally {
+        } finally {
             this.lock.unlock();
         }
     }
@@ -196,8 +196,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
                     ret = RaftError.EIO.getNumber();
                     break;
                 }
-            }
-            catch (final IOException e) {
+            } catch (final IOException e) {
                 LOG.error("Fail to sync writer {}.", writer.getPath());
                 ret = RaftError.EIO.getNumber();
                 break;
@@ -228,8 +227,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
             try {
                 Requires.requireTrue(oldIndex == this.lastSnapshotIndex);
                 this.lastSnapshotIndex = newIndex;
-            }
-            finally {
+            } finally {
                 this.lock.unlock();
             }
             unref(oldIndex);
@@ -291,8 +289,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
                 lsIndex = this.lastSnapshotIndex;
                 ref(lsIndex);
             }
-        }
-        finally {
+        } finally {
             this.lock.unlock();
         }
         if (lsIndex == 0) {
@@ -301,7 +298,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
         }
         final String snapshotPath = getSnapshotPath(lsIndex);
         final SnapshotReader reader = new LocalSnapshotReader(this, this.snapshotThrottle, this.addr, this.raftOptions,
-            snapshotPath);
+                snapshotPath);
         if (!reader.init(null)) {
             LOG.error("Fail to init reader for path {}.", snapshotPath);
             unref(lsIndex);
@@ -318,8 +315,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
         }
         try {
             copier.join();
-        }
-        catch (final InterruptedException e) {
+        } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
             LOG.error("Join on snapshot copier was interrupted.");
             return null;

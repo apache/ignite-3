@@ -14,7 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage.snapshot.remote;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -42,11 +48,6 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-
 @ExtendWith(MockitoExtension.class)
 public class CopySessionTest {
     private CopySession session;
@@ -65,8 +66,8 @@ public class CopySessionTest {
         this.copyOpts = new CopyOptions();
         this.raftOpts = new RaftOptions();
         this.rb = raftOpts.getRaftMessagesFactory().getFileRequest()
-            .readerId(99)
-            .filename("data");
+                .readerId(99)
+                .filename("data");
         this.nodeOptions = new NodeOptions();
         this.nodeOptions.setCommonExecutor(Executors.newSingleThreadExecutor());
         this.session = new CopySession(rpcService, timerManager, null, raftOpts, this.nodeOptions, rb, address);
@@ -101,8 +102,7 @@ public class CopySessionTest {
                 //test join, should return
                 session.join();
                 latch.countDown();
-            }
-            catch (final InterruptedException e) {
+            } catch (final InterruptedException e) {
                 // No-op.
             }
         });
@@ -113,7 +113,7 @@ public class CopySessionTest {
             this.session.setDestBuf(bufRef);
 
             this.session.onRpcReturned(Status.OK(), raftOpts.getRaftMessagesFactory().getFileResponse().readSize(100).eof(true)
-                .data(new ByteString(new byte[100])).build());
+                    .data(new ByteString(new byte[100])).build());
             assertEquals(100, bufRef.capacity());
             //should be flip
             assertEquals(0, bufRef.getBuffer().position());
@@ -134,18 +134,18 @@ public class CopySessionTest {
 
         final CompletableFuture<Message> future = new CompletableFuture<>();
         final RpcRequests.GetFileRequest rb = raftOpts.getRaftMessagesFactory().getFileRequest()
-            .readerId(99)
-            .filename("data")
-            .count(Integer.MAX_VALUE)
-            .offset(100)
-            .readPartly(true)
-            .build();
+                .readerId(99)
+                .filename("data")
+                .count(Integer.MAX_VALUE)
+                .offset(100)
+                .readPartly(true)
+                .build();
         Mockito
-            .when(this.rpcService.getFile(this.address, rb, this.copyOpts.getTimeoutMs(), session.getDone()))
-            .thenReturn(future);
+                .when(this.rpcService.getFile(this.address, rb, this.copyOpts.getTimeoutMs(), session.getDone()))
+                .thenReturn(future);
 
         this.session.onRpcReturned(Status.OK(), raftOpts.getRaftMessagesFactory().getFileResponse().readSize(100).eof(false)
-            .data(new ByteString(new byte[100])).build());
+                .data(new ByteString(new byte[100])).build());
         assertEquals(100, bufRef.capacity());
         assertEquals(100, bufRef.getBuffer().position());
 
@@ -163,15 +163,15 @@ public class CopySessionTest {
 
         final CompletableFuture<Message> future = new CompletableFuture<>();
         final RpcRequests.GetFileRequest rb = raftOpts.getRaftMessagesFactory().getFileRequest()
-            .readerId(99)
-            .filename("data")
-            .count(Integer.MAX_VALUE)
-            .offset(0)
-            .readPartly(true)
-            .build();
+                .readerId(99)
+                .filename("data")
+                .count(Integer.MAX_VALUE)
+                .offset(0)
+                .readPartly(true)
+                .build();
         Mockito
-            .when(this.rpcService.getFile(this.address, rb, this.copyOpts.getTimeoutMs(), session.getDone()))
-            .thenReturn(future);
+                .when(this.rpcService.getFile(this.address, rb, this.copyOpts.getTimeoutMs(), session.getDone()))
+                .thenReturn(future);
 
         this.session.onRpcReturned(new Status(RaftError.EINTR, "test"), null);
         assertNotNull(this.session.getTimer());
@@ -185,15 +185,15 @@ public class CopySessionTest {
         assertNull(this.session.getRpcCall());
         final CompletableFuture<Message> future = new CompletableFuture<>();
         final RpcRequests.GetFileRequest rb = raftOpts.getRaftMessagesFactory().getFileRequest()
-            .readerId(99)
-            .filename("data")
-            .count(maxCount)
-            .offset(0)
-            .readPartly(true)
-            .build();
+                .readerId(99)
+                .filename("data")
+                .count(maxCount)
+                .offset(0)
+                .readPartly(true)
+                .build();
         Mockito
-            .when(this.rpcService.getFile(this.address, rb, this.copyOpts.getTimeoutMs(), session.getDone()))
-            .thenReturn(future);
+                .when(this.rpcService.getFile(this.address, rb, this.copyOpts.getTimeoutMs(), session.getDone()))
+                .thenReturn(future);
         this.session.sendNextRpc();
         assertNotNull(this.session.getRpcCall());
         assertSame(future, this.session.getRpcCall());

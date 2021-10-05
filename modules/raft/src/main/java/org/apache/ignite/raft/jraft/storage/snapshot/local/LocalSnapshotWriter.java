@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
 
 import java.io.File;
@@ -65,8 +66,7 @@ public class LocalSnapshotWriter extends SnapshotWriter {
             if (metaFile.exists()) {
                 return metaTable.loadFromFile(metaPath);
             }
-        }
-        catch (final IOException e) {
+        } catch (final IOException e) {
             LOG.error("Fail to load snapshot meta from {}.", metaPath);
             setError(RaftError.EIO, "Fail to load snapshot meta from %s", metaPath);
             return false;
@@ -107,8 +107,8 @@ public class LocalSnapshotWriter extends SnapshotWriter {
     public boolean addFile(final String fileName, final Message fileMeta) {
         final LocalFileMetaBuilder metaBuilder = msgFactory.localFileMeta();
         if (fileMeta != null) {
-            metaBuilder.source(((LocalFileMeta)fileMeta).source());
-            metaBuilder.checksum(((LocalFileMeta)fileMeta).checksum());
+            metaBuilder.source(((LocalFileMeta) fileMeta).source());
+            metaBuilder.checksum(((LocalFileMeta) fileMeta).checksum());
         }
         final LocalFileMeta meta = metaBuilder.build();
         return this.metaTable.addFile(fileName, meta);

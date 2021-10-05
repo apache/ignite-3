@@ -29,12 +29,14 @@ public class MultiStepQueryPlan extends AbstractMultiStepPlan {
     }
 
     /** {@inheritDoc} */
-    @Override public Type type() {
+    @Override
+    public Type type() {
         return Type.QUERY;
     }
 
     /** {@inheritDoc} */
-    @Override public QueryPlan copy() {
+    @Override
+    public QueryPlan copy() {
         return new MultiStepQueryPlan(queryTemplate, fieldsMetadata);
     }
 }

@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.processors.query.calcite.metadata;
 
+import static org.apache.calcite.util.NumberUtil.multiply;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+
 import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.JoinInfo;
 import org.apache.calcite.rel.core.JoinRelType;
@@ -35,31 +38,34 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteSortedIndex
 import org.apache.ignite.internal.processors.query.calcite.rel.set.IgniteSetOp;
 import org.jetbrains.annotations.Nullable;
 
-import static org.apache.calcite.util.NumberUtil.multiply;
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-
-/** */
+/**
+ *
+ */
 @SuppressWarnings("unused") // actually all methods are used by runtime generated classes
 public class IgniteMdRowCount extends RelMdRowCount {
     public static final RelMetadataProvider SOURCE =
-        ReflectiveRelMetadataProvider.reflectiveSource(
-            BuiltInMethod.ROW_COUNT.method, new IgniteMdRowCount());
+            ReflectiveRelMetadataProvider.reflectiveSource(
+                    BuiltInMethod.ROW_COUNT.method, new IgniteMdRowCount());
 
     /** {@inheritDoc} */
-    @Override public Double getRowCount(Join rel, RelMetadataQuery mq) {
+    @Override
+    public Double getRowCount(Join rel, RelMetadataQuery mq) {
         return rel.estimateRowCount(mq);
     }
 
-    /** */
-    @Nullable public static Double joinRowCount(RelMetadataQuery mq, Join rel) {
+    /**
+     *
+     */
+    @Nullable
+    public static Double joinRowCount(RelMetadataQuery mq, Join rel) {
         if (!rel.getJoinType().projectsRight()) {
-          // Create a RexNode representing the selectivity of the
-          // semijoin filter and pass it to getSelectivity
-          RexNode semiJoinSelectivity =
-              RelMdUtil.makeSemiJoinSelectivityRexNode(mq, rel);
+            // Create a RexNode representing the selectivity of the
+            // semijoin filter and pass it to getSelectivity
+            RexNode semiJoinSelectivity =
+                    RelMdUtil.makeSemiJoinSelectivityRexNode(mq, rel);
 
-          return multiply(mq.getSelectivity(rel.getLeft(), semiJoinSelectivity),
-              mq.getRowCount(rel.getLeft()));
+            return multiply(mq.getSelectivity(rel.getLeft(), semiJoinSelectivity),
+                    mq.getRowCount(rel.getLeft()));
         }
 
         // Row count estimates of 0 will be rounded up to 1.
@@ -67,13 +73,15 @@ public class IgniteMdRowCount extends RelMdRowCount {
         final Double left = mq.getRowCount(rel.getLeft());
         final Double right = mq.getRowCount(rel.getRight());
 
-        if (left == null || right == null)
+        if (left == null || right == null) {
             return null;
+        }
 
         if (left <= 1D || right <= 1D) {
             Double max = mq.getMaxRowCount(rel);
-            if (max != null && max <= 1D)
+            if (max != null && max <= 1D) {
                 return max;
+            }
         }
 
         JoinInfo joinInfo = rel.analyzeCondition();
@@ -83,13 +91,14 @@ public class IgniteMdRowCount extends RelMdRowCount {
 
         double selectivity = mq.getSelectivity(rel, rel.getCondition());
 
-        if (nullOrEmpty(leftKeys) || nullOrEmpty(rightKeys))
+        if (nullOrEmpty(leftKeys) || nullOrEmpty(rightKeys)) {
             return left * right * selectivity;
+        }
 
         double leftDistinct = Util.first(
-            mq.getDistinctRowCount(rel.getLeft(), ImmutableBitSet.of(leftKeys), null), left);
+                mq.getDistinctRowCount(rel.getLeft(), ImmutableBitSet.of(leftKeys), null), left);
         double rightDistinct = Util.first(
-            mq.getDistinctRowCount(rel.getRight(), ImmutableBitSet.of(rightKeys), null), right);
+                mq.getDistinctRowCount(rel.getRight(), ImmutableBitSet.of(rightKeys), null), right);
 
         double leftCardinality = leftDistinct / left;
         double rightCardinality = rightDistinct / right;
@@ -98,20 +107,20 @@ public class IgniteMdRowCount extends RelMdRowCount {
 
         JoinRelType type = rel.getJoinType();
 
-        if (type == JoinRelType.LEFT)
+        if (type == JoinRelType.LEFT) {
             rowsCount += left;
-        else if (type == JoinRelType.RIGHT)
+        } else if (type == JoinRelType.RIGHT) {
             rowsCount += right;
-        else if (type == JoinRelType.FULL)
+        } else if (type == JoinRelType.FULL) {
             rowsCount += left + right;
+        }
 
         return rowsCount;
     }
 
     /**
-     * RowCount of Spool equals to estimated row count of its child by default,
-     * but IndexSpool has internal filter that could filter out some rows,
-     * hence we need to estimate it differently.
+     * RowCount of Spool equals to estimated row count of its child by default, but IndexSpool has internal filter that could filter out
+     * some rows, hence we need to estimate it differently.
      */
     public double getRowCount(IgniteSortedIndexSpool rel, RelMetadataQuery mq) {
         return rel.estimateRowCount(mq);

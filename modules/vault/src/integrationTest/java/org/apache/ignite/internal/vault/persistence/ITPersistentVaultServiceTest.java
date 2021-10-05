@@ -29,12 +29,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 class ITPersistentVaultServiceTest extends VaultServiceTest {
-    /** */
+    /**
+     *
+     */
     @WorkDirectory
     private Path vaultDir;
 
     /** {@inheritDoc} */
-    @Override protected VaultService getVaultService() {
+    @Override
+    protected VaultService getVaultService() {
         return new PersistentVaultService(vaultDir);
     }
 }

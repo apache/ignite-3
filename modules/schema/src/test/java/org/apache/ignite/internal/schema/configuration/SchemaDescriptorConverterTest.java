@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
@@ -29,9 +32,6 @@ import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.schema.definition.builder.ColumnDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.TableSchemaBuilder;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for SchemaDescriptorConverter.
@@ -47,9 +47,9 @@ public class SchemaDescriptorConverterTest {
     public void testComplexPrimaryKey() {
         TableSchemaBuilder bldr = getBuilder(false, false);
         TableDefinition tblSchm = bldr.withPrimaryKey(
-            SchemaBuilders.primaryKey()
-                .withColumns("INT8", "ID")
-                .build()
+                SchemaBuilders.primaryKey()
+                        .withColumns("INT8", "ID")
+                        .build()
         ).build();
 
         SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(1, tblSchm);
@@ -66,10 +66,10 @@ public class SchemaDescriptorConverterTest {
     public void testComplexPrimaryKeyWithAffinity() {
         TableSchemaBuilder bldr = getBuilder(false, false);
         TableDefinition tblSchm = bldr.withPrimaryKey(
-            SchemaBuilders.primaryKey()
-                .withColumns("INT8", "ID")
-                .withAffinityColumns("INT8")
-                .build()
+                SchemaBuilders.primaryKey()
+                        .withColumns("INT8", "ID")
+                        .withAffinityColumns("INT8")
+                        .build()
         ).build();
 
         SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(1, tblSchm);
@@ -129,43 +129,45 @@ public class SchemaDescriptorConverterTest {
      * Get TableSchemaBuilder with default table.
      *
      * @param nullable If all columns should be nullable.
-     * @param withPk If builder should contains primary key index.
+     * @param withPk   If builder should contains primary key index.
      * @return TableSchemaBuilder.
      */
     private TableSchemaBuilder getBuilder(boolean nullable, boolean withPk) {
         Function<ColumnDefinitionBuilder, ColumnDefinition> postProcess = builder -> {
-            if (nullable)
+            if (nullable) {
                 builder.asNullable();
-            else
+            } else {
                 builder.asNonNull();
+            }
             return builder.build();
         };
 
         TableSchemaBuilder res = SchemaBuilders.tableBuilder("SCHEMA", "TABLE")
-            .columns(
-                postProcess.apply(SchemaBuilders.column("ID", ColumnType.UUID)),
-                postProcess.apply(SchemaBuilders.column("INT8", ColumnType.INT8)),
-                postProcess.apply(SchemaBuilders.column("INT16", ColumnType.INT16)),
-                postProcess.apply(SchemaBuilders.column("INT32", ColumnType.INT32)),
-                postProcess.apply(SchemaBuilders.column("INT64", ColumnType.INT64)),
-                postProcess.apply(SchemaBuilders.column("FLOAT", ColumnType.FLOAT)),
-                postProcess.apply(SchemaBuilders.column("DOUBLE", ColumnType.DOUBLE)),
-                postProcess.apply(SchemaBuilders.column("UUID", ColumnType.UUID)),
-                postProcess.apply(SchemaBuilders.column("STRING", ColumnType.string())),
-                postProcess.apply(SchemaBuilders.column("STRING_FS10", ColumnType.stringOf(10))),
-                postProcess.apply(SchemaBuilders.column("BLOB", ColumnType.blobOf())),
-                postProcess.apply(SchemaBuilders.column("BLOB_FS10", ColumnType.blobOf(10))),
-                postProcess.apply(SchemaBuilders.column("DECIMAL", ColumnType.decimalOf(1,1))),
-                postProcess.apply(SchemaBuilders.column("NUMBER", ColumnType.numberOf(12))),
-                postProcess.apply(SchemaBuilders.column("BITMASK_FS10", ColumnType.bitmaskOf(10)))
-                // TODO: IGNITE-13750 uncomment after unsigned types available
-                // postProcess.apply(SchemaBuilders.column("UINT8", ColumnType.UINT8)),
-                // postProcess.apply(SchemaBuilders.column("UINT16", ColumnType.UINT16)),
-                // postProcess.apply(SchemaBuilders.column("UINT32", ColumnType.UINT32)),
-                // postProcess.apply(SchemaBuilders.column("UINT64", ColumnType.UINT64)),
-            );
-        if (withPk)
+                .columns(
+                        postProcess.apply(SchemaBuilders.column("ID", ColumnType.UUID)),
+                        postProcess.apply(SchemaBuilders.column("INT8", ColumnType.INT8)),
+                        postProcess.apply(SchemaBuilders.column("INT16", ColumnType.INT16)),
+                        postProcess.apply(SchemaBuilders.column("INT32", ColumnType.INT32)),
+                        postProcess.apply(SchemaBuilders.column("INT64", ColumnType.INT64)),
+                        postProcess.apply(SchemaBuilders.column("FLOAT", ColumnType.FLOAT)),
+                        postProcess.apply(SchemaBuilders.column("DOUBLE", ColumnType.DOUBLE)),
+                        postProcess.apply(SchemaBuilders.column("UUID", ColumnType.UUID)),
+                        postProcess.apply(SchemaBuilders.column("STRING", ColumnType.string())),
+                        postProcess.apply(SchemaBuilders.column("STRING_FS10", ColumnType.stringOf(10))),
+                        postProcess.apply(SchemaBuilders.column("BLOB", ColumnType.blobOf())),
+                        postProcess.apply(SchemaBuilders.column("BLOB_FS10", ColumnType.blobOf(10))),
+                        postProcess.apply(SchemaBuilders.column("DECIMAL", ColumnType.decimalOf(1, 1))),
+                        postProcess.apply(SchemaBuilders.column("NUMBER", ColumnType.numberOf(12))),
+                        postProcess.apply(SchemaBuilders.column("BITMASK_FS10", ColumnType.bitmaskOf(10)))
+                        // TODO: IGNITE-13750 uncomment after unsigned types available
+                        // postProcess.apply(SchemaBuilders.column("UINT8", ColumnType.UINT8)),
+                        // postProcess.apply(SchemaBuilders.column("UINT16", ColumnType.UINT16)),
+                        // postProcess.apply(SchemaBuilders.column("UINT32", ColumnType.UINT32)),
+                        // postProcess.apply(SchemaBuilders.column("UINT64", ColumnType.UINT64)),
+                );
+        if (withPk) {
             res.withPrimaryKey("ID");
+        }
 
         return res;
     }
@@ -173,9 +175,9 @@ public class SchemaDescriptorConverterTest {
     /**
      * Check specified column to match other parameters.
      *
-     * @param cols Columns to test.
-     * @param name Expected column name.
-     * @param type Expected column type.
+     * @param cols     Columns to test.
+     * @param name     Expected column name.
+     * @param type     Expected column type.
      * @param nullable Expected column nullable flag.
      */
     private static void testCol(Columns cols, String name, NativeTypeSpec type, boolean nullable) {
@@ -186,7 +188,8 @@ public class SchemaDescriptorConverterTest {
         assertEquals(type.name(), col.type().spec().name());
         assertEquals(nullable, col.nullable());
 
-        if (col.type().spec().fixedLength())
+        if (col.type().spec().fixedLength()) {
             assertTrue(col.type().sizeInBytes() >= 0);
+        }
     }
 }

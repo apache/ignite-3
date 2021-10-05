@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
@@ -29,7 +30,7 @@ public class RpcRequestClosure implements Closure {
     private static final IgniteLogger LOG = IgniteLogger.forClass(RpcRequestClosure.class);
 
     private static final AtomicIntegerFieldUpdater<RpcRequestClosure> STATE_UPDATER = AtomicIntegerFieldUpdater
-        .newUpdater(RpcRequestClosure.class, "state");
+            .newUpdater(RpcRequestClosure.class, "state");
 
     private static final int PENDING = 0;
     private static final int RESPOND = 1;

@@ -31,22 +31,21 @@ public abstract class Producer<T extends Event, P extends EventParameters> {
     private ConcurrentHashMap<T, ConcurrentLinkedQueue<EventListener<P>>> listeners = new ConcurrentHashMap<>();
 
     /**
-     * Registers an event listener.
-     * When the event predicate returns true it would never invoke after,
-     * otherwise this predicate would receive an event again.
+     * Registers an event listener. When the event predicate returns true it would never invoke after, otherwise this predicate would
+     * receive an event again.
      *
-     * @param evt Event.
+     * @param evt     Event.
      * @param closure Closure.
      */
     public void listen(T evt, EventListener<P> closure) {
         listeners.computeIfAbsent(evt, evtKey -> new ConcurrentLinkedQueue<>())
-            .offer(closure);
+                .offer(closure);
     }
 
     /**
      * Removes a listener associated with the event.
      *
-     * @param evt Event.
+     * @param evt     Event.
      * @param closure Closure.
      */
     public void removeListener(T evt, EventListener<P> closure) {
@@ -56,27 +55,29 @@ public abstract class Producer<T extends Event, P extends EventParameters> {
     /**
      * Removes a listener associated with the event.
      *
-     * @param evt Event.
+     * @param evt     Event.
      * @param closure Closure.
-     * @param cause The exception that was a cause which a listener is removed.
+     * @param cause   The exception that was a cause which a listener is removed.
      */
     public void removeListener(T evt, EventListener<P> closure, @Nullable IgniteInternalCheckedException cause) {
-        if (listeners.computeIfAbsent(evt, evtKey -> new ConcurrentLinkedQueue<>()).remove(closure))
+        if (listeners.computeIfAbsent(evt, evtKey -> new ConcurrentLinkedQueue<>()).remove(closure)) {
             closure.remove(cause == null ? new ListenerRemovedException() : new ListenerRemovedException(cause));
+        }
     }
 
     /**
      * Notifies every listener that subscribed before.
      *
-     * @param evt Event type.
+     * @param evt    Event type.
      * @param params Event parameters.
-     * @param err Exception when it was happened, or {@code null} otherwise.
+     * @param err    Exception when it was happened, or {@code null} otherwise.
      */
     protected void fireEvent(T evt, P params, Throwable err) {
         ConcurrentLinkedQueue<EventListener<P>> queue = listeners.get(evt);
 
-        if (queue == null)
+        if (queue == null) {
             return;
+        }
 
         EventListener<P> closure;
 
@@ -85,8 +86,9 @@ public abstract class Producer<T extends Event, P extends EventParameters> {
         while (iter.hasNext()) {
             closure = iter.next();
 
-            if (closure.notify(params, err))
+            if (closure.notify(params, err)) {
                 iter.remove();
+            }
         }
     }
 }

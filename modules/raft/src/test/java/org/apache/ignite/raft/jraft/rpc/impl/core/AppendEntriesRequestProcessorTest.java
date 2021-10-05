@@ -14,7 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.core;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.ArgumentMatchers.eq;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -32,14 +41,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.mockito.ArgumentMatchers.eq;
-
 public class AppendEntriesRequestProcessorTest extends BaseNodeRequestProcessorTest<AppendEntriesRequest> {
 
     private AppendEntriesRequest request;
@@ -51,14 +52,14 @@ public class AppendEntriesRequestProcessorTest extends BaseNodeRequestProcessorT
     @Override
     public AppendEntriesRequest createRequest(final String groupId, final PeerId peerId) {
         this.request = msgFactory.appendEntriesRequest()
-            .committedIndex(0)
-            .groupId(groupId)
-            .peerId(peerId.toString())
-            .serverId(this.serverId)
-            .prevLogIndex(0)
-            .term(0)
-            .prevLogTerm(0)
-            .build();
+                .committedIndex(0)
+                .groupId(groupId)
+                .peerId(peerId.toString())
+                .serverId(this.serverId)
+                .prevLogIndex(0)
+                .term(0)
+                .prevLogTerm(0)
+                .build();
         return this.request;
     }
 
@@ -76,7 +77,8 @@ public class AppendEntriesRequestProcessorTest extends BaseNodeRequestProcessorT
     }
 
     @AfterEach
-    @Override public void teardown() {
+    @Override
+    public void teardown() {
         if (this.executor != null) {
             this.executor.shutdownNow();
         }
@@ -115,12 +117,12 @@ public class AppendEntriesRequestProcessorTest extends BaseNodeRequestProcessorT
 
     @Override
     public void verify(final String interest, final RaftServerService service,
-        final NodeRequestProcessor<AppendEntriesRequest> processor) {
+            final NodeRequestProcessor<AppendEntriesRequest> processor) {
         assertEquals(interest, AppendEntriesRequest.class.getName());
         Mockito.verify(service).handleAppendEntriesRequest(eq(this.request), Mockito.any());
         final PeerPair pair = ((AppendEntriesRequestProcessor) processor).pairOf(this.peerIdStr, this.serverId);
         final PeerRequestContext ctx = ((AppendEntriesRequestProcessor) processor).getOrCreatePeerRequestContext(
-            this.groupId, pair, nodeManager);
+                this.groupId, pair, nodeManager);
         assertNotNull(ctx);
     }
 

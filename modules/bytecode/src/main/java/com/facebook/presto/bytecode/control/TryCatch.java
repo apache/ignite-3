@@ -14,21 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.bytecode.control;
 
-import java.util.List;
+import static java.util.Objects.requireNonNull;
+
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.BytecodeVisitor;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.instruction.LabelNode;
+import java.util.List;
 import org.objectweb.asm.MethodVisitor;
 
-import static java.util.Objects.requireNonNull;
-
 public class TryCatch
-    implements FlowControl {
+        implements FlowControl {
     private final String comment;
     private final BytecodeNode tryNode;
     private final BytecodeNode catchNode;
@@ -73,13 +74,13 @@ public class TryCatch
 
         // try block
         block.visitLabel(tryStart)
-            .append(tryNode)
-            .visitLabel(tryEnd)
-            .gotoLabel(done);
+                .append(tryNode)
+                .visitLabel(tryEnd)
+                .gotoLabel(done);
 
         // handler block
         block.visitLabel(handler)
-            .append(catchNode);
+                .append(catchNode);
 
         // all done
         block.visitLabel(done);

@@ -14,10 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.bytecode.expression;
 
-import java.awt.Point;
-import org.junit.jupiter.api.Test;
+package com.facebook.presto.bytecode.expression;
 
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
@@ -25,18 +23,24 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.getStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 
+import java.awt.Point;
+import org.junit.jupiter.api.Test;
+
 public class TestGetFieldBytecodeExpression {
     @Test
     public void testGetField()
-        throws Exception {
-        assertBytecodeExpression(newInstance(Point.class, constantInt(3), constantInt(7)).getField("x", int.class), new Point(3, 7).x, "new Point(3, 7).x");
-        assertBytecodeExpression(newInstance(Point.class, constantInt(3), constantInt(7)).getField(Point.class, "x"), new Point(3, 7).x, "new Point(3, 7).x");
-        assertBytecodeExpression(newInstance(Point.class, constantInt(3), constantInt(7)).getField(Point.class.getField("x")), new Point(3, 7).x, "new Point(3, 7).x");
+            throws Exception {
+        assertBytecodeExpression(newInstance(Point.class, constantInt(3), constantInt(7)).getField("x", int.class), new Point(3, 7).x,
+                "new Point(3, 7).x");
+        assertBytecodeExpression(newInstance(Point.class, constantInt(3), constantInt(7)).getField(Point.class, "x"), new Point(3, 7).x,
+                "new Point(3, 7).x");
+        assertBytecodeExpression(newInstance(Point.class, constantInt(3), constantInt(7)).getField(Point.class.getField("x")),
+                new Point(3, 7).x, "new Point(3, 7).x");
     }
 
     @Test
     public void testGetStaticField()
-        throws Exception {
+            throws Exception {
         assertBytecodeExpression(getStatic(Long.class, "MIN_VALUE"), Long.MIN_VALUE, "Long.MIN_VALUE");
         assertBytecodeExpression(getStatic(Long.class.getField("MIN_VALUE")), Long.MIN_VALUE, "Long.MIN_VALUE");
         assertBytecodeExpression(getStatic(type(Long.class), "MIN_VALUE", type(long.class)), Long.MIN_VALUE, "Long.MIN_VALUE");

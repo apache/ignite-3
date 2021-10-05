@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
 import java.util.concurrent.Executor;
@@ -44,11 +45,10 @@ public class RequestVoteRequestProcessor extends NodeRequestProcessor<RequestVot
 
     @Override
     public Message processRequest0(final RaftServerService service, final RequestVoteRequest request,
-        final RpcRequestClosure done) {
+            final RpcRequestClosure done) {
         if (request.preVote()) {
             return service.handlePreVoteRequest(request);
-        }
-        else {
+        } else {
             return service.handleRequestVoteRequest(request);
         }
     }

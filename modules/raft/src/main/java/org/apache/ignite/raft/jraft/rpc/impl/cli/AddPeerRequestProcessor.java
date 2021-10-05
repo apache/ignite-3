@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
 import java.util.ArrayList;
@@ -48,18 +49,17 @@ public class AddPeerRequestProcessor extends BaseCliRequestProcessor<AddPeerRequ
 
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final AddPeerRequest request,
-        final IgniteCliRpcRequestClosure done) {
+            final IgniteCliRpcRequestClosure done) {
         final List<PeerId> oldPeers = ctx.node.listPeers();
         final String addingPeerIdStr = request.peerId();
         final PeerId addingPeer = new PeerId();
         if (addingPeer.parse(addingPeerIdStr)) {
             LOG.info("Receive AddPeerRequest to {} from {}, adding {}", ctx.node.getNodeId(), done.getRpcCtx()
-                .getRemoteAddress(), addingPeerIdStr);
+                    .getRemoteAddress(), addingPeerIdStr);
             ctx.node.addPeer(addingPeer, status -> {
                 if (!status.isOk()) {
                     done.run(status);
-                }
-                else {
+                } else {
                     List<String> oldPeersList = new ArrayList<>();
                     List<String> newPeersList = new ArrayList<>();
 
@@ -76,17 +76,16 @@ public class AddPeerRequestProcessor extends BaseCliRequestProcessor<AddPeerRequ
                     }
 
                     AddPeerResponse req = msgFactory().addPeerResponse()
-                        .newPeersList(newPeersList)
-                        .oldPeersList(oldPeersList)
-                        .build();
+                            .newPeersList(newPeersList)
+                            .oldPeersList(oldPeersList)
+                            .build();
 
                     done.sendResponse(req);
                 }
             });
-        }
-        else {
+        } else {
             return RaftRpcFactory.DEFAULT //
-                .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer id %s", addingPeerIdStr);
+                    .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer id %s", addingPeerIdStr);
         }
 
         return null;

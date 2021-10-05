@@ -35,17 +35,16 @@ public interface RecordMapper<R> {
         /**
          * Map a field to a type of given class.
          *
-         * @param fieldName Field name.
+         * @param fieldName   Field name.
          * @param targetClass Target class.
          * @return {@code this} for chaining.
          */
         public Builder<R> map(String fieldName, Class<?> targetClass);
 
         /**
-         * Adds a functional mapping for a field,
-         * the result depends on function call for every particular row.
+         * Adds a functional mapping for a field, the result depends on function call for every particular row.
          *
-         * @param fieldName Field name.
+         * @param fieldName       Field name.
          * @param mappingFunction Mapper function.
          * @return {@code this} for chaining.
          */

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
 
 import java.io.Serializable;
@@ -75,7 +76,7 @@ public final class BytesUtil {
         Requires.requireNonNull(bytes, "bytes");
         final int len = bytes.length;
         if (len == 0) { // fast path
-            return new byte[] {0};
+            return new byte[]{0};
         }
         final byte[] nextBytes = new byte[len + 1];
         System.arraycopy(bytes, 0, nextBytes, 0, len);
@@ -102,7 +103,7 @@ public final class BytesUtil {
     public interface ByteArrayComparator extends Comparator<byte[]>, Serializable {
 
         int compare(final byte[] buffer1, final int offset1, final int length1, final byte[] buffer2,
-            final int offset2, final int length2);
+                final int offset2, final int length2);
     }
 
     private static class LexicographicByteArrayComparator implements ByteArrayComparator {
@@ -116,7 +117,7 @@ public final class BytesUtil {
 
         @Override
         public int compare(final byte[] buffer1, final int offset1, final int length1, final byte[] buffer2,
-            final int offset2, final int length2) {
+                final int offset2, final int length2) {
             // short circuit equal case
             if (buffer1 == buffer2 && offset1 == offset2 && length1 == length2) {
                 return 0;

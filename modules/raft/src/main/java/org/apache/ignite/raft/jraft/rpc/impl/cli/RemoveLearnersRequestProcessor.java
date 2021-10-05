@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
 import java.util.ArrayList;
@@ -48,7 +49,7 @@ public class RemoveLearnersRequestProcessor extends BaseCliRequestProcessor<Remo
 
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final RemoveLearnersRequest request,
-        final IgniteCliRpcRequestClosure done) {
+            final IgniteCliRpcRequestClosure done) {
         final List<PeerId> oldLearners = ctx.node.listLearners();
         final List<PeerId> removeingLearners = new ArrayList<>(request.learnersList().size());
 
@@ -56,18 +57,17 @@ public class RemoveLearnersRequestProcessor extends BaseCliRequestProcessor<Remo
             final PeerId peer = new PeerId();
             if (!peer.parse(peerStr)) {
                 return RaftRpcFactory.DEFAULT //
-                    .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer id %s", peerStr);
+                        .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer id %s", peerStr);
             }
             removeingLearners.add(peer);
         }
 
         LOG.info("Receive RemoveLearnersRequest to {} from {}, removing {}.", ctx.node.getNodeId(),
-            done.getRpcCtx().getRemoteAddress(), removeingLearners);
+                done.getRpcCtx().getRemoteAddress(), removeingLearners);
         ctx.node.removeLearners(removeingLearners, status -> {
             if (!status.isOk()) {
                 done.run(status);
-            }
-            else {
+            } else {
                 List<String> oldLearnersList = new ArrayList<>();
                 List<String> newLearnersList = new ArrayList<>();
 
@@ -79,9 +79,9 @@ public class RemoveLearnersRequestProcessor extends BaseCliRequestProcessor<Remo
                 }
 
                 LearnersOpResponse response = msgFactory().learnersOpResponse()
-                    .oldLearnersList(oldLearnersList)
-                    .newLearnersList(newLearnersList)
-                    .build();
+                        .oldLearnersList(oldLearnersList)
+                        .newLearnersList(newLearnersList)
+                        .build();
 
                 done.sendResponse(response);
             }

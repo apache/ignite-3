@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
 
 import java.nio.charset.StandardCharsets;
@@ -38,11 +39,10 @@ import org.openjdk.jmh.runner.options.TimeValue;
 @State(Scope.Benchmark)
 public class Utf8CodecBenchmark {
     /**
-     * Benchmark                                Mode  Cnt      Score       Error   Units
-     * Utf8CodecBenchmark.defaultToUtf8Bytes   thrpt    3  13744.773 ±  2188.618  ops/ms
-     * Utf8CodecBenchmark.defaultToUtf8String  thrpt    3  18136.042 ± 10964.592  ops/ms
-     * Utf8CodecBenchmark.unsafeToUtf8Bytes    thrpt    3  21743.863 ±   228.019  ops/ms
-     * Utf8CodecBenchmark.unsafeToUtf8String   thrpt    3  20670.839 ±  9921.726  ops/ms
+     * Benchmark                                Mode  Cnt      Score       Error   Units Utf8CodecBenchmark.defaultToUtf8Bytes   thrpt    3
+     * 13744.773 ±  2188.618  ops/ms Utf8CodecBenchmark.defaultToUtf8String  thrpt    3  18136.042 ± 10964.592  ops/ms
+     * Utf8CodecBenchmark.unsafeToUtf8Bytes    thrpt    3  21743.863 ±   228.019  ops/ms Utf8CodecBenchmark.unsafeToUtf8String   thrpt    3
+     * 20670.839 ±  9921.726  ops/ms
      */
 
     private String str;
@@ -85,13 +85,13 @@ public class Utf8CodecBenchmark {
 
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder() //
-            .include(Utf8CodecBenchmark.class.getSimpleName()) //
-            .warmupIterations(3) //
-            .warmupTime(TimeValue.seconds(10)) //
-            .measurementIterations(3) //
-            .measurementTime(TimeValue.seconds(10)) //
-            .forks(1) //
-            .build();
+                .include(Utf8CodecBenchmark.class.getSimpleName()) //
+                .warmupIterations(3) //
+                .warmupTime(TimeValue.seconds(10)) //
+                .measurementIterations(3) //
+                .measurementTime(TimeValue.seconds(10)) //
+                .forks(1) //
+                .build();
 
         new Runner(opt).run();
     }

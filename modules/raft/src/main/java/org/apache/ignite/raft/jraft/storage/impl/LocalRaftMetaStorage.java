@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage.impl;
 
 import java.io.File;
@@ -74,8 +75,7 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
         if (load()) {
             this.isInited = true;
             return true;
-        }
-        else {
+        } else {
             return false;
         }
     }
@@ -89,11 +89,9 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
                 return this.votedFor.parse(meta.votedFor());
             }
             return true;
-        }
-        catch (final FileNotFoundException e) {
+        } catch (final FileNotFoundException e) {
             return true;
-        }
-        catch (final IOException e) {
+        } catch (final IOException e) {
             LOG.error("Fail to load raft meta storage", e);
             return false;
         }
@@ -106,9 +104,9 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
     private boolean save() {
         final long start = Utils.monotonicMs();
         final StablePBMeta meta = raftOptions.getRaftMessagesFactory().stablePBMeta()
-            .term(this.term) //
-            .votedFor(this.votedFor.toString()) //
-            .build();
+                .term(this.term) //
+                .votedFor(this.votedFor.toString()) //
+                .build();
         final MessageFile pbFile = newPbFile();
         try {
             if (!pbFile.save(meta, this.raftOptions.isSyncMeta())) {
@@ -116,25 +114,23 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
                 return false;
             }
             return true;
-        }
-        catch (final Exception e) {
+        } catch (final Exception e) {
             LOG.error("Fail to save raft meta", e);
             reportIOError();
             return false;
-        }
-        finally {
+        } finally {
             final long cost = Utils.monotonicMs() - start;
             if (this.nodeMetrics != null) {
                 this.nodeMetrics.recordLatency("save-raft-meta", cost);
             }
             LOG.info("Save raft meta, path={}, term={}, votedFor={}, cost time={} ms", this.path, this.term,
-                this.votedFor, cost);
+                    this.votedFor, cost);
         }
     }
 
     private void reportIOError() {
         this.node.onError(new RaftException(ErrorType.ERROR_TYPE_META, RaftError.EIO,
-            "Fail to save raft meta, path=%s", this.path));
+                "Fail to save raft meta, path=%s", this.path));
     }
 
     @Override

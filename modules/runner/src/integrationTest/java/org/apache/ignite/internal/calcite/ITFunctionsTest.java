@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.calcite;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.function.LongFunction;
-
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -33,23 +36,23 @@ import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 /**
  * Test Ignite SQL functions.
  */
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ITFunctionsTest extends AbstractBasicIntegrationTest {
-    /** */
+    /**
+     *
+     */
     @Test
     public void testLength() {
         assertQuery("SELECT LENGTH('TEST')").returns(4).check();
-        assertQuery("SELECT LENGTH(NULL)").returns(new Object[] { null }).check();
+        assertQuery("SELECT LENGTH(NULL)").returns(new Object[]{null}).check();
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     public void testCurrentDateTimeTimeStamp() {
         checkDateTimeQuery("SELECT CURRENT_DATE", Date::new);
@@ -62,7 +65,9 @@ public class ITFunctionsTest extends AbstractBasicIntegrationTest {
         checkDateTimeQuery("SELECT {fn NOW()}", Timestamp::new);
     }
 
-    /** */
+    /**
+     *
+     */
     private <T> void checkDateTimeQuery(String sql, LongFunction<T> func) {
         while (true) {
             long tsBeg = System.currentTimeMillis();
@@ -78,8 +83,9 @@ public class ITFunctionsTest extends AbstractBasicIntegrationTest {
             String strEnd = func.apply(tsEnd).toString();
 
             // Date changed, time comparison may return wrong result.
-            if (strBeg.compareTo(strEnd) > 0)
+            if (strBeg.compareTo(strEnd) > 0) {
                 continue;
+            }
 
             String strRes = res.get(0).get(0).toString();
 
@@ -90,116 +96,122 @@ public class ITFunctionsTest extends AbstractBasicIntegrationTest {
         }
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     public void testRange() {
         assertQuery("SELECT * FROM table(system_range(1, 4))")
-            .returns(1L)
-            .returns(2L)
-            .returns(3L)
-            .returns(4L)
-            .check();
+                .returns(1L)
+                .returns(2L)
+                .returns(3L)
+                .returns(4L)
+                .check();
 
         assertQuery("SELECT * FROM table(system_range(1, 4, 2))")
-            .returns(1L)
-            .returns(3L)
-            .check();
+                .returns(1L)
+                .returns(3L)
+                .check();
 
         assertQuery("SELECT * FROM table(system_range(4, 1, -1))")
-            .returns(4L)
-            .returns(3L)
-            .returns(2L)
-            .returns(1L)
-            .check();
+                .returns(4L)
+                .returns(3L)
+                .returns(2L)
+                .returns(1L)
+                .check();
 
         assertQuery("SELECT * FROM table(system_range(4, 1, -2))")
-            .returns(4L)
-            .returns(2L)
-            .check();
+                .returns(4L)
+                .returns(2L)
+                .check();
 
         assertEquals(0, sql("SELECT * FROM table(system_range(4, 1))").size());
 
         assertEquals(0, sql("SELECT * FROM table(system_range(null, 1))").size());
 
         IgniteInternalException ex = assertThrows(IgniteInternalException.class,
-            () -> sql("SELECT * FROM table(system_range(1, 1, 0))"));
+                () -> sql("SELECT * FROM table(system_range(1, 1, 0))"));
 
         assertEquals("Increment can't be 0", ex.getMessage());
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     public void testRangeWithCache() {
         TableDefinition tblDef = SchemaBuilders.tableBuilder("PUBLIC", "TEST")
-            .columns(
-                SchemaBuilders.column("ID", ColumnType.INT32).asNonNull().build(),
-                SchemaBuilders.column("VAL", ColumnType.INT32).asNonNull().build()
-            )
-            .withPrimaryKey("ID")
-            .build();
+                .columns(
+                        SchemaBuilders.column("ID", ColumnType.INT32).asNonNull().build(),
+                        SchemaBuilders.column("VAL", ColumnType.INT32).asNonNull().build()
+                )
+                .withPrimaryKey("ID")
+                .build();
 
         String tblName = tblDef.canonicalName();
 
         RecordView<Tuple> tbl = CLUSTER_NODES.get(0).tables().createTable(tblDef.canonicalName(), tblCh ->
-            SchemaConfigurationConverter.convert(tblDef, tblCh)
-                .changeReplicas(1)
-                .changePartitions(10)
+                SchemaConfigurationConverter.convert(tblDef, tblCh)
+                        .changeReplicas(1)
+                        .changePartitions(10)
         ).recordView();
 
         try {
 
-            for (int i = 0; i < 100; i++)
+            for (int i = 0; i < 100; i++) {
                 tbl.insert(Tuple.create().set("ID", i).set("VAL", i));
+            }
 
             // Correlated INNER join.
             assertQuery("SELECT t.val FROM test t WHERE t.val < 5 AND " +
-                "t.id in (SELECT x FROM table(system_range(t.val, t.val))) ")
-                .returns(0)
-                .returns(1)
-                .returns(2)
-                .returns(3)
-                .returns(4)
-                .check();
+                    "t.id in (SELECT x FROM table(system_range(t.val, t.val))) ")
+                    .returns(0)
+                    .returns(1)
+                    .returns(2)
+                    .returns(3)
+                    .returns(4)
+                    .check();
 
             // Correlated LEFT joins.
             assertQuery("SELECT t.val FROM test t WHERE t.val < 5 AND " +
-                "EXISTS (SELECT x FROM table(system_range(t.val, t.val)) WHERE mod(x, 2) = 0) ")
-                .returns(0)
-                .returns(2)
-                .returns(4)
-                .check();
+                    "EXISTS (SELECT x FROM table(system_range(t.val, t.val)) WHERE mod(x, 2) = 0) ")
+                    .returns(0)
+                    .returns(2)
+                    .returns(4)
+                    .check();
 
             assertQuery("SELECT t.val FROM test t WHERE t.val < 5 AND " +
-                "NOT EXISTS (SELECT x FROM table(system_range(t.val, t.val)) WHERE mod(x, 2) = 0) ")
-                .returns(1)
-                .returns(3)
-                .check();
+                    "NOT EXISTS (SELECT x FROM table(system_range(t.val, t.val)) WHERE mod(x, 2) = 0) ")
+                    .returns(1)
+                    .returns(3)
+                    .check();
 
             assertQuery("SELECT t.val FROM test t WHERE " +
-                "EXISTS (SELECT x FROM table(system_range(t.val, null))) ")
-                .check();
+                    "EXISTS (SELECT x FROM table(system_range(t.val, null))) ")
+                    .check();
 
             // Non-correlated join.
             assertQuery("SELECT t.val FROM test t JOIN table(system_range(1, 50)) as r ON t.id = r.x " +
-                "WHERE mod(r.x, 10) = 0")
-                .returns(10)
-                .returns(20)
-                .returns(30)
-                .returns(40)
-                .returns(50)
-                .check();
-        }
-        finally {
+                    "WHERE mod(r.x, 10) = 0")
+                    .returns(10)
+                    .returns(20)
+                    .returns(30)
+                    .returns(40)
+                    .returns(50)
+                    .check();
+        } finally {
             CLUSTER_NODES.get(0).tables().dropTable(tblName);
         }
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     public void testPercentRemainder() {
         assertQuery("SELECT 3 % 2").returns(1).check();
         assertQuery("SELECT 4 % 2").returns(0).check();
-        assertQuery("SELECT NULL % 2").returns(new Object[] { null }).check();
-        assertQuery("SELECT 3 % NULL::int").returns(new Object[] { null }).check();
+        assertQuery("SELECT NULL % 2").returns(new Object[]{null}).check();
+        assertQuery("SELECT 3 % NULL::int").returns(new Object[]{null}).check();
     }
 }

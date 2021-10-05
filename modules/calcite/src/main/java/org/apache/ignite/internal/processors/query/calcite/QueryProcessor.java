@@ -28,9 +28,9 @@ public interface QueryProcessor extends IgniteComponent {
      * Execute the query with given schema name and parameters.
      *
      * @param schemaName Schema name.
-     * @param qry Sql query.
-     * @param params Query parameters.
+     * @param qry        Sql query.
+     * @param params     Query parameters.
      * @return List of sql cursors.
-     * */
+     */
     List<SqlCursor<List<?>>> query(String schemaName, String qry, Object... params);
 }

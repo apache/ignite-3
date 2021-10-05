@@ -29,7 +29,7 @@ import org.apache.ignite.lang.IgniteInternalException;
  */
 public class ColumnAccessCodeGenerator {
     /**
-     * @param mode Binary mode.
+     * @param mode   Binary mode.
      * @param colIdx Column index in schema.
      * @return Row column access code generator.
      */
@@ -94,10 +94,10 @@ public class ColumnAccessCodeGenerator {
     /**
      * Constructor.
      *
-     * @param readMethodName Reader handle name.
+     * @param readMethodName  Reader handle name.
      * @param writeMethodName Writer handle name.
-     * @param mappedType Mapped value type.
-     * @param colIdx Column index in schema.
+     * @param mappedType      Mapped value type.
+     * @param colIdx          Column index in schema.
      */
     ColumnAccessCodeGenerator(String readMethodName, String writeMethodName, Class<?> mappedType, int colIdx) {
         this(readMethodName, writeMethodName, mappedType, mappedType, colIdx);
@@ -106,14 +106,14 @@ public class ColumnAccessCodeGenerator {
     /**
      * Constructor.
      *
-     * @param readMethodName Reader handle name.
+     * @param readMethodName  Reader handle name.
      * @param writeMethodName Writer handle name.
-     * @param mappedType Mapped value type.
-     * @param writeArgType Write method argument type.
-     * @param colIdx Column index in schema.
+     * @param mappedType      Mapped value type.
+     * @param writeArgType    Write method argument type.
+     * @param colIdx          Column index in schema.
      */
     ColumnAccessCodeGenerator(String readMethodName, String writeMethodName, Class<?> mappedType,
-        Class<?> writeArgType, int colIdx) {
+            Class<?> writeArgType, int colIdx) {
         this.readMethodName = readMethodName;
         this.writeMethodName = writeMethodName;
         this.colIdx = colIdx;

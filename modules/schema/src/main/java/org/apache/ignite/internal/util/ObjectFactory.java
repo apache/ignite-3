@@ -37,18 +37,17 @@ public class ObjectFactory<T> implements Factory<T> {
         try {
             cnstr = tClass.getDeclaredConstructor();
             cnstr.setAccessible(true);
-        }
-        catch (NoSuchMethodException e) {
+        } catch (NoSuchMethodException e) {
             throw new IgniteInternalException("Class has no default constructor: class=" + tClass.getName(), e);
         }
     }
 
     /** {@inheritDoc} */
-    @Override public T create() throws IgniteInternalException {
+    @Override
+    public T create() throws IgniteInternalException {
         try {
             return cnstr.newInstance();
-        }
-        catch (IllegalAccessException | InvocationTargetException | InstantiationException e) {
+        } catch (IllegalAccessException | InvocationTargetException | InstantiationException e) {
             throw new IgniteInternalException("Failed to instantiate class: " + cnstr.getDeclaringClass().getName(), e);
         }
     }

@@ -14,7 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
@@ -26,10 +31,6 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class LocalSnapshotStorageTest extends BaseStorageTest {
     private LocalSnapshotStorage snapshotStorage;
@@ -44,8 +45,8 @@ public class LocalSnapshotStorageTest extends BaseStorageTest {
         opts = new RaftOptions();
         this.table = new LocalSnapshotMetaTable(opts);
         this.table.setMeta(opts.getRaftMessagesFactory().snapshotMeta()
-            .lastIncludedIndex(this.lastSnapshotIndex)
-            .lastIncludedTerm(1).build());
+                .lastIncludedIndex(this.lastSnapshotIndex)
+                .lastIncludedTerm(1).build());
         this.table.saveToFile(snapshotPath + File.separator + Snapshot.JRAFT_SNAPSHOT_META_FILE);
 
         this.snapshotStorage = new LocalSnapshotStorage(path.toString(), new RaftOptions());
@@ -68,10 +69,10 @@ public class LocalSnapshotStorageTest extends BaseStorageTest {
         SnapshotWriter writer = this.snapshotStorage.create();
         assertNotNull(writer);
         RaftOutter.SnapshotMeta wroteMeta = opts.getRaftMessagesFactory()
-            .snapshotMeta()
-            .lastIncludedIndex(this.lastSnapshotIndex + 1)
-            .lastIncludedTerm(1)
-            .build();
+                .snapshotMeta()
+                .lastIncludedIndex(this.lastSnapshotIndex + 1)
+                .lastIncludedTerm(1)
+                .build();
         ((LocalSnapshotWriter) writer).saveMeta(wroteMeta);
         writer.addFile("data");
         assertEquals(1, this.snapshotStorage.getRefs(this.lastSnapshotIndex).get());

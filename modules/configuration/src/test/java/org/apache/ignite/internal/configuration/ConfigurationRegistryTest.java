@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.configuration;
 
+import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -25,32 +28,31 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.junit.jupiter.api.Test;
 
-import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
 /**
  * Class for testing the {@link ConfigurationRegistry}.
  */
 public class ConfigurationRegistryTest {
-    /** */
+    /**
+     *
+     */
     @Test
     void testValidationInternalConfigurationExtensions() {
         assertThrows(
-            IllegalArgumentException.class,
-            () -> new ConfigurationRegistry(
-                List.of(SecondRootConfiguration.KEY),
-                Map.of(),
-                new TestConfigurationStorage(LOCAL),
-                List.of(ExtendedFirstRootConfigurationSchema.class)
-            )
+                IllegalArgumentException.class,
+                () -> new ConfigurationRegistry(
+                        List.of(SecondRootConfiguration.KEY),
+                        Map.of(),
+                        new TestConfigurationStorage(LOCAL),
+                        List.of(ExtendedFirstRootConfigurationSchema.class)
+                )
         );
 
         // Check that everything is fine.
         new ConfigurationRegistry(
-            List.of(FirstRootConfiguration.KEY, SecondRootConfiguration.KEY),
-            Map.of(),
-            new TestConfigurationStorage(LOCAL),
-            List.of(ExtendedFirstRootConfigurationSchema.class)
+                List.of(FirstRootConfiguration.KEY, SecondRootConfiguration.KEY),
+                Map.of(),
+                new TestConfigurationStorage(LOCAL),
+                List.of(ExtendedFirstRootConfigurationSchema.class)
         );
     }
 

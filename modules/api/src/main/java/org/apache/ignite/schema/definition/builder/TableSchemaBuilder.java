@@ -60,13 +60,15 @@ public interface TableSchemaBuilder extends SchemaObjectBuilder {
     TableSchemaBuilder withPrimaryKey(PrimaryKeyDefinition primaryKeyDefinition);
 
     /** {@inheritDoc} */
-    @Override TableSchemaBuilder withHints(Map<String, String> hints);
+    @Override
+    TableSchemaBuilder withHints(Map<String, String> hints);
 
     /**
      * Builds table.
      *
      * @return Table.
      */
-    @Override TableDefinition build();
+    @Override
+    TableDefinition build();
 
 }

@@ -17,18 +17,18 @@
 
 package com.facebook.presto.bytecode.expression;
 
-import java.util.List;
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.MethodGenerationContext;
-import com.facebook.presto.bytecode.instruction.LabelNode;
-
 import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static java.util.Objects.requireNonNull;
 
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.MethodGenerationContext;
+import com.facebook.presto.bytecode.instruction.LabelNode;
+import java.util.List;
+
 class AndBytecodeExpression
-    extends BytecodeExpression {
+        extends BytecodeExpression {
     private final BytecodeExpression left;
     private final BytecodeExpression right;
 
@@ -45,15 +45,15 @@ class AndBytecodeExpression
         LabelNode falseLabel = new LabelNode("false");
         LabelNode endLabel = new LabelNode("end");
         return new BytecodeBlock()
-            .append(left)
-            .ifFalseGoto(falseLabel)
-            .append(right)
-            .ifFalseGoto(falseLabel)
-            .push(true)
-            .gotoLabel(endLabel)
-            .visitLabel(falseLabel)
-            .push(false)
-            .visitLabel(endLabel);
+                .append(left)
+                .ifFalseGoto(falseLabel)
+                .append(right)
+                .ifFalseGoto(falseLabel)
+                .push(true)
+                .gotoLabel(endLabel)
+                .visitLabel(falseLabel)
+                .push(false)
+                .visitLabel(endLabel);
     }
 
     @Override

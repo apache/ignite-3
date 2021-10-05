@@ -14,14 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
 import java.util.List;
 import java.util.concurrent.Executor;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.NodeManager;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -33,7 +34,7 @@ import org.apache.ignite.raft.jraft.util.StringUtils;
 
 /**
  * Base template to handle cli requests.
- *
+ * <p>
  * 2018-Apr-09 11:51:42 AM
  *
  * @param <T>
@@ -99,7 +100,7 @@ public abstract class BaseCliRequestProcessor<T extends Message> extends RpcRequ
             peerId = new PeerId();
             if (!peerId.parse(peerIdStr)) {
                 return RaftRpcFactory.DEFAULT //
-                    .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer: %s", peerIdStr);
+                        .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer: %s", peerIdStr);
             }
         }
 
@@ -107,9 +108,8 @@ public abstract class BaseCliRequestProcessor<T extends Message> extends RpcRequ
         Node node = getNode(groupId, peerId, st, done.getRpcCtx().getNodeManager());
         if (!st.isOk()) {
             return RaftRpcFactory.DEFAULT //
-                .newResponse(msgFactory(), st.getCode(), st.getErrorMsg());
-        }
-        else {
+                    .newResponse(msgFactory(), st.getCode(), st.getErrorMsg());
+        } else {
             return processRequest0(new CliRequestContext(node, groupId, peerId), request, new IgniteCliRpcRequestClosure(node, done));
         }
     }
@@ -122,17 +122,14 @@ public abstract class BaseCliRequestProcessor<T extends Message> extends RpcRequ
             if (node == null) {
                 st.setError(RaftError.ENOENT, "Fail to find node %s in group %s", peerId, groupId);
             }
-        }
-        else {
+        } else {
             List<Node> nodes = nodeManager.getNodesByGroupId(groupId);
             if (nodes == null || nodes.isEmpty()) {
                 st.setError(RaftError.ENOENT, "Empty nodes in group %s", groupId);
-            }
-            else if (nodes.size() > 1) {
+            } else if (nodes.size() > 1) {
                 st.setError(RaftError.EINVAL, "Peer must be specified since there're %d nodes in group %s",
-                    nodes.size(), groupId);
-            }
-            else {
+                        nodes.size(), groupId);
+            } else {
                 node = nodes.get(0);
             }
 

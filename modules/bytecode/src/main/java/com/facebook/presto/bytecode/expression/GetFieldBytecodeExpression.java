@@ -17,16 +17,6 @@
 
 package com.facebook.presto.bytecode.expression;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-import java.util.List;
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.FieldDefinition;
-import com.facebook.presto.bytecode.MethodGenerationContext;
-import com.facebook.presto.bytecode.ParameterizedType;
-import org.jetbrains.annotations.Nullable;
-
 import static com.facebook.presto.bytecode.Access.STATIC;
 import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
@@ -34,8 +24,18 @@ import static com.facebook.presto.bytecode.instruction.FieldInstruction.getStati
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.FieldDefinition;
+import com.facebook.presto.bytecode.MethodGenerationContext;
+import com.facebook.presto.bytecode.ParameterizedType;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.List;
+import org.jetbrains.annotations.Nullable;
+
 class GetFieldBytecodeExpression
-    extends BytecodeExpression {
+        extends BytecodeExpression {
     private final BytecodeExpression instance;
     private final ParameterizedType declaringClass;
     private final String name;
@@ -50,8 +50,7 @@ class GetFieldBytecodeExpression
         boolean isStatic = Modifier.isStatic(field.getModifiers());
         if (instance == null) {
             checkArgument(isStatic, "Field is not static: %s", field);
-        }
-        else {
+        } else {
             checkArgument(!isStatic, "Field is static: %s", field);
         }
     }
@@ -60,14 +59,13 @@ class GetFieldBytecodeExpression
         this(instance, requireNonNull(field, "field is null").getDeclaringClass().getType(), field.getName(), field.getType());
         if (instance == null) {
             checkArgument(field.getAccess().contains(STATIC), "Field is not static: %s", field);
-        }
-        else {
+        } else {
             checkArgument(!field.getAccess().contains(STATIC), "Field is static: %s", field);
         }
     }
 
     GetFieldBytecodeExpression(@Nullable BytecodeExpression instance, ParameterizedType declaringClass,
-        String name, ParameterizedType type) {
+            String name, ParameterizedType type) {
         super(type);
         checkArgument(instance == null || !instance.getType().isPrimitive(), "Type %s does not have fields", getType());
         this.instance = instance;
@@ -82,8 +80,8 @@ class GetFieldBytecodeExpression
         }
 
         return new BytecodeBlock()
-            .append(instance.getBytecode(generationContext))
-            .getField(declaringClass, name, getType());
+                .append(instance.getBytecode(generationContext))
+                .getField(declaringClass, name, getType());
     }
 
     @Override
@@ -105,8 +103,7 @@ class GetFieldBytecodeExpression
 
         try {
             return declaringClass.getField(name);
-        }
-        catch (NoSuchFieldException e) {
+        } catch (NoSuchFieldException e) {
             throw new IllegalArgumentException(format("Class %s does not have a '%s' field", declaringClass.getName(), name));
         }
     }

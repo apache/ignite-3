@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.option;
 
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -101,25 +102,23 @@ public class RaftOptions implements Copiable<RaftOptions> {
     private int disruptorBufferSize = 16384;
 
     /**
-     * The maximum timeout in seconds to wait when publishing events into disruptor, default is 10 seconds. If the
-     * timeout happens, it may halt the node.
+     * The maximum timeout in seconds to wait when publishing events into disruptor, default is 10 seconds. If the timeout happens, it may
+     * halt the node.
      */
     private int disruptorPublishEventWaitTimeoutSecs = 10;
 
     /**
-     * When true, validate log entry checksum when transferring the log entry from disk or network, default is false. If
-     * true, it would hurt the performance of JRAft but gain the data safety.
-     *
+     * When true, validate log entry checksum when transferring the log entry from disk or network, default is false. If true, it would hurt
+     * the performance of JRAft but gain the data safety.
      */
     private boolean enableLogEntryChecksum = false;
 
     /**
-     * ReadOnlyOption specifies how the read only request is processed. * {@link ReadOnlyOption#ReadOnlySafe} guarantees
-     * the linearizability of the read only request by communicating with the quorum. It is the default and suggested
-     * option. * {@link ReadOnlyOption#ReadOnlyLeaseBased} ensures linearizability of the read only request by relying
-     * on the leader lease. It can be affected by clock drift. If the clock drift is unbounded, leader might keep the
-     * lease longer than it should (clock can move backward/pause without any bound). ReadIndex is not safe in that
-     * case.
+     * ReadOnlyOption specifies how the read only request is processed. * {@link ReadOnlyOption#ReadOnlySafe} guarantees the linearizability
+     * of the read only request by communicating with the quorum. It is the default and suggested option. * {@link
+     * ReadOnlyOption#ReadOnlyLeaseBased} ensures linearizability of the read only request by relying on the leader lease. It can be
+     * affected by clock drift. If the clock drift is unbounded, leader might keep the lease longer than it should (clock can move
+     * backward/pause without any bound). ReadIndex is not safe in that case.
      */
     private ReadOnlyOption readOnlyOptions = ReadOnlyOption.ReadOnlySafe;
 
@@ -315,14 +314,14 @@ public class RaftOptions implements Copiable<RaftOptions> {
     @Override
     public String toString() {
         return "RaftOptions{" + "maxByteCountPerRpc=" + this.maxByteCountPerRpc + ", fileCheckHole="
-            + this.fileCheckHole + ", maxEntriesSize=" + this.maxEntriesSize + ", maxBodySize=" + this.maxBodySize
-            + ", maxAppendBufferSize=" + this.maxAppendBufferSize + ", maxElectionDelayMs="
-            + this.maxElectionDelayMs + ", electionHeartbeatFactor=" + this.electionHeartbeatFactor
-            + ", applyBatch=" + this.applyBatch + ", sync=" + this.sync + ", syncMeta=" + this.syncMeta
-            + ", openStatistics=" + this.openStatistics + ", replicatorPipeline=" + this.replicatorPipeline
-            + ", maxReplicatorInflightMsgs=" + this.maxReplicatorInflightMsgs + ", disruptorBufferSize="
-            + this.disruptorBufferSize + ", disruptorPublishEventWaitTimeoutSecs="
-            + this.disruptorPublishEventWaitTimeoutSecs + ", enableLogEntryChecksum=" + this.enableLogEntryChecksum
-            + ", readOnlyOptions=" + this.readOnlyOptions + '}';
+                + this.fileCheckHole + ", maxEntriesSize=" + this.maxEntriesSize + ", maxBodySize=" + this.maxBodySize
+                + ", maxAppendBufferSize=" + this.maxAppendBufferSize + ", maxElectionDelayMs="
+                + this.maxElectionDelayMs + ", electionHeartbeatFactor=" + this.electionHeartbeatFactor
+                + ", applyBatch=" + this.applyBatch + ", sync=" + this.sync + ", syncMeta=" + this.syncMeta
+                + ", openStatistics=" + this.openStatistics + ", replicatorPipeline=" + this.replicatorPipeline
+                + ", maxReplicatorInflightMsgs=" + this.maxReplicatorInflightMsgs + ", disruptorBufferSize="
+                + this.disruptorBufferSize + ", disruptorPublishEventWaitTimeoutSecs="
+                + this.disruptorPublishEventWaitTimeoutSecs + ", enableLogEntryChecksum=" + this.enableLogEntryChecksum
+                + ", readOnlyOptions=" + this.readOnlyOptions + '}';
     }
 }

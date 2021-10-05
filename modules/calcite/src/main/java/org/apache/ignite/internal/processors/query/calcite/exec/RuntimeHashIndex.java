@@ -14,7 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.internal.processors.query.calcite.exec;
+
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -22,21 +25,22 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Supplier;
-
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.processors.query.calcite.exec.exp.agg.GroupKey;
 import org.jetbrains.annotations.NotNull;
-
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 /**
  * Runtime hash index based on on-heap hash map.
  */
 public class RuntimeHashIndex<Row> implements RuntimeIndex<Row> {
-    /** */
+    /**
+     *
+     */
     protected final ExecutionContext<Row> ectx;
 
-    /** */
+    /**
+     *
+     */
     private final ImmutableBitSet keys;
 
     /** Rows. */
@@ -46,8 +50,8 @@ public class RuntimeHashIndex<Row> implements RuntimeIndex<Row> {
      *
      */
     public RuntimeHashIndex(
-        ExecutionContext<Row> ectx,
-        ImmutableBitSet keys
+            ExecutionContext<Row> ectx,
+            ImmutableBitSet keys
     ) {
         this.ectx = ectx;
 
@@ -58,28 +62,37 @@ public class RuntimeHashIndex<Row> implements RuntimeIndex<Row> {
     }
 
     /** {@inheritDoc} */
-    @Override public void push(Row r) {
+    @Override
+    public void push(Row r) {
         List<Row> eqRows = rows.computeIfAbsent(key(r), k -> new ArrayList<>());
 
         eqRows.add(r);
     }
 
-    /** */
-    @Override public void close() {
+    /**
+     *
+     */
+    @Override
+    public void close() {
         rows.clear();
     }
 
-    /** */
+    /**
+     *
+     */
     public Iterable<Row> scan(Supplier<Row> searchRow) {
         return new IndexScan(searchRow);
     }
 
-    /** */
+    /**
+     *
+     */
     private GroupKey key(Row r) {
         GroupKey.Builder b = GroupKey.builder(keys.cardinality());
 
-        for (Integer field : keys)
+        for (Integer field : keys) {
             b.add(ectx.rowHandler().get(field, r));
+        }
 
         return b.build();
     }
@@ -99,12 +112,15 @@ public class RuntimeHashIndex<Row> implements RuntimeIndex<Row> {
         }
 
         /** {@inheritDoc} */
-        @Override public void close() {
+        @Override
+        public void close() {
             // No-op.
         }
 
         /** {@inheritDoc} */
-        @NotNull @Override public Iterator<Row> iterator() {
+        @NotNull
+        @Override
+        public Iterator<Row> iterator() {
             List<Row> eqRows = rows.get(key(searchRow.get()));
 
             return eqRows == null ? Collections.emptyIterator() : eqRows.iterator();

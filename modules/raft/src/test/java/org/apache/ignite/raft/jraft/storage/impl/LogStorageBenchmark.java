@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage.impl;
 
 import java.nio.file.Paths;
@@ -40,7 +41,7 @@ public class LogStorageBenchmark {
     private final int batchSize;
 
     public LogStorageBenchmark(final LogStorage logStorage, final int logSize, final int totalLogs,
-        final int batchSize) {
+            final int batchSize) {
         super();
         this.logStorage = logStorage;
         this.logSize = logSize;

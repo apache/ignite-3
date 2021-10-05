@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.io.Serializable;
 import java.util.List;
 import java.util.function.Supplier;
@@ -28,10 +32,6 @@ import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Ignition interface tests.
@@ -58,13 +58,13 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             // Check old row conversion.
             final Tuple keyTuple = Tuple.create().set("key", 1L);
 
-            assertEquals(1, (Long)tbl.get(keyTuple).value("key"));
-            assertEquals(111, (Integer)tbl.get(keyTuple).value("valInt"));
+            assertEquals(1, (Long) tbl.get(keyTuple).value("key"));
+            assertEquals(111, (Integer) tbl.get(keyTuple).value("valInt"));
             assertThrows(IllegalArgumentException.class, () -> tbl.get(keyTuple).value("valStr"));
 
             // Check tuple of outdated schema.
             assertThrows(SchemaMismatchException.class,
-                () -> tbl.insert(Tuple.create().set("key", 2L).set("valInt", -222).set("valStr", "str"))
+                    () -> tbl.insert(Tuple.create().set("key", 2L).set("valInt", -222).set("valStr", "str"))
             );
 
             // Check tuple of correct schema.
@@ -72,8 +72,8 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
             final Tuple keyTuple2 = Tuple.create().set("key", 2L);
 
-            assertEquals(2, (Long)tbl.get(keyTuple2).value("key"));
-            assertEquals(222, (Integer)tbl.get(keyTuple2).value("valInt"));
+            assertEquals(2, (Long) tbl.get(keyTuple2).value("key"));
+            assertEquals(222, (Integer) tbl.get(keyTuple2).value("valInt"));
             assertThrows(IllegalArgumentException.class, () -> tbl.get(keyTuple2).value("valStr"));
         }
     }
@@ -93,7 +93,7 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             tbl.insert(Tuple.create().set("key", 1L).set("valInt", 111));
 
             assertThrows(SchemaMismatchException.class,
-                () -> tbl.insert(Tuple.create().set("key", 1L).set("valInt", -111).set("valStrNew", "str"))
+                    () -> tbl.insert(Tuple.create().set("key", 1L).set("valInt", -111).set("valStrNew", "str"))
             );
         }
 
@@ -102,8 +102,8 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
         // Check old row conversion.
         Tuple keyTuple1 = Tuple.create().set("key", 1L);
 
-        assertEquals(1, (Long)tbl.get(keyTuple1).value("key"));
-        assertEquals(111, (Integer)tbl.get(keyTuple1).value("valInt"));
+        assertEquals(1, (Long) tbl.get(keyTuple1).value("key"));
+        assertEquals(111, (Integer) tbl.get(keyTuple1).value("valInt"));
         assertEquals("default", tbl.get(keyTuple1).value("valStrNew"));
 
         // Check tuple of new schema.
@@ -111,8 +111,8 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         Tuple keyTuple2 = Tuple.create().set("key", 2L);
 
-        assertEquals(2, (Long)tbl.get(keyTuple2).value("key"));
-        assertEquals(222, (Integer)tbl.get(keyTuple2).value("valInt"));
+        assertEquals(2, (Long) tbl.get(keyTuple2).value("key"));
+        assertEquals(222, (Integer) tbl.get(keyTuple2).value("valInt"));
         assertEquals("str", tbl.get(keyTuple2).value("valStrNew"));
     }
 
@@ -176,7 +176,7 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             tbl.insert(Tuple.create().set("key", 1L).set("valInt", 111));
 
             assertThrows(SchemaMismatchException.class,
-                () -> tbl.insert(Tuple.create().set("key", 2L).set("val2", -222))
+                    () -> tbl.insert(Tuple.create().set("key", 2L).set("val2", -222))
             );
         }
 
@@ -187,9 +187,9 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             // Check old row conversion.
             Tuple keyTuple1 = Tuple.create().set("key", 1L);
 
-            assertEquals(1, (Long)tbl.get(keyTuple1).value("key"));
-            assertEquals(111, (Integer)tbl.get(keyTuple1).value("val2"));
-            assertEquals(-1, (Integer)tbl.get(keyTuple1).value("valInt"));
+            assertEquals(1, (Long) tbl.get(keyTuple1).value("key"));
+            assertEquals(111, (Integer) tbl.get(keyTuple1).value("val2"));
+            assertEquals(-1, (Integer) tbl.get(keyTuple1).value("valInt"));
 
             // Check tuple of outdated schema.
             assertNull(tbl.get(Tuple.create().set("key", 2L)));
@@ -199,9 +199,9 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
             Tuple keyTuple2 = Tuple.create().set("key", 2L);
 
-            assertEquals(2, (Long)tbl.get(keyTuple2).value("key"));
-            assertEquals(222, (Integer)tbl.get(keyTuple2).value("val2"));
-            assertEquals(-1, (Integer)tbl.get(keyTuple2).value("valInt"));
+            assertEquals(2, (Long) tbl.get(keyTuple2).value("key"));
+            assertEquals(222, (Integer) tbl.get(keyTuple2).value("val2"));
+            assertEquals(-1, (Integer) tbl.get(keyTuple2).value("valInt"));
         }
     }
 
@@ -214,7 +214,8 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        final ColumnDefinition column = SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValueExpression("default").build();
+        final ColumnDefinition column = SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValueExpression("default")
+                .build();
 
         RecordView<Tuple> tbl = grid.get(0).tables().table(TABLE).recordView();
 
@@ -222,7 +223,7 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             tbl.insert(Tuple.create().set("key", 1L).set("valInt", 111));
 
             assertThrows(SchemaMismatchException.class, () -> tbl.insert(
-                Tuple.create().set("key", 2L).set("val", "I'not exists"))
+                    Tuple.create().set("key", 2L).set("val", "I'not exists"))
             );
         }
 
@@ -242,7 +243,7 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             tbl.insert(Tuple.create().set("key", 4L).set("valInt", 444));
 
             assertThrows(SchemaMismatchException.class, () -> tbl.insert(
-                Tuple.create().set("key", 4L).set("val", "I'm not exist"))
+                    Tuple.create().set("key", 4L).set("val", "I'm not exist"))
             );
         }
 
@@ -254,27 +255,27 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             // Check old row conversion.
             Tuple keyTuple1 = Tuple.create().set("key", 1L);
 
-            assertEquals(111, (Integer)tbl.get(keyTuple1).value("valInt"));
+            assertEquals(111, (Integer) tbl.get(keyTuple1).value("valInt"));
             assertEquals("default", tbl.get(keyTuple1).value("val"));
 
             Tuple keyTuple2 = Tuple.create().set("key", 2L);
 
-            assertEquals(222, (Integer)tbl.get(keyTuple2).value("valInt"));
+            assertEquals(222, (Integer) tbl.get(keyTuple2).value("valInt"));
             assertEquals("default", tbl.get(keyTuple2).value("val"));
 
             Tuple keyTuple3 = Tuple.create().set("key", 3L);
 
-            assertEquals(333, (Integer)tbl.get(keyTuple3).value("valInt"));
+            assertEquals(333, (Integer) tbl.get(keyTuple3).value("valInt"));
             assertEquals("default", tbl.get(keyTuple3).value("val"));
 
             Tuple keyTuple4 = Tuple.create().set("key", 4L);
 
-            assertEquals(444, (Integer)tbl.get(keyTuple4).value("valInt"));
+            assertEquals(444, (Integer) tbl.get(keyTuple4).value("valInt"));
             assertEquals("default", tbl.get(keyTuple4).value("val"));
 
             Tuple keyTuple5 = Tuple.create().set("key", 5L);
 
-            assertEquals(555, (Integer)tbl.get(keyTuple5).value("valInt"));
+            assertEquals(555, (Integer) tbl.get(keyTuple5).value("valInt"));
             assertEquals("default", tbl.get(keyTuple5).value("val"));
         }
     }
@@ -296,15 +297,15 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             tbl.insert(Tuple.create().set("key", 1L).set("valInt", 111));
         }
 
-        changeDefault(grid, colName, (Supplier<Object> & Serializable)() -> "newDefault");
+        changeDefault(grid, colName, (Supplier<Object> & Serializable) () -> "newDefault");
         addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).withDefaultValueExpression("newDefault").build());
 
         {
             tbl.insert(Tuple.create().set("key", 2L).set("valInt", 222));
         }
 
-        changeDefault(grid, colName, (Supplier<Object> & Serializable)() -> "brandNewDefault");
-        changeDefault(grid, "val", (Supplier<Object> & Serializable)() -> "brandNewDefault");
+        changeDefault(grid, colName, (Supplier<Object> & Serializable) () -> "brandNewDefault");
+        changeDefault(grid, "val", (Supplier<Object> & Serializable) () -> "brandNewDefault");
 
         {
             tbl.insert(Tuple.create().set("key", 3L).set("valInt", 333));
@@ -312,19 +313,19 @@ class ITSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             // Check old row conversion.
             Tuple keyTuple1 = Tuple.create().set("key", 1L);
 
-            assertEquals(111, (Integer)tbl.get(keyTuple1).value("valInt"));
+            assertEquals(111, (Integer) tbl.get(keyTuple1).value("valInt"));
             assertEquals("default", tbl.get(keyTuple1).value("valStr"));
             assertEquals("newDefault", tbl.get(keyTuple1).value("val"));
 
             Tuple keyTuple2 = Tuple.create().set("key", 2L);
 
-            assertEquals(222, (Integer)tbl.get(keyTuple2).value("valInt"));
+            assertEquals(222, (Integer) tbl.get(keyTuple2).value("valInt"));
             assertEquals("newDefault", tbl.get(keyTuple2).value("valStr"));
             assertEquals("newDefault", tbl.get(keyTuple2).value("val"));
 
             Tuple keyTuple3 = Tuple.create().set("key", 3L);
 
-            assertEquals(333, (Integer)tbl.get(keyTuple3).value("valInt"));
+            assertEquals(333, (Integer) tbl.get(keyTuple3).value("valInt"));
             assertEquals("brandNewDefault", tbl.get(keyTuple3).value("valStr"));
             assertEquals("brandNewDefault", tbl.get(keyTuple3).value("val"));
         }

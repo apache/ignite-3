@@ -17,19 +17,18 @@
 
 package com.facebook.presto.bytecode.control;
 
-import java.util.List;
+import static com.facebook.presto.bytecode.BytecodeUtils.checkState;
+
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.BytecodeVisitor;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.instruction.LabelNode;
+import java.util.List;
 import org.objectweb.asm.MethodVisitor;
 
-import static com.facebook.presto.bytecode.BytecodeUtils.checkState;
-
 public class ForLoop
-        implements FlowControl
-{
+        implements FlowControl {
     private final String comment;
     private final BytecodeBlock initialize = new BytecodeBlock();
     private final BytecodeBlock condition = new BytecodeBlock();
@@ -40,83 +39,69 @@ public class ForLoop
     private final LabelNode continueLabel = new LabelNode("continue");
     private final LabelNode endLabel = new LabelNode("end");
 
-    public ForLoop()
-    {
+    public ForLoop() {
         this.comment = null;
     }
 
-    public ForLoop(String format, Object... args)
-    {
+    public ForLoop(String format, Object... args) {
         this.comment = String.format(format, args);
     }
 
     @Override
-    public String getComment()
-    {
+    public String getComment() {
         return comment;
     }
 
-    public LabelNode getContinueLabel()
-    {
+    public LabelNode getContinueLabel() {
         return continueLabel;
     }
 
-    public LabelNode getEndLabel()
-    {
+    public LabelNode getEndLabel() {
         return endLabel;
     }
 
-    public BytecodeBlock initialize()
-    {
+    public BytecodeBlock initialize() {
         return initialize;
     }
 
-    public ForLoop initialize(BytecodeNode node)
-    {
+    public ForLoop initialize(BytecodeNode node) {
         checkState(initialize.isEmpty(), "initialize already set");
         initialize.append(node);
         return this;
     }
 
-    public BytecodeBlock condition()
-    {
+    public BytecodeBlock condition() {
         return condition;
     }
 
-    public ForLoop condition(BytecodeNode node)
-    {
+    public ForLoop condition(BytecodeNode node) {
         checkState(condition.isEmpty(), "condition already set");
         condition.append(node);
         return this;
     }
 
-    public BytecodeBlock update()
-    {
+    public BytecodeBlock update() {
         return update;
     }
 
-    public ForLoop update(BytecodeNode node)
-    {
+    public ForLoop update(BytecodeNode node) {
         checkState(update.isEmpty(), "update already set");
         update.append(node);
         return this;
     }
 
-    public BytecodeBlock body()
-    {
+    public BytecodeBlock body() {
         return body;
     }
 
-    public ForLoop body(BytecodeNode node)
-    {
+    public ForLoop body(BytecodeNode node) {
         checkState(body.isEmpty(), "body already set");
         body.append(node);
         return this;
     }
 
     @Override
-    public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
-    {
+    public void accept(MethodVisitor visitor, MethodGenerationContext generationContext) {
         checkState(!condition.isEmpty(), "ForLoop does not have a condition set");
 
         BytecodeBlock block = new BytecodeBlock();
@@ -146,14 +131,12 @@ public class ForLoop
     }
 
     @Override
-    public List<BytecodeNode> getChildNodes()
-    {
+    public List<BytecodeNode> getChildNodes() {
         return List.of(initialize, condition, update, body);
     }
 
     @Override
-    public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
-    {
+    public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor) {
         return visitor.visitFor(parent, this);
     }
 }

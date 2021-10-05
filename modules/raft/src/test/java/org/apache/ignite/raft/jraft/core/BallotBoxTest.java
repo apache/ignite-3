@@ -14,7 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.core;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.raft.jraft.Closure;
@@ -34,12 +41,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 @ExtendWith(MockitoExtension.class)
 public class BallotBoxTest {
@@ -82,24 +83,24 @@ public class BallotBoxTest {
         assertTrue(this.box.getPendingMetaQueue().isEmpty());
         assertTrue(this.closureQueue.getQueue().isEmpty());
         assertFalse(this.box.appendPendingTask(
-            JRaftUtils.getConfiguration("localhost:8081,localhost:8082,localhost:8083"),
-            JRaftUtils.getConfiguration("localhost:8081"), new Closure() {
+                JRaftUtils.getConfiguration("localhost:8081,localhost:8082,localhost:8083"),
+                JRaftUtils.getConfiguration("localhost:8081"), new Closure() {
 
-                @Override
-                public void run(Status status) {
+                    @Override
+                    public void run(Status status) {
 
-                }
-            }));
+                    }
+                }));
         assertTrue(box.resetPendingIndex(1));
         assertTrue(this.box.appendPendingTask(
-            JRaftUtils.getConfiguration("localhost:8081,localhost:8082,localhost:8083"),
-            JRaftUtils.getConfiguration("localhost:8081"), new Closure() {
+                JRaftUtils.getConfiguration("localhost:8081,localhost:8082,localhost:8083"),
+                JRaftUtils.getConfiguration("localhost:8081"), new Closure() {
 
-                @Override
-                public void run(Status status) {
+                    @Override
+                    public void run(Status status) {
 
-                }
-            }));
+                    }
+                }));
 
         assertEquals(1, this.box.getPendingMetaQueue().size());
         assertEquals(1, this.closureQueue.getQueue().size());
@@ -119,19 +120,18 @@ public class BallotBoxTest {
         assertFalse(this.box.commitAt(1, 3, new PeerId("localhost", 8081)));
         assertTrue(box.resetPendingIndex(1));
         assertTrue(this.box.appendPendingTask(
-            JRaftUtils.getConfiguration("localhost:8081,localhost:8082,localhost:8083"),
-            JRaftUtils.getConfiguration("localhost:8081"), new Closure() {
-                @Override
-                public void run(Status status) {
+                JRaftUtils.getConfiguration("localhost:8081,localhost:8082,localhost:8083"),
+                JRaftUtils.getConfiguration("localhost:8081"), new Closure() {
+                    @Override
+                    public void run(Status status) {
 
-                }
-            }));
+                    }
+                }));
         assertEquals(0, this.box.getLastCommittedIndex());
         try {
             this.box.commitAt(1, 3, new PeerId("localhost", 8081));
             fail();
-        }
-        catch (ArrayIndexOutOfBoundsException e) {
+        } catch (ArrayIndexOutOfBoundsException e) {
             // No-op.
         }
         assertTrue(this.box.commitAt(1, 1, new PeerId("localhost", 8081)));

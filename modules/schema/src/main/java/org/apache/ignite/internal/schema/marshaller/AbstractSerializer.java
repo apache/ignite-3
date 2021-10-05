@@ -42,31 +42,35 @@ public abstract class AbstractSerializer implements Serializer {
     }
 
     /** {@inheritDoc} */
-    @Override public byte[] serialize(Object key, Object val) throws SerializationException {
+    @Override
+    public byte[] serialize(Object key, Object val) throws SerializationException {
         final RowAssembler assembler = createAssembler(Objects.requireNonNull(key), val);
 
         return serialize0(assembler, key, val);
     }
 
     /** {@inheritDoc} */
-    @Override public <K> K deserializeKey(byte[] data) throws SerializationException {
+    @Override
+    public <K> K deserializeKey(byte[] data) throws SerializationException {
         final Row row = new Row(schema, new ByteBufferRow(data));
 
-        return (K)deserializeKey0(row);
+        return (K) deserializeKey0(row);
     }
 
     /** {@inheritDoc} */
-    @Override public <V> V deserializeValue(byte[] data) throws SerializationException {
+    @Override
+    public <V> V deserializeValue(byte[] data) throws SerializationException {
         final Row row = new Row(schema, new ByteBufferRow(data));
 
-        return (V)deserializeValue0(row);
+        return (V) deserializeValue0(row);
     }
 
     /** {@inheritDoc} */
-    @Override public <K, V> Pair<K, V> deserialize(byte[] data) throws SerializationException {
+    @Override
+    public <K, V> Pair<K, V> deserialize(byte[] data) throws SerializationException {
         final Row row = new Row(schema, new ByteBufferRow(data));
 
-        return new Pair<>((K)deserializeKey0(row), (V)deserializeValue0(row));
+        return new Pair<>((K) deserializeKey0(row), (V) deserializeValue0(row));
     }
 
     /**

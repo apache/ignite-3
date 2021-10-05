@@ -24,34 +24,46 @@ public class ExplainPlan implements QueryPlan {
     /** Column name. */
     public static final String PLAN_COL_NAME = "PLAN";
 
-    /** */
+    /**
+     *
+     */
     private final FieldsMetadata fieldsMeta;
 
-    /** */
+    /**
+     *
+     */
     private final String plan;
 
-    /** */
+    /**
+     *
+     */
     public ExplainPlan(String plan, FieldsMetadata fieldsMeta) {
         this.fieldsMeta = fieldsMeta;
         this.plan = plan;
     }
 
     /** {@inheritDoc} */
-    @Override public Type type() {
+    @Override
+    public Type type() {
         return Type.EXPLAIN;
     }
 
     /** {@inheritDoc} */
-    @Override public QueryPlan copy() {
+    @Override
+    public QueryPlan copy() {
         return this;
     }
 
-    /** */
+    /**
+     *
+     */
     public FieldsMetadata fieldsMeta() {
         return fieldsMeta;
     }
 
-    /** */
+    /**
+     *
+     */
     public String plan() {
         return plan;
     }

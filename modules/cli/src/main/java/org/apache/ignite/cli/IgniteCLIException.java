@@ -32,7 +32,7 @@ public class IgniteCLIException extends RuntimeException {
     }
 
     /**
-     * @param msg Message.
+     * @param msg   Message.
      * @param cause Cause.
      */
     public IgniteCLIException(String msg, Throwable cause) {

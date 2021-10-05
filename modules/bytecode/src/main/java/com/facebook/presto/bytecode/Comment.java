@@ -17,12 +17,12 @@
 
 package com.facebook.presto.bytecode;
 
-import java.util.List;
 import com.facebook.presto.bytecode.instruction.InstructionNode;
+import java.util.List;
 import org.objectweb.asm.MethodVisitor;
 
 public class Comment
-    implements InstructionNode {
+        implements InstructionNode {
     protected final String comment;
 
     public Comment(String comment) {

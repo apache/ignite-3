@@ -17,23 +17,23 @@
 
 package com.facebook.presto.bytecode.expression;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.MethodGenerationContext;
-import com.facebook.presto.bytecode.ParameterizedType;
-import com.facebook.presto.bytecode.instruction.TypeInstruction;
-import org.jetbrains.annotations.Nullable;
-
 import static com.facebook.presto.bytecode.ArrayOpCode.getArrayOpCode;
 import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static java.util.Objects.requireNonNull;
 
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.MethodGenerationContext;
+import com.facebook.presto.bytecode.ParameterizedType;
+import com.facebook.presto.bytecode.instruction.TypeInstruction;
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.jetbrains.annotations.Nullable;
+
 class NewArrayBytecodeExpression
-    extends BytecodeExpression {
+        extends BytecodeExpression {
     private final BytecodeExpression length;
     private final ParameterizedType elementType;
 
@@ -53,7 +53,7 @@ class NewArrayBytecodeExpression
     }
 
     private NewArrayBytecodeExpression(ParameterizedType type, BytecodeExpression length,
-        Collection<BytecodeExpression> elements) {
+            Collection<BytecodeExpression> elements) {
         super(type);
         requireNonNull(type, "type is null");
         checkArgument(type.getArrayComponentType() != null, "type %s must be array type", type);
@@ -67,22 +67,21 @@ class NewArrayBytecodeExpression
         BytecodeBlock bytecodeBlock;
         if (elementType.isPrimitive()) {
             bytecodeBlock = new BytecodeBlock()
-                .append(length)
-                .append(TypeInstruction.newPrimitiveArray(elementType));
-        }
-        else {
+                    .append(length)
+                    .append(TypeInstruction.newPrimitiveArray(elementType));
+        } else {
             bytecodeBlock = new BytecodeBlock()
-                .append(length)
-                .append(TypeInstruction.newObjectArray(elementType));
+                    .append(length)
+                    .append(TypeInstruction.newObjectArray(elementType));
         }
         if (elements != null) {
             for (int i = 0; i < elements.size(); i++) {
                 BytecodeExpression element = elements.get(i);
                 bytecodeBlock
-                    .dup()
-                    .append(constantInt(i))
-                    .append(element)
-                    .append(getArrayOpCode(elementType).getStore());
+                        .dup()
+                        .append(constantInt(i))
+                        .append(element)
+                        .append(getArrayOpCode(elementType).getStore());
             }
         }
         return bytecodeBlock;
@@ -93,7 +92,8 @@ class NewArrayBytecodeExpression
         if (elements == null) {
             return "new " + elementType.getSimpleName() + "[" + length + "]";
         }
-        return "new " + elementType.getSimpleName() + "[] {" + elements.stream().map(BytecodeExpression::toString).collect(Collectors.joining(", ")) + "}";
+        return "new " + elementType.getSimpleName() + "[] {" + elements.stream().map(BytecodeExpression::toString)
+                .collect(Collectors.joining(", ")) + "}";
     }
 
     @Override

@@ -17,6 +17,13 @@
 
 package org.apache.ignite.internal.tostring;
 
+import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.identity;
+import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_TO_STRING_COLLECTION_LIMIT;
+import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_TO_STRING_MAX_LENGTH;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -42,13 +49,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteSystemProperties;
 import org.junit.jupiter.api.Test;
-
-import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.identity;
-import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_TO_STRING_COLLECTION_LIMIT;
-import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_TO_STRING_MAX_LENGTH;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link IgniteToStringBuilder}.
@@ -123,9 +123,9 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         final String hash2 = identity(list2);
 
         assertEquals("ArrayList" + hash1 + " [size=1, name=ArrayList [ArrayList" + hash1 + "]]",
-            IgniteToStringBuilder.toString(ArrayList.class, list1, "name", list2));
+                IgniteToStringBuilder.toString(ArrayList.class, list1, "name", list2));
         assertEquals("ArrayList" + hash2 + " [size=1, name=ArrayList [ArrayList" + hash2 + "]]",
-            IgniteToStringBuilder.toString(ArrayList.class, list2, "name", list1));
+                IgniteToStringBuilder.toString(ArrayList.class, list2, "name", list1));
     }
 
     /**
@@ -143,9 +143,9 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         final String hash2 = identity(map2);
 
         assertEquals("HashMap" + hash1 + " [name=HashMap {1=HashMap" + hash1 + "}]",
-            IgniteToStringBuilder.toString(HashMap.class, map1, "name", map2));
+                IgniteToStringBuilder.toString(HashMap.class, map1, "name", map2));
         assertEquals("HashMap" + hash2 + " [name=HashMap {2=HashMap" + hash2 + "}]",
-            IgniteToStringBuilder.toString(HashMap.class, map2, "name", map1));
+                IgniteToStringBuilder.toString(HashMap.class, map2, "name", map1));
     }
 
     /**
@@ -207,8 +207,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 return callable.call();
-            }
-            catch (Throwable th) {
+            } catch (Throwable th) {
                 throw new IgniteInternalException(th);
             }
         }, pool);
@@ -226,15 +225,17 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
 
         long start = System.currentTimeMillis();
 
-        for (int i = 0; i < 100000; i++)
+        for (int i = 0; i < 100000; i++) {
             obj.toStringManual();
+        }
 
         logger().info("Manual toString() took: {}ms", System.currentTimeMillis() - start);
 
         start = System.currentTimeMillis();
 
-        for (int i = 0; i < 100000; i++)
+        for (int i = 0; i < 100000; i++) {
             obj.toStringAutomatic();
+        }
 
         logger().info("Automatic toString() took: {}ms", System.currentTimeMillis() - start);
     }
@@ -242,11 +243,11 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
     /**
      * Test array print.
      *
-     * @param v value to get array class and fill array.
+     * @param v     value to get array class and fill array.
      * @param limit value of IGNITE_TO_STRING_COLLECTION_LIMIT.
      */
     private <T, V> void testArr(V v, int limit) {
-        T[] arrOf = (T[])Array.newInstance(v.getClass(), limit + 1);
+        T[] arrOf = (T[]) Array.newInstance(v.getClass(), limit + 1);
         Arrays.fill(arrOf, v);
         T[] arr = Arrays.copyOf(arrOf, limit);
 
@@ -273,7 +274,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
 
     /**
      * @param arrOf Array.
-     * @param arr Array copy.
+     * @param arr   Array copy.
      * @param limit Array limit.
      */
     private void checkArrayOverflow(Object[] arrOf, Object[] arr, int limit) {
@@ -288,7 +289,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         arrStr = resultSB.toString();
 
         assertEquals(arrStr, arrOfStr, "Collection limit error in array of type " +
-            arrOf.getClass().getName() + " error, normal arr: <" + arrStr + ">, overflowed arr: <" + arrOfStr + ">");
+                arrOf.getClass().getName() + " error, normal arr: <" + arrStr + ">, overflowed arr: <" + arrOfStr + ">");
     }
 
     /**
@@ -298,11 +299,12 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
     public void testToStringCollectionLimits() {
         int limit = IgniteSystemProperties.getInteger(IGNITE_TO_STRING_COLLECTION_LIMIT, 100);
 
-        Object[] vals = new Object[] {
-            Byte.MIN_VALUE, Boolean.TRUE, Short.MIN_VALUE, Integer.MIN_VALUE, Long.MIN_VALUE,
-            Float.MIN_VALUE, Double.MIN_VALUE, Character.MIN_VALUE, new TestClass1()};
-        for (Object val : vals)
+        Object[] vals = new Object[]{
+                Byte.MIN_VALUE, Boolean.TRUE, Short.MIN_VALUE, Integer.MIN_VALUE, Long.MIN_VALUE,
+                Float.MIN_VALUE, Double.MIN_VALUE, Character.MIN_VALUE, new TestClass1()};
+        for (Object val : vals) {
             testArr(val, limit);
+        }
 
         //noinspection ZeroLengthArrayAllocation
         int[] intArr1 = new int[0];
@@ -324,7 +326,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         assertEquals(Arrays.toString(byteArr), IgniteToStringBuilder.arrayToString(byteArr));
         byteArr = Arrays.copyOf(byteArr, 101);
         assertTrue(IgniteToStringBuilder.arrayToString(byteArr).contains("... and 1 more"),
-            "Can't find \"... and 1 more\" in overflowed array string!");
+                "Can't find \"... and 1 more\" in overflowed array string!");
 
         boolean[] boolArr = new boolean[1];
 
@@ -332,7 +334,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         assertEquals(Arrays.toString(boolArr), IgniteToStringBuilder.arrayToString(boolArr));
         boolArr = Arrays.copyOf(boolArr, 101);
         assertTrue(IgniteToStringBuilder.arrayToString(boolArr).contains("... and 1 more"),
-            "Can't find \"... and 1 more\" in overflowed array string!");
+                "Can't find \"... and 1 more\" in overflowed array string!");
 
         short[] shortArr = new short[1];
 
@@ -340,7 +342,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         assertEquals(Arrays.toString(shortArr), IgniteToStringBuilder.arrayToString(shortArr));
         shortArr = Arrays.copyOf(shortArr, 101);
         assertTrue(IgniteToStringBuilder.arrayToString(shortArr).contains("... and 1 more"),
-            "Can't find \"... and 1 more\" in overflowed array string!");
+                "Can't find \"... and 1 more\" in overflowed array string!");
 
         int[] intArr = new int[1];
 
@@ -348,7 +350,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         assertEquals(Arrays.toString(intArr), IgniteToStringBuilder.arrayToString(intArr));
         intArr = Arrays.copyOf(intArr, 101);
         assertTrue(IgniteToStringBuilder.arrayToString(intArr).contains("... and 1 more"),
-            "Can't find \"... and 1 more\" in overflowed array string!");
+                "Can't find \"... and 1 more\" in overflowed array string!");
 
         long[] longArr = new long[1];
 
@@ -356,8 +358,8 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         assertEquals(Arrays.toString(longArr), IgniteToStringBuilder.arrayToString(longArr));
         longArr = Arrays.copyOf(longArr, 101);
         assertTrue(
-            IgniteToStringBuilder.arrayToString(longArr).contains("... and 1 more"),
-            "Can't find \"... and 1 more\" in overflowed array string!");
+                IgniteToStringBuilder.arrayToString(longArr).contains("... and 1 more"),
+                "Can't find \"... and 1 more\" in overflowed array string!");
 
         float[] floatArr = new float[1];
 
@@ -365,7 +367,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         assertEquals(Arrays.toString(floatArr), IgniteToStringBuilder.arrayToString(floatArr));
         floatArr = Arrays.copyOf(floatArr, 101);
         assertTrue(IgniteToStringBuilder.arrayToString(floatArr).contains("... and 1 more"),
-            "Can't find \"... and 1 more\" in overflowed array string!");
+                "Can't find \"... and 1 more\" in overflowed array string!");
 
         double[] doubleArr = new double[1];
 
@@ -373,7 +375,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         assertEquals(Arrays.toString(doubleArr), IgniteToStringBuilder.arrayToString(doubleArr));
         doubleArr = Arrays.copyOf(doubleArr, 101);
         assertTrue(IgniteToStringBuilder.arrayToString(doubleArr).contains("... and 1 more"),
-            "Can't find \"... and 1 more\" in overflowed array string!");
+                "Can't find \"... and 1 more\" in overflowed array string!");
 
         char[] cArr = new char[1];
 
@@ -381,7 +383,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         assertEquals(Arrays.toString(cArr), IgniteToStringBuilder.arrayToString(cArr));
         cArr = Arrays.copyOf(cArr, 101);
         assertTrue(IgniteToStringBuilder.arrayToString(cArr).contains("... and 1 more"),
-            "Can't find \"... and 1 more\" in overflowed array string!");
+                "Can't find \"... and 1 more\" in overflowed array string!");
 
         Map<String, String> strMap = new TreeMap<>();
         List<String> strList = new ArrayList<>(limit + 1);
@@ -444,7 +446,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         String testClsStrOfR = testClsStrOf.replaceAll("... and 1 more", "");
 
         assertEquals(testClsStr.length(), testClsStrOfR.length(),
-            "Collection limit error in Map or List, normal: <" + testClsStr + ">, overflowed: <" + testClsStrOf + ">");
+                "Collection limit error in Map or List, normal: <" + testClsStr + ">, overflowed: <" + testClsStrOf + ">");
     }
 
     /**
@@ -486,17 +488,17 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         String hash = identity(p);
 
         assertEquals("Wrapper [p=Child [b=0, pb=Parent[] [null], super=Parent [a=0, pa=Parent[] [null]]]]",
-            w.toString());
+                w.toString());
 
         p.pa[0] = p;
 
         assertEquals("Wrapper [p=Child" + hash + " [b=0, pb=Parent[] [null]," +
-            " super=Parent [a=0, pa=Parent[] [Child" + hash + "]]]]", w.toString());
+                " super=Parent [a=0, pa=Parent[] [Child" + hash + "]]]]", w.toString());
 
-        ((Child)p).pb[0] = p;
+        ((Child) p).pb[0] = p;
 
         assertEquals("Wrapper [p=Child" + hash + " [b=0, pb=Parent[] [Child" + hash
-            + "], super=Parent [a=0, pa=Parent[] [Child" + hash + "]]]]", w.toString());
+                + "], super=Parent [a=0, pa=Parent[] [Child" + hash + "]]]]", w.toString());
     }
 
     /**
@@ -513,19 +515,22 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
 
         final CompletableFuture<Void> finishFut = CompletableFuture.runAsync(() -> {
             List<SlowToStringObject> list = classWithList.list;
-            for (int i = 0; i < 100; i++)
+            for (int i = 0; i < 100; i++) {
                 list.add(new SlowToStringObject());
+            }
 
             Random rnd = new Random();
 
             while (!finished.get()) {
-                if (rnd.nextBoolean() && list.size() > 1)
+                if (rnd.nextBoolean() && list.size() > 1) {
                     list.remove(list.size() / 2);
-                else
+                } else {
                     list.add(list.size() / 2, new SlowToStringObject());
+                }
 
-                if (modificationStartedLatch.getCount() > 0)
+                if (modificationStartedLatch.getCount() > 0) {
                     modificationStartedLatch.countDown();
+                }
             }
         });
 
@@ -535,8 +540,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
 
         try {
             s = classWithList.toString();
-        }
-        finally {
+        } finally {
             finished.set(true);
 
             finishFut.get();
@@ -560,19 +564,22 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
 
         CompletableFuture<Void> finishFut = CompletableFuture.runAsync(() -> {
             Map<Integer, SlowToStringObject> map = classWithMap.map;
-            for (int i = 0; i < 100; i++)
+            for (int i = 0; i < 100; i++) {
                 map.put(i, new SlowToStringObject());
+            }
 
             Random rnd = new Random();
 
             while (!finished.get()) {
-                if (rnd.nextBoolean() && map.size() > 1)
+                if (rnd.nextBoolean() && map.size() > 1) {
                     map.remove(map.size() / 2);
-                else
+                } else {
                     map.put(map.size() / 2, new SlowToStringObject());
+                }
 
-                if (modificationStartedLatch.getCount() > 0)
+                if (modificationStartedLatch.getCount() > 0) {
                     modificationStartedLatch.countDown();
+                }
             }
         });
 
@@ -582,8 +589,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
 
         try {
             s = classWithMap.toString();
-        }
-        finally {
+        } finally {
             finished.set(true);
 
             finishFut.get();
@@ -594,13 +600,13 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
     }
 
     /**
-     * Test verifies that when RuntimeException is thrown from toString method of some class
-     * IgniteToString builder doesn't fail but finishes building toString representation.
+     * Test verifies that when RuntimeException is thrown from toString method of some class IgniteToString builder doesn't fail but
+     * finishes building toString representation.
      */
     @Test
     public void testRuntimeExceptionCaught() {
         WrapperForFaultyToStringClass wr = new WrapperForFaultyToStringClass(
-            new ClassWithFaultyToString[] {new ClassWithFaultyToString()});
+                new ClassWithFaultyToString[]{new ClassWithFaultyToString()});
 
         String strRep = wr.toString();
 
@@ -638,7 +644,8 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         Node[] nodes;
 
         /** {@inheritDoc} */
-        @Override public String toString() {
+        @Override
+        public String toString() {
             return IgniteToStringBuilder.toString(Node.class, this);
         }
     }
@@ -670,7 +677,8 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         }
 
         /** {@inheritDoc} */
-        @Override public String call() throws Exception {
+        @Override
+        public String call() throws Exception {
             for (int i = 0; i < 10; i++) {
                 bar.await();
 
@@ -682,8 +690,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
     }
 
     /**
-     * Class containing another class with faulty toString implementation
-     * to force IgniteToStringBuilder to call faulty toString.
+     * Class containing another class with faulty toString implementation to force IgniteToStringBuilder to call faulty toString.
      */
     @SuppressWarnings({"FieldMayBeFinal", "unused"})
     private static class WrapperForFaultyToStringClass {
@@ -715,7 +722,8 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         }
 
         /** {@inheritDoc} */
-        @Override public String toString() {
+        @Override
+        public String toString() {
             return S.toString(WrapperForFaultyToStringClass.class, this);
         }
     }
@@ -725,7 +733,8 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
      */
     private static class ClassWithFaultyToString {
         /** {@inheritDoc} */
-        @Override public String toString() {
+        @Override
+        public String toString() {
             throw new RuntimeException("toString failed");
         }
     }
@@ -816,8 +825,9 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
             buf.append("id=").append(id).append(", ");
             buf.append("uuidVar=").append(uuidVar).append(", ");
             buf.append("intVar=").append(intVar).append(", ");
-            if (S.includeSensitive())
+            if (S.includeSensitive()) {
                 buf.append("longVar=").append(longVar).append(", ");
+            }
             buf.append("boolVar=").append(boolVar).append(", ");
             buf.append("byteVar=").append(byteVar).append(", ");
             buf.append("name=").append(name).append(", ");
@@ -851,8 +861,9 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
             StringBuilder s = new StringBuilder(toStringManual());
             s.setLength(s.length() - 1);
             s.append(", newParam1=").append(1);
-            if (S.includeSensitive())
+            if (S.includeSensitive()) {
                 s.append(", newParam2=").append(2);
+            }
             s.append(']');
             return s.toString();
         }
@@ -896,7 +907,8 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         private List<SlowToStringObject> list = new LinkedList<>();
 
         /** {@inheritDoc} */
-        @Override public String toString() {
+        @Override
+        public String toString() {
             return S.toString(ClassWithList.class, this);
         }
     }
@@ -913,22 +925,23 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         private Map<Integer, SlowToStringObject> map = new HashMap<>();
 
         /** {@inheritDoc} */
-        @Override public String toString() {
+        @Override
+        public String toString() {
             return S.toString(ClassWithMap.class, this);
         }
     }
 
     /**
-     * Class sleeps a short quanta of time to increase chances of data race
-     * between {@link IgniteToStringBuilder} iterating over collection  user thread concurrently modifying it.
+     * Class sleeps a short quanta of time to increase chances of data race between {@link IgniteToStringBuilder} iterating over collection
+     * user thread concurrently modifying it.
      */
     private static class SlowToStringObject {
         /** {@inheritDoc} */
-        @Override public String toString() {
+        @Override
+        public String toString() {
             try {
                 Thread.sleep(1);
-            }
-            catch (InterruptedException e) {
+            } catch (InterruptedException e) {
                 log.error(e.getMessage(), e);
             }
 
@@ -953,7 +966,8 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         private Parent[] pa = new Parent[1];
 
         /** {@inheritDoc} */
-        @Override public String toString() {
+        @Override
+        public String toString() {
             return S.toString(Parent.class, this);
         }
     }
@@ -975,7 +989,8 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         private Parent[] pb = new Parent[1];
 
         /** {@inheritDoc} */
-        @Override public String toString() {
+        @Override
+        public String toString() {
             return S.toString(Child.class, this, super.toString());
         }
     }
@@ -991,7 +1006,8 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         Parent p = new Child();
 
         /** {@inheritDoc} */
-        @Override public String toString() {
+        @Override
+        public String toString() {
             return S.toString(Wrapper.class, this);
         }
     }

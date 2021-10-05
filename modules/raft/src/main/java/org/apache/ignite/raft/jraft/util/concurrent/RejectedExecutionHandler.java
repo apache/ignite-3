@@ -14,18 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util.concurrent;
 
 /**
  * Similar to {@link java.util.concurrent.RejectedExecutionHandler} but specific to {@link SingleThreadExecutor}.
- *
+ * <p>
  * Reference from netty project.
  */
 public interface RejectedExecutionHandler {
 
     /**
-     * Called when someone tried to add a task to {@link SingleThreadExecutor} but this failed due capacity
-     * restrictions.
+     * Called when someone tried to add a task to {@link SingleThreadExecutor} but this failed due capacity restrictions.
      */
     void rejected(final Runnable task, final SingleThreadExecutor executor);
 }

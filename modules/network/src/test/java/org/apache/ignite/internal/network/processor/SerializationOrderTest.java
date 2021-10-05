@@ -17,6 +17,13 @@
 
 package org.apache.ignite.internal.network.processor;
 
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import org.apache.ignite.network.TestMessagesFactory;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageReader;
@@ -25,24 +32,20 @@ import org.apache.ignite.network.serialization.MessageWriter;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 /**
- * Test class for checking that writing and reading fields in the generated (de-)serializers is ordered
- * alphanumerically.
+ * Test class for checking that writing and reading fields in the generated (de-)serializers is ordered alphanumerically.
  */
 public class SerializationOrderTest {
-    /** */
+    /**
+     *
+     */
     private final TestMessagesFactory messageFactory = new TestMessagesFactory();
 
-    /** */
+    /**
+     *
+     */
     private final SerializationOrderMessageSerializationFactory serializationFactory =
-        new SerializationOrderMessageSerializationFactory(messageFactory);
+            new SerializationOrderMessageSerializationFactory(messageFactory);
 
     /**
      * Tests that a generated {@link MessageSerializer} writes message fields in alphanumerical order.
@@ -50,8 +53,8 @@ public class SerializationOrderTest {
     @Test
     void testSerializationOrder() {
         SerializationOrderMessage msg = messageFactory.serializationOrderMessage()
-            .a(1).b("2").c(3).d("4")
-            .build();
+                .a(1).b("2").c(3).d("4")
+                .build();
 
         MessageSerializer<SerializationOrderMessage> serializer = serializationFactory.createSerializer();
 

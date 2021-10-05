@@ -17,11 +17,6 @@
 
 package org.apache.ignite.internal.util;
 
-import java.util.List;
-import java.util.Set;
-import java.util.stream.StreamSupport;
-import org.junit.jupiter.api.Test;
-
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
@@ -31,11 +26,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
+import java.util.Set;
+import java.util.stream.StreamSupport;
+import org.junit.jupiter.api.Test;
+
 /**
  * Testing the {@link CollectionUtils}.
  */
 public class CollectionUtilsTest {
-    /** */
+    /**
+     *
+     */
     @Test
     void testConcatIterables() {
         assertTrue(collect(concat(null)).isEmpty());
@@ -49,22 +51,26 @@ public class CollectionUtilsTest {
         assertEquals(List.of(1, 2, 3), collect(concat(List.of(1), List.of(2, 3))));
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testUnion() {
         assertTrue(union(null, null).isEmpty());
         assertTrue(union(Set.of(), null).isEmpty());
-        assertTrue(union(null, new Object[] {}).isEmpty());
+        assertTrue(union(null, new Object[]{}).isEmpty());
 
         assertEquals(Set.of(1), union(Set.of(1), null));
-        assertEquals(Set.of(1), union(Set.of(1), new Integer[] {}));
-        assertEquals(Set.of(1), union(null, new Integer[] {1}));
-        assertEquals(Set.of(1), union(Set.of(), new Integer[] {1}));
+        assertEquals(Set.of(1), union(Set.of(1), new Integer[]{}));
+        assertEquals(Set.of(1), union(null, new Integer[]{1}));
+        assertEquals(Set.of(1), union(Set.of(), new Integer[]{1}));
 
-        assertEquals(Set.of(1, 2), union(Set.of(1), new Integer[] {2}));
+        assertEquals(Set.of(1, 2), union(Set.of(1), new Integer[]{2}));
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testViewReadOnly() {
         assertTrue(viewReadOnly(null, null).isEmpty());
@@ -92,7 +98,7 @@ public class CollectionUtilsTest {
      * Collect of elements.
      *
      * @param iterable Iterable.
-     * @param <T> Type of the elements.
+     * @param <T>      Type of the elements.
      * @return Collected elements.
      */
     private <T> List<? extends T> collect(Iterable<? extends T> iterable) {

@@ -17,6 +17,10 @@
 
 package com.facebook.presto.bytecode;
 
+import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static java.util.Objects.requireNonNull;
+
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,25 +33,21 @@ import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
 
-import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
-import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static java.util.Objects.requireNonNull;
-
 public class AnnotationDefinition {
     private static final Set<Class<?>> ALLOWED_TYPES = Set.of(
-        Byte.class,
-        Character.class,
-        Double.class,
-        Float.class,
-        Integer.class,
-        Long.class,
-        Short.class,
-        Void.class,
-        String.class,
-        Class.class,
-        ParameterizedType.class,
-        AnnotationDefinition.class,
-        Enum.class);
+            Byte.class,
+            Character.class,
+            Double.class,
+            Float.class,
+            Integer.class,
+            Long.class,
+            Short.class,
+            Void.class,
+            String.class,
+            Class.class,
+            ParameterizedType.class,
+            AnnotationDefinition.class,
+            Enum.class);
 
     private final ParameterizedType type;
     private final Map<String, Object> values = new LinkedHashMap<>();
@@ -138,14 +138,13 @@ public class AnnotationDefinition {
     private static void isValidType(Object value) {
         if (value instanceof List) {
             // todo verify list contains single type
-            for (Object v : (List<Object>)value) {
+            for (Object v : (List<Object>) value) {
                 checkArgument(ALLOWED_TYPES.contains(v.getClass()), "List contains invalid type %s", v.getClass());
                 if (v instanceof List) {
                     isValidType(value);
                 }
             }
-        }
-        else {
+        } else {
             checkArgument(ALLOWED_TYPES.contains(value.getClass()), "Invalid value type %s", value.getClass());
         }
     }
@@ -185,30 +184,25 @@ public class AnnotationDefinition {
     @SuppressWarnings("OverlyStrongTypeCast")
     private static void visit(AnnotationVisitor visitor, String name, Object value) {
         if (value instanceof AnnotationDefinition) {
-            AnnotationDefinition annotation = (AnnotationDefinition)value;
+            AnnotationDefinition annotation = (AnnotationDefinition) value;
             AnnotationVisitor annotationVisitor = visitor.visitAnnotation(name, annotation.type.getType());
             annotation.visit(annotationVisitor);
-        }
-        else if (value instanceof Enum) {
-            Enum<?> enumConstant = (Enum<?>)value;
+        } else if (value instanceof Enum) {
+            Enum<?> enumConstant = (Enum<?>) value;
             visitor.visitEnum(name, type(enumConstant.getDeclaringClass()).getClassName(), enumConstant.name());
-        }
-        else if (value instanceof ParameterizedType) {
-            ParameterizedType parameterizedType = (ParameterizedType)value;
+        } else if (value instanceof ParameterizedType) {
+            ParameterizedType parameterizedType = (ParameterizedType) value;
             visitor.visit(name, Type.getType(parameterizedType.getType()));
-        }
-        else if (value instanceof Class) {
-            Class<?> clazz = (Class<?>)value;
+        } else if (value instanceof Class) {
+            Class<?> clazz = (Class<?>) value;
             visitor.visit(name, Type.getType(clazz));
-        }
-        else if (value instanceof List) {
+        } else if (value instanceof List) {
             AnnotationVisitor arrayVisitor = visitor.visitArray(name);
-            for (Object element : (List<?>)value) {
+            for (Object element : (List<?>) value) {
                 visit(arrayVisitor, null, element);
             }
             arrayVisitor.visitEnd();
-        }
-        else {
+        } else {
             visitor.visit(name, value);
         }
     }

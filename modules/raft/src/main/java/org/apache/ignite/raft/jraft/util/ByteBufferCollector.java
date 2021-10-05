@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
 
 import java.nio.ByteBuffer;
@@ -40,8 +41,7 @@ public final class ByteBufferCollector implements Recyclable {
     public void expandAtMost(final int atMostBytes) {
         if (this.buffer == null) {
             this.buffer = Utils.allocate(atMostBytes);
-        }
-        else {
+        } else {
             this.buffer = Utils.expandByteBufferAtMost(this.buffer, atMostBytes);
         }
     }
@@ -86,8 +86,7 @@ public final class ByteBufferCollector implements Recyclable {
     private void reset(final int expectSize) {
         if (this.buffer == null) {
             this.buffer = Utils.allocate(expectSize);
-        }
-        else {
+        } else {
             if (this.buffer.capacity() < expectSize) {
                 this.buffer = Utils.allocate(expectSize);
             }
@@ -97,8 +96,7 @@ public final class ByteBufferCollector implements Recyclable {
     private ByteBuffer getBuffer(final int expectSize) {
         if (this.buffer == null) {
             this.buffer = Utils.allocate(expectSize);
-        }
-        else if (this.buffer.remaining() < expectSize) {
+        } else if (this.buffer.remaining() < expectSize) {
             this.buffer = Utils.expandByteBufferAtLeast(this.buffer, expectSize);
         }
         return this.buffer;
@@ -126,8 +124,7 @@ public final class ByteBufferCollector implements Recyclable {
             if (this.buffer.capacity() > MAX_CAPACITY_TO_RECYCLE) {
                 // If the size is too large, we should release it to avoid memory overhead
                 this.buffer = null;
-            }
-            else {
+            } else {
                 this.buffer.clear();
             }
         }
@@ -138,7 +135,7 @@ public final class ByteBufferCollector implements Recyclable {
 
     // TODO asch fixme is it safe to have static recyclers ? IGNITE-14832
     private static final Recyclers<ByteBufferCollector> recyclers = new Recyclers<ByteBufferCollector>(
-        Utils.MAX_COLLECTOR_SIZE_PER_THREAD) {
+            Utils.MAX_COLLECTOR_SIZE_PER_THREAD) {
 
         @Override
         protected ByteBufferCollector newObject(final Handle handle) {

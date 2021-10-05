@@ -17,33 +17,6 @@
 
 package org.apache.ignite.internal.configuration.util;
 
-import java.io.Serializable;
-import java.lang.reflect.Field;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Set;
-import java.util.function.Consumer;
-import java.util.stream.Stream;
-import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.internal.configuration.RootInnerNode;
-import org.apache.ignite.internal.configuration.SuperRoot;
-import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
-import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
-import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
-import org.apache.ignite.internal.configuration.tree.InnerNode;
-import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
-import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-
 import static java.util.Collections.singletonMap;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
@@ -74,7 +47,36 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** */
+import java.io.Serializable;
+import java.lang.reflect.Field;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.function.Consumer;
+import java.util.stream.Stream;
+import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.configuration.RootInnerNode;
+import org.apache.ignite.internal.configuration.SuperRoot;
+import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
+import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
+import org.apache.ignite.internal.configuration.tree.InnerNode;
+import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
+import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+
+/**
+ *
+ */
 public class ConfigurationUtilTest {
     private static ConfigurationAsmGenerator cgen;
 
@@ -91,10 +93,12 @@ public class ConfigurationUtilTest {
     }
 
     public static <P extends InnerNode & ParentChange> P newParentInstance() {
-        return (P)cgen.instantiateNode(ParentConfigurationSchema.class);
+        return (P) cgen.instantiateNode(ParentConfigurationSchema.class);
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     public void escape() {
         assertEquals("foo", ConfigurationUtil.escape("foo"));
@@ -106,7 +110,9 @@ public class ConfigurationUtilTest {
         assertEquals("\\\\a\\.b\\\\c\\.", ConfigurationUtil.escape("\\a.b\\c."));
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     public void unescape() {
         assertEquals("foo", ConfigurationUtil.unescape("foo"));
@@ -118,87 +124,102 @@ public class ConfigurationUtilTest {
         assertEquals("\\a.b\\c.", ConfigurationUtil.unescape("\\\\a\\.b\\\\c\\."));
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     public void split() {
         assertEquals(List.of("a", "b.b", "c\\c", ""), ConfigurationUtil.split("a.b\\.b.c\\\\c."));
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     public void join() {
         assertEquals("a.b\\.b.c\\\\c", ConfigurationUtil.join(List.of("a", "b.b", "c\\c")));
     }
 
-    /** */
+    /**
+     *
+     */
     @ConfigurationRoot(rootName = "root", type = LOCAL)
     public static class ParentConfigurationSchema {
-        /** */
+        /**
+         *
+         */
         @NamedConfigValue
         public NamedElementConfigurationSchema elements;
     }
 
-    /** */
+    /**
+     *
+     */
     @Config
     public static class NamedElementConfigurationSchema {
-        /** */
+        /**
+         *
+         */
         @ConfigValue
         public ChildConfigurationSchema child;
     }
 
-    /** */
+    /**
+     *
+     */
     @Config
     public static class ChildConfigurationSchema {
-        /** */
+        /**
+         *
+         */
         @Value
         public String str;
     }
 
     /**
-     * Tests that {@link ConfigurationUtil#find(List, TraversableTreeNode, boolean)} finds proper node when provided
-     * with correct path.
+     * Tests that {@link ConfigurationUtil#find(List, TraversableTreeNode, boolean)} finds proper node when provided with correct path.
      */
     @Test
     public void findSuccessfully() {
         var parent = newParentInstance();
 
         parent.changeElements(elements ->
-            elements.createOrUpdate("name", element ->
-                element.changeChild(child ->
-                    child.changeStr("value")
+                elements.createOrUpdate("name", element ->
+                        element.changeChild(child ->
+                                child.changeStr("value")
+                        )
                 )
-            )
         );
 
         assertSame(
-            parent,
-            ConfigurationUtil.find(List.of(), parent, true)
+                parent,
+                ConfigurationUtil.find(List.of(), parent, true)
         );
 
         assertSame(
-            parent.elements(),
-            ConfigurationUtil.find(List.of("elements"), parent, true)
+                parent.elements(),
+                ConfigurationUtil.find(List.of("elements"), parent, true)
         );
 
         assertSame(
-            parent.elements().get("name"),
-            ConfigurationUtil.find(List.of("elements", "name"), parent, true)
+                parent.elements().get("name"),
+                ConfigurationUtil.find(List.of("elements", "name"), parent, true)
         );
 
         assertSame(
-            parent.elements().get("name").child(),
-            ConfigurationUtil.find(List.of("elements", "name", "child"), parent, true)
+                parent.elements().get("name").child(),
+                ConfigurationUtil.find(List.of("elements", "name", "child"), parent, true)
         );
 
         assertSame(
-            parent.elements().get("name").child().str(),
-            ConfigurationUtil.find(List.of("elements", "name", "child", "str"), parent, true)
+                parent.elements().get("name").child().str(),
+                ConfigurationUtil.find(List.of("elements", "name", "child", "str"), parent, true)
         );
     }
 
     /**
-     * Tests that {@link ConfigurationUtil#find(List, TraversableTreeNode, boolean)} returns null when path points to
-     * nonexistent named list element.
+     * Tests that {@link ConfigurationUtil#find(List, TraversableTreeNode, boolean)} returns null when path points to nonexistent named list
+     * element.
      */
     @Test
     public void findNulls() {
@@ -206,40 +227,43 @@ public class ConfigurationUtilTest {
 
         assertNull(ConfigurationUtil.find(List.of("elements", "name"), parent, true));
 
-        parent.changeElements(elements -> elements.createOrUpdate("name", element -> {}));
+        parent.changeElements(elements -> elements.createOrUpdate("name", element -> {
+        }));
 
         assertNull(ConfigurationUtil.find(List.of("elements", "name", "child"), parent, true));
 
-        ((NamedElementChange)parent.elements().get("name")).changeChild(child -> {});
+        ((NamedElementChange) parent.elements().get("name")).changeChild(child -> {
+        });
 
         assertNull(ConfigurationUtil.find(List.of("elements", "name", "child", "str"), parent, true));
     }
 
     /**
-     * Tests that {@link ConfigurationUtil#find(List, TraversableTreeNode, boolean)} throws
-     * {@link KeyNotFoundException} when provided with a wrong path.
+     * Tests that {@link ConfigurationUtil#find(List, TraversableTreeNode, boolean)} throws {@link KeyNotFoundException} when provided with
+     * a wrong path.
      */
     @Test
     public void findUnsuccessfully() {
         var parent = newParentInstance();
 
         assertThrows(
-            KeyNotFoundException.class,
-            () -> ConfigurationUtil.find(List.of("elements", "name", "child"), parent, true)
+                KeyNotFoundException.class,
+                () -> ConfigurationUtil.find(List.of("elements", "name", "child"), parent, true)
         );
 
-        parent.changeElements(elements -> elements.createOrUpdate("name", element -> {}));
+        parent.changeElements(elements -> elements.createOrUpdate("name", element -> {
+        }));
 
         assertThrows(
-            KeyNotFoundException.class,
-            () -> ConfigurationUtil.find(List.of("elements", "name", "child", "str"), parent, true)
+                KeyNotFoundException.class,
+                () -> ConfigurationUtil.find(List.of("elements", "name", "child", "str"), parent, true)
         );
 
-        ((NamedElementChange)parent.elements().get("name")).changeChild(child -> child.changeStr("value"));
+        ((NamedElementChange) parent.elements().get("name")).changeChild(child -> child.changeStr("value"));
 
         assertThrows(
-            KeyNotFoundException.class,
-            () -> ConfigurationUtil.find(List.of("elements", "name", "child", "str", "foo"), parent, true)
+                KeyNotFoundException.class,
+                () -> ConfigurationUtil.find(List.of("elements", "name", "child", "str", "foo"), parent, true)
         );
     }
 
@@ -249,23 +273,23 @@ public class ConfigurationUtilTest {
     @Test
     public void toPrefixMap() {
         assertEquals(
-            Map.of("foo", 42),
-            ConfigurationUtil.toPrefixMap(Map.of("foo", 42))
+                Map.of("foo", 42),
+                ConfigurationUtil.toPrefixMap(Map.of("foo", 42))
         );
 
         assertEquals(
-            Map.of("foo.bar", 42),
-            ConfigurationUtil.toPrefixMap(Map.of("foo\\.bar", 42))
+                Map.of("foo.bar", 42),
+                ConfigurationUtil.toPrefixMap(Map.of("foo\\.bar", 42))
         );
 
         assertEquals(
-            Map.of("foo", Map.of("bar1", 10, "bar2", 20)),
-            ConfigurationUtil.toPrefixMap(Map.of("foo.bar1", 10, "foo.bar2", 20))
+                Map.of("foo", Map.of("bar1", 10, "bar2", 20)),
+                ConfigurationUtil.toPrefixMap(Map.of("foo.bar1", 10, "foo.bar2", 20))
         );
 
         assertEquals(
-            Map.of("root1", Map.of("leaf1", 10), "root2", Map.of("leaf2", 20)),
-            ConfigurationUtil.toPrefixMap(Map.of("root1.leaf1", 10, "root2.leaf2", 20))
+                Map.of("root1", Map.of("leaf1", 10), "root2", Map.of("leaf2", 20)),
+                ConfigurationUtil.toPrefixMap(Map.of("root1.leaf1", 10, "root2.leaf2", 20))
         );
     }
 
@@ -277,18 +301,18 @@ public class ConfigurationUtilTest {
         var parentNode = newParentInstance();
 
         ConfigurationUtil.fillFromPrefixMap(parentNode, Map.of(
-            "elements", Map.of(
-                "0123456789abcde0123456789abcde", Map.of(
-                    "child", Map.of("str", "value2"),
-                    ORDER_IDX, 1,
-                    NAME, "name2"
-                ),
-                "12345689abcdef0123456789abcdef0", Map.of(
-                    "child", Map.of("str", "value1"),
-                    ORDER_IDX, 0,
-                    NAME, "name1"
+                "elements", Map.of(
+                        "0123456789abcde0123456789abcde", Map.of(
+                                "child", Map.of("str", "value2"),
+                                ORDER_IDX, 1,
+                                NAME, "name2"
+                        ),
+                        "12345689abcdef0123456789abcdef0", Map.of(
+                                "child", Map.of("str", "value1"),
+                                ORDER_IDX, 0,
+                                NAME, "name1"
+                        )
                 )
-            )
         ));
 
         assertEquals("value1", parentNode.elements().get("name1").child().str());
@@ -303,13 +327,14 @@ public class ConfigurationUtilTest {
         var parentNode = newParentInstance();
 
         parentNode.changeElements(elements ->
-            elements.createOrUpdate("name", element ->
-                element.changeChild(child -> {})
-            )
+                elements.createOrUpdate("name", element ->
+                        element.changeChild(child -> {
+                        })
+                )
         );
 
         ConfigurationUtil.fillFromPrefixMap(parentNode, Map.of(
-            "elements", singletonMap("name", null)
+                "elements", singletonMap("name", null)
         ));
 
         assertNull(parentNode.elements().get("node"));
@@ -322,95 +347,104 @@ public class ConfigurationUtilTest {
     public void flattenedUpdatesMap() {
         var superRoot = new SuperRoot(key -> null, Map.of(ParentConfiguration.KEY, newParentInstance()));
 
-        assertThat(flattenedMap(superRoot, parent -> {}), is(anEmptyMap()));
+        assertThat(flattenedMap(superRoot, parent -> {
+        }), is(anEmptyMap()));
 
         assertThat(
-            flattenedMap(superRoot, parent -> parent
-                .changeElements(elements -> elements
-                    .create("name", element -> element
-                        .changeChild(child -> child.changeStr("foo"))
-                    )
-                )
-            ),
-            is(allOf(
-                aMapWithSize(3),
-                hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]child[.]str"), hasToString("foo")),
-                hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]<order>"), is(0)),
-                hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]<name>"), hasToString("name"))
-            ))
+                flattenedMap(superRoot, parent -> parent
+                        .changeElements(elements -> elements
+                                .create("name", element -> element
+                                        .changeChild(child -> child.changeStr("foo"))
+                                )
+                        )
+                ),
+                is(allOf(
+                        aMapWithSize(3),
+                        hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]child[.]str"), hasToString("foo")),
+                        hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]<order>"), is(0)),
+                        hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]<name>"), hasToString("name"))
+                ))
         );
 
         assertThat(
-            flattenedMap(superRoot, parent -> parent
-                .changeElements(elements1 -> elements1.delete("void"))
-            ),
-            is(anEmptyMap())
+                flattenedMap(superRoot, parent -> parent
+                        .changeElements(elements1 -> elements1.delete("void"))
+                ),
+                is(anEmptyMap())
         );
 
         assertThat(
-            flattenedMap(superRoot, parent -> parent
-                .changeElements(elements -> elements.delete("name"))
-            ),
-            is(allOf(
-                aMapWithSize(3),
-                hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]child[.]str"), nullValue()),
-                hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]<order>"), nullValue()),
-                hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]<name>"), nullValue())
-            ))
+                flattenedMap(superRoot, parent -> parent
+                        .changeElements(elements -> elements.delete("name"))
+                ),
+                is(allOf(
+                        aMapWithSize(3),
+                        hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]child[.]str"), nullValue()),
+                        hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]<order>"), nullValue()),
+                        hasEntry(matchesPattern("root[.]elements[.]\\w{32}[.]<name>"), nullValue())
+                ))
         );
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testCheckConfigurationTypeMixedTypes() {
         List<RootKey<?, ?>> rootKeys = List.of(LocalFirstConfiguration.KEY, DistributedFirstConfiguration.KEY);
 
         assertThrows(
-            IllegalArgumentException.class,
-            () -> checkConfigurationType(rootKeys, new TestConfigurationStorage(LOCAL))
+                IllegalArgumentException.class,
+                () -> checkConfigurationType(rootKeys, new TestConfigurationStorage(LOCAL))
         );
 
         assertThrows(
-            IllegalArgumentException.class,
-            () -> checkConfigurationType(rootKeys, new TestConfigurationStorage(DISTRIBUTED))
+                IllegalArgumentException.class,
+                () -> checkConfigurationType(rootKeys, new TestConfigurationStorage(DISTRIBUTED))
         );
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testCheckConfigurationTypeOppositeTypes() {
         assertThrows(
-            IllegalArgumentException.class,
-            () -> checkConfigurationType(
-                List.of(DistributedFirstConfiguration.KEY, DistributedSecondConfiguration.KEY),
-                new TestConfigurationStorage(LOCAL)
-            )
+                IllegalArgumentException.class,
+                () -> checkConfigurationType(
+                        List.of(DistributedFirstConfiguration.KEY, DistributedSecondConfiguration.KEY),
+                        new TestConfigurationStorage(LOCAL)
+                )
         );
 
         assertThrows(
-            IllegalArgumentException.class,
-            () -> checkConfigurationType(
-                List.of(LocalFirstConfiguration.KEY, LocalSecondConfiguration.KEY),
-                new TestConfigurationStorage(DISTRIBUTED)
-            )
+                IllegalArgumentException.class,
+                () -> checkConfigurationType(
+                        List.of(LocalFirstConfiguration.KEY, LocalSecondConfiguration.KEY),
+                        new TestConfigurationStorage(DISTRIBUTED)
+                )
         );
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testCheckConfigurationTypeNoError() {
         checkConfigurationType(
-            List.of(LocalFirstConfiguration.KEY, LocalSecondConfiguration.KEY),
-            new TestConfigurationStorage(LOCAL)
+                List.of(LocalFirstConfiguration.KEY, LocalSecondConfiguration.KEY),
+                new TestConfigurationStorage(LOCAL)
         );
 
         checkConfigurationType(
-            List.of(DistributedFirstConfiguration.KEY, DistributedSecondConfiguration.KEY),
-            new TestConfigurationStorage(DISTRIBUTED)
+                List.of(DistributedFirstConfiguration.KEY, DistributedSecondConfiguration.KEY),
+                new TestConfigurationStorage(DISTRIBUTED)
         );
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testInternalSchemaExtensions() {
         assertTrue(internalSchemaExtensions(List.of()).isEmpty());
@@ -418,76 +452,80 @@ public class ConfigurationUtilTest {
         assertThrows(IllegalArgumentException.class, () -> internalSchemaExtensions(List.of(Object.class)));
 
         assertThrows(
-            IllegalArgumentException.class,
-            () -> internalSchemaExtensions(List.of(SimpleRootConfigurationSchema.class))
+                IllegalArgumentException.class,
+                () -> internalSchemaExtensions(List.of(SimpleRootConfigurationSchema.class))
         );
 
         assertThrows(
-            IllegalArgumentException.class,
-            () -> internalSchemaExtensions(List.of(SimpleConfigurationSchema.class))
+                IllegalArgumentException.class,
+                () -> internalSchemaExtensions(List.of(SimpleConfigurationSchema.class))
         );
 
         Map<Class<?>, Set<Class<?>>> extensions = internalSchemaExtensions(List.of(
-            InternalFirstSimpleRootConfigurationSchema.class,
-            InternalSecondSimpleRootConfigurationSchema.class,
-            InternalFirstSimpleConfigurationSchema.class,
-            InternalSecondSimpleConfigurationSchema.class
+                InternalFirstSimpleRootConfigurationSchema.class,
+                InternalSecondSimpleRootConfigurationSchema.class,
+                InternalFirstSimpleConfigurationSchema.class,
+                InternalSecondSimpleConfigurationSchema.class
         ));
 
         assertEquals(2, extensions.size());
 
         assertEquals(
-            Set.of(
-                InternalFirstSimpleRootConfigurationSchema.class,
-                InternalSecondSimpleRootConfigurationSchema.class
-            ),
-            extensions.get(SimpleRootConfigurationSchema.class)
+                Set.of(
+                        InternalFirstSimpleRootConfigurationSchema.class,
+                        InternalSecondSimpleRootConfigurationSchema.class
+                ),
+                extensions.get(SimpleRootConfigurationSchema.class)
         );
 
         assertEquals(
-            Set.of(
-                InternalFirstSimpleConfigurationSchema.class,
-                InternalSecondSimpleConfigurationSchema.class
-            ),
-            extensions.get(SimpleConfigurationSchema.class)
+                Set.of(
+                        InternalFirstSimpleConfigurationSchema.class,
+                        InternalSecondSimpleConfigurationSchema.class
+                ),
+                extensions.get(SimpleConfigurationSchema.class)
         );
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testSchemaFields() {
         assertThrows(
-            IllegalArgumentException.class,
-            () -> extensionsFields(
-                List.of(
-                    InternalExtendedSimpleRootConfigurationSchema.class,
-                    ErrorInternalExtendedSimpleRootConfigurationSchema.class
+                IllegalArgumentException.class,
+                () -> extensionsFields(
+                        List.of(
+                                InternalExtendedSimpleRootConfigurationSchema.class,
+                                ErrorInternalExtendedSimpleRootConfigurationSchema.class
+                        )
                 )
-            )
         );
 
         assertTrue(extensionsFields(List.of()).isEmpty());
 
         List<Class<?>> extensions = List.of(
-            InternalFirstSimpleRootConfigurationSchema.class,
-            InternalSecondSimpleRootConfigurationSchema.class
+                InternalFirstSimpleRootConfigurationSchema.class,
+                InternalSecondSimpleRootConfigurationSchema.class
         );
 
         Set<Field> exp = extensions.stream()
-            .flatMap(cls -> Stream.of(cls.getDeclaredFields()))
-            .collect(toSet());
+                .flatMap(cls -> Stream.of(cls.getDeclaredFields()))
+                .collect(toSet());
 
         assertEquals(exp, extensionsFields(extensions));
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testFindInternalConfigs() {
         Map<Class<?>, Set<Class<?>>> extensions = internalSchemaExtensions(List.of(
-            InternalFirstSimpleRootConfigurationSchema.class,
-            InternalSecondSimpleRootConfigurationSchema.class,
-            InternalFirstSimpleConfigurationSchema.class,
-            InternalSecondSimpleConfigurationSchema.class
+                InternalFirstSimpleRootConfigurationSchema.class,
+                InternalSecondSimpleRootConfigurationSchema.class,
+                InternalFirstSimpleConfigurationSchema.class,
+                InternalSecondSimpleConfigurationSchema.class
         ));
 
         ConfigurationAsmGenerator generator = new ConfigurationAsmGenerator();
@@ -516,14 +554,16 @@ public class ConfigurationUtilTest {
         assertEquals("foo", find(List.of("subCfg", "str02"), innerNode, true));
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testGetInternalConfigs() {
         Map<Class<?>, Set<Class<?>>> extensions = internalSchemaExtensions(List.of(
-            InternalFirstSimpleRootConfigurationSchema.class,
-            InternalSecondSimpleRootConfigurationSchema.class,
-            InternalFirstSimpleConfigurationSchema.class,
-            InternalSecondSimpleConfigurationSchema.class
+                InternalFirstSimpleRootConfigurationSchema.class,
+                InternalSecondSimpleRootConfigurationSchema.class,
+                InternalFirstSimpleConfigurationSchema.class,
+                InternalSecondSimpleConfigurationSchema.class
         ));
 
         ConfigurationAsmGenerator generator = new ConfigurationAsmGenerator();
@@ -533,7 +573,7 @@ public class ConfigurationUtilTest {
 
         addDefaults(innerNode);
 
-        Map<String, Object> config = (Map<String, Object>)innerNode.accept(null, new ConverterToMapVisitor(false));
+        Map<String, Object> config = (Map<String, Object>) innerNode.accept(null, new ConverterToMapVisitor(false));
 
         // Check that no internal configuration will be received.
 
@@ -543,14 +583,14 @@ public class ConfigurationUtilTest {
         assertNotNull(config.get("subCfg"));
         assertNotNull(config.get("namedCfg"));
 
-        Map<String, Object> subConfig = (Map<String, Object>)config.get("subCfg");
+        Map<String, Object> subConfig = (Map<String, Object>) config.get("subCfg");
 
         assertEquals(1, subConfig.size());
         assertEquals("foo", subConfig.get("str00"));
 
         // Check that no internal configuration will be received.
 
-        config = (Map<String, Object>)innerNode.accept(null, new ConverterToMapVisitor(true));
+        config = (Map<String, Object>) innerNode.accept(null, new ConverterToMapVisitor(true));
 
         assertEquals(7, config.size());
         assertNull(config.get("str0"));
@@ -561,14 +601,14 @@ public class ConfigurationUtilTest {
         assertNotNull(config.get("subCfg1"));
         assertNotNull(config.get("namedCfg"));
 
-        subConfig = (Map<String, Object>)config.get("subCfg");
+        subConfig = (Map<String, Object>) config.get("subCfg");
 
         assertEquals(3, subConfig.size());
         assertEquals("foo", subConfig.get("str00"));
         assertEquals("foo", subConfig.get("str01"));
         assertEquals("foo", subConfig.get("str02"));
 
-        subConfig = (Map<String, Object>)config.get("subCfg1");
+        subConfig = (Map<String, Object>) config.get("subCfg1");
 
         assertEquals(3, subConfig.size());
         assertEquals("foo", subConfig.get("str00"));
@@ -576,7 +616,9 @@ public class ConfigurationUtilTest {
         assertEquals("foo", subConfig.get("str02"));
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testSuperRootWithInternalConfig() {
         ConfigurationAsmGenerator generator = new ConfigurationAsmGenerator();
@@ -587,7 +629,7 @@ public class ConfigurationUtilTest {
         generator.compileRootSchema(schemaClass, Map.of());
 
         SuperRoot superRoot = new SuperRoot(
-            s -> new RootInnerNode(schemaKey, generator.instantiateNode(schemaClass))
+                s -> new RootInnerNode(schemaKey, generator.instantiateNode(schemaClass))
         );
 
         assertThrows(NoSuchElementException.class, () -> superRoot.construct(schemaKey.key(), null, false));
@@ -601,17 +643,19 @@ public class ConfigurationUtilTest {
         assertNotNull(find(List.of(schemaKey.key()), superRoot, true));
 
         Map<String, Object> config =
-            (Map<String, Object>)superRoot.accept(schemaKey.key(), new ConverterToMapVisitor(false));
+                (Map<String, Object>) superRoot.accept(schemaKey.key(), new ConverterToMapVisitor(false));
 
         assertTrue(config.isEmpty());
 
-        config = (Map<String, Object>)superRoot.accept(schemaKey.key(), new ConverterToMapVisitor(true));
+        config = (Map<String, Object>) superRoot.accept(schemaKey.key(), new ConverterToMapVisitor(true));
 
         assertEquals(1, config.size());
         assertNotNull(config.get(schemaKey.key()));
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     void testCollectSchemas() {
         assertTrue(collectSchemas(List.of()).isEmpty());
@@ -619,25 +663,26 @@ public class ConfigurationUtilTest {
         assertThrows(IllegalArgumentException.class, () -> collectSchemas(List.of(Object.class)));
 
         assertEquals(
-            Set.of(LocalFirstConfigurationSchema.class, SimpleConfigurationSchema.class),
-            collectSchemas(List.of(LocalFirstConfigurationSchema.class, SimpleConfigurationSchema.class))
+                Set.of(LocalFirstConfigurationSchema.class, SimpleConfigurationSchema.class),
+                collectSchemas(List.of(LocalFirstConfigurationSchema.class, SimpleConfigurationSchema.class))
         );
 
         assertEquals(
-            Set.of(SimpleRootConfigurationSchema.class, SimpleConfigurationSchema.class),
-            collectSchemas(List.of(SimpleRootConfigurationSchema.class))
+                Set.of(SimpleRootConfigurationSchema.class, SimpleConfigurationSchema.class),
+                collectSchemas(List.of(SimpleRootConfigurationSchema.class))
         );
     }
 
     /**
-     * Patches super root and returns flat representation of the changes. Passed {@code superRoot} object will contain
-     * patched tree when method execution is completed.
+     * Patches super root and returns flat representation of the changes. Passed {@code superRoot} object will contain patched tree when
+     * method execution is completed.
      *
      * @param superRoot Super root to patch.
-     * @param patch Closure to cnahge parent node.
+     * @param patch     Closure to cnahge parent node.
      * @return Flat map with all changes from the patch.
      */
-    @NotNull private Map<String, Serializable> flattenedMap(SuperRoot superRoot, Consumer<ParentChange> patch) {
+    @NotNull
+    private Map<String, Serializable> flattenedMap(SuperRoot superRoot, Consumer<ParentChange> patch) {
         // Preserve a copy of the super root to use it as a golden source of data.
         SuperRoot originalSuperRoot = superRoot.copy();
 
@@ -645,7 +690,7 @@ public class ConfigurationUtilTest {
         superRoot.construct(ParentConfiguration.KEY.key(), EMPTY_CFG_SRC, true);
 
         // Patch root node.
-        patch.accept((ParentChange)superRoot.getRoot(ParentConfiguration.KEY));
+        patch.accept((ParentChange) superRoot.getRoot(ParentConfiguration.KEY));
 
         // Create flat diff between two super trees.
         return createFlattenedUpdatesMap(originalSuperRoot, superRoot);

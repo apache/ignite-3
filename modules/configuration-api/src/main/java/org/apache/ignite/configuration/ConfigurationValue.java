@@ -30,8 +30,8 @@ public interface ConfigurationValue<VIEW> extends ConfigurationProperty<VIEW> {
      * Update this configuration node value.
      *
      * @param change New value for the configuration. Must not be null.
-     * @return Future that signifies end of the update operation. Can also be completed with
-     *      {@link ConfigurationValidationException} and {@link ConfigurationChangeException}.
+     * @return Future that signifies end of the update operation. Can also be completed with {@link ConfigurationValidationException} and
+     * {@link ConfigurationChangeException}.
      */
     CompletableFuture<Void> update(VIEW change);
 }

@@ -18,7 +18,7 @@
 package com.facebook.presto.bytecode;
 
 public class Parameter
-    extends Variable {
+        extends Variable {
     public static Parameter arg(String name, Class<?> type) {
         return new Parameter(name, ParameterizedType.type(type));
     }

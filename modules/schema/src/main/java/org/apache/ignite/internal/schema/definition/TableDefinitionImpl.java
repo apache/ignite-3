@@ -58,18 +58,18 @@ public class TableDefinitionImpl extends AbstractSchemaObject implements TableDe
     /**
      * Constructor.
      *
-     * @param schemaName Schema name.
-     * @param tableName Table name.
-     * @param cols Columns.
+     * @param schemaName           Schema name.
+     * @param tableName            Table name.
+     * @param cols                 Columns.
      * @param primaryKeyDefinition Primary key.
-     * @param indices Indices.
+     * @param indices              Indices.
      */
     public TableDefinitionImpl(
-        String schemaName,
-        String tableName,
-        LinkedHashMap<String, ColumnDefinition> cols,
-        PrimaryKeyDefinition primaryKeyDefinition,
-        Map<String, IndexDefinition> indices
+            String schemaName,
+            String tableName,
+            LinkedHashMap<String, ColumnDefinition> cols,
+            PrimaryKeyDefinition primaryKeyDefinition,
+            Map<String, IndexDefinition> indices
     ) {
         super(tableName);
 
@@ -88,40 +88,48 @@ public class TableDefinitionImpl extends AbstractSchemaObject implements TableDe
             if (pkCols.contains(e.getKey())) {
                 keyCols.add(e.getValue());
 
-                if (pkAffCols.contains(e.getValue().name()))
+                if (pkAffCols.contains(e.getValue().name())) {
                     affCols.add(e.getValue());
-            } else
+                }
+            } else {
                 valCols.add(e.getValue());
+            }
         }
     }
 
     /** {@inheritDoc} */
-    @Override public String schemaName() {
+    @Override
+    public String schemaName() {
         return schemaName;
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<ColumnDefinition> keyColumns() {
+    @Override
+    public Collection<ColumnDefinition> keyColumns() {
         return keyCols;
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<ColumnDefinition> affinityColumns() {
+    @Override
+    public Collection<ColumnDefinition> affinityColumns() {
         return affCols;
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<ColumnDefinition> valueColumns() {
+    @Override
+    public Collection<ColumnDefinition> valueColumns() {
         return valCols;
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<IndexDefinition> indices() {
+    @Override
+    public Collection<IndexDefinition> indices() {
         return Collections.unmodifiableCollection(indices.values());
     }
 
     /** {@inheritDoc} */
-    @Override public TableModificationBuilder toBuilder() {
+    @Override
+    public TableModificationBuilder toBuilder() {
         return new TableModificationBuilderImpl(this);
     }
 
@@ -142,7 +150,8 @@ public class TableDefinitionImpl extends AbstractSchemaObject implements TableDe
     }
 
     /** {@inheritDoc} */
-    @Override public String toString() {
+    @Override
+    public String toString() {
         return S.toString(TableDefinitionImpl.class, this);
     }
 }

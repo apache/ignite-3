@@ -17,6 +17,12 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
@@ -33,12 +39,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.msgpack.core.MessagePack;
-
-import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.mock;
 
 /**
  * Client connector integration tests with real sockets.
@@ -178,10 +178,10 @@ public class ITClientHandlerTest {
 
     private ClientHandlerModule startServer() {
         configurationManager = new ConfigurationManager(
-            List.of(ClientConnectorConfiguration.KEY),
-            Map.of(),
-            new TestConfigurationStorage(LOCAL),
-            List.of()
+                List.of(ClientConnectorConfiguration.KEY),
+                Map.of(),
+                new TestConfigurationStorage(LOCAL),
+                List.of()
         );
 
         configurationManager.start();

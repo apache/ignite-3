@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
 
 import java.io.Externalizable;
@@ -72,28 +73,34 @@ public class ByteString implements Externalizable {
         return this == EMPTY ? EMPTY : new ByteString(toByteArray());
     }
 
-    @Override public boolean equals(Object o) {
-        if (this == o)
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
             return true;
-        if (o == null || getClass() != o.getClass())
+        }
+        if (o == null || getClass() != o.getClass()) {
             return false;
+        }
 
         ByteString that = (ByteString) o;
 
         return buf.equals(that.buf);
     }
 
-    @Override public int hashCode() {
+    @Override
+    public int hashCode() {
         return buf.hashCode();
     }
 
-    @Override public void writeExternal(ObjectOutput out) throws IOException {
+    @Override
+    public void writeExternal(ObjectOutput out) throws IOException {
         byte[] bytes = toByteArray();
         out.writeInt(bytes.length);
         out.write(bytes);
     }
 
-    @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+    @Override
+    public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
         int len = in.readInt();
         byte[] data = new byte[len];
         in.readFully(data);

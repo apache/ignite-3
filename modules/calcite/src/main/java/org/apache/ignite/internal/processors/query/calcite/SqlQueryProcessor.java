@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.internal.processors.query.calcite;
 
 import java.util.List;
-
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.processors.query.calcite.exec.ArrayRowHandler;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionService;
@@ -53,42 +53,43 @@ public class SqlQueryProcessor implements QueryProcessor {
     private final TableManager tableManager;
 
     public SqlQueryProcessor(
-        ClusterService clusterSrvc,
-        TableManager tableManager
+            ClusterService clusterSrvc,
+            TableManager tableManager
     ) {
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
     }
 
     /** {@inheritDoc} */
-    @Override public void start() {
+    @Override
+    public void start() {
         String nodeName = clusterSrvc.localConfiguration().getName();
 
         taskExecutor = new QueryTaskExecutorImpl(
-            new StripedThreadPoolExecutor(
-                4,
-                NamedThreadFactory.threadPrefix(nodeName, "calciteQry"),
-                null,
-                true,
-                DFLT_THREAD_KEEP_ALIVE_TIME
-            )
+                new StripedThreadPoolExecutor(
+                        4,
+                        NamedThreadFactory.threadPrefix(nodeName, "calciteQry"),
+                        null,
+                        true,
+                        DFLT_THREAD_KEEP_ALIVE_TIME
+                )
         );
 
         msgSrvc = new MessageServiceImpl(
-            clusterSrvc.topologyService(),
-            clusterSrvc.messagingService(),
-            taskExecutor
+                clusterSrvc.topologyService(),
+                clusterSrvc.messagingService(),
+                taskExecutor
         );
 
         SchemaHolderImpl schemaHolder = new SchemaHolderImpl();
 
         executionSrvc = new ExecutionServiceImpl<>(
-            clusterSrvc.topologyService(),
-            msgSrvc,
-            new DummyPlanCache(),
-            schemaHolder,
-            taskExecutor,
-            ArrayRowHandler.INSTANCE
+                clusterSrvc.topologyService(),
+                msgSrvc,
+                new DummyPlanCache(),
+                schemaHolder,
+                taskExecutor,
+                ArrayRowHandler.INSTANCE
         );
 
         tableManager.listen(TableEvent.CREATE, new TableCreatedListener(schemaHolder));
@@ -98,12 +99,14 @@ public class SqlQueryProcessor implements QueryProcessor {
 
 
     /** {@inheritDoc} */
-    @Override public void stop() throws NodeStoppingException {
+    @Override
+    public void stop() throws NodeStoppingException {
         // TODO: IGNITE-15161 Implement component's stop.
     }
 
     /** {@inheritDoc} */
-    @Override public List<SqlCursor<List<?>>> query(String schemaName, String qry, Object... params) {
+    @Override
+    public List<SqlCursor<List<?>>> query(String schemaName, String qry, Object... params) {
         return executionSrvc.executeQuery(schemaName, qry, params);
     }
 
@@ -111,29 +114,31 @@ public class SqlQueryProcessor implements QueryProcessor {
         protected final SchemaHolderImpl schemaHolder;
 
         private AbstractTableEventListener(
-            SchemaHolderImpl schemaHolder
+                SchemaHolderImpl schemaHolder
         ) {
             this.schemaHolder = schemaHolder;
         }
 
         /** {@inheritDoc} */
-        @Override public void remove(@NotNull Throwable exception) {
+        @Override
+        public void remove(@NotNull Throwable exception) {
             throw new IllegalStateException();
         }
     }
 
     private static class TableCreatedListener extends AbstractTableEventListener {
         private TableCreatedListener(
-            SchemaHolderImpl schemaHolder
+                SchemaHolderImpl schemaHolder
         ) {
             super(schemaHolder);
         }
 
         /** {@inheritDoc} */
-        @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+        @Override
+        public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             schemaHolder.onSqlTypeCreated(
-                "PUBLIC",
-                parameters.table()
+                    "PUBLIC",
+                    parameters.table()
             );
 
             return false;
@@ -142,16 +147,17 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private static class TableUpdatedListener extends AbstractTableEventListener {
         private TableUpdatedListener(
-            SchemaHolderImpl schemaHolder
+                SchemaHolderImpl schemaHolder
         ) {
             super(schemaHolder);
         }
 
         /** {@inheritDoc} */
-        @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+        @Override
+        public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             schemaHolder.onSqlTypeUpdated(
-                "PUBLIC",
-                parameters.table()
+                    "PUBLIC",
+                    parameters.table()
             );
 
             return false;
@@ -160,16 +166,17 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private static class TableDroppedListener extends AbstractTableEventListener {
         private TableDroppedListener(
-            SchemaHolderImpl schemaHolder
+                SchemaHolderImpl schemaHolder
         ) {
             super(schemaHolder);
         }
 
         /** {@inheritDoc} */
-        @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+        @Override
+        public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             schemaHolder.onSqlTypeDropped(
-                "PUBLIC",
-                parameters.tableName()
+                    "PUBLIC",
+                    parameters.tableName()
             );
 
             return false;

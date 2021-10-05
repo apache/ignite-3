@@ -26,37 +26,57 @@ import org.intellij.lang.annotations.MagicConstant;
  * Simple field descriptor containing field name and its order in the class descriptor.
  */
 class FieldDescriptor {
-    /** */
+    /**
+     *
+     */
     public static final int FIELD_TYPE_OBJECT = 0;
 
-    /** */
+    /**
+     *
+     */
     public static final int FIELD_TYPE_BYTE = 1;
 
-    /** */
+    /**
+     *
+     */
     public static final int FIELD_TYPE_BOOLEAN = 2;
 
-    /** */
+    /**
+     *
+     */
     public static final int FIELD_TYPE_CHAR = 3;
 
-    /** */
+    /**
+     *
+     */
     public static final int FIELD_TYPE_SHORT = 4;
 
-    /** */
+    /**
+     *
+     */
     public static final int FIELD_TYPE_INT = 5;
 
-    /** */
+    /**
+     *
+     */
     public static final int FIELD_TYPE_FLOAT = 6;
 
-    /** */
+    /**
+     *
+     */
     public static final int FIELD_TYPE_LONG = 7;
 
-    /** */
+    /**
+     *
+     */
     public static final int FIELD_TYPE_DOUBLE = 8;
 
     /** Field name. */
     private final String name;
 
-    /** */
+    /**
+     *
+     */
     private int order = Integer.MAX_VALUE;
 
     /** Field VarHandle. */
@@ -69,7 +89,7 @@ class FieldDescriptor {
     private final Class<?> cls;
 
     /**
-     * @param field Field descriptor.
+     * @param field     Field descriptor.
      * @param varHandle Field VarHandle.
      */
     FieldDescriptor(Field field, VarHandle varHandle) {
@@ -81,39 +101,44 @@ class FieldDescriptor {
 
         name = field.getName();
 
-        if (!cls.isPrimitive())
+        if (!cls.isPrimitive()) {
             type = FIELD_TYPE_OBJECT;
-        else {
-            if (cls == byte.class)
+        } else {
+            if (cls == byte.class) {
                 type = FIELD_TYPE_BYTE;
-            else if (cls == boolean.class)
+            } else if (cls == boolean.class) {
                 type = FIELD_TYPE_BOOLEAN;
-            else if (cls == char.class)
+            } else if (cls == char.class) {
                 type = FIELD_TYPE_CHAR;
-            else if (cls == short.class)
+            } else if (cls == short.class) {
                 type = FIELD_TYPE_SHORT;
-            else if (cls == int.class)
+            } else if (cls == int.class) {
                 type = FIELD_TYPE_INT;
-            else if (cls == float.class)
+            } else if (cls == float.class) {
                 type = FIELD_TYPE_FLOAT;
-            else if (cls == long.class)
+            } else if (cls == long.class) {
                 type = FIELD_TYPE_LONG;
-            else if (cls == double.class)
+            } else if (cls == double.class) {
                 type = FIELD_TYPE_DOUBLE;
-            else
+            } else {
                 throw new IllegalArgumentException("Unexpected primitive type: " + cls);
+            }
         }
     }
 
     /**
      * @return Field order.
      */
-    int getOrder() { return order; }
+    int getOrder() {
+        return order;
+    }
 
     /**
      * @param order Field order.
      */
-    void setOrder(int order) { this.order = order; }
+    void setOrder(int order) {
+        this.order = order;
+    }
 
     /**
      * @return Field VarHandle.
@@ -140,5 +165,7 @@ class FieldDescriptor {
     /**
      * @return Field name.
      */
-    String getName() { return name; }
+    String getName() {
+        return name;
+    }
 }

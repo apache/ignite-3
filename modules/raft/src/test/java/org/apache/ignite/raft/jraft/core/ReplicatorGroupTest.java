@@ -14,7 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.core;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.eq;
 
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
@@ -44,13 +52,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.mockito.stubbing.Answer;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.eq;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -263,31 +264,32 @@ public class ReplicatorGroupTest {
         final RpcRequests.AppendEntriesRequest request3 = createEmptyEntriesRequestToPeer(this.peerId3);
 
         Mockito
-            .when(this.rpcService.appendEntries(eq(this.peerId1.getEndpoint()), eq(request1), eq(-1), Mockito.any()))
-            .thenAnswer(new Answer<Object>() {
-                @Override public Object answer(InvocationOnMock invocation) throws Throwable {
-                    return new CompletableFuture<>();
-                }
-            });
+                .when(this.rpcService.appendEntries(eq(this.peerId1.getEndpoint()), eq(request1), eq(-1), Mockito.any()))
+                .thenAnswer(new Answer<Object>() {
+                    @Override
+                    public Object answer(InvocationOnMock invocation) throws Throwable {
+                        return new CompletableFuture<>();
+                    }
+                });
         Mockito
-            .when(this.rpcService.appendEntries(eq(this.peerId2.getEndpoint()), eq(request2), eq(-1), Mockito.any()))
-            .thenReturn(new CompletableFuture<>());
+                .when(this.rpcService.appendEntries(eq(this.peerId2.getEndpoint()), eq(request2), eq(-1), Mockito.any()))
+                .thenReturn(new CompletableFuture<>());
         Mockito
-            .when(this.rpcService.appendEntries(eq(this.peerId3.getEndpoint()), eq(request3), eq(-1), Mockito.any()))
-            .thenReturn(new CompletableFuture<>());
+                .when(this.rpcService.appendEntries(eq(this.peerId3.getEndpoint()), eq(request3), eq(-1), Mockito.any()))
+                .thenReturn(new CompletableFuture<>());
     }
 
     private RpcRequests.AppendEntriesRequest createEmptyEntriesRequestToPeer(final PeerId peerId) {
         return raftOptions.getRaftMessagesFactory()
-            .appendEntriesRequest()
-            .groupId("test")
-            .serverId(new PeerId("localhost", 8081).toString())
-            .peerId(peerId.toString())
-            .term(1)
-            .prevLogIndex(10)
-            .prevLogTerm(1)
-            .committedIndex(0)
-            .data(ByteString.EMPTY)
-            .build();
+                .appendEntriesRequest()
+                .groupId("test")
+                .serverId(new PeerId("localhost", 8081).toString())
+                .peerId(peerId.toString())
+                .term(1)
+                .prevLogIndex(10)
+                .prevLogTerm(1)
+                .committedIndex(0)
+                .data(ByteString.EMPTY)
+                .build();
     }
 }

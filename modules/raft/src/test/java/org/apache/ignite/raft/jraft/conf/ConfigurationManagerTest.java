@@ -14,17 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.raft.jraft.conf;
 
-import org.apache.ignite.raft.jraft.entity.LogId;
-import org.apache.ignite.raft.jraft.test.TestUtils;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+package org.apache.ignite.raft.jraft.conf;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.apache.ignite.raft.jraft.entity.LogId;
+import org.apache.ignite.raft.jraft.test.TestUtils;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class ConfigurationManagerTest {
     private ConfigurationManager confManager;
@@ -65,7 +66,7 @@ public class ConfigurationManagerTest {
         assertSame(confEntry2, this.confManager.get(2));
 
         ConfigurationEntry confEntry3 = TestUtils.getConfEntry("localhost:8080,localhost:8081,localhost:8082",
-            "localhost:8080,localhost:8081");
+                "localhost:8080,localhost:8081");
         confEntry3.setId(new LogId(2, 1));
         assertTrue(this.confManager.add(confEntry3));
 

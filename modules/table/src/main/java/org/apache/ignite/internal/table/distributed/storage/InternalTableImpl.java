@@ -35,7 +35,6 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
@@ -100,17 +99,17 @@ public class InternalTableImpl implements InternalTable {
     private volatile SchemaManagementMode schemaMode;
 
     /**
-     * @param tableName Table name.
-     * @param tableId Table id.
-     * @param partMap Map partition id to raft group.
+     * @param tableName  Table name.
+     * @param tableId    Table id.
+     * @param partMap    Map partition id to raft group.
      * @param partitions Partitions.
      */
     public InternalTableImpl(
-        String tableName,
-        IgniteUuid tableId,
-        Map<Integer, RaftGroupService> partMap,
-        int partitions,
-        Function<NetworkAddress, String> netAddrResolver
+            String tableName,
+            IgniteUuid tableId,
+            Map<Integer, RaftGroupService> partMap,
+            int partitions,
+            Function<NetworkAddress, String> netAddrResolver
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
@@ -122,33 +121,39 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteUuid tableId() {
+    @Override
+    public @NotNull IgniteUuid tableId() {
         return tableId;
     }
 
     /** {@inheritDoc} */
-    @Override public String tableName() {
+    @Override
+    public String tableName() {
         return tableName;
     }
 
     /** {@inheritDoc} */
-    @Override public SchemaManagementMode schemaMode() {
+    @Override
+    public SchemaManagementMode schemaMode() {
         return schemaMode;
     }
 
     /** {@inheritDoc} */
-    @Override public void schema(SchemaManagementMode schemaMode) {
+    @Override
+    public void schema(SchemaManagementMode schemaMode) {
         this.schemaMode = schemaMode;
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<BinaryRow> get(BinaryRow keyRow, Transaction tx) {
+    @Override
+    public CompletableFuture<BinaryRow> get(BinaryRow keyRow, Transaction tx) {
         return partitionMap.get(partId(keyRow)).<SingleRowResponse>run(new GetCommand(keyRow))
-            .thenApply(SingleRowResponse::getValue);
+                .thenApply(SingleRowResponse::getValue);
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows, Transaction tx) {
+    @Override
+    public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows, Transaction tx) {
         Map<Integer, Set<BinaryRow>> keyRowsByPartition = mapRowsToPartitions(keyRows);
 
         CompletableFuture<MultiRowsResponse>[] futures = new CompletableFuture[keyRowsByPartition.size()];
@@ -165,12 +170,14 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> upsert(BinaryRow row, Transaction tx) {
+    @Override
+    public CompletableFuture<Void> upsert(BinaryRow row, Transaction tx) {
         return partitionMap.get(partId(row)).run(new UpsertCommand(row));
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> upsertAll(Collection<BinaryRow> rows, Transaction tx) {
+    @Override
+    public CompletableFuture<Void> upsertAll(Collection<BinaryRow> rows, Transaction tx) {
         Map<Integer, Set<BinaryRow>> keyRowsByPartition = mapRowsToPartitions(rows);
 
         CompletableFuture<Void>[] futures = new CompletableFuture[keyRowsByPartition.size()];
@@ -187,18 +194,21 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<BinaryRow> getAndUpsert(BinaryRow row, Transaction tx) {
+    @Override
+    public CompletableFuture<BinaryRow> getAndUpsert(BinaryRow row, Transaction tx) {
         return partitionMap.get(partId(row)).<SingleRowResponse>run(new GetAndUpsertCommand(row))
-            .thenApply(SingleRowResponse::getValue);
+                .thenApply(SingleRowResponse::getValue);
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Boolean> insert(BinaryRow row, Transaction tx) {
+    @Override
+    public CompletableFuture<Boolean> insert(BinaryRow row, Transaction tx) {
         return partitionMap.get(partId(row)).run(new InsertCommand(row));
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> rows, Transaction tx) {
+    @Override
+    public CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> rows, Transaction tx) {
         Map<Integer, Set<BinaryRow>> keyRowsByPartition = mapRowsToPartitions(rows);
 
         CompletableFuture<MultiRowsResponse>[] futures = new CompletableFuture[keyRowsByPartition.size()];
@@ -215,40 +225,47 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Boolean> replace(BinaryRow row, Transaction tx) {
+    @Override
+    public CompletableFuture<Boolean> replace(BinaryRow row, Transaction tx) {
         return partitionMap.get(partId(row)).<Boolean>run(new ReplaceIfExistCommand(row));
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Boolean> replace(BinaryRow oldRow, BinaryRow newRow,
-        Transaction tx) {
+    @Override
+    public CompletableFuture<Boolean> replace(BinaryRow oldRow, BinaryRow newRow,
+            Transaction tx) {
         return partitionMap.get(partId(oldRow)).run(new ReplaceCommand(oldRow, newRow));
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<BinaryRow> getAndReplace(BinaryRow row, Transaction tx) {
+    @Override
+    public CompletableFuture<BinaryRow> getAndReplace(BinaryRow row, Transaction tx) {
         return partitionMap.get(partId(row)).<SingleRowResponse>run(new GetAndReplaceCommand(row))
-            .thenApply(SingleRowResponse::getValue);
+                .thenApply(SingleRowResponse::getValue);
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Boolean> delete(BinaryRow keyRow, Transaction tx) {
+    @Override
+    public CompletableFuture<Boolean> delete(BinaryRow keyRow, Transaction tx) {
         return partitionMap.get(partId(keyRow)).run(new DeleteCommand(keyRow));
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Boolean> deleteExact(BinaryRow oldRow, Transaction tx) {
+    @Override
+    public CompletableFuture<Boolean> deleteExact(BinaryRow oldRow, Transaction tx) {
         return partitionMap.get(partId(oldRow)).<Boolean>run(new DeleteExactCommand(oldRow));
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<BinaryRow> getAndDelete(BinaryRow row, Transaction tx) {
+    @Override
+    public CompletableFuture<BinaryRow> getAndDelete(BinaryRow row, Transaction tx) {
         return partitionMap.get(partId(row)).<SingleRowResponse>run(new GetAndDeleteCommand(row))
-            .thenApply(SingleRowResponse::getValue);
+                .thenApply(SingleRowResponse::getValue);
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows, Transaction tx) {
+    @Override
+    public CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows, Transaction tx) {
         Map<Integer, Set<BinaryRow>> keyRowsByPartition = mapRowsToPartitions(rows);
 
         CompletableFuture<MultiRowsResponse>[] futures = new CompletableFuture[keyRowsByPartition.size()];
@@ -265,9 +282,10 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Collection<BinaryRow>> deleteAllExact(
-        Collection<BinaryRow> rows,
-        Transaction tx
+    @Override
+    public CompletableFuture<Collection<BinaryRow>> deleteAllExact(
+            Collection<BinaryRow> rows,
+            Transaction tx
     ) {
         Map<Integer, Set<BinaryRow>> keyRowsByPartition = mapRowsToPartitions(rows);
 
@@ -285,15 +303,16 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Publisher<BinaryRow> scan(int p, @Nullable Transaction tx) {
+    @Override
+    public @NotNull Publisher<BinaryRow> scan(int p, @Nullable Transaction tx) {
         if (p < 0 || p >= partitions) {
             throw new IllegalArgumentException(
-                LoggerMessageHelper.format(
-                    "Invalid partition [partition={}, minValue={}, maxValue={}].",
-                    p,
-                    0,
-                    partitions - 1
-                )
+                    LoggerMessageHelper.format(
+                            "Invalid partition [partition={}, minValue={}, maxValue={}].",
+                            p,
+                            0,
+                            partitions - 1
+                    )
             );
         }
 
@@ -310,31 +329,34 @@ public class InternalTableImpl implements InternalTable {
         //TODO: IGNITE-15443 Use IntMap structure instead of HashMap.
         HashMap<Integer, Set<BinaryRow>> keyRowsByPartition = new HashMap<>();
 
-        for (BinaryRow keyRow : rows)
+        for (BinaryRow keyRow : rows) {
             keyRowsByPartition.computeIfAbsent(partId(keyRow), k -> new HashSet<>()).add(keyRow);
+        }
 
         return keyRowsByPartition;
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull List<String> assignments() {
+    @Override
+    public @NotNull List<String> assignments() {
         awaitLeaderInitialization();
 
         return partitionMap.entrySet().stream()
-            .sorted(Comparator.comparingInt(Map.Entry::getKey))
-            .map(Map.Entry::getValue)
-            .map(RaftGroupService::leader)
-            .map(Peer::address)
-            .map(netAddrResolver)
-            .collect(Collectors.toList());
+                .sorted(Comparator.comparingInt(Map.Entry::getKey))
+                .map(Map.Entry::getValue)
+                .map(RaftGroupService::leader)
+                .map(Peer::address)
+                .map(netAddrResolver)
+                .collect(Collectors.toList());
     }
 
     private void awaitLeaderInitialization() {
         List<CompletableFuture<Void>> futs = new ArrayList<>();
 
         for (RaftGroupService raftSvc : partitionMap.values()) {
-            if (raftSvc.leader() == null)
+            if (raftSvc.leader() == null) {
                 futs.add(raftSvc.refreshLeader());
+            }
         }
 
         CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new)).join();
@@ -354,6 +376,7 @@ public class InternalTableImpl implements InternalTable {
 
     /**
      * Collects multirow responses from multiple futures into a single collection.
+     *
      * @param futures Futures.
      * @return Row collection.
      */
@@ -366,8 +389,9 @@ public class InternalTableImpl implements InternalTable {
                     for (CompletableFuture<MultiRowsResponse> future : futures) {
                         Collection<BinaryRow> values = future.join().getValues();
 
-                        if (values != null)
+                        if (values != null) {
                             list.addAll(values);
+                        }
                     }
 
                     return list;
@@ -376,10 +400,12 @@ public class InternalTableImpl implements InternalTable {
 
     /** Partition scan publisher. */
     private class PartitionScanPublisher implements Publisher<BinaryRow> {
-        /** {@link Publisher<BinaryRow>} that relatively notifies about partition rows.  */
+        /** {@link Publisher<BinaryRow>} that relatively notifies about partition rows. */
         private final RaftGroupService raftGrpSvc;
 
-        /** */
+        /**
+         *
+         */
         private AtomicBoolean subscribed;
 
         /**
@@ -393,12 +419,15 @@ public class InternalTableImpl implements InternalTable {
         }
 
         /** {@inheritDoc} */
-        @Override public void subscribe(Subscriber<? super BinaryRow> subscriber) {
-            if (subscriber == null)
+        @Override
+        public void subscribe(Subscriber<? super BinaryRow> subscriber) {
+            if (subscriber == null) {
                 throw new NullPointerException("Subscriber is null");
+            }
 
-            if (!subscribed.compareAndSet(false, true))
+            if (!subscribed.compareAndSet(false, true)) {
                 subscriber.onError(new IllegalStateException("Scan publisher does not support multiple subscriptions."));
+            }
 
             PartitionScanSubscription subscription = new PartitionScanSubscription(subscriber);
 
@@ -409,10 +438,14 @@ public class InternalTableImpl implements InternalTable {
          * Partition Scan Subscription.
          */
         private class PartitionScanSubscription implements Subscription {
-            /** */
+            /**
+             *
+             */
             private final Subscriber<? super BinaryRow> subscriber;
 
-            /** */
+            /**
+             *
+             */
             private final AtomicBoolean canceled;
 
             /** Scan id to uniquely identify it on server side. */
@@ -423,6 +456,7 @@ public class InternalTableImpl implements InternalTable {
 
             /**
              * The constructor.
+             *
              * @param subscriber The subscriber.
              */
             private PartitionScanSubscription(Subscriber<? super BinaryRow> subscriber) {
@@ -434,28 +468,32 @@ public class InternalTableImpl implements InternalTable {
             }
 
             /** {@inheritDoc} */
-            @Override public void request(long n) {
+            @Override
+            public void request(long n) {
                 if (n <= 0) {
                     cancel();
 
                     subscriber.onError(new IllegalArgumentException(LoggerMessageHelper.
-                        format("Invalid requested amount of items [requested={}, minValue=1]", n))
+                            format("Invalid requested amount of items [requested={}, minValue=1]", n))
                     );
                 }
 
-                if (canceled.get())
+                if (canceled.get()) {
                     return;
+                }
 
                 final int internalBatchSize = Integer.MAX_VALUE;
 
-                for (int intBatchCnr = 0; intBatchCnr < (n / internalBatchSize); intBatchCnr++)
+                for (int intBatchCnr = 0; intBatchCnr < (n / internalBatchSize); intBatchCnr++) {
                     scanBatch(internalBatchSize);
+                }
 
-                scanBatch((int)(n % internalBatchSize));
+                scanBatch((int) (n % internalBatchSize));
             }
 
             /** {@inheritDoc} */
-            @Override public void cancel() {
+            @Override
+            public void cancel() {
                 cancel(true);
             }
 
@@ -465,8 +503,9 @@ public class InternalTableImpl implements InternalTable {
              * @param closeCursor If {@code true} closes inner storage scan.
              */
             private void cancel(boolean closeCursor) {
-                if (!canceled.compareAndSet(false, true))
+                if (!canceled.compareAndSet(false, true)) {
                     return;
+                }
 
                 if (closeCursor) {
                     scanInitOp.thenRun(() -> raftGrpSvc.run(new ScanCloseCommand(scanId))).exceptionally(closeT -> {
@@ -483,40 +522,42 @@ public class InternalTableImpl implements InternalTable {
              * @param n Requested amount of items.
              */
             private void scanBatch(int n) {
-                if (canceled.get())
+                if (canceled.get()) {
                     return;
+                }
 
                 scanInitOp.thenCompose((none) -> raftGrpSvc.<MultiRowsResponse>run(new ScanRetrieveBatchCommand(n, scanId)))
-                    .thenAccept(
-                        res -> {
-                            if (res.getValues() == null) {
-                                cancel();
+                        .thenAccept(
+                                res -> {
+                                    if (res.getValues() == null) {
+                                        cancel();
 
-                                subscriber.onComplete();
+                                        subscriber.onComplete();
 
-                                return;
-                            }
-                            else
-                                res.getValues().forEach(subscriber::onNext);
+                                        return;
+                                    } else {
+                                        res.getValues().forEach(subscriber::onNext);
+                                    }
 
-                            if (res.getValues().size() < n) {
-                                cancel();
+                                    if (res.getValues().size() < n) {
+                                        cancel();
 
-                                subscriber.onComplete();
-                            }
-                        })
-                    .exceptionally(
-                        t -> {
-                            if (t instanceof NoSuchElementException ||
-                                t instanceof CompletionException && t.getCause() instanceof NoSuchElementException)
-                                return null;
+                                        subscriber.onComplete();
+                                    }
+                                })
+                        .exceptionally(
+                                t -> {
+                                    if (t instanceof NoSuchElementException ||
+                                            t instanceof CompletionException && t.getCause() instanceof NoSuchElementException) {
+                                        return null;
+                                    }
 
-                            cancel(!scanInitOp.isCompletedExceptionally());
+                                    cancel(!scanInitOp.isCompletedExceptionally());
 
-                            subscriber.onError(t);
+                                    subscriber.onError(t);
 
-                            return null;
-                        });
+                                    return null;
+                                });
             }
         }
     }

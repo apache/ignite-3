@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
 
 import java.io.ByteArrayInputStream;
@@ -28,15 +29,15 @@ public class JDKMarshaller implements Marshaller {
     /**
      * {@inheritDoc}
      */
-    @Override public byte[] marshall(Object o) {
+    @Override
+    public byte[] marshall(Object o) {
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             ObjectOutputStream oos = new ObjectOutputStream(baos);
             oos.writeObject(o);
             oos.close();
             return baos.toByteArray();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new Error(e);
         }
     }
@@ -44,13 +45,13 @@ public class JDKMarshaller implements Marshaller {
     /**
      * {@inheritDoc}
      */
-    @Override public <T> T unmarshall(byte[] raw) {
+    @Override
+    public <T> T unmarshall(byte[] raw) {
         try {
             ByteArrayInputStream bais = new ByteArrayInputStream(raw);
             ObjectInputStream oos = new ObjectInputStream(bais);
             return (T) oos.readObject();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new Error(e);
         }
     }

@@ -32,7 +32,7 @@ public class IgniteCliRunner {
 
     /**
      * Main method for run new Ignite node.
-     *
+     * <p>
      * For CLI args info see {@link IgniteCliRunner#USAGE}
      *
      * @param args CLI args to start new node.
@@ -43,10 +43,10 @@ public class IgniteCliRunner {
 
         try {
             parsedArgs = Args.parseArgs(args);
-        }
-        catch (Args.ParseException e) {
-            if (e.getMessage() != null)
+        } catch (Args.ParseException e) {
+            if (e.getMessage() != null) {
                 System.out.println(e.getMessage() + "\n");
+            }
 
             System.out.println(USAGE);
 
@@ -73,7 +73,7 @@ public class IgniteCliRunner {
          * Creates new instance with parsed arguments.
          *
          * @param nodeName Name of the node.
-         * @param config Path to config file.
+         * @param config   Path to config file.
          */
         private Args(String nodeName, Path config) {
             this.nodeName = nodeName;
@@ -88,22 +88,21 @@ public class IgniteCliRunner {
          * @throws ParseException if required args are absent.
          */
         private static Args parseArgs(String[] args) throws ParseException {
-            if (args.length == 1)
+            if (args.length == 1) {
                 return new Args(args[0], null);
-            else if (args.length == 3) {
+            } else if (args.length == 3) {
                 if ("--config".equals(args[0])) {
                     try {
                         return new Args(args[2], Path.of(args[1]));
-                    }
-                    catch (InvalidPathException e) {
+                    } catch (InvalidPathException e) {
                         throw new ParseException("Couldn't parse configuration path.");
                     }
-                }
-                else
+                } else {
                     throw new ParseException();
-            }
-            else
+                }
+            } else {
                 throw new ParseException();
+            }
         }
 
         /**

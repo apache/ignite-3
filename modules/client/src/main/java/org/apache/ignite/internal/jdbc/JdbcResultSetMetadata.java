@@ -44,120 +44,144 @@ public class JdbcResultSetMetadata implements ResultSetMetaData {
     }
 
     /** {@inheritDoc} */
-    @Override public int getColumnCount() throws SQLException {
+    @Override
+    public int getColumnCount() throws SQLException {
         return meta.size();
     }
 
     /** {@inheritDoc} */
-    @Override public boolean isAutoIncrement(int col) throws SQLException {
+    @Override
+    public boolean isAutoIncrement(int col) throws SQLException {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean isCaseSensitive(int col) throws SQLException {
+    @Override
+    public boolean isCaseSensitive(int col) throws SQLException {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean isSearchable(int col) throws SQLException {
+    @Override
+    public boolean isSearchable(int col) throws SQLException {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean isCurrency(int col) throws SQLException {
+    @Override
+    public boolean isCurrency(int col) throws SQLException {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public int isNullable(int col) throws SQLException {
+    @Override
+    public int isNullable(int col) throws SQLException {
         return columnNullable;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean isSigned(int col) throws SQLException {
+    @Override
+    public boolean isSigned(int col) throws SQLException {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public int getColumnDisplaySize(int col) throws SQLException {
+    @Override
+    public int getColumnDisplaySize(int col) throws SQLException {
         return COL_WIDTH;
     }
 
     /** {@inheritDoc} */
-    @Override public String getColumnLabel(int col) throws SQLException {
+    @Override
+    public String getColumnLabel(int col) throws SQLException {
         return meta.get(col - 1).columnName();
     }
 
     /** {@inheritDoc} */
-    @Override public String getColumnName(int col) throws SQLException {
+    @Override
+    public String getColumnName(int col) throws SQLException {
         return meta.get(col - 1).columnName();
     }
 
     /** {@inheritDoc} */
-    @Override public String getSchemaName(int col) throws SQLException {
+    @Override
+    public String getSchemaName(int col) throws SQLException {
         return meta.get(col - 1).schemaName();
     }
 
     /** {@inheritDoc} */
-    @Override public int getPrecision(int col) throws SQLException {
+    @Override
+    public int getPrecision(int col) throws SQLException {
         return meta.get(col - 1).precision();
     }
 
     /** {@inheritDoc} */
-    @Override public int getScale(int col) throws SQLException {
+    @Override
+    public int getScale(int col) throws SQLException {
         return meta.get(col - 1).scale();
     }
 
     /** {@inheritDoc} */
-    @Override public String getTableName(int col) throws SQLException {
+    @Override
+    public String getTableName(int col) throws SQLException {
         return meta.get(col - 1).tableName();
     }
 
     /** {@inheritDoc} */
-    @Override public String getCatalogName(int col) throws SQLException {
+    @Override
+    public String getCatalogName(int col) throws SQLException {
         return "";
     }
 
     /** {@inheritDoc} */
-    @Override public int getColumnType(int col) throws SQLException {
+    @Override
+    public int getColumnType(int col) throws SQLException {
         return meta.get(col - 1).dataType();
     }
 
     /** {@inheritDoc} */
-    @Override public String getColumnTypeName(int col) throws SQLException {
+    @Override
+    public String getColumnTypeName(int col) throws SQLException {
         return meta.get(col - 1).dataTypeName();
     }
 
     /** {@inheritDoc} */
-    @Override public boolean isReadOnly(int col) throws SQLException {
+    @Override
+    public boolean isReadOnly(int col) throws SQLException {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean isWritable(int col) throws SQLException {
+    @Override
+    public boolean isWritable(int col) throws SQLException {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean isDefinitelyWritable(int col) throws SQLException {
+    @Override
+    public boolean isDefinitelyWritable(int col) throws SQLException {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public String getColumnClassName(int col) throws SQLException {
+    @Override
+    public String getColumnClassName(int col) throws SQLException {
         return meta.get(col - 1).dataTypeClass();
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T unwrap(Class<T> iface) throws SQLException {
-        if (!isWrapperFor(iface))
+    @Override
+    public <T> T unwrap(Class<T> iface) throws SQLException {
+        if (!isWrapperFor(iface)) {
             throw new SQLException("Result set meta data is not a wrapper for " + iface.getName());
+        }
 
-        return (T)this;
+        return (T) this;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean isWrapperFor(Class<?> iface) throws SQLException {
+    @Override
+    public boolean isWrapperFor(Class<?> iface) throws SQLException {
         return iface != null && iface.isAssignableFrom(JdbcResultSetMetadata.class);
     }
 }

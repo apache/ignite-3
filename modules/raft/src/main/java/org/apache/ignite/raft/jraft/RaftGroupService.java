@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft;
 
 import org.apache.ignite.lang.IgniteInternalException;
@@ -66,14 +67,14 @@ public class RaftGroupService {
     private NodeManager nodeManager;
 
     /**
-     * @param groupId Group Id.
-     * @param serverId Server id.
+     * @param groupId     Group Id.
+     * @param serverId    Server id.
      * @param nodeOptions Node options.
-     * @param rpcServer RPC server.
+     * @param rpcServer   RPC server.
      * @param nodeManager Node manager.
      */
     public RaftGroupService(final String groupId, final PeerId serverId, final NodeOptions nodeOptions,
-        final RpcServer rpcServer, final NodeManager nodeManager) {
+            final RpcServer rpcServer, final NodeManager nodeManager) {
         super();
         this.groupId = groupId;
         this.serverId = serverId;
@@ -94,7 +95,7 @@ public class RaftGroupService {
             return this.node;
         }
         if (this.serverId == null || this.serverId.getEndpoint() == null
-            || this.serverId.getEndpoint().equals(new Endpoint(Utils.IP_ANY, 0))) {
+                || this.serverId.getEndpoint().equals(new Endpoint(Utils.IP_ANY, 0))) {
             throw new IllegalArgumentException("Blank serverId:" + this.serverId);
         }
         if (StringUtils.isBlank(this.groupId)) {
@@ -111,8 +112,7 @@ public class RaftGroupService {
 
             try {
                 this.node.join();
-            }
-            catch (InterruptedException e) {
+            } catch (InterruptedException e) {
                 throw new IgniteInternalException(e);
             }
 
@@ -134,8 +134,7 @@ public class RaftGroupService {
         this.node.shutdown();
         try {
             this.node.join();
-        }
-        catch (InterruptedException e) {
+        } catch (InterruptedException e) {
             LOG.error("Interrupted while waiting for the node to shutdown");
         }
 

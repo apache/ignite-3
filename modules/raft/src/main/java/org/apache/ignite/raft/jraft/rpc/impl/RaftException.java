@@ -37,7 +37,7 @@ public class RaftException extends IgniteInternalCheckedException {
 
     /**
      * @param raftError RaftError..
-     * @param message Error message.
+     * @param message   Error message.
      */
     public RaftException(RaftError raftError, String message) {
         super(raftError.name() + ":" + message);

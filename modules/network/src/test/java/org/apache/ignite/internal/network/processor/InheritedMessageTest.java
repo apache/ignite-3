@@ -17,6 +17,13 @@
 
 package org.apache.ignite.internal.network.processor;
 
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import org.apache.ignite.network.TestMessagesFactory;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageReader;
@@ -25,35 +32,31 @@ import org.apache.ignite.network.serialization.MessageWriter;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 /**
  * Tests for support of network message inheritance hierarchies.
  *
  * @see InheritedMessage
  */
 public class InheritedMessageTest {
-    /** */
+    /**
+     *
+     */
     private final TestMessagesFactory messageFactory = new TestMessagesFactory();
 
-    /** */
+    /**
+     *
+     */
     private final InheritedMessageSerializationFactory serializationFactory =
-        new InheritedMessageSerializationFactory(messageFactory);
+            new InheritedMessageSerializationFactory(messageFactory);
 
     /**
-     * Tests that the generated message implementation contains all fields from the superinterfaces and is serialized
-     * in the correct order.
+     * Tests that the generated message implementation contains all fields from the superinterfaces and is serialized in the correct order.
      */
     @Test
     void testSerialization() {
         InheritedMessage msg = messageFactory.inheritedMessage()
-            .x(1).y(2).z(3)
-            .build();
+                .x(1).y(2).z(3)
+                .build();
 
         MessageSerializer<InheritedMessage> serializer = serializationFactory.createSerializer();
 

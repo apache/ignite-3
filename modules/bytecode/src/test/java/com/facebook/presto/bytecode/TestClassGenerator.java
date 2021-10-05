@@ -14,15 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.bytecode;
 
-import java.io.File;
-import java.io.StringWriter;
-import java.lang.reflect.Method;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
-import org.junit.jupiter.api.Test;
+package com.facebook.presto.bytecode;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
@@ -36,27 +29,35 @@ import static java.nio.file.Files.createTempDirectory;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.File;
+import java.io.StringWriter;
+import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+
 public class TestClassGenerator {
     @Test
     public void testGenerator()
-        throws Exception {
+            throws Exception {
         ClassDefinition classDefinition = new ClassDefinition(
-            a(PUBLIC, FINAL),
-            "test/Example",
-            type(Object.class));
+                a(PUBLIC, FINAL),
+                "test/Example",
+                type(Object.class));
 
         Parameter argA = arg("a", int.class);
         Parameter argB = arg("b", int.class);
 
         MethodDefinition method = classDefinition.declareMethod(
-            a(PUBLIC, STATIC),
-            "add",
-            type(int.class),
-            List.of(argA, argB));
+                a(PUBLIC, STATIC),
+                "add",
+                type(int.class),
+                List.of(argA, argB));
 
         method.getBody()
-            .append(add(argA, argB))
-            .retInt();
+                .append(add(argA, argB))
+                .retInt();
 
         Path tempDir = createTempDirectory("test");
 
@@ -64,12 +65,12 @@ public class TestClassGenerator {
             StringWriter writer = new StringWriter();
 
             Class<?> clazz = classGenerator(getClass().getClassLoader())
-                .fakeLineNumbers(true)
-                .runAsmVerifier(true)
-                .dumpRawBytecode(true)
-                .outputTo(writer)
-                .dumpClassFilesTo(tempDir)
-                .defineClass(classDefinition, Object.class);
+                    .fakeLineNumbers(true)
+                    .runAsmVerifier(true)
+                    .dumpRawBytecode(true)
+                    .outputTo(writer)
+                    .dumpClassFilesTo(tempDir)
+                    .defineClass(classDefinition, Object.class);
 
             Method add = clazz.getMethod("add", int.class, int.class);
             assertEquals(add.invoke(null, 13, 42), 55);
@@ -82,8 +83,7 @@ public class TestClassGenerator {
             assertTrue(code.contains("LINENUMBER 2002 L1"));
 
             assertTrue(Files.isRegularFile(tempDir.resolve("test/Example.class")));
-        }
-        finally {
+        } finally {
             deleteDirectory(tempDir.toFile());
         }
     }

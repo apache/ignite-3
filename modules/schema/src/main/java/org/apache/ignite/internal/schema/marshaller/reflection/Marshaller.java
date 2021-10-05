@@ -36,9 +36,9 @@ class Marshaller {
     /**
      * Creates marshaller for class.
      *
-     * @param cols Columns.
+     * @param cols       Columns.
      * @param firstColId First column position in schema.
-     * @param aClass Type.
+     * @param aClass     Type.
      * @return Marshaller.
      */
     static Marshaller createMarshaller(Columns cols, int firstColId, Class<? extends Object> aClass) {
@@ -68,8 +68,7 @@ class Marshaller {
     }
 
     /**
-     * Field accessors for mapped columns.
-     * Array has same size and order as columns.
+     * Field accessors for mapped columns. Array has same size and order as columns.
      */
     private final FieldAccessor[] fieldAccessors;
 
@@ -79,10 +78,9 @@ class Marshaller {
     private final Factory<?> factory;
 
     /**
-     * Constructor.
-     * Creates marshaller for complex types.
+     * Constructor. Creates marshaller for complex types.
      *
-     * @param factory Object factory.
+     * @param factory        Object factory.
      * @param fieldAccessors Object field accessors for mapped columns.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
@@ -92,20 +90,19 @@ class Marshaller {
     }
 
     /**
-     * Constructor.
-     * Creates marshaller for basic types.
+     * Constructor. Creates marshaller for basic types.
      *
      * @param fieldAccessor Identity field accessor for object of basic type.
      */
-     Marshaller(FieldAccessor fieldAccessor) {
-        fieldAccessors = new FieldAccessor[] {fieldAccessor};
+    Marshaller(FieldAccessor fieldAccessor) {
+        fieldAccessors = new FieldAccessor[]{fieldAccessor};
         factory = null;
     }
 
     /**
      * Reads object field.
      *
-     * @param obj Object.
+     * @param obj    Object.
      * @param fldIdx Field index.
      * @return Field value.
      */
@@ -121,13 +118,15 @@ class Marshaller {
      * @throws SerializationException If failed.
      */
     public Object readObject(Row reader) throws SerializationException {
-        if (isSimpleTypeMarshaller())
+        if (isSimpleTypeMarshaller()) {
             return fieldAccessors[0].read(reader);
+        }
 
         final Object obj = factory.create();
 
-        for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++)
+        for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
             fieldAccessors[fldIdx].read(reader, obj);
+        }
 
         return obj;
     }
@@ -135,13 +134,14 @@ class Marshaller {
     /**
      * Write an object to row.
      *
-     * @param obj Object.
+     * @param obj    Object.
      * @param writer Row writer.
      * @throws SerializationException If failed.
      */
     public void writeObject(Object obj, RowAssembler writer) throws SerializationException {
-        for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++)
+        for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
             fieldAccessors[fldIdx].write(writer, obj);
+        }
     }
 
     /**

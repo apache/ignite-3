@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.option;
 
 import com.codahale.metrics.MetricRegistry;
@@ -196,8 +197,8 @@ public class RpcOptions {
     @Override
     public String toString() {
         return "RpcOptions{" + "rpcConnectTimeoutMs=" + rpcConnectTimeoutMs + ", rpcDefaultTimeout="
-            + rpcDefaultTimeout + ", rpcInstallSnapshotTimeout=" + rpcInstallSnapshotTimeout
-            + ", rpcProcessorThreadPoolSize=" + rpcProcessorThreadPoolSize + ", enableRpcChecksum="
-            + enableRpcChecksum + ", metricRegistry=" + metricRegistry + '}';
+                + rpcDefaultTimeout + ", rpcInstallSnapshotTimeout=" + rpcInstallSnapshotTimeout
+                + ", rpcProcessorThreadPoolSize=" + rpcProcessorThreadPoolSize + ", enableRpcChecksum="
+                + enableRpcChecksum + ", metricRegistry=" + metricRegistry + '}';
     }
 }

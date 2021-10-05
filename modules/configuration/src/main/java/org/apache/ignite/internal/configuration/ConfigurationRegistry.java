@@ -17,6 +17,14 @@
 
 package org.apache.ignite.internal.configuration;
 
+import static java.util.function.Predicate.not;
+import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.configuration.util.ConfigurationNotificationsUtil.notifyListeners;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectSchemas;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
+
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
@@ -52,15 +60,9 @@ import org.apache.ignite.internal.configuration.validation.MinValidator;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.lang.IgniteLogger;
 
-import static java.util.function.Predicate.not;
-import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.configuration.util.ConfigurationNotificationsUtil.notifyListeners;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectSchemas;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
-
-/** */
+/**
+ *
+ */
 public class ConfigurationRegistry implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(ConfigurationRegistry.class);
@@ -80,19 +82,19 @@ public class ConfigurationRegistry implements IgniteComponent {
     /**
      * Constructor.
      *
-     * @param rootKeys Configuration root keys.
-     * @param validators Validators.
-     * @param storage Configuration storage.
-     * @param internalSchemaExtensions Internal extensions ({@link InternalConfiguration})
-     *      of configuration schemas ({@link ConfigurationRoot} and {@link Config}).
-     * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type,
-     *      or if the schema or its extensions are not valid.
+     * @param rootKeys                 Configuration root keys.
+     * @param validators               Validators.
+     * @param storage                  Configuration storage.
+     * @param internalSchemaExtensions Internal extensions ({@link InternalConfiguration}) of configuration schemas ({@link
+     *                                 ConfigurationRoot} and {@link Config}).
+     * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the schema or its
+     *                                  extensions are not valid.
      */
     public ConfigurationRegistry(
-        Collection<RootKey<?, ?>> rootKeys,
-        Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators,
-        ConfigurationStorage storage,
-        Collection<Class<?>> internalSchemaExtensions
+            Collection<RootKey<?, ?>> rootKeys,
+            Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators,
+            ConfigurationStorage storage,
+            Collection<Class<?>> internalSchemaExtensions
     ) {
         checkConfigurationType(rootKeys, storage);
 
@@ -102,11 +104,11 @@ public class ConfigurationRegistry implements IgniteComponent {
 
         if (!allSchemas.containsAll(extensions.keySet())) {
             Set<Class<?>> notInAllSchemas = extensions.keySet().stream()
-                .filter(not(allSchemas::contains))
-                .collect(toSet());
+                    .filter(not(allSchemas::contains))
+                    .collect(toSet());
 
             throw new IllegalArgumentException(
-                "Internal extensions for which no parent configuration schemes were found: " + notInAllSchemas
+                    "Internal extensions for which no parent configuration schemes were found: " + notInAllSchemas
             );
         }
 
@@ -120,7 +122,8 @@ public class ConfigurationRegistry implements IgniteComponent {
 
         changer = new ConfigurationChanger(this::notificator, rootKeys, validators0, storage) {
             /** {@inheritDoc} */
-            @Override public InnerNode createRootNode(RootKey<?, ?> rootKey) {
+            @Override
+            public InnerNode createRootNode(RootKey<?, ?> rootKey) {
                 return cgen.instantiateNode(rootKey.schemaClass());
             }
         };
@@ -135,12 +138,14 @@ public class ConfigurationRegistry implements IgniteComponent {
     }
 
     /** {@inheritDoc} */
-    @Override public void start() {
+    @Override
+    public void start() {
         changer.start();
     }
 
     /** {@inheritDoc} */
-    @Override public void stop() {
+    @Override
+    public void stop() {
         changer.stop();
     }
 
@@ -161,21 +166,21 @@ public class ConfigurationRegistry implements IgniteComponent {
      * Gets the public configuration tree.
      *
      * @param rootKey Root key.
-     * @param <V> View type.
-     * @param <C> Change type.
-     * @param <T> Configuration tree type.
+     * @param <V>     View type.
+     * @param <C>     Change type.
+     * @param <T>     Configuration tree type.
      * @return Public configuration tree.
      */
     public <V, C, T extends ConfigurationTree<V, C>> T getConfiguration(RootKey<T, V> rootKey) {
-        return (T)configs.get(rootKey.key());
+        return (T) configs.get(rootKey.key());
     }
 
     /**
      * Convert configuration subtree into a user-defined representation.
      *
-     * @param path Path to configuration subtree. Can be empty, can't be {@code null}.
+     * @param path    Path to configuration subtree. Can be empty, can't be {@code null}.
      * @param visitor Visitor that will be applied to the subtree and build the representation.
-     * @param <T> Type of the representation.
+     * @param <T>     Type of the representation.
      * @return User-defined representation constructed by {@code visitor}.
      * @throws IllegalArgumentException If {@code path} is not found in current configuration.
      */
@@ -185,17 +190,17 @@ public class ConfigurationRegistry implements IgniteComponent {
         Object node;
         try {
             node = ConfigurationUtil.find(path, superRoot, false);
-        }
-        catch (KeyNotFoundException e) {
+        } catch (KeyNotFoundException e) {
             throw new IllegalArgumentException(e.getMessage());
         }
 
-        if (node instanceof TraversableTreeNode)
-            return ((TraversableTreeNode)node).accept(null, visitor);
+        if (node instanceof TraversableTreeNode) {
+            return ((TraversableTreeNode) node).accept(null, visitor);
+        }
 
         assert node == null || node instanceof Serializable;
 
-        return visitor.visitLeafNode(null, (Serializable)node);
+        return visitor.visitLeafNode(null, (Serializable) node);
     }
 
     /**
@@ -211,8 +216,8 @@ public class ConfigurationRegistry implements IgniteComponent {
     /**
      * Configuration change notifier.
      *
-     * @param oldSuperRoot Old roots values. All these roots always belong to a single storage.
-     * @param newSuperRoot New values for the same roots as in {@code oldRoot}.
+     * @param oldSuperRoot    Old roots values. All these roots always belong to a single storage.
+     * @param newSuperRoot    New values for the same roots as in {@code oldRoot}.
      * @param storageRevision Revision of the storage.
      * @return Future that must signify when processing is completed.
      */
@@ -221,15 +226,17 @@ public class ConfigurationRegistry implements IgniteComponent {
 
         newSuperRoot.traverseChildren(new ConfigurationVisitor<Void>() {
             /** {@inheritDoc} */
-            @Override public Void visitInnerNode(String key, InnerNode newRoot) {
+            @Override
+            public Void visitInnerNode(String key, InnerNode newRoot) {
                 InnerNode oldRoot = oldSuperRoot.traverseChild(key, innerNodeVisitor(), true);
 
-                var cfg = (DynamicConfiguration<InnerNode, ?>)configs.get(key);
+                var cfg = (DynamicConfiguration<InnerNode, ?>) configs.get(key);
 
                 assert oldRoot != null && cfg != null : key;
 
-                if (oldRoot != newRoot)
+                if (oldRoot != newRoot) {
                     notifyListeners(oldRoot, newRoot, cfg, storageRevision, futures);
+                }
 
                 return null;
             }
@@ -237,8 +244,9 @@ public class ConfigurationRegistry implements IgniteComponent {
 
         // Map futures is only for logging errors.
         Function<CompletableFuture<?>, CompletableFuture<?>> mapping = fut -> fut.whenComplete((res, throwable) -> {
-            if (throwable != null)
+            if (throwable != null) {
                 LOG.error("Failed to notify configuration listener.", throwable);
+            }
         });
 
         CompletableFuture<?>[] resultFutures = futures.stream().map(mapping).toArray(CompletableFuture[]::new);

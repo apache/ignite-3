@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.concurrent.Executor;
@@ -50,11 +51,10 @@ public abstract class RpcRequestProcessor<T extends Message> implements RpcProce
             if (msg != null) {
                 rpcCtx.sendResponse(msg);
             }
-        }
-        catch (final Throwable t) {
+        } catch (final Throwable t) {
             LOG.error("handleRequest {} failed", t, request);
             rpcCtx.sendResponse(RaftRpcFactory.DEFAULT //
-                .newResponse(msgFactory, -1, "handleRequest internal error"));
+                    .newResponse(msgFactory, -1, "handleRequest internal error"));
         }
     }
 

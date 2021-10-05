@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.processors.query.calcite.rel.set;
 
+import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import com.google.common.collect.ImmutableList;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.util.Pair;
@@ -37,61 +36,69 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
  */
 public interface IgniteSingleSetOp extends IgniteSetOp {
     /** {@inheritDoc} */
-    @Override public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(
-        RelTraitSet nodeTraits,
-        List<RelTraitSet> inputTraits
+    @Override
+    public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(
+            RelTraitSet nodeTraits,
+            List<RelTraitSet> inputTraits
     ) {
         boolean rewindable = inputTraits.stream()
-            .map(TraitUtils::rewindability)
-            .allMatch(RewindabilityTrait::rewindable);
+                .map(TraitUtils::rewindability)
+                .allMatch(RewindabilityTrait::rewindable);
 
-        if (rewindable)
+        if (rewindable) {
             return ImmutableList.of(Pair.of(nodeTraits.replace(RewindabilityTrait.REWINDABLE), inputTraits));
+        }
 
         return ImmutableList.of(Pair.of(nodeTraits.replace(RewindabilityTrait.ONE_WAY),
-            Commons.transform(inputTraits, t -> t.replace(RewindabilityTrait.ONE_WAY))));
+                Commons.transform(inputTraits, t -> t.replace(RewindabilityTrait.ONE_WAY))));
     }
 
     /** {@inheritDoc} */
-    @Override public default Pair<RelTraitSet, List<RelTraitSet>> passThroughDistribution(RelTraitSet nodeTraits,
-        List<RelTraitSet> inTraits) {
-        if (TraitUtils.distribution(nodeTraits) == IgniteDistributions.single())
+    @Override
+    public default Pair<RelTraitSet, List<RelTraitSet>> passThroughDistribution(RelTraitSet nodeTraits,
+            List<RelTraitSet> inTraits) {
+        if (TraitUtils.distribution(nodeTraits) == IgniteDistributions.single()) {
             return Pair.of(nodeTraits, Commons.transform(inTraits, t -> t.replace(IgniteDistributions.single())));
+        }
 
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(
-        RelTraitSet nodeTraits,
-        List<RelTraitSet> inputTraits
+    @Override
+    public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(
+            RelTraitSet nodeTraits,
+            List<RelTraitSet> inputTraits
     ) {
         boolean single = inputTraits.stream()
-            .map(TraitUtils::distribution)
-            .allMatch(d -> d.satisfies(IgniteDistributions.single()));
+                .map(TraitUtils::distribution)
+                .allMatch(d -> d.satisfies(IgniteDistributions.single()));
 
-        if (!single)
+        if (!single) {
             return ImmutableList.of();
+        }
 
         return ImmutableList.of(Pair.of(nodeTraits.replace(IgniteDistributions.single()), inputTraits));
     }
 
     /** {@inheritDoc} */
-    @Override public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(
-        RelTraitSet nodeTraits,
-        List<RelTraitSet> inTraits
+    @Override
+    public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(
+            RelTraitSet nodeTraits,
+            List<RelTraitSet> inTraits
     ) {
         Set<CorrelationId> correlationIds = inTraits.stream()
-            .map(TraitUtils::correlation)
-            .flatMap(corrTr -> corrTr.correlationIds().stream())
-            .collect(Collectors.toSet());
+                .map(TraitUtils::correlation)
+                .flatMap(corrTr -> corrTr.correlationIds().stream())
+                .collect(Collectors.toSet());
 
         return ImmutableList.of(Pair.of(nodeTraits.replace(CorrelationTrait.correlations(correlationIds)),
-            inTraits));
+                inTraits));
     }
 
     /** {@inheritDoc} */
-    @Override public default AggregateType aggregateType() {
+    @Override
+    public default AggregateType aggregateType() {
         return AggregateType.SINGLE;
     }
 }

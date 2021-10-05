@@ -17,6 +17,14 @@
 
 package org.apache.ignite.internal.tostring;
 
+import static org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy.HASH;
+import static org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy.NONE;
+import static org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy.PLAIN;
+import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.Objects;
 import java.util.function.BiConsumer;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -27,17 +35,8 @@ import org.apache.ignite.lang.IgniteSystemProperties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import static org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy.HASH;
-import static org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy.NONE;
-import static org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy.PLAIN;
-import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 /**
- * Tests for output of {@code toString()} depending on the value of
- * {@link IgniteSystemProperties#IGNITE_SENSITIVE_DATA_LOGGING}
+ * Tests for output of {@code toString()} depending on the value of {@link IgniteSystemProperties#IGNITE_SENSITIVE_DATA_LOGGING}
  */
 @ExtendWith(SystemPropertiesExtension.class)
 public class SensitiveDataToStringTest extends IgniteAbstractTest {
@@ -131,7 +130,8 @@ public class SensitiveDataToStringTest extends IgniteAbstractTest {
         }
 
         /** {@inheritDoc} */
-        @Override public String toString() {
+        @Override
+        public String toString() {
             switch (S.getSensitiveDataLogging()) {
                 case PLAIN:
                     return S.toString(getClass().getSimpleName(), "person", person, false);
@@ -160,7 +160,7 @@ public class SensitiveDataToStringTest extends IgniteAbstractTest {
          * Constructor.
          *
          * @param orgId Id organization.
-         * @param name Person name.
+         * @param name  Person name.
          */
         Person(int orgId, String name) {
             this.orgId = orgId;
@@ -168,12 +168,14 @@ public class SensitiveDataToStringTest extends IgniteAbstractTest {
         }
 
         /** {@inheritDoc} */
-        @Override public int hashCode() {
+        @Override
+        public int hashCode() {
             return Objects.hash(orgId, name);
         }
 
         /** {@inheritDoc} */
-        @Override public String toString() {
+        @Override
+        public String toString() {
             return S.toString(Person.class, this);
         }
     }

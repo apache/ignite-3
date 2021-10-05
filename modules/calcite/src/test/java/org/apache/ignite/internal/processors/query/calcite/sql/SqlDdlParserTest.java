@@ -14,13 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.internal.processors.query.calcite.sql;
 
+import static java.util.Collections.singleton;
+import static org.hamcrest.CoreMatchers.hasItem;
+import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
+
+import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
-
-import com.google.common.collect.ImmutableList;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
@@ -34,12 +40,6 @@ import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImp
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
-
-import static java.util.Collections.singleton;
-import static org.hamcrest.CoreMatchers.hasItem;
-import static org.hamcrest.CoreMatchers.instanceOf;
-import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.MatcherAssert.assertThat;
 
 /**
  * Test suite to verify parsing of the DDL command.
@@ -56,7 +56,7 @@ public class SqlDdlParserTest {
 
         assertThat(node, instanceOf(IgniteSqlCreateTable.class));
 
-        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable)node;
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
 
         assertThat(createTable.name().names, is(ImmutableList.of("MY_TABLE")));
         assertThat(createTable.ifNotExists, is(false));
@@ -75,7 +75,7 @@ public class SqlDdlParserTest {
 
         assertThat(node, instanceOf(IgniteSqlCreateTable.class));
 
-        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable)node;
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
 
         assertThat(createTable.name().names, is(ImmutableList.of("My_Table")));
         assertThat(createTable.ifNotExists, is(false));
@@ -94,7 +94,7 @@ public class SqlDdlParserTest {
 
         assertThat(node, instanceOf(IgniteSqlCreateTable.class));
 
-        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable)node;
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
 
         assertThat(createTable.name().names, is(ImmutableList.of("MY_TABLE")));
         assertThat(createTable.ifNotExists, is(true));
@@ -103,8 +103,7 @@ public class SqlDdlParserTest {
     }
 
     /**
-     * Parsing of CREATE TABLE with specified PK constraint where constraint
-     * is a shortcut within a column definition.
+     * Parsing of CREATE TABLE with specified PK constraint where constraint is a shortcut within a column definition.
      */
     @Test
     public void createTableWithPkCase1() throws SqlParseException {
@@ -114,21 +113,20 @@ public class SqlDdlParserTest {
 
         assertThat(node, instanceOf(IgniteSqlCreateTable.class));
 
-        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable)node;
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
 
         assertThat(createTable.name().names, is(ImmutableList.of("MY_TABLE")));
         assertThat(createTable.ifNotExists, is(false));
         assertThat(createTable.columnList(), hasItem(ofTypeMatching(
-            "PK constraint with name \"ID\"", SqlKeyConstraint.class,
-            constraint -> hasItem(ofTypeMatching("identifier \"ID\"", SqlIdentifier.class, id -> "ID".equals(id.names.get(0))))
-                .matches(constraint.getOperandList().get(1))
-                && constraint.getOperandList().get(0) == null
-                && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
+                "PK constraint with name \"ID\"", SqlKeyConstraint.class,
+                constraint -> hasItem(ofTypeMatching("identifier \"ID\"", SqlIdentifier.class, id -> "ID".equals(id.names.get(0))))
+                        .matches(constraint.getOperandList().get(1))
+                        && constraint.getOperandList().get(0) == null
+                        && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
     }
 
     /**
-     * Parsing of CREATE TABLE with specified PK constraint where constraint
-     * is set explicitly and has no name.
+     * Parsing of CREATE TABLE with specified PK constraint where constraint is set explicitly and has no name.
      */
     @Test
     public void createTableWithPkCase2() throws SqlParseException {
@@ -138,21 +136,20 @@ public class SqlDdlParserTest {
 
         assertThat(node, instanceOf(IgniteSqlCreateTable.class));
 
-        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable)node;
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
 
         assertThat(createTable.name().names, is(ImmutableList.of("MY_TABLE")));
         assertThat(createTable.ifNotExists, is(false));
         assertThat(createTable.columnList(), hasItem(ofTypeMatching(
-            "PK constraint without name containing column \"ID\"", SqlKeyConstraint.class,
-            constraint -> hasItem(ofTypeMatching("identifier \"ID\"", SqlIdentifier.class, id -> "ID".equals(id.names.get(0))))
-                .matches(constraint.getOperandList().get(1))
-                && constraint.getOperandList().get(0) == null
-                && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
+                "PK constraint without name containing column \"ID\"", SqlKeyConstraint.class,
+                constraint -> hasItem(ofTypeMatching("identifier \"ID\"", SqlIdentifier.class, id -> "ID".equals(id.names.get(0))))
+                        .matches(constraint.getOperandList().get(1))
+                        && constraint.getOperandList().get(0) == null
+                        && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
     }
 
     /**
-     * Parsing of CREATE TABLE with specified PK constraint where constraint
-     * is set explicitly and has a name.
+     * Parsing of CREATE TABLE with specified PK constraint where constraint is set explicitly and has a name.
      */
     @Test
     public void createTableWithPkCase3() throws SqlParseException {
@@ -162,21 +159,20 @@ public class SqlDdlParserTest {
 
         assertThat(node, instanceOf(IgniteSqlCreateTable.class));
 
-        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable)node;
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
 
         assertThat(createTable.name().names, is(ImmutableList.of("MY_TABLE")));
         assertThat(createTable.ifNotExists, is(false));
         assertThat(createTable.columnList(), hasItem(ofTypeMatching(
-            "PK constraint with name \"PK_KEY\" containing column \"ID\"", SqlKeyConstraint.class,
-            constraint -> hasItem(ofTypeMatching("identifier \"ID\"", SqlIdentifier.class, id -> "ID".equals(id.names.get(0))))
-                .matches(constraint.getOperandList().get(1))
-                && "PK_KEY".equals(((SqlIdentifier)constraint.getOperandList().get(0)).names.get(0))
-                && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
+                "PK constraint with name \"PK_KEY\" containing column \"ID\"", SqlKeyConstraint.class,
+                constraint -> hasItem(ofTypeMatching("identifier \"ID\"", SqlIdentifier.class, id -> "ID".equals(id.names.get(0))))
+                        .matches(constraint.getOperandList().get(1))
+                        && "PK_KEY".equals(((SqlIdentifier) constraint.getOperandList().get(0)).names.get(0))
+                        && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
     }
 
     /**
-     * Parsing of CREATE TABLE with specified PK constraint where constraint
-     * consists of several columns.
+     * Parsing of CREATE TABLE with specified PK constraint where constraint consists of several columns.
      */
     @Test
     public void createTableWithPkCase4() throws SqlParseException {
@@ -186,18 +182,18 @@ public class SqlDdlParserTest {
 
         assertThat(node, instanceOf(IgniteSqlCreateTable.class));
 
-        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable)node;
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
 
         assertThat(createTable.name().names, is(ImmutableList.of("MY_TABLE")));
         assertThat(createTable.ifNotExists, is(false));
         assertThat(createTable.columnList(), hasItem(ofTypeMatching(
-            "PK constraint with two columns", SqlKeyConstraint.class,
-            constraint -> hasItem(ofTypeMatching("identifier \"ID1\"", SqlIdentifier.class, id -> "ID1".equals(id.names.get(0))))
-                .matches(constraint.getOperandList().get(1))
-                && hasItem(ofTypeMatching("identifier \"ID2\"", SqlIdentifier.class, id -> "ID2".equals(id.names.get(0))))
-                .matches(constraint.getOperandList().get(1))
-                && constraint.getOperandList().get(0) == null
-                && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
+                "PK constraint with two columns", SqlKeyConstraint.class,
+                constraint -> hasItem(ofTypeMatching("identifier \"ID1\"", SqlIdentifier.class, id -> "ID1".equals(id.names.get(0))))
+                        .matches(constraint.getOperandList().get(1))
+                        && hasItem(ofTypeMatching("identifier \"ID2\"", SqlIdentifier.class, id -> "ID2".equals(id.names.get(0))))
+                        .matches(constraint.getOperandList().get(1))
+                        && constraint.getOperandList().get(0) == null
+                        && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
     }
 
     /**
@@ -206,23 +202,23 @@ public class SqlDdlParserTest {
     @Test
     public void createTableWithOptions() throws SqlParseException {
         String query = "create table my_table(id int) with" +
-            " template=\"my_template\"," +
-            " backups=2," +
-            " affinity_key=my_aff," +
-            " atomicity=atomic," +
-            " write_synchronization_mode=transactional," +
-            " cache_group=my_cache_group," +
-            " cache_name=my_cache_name," +
-            " data_region=my_data_region," +
-            " key_type=my_key_type," +
-            " value_type=my_value_type," +
-            " encrypted=true";
+                " template=\"my_template\"," +
+                " backups=2," +
+                " affinity_key=my_aff," +
+                " atomicity=atomic," +
+                " write_synchronization_mode=transactional," +
+                " cache_group=my_cache_group," +
+                " cache_name=my_cache_name," +
+                " data_region=my_data_region," +
+                " key_type=my_key_type," +
+                " value_type=my_value_type," +
+                " encrypted=true";
 
         SqlNode node = parse(query);
 
         assertThat(node, instanceOf(IgniteSqlCreateTable.class));
 
-        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable)node;
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
 
         assertThatStringOptionPresent(createTable.createOptionList().getList(), "TEMPLATE", "my_template");
         assertThatIntegerOptionPresent(createTable.createOptionList().getList(), "BACKUPS", 2);
@@ -253,43 +249,43 @@ public class SqlDdlParserTest {
      * Shortcut to verify that there is an option with a particular string value.
      *
      * @param optionList Option list from parsed AST.
-     * @param option An option key of interest.
-     * @param expVal Expected value.
+     * @param option     An option key of interest.
+     * @param expVal     Expected value.
      */
     private static void assertThatStringOptionPresent(List<SqlNode> optionList, String option, String expVal) {
         assertThat(optionList, hasItem(ofTypeMatching(
-            "option " + option + "=" + expVal, IgniteSqlCreateTableOption.class,
-            opt -> opt.key().name().equals(option) && opt.value() instanceof SqlIdentifier
-                && Objects.equals(expVal, ((SqlIdentifier)opt.value()).names.get(0)))));
+                "option " + option + "=" + expVal, IgniteSqlCreateTableOption.class,
+                opt -> opt.key().name().equals(option) && opt.value() instanceof SqlIdentifier
+                        && Objects.equals(expVal, ((SqlIdentifier) opt.value()).names.get(0)))));
     }
 
     /**
      * Shortcut to verify that there is an option with a particular boolean value.
      *
      * @param optionList Option list from parsed AST.
-     * @param option An option key of interest.
-     * @param expVal Expected value.
+     * @param option     An option key of interest.
+     * @param expVal     Expected value.
      */
     private static void assertThatBooleanOptionPresent(List<SqlNode> optionList, String option, boolean expVal) {
         assertThat(optionList, hasItem(ofTypeMatching(
-            "option" + option + "=" + expVal, IgniteSqlCreateTableOption.class,
-            opt -> opt.key().name().equals(option) && opt.value() instanceof SqlLiteral
-                && Objects.equals(expVal, ((SqlLiteral)opt.value()).booleanValue()))));
+                "option" + option + "=" + expVal, IgniteSqlCreateTableOption.class,
+                opt -> opt.key().name().equals(option) && opt.value() instanceof SqlLiteral
+                        && Objects.equals(expVal, ((SqlLiteral) opt.value()).booleanValue()))));
     }
 
     /**
      * Shortcut to verify that there is an option with a particular integer value.
      *
      * @param optionList Option list from parsed AST.
-     * @param option An option key of interest.
-     * @param expVal Expected value.
+     * @param option     An option key of interest.
+     * @param expVal     Expected value.
      */
     private static void assertThatIntegerOptionPresent(List<SqlNode> optionList, String option, int expVal) {
         assertThat(optionList, hasItem(ofTypeMatching(
-            "option" + option + "=" + expVal, IgniteSqlCreateTableOption.class,
-            opt -> opt.key().name().equals(option) && opt.value() instanceof SqlNumericLiteral
-                && ((SqlNumericLiteral)opt.value()).isInteger()
-                && Objects.equals(expVal, ((SqlLiteral)opt.value()).intValue(true)))));
+                "option" + option + "=" + expVal, IgniteSqlCreateTableOption.class,
+                opt -> opt.key().name().equals(option) && opt.value() instanceof SqlNumericLiteral
+                        && ((SqlNumericLiteral) opt.value()).isInteger()
+                        && Objects.equals(expVal, ((SqlLiteral) opt.value()).intValue(true)))));
     }
 
     /**
@@ -300,9 +296,10 @@ public class SqlDdlParserTest {
      */
     private static <T extends SqlColumnDeclaration> Matcher<T> columnWithName(String name) {
         return new CustomMatcher<T>("column with name=" + name) {
-            @Override public boolean matches(Object item) {
+            @Override
+            public boolean matches(Object item) {
                 return item instanceof SqlColumnDeclaration
-                    && ((SqlColumnDeclaration)item).name.names.get(0).equals(name);
+                        && ((SqlColumnDeclaration) item).name.names.get(0).equals(name);
             }
         };
     }
@@ -311,14 +308,15 @@ public class SqlDdlParserTest {
      * Matcher to verify that an object of the expected type and matches the given predicat.
      *
      * @param desc Description for this matcher.
-     * @param cls Expected class to verify the object is instance of.
+     * @param cls  Expected class to verify the object is instance of.
      * @param pred Addition check that would be applied to the object.
      * @return {@code true} in case the object if instance of the given class and matches the predicat.
      */
     private static <T> Matcher<T> ofTypeMatching(String desc, Class<T> cls, Predicate<T> pred) {
         return new CustomMatcher<T>(desc) {
-            @Override public boolean matches(Object item) {
-                return item != null && cls.isAssignableFrom(item.getClass()) && pred.test((T)item);
+            @Override
+            public boolean matches(Object item) {
+                return item != null && cls.isAssignableFrom(item.getClass()) && pred.test((T) item);
             }
         };
     }

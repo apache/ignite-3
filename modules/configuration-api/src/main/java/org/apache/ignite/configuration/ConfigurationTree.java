@@ -23,7 +23,7 @@ import java.util.function.Consumer;
 /**
  * Configuration tree with configuration values and other configuration trees as child nodes.
  *
- * @param <VIEW> Value type of the node.
+ * @param <VIEW>   Value type of the node.
  * @param <CHANGE> Type of the object that changes this node's value.
  */
 public interface ConfigurationTree<VIEW, CHANGE> extends ConfigurationProperty<VIEW> {

@@ -31,17 +31,20 @@ public class TransformingIterator<Tin, Tout> implements Iterator<Tout> {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean hasNext() {
+    @Override
+    public boolean hasNext() {
         return delegate.hasNext();
     }
 
     /** {@inheritDoc} */
-    @Override public Tout next() {
+    @Override
+    public Tout next() {
         return transformation.apply(delegate.next());
     }
 
     /** {@inheritDoc} */
-    @Override public void remove() {
+    @Override
+    public void remove() {
         delegate.remove();
     }
 }

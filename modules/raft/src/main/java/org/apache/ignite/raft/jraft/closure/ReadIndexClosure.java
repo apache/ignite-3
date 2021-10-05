@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.closure;
 
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
@@ -29,7 +30,7 @@ public abstract class ReadIndexClosure implements Closure {
     private static final IgniteLogger LOG = IgniteLogger.forClass(ReadIndexClosure.class);
 
     private static final AtomicIntegerFieldUpdater<ReadIndexClosure> STATE_UPDATER =
-        AtomicIntegerFieldUpdater.newUpdater(ReadIndexClosure.class, "state");
+            AtomicIntegerFieldUpdater.newUpdater(ReadIndexClosure.class, "state");
 
     private static final int PENDING = 0;
     private static final int COMPLETE = 1;
@@ -48,7 +49,7 @@ public abstract class ReadIndexClosure implements Closure {
      * Called when ReadIndex can be executed.
      *
      * @param status the readIndex status.
-     * @param index the committed index when starts readIndex.
+     * @param index  the committed index when starts readIndex.
      * @param reqCtx the request context passed by {@link Node#readIndex(byte[], ReadIndexClosure)}.
      * @see Node#readIndex(byte[], ReadIndexClosure)
      */
@@ -57,7 +58,7 @@ public abstract class ReadIndexClosure implements Closure {
     /**
      * Set callback result, called by jraft.
      *
-     * @param index the committed index.
+     * @param index  the committed index.
      * @param reqCtx the request context passed by {@link Node#readIndex(byte[], ReadIndexClosure)}.
      */
     public void setResult(final long index, final byte[] reqCtx) {
@@ -92,8 +93,7 @@ public abstract class ReadIndexClosure implements Closure {
 
         try {
             run(status, this.index, this.requestContext);
-        }
-        catch (final Throwable t) {
+        } catch (final Throwable t) {
             LOG.error("Fail to run ReadIndexClosure with status: {}.", t, status);
         }
     }

@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.calcite;
 
+import static org.apache.ignite.internal.calcite.util.Commons.getAllFromCursor;
+
+import com.google.common.collect.Lists;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
-import com.google.common.collect.Lists;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -46,48 +47,48 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import static org.apache.ignite.internal.calcite.util.Commons.getAllFromCursor;
-
 /**
  *
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class AbstractBasicIntegrationTest {
-    /** */
+    /**
+     *
+     */
     private static final IgniteLogger LOG = IgniteLogger.forClass(AbstractBasicIntegrationTest.class);
 
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> NODES_BOOTSTRAP_CFG = new LinkedHashMap<>() {{
         put("node0", "{\n" +
-            "  \"node\": {\n" +
-            "    \"metastorageNodes\":[ \"node0\" ]\n" +
-            "  },\n" +
-            "  \"network\": {\n" +
-            "    \"port\":3344,\n" +
-            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-            "  }\n" +
-            "}");
+                "  \"node\": {\n" +
+                "    \"metastorageNodes\":[ \"node0\" ]\n" +
+                "  },\n" +
+                "  \"network\": {\n" +
+                "    \"port\":3344,\n" +
+                "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+                "  }\n" +
+                "}");
 
         put("node1", "{\n" +
-            "  \"node\": {\n" +
-            "    \"metastorageNodes\":[ \"node0\" ]\n" +
-            "  },\n" +
-            "  \"network\": {\n" +
-            "    \"port\":3345,\n" +
-            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-            "  }\n" +
-            "}");
+                "  \"node\": {\n" +
+                "    \"metastorageNodes\":[ \"node0\" ]\n" +
+                "  },\n" +
+                "  \"network\": {\n" +
+                "    \"port\":3345,\n" +
+                "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+                "  }\n" +
+                "}");
 
         put("node2", "{\n" +
-            "  \"node\": {\n" +
-            "    \"metastorageNodes\":[ \"node0\" ]\n" +
-            "  },\n" +
-            "  \"network\": {\n" +
-            "    \"port\":3346,\n" +
-            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-            "  }\n" +
-            "}");
+                "  \"node\": {\n" +
+                "    \"metastorageNodes\":[ \"node0\" ]\n" +
+                "  },\n" +
+                "  \"network\": {\n" +
+                "    \"port\":3346,\n" +
+                "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+                "  }\n" +
+                "}");
     }};
 
     /** Cluster nodes. */
@@ -99,64 +100,75 @@ public class AbstractBasicIntegrationTest {
 
     @BeforeEach
     protected void bootstrap() {
-        if (!CLUSTER_NODES.isEmpty())
+        if (!CLUSTER_NODES.isEmpty()) {
             return;
+        }
 
         NODES_BOOTSTRAP_CFG.forEach((nodeName, configStr) ->
-            CLUSTER_NODES.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
+                CLUSTER_NODES.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
         );
 
         initTestData();
     }
 
-    /** */
+    /**
+     *
+     */
     @AfterAll
     static void tearDown() throws Exception {
-        if (CLUSTER_NODES.isEmpty())
+        if (CLUSTER_NODES.isEmpty()) {
             return;
+        }
 
-        if (LOG.isInfoEnabled())
+        if (LOG.isInfoEnabled()) {
             LOG.info("Start tearDown()");
+        }
 
         IgniteUtils.closeAll(Lists.reverse(CLUSTER_NODES));
 
         CLUSTER_NODES.clear();
 
-        if (LOG.isInfoEnabled())
+        if (LOG.isInfoEnabled()) {
             LOG.info("End tearDown()");
+        }
     }
 
-    /** */
+    /**
+     *
+     */
     protected QueryChecker assertQuery(String qry) {
         return new QueryChecker(qry) {
-            @Override protected QueryProcessor getEngine() {
-                return ((IgniteImpl)CLUSTER_NODES.get(0)).queryEngine();
+            @Override
+            protected QueryProcessor getEngine() {
+                return ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
             }
         };
     }
 
-    /** */
+    /**
+     *
+     */
     protected Table createAndPopulateTable() {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "PERSON").columns(
-            SchemaBuilders.column("ID", ColumnType.INT32).asNonNull().build(),
-            SchemaBuilders.column("NAME", ColumnType.string()).asNullable().build(),
-            SchemaBuilders.column("SALARY", ColumnType.DOUBLE).asNullable().build()
+                SchemaBuilders.column("ID", ColumnType.INT32).asNonNull().build(),
+                SchemaBuilders.column("NAME", ColumnType.string()).asNullable().build(),
+                SchemaBuilders.column("SALARY", ColumnType.DOUBLE).asNullable().build()
         ).withPrimaryKey("ID").build();
 
         Table tbl = CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
-            SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                .changeReplicas(1)
-                .changePartitions(10)
+                SchemaConfigurationConverter.convert(schTbl1, tblCh)
+                        .changeReplicas(1)
+                        .changePartitions(10)
         );
 
         int idx = 0;
 
-        insertData(tbl, new String[] {"ID", "NAME", "SALARY"}, new Object[][] {
-            {idx++, "Igor", 10d},
-            {idx++, null, 15d},
-            {idx++, "Ilya", 15d},
-            {idx++, "Roma", 10d},
-            {idx, "Roma", 10d}
+        insertData(tbl, new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
+                {idx++, "Igor", 10d},
+                {idx++, null, 15d},
+                {idx++, "Ilya", 15d},
+                {idx++, "Roma", 10d},
+                {idx, "Roma", 10d}
         });
 
         return tbl;
@@ -173,16 +185,18 @@ public class AbstractBasicIntegrationTest {
 
             Tuple toInsert = Tuple.create();
 
-            for (int i = 0; i < tuple.length; i++)
+            for (int i = 0; i < tuple.length; i++) {
                 toInsert.set(columnNames[i], tuple[i]);
+            }
 
             batch.add(toInsert);
 
             if (batch.size() == batchSize) {
                 Collection<Tuple> duplicates = view.insertAll(batch);
 
-                if (!duplicates.isEmpty())
+                if (!duplicates.isEmpty()) {
                     throw new AssertionError("Duplicated rows detected: " + duplicates);
+                }
 
                 batch.clear();
             }
@@ -197,7 +211,7 @@ public class AbstractBasicIntegrationTest {
 
     protected List<List<?>> sql(String sql, Object... args) {
         return getAllFromCursor(
-            ((IgniteImpl)CLUSTER_NODES.get(0)).queryEngine().query("PUBLIC", sql, args).get(0)
+                ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine().query("PUBLIC", sql, args).get(0)
         );
     }
 

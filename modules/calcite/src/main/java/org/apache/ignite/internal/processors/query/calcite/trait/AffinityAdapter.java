@@ -18,22 +18,31 @@
 package org.apache.ignite.internal.processors.query.calcite.trait;
 
 import java.util.function.ToIntFunction;
-
 import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler;
 import org.apache.ignite.internal.util.IgniteUtils;
 
-/** */
+/**
+ *
+ */
 final class AffinityAdapter<Row> implements ToIntFunction<Row> {
-    /** */
+    /**
+     *
+     */
     private final ToIntFunction<Object> affinity;
 
-    /** */
+    /**
+     *
+     */
     private final int[] keys;
 
-    /** */
+    /**
+     *
+     */
     private final RowHandler<Row> hndlr;
 
-    /** */
+    /**
+     *
+     */
     AffinityAdapter(ToIntFunction<Object> affinity, int[] keys, RowHandler<Row> hndlr) {
         this.affinity = affinity;
         this.keys = keys;
@@ -41,10 +50,12 @@ final class AffinityAdapter<Row> implements ToIntFunction<Row> {
     }
 
     /** {@inheritDoc} */
-    @Override public int applyAsInt(Row r) {
+    @Override
+    public int applyAsInt(Row r) {
         int hash = 0;
-        for (int i = 0; i < keys.length; i++)
+        for (int i = 0; i < keys.length; i++) {
             hash = 31 * hash + affinity.applyAsInt(hndlr.get(keys[i], r));
+        }
 
         return IgniteUtils.safeAbs(hash);
     }

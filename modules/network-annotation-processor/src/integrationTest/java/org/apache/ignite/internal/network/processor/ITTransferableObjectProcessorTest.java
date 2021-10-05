@@ -17,20 +17,20 @@
 
 package org.apache.ignite.internal.network.processor;
 
+import static com.google.testing.compile.CompilationSubject.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import com.google.testing.compile.Compilation;
+import com.google.testing.compile.Compiler;
+import com.google.testing.compile.JavaFileObjects;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.tools.JavaFileObject;
-import com.google.testing.compile.Compilation;
-import com.google.testing.compile.Compiler;
-import com.google.testing.compile.JavaFileObjects;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.MessageGroup;
 import org.apache.ignite.network.annotations.Transferable;
 import org.junit.jupiter.api.Test;
-
-import static com.google.testing.compile.CompilationSubject.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Integration tests for the {@link TransferableObjectProcessor}.
@@ -47,8 +47,7 @@ public class ITTransferableObjectProcessorTest {
     private final Compiler compiler = Compiler.javac().withProcessors(new TransferableObjectProcessor());
 
     /**
-     * Compiles the network message with all supported directly marshallable types and checks that the compilation
-     * completed successfully.
+     * Compiles the network message with all supported directly marshallable types and checks that the compilation completed successfully.
      */
     @Test
     void testCompileAllTypesMessage() {
@@ -64,13 +63,12 @@ public class ITTransferableObjectProcessorTest {
         assertThat(compilation).generatedSourceFile(fileName("AllTypesMessageDeserializer"));
         assertThat(compilation).generatedSourceFile(fileName("AllTypesMessageSerializationFactory"));
         assertThat(compilation).generatedSourceFile(
-            fileName("NetworkMessageProcessorTestSerializationRegistryInitializer")
+                fileName("NetworkMessageProcessorTestSerializationRegistryInitializer")
         );
     }
 
     /**
-     * Compiles a network message that does not implement {@link NetworkMessage} directly but rather through a bunch of
-     * superinterfaces.
+     * Compiles a network message that does not implement {@link NetworkMessage} directly but rather through a bunch of superinterfaces.
      */
     @Test
     void testTransitiveMessage() {
@@ -86,7 +84,7 @@ public class ITTransferableObjectProcessorTest {
         assertThat(compilation).generatedSourceFile(fileName("TransitiveMessageDeserializer"));
         assertThat(compilation).generatedSourceFile(fileName("TransitiveMessageSerializationFactory"));
         assertThat(compilation).generatedSourceFile(
-            fileName("NetworkMessageProcessorTestSerializationRegistryInitializer")
+                fileName("NetworkMessageProcessorTestSerializationRegistryInitializer")
         );
     }
 
@@ -96,7 +94,7 @@ public class ITTransferableObjectProcessorTest {
     @Test
     void testCompileMultipleMessage() {
         Compilation compilation = compiler.compile(
-            sources("AllTypesMessage", "TransitiveMessage", "ITTestMessageGroup")
+                sources("AllTypesMessage", "TransitiveMessage", "ITTestMessageGroup")
         );
 
         assertThat(compilation).succeededWithoutWarnings();
@@ -118,7 +116,7 @@ public class ITTransferableObjectProcessorTest {
         assertThat(compilation).generatedSourceFile(fileName("TransitiveMessageSerializationFactory"));
 
         assertThat(compilation).generatedSourceFile(
-            fileName("NetworkMessageProcessorTestSerializationRegistryInitializer")
+                fileName("NetworkMessageProcessorTestSerializationRegistryInitializer")
         );
     }
 
@@ -140,7 +138,7 @@ public class ITTransferableObjectProcessorTest {
         Compilation compilation = compile("UnmarshallableTypeMessage");
 
         assertThat(compilation).hadErrorContaining(
-            "Unsupported reference type for message (de-)serialization: java.util.ArrayList"
+                "Unsupported reference type for message (de-)serialization: java.util.ArrayList"
         );
     }
 
@@ -172,7 +170,7 @@ public class ITTransferableObjectProcessorTest {
         Compilation compilation = compiler.compile(sources("AllTypesMessage"));
 
         assertThat(compilation).hadErrorContaining(
-            "No message groups (classes annotated with @MessageGroup) found"
+                "No message groups (classes annotated with @MessageGroup) found"
         );
     }
 
@@ -182,20 +180,20 @@ public class ITTransferableObjectProcessorTest {
     @Test
     void testMultipleMessageGroups() {
         Compilation compilation = compiler.compile(
-            sources("AllTypesMessage", "ConflictingTypeMessage", "ITTestMessageGroup", "SecondGroup")
+                sources("AllTypesMessage", "ConflictingTypeMessage", "ITTestMessageGroup", "SecondGroup")
         );
 
         assertThat(compilation).hadErrorContaining(
-            "Invalid number of message groups (classes annotated with @MessageGroup), " +
-                "only one can be present in a compilation unit: " +
-                "[org.apache.ignite.internal.network.processor.ITTestMessageGroup, " +
-                "org.apache.ignite.internal.network.processor.SecondGroup]"
+                "Invalid number of message groups (classes annotated with @MessageGroup), " +
+                        "only one can be present in a compilation unit: " +
+                        "[org.apache.ignite.internal.network.processor.ITTestMessageGroup, " +
+                        "org.apache.ignite.internal.network.processor.SecondGroup]"
         );
     }
 
     /**
-     * Tests that setting the {@link Transferable#autoSerializable()} to {@code false} does not produce any
-     * serialization-related classes and errors.
+     * Tests that setting the {@link Transferable#autoSerializable()} to {@code false} does not produce any serialization-related classes
+     * and errors.
      */
     @Test
     void testNonSerializableMessage() {
@@ -209,9 +207,9 @@ public class ITTransferableObjectProcessorTest {
 
         // test that no additional classes have been generated
         assertThrows(
-            AssertionError.class,
-            () -> assertThat(compilation)
-                .generatedSourceFile(fileName("UnmarshallableTypeNonSerializableMessageSerializer"))
+                AssertionError.class,
+                () -> assertThat(compilation)
+                        .generatedSourceFile(fileName("UnmarshallableTypeNonSerializableMessageSerializer"))
         );
     }
 
@@ -221,7 +219,7 @@ public class ITTransferableObjectProcessorTest {
     @Test
     void testConflictingMessageTypes() {
         Compilation compilation = compiler.compile(
-            sources("AllTypesMessage", "ConflictingTypeMessage", "ITTestMessageGroup")
+                sources("AllTypesMessage", "ConflictingTypeMessage", "ITTestMessageGroup")
         );
 
         assertThat(compilation).hadErrorContaining("message with type 1 already exists");
@@ -249,12 +247,14 @@ public class ITTransferableObjectProcessorTest {
      */
     private static List<JavaFileObject> sources(String... sources) {
         return Arrays.stream(sources)
-            .map(source -> RESOURCE_PACKAGE_NAME.replace('.', '/') + source + ".java")
-            .map(JavaFileObjects::forResource)
-            .collect(Collectors.toList());
+                .map(source -> RESOURCE_PACKAGE_NAME.replace('.', '/') + source + ".java")
+                .map(JavaFileObjects::forResource)
+                .collect(Collectors.toList());
     }
 
-    /** */
+    /**
+     *
+     */
     private static String fileName(String className) {
         return RESOURCE_PACKAGE_NAME + className;
     }

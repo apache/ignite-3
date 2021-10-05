@@ -23,22 +23,24 @@ import java.util.NoSuchElementException;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * A set of columns representing a key or a value chunk in a row.
- * Provides necessary machinery to locate a column value in a concrete row.
+ * A set of columns representing a key or a value chunk in a row. Provides necessary machinery to locate a column value in a concrete row.
  */
 public class Columns implements Serializable {
-    /** */
+    /**
+     *
+     */
     public static final int[][] EMPTY_FOLDING_TABLE = new int[0][];
 
-    /** */
+    /**
+     *
+     */
     public static final int[] EMPTY_FOLDING_MASK = new int[0];
 
     /**
-     * Lookup table to speed-up calculation of the number of null/non-null columns based on the null map.
-     * For a given byte {@code b}, {@code NULL_COLUMNS_LOOKUP[b]} will contain the number of {@code null} columns
-     * corresponding to the byte in nullability map.
-     * For example, if nullability map is {@code 0b00100001}, then the map encodes nulls for columns 0 and 5 and
-     * {@code NULL_COLUMNS_LOOKUP[0b00100001] == 2}.
+     * Lookup table to speed-up calculation of the number of null/non-null columns based on the null map. For a given byte {@code b}, {@code
+     * NULL_COLUMNS_LOOKUP[b]} will contain the number of {@code null} columns corresponding to the byte in nullability map. For example, if
+     * nullability map is {@code 0b00100001}, then the map encodes nulls for columns 0 and 5 and {@code NULL_COLUMNS_LOOKUP[0b00100001] ==
+     * 2}.
      */
     private static final int[] NULL_COLUMNS_LOOKUP;
 
@@ -48,8 +50,8 @@ public class Columns implements Serializable {
     private final Column[] cols;
 
     /**
-     * If the type contains varlength columns, this field will contain an index of the first such column.
-     * Otherwise, it will contain {@code -1}.
+     * If the type contains varlength columns, this field will contain an index of the first such column. Otherwise, it will contain {@code
+     * -1}.
      */
     private final int firstVarlenColIdx;
 
@@ -64,8 +66,8 @@ public class Columns implements Serializable {
     private int fixedSizeMaxLen;
 
     /**
-     * Fixed-size column length folding table. The table is used to quickly calculate the offset of a fixed-length
-     * column based on the nullability map.
+     * Fixed-size column length folding table. The table is used to quickly calculate the offset of a fixed-length column based on the
+     * nullability map.
      */
     private int[][] foldingTbl;
 
@@ -78,13 +80,14 @@ public class Columns implements Serializable {
         NULL_COLUMNS_LOOKUP = new int[256];
 
         // Each nonzero bit is a null value.
-        for (int i = 0; i < 255; i++)
+        for (int i = 0; i < 255; i++) {
             NULL_COLUMNS_LOOKUP[i] = Integer.bitCount(i);
+        }
     }
 
     /**
-     * Gets a number of null columns for the given byte from the nullability map (essentially, the number of non-zero
-     * bits in the given byte).
+     * Gets a number of null columns for the given byte from the nullability map (essentially, the number of non-zero bits in the given
+     * byte).
      *
      * @param nullMap Byte from a nullability map.
      * @return Number of null columns for the given byte.
@@ -94,11 +97,10 @@ public class Columns implements Serializable {
     }
 
     /**
-     * Constructs the columns chunk. The columns will be internally sorted in write-efficient order based on
-     * {@link Column} comparison.
+     * Constructs the columns chunk. The columns will be internally sorted in write-efficient order based on {@link Column} comparison.
      *
      * @param baseSchemaIdx First column absolute index in schema.
-     * @param cols Array of columns.
+     * @param cols          Array of columns.
      */
     Columns(int baseSchemaIdx, Column... cols) {
         this.cols = sortedCopy(baseSchemaIdx, cols);
@@ -111,12 +113,12 @@ public class Columns implements Serializable {
     }
 
     /**
-     * Calculates a sum of fixed-sized columns lengths given the mask of the present columns, assuming that the
-     * {@code maskByte} is an {@code i}-th byte is columns mask.
+     * Calculates a sum of fixed-sized columns lengths given the mask of the present columns, assuming that the {@code maskByte} is an
+     * {@code i}-th byte is columns mask.
      *
-     * @param i Mask byte index in the nullability map.
-     * @param maskByte Mask byte value, where a nonzero bit (counting from LSB to MSB) represents a {@code null} value
-     *      and the corresponding column length should be skipped.
+     * @param i        Mask byte index in the nullability map.
+     * @param maskByte Mask byte value, where a nonzero bit (counting from LSB to MSB) represents a {@code null} value and the corresponding
+     *                 column length should be skipped.
      * @return Fixed columns length sizes summed wrt to the mask.
      */
     public int foldFixedLength(int i, int maskByte) {
@@ -197,7 +199,7 @@ public class Columns implements Serializable {
 
     /**
      * @param schemaBaseIdx Base index of this columns object in its schema.
-     * @param cols User columns.
+     * @param cols          User columns.
      * @return A copy of user columns array sorted in column order.
      */
     private Column[] sortedCopy(int schemaBaseIdx, Column[] cols) {
@@ -219,8 +221,9 @@ public class Columns implements Serializable {
      */
     private int findFirstVarlenColumn() {
         for (int i = 0; i < cols.length; i++) {
-            if (!cols[i].type().spec().fixedLength())
+            if (!cols[i].type().spec().fixedLength()) {
                 return i;
+            }
         }
 
         return -1;
@@ -231,8 +234,9 @@ public class Columns implements Serializable {
      */
     private boolean hasNullableColumn() {
         for (int i = 0; i < cols.length; i++) {
-            if (cols[i].nullable())
+            if (cols[i].nullable()) {
                 return true;
+            }
         }
 
         return false;
@@ -260,7 +264,7 @@ public class Columns implements Serializable {
 
         for (int b = 0; b < fixsizeNullMapSize; b++) {
             int bitsInMask = b == fixsizeNullMapSize - 1 ?
-                (numFixsize - 8 * b) : 8;
+                    (numFixsize - 8 * b) : 8;
 
             int totalMasks = 1 << bitsInMask;
 
@@ -288,7 +292,7 @@ public class Columns implements Serializable {
     /**
      * Manually fold the sizes of the fixed-size columns based on the nullability map byte.
      *
-     * @param b Nullability map byte index.
+     * @param b    Nullability map byte index.
      * @param mask Nullability mask from the map.
      * @return Sum of column sizes based nullability mask.
      */
@@ -302,8 +306,8 @@ public class Columns implements Serializable {
 
             if (hasVal && idx < numberOfFixsizeColumns()) {
                 assert cols[idx].type().spec().fixedLength() : "Expected fixed-size column [b=" + b +
-                    ", mask=" + mask +
-                    ", cols" + Arrays.toString(cols) + ']';
+                        ", mask=" + mask +
+                        ", cols" + Arrays.toString(cols) + ']';
 
                 size += cols[idx].type().sizeInBytes();
             }
@@ -320,33 +324,39 @@ public class Columns implements Serializable {
      */
     public int columnIndex(String colName) {
         for (int i = 0; i < cols.length; i++) {
-            if (cols[i].name().equalsIgnoreCase(colName))
+            if (cols[i].name().equalsIgnoreCase(colName)) {
                 return i;
+            }
         }
 
         throw new NoSuchElementException("No field '" + colName + "' defined");
     }
 
     /** {@inheritDoc} */
-    @Override public boolean equals(Object o) {
-        if (this == o)
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
             return true;
+        }
 
-        if (o == null || getClass() != o.getClass())
+        if (o == null || getClass() != o.getClass()) {
             return false;
+        }
 
-        Columns columns = (Columns)o;
+        Columns columns = (Columns) o;
 
         return Arrays.equals(cols, columns.cols);
     }
 
     /** {@inheritDoc} */
-    @Override public int hashCode() {
+    @Override
+    public int hashCode() {
         return Arrays.hashCode(cols);
     }
 
     /** {@inheritDoc} */
-    @Override public String toString() {
-       return S.arrayToString(cols);
+    @Override
+    public String toString() {
+        return S.arrayToString(cols);
     }
 }

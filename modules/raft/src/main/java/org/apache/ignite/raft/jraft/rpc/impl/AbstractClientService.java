@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl;
 
 import java.net.ConnectException;
@@ -71,11 +72,13 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
         return initRpcClient(this.rpcOptions.getRpcProcessorThreadPoolSize());
     }
 
-    @Override public void onAppeared(ClusterNode member) {
+    @Override
+    public void onAppeared(ClusterNode member) {
         // No-op. TODO asch https://issues.apache.org/jira/browse/IGNITE-14843
     }
 
-    @Override public void onDisappeared(ClusterNode member) {
+    @Override
+    public void onDisappeared(ClusterNode member) {
         readyAddresses.remove(member.address().toString());
     }
 
@@ -112,22 +115,24 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
         }
 
         // Remote node is alive and pinged, safe to continue.
-        if (readyAddresses.contains(endpoint.toString()))
+        if (readyAddresses.contains(endpoint.toString())) {
             return true;
+        }
 
         // Remote node must be pinged to make sure listeners are set.
         synchronized (this) {
-            if (readyAddresses.contains(endpoint.toString()))
+            if (readyAddresses.contains(endpoint.toString())) {
                 return true;
+            }
 
             try {
                 final RpcRequests.PingRequest req = rpcOptions.getRaftMessagesFactory()
-                    .pingRequest()
-                    .sendTimestamp(System.currentTimeMillis())
-                    .build();
+                        .pingRequest()
+                        .sendTimestamp(System.currentTimeMillis())
+                        .build();
 
                 Future<Message> fut =
-                    invokeWithDone(endpoint, req, null, null, rpcOptions.getRpcConnectTimeoutMs(), rpcExecutor);
+                        invokeWithDone(endpoint, req, null, null, rpcOptions.getRpcConnectTimeoutMs(), rpcExecutor);
 
                 final ErrorResponse resp = (ErrorResponse) fut.get(); // Future will be certainly terminated by timeout.
 
@@ -135,14 +140,12 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                     readyAddresses.add(endpoint.toString());
 
                     return true;
-                }
-                else
+                } else {
                     return false;
-            }
-            catch (final InterruptedException e) {
+                }
+            } catch (final InterruptedException e) {
                 Thread.currentThread().interrupt();
-            }
-            catch (final ExecutionException e) {
+            } catch (final ExecutionException e) {
                 LOG.error("Fail to connect {}, exception: {}.", endpoint, e.getMessage());
             }
         }
@@ -152,26 +155,26 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
 
     @Override
     public <T extends Message> Future<Message> invokeWithDone(final Endpoint endpoint, final Message request,
-        final RpcResponseClosure<T> done, final int timeoutMs) {
+            final RpcResponseClosure<T> done, final int timeoutMs) {
         return invokeWithDone(endpoint, request, done, timeoutMs, this.rpcExecutor);
     }
 
     public <T extends Message> Future<Message> invokeWithDone(final Endpoint endpoint, final Message request,
-        final RpcResponseClosure<T> done, final int timeoutMs,
-        final Executor rpcExecutor) {
+            final RpcResponseClosure<T> done, final int timeoutMs,
+            final Executor rpcExecutor) {
         return invokeWithDone(endpoint, request, null, done, timeoutMs, rpcExecutor);
     }
 
     public <T extends Message> Future<Message> invokeWithDone(final Endpoint endpoint, final Message request,
-        final InvokeContext ctx,
-        final RpcResponseClosure<T> done, final int timeoutMs) {
+            final InvokeContext ctx,
+            final RpcResponseClosure<T> done, final int timeoutMs) {
         return invokeWithDone(endpoint, request, ctx, done, timeoutMs, this.rpcExecutor);
     }
 
     public <T extends Message> Future<Message> invokeWithDone(final Endpoint endpoint, final Message request,
-        final InvokeContext ctx,
-        final RpcResponseClosure<T> done, final int timeoutMs,
-        final Executor rpcExecutor) {
+            final InvokeContext ctx,
+            final RpcResponseClosure<T> done, final int timeoutMs,
+            final Executor rpcExecutor) {
         final RpcClient rc = this.rpcClient;
         final FutureImpl<Message> future = new FutureImpl<>();
         final Executor currExecutor = rpcExecutor != null ? rpcExecutor : this.rpcExecutor;
@@ -182,7 +185,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                 future.completeExceptionally(new IllegalStateException("Client service is uninitialized."));
                 // should be in another thread to avoid dead locking.
                 Utils.runClosureInExecutor(currExecutor, done, new Status(RaftError.EINTERNAL,
-                    "Client service is uninitialized."));
+                        "Client service is uninitialized."));
                 return future;
             }
 
@@ -195,8 +198,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                         if (result instanceof ErrorResponse) {
                             status = handleErrorResponse((ErrorResponse) result);
                             msg = (Message) result;
-                        }
-                        else {
+                        } else {
                             msg = (Message) result;
                         }
                         if (done != null) {
@@ -205,25 +207,23 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                                     done.setResponse((T) msg);
                                 }
                                 done.run(status);
-                            }
-                            catch (final Throwable t) {
+                            } catch (final Throwable t) {
                                 LOG.error("Fail to run RpcResponseClosure, the request is {}.", t, request);
                             }
                         }
                         if (!future.isDone()) {
                             future.complete(msg);
                         }
-                    }
-                    else {
-                        if (ThrowUtil.hasCause(err, null, ConnectException.class))
+                    } else {
+                        if (ThrowUtil.hasCause(err, null, ConnectException.class)) {
                             readyAddresses.remove(endpoint.toString()); // Force logical reconnect.
+                        }
 
                         if (done != null) {
                             try {
                                 done.run(new Status(err instanceof InvokeTimeoutException ? RaftError.ETIMEDOUT
-                                    : RaftError.EINTERNAL, "RPC exception:" + err.getMessage()));
-                            }
-                            catch (final Throwable t) {
+                                        : RaftError.EINTERNAL, "RPC exception:" + err.getMessage()));
+                            } catch (final Throwable t) {
                                 LOG.error("Fail to run RpcResponseClosure, the request is {}.", t, request);
                             }
                         }
@@ -238,19 +238,17 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                     return currExecutor;
                 }
             }, timeoutMs <= 0 ? this.rpcOptions.getRpcDefaultTimeout() : timeoutMs);
-        }
-        catch (final InterruptedException e) {
+        } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
             future.completeExceptionally(e);
             // should be in another thread to avoid dead locking.
             Utils.runClosureInExecutor(currExecutor, done,
-                new Status(RaftError.EINTR, "Sending rpc was interrupted"));
-        }
-        catch (final RemotingException e) {
+                    new Status(RaftError.EINTR, "Sending rpc was interrupted"));
+        } catch (final RemotingException e) {
             future.completeExceptionally(e);
             // should be in another thread to avoid dead locking.
             Utils.runClosureInExecutor(currExecutor, done, new Status(RaftError.EINTERNAL,
-                "Fail to send a RPC request:" + e.getMessage()));
+                    "Fail to send a RPC request:" + e.getMessage()));
         }
 
         return future;

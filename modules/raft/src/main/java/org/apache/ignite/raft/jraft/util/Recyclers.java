@@ -12,6 +12,7 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
 
 import java.lang.ref.WeakReference;
@@ -39,7 +40,8 @@ public abstract class Recyclers<T> {
     private static final int INITIAL_CAPACITY;
 
     static {
-        int maxCapacityPerThread = SystemPropertyUtil.getInt("jraft.recyclers.maxCapacityPerThread", DEFAULT_INITIAL_MAX_CAPACITY_PER_THREAD);
+        int maxCapacityPerThread = SystemPropertyUtil.getInt("jraft.recyclers.maxCapacityPerThread",
+                DEFAULT_INITIAL_MAX_CAPACITY_PER_THREAD);
         if (maxCapacityPerThread < 0) {
             maxCapacityPerThread = DEFAULT_INITIAL_MAX_CAPACITY_PER_THREAD;
         }
@@ -247,8 +249,7 @@ public abstract class Recyclers<T> {
                     DefaultHandle element = srcElems[i];
                     if (element.recycleId == 0) {
                         element.recycleId = element.lastRecycledId;
-                    }
-                    else if (element.recycleId != element.lastRecycledId) {
+                    } else if (element.recycleId != element.lastRecycledId) {
                         throw new IllegalStateException("recycled already");
                     }
                     element.stack = dst;
@@ -263,8 +264,7 @@ public abstract class Recyclers<T> {
 
                 head.readIndex = srcEnd;
                 return true;
-            }
-            else {
+            } else {
                 // The destination stack is full already.
                 return false;
             }
@@ -366,8 +366,7 @@ public abstract class Recyclers<T> {
                         for (; ; ) {
                             if (cursor.transfer(this)) {
                                 success = true;
-                            }
-                            else {
+                            } else {
                                 break;
                             }
                         }
@@ -375,8 +374,7 @@ public abstract class Recyclers<T> {
                     if (prev != null) {
                         prev.next = next;
                     }
-                }
-                else {
+                } else {
                     prev = cursor;
                 }
 

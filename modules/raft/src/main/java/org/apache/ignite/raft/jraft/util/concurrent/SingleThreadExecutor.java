@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util.concurrent;
 
 import java.util.concurrent.Executor;
@@ -35,7 +36,7 @@ public interface SingleThreadExecutor extends Executor {
      * Signals this executor that the caller wants it to be shutdown.
      *
      * @param timeout the maximum amount of time to wait until the executor is shutdown
-     * @param unit the unit of {@code timeout}
+     * @param unit    the unit of {@code timeout}
      * @return true if success to shutdown
      */
     boolean shutdownGracefully(final long timeout, final TimeUnit unit);

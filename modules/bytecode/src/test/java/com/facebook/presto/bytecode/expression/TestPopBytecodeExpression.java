@@ -14,24 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.bytecode.expression;
 
-import org.junit.jupiter.api.Test;
+package com.facebook.presto.bytecode.expression;
 
 import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import org.junit.jupiter.api.Test;
+
 public class TestPopBytecodeExpression {
     @Test
     @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
     public void testGetField()
-        throws Exception {
+            throws Exception {
         intCount = 0;
-        assertBytecodeExpression(invokeStatic(getClass(), "incrementAndGetIntCount", int.class).pop(), null, getClass().getSimpleName() + ".incrementAndGetIntCount();");
+        assertBytecodeExpression(invokeStatic(getClass(), "incrementAndGetIntCount", int.class).pop(), null,
+                getClass().getSimpleName() + ".incrementAndGetIntCount();");
         assertEquals(intCount, 1);
         longCount = 0;
-        assertBytecodeExpression(invokeStatic(getClass(), "incrementAndGetLongCount", long.class).pop(), null, getClass().getSimpleName() + ".incrementAndGetLongCount();");
+        assertBytecodeExpression(invokeStatic(getClass(), "incrementAndGetLongCount", long.class).pop(), null,
+                getClass().getSimpleName() + ".incrementAndGetLongCount();");
         assertEquals(longCount, 1);
     }
 

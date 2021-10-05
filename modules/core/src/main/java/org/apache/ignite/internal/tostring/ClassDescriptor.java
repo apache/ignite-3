@@ -22,8 +22,7 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * Simple class descriptor containing simple and fully qualified class names as well as
- * the list of class fields.
+ * Simple class descriptor containing simple and fully qualified class names as well as the list of class fields.
  */
 class ClassDescriptor {
     /** Class simple name. */

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.configuration;
 
+import static java.util.Collections.unmodifiableCollection;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -29,8 +31,6 @@ import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.configuration.util.KeyNotFoundException;
-
-import static java.util.Collections.unmodifiableCollection;
 
 /**
  * Super class for dynamic configuration tree nodes. Has all common data and value retrieving algorithm in it.
@@ -63,26 +63,26 @@ public abstract class ConfigurationNode<VIEW> implements ConfigurationProperty<V
     private VIEW val;
 
     /**
-     * Validity flag. Configuration is declared invalid if it's a part of named list configuration and corresponding
-     * entry is already removed.
+     * Validity flag. Configuration is declared invalid if it's a part of named list configuration and corresponding entry is already
+     * removed.
      */
     private boolean invalid;
 
     /**
      * Constructor.
      *
-     * @param prefix Configuration prefix.
-     * @param key Configuration key.
-     * @param rootKey Root key.
-     * @param changer Configuration changer.
+     * @param prefix     Configuration prefix.
+     * @param key        Configuration key.
+     * @param rootKey    Root key.
+     * @param changer    Configuration changer.
      * @param listenOnly Only adding listeners mode, without the ability to get or update the property value.
      */
     protected ConfigurationNode(
-        List<String> prefix,
-        String key,
-        RootKey<?, ?> rootKey,
-        DynamicConfigurationChanger changer,
-        boolean listenOnly
+            List<String> prefix,
+            String key,
+            RootKey<?, ?> rootKey,
+            DynamicConfigurationChanger changer,
+            boolean listenOnly
     ) {
         this.keys = ConfigurationUtil.appendKey(prefix, key);
         this.key = key;
@@ -94,12 +94,14 @@ public abstract class ConfigurationNode<VIEW> implements ConfigurationProperty<V
     }
 
     /** {@inheritDoc} */
-    @Override public void listen(ConfigurationListener<VIEW> listener) {
+    @Override
+    public void listen(ConfigurationListener<VIEW> listener) {
         updateListeners.add(listener);
     }
 
     /** {@inheritDoc} */
-    @Override public void stopListen(ConfigurationListener<VIEW> listener) {
+    @Override
+    public void stopListen(ConfigurationListener<VIEW> listener) {
         updateListeners.remove(listener);
     }
 
@@ -112,22 +114,24 @@ public abstract class ConfigurationNode<VIEW> implements ConfigurationProperty<V
      * Returns latest value of the configuration or throws exception.
      *
      * @return Latest configuration value.
-     * @throws NoSuchElementException If configuration is a part of already deleted named list configuration entry.
-     * @throws ConfigurationListenOnlyException If there was an attempt to get or update a property value in
-     *      {@link #listenOnly listen-only} mode.
+     * @throws NoSuchElementException           If configuration is a part of already deleted named list configuration entry.
+     * @throws ConfigurationListenOnlyException If there was an attempt to get or update a property value in {@link #listenOnly listen-only}
+     *                                          mode.
      */
     protected final VIEW refreshValue() throws NoSuchElementException {
         TraversableTreeNode newRootNode = changer.getRootNode(rootKey);
         TraversableTreeNode oldRootNode = cachedRootNode;
 
         // 'invalid' and 'val' visibility is guaranteed by the 'cachedRootNode' volatile read
-        if (invalid)
+        if (invalid) {
             throw noSuchElementException();
-        else if (listenOnly)
+        } else if (listenOnly) {
             throw listenOnlyException();
+        }
 
-        if (oldRootNode == newRootNode)
+        if (oldRootNode == newRootNode) {
             return val;
+        }
 
         try {
             VIEW newVal = ConfigurationUtil.find(keys.subList(1, keys.size()), newRootNode, true);
@@ -141,16 +145,15 @@ public abstract class ConfigurationNode<VIEW> implements ConfigurationProperty<V
                     cachedRootNode = newRootNode;
 
                     return newVal;
-                }
-                else {
-                    if (invalid)
+                } else {
+                    if (invalid) {
                         throw noSuchElementException();
+                    }
 
                     return val;
                 }
             }
-        }
-        catch (KeyNotFoundException e) {
+        } catch (KeyNotFoundException e) {
             synchronized (this) {
                 invalid = true;
 
@@ -178,8 +181,7 @@ public abstract class ConfigurationNode<VIEW> implements ConfigurationProperty<V
     }
 
     /**
-     * @return Exception if there was an attempt to get or update a property value in
-     *      {@link #listenOnly listen-only} mode.
+     * @return Exception if there was an attempt to get or update a property value in {@link #listenOnly listen-only} mode.
      */
     protected ConfigurationListenOnlyException listenOnlyException() {
         throw new ConfigurationListenOnlyException("Adding only listeners mode: " + keys);

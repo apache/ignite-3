@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage;
 
 /**
  * Common interface for storage.
- *
- *
+ * <p>
+ * <p>
  * 2018-Mar-12 3:52:36 PM
  */
 public interface Storage {

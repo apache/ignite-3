@@ -57,10 +57,10 @@ public class JavaLoggerFormatter extends Formatter {
     private static final int SEVERITY_ALL = Integer.MIN_VALUE;
 
     /** Ascending order for binary search matching the list of severity constants. */
-    private static final int[] LEVEL_VALUES = new int[] {
-        SEVERITY_ALL, SEVERITY_FINER,
-        SEVERITY_FINE, SEVERITY_CONFIG, SEVERITY_INFO,
-        SEVERITY_WARNING, SEVERITY_SEVERE, SEVERITY_OFF
+    private static final int[] LEVEL_VALUES = new int[]{
+            SEVERITY_ALL, SEVERITY_FINER,
+            SEVERITY_FINE, SEVERITY_CONFIG, SEVERITY_INFO,
+            SEVERITY_WARNING, SEVERITY_SEVERE, SEVERITY_OFF
     };
 
     /** Name for anonymous loggers. */
@@ -69,21 +69,24 @@ public class JavaLoggerFormatter extends Formatter {
     /** Date formatter. */
     private static final ThreadLocal<DateTimeFormatter> DATE_FORMATTER = new ThreadLocal<>() {
         /** {@inheritDoc} */
-        @Override protected DateTimeFormatter initialValue() {
+        @Override
+        protected DateTimeFormatter initialValue() {
             return DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss:SSS Z");
         }
     };
 
     /** {@inheritDoc} */
-    @Override public String format(LogRecord record) {
+    @Override
+    public String format(LogRecord record) {
         String threadName = Thread.currentThread().getName();
 
         String logName = record.getLoggerName();
 
-        if (logName == null)
+        if (logName == null) {
             logName = ANONYMOUS_LOGGER_NAME;
-        else if (logName.contains("."))
+        } else if (logName.contains(".")) {
             logName = logName.substring(logName.lastIndexOf('.') + 1);
+        }
 
         String ex = null;
 
@@ -98,21 +101,21 @@ public class JavaLoggerFormatter extends Formatter {
         }
 
         return DATE_FORMATTER.get().format(Instant.ofEpochMilli(record.getMillis()).atZone(ZoneId.systemDefault())) +
-            " [" + toLevel(record.getLevel().intValue()) + "][" +
-            threadName + "][" +
-            logName + "] " +
-            formatMessage(record) +
-            (ex == null ? "\n" : ex);
+                " [" + toLevel(record.getLevel().intValue()) + "][" +
+                threadName + "][" +
+                logName + "] " +
+                formatMessage(record) +
+                (ex == null ? "\n" : ex);
     }
 
     /** {@inheritDoc} */
-    @Override public String toString() {
+    @Override
+    public String toString() {
         return S.toString(JavaLoggerFormatter.class, this);
     }
 
     /**
-     * Convert {@linkplain java.util.logging.Level  java.util.logging levels} to {@linkplain System.Logger.Level System
-     * logger levels}.
+     * Convert {@linkplain java.util.logging.Level  java.util.logging levels} to {@linkplain System.Logger.Level System logger levels}.
      *
      * @param severity Severity
      * @return {@link System.Logger.Level} according to {@link java.util.logging.Level} int value.

@@ -14,15 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.core;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.eq;
 
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.TimeoutNowRequest;
 import org.mockito.Mockito;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.eq;
 
 public class TimeoutNowRequestProcessorTest extends BaseNodeRequestProcessorTest<TimeoutNowRequest> {
     private TimeoutNowRequest request;
@@ -30,11 +31,11 @@ public class TimeoutNowRequestProcessorTest extends BaseNodeRequestProcessorTest
     @Override
     public TimeoutNowRequest createRequest(String groupId, PeerId peerId) {
         request = msgFactory.timeoutNowRequest()
-            .groupId(groupId)
-            .serverId("localhost:8082")
-            .peerId(peerId.toString())
-            .term(0)
-            .build();
+                .groupId(groupId)
+                .serverId("localhost:8082")
+                .peerId(peerId.toString())
+                .term(0)
+                .build();
         return request;
     }
 

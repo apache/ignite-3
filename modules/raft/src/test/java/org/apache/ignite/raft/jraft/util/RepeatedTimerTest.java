@@ -14,14 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class RepeatedTimerTest {
     private static class TestTimer extends RepeatedTimer {
@@ -37,8 +38,7 @@ public class RepeatedTimerTest {
         protected int adjustTimeout(final int timeoutMs) {
             if (nextTimeout > 0) {
                 return nextTimeout;
-            }
-            else {
+            } else {
                 return timeoutMs;
             }
         }

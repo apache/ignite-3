@@ -66,8 +66,9 @@ public class ConfigurationFlattener {
         int idx = 0;
 
         for (String key : node.namedListKeys()) {
-            if (node.get(key) != null)
+            if (node.get(key) != null) {
                 res.put(key, idx++);
+            }
         }
 
         return res;
@@ -87,8 +88,8 @@ public class ConfigurationFlattener {
         private boolean singleTreeTraversal;
 
         /**
-         * Makes sense only if {@link #singleTreeTraversal} is {@code true}. Helps distinguishing creation from
-         * deletion. Always {@code false} if {@link #singleTreeTraversal} is {@code false}.
+         * Makes sense only if {@link #singleTreeTraversal} is {@code true}. Helps distinguishing creation from deletion. Always {@code
+         * false} if {@link #singleTreeTraversal} is {@code false}.
          */
         private boolean deletion;
 
@@ -98,29 +99,33 @@ public class ConfigurationFlattener {
         }
 
         /** {@inheritDoc} */
-        @Override public Void doVisitLeafNode(String key, Serializable newVal) {
+        @Override
+        public Void doVisitLeafNode(String key, Serializable newVal) {
             // Read same value from old tree.
             Serializable oldVal = oldInnerNodesStack.peek().traverseChild(key, ConfigurationUtil.leafNodeVisitor(), true);
 
             // Do not put duplicates into the resulting map.
-            if (singleTreeTraversal || !Objects.deepEquals(oldVal, newVal))
+            if (singleTreeTraversal || !Objects.deepEquals(oldVal, newVal)) {
                 resMap.put(currentKey(), deletion ? null : newVal);
+            }
 
             return null;
         }
 
         /** {@inheritDoc} */
-        @Override public Void doVisitInnerNode(String key, InnerNode newNode) {
+        @Override
+        public Void doVisitInnerNode(String key, InnerNode newNode) {
             // Read same node from old tree.
             InnerNode oldNode = oldInnerNodesStack.peek().traverseChild(key, ConfigurationUtil.innerNodeVisitor(), true);
 
             // Skip subtree that has not changed.
-            if (oldNode == newNode && !singleTreeTraversal)
+            if (oldNode == newNode && !singleTreeTraversal) {
                 return null;
+            }
 
-            if (oldNode == null)
+            if (oldNode == null) {
                 visitAsymmetricInnerNode(newNode, false);
-            else {
+            } else {
                 oldInnerNodesStack.push(oldNode);
 
                 newNode.traverseChildren(this, true);
@@ -132,21 +137,23 @@ public class ConfigurationFlattener {
         }
 
         /** {@inheritDoc} */
-        @Override public <N extends InnerNode> Void doVisitNamedListNode(String key, NamedListNode<N> newNode) {
+        @Override
+        public <N extends InnerNode> Void doVisitNamedListNode(String key, NamedListNode<N> newNode) {
             // Read same named list node from old tree.
             NamedListNode<?> oldNode = oldInnerNodesStack.peek().traverseChild(key, ConfigurationUtil.namedListNodeVisitor(), true);
 
             // Skip subtree that has not changed.
-            if (oldNode == newNode && !singleTreeTraversal)
+            if (oldNode == newNode && !singleTreeTraversal) {
                 return null;
+            }
 
             // Old keys ordering can be ignored if we either create or delete everything.
             Map<String, Integer> oldKeysToOrderIdxMap = singleTreeTraversal ? null
-                : keysToOrderIdx(oldNode);
+                    : keysToOrderIdx(oldNode);
 
             // New keys ordering can be ignored if we delete everything.
             Map<String, Integer> newKeysToOrderIdxMap = deletion ? null
-                : keysToOrderIdx(newNode);
+                    : keysToOrderIdx(newNode);
 
             for (String newNodeKey : newNode.namedListKeys()) {
                 String newNodeInternalId = newNode.internalId(newNodeKey);
@@ -158,17 +165,18 @@ public class ConfigurationFlattener {
                     InnerNode oldNamedElement = oldNode.get(oldNodeKey);
 
                     // Deletion of nonexistent element.
-                    if (oldNamedElement == null && newNamedElement == null)
+                    if (oldNamedElement == null && newNamedElement == null) {
                         return null;
+                    }
 
                     // Skip element that has not changed.
                     // Its index can be different though, so we don't "continue" straight away.
                     if (singleTreeTraversal || oldNamedElement != newNamedElement) {
-                        if (newNamedElement == null)
+                        if (newNamedElement == null) {
                             visitAsymmetricInnerNode(oldNamedElement, true);
-                        else if (oldNamedElement == null)
+                        } else if (oldNamedElement == null) {
                             visitAsymmetricInnerNode(newNamedElement, false);
-                        else {
+                        } else {
                             oldInnerNodesStack.push(oldNamedElement);
 
                             newNamedElement.traverseChildren(this, true);
@@ -189,7 +197,7 @@ public class ConfigurationFlattener {
 
                     // If it's creation / deletion / rename.
                     if (singleTreeTraversal || oldNamedElement == null || newNamedElement == null
-                        || !oldNodeKey.equals(newNodeKey)
+                            || !oldNodeKey.equals(newNodeKey)
                     ) {
                         String idKey = currentKey() + NamedListNode.NAME;
 
@@ -204,8 +212,8 @@ public class ConfigurationFlattener {
         }
 
         /**
-         * Here we must list all joined keys belonging to deleted or created element. The only way to do it is to
-         * traverse the entire configuration tree unconditionally.
+         * Here we must list all joined keys belonging to deleted or created element. The only way to do it is to traverse the entire
+         * configuration tree unconditionally.
          */
         private void visitAsymmetricInnerNode(InnerNode node, boolean delete) {
             assert !singleTreeTraversal;

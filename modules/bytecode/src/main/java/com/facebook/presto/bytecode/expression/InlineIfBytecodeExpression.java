@@ -17,36 +17,34 @@
 
 package com.facebook.presto.bytecode.expression;
 
-import java.util.List;
+import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
+import static java.util.Objects.requireNonNull;
+
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.instruction.LabelNode;
-
-import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
-import static java.util.Objects.requireNonNull;
+import java.util.List;
 
 class InlineIfBytecodeExpression
-        extends BytecodeExpression
-{
+        extends BytecodeExpression {
     private final BytecodeExpression condition;
     private final BytecodeExpression ifTrue;
     private final BytecodeExpression ifFalse;
 
-    InlineIfBytecodeExpression(BytecodeExpression condition, BytecodeExpression ifTrue, BytecodeExpression ifFalse)
-    {
+    InlineIfBytecodeExpression(BytecodeExpression condition, BytecodeExpression ifTrue, BytecodeExpression ifFalse) {
         super(ifTrue.getType());
         this.condition = condition;
         this.ifTrue = requireNonNull(ifTrue, "ifTrue is null");
         this.ifFalse = requireNonNull(ifFalse, "ifFalse is null");
 
-        checkArgument(condition.getType().getPrimitiveType() == boolean.class, "Expected condition to be type boolean but is %s", condition.getType());
+        checkArgument(condition.getType().getPrimitiveType() == boolean.class, "Expected condition to be type boolean but is %s",
+                condition.getType());
         checkArgument(ifTrue.getType().equals(ifFalse.getType()), "Expected ifTrue and ifFalse to be the same type");
     }
 
     @Override
-    public BytecodeNode getBytecode(MethodGenerationContext generationContext)
-    {
+    public BytecodeNode getBytecode(MethodGenerationContext generationContext) {
         LabelNode falseLabel = new LabelNode("false");
         LabelNode endLabel = new LabelNode("end");
         return new BytecodeBlock()
@@ -60,14 +58,12 @@ class InlineIfBytecodeExpression
     }
 
     @Override
-    public List<BytecodeNode> getChildNodes()
-    {
+    public List<BytecodeNode> getChildNodes() {
         return List.of(condition, ifTrue, ifFalse);
     }
 
     @Override
-    protected String formatOneLine()
-    {
+    protected String formatOneLine() {
         return "(" + condition + " ? " + ifTrue + " : " + ifFalse + ")";
     }
 }

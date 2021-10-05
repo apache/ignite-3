@@ -46,6 +46,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 
 //TODO IGNITE-15525 Filter by table type must be added after 'view' type will appear.
+
 /**
  * Facade over {@link IgniteTables} to get information about database entities in terms of JDBC.
  */
@@ -73,8 +74,8 @@ public class JdbcMetadataCatalog {
 
     /** Comparator for {@link Column} by schema then table name then column order. */
     private static final Comparator<Pair<String, Column>> bySchemaThenTabNameThenColOrder
-        = Comparator.comparing((Function<Pair<String, Column>, String>)Pair::getFirst)
-        .thenComparingInt(o -> o.getSecond().schemaIndex());
+            = Comparator.comparing((Function<Pair<String, Column>, String>) Pair::getFirst)
+            .thenComparingInt(o -> o.getSecond().schemaIndex());
 
     /** Comparator for {@link JdbcTableMeta} by table type then schema then table name. */
     private static final Comparator<Table> byTblTypeThenSchemaThenTblName = Comparator.comparing(Table::tableName);
@@ -90,11 +91,11 @@ public class JdbcMetadataCatalog {
 
     /**
      * See {@link DatabaseMetaData#getPrimaryKeys(String, String, String)} for details.
-     *
+     * <p>
      * Ignite has only one possible CATALOG_NAME, it is handled on the client (driver) side.
      *
      * @param schemaNamePtrn Sql pattern for schema name.
-     * @param tblNamePtrn Sql pattern for table name.
+     * @param tblNamePtrn    Sql pattern for table name.
      * @return Collection of primary keys information for tables that matches specified schema and table name patterns.
      */
     public Collection<JdbcPrimaryKeyMeta> getPrimaryKeys(String schemaNamePtrn, String tblNamePtrn) {
@@ -104,28 +105,28 @@ public class JdbcMetadataCatalog {
         String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
 
         tables.tables().stream()
-            .filter(t -> matches(getTblSchema(t.tableName()), schemaNameRegex))
-            .filter(t -> matches(getTblName(t.tableName()), tlbNameRegex))
-            .forEach(tbl -> {
-                JdbcPrimaryKeyMeta meta = createPrimaryKeyMeta(tbl);
+                .filter(t -> matches(getTblSchema(t.tableName()), schemaNameRegex))
+                .filter(t -> matches(getTblName(t.tableName()), tlbNameRegex))
+                .forEach(tbl -> {
+                    JdbcPrimaryKeyMeta meta = createPrimaryKeyMeta(tbl);
 
-                metaSet.add(meta);
-            });
+                    metaSet.add(meta);
+                });
 
         return metaSet;
     }
 
     /**
      * See {@link DatabaseMetaData#getTables(String, String, String, String[])} for details.
-     *
-     * Ignite has only one possible value for CATALOG_NAME and has only one table type so these parameters are handled
-     * on the client (driver) side.
-     *
+     * <p>
+     * Ignite has only one possible value for CATALOG_NAME and has only one table type so these parameters are handled on the client
+     * (driver) side.
+     * <p>
      * Result is ordered by (schema name, table name).
      *
      * @param schemaNamePtrn Sql pattern for schema name.
-     * @param tblNamePtrn Sql pattern for table name.
-     * @param tblTypes Requested table types.
+     * @param tblNamePtrn    Sql pattern for table name.
+     * @param tblTypes       Requested table types.
      * @return List of metadatas of tables that matches.
      */
     public List<JdbcTableMeta> getTablesMeta(String schemaNamePtrn, String tblNamePtrn, String[] tblTypes) {
@@ -133,24 +134,24 @@ public class JdbcMetadataCatalog {
         String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
 
         List<Table> tblsMeta = tables.tables().stream()
-            .filter(t -> matches(getTblSchema(t.tableName()), schemaNameRegex))
-            .filter(t -> matches(getTblName(t.tableName()), tlbNameRegex))
-            .collect(Collectors.toList());
+                .filter(t -> matches(getTblSchema(t.tableName()), schemaNameRegex))
+                .filter(t -> matches(getTblName(t.tableName()), tlbNameRegex))
+                .collect(Collectors.toList());
 
         return tblsMeta.stream()
-            .sorted(byTblTypeThenSchemaThenTblName)
-            .map(t -> new JdbcTableMeta(getTblSchema(t.tableName()), getTblName(t.tableName()), TBL_TYPE))
-            .collect(Collectors.toList());
+                .sorted(byTblTypeThenSchemaThenTblName)
+                .map(t -> new JdbcTableMeta(getTblSchema(t.tableName()), getTblName(t.tableName()), TBL_TYPE))
+                .collect(Collectors.toList());
     }
 
     /**
      * See {@link DatabaseMetaData#getColumns(String, String, String, String)} for details.
-     *
+     * <p>
      * Ignite has only one possible CATALOG_NAME, it is handled on the client (driver) side.
      *
      * @param schemaNamePtrn Schema name java regex pattern.
-     * @param tblNamePtrn Table name java regex pattern.
-     * @param colNamePtrn Column name java regex pattern.
+     * @param tblNamePtrn    Table name java regex pattern.
+     * @param colNamePtrn    Column name java regex pattern.
      * @return List of metadatas about columns that match specified schema/tablename/columnname criterias.
      */
     public Collection<JdbcColumnMeta> getColumnsMeta(String schemaNamePtrn, String tblNamePtrn, String colNamePtrn) {
@@ -161,37 +162,40 @@ public class JdbcMetadataCatalog {
         String colNameRegex = translateSqlWildcardsToRegex(colNamePtrn);
 
         tables.tables().stream()
-            .filter(t -> matches(getTblSchema(t.tableName()), schemaNameRegex))
-            .filter(t -> matches(getTblName(t.tableName()), tlbNameRegex))
-            .flatMap(
-                tbl -> {
-                    SchemaDescriptor schema = ((TableImpl)tbl).schemaView().schema();
+                .filter(t -> matches(getTblSchema(t.tableName()), schemaNameRegex))
+                .filter(t -> matches(getTblName(t.tableName()), tlbNameRegex))
+                .flatMap(
+                        tbl -> {
+                            SchemaDescriptor schema = ((TableImpl) tbl).schemaView().schema();
 
-                    List<Pair<String, Column>> tblColPairs = new ArrayList<>();
+                            List<Pair<String, Column>> tblColPairs = new ArrayList<>();
 
-                    for (Column column : schema.keyColumns().columns())
-                        tblColPairs.add(new Pair<>(tbl.tableName(), column));
+                            for (Column column : schema.keyColumns().columns()) {
+                                tblColPairs.add(new Pair<>(tbl.tableName(), column));
+                            }
 
-                    for (Column column : schema.valueColumns().columns())
-                        tblColPairs.add(new Pair<>(tbl.tableName(), column));
+                            for (Column column : schema.valueColumns().columns()) {
+                                tblColPairs.add(new Pair<>(tbl.tableName(), column));
+                            }
 
-                    return tblColPairs.stream();
-            })
-            .filter(e -> matches(e.getSecond().name(), colNameRegex))
-            .sorted(bySchemaThenTabNameThenColOrder)
-            .forEachOrdered(pair -> {
-                JdbcColumnMeta colMeta = createColumnMeta(pair.getFirst(), pair.getSecond());
+                            return tblColPairs.stream();
+                        })
+                .filter(e -> matches(e.getSecond().name(), colNameRegex))
+                .sorted(bySchemaThenTabNameThenColOrder)
+                .forEachOrdered(pair -> {
+                    JdbcColumnMeta colMeta = createColumnMeta(pair.getFirst(), pair.getSecond());
 
-                if (!metas.contains(colMeta))
-                    metas.add(colMeta);
-            });
+                    if (!metas.contains(colMeta)) {
+                        metas.add(colMeta);
+                    }
+                });
 
         return metas;
     }
 
     /**
      * See {@link DatabaseMetaData#getSchemas(String, String)} for details.
-     *
+     * <p>
      * Ignite has only one possible CATALOG_NAME, it is handled on the client (driver) side.
      *
      * @param schemaNamePtrn Sql pattern for schema name filter.
@@ -202,13 +206,14 @@ public class JdbcMetadataCatalog {
 
         String schemaNameRegex = translateSqlWildcardsToRegex(schemaNamePtrn);
 
-        if (matches(DEFAULT_SCHEMA_NAME, schemaNameRegex))
+        if (matches(DEFAULT_SCHEMA_NAME, schemaNameRegex)) {
             schemas.add(DEFAULT_SCHEMA_NAME);
+        }
 
         tables.tables().stream()
-            .map(tbl -> getTblSchema(tbl.tableName()))
-            .filter(schema -> matches(schema, schemaNameRegex))
-            .forEach(schemas::add);
+                .map(tbl -> getTblSchema(tbl.tableName()))
+                .filter(schema -> matches(schema, schemaNameRegex))
+                .forEach(schemas::add);
 
         return schemas;
     }
@@ -225,11 +230,11 @@ public class JdbcMetadataCatalog {
 
         final String keyName = PK + tblName;
 
-        SchemaRegistry registry = ((TableImpl)tbl).schemaView();
+        SchemaRegistry registry = ((TableImpl) tbl).schemaView();
 
         List<String> keyColNames = Arrays.stream(registry.schema().keyColumns().columns())
-            .map(Column::name)
-            .collect(Collectors.toList());
+                .map(Column::name)
+                .collect(Collectors.toList());
 
         return new JdbcPrimaryKeyMeta(schemaName, tblName, keyName, keyColNames);
     }
@@ -238,7 +243,7 @@ public class JdbcMetadataCatalog {
      * Creates column metadata from column and table name.
      *
      * @param tblName Table name.
-     * @param col Column.
+     * @param col     Column.
      * @return Column metadata.
      */
     private JdbcColumnMeta createColumnMeta(String tblName, Column col) {
@@ -247,21 +252,21 @@ public class JdbcMetadataCatalog {
         int precision = -1;
         int scale = -1;
 
-        if (type.spec() == NativeTypeSpec.NUMBER)
-            precision = ((NumberNativeType)type).precision();
-        else if (type.spec() == NativeTypeSpec.DECIMAL) {
-            precision = ((DecimalNativeType)type).precision();
-            scale = ((DecimalNativeType)type).scale();
+        if (type.spec() == NativeTypeSpec.NUMBER) {
+            precision = ((NumberNativeType) type).precision();
+        } else if (type.spec() == NativeTypeSpec.DECIMAL) {
+            precision = ((DecimalNativeType) type).precision();
+            scale = ((DecimalNativeType) type).scale();
         }
 
         return new JdbcColumnMeta(
-            getTblSchema(tblName),
-            getTblName(tblName),
-            col.name(),
-            Commons.nativeTypeToClass(col.type()),
-            precision,
-            scale,
-            col.nullable()
+                getTblSchema(tblName),
+                getTblName(tblName),
+                col.name(),
+                Commons.nativeTypeToClass(col.type()),
+                precision,
+                scale,
+                col.nullable()
         );
     }
 
@@ -288,16 +293,18 @@ public class JdbcMetadataCatalog {
     /**
      * Checks whether string matches SQL pattern.
      *
-     * @param str String.
+     * @param str     String.
      * @param sqlPtrn Pattern.
      * @return Whether string matches pattern.
      */
     private static boolean matches(String str, String sqlPtrn) {
-        if (str == null)
+        if (str == null) {
             return false;
+        }
 
-        if (sqlPtrn == null)
+        if (sqlPtrn == null) {
             return true;
+        }
 
         return str.matches(sqlPtrn);
     }
@@ -320,8 +327,9 @@ public class JdbcMetadataCatalog {
      * @return Java regex pattern.
      */
     private static String translateSqlWildcardsToRegex(String sqlPtrn) {
-        if (sqlPtrn == null || sqlPtrn.isEmpty())
+        if (sqlPtrn == null || sqlPtrn.isEmpty()) {
             return sqlPtrn;
+        }
 
         String toRegex = ' ' + sqlPtrn;
 

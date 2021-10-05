@@ -46,9 +46,9 @@ public class TableImpl implements Table {
     /**
      * Constructor.
      *
-     * @param tbl Table.
+     * @param tbl       Table.
      * @param schemaReg Table schema registry.
-     * @param tblMgr Table manager.
+     * @param tblMgr    Table manager.
      */
     public TableImpl(InternalTable tbl, SchemaRegistry schemaReg, TableManager tblMgr) {
         this.tbl = tbl;
@@ -71,7 +71,8 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull String tableName() {
+    @Override
+    public @NotNull String tableName() {
         return tbl.tableName();
     }
 
@@ -85,22 +86,26 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public <R> RecordView<R> recordView(RecordMapper<R> recMapper) {
+    @Override
+    public <R> RecordView<R> recordView(RecordMapper<R> recMapper) {
         return new RecordViewImpl<>(tbl, schemaReg, recMapper, null);
     }
 
     /** {@inheritDoc} */
-    @Override public RecordView<Tuple> recordView() {
+    @Override
+    public RecordView<Tuple> recordView() {
         return new RecordBinaryViewImpl(tbl, schemaReg, tblMgr, null);
     }
 
     /** {@inheritDoc} */
-    @Override public <K, V> KeyValueView<K, V> keyValueView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper) {
+    @Override
+    public <K, V> KeyValueView<K, V> keyValueView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper) {
         return new KeyValueViewImpl<>(tbl, schemaReg, keyMapper, valMapper, null);
     }
 
     /** {@inheritDoc} */
-    @Override public KeyValueView<Tuple, Tuple> keyValueView() {
+    @Override
+    public KeyValueView<Tuple, Tuple> keyValueView() {
         return new KeyValueBinaryViewImpl(tbl, schemaReg, tblMgr, null);
     }
 

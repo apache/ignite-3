@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
 
 import java.util.concurrent.locks.Condition;
@@ -42,8 +43,7 @@ public class CountDownEvent {
         this.lock.lock();
         try {
             return ++this.state;
-        }
-        finally {
+        } finally {
             this.lock.unlock();
         }
     }
@@ -54,8 +54,7 @@ public class CountDownEvent {
             if (--this.state == 0) {
                 this.busyCond.signalAll();
             }
-        }
-        finally {
+        } finally {
             this.lock.unlock();
         }
     }
@@ -66,8 +65,7 @@ public class CountDownEvent {
             while (this.state > 0) {
                 this.busyCond.await();
             }
-        }
-        finally {
+        } finally {
             this.lock.unlock();
         }
     }

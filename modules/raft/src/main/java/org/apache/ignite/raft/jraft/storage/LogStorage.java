@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage;
 
 import java.util.List;
@@ -41,8 +42,7 @@ public interface LogStorage extends Lifecycle<LogStorageOptions>, Storage {
     LogEntry getEntry(final long index);
 
     /**
-     * Get logEntry's term by index. This method is deprecated, you should use {@link #getEntry(long)} to get the log
-     * id's term.
+     * Get logEntry's term by index. This method is deprecated, you should use {@link #getEntry(long)} to get the log id's term.
      *
      * @deprecated
      */
@@ -70,8 +70,8 @@ public interface LogStorage extends Lifecycle<LogStorageOptions>, Storage {
     boolean truncateSuffix(final long lastIndexKept);
 
     /**
-     * Drop all the existing logs and reset next log index to |next_log_index|. This function is called after installing
-     * snapshot from leader.
+     * Drop all the existing logs and reset next log index to |next_log_index|. This function is called after installing snapshot from
+     * leader.
      */
     boolean reset(final long nextLogIndex);
 }

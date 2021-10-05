@@ -14,7 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
 import org.apache.ignite.raft.jraft.Closure;
@@ -25,18 +29,15 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.ResetPeerRequest;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
 public class ResetPeersRequestProcessorTest extends AbstractCliRequestProcessorTest<ResetPeerRequest> {
 
     @Override
     public ResetPeerRequest createRequest(String groupId, PeerId peerId) {
         return msgFactory.resetPeerRequest()
-            .groupId(groupId)
-            .peerId(peerId.toString())
-            .newPeersList(List.of("localhost:8084", "localhost:8085"))
-            .build();
+                .groupId(groupId)
+                .peerId(peerId.toString())
+                .newPeersList(List.of("localhost:8084", "localhost:8085"))
+                .build();
     }
 
     @Override

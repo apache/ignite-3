@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -26,11 +31,6 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Basic table operations test.
@@ -47,13 +47,13 @@ public class KeyValueBinaryViewOperationsTest {
     @Test
     public void put() {
         SchemaDescriptor schema = new SchemaDescriptor(
-            1,
-            new Column[] {new Column("id", NativeTypes.INT64, false)},
-            new Column[] {new Column("val", NativeTypes.INT64, false)}
+                1,
+                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("val", NativeTypes.INT64, false)}
         );
 
         KeyValueView<Tuple, Tuple> tbl =
-            new KeyValueBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
+                new KeyValueBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple key = Tuple.create().set("id", 1L);
         final Tuple val = Tuple.create().set("val", 11L);
@@ -90,13 +90,13 @@ public class KeyValueBinaryViewOperationsTest {
     @Test
     public void putIfAbsent() {
         SchemaDescriptor schema = new SchemaDescriptor(
-            1,
-            new Column[] {new Column("id", NativeTypes.INT64, false)},
-            new Column[] {new Column("val", NativeTypes.INT64, false)}
+                1,
+                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("val", NativeTypes.INT64, false)}
         );
 
         KeyValueView<Tuple, Tuple> tbl =
-            new KeyValueBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
+                new KeyValueBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple key = Tuple.create().set("id", 1L);
         final Tuple val = Tuple.create().set("val", 11L);
@@ -123,13 +123,13 @@ public class KeyValueBinaryViewOperationsTest {
     @Test
     public void getAndPut() {
         SchemaDescriptor schema = new SchemaDescriptor(
-            1,
-            new Column[] {new Column("id", NativeTypes.INT64, false)},
-            new Column[] {new Column("val", NativeTypes.INT64, false)}
+                1,
+                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("val", NativeTypes.INT64, false)}
         );
 
         KeyValueView<Tuple, Tuple> tbl =
-            new KeyValueBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
+                new KeyValueBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple key = Tuple.create().set("id", 1L);
         final Tuple val = Tuple.create().set("val", 11L);
@@ -157,13 +157,13 @@ public class KeyValueBinaryViewOperationsTest {
     @Test
     public void remove() {
         SchemaDescriptor schema = new SchemaDescriptor(
-            1,
-            new Column[] {new Column("id", NativeTypes.INT64, false)},
-            new Column[] {new Column("val", NativeTypes.INT64, false)}
+                1,
+                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("val", NativeTypes.INT64, false)}
         );
 
         KeyValueView<Tuple, Tuple> tbl =
-            new KeyValueBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
+                new KeyValueBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple key = Tuple.create().set("id", 1L);
         final Tuple key2 = Tuple.create().set("id", 2L);
@@ -200,13 +200,13 @@ public class KeyValueBinaryViewOperationsTest {
     @Test
     public void removeExact() {
         SchemaDescriptor schema = new SchemaDescriptor(
-            1,
-            new Column[] {new Column("id", NativeTypes.INT64, false)},
-            new Column[] {new Column("val", NativeTypes.INT64, false)}
+                1,
+                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("val", NativeTypes.INT64, false)}
         );
 
         final KeyValueView<Tuple, Tuple> tbl =
-            new KeyValueBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
+                new KeyValueBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple key = Tuple.create().set("id", 1L);
         final Tuple key2 = Tuple.create().set("id", 2L);
@@ -255,13 +255,13 @@ public class KeyValueBinaryViewOperationsTest {
     @Test
     public void replace() {
         SchemaDescriptor schema = new SchemaDescriptor(
-            1,
-            new Column[] {new Column("id", NativeTypes.INT64, false)},
-            new Column[] {new Column("val", NativeTypes.INT64, false)}
+                1,
+                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("val", NativeTypes.INT64, false)}
         );
 
         KeyValueView<Tuple, Tuple> tbl =
-            new KeyValueBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
+                new KeyValueBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple key = Tuple.create().set("id", 1L);
         final Tuple key2 = Tuple.create().set("id", 2L);
@@ -301,13 +301,13 @@ public class KeyValueBinaryViewOperationsTest {
     @Test
     public void replaceExact() {
         SchemaDescriptor schema = new SchemaDescriptor(
-            1,
-            new Column[] {new Column("id", NativeTypes.INT64, false)},
-            new Column[] {new Column("val", NativeTypes.INT64, false)}
+                1,
+                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("val", NativeTypes.INT64, false)}
         );
 
         KeyValueView<Tuple, Tuple> tbl =
-            new KeyValueBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
+                new KeyValueBinaryViewImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple key = Tuple.create().set("id", 1L);
         final Tuple key2 = Tuple.create().set("id", 2L);
@@ -343,9 +343,9 @@ public class KeyValueBinaryViewOperationsTest {
     /**
      * Check key columns equality.
      *
-     * @param schema Schema.
+     * @param schema   Schema.
      * @param expected Expected tuple.
-     * @param actual Actual tuple.
+     * @param actual   Actual tuple.
      */
     void assertEqualsKeys(SchemaDescriptor schema, Tuple expected, Tuple actual) {
         int nonNullKey = 0;
@@ -358,8 +358,9 @@ public class KeyValueBinaryViewOperationsTest {
 
             Assertions.assertEquals(val1, val2, "Value columns equality check failed: colIdx=" + col.schemaIndex());
 
-            if (schema.isKeyColumn(i) && val1 != null)
+            if (schema.isKeyColumn(i) && val1 != null) {
                 nonNullKey++;
+            }
         }
 
         assertTrue(nonNullKey > 0, "At least one non-null key column must exist.");
@@ -368,9 +369,9 @@ public class KeyValueBinaryViewOperationsTest {
     /**
      * Check value columns equality.
      *
-     * @param schema Schema.
+     * @param schema   Schema.
      * @param expected Expected tuple.
-     * @param actual Actual tuple.
+     * @param actual   Actual tuple.
      */
     void assertEqualsValues(SchemaDescriptor schema, Tuple expected, Tuple actual) {
         for (int i = 0; i < schema.valueColumns().length(); i++) {

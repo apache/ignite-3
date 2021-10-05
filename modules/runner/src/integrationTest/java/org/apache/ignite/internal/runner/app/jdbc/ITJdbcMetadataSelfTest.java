@@ -17,6 +17,16 @@
 
 package org.apache.ignite.internal.runner.app.jdbc;
 
+import static java.sql.Types.DATE;
+import static java.sql.Types.DECIMAL;
+import static java.sql.Types.INTEGER;
+import static java.sql.Types.VARCHAR;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -43,16 +53,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import static java.sql.Types.DATE;
-import static java.sql.Types.DECIMAL;
-import static java.sql.Types.INTEGER;
-import static java.sql.Types.VARCHAR;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 /**
  * Metadata tests.
  */
@@ -66,27 +66,27 @@ public class ITJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         assert !clusterNodes.isEmpty();
 
         TableDefinition perTbl = SchemaBuilders.tableBuilder("PUBLIC", "PERSON").columns(
-            SchemaBuilders.column("NAME", ColumnType.string()).asNullable().build(),
-            SchemaBuilders.column("AGE", ColumnType.INT32).asNullable().build(),
-            SchemaBuilders.column("ORGID", ColumnType.INT32).asNonNull().build()
+                SchemaBuilders.column("NAME", ColumnType.string()).asNullable().build(),
+                SchemaBuilders.column("AGE", ColumnType.INT32).asNullable().build(),
+                SchemaBuilders.column("ORGID", ColumnType.INT32).asNonNull().build()
         ).withPrimaryKey("ORGID").build();
 
         TableDefinition orgTbl = SchemaBuilders.tableBuilder("PUBLIC", "ORGANIZATION").columns(
-            SchemaBuilders.column("ID", ColumnType.INT32).asNonNull().build(),
-            SchemaBuilders.column("NAME", ColumnType.string()).asNullable().build(),
-            SchemaBuilders.column("BIGDATA", ColumnType.decimalOf(20, 10)).asNullable().build()
+                SchemaBuilders.column("ID", ColumnType.INT32).asNonNull().build(),
+                SchemaBuilders.column("NAME", ColumnType.string()).asNullable().build(),
+                SchemaBuilders.column("BIGDATA", ColumnType.decimalOf(20, 10)).asNullable().build()
         ).withPrimaryKey("ID").build();
 
         clusterNodes.get(0).tables().createTable(perTbl.canonicalName(), tblCh ->
-            SchemaConfigurationConverter.convert(perTbl, tblCh)
-                .changeReplicas(1)
-                .changePartitions(10)
+                SchemaConfigurationConverter.convert(perTbl, tblCh)
+                        .changeReplicas(1)
+                        .changePartitions(10)
         );
 
         clusterNodes.get(0).tables().createTable(orgTbl.canonicalName(), tblCh ->
-            SchemaConfigurationConverter.convert(orgTbl, tblCh)
-                .changeReplicas(1)
-                .changePartitions(10)
+                SchemaConfigurationConverter.convert(orgTbl, tblCh)
+                        .changeReplicas(1)
+                        .changePartitions(10)
         );
 
         Table tbl1 = clusterNodes.get(0).tables().table(perTbl.canonicalName());
@@ -104,7 +104,7 @@ public class ITJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         Statement stmt = DriverManager.getConnection(URL).createStatement();
 
         ResultSet rs = stmt.executeQuery(
-            "select p.name, o.id as orgId, p.age from PERSON p, ORGANIZATION o where p.orgId = o.id");
+                "select p.name, o.id as orgId, p.age from PERSON p, ORGANIZATION o where p.orgId = o.id");
 
         assertNotNull(rs);
 
@@ -299,9 +299,9 @@ public class ITJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     public void testVersions() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
             assertEquals(conn.getMetaData().getDatabaseProductVersion(), ProtocolVersion.LATEST_VER.toString(),
-                "Unexpected ignite database product version.");
+                    "Unexpected ignite database product version.");
             assertEquals(conn.getMetaData().getDriverVersion(), ProtocolVersion.LATEST_VER.toString(),
-                "Unexpected ignite driver version.");
+                    "Unexpected ignite driver version.");
         }
     }
 
@@ -317,8 +317,9 @@ public class ITJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
             Set<String> schemas = new HashSet<>();
 
-            while (rs.next())
+            while (rs.next()) {
                 schemas.add(rs.getString(1));
+            }
 
             assertEquals(schemas, expectedSchemas);
         }
@@ -342,7 +343,7 @@ public class ITJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     @Test
     public void testPrimaryKeyMetadata() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL);
-             ResultSet rs = conn.getMetaData().getPrimaryKeys(null, "PUBLIC", "PERSON")) {
+                ResultSet rs = conn.getMetaData().getPrimaryKeys(null, "PUBLIC", "PERSON")) {
 
             int cnt = 0;
 
@@ -365,16 +366,16 @@ public class ITJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             ResultSet rs = conn.getMetaData().getPrimaryKeys(null, null, null);
 
             Set<String> expectedPks = new HashSet<>(Arrays.asList(
-                "PUBLIC.ORGANIZATION.PK_ORGANIZATION.ID",
-                "PUBLIC.PERSON.PK_PERSON.ORGID"));
+                    "PUBLIC.ORGANIZATION.PK_ORGANIZATION.ID",
+                    "PUBLIC.PERSON.PK_PERSON.ORGID"));
 
             Set<String> actualPks = new HashSet<>(expectedPks.size());
 
             while (rs.next()) {
                 actualPks.add(rs.getString("TABLE_SCHEM") +
-                    '.' + rs.getString("TABLE_NAME") +
-                    '.' + rs.getString("PK_NAME") +
-                    '.' + rs.getString("COLUMN_NAME"));
+                        '.' + rs.getString("TABLE_NAME") +
+                        '.' + rs.getString("PK_NAME") +
+                        '.' + rs.getString("COLUMN_NAME"));
             }
 
             assertEquals(expectedPks, actualPks, "Metadata contains unexpected primary keys info.");
@@ -492,8 +493,8 @@ public class ITJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
                 conn.setSchema("\"pers\"");
 
                 PreparedStatement updateStmt = conn.prepareStatement(
-                    "update Person p set orgId = 42 where p.name > ? and p.orgId > ?;" +
-                        "select orgId from Person p where p.name > ? and p.orgId > ?");
+                        "update Person p set orgId = 42 where p.name > ? and p.orgId > ?;" +
+                                "select orgId from Person p where p.name > ? and p.orgId > ?");
 
                 ParameterMetaData meta = updateStmt.getParameterMetaData();
 
@@ -533,8 +534,7 @@ public class ITJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     }
 
     /**
-     * Negative scenarios for catalog name.
-     * Perform metadata lookups, that use incorrect catalog names.
+     * Negative scenarios for catalog name. Perform metadata lookups, that use incorrect catalog names.
      */
     @Test
     public void testCatalogWithNotExistingName() throws SQLException {
@@ -543,8 +543,8 @@ public class ITJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     }
 
     /**
-     * Check that lookup in the metadata have been performed using specified catalog name (that is neither {@code null}
-     * nor correct catalog name), empty result set is returned.
+     * Check that lookup in the metadata have been performed using specified catalog name (that is neither {@code null} nor correct catalog
+     * name), empty result set is returned.
      *
      * @param invalidCat catalog name that is not either
      */
@@ -553,7 +553,7 @@ public class ITJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             DatabaseMetaData meta = conn.getMetaData();
 
             // Intention: we set the other arguments that way, the values to have as many results as possible.
-            assertIsEmpty(meta.getTables(invalidCat, null, "%", new String[] {"TABLE"}));
+            assertIsEmpty(meta.getTables(invalidCat, null, "%", new String[]{"TABLE"}));
             assertIsEmpty(meta.getColumns(invalidCat, null, "%", "%"));
             assertIsEmpty(meta.getColumnPrivileges(invalidCat, "pers", "PERSON", "%"));
             assertIsEmpty(meta.getTablePrivileges(invalidCat, null, "%"));

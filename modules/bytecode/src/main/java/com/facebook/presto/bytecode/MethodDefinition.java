@@ -17,6 +17,12 @@
 
 package com.facebook.presto.bytecode;
 
+import static com.facebook.presto.bytecode.Access.STATIC;
+import static com.facebook.presto.bytecode.Access.toAccessModifier;
+import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static org.objectweb.asm.Opcodes.RETURN;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -26,12 +32,6 @@ import java.util.stream.Collectors;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.tree.InsnNode;
-
-import static com.facebook.presto.bytecode.Access.STATIC;
-import static com.facebook.presto.bytecode.Access.toAccessModifier;
-import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
-import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static org.objectweb.asm.Opcodes.RETURN;
 
 @SuppressWarnings("UnusedDeclaration")
 public class MethodDefinition {
@@ -50,20 +50,20 @@ public class MethodDefinition {
     private String comment;
 
     public MethodDefinition(
-        ClassDefinition declaringClass,
-        EnumSet<Access> access,
-        String name,
-        ParameterizedType returnType,
-        Parameter... parameters) {
+            ClassDefinition declaringClass,
+            EnumSet<Access> access,
+            String name,
+            ParameterizedType returnType,
+            Parameter... parameters) {
         this(declaringClass, access, name, returnType, List.of(parameters));
     }
 
     public MethodDefinition(
-        ClassDefinition declaringClass,
-        EnumSet<Access> access,
-        String name,
-        ParameterizedType returnType,
-        Collection<Parameter> parameters) {
+            ClassDefinition declaringClass,
+            EnumSet<Access> access,
+            String name,
+            ParameterizedType returnType,
+            Collection<Parameter> parameters) {
         checkArgument(parameters.size() <= 254, "Too many parameters for method");
 
         this.declaringClass = declaringClass;
@@ -186,10 +186,10 @@ public class MethodDefinition {
         }
 
         MethodVisitor methodVisitor = visitor.visitMethod(toAccessModifier(access),
-            name,
-            getMethodDescriptor(),
-            genericMethodSignature(returnType, parameterTypes),
-            exceptions);
+                name,
+                getMethodDescriptor(),
+                genericMethodSignature(returnType, parameterTypes),
+                exceptions);
 
         if (methodVisitor == null) {
             return;
@@ -228,11 +228,11 @@ public class MethodDefinition {
     public String toSourceString() {
         StringBuilder sb = new StringBuilder();
         sb.append(access.stream().map(Access::toString).collect(Collectors.joining(" ")))
-            .append(' ');
+                .append(' ');
         sb.append(returnType.getJavaClassName()).append(' ');
         sb.append(name).append('(');
         sb.append(parameters.stream().map(Parameter::getSourceString).collect(Collectors.joining(", ")))
-            .append(')');
+                .append(')');
         return sb.toString();
     }
 
@@ -247,19 +247,19 @@ public class MethodDefinition {
 
     public static String methodDescription(Class<?> returnType, List<Class<?>> parameterTypes) {
         return methodDescription(
-            type(returnType),
-            parameterTypes.stream().map(ParameterizedType::type).collect(Collectors.toList()));
+                type(returnType),
+                parameterTypes.stream().map(ParameterizedType::type).collect(Collectors.toList()));
     }
 
     public static String methodDescription(
-        ParameterizedType returnType,
-        ParameterizedType... parameterTypes) {
+            ParameterizedType returnType,
+            ParameterizedType... parameterTypes) {
         return methodDescription(returnType, List.of(parameterTypes));
     }
 
     public static String methodDescription(
-        ParameterizedType returnType,
-        List<ParameterizedType> parameterTypes) {
+            ParameterizedType returnType,
+            List<ParameterizedType> parameterTypes) {
         StringBuilder sb = new StringBuilder();
         sb.append("(");
         sb.append(parameterTypes.stream().map(ParameterizedType::getType).collect(Collectors.joining("")));
@@ -269,14 +269,14 @@ public class MethodDefinition {
     }
 
     public static String genericMethodSignature(
-        ParameterizedType returnType,
-        ParameterizedType... parameterTypes) {
+            ParameterizedType returnType,
+            ParameterizedType... parameterTypes) {
         return genericMethodSignature(returnType, List.of(parameterTypes));
     }
 
     public static String genericMethodSignature(
-        ParameterizedType returnType,
-        List<ParameterizedType> parameterTypes) {
+            ParameterizedType returnType,
+            List<ParameterizedType> parameterTypes) {
         StringBuilder sb = new StringBuilder();
         sb.append("(");
         sb.append(parameterTypes.stream().map(ParameterizedType::toString).collect(Collectors.joining("")));

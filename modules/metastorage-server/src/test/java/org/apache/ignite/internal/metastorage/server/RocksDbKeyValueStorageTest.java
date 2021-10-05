@@ -28,12 +28,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class RocksDbKeyValueStorageTest extends AbstractKeyValueStorageTest {
-    /** */
+    /**
+     *
+     */
     @WorkDirectory
     private Path workDir;
 
     /** {@inheritDoc} */
-    @Override KeyValueStorage storage() {
+    @Override
+    KeyValueStorage storage() {
         return new RocksDBKeyValueStorage(workDir);
     }
 }

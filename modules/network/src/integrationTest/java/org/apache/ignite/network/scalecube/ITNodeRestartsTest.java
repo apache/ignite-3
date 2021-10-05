@@ -14,7 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.network.scalecube;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,8 +34,6 @@ import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests if a topology size is correct after some nodes are restarted in quick succession.
@@ -53,8 +54,9 @@ class ITNodeRestartsTest {
     /** Tear down method. */
     @AfterEach
     void tearDown() {
-        for (ClusterService service : services)
+        for (ClusterService service : services) {
             service.stop();
+        }
     }
 
     /**
@@ -67,12 +69,12 @@ class ITNodeRestartsTest {
         var nodeFinder = new LocalPortRangeNodeFinder(initPort, initPort + 5);
 
         services = nodeFinder.findNodes().stream()
-            .map(addr -> startNetwork(testInfo, addr, nodeFinder))
-            .collect(Collectors.toCollection(ArrayList::new)); // ensure mutability
+                .map(addr -> startNetwork(testInfo, addr, nodeFinder))
+                .collect(Collectors.toCollection(ArrayList::new)); // ensure mutability
 
         for (ClusterService service : services) {
             assertTrue(waitForTopology(service, 5, 5_000), service.topologyService().localMember().toString()
-                + ", topSize=" + service.topologyService().allMembers().size());
+                    + ", topSize=" + service.topologyService().allMembers().size());
         }
 
         int idx0 = 0;
@@ -96,7 +98,7 @@ class ITNodeRestartsTest {
 
         for (ClusterService service : services) {
             assertTrue(waitForTopology(service, 5, 10_000), service.topologyService().localMember().toString()
-                + ", topSize=" + service.topologyService().allMembers().size());
+                    + ", topSize=" + service.topologyService().allMembers().size());
         }
 
         LOG.info("Reached stable state");
@@ -105,18 +107,18 @@ class ITNodeRestartsTest {
     /**
      * Creates a {@link ClusterService} using the given local address and the node finder.
      *
-     * @param testInfo Test info.
-     * @param addr Node address.
+     * @param testInfo   Test info.
+     * @param addr       Node address.
      * @param nodeFinder Node finder.
      * @return Created Cluster Service.
      */
     private ClusterService startNetwork(TestInfo testInfo, NetworkAddress addr, NodeFinder nodeFinder) {
         ClusterService clusterService = ClusterServiceTestUtils.clusterService(
-            testInfo,
-            addr.port(),
-            nodeFinder,
-            serializationRegistry,
-            networkFactory
+                testInfo,
+                addr.port(),
+                nodeFinder,
+                serializationRegistry,
+                networkFactory
         );
 
         clusterService.start();
@@ -137,13 +139,13 @@ class ITNodeRestartsTest {
         long stop = System.currentTimeMillis() + timeout;
 
         while (System.currentTimeMillis() < stop) {
-            if (service.topologyService().allMembers().size() == expected)
+            if (service.topologyService().allMembers().size() == expected) {
                 return true;
+            }
 
             try {
                 Thread.sleep(50);
-            }
-            catch (InterruptedException e) {
+            } catch (InterruptedException e) {
                 return false;
             }
         }

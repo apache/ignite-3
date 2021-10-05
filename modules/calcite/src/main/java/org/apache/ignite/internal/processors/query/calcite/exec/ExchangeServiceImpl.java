@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.processors.query.calcite.exec;
 
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+
+import com.google.common.collect.ImmutableMap;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
-
-import com.google.common.collect.ImmutableMap;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.Inbox;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.Outbox;
 import org.apache.ignite.internal.processors.query.calcite.message.InboxCloseMessage;
@@ -38,8 +39,6 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-
 /**
  *
  */
@@ -48,19 +47,25 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
 
-    /** */
+    /**
+     *
+     */
     private final QueryTaskExecutor taskExecutor;
 
-    /** */
+    /**
+     *
+     */
     private final MailboxRegistry mailboxRegistry;
 
-    /** */
+    /**
+     *
+     */
     private final MessageService msgSrvc;
 
     public ExchangeServiceImpl(
-        QueryTaskExecutor taskExecutor,
-        MailboxRegistry mailboxRegistry,
-        MessageService msgSrvc
+            QueryTaskExecutor taskExecutor,
+            MailboxRegistry mailboxRegistry,
+            MessageService msgSrvc
     ) {
         this.taskExecutor = taskExecutor;
         this.mailboxRegistry = mailboxRegistry;
@@ -70,68 +75,73 @@ public class ExchangeServiceImpl implements ExchangeService {
     }
 
     /** {@inheritDoc} */
-    @Override public <Row> void sendBatch(String nodeId, UUID qryId, long fragmentId, long exchangeId, int batchId,
-        boolean last, List<Row> rows) throws IgniteInternalCheckedException {
+    @Override
+    public <Row> void sendBatch(String nodeId, UUID qryId, long fragmentId, long exchangeId, int batchId,
+            boolean last, List<Row> rows) throws IgniteInternalCheckedException {
         msgSrvc.send(
-            nodeId,
-            FACTORY.queryBatchMessage()
-                .queryId(qryId)
-                .fragmentId(fragmentId)
-                .exchangeId(exchangeId)
-                .batchId(batchId)
-                .last(last)
-                .rows(Commons.cast(rows))
-                .build()
+                nodeId,
+                FACTORY.queryBatchMessage()
+                        .queryId(qryId)
+                        .fragmentId(fragmentId)
+                        .exchangeId(exchangeId)
+                        .batchId(batchId)
+                        .last(last)
+                        .rows(Commons.cast(rows))
+                        .build()
         );
     }
 
     /** {@inheritDoc} */
-    @Override public void acknowledge(String nodeId, UUID qryId, long fragmentId, long exchangeId, int batchId)
-        throws IgniteInternalCheckedException {
+    @Override
+    public void acknowledge(String nodeId, UUID qryId, long fragmentId, long exchangeId, int batchId)
+            throws IgniteInternalCheckedException {
         msgSrvc.send(
-            nodeId,
-            FACTORY.queryBatchAcknowledgeMessage()
-                .queryId(qryId)
-                .fragmentId(fragmentId)
-                .exchangeId(exchangeId)
-                .batchId(batchId)
-                .build()
+                nodeId,
+                FACTORY.queryBatchAcknowledgeMessage()
+                        .queryId(qryId)
+                        .fragmentId(fragmentId)
+                        .exchangeId(exchangeId)
+                        .batchId(batchId)
+                        .build()
         );
     }
 
     /** {@inheritDoc} */
-    @Override public void closeOutbox(String nodeId, UUID qryId, long fragmentId, long exchangeId) throws IgniteInternalCheckedException {
+    @Override
+    public void closeOutbox(String nodeId, UUID qryId, long fragmentId, long exchangeId) throws IgniteInternalCheckedException {
         msgSrvc.send(
-            nodeId,
-            FACTORY.outboxCloseMessage()
-                .queryId(qryId)
-                .fragmentId(fragmentId)
-                .exchangeId(exchangeId)
-                .build()
+                nodeId,
+                FACTORY.outboxCloseMessage()
+                        .queryId(qryId)
+                        .fragmentId(fragmentId)
+                        .exchangeId(exchangeId)
+                        .build()
         );
     }
 
     /** {@inheritDoc} */
-    @Override public void closeInbox(String nodeId, UUID qryId, long fragmentId, long exchangeId) throws IgniteInternalCheckedException {
+    @Override
+    public void closeInbox(String nodeId, UUID qryId, long fragmentId, long exchangeId) throws IgniteInternalCheckedException {
         msgSrvc.send(
-            nodeId,
-            FACTORY.inboxCloseMessage()
-                .queryId(qryId)
-                .fragmentId(fragmentId)
-                .exchangeId(exchangeId)
-                .build()
+                nodeId,
+                FACTORY.inboxCloseMessage()
+                        .queryId(qryId)
+                        .fragmentId(fragmentId)
+                        .exchangeId(exchangeId)
+                        .build()
         );
     }
 
     /** {@inheritDoc} */
-    @Override public void sendError(String nodeId, UUID qryId, long fragmentId, Throwable err) throws IgniteInternalCheckedException {
+    @Override
+    public void sendError(String nodeId, UUID qryId, long fragmentId, Throwable err) throws IgniteInternalCheckedException {
         msgSrvc.send(
-            nodeId,
-            FACTORY.errorMessage()
-                .queryId(qryId)
-                .fragmentId(fragmentId)
-                .error(err)
-                .build()
+                nodeId,
+                FACTORY.errorMessage()
+                        .queryId(qryId)
+                        .fragmentId(fragmentId)
+                        .error(err)
+                        .build()
         );
     }
 
@@ -143,72 +153,80 @@ public class ExchangeServiceImpl implements ExchangeService {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean alive(String nodeId) {
+    @Override
+    public boolean alive(String nodeId) {
         return msgSrvc.alive(nodeId);
     }
 
-    /** */
+    /**
+     *
+     */
     protected void onMessage(String nodeId, InboxCloseMessage msg) {
         Collection<Inbox<?>> inboxes = mailboxRegistry.inboxes(msg.queryId(), msg.fragmentId(), msg.exchangeId());
 
         if (!nullOrEmpty(inboxes)) {
-            for (Inbox<?> inbox : inboxes)
+            for (Inbox<?> inbox : inboxes) {
                 inbox.context().execute(inbox::close, inbox::onError);
-        }
-        else if (LOG.isDebugEnabled()) {
+            }
+        } else if (LOG.isDebugEnabled()) {
             LOG.debug("Stale inbox cancel message received: [" +
-                "nodeId=" + nodeId +
-                ", queryId=" + msg.queryId() +
-                ", fragmentId=" + msg.fragmentId() +
-                ", exchangeId=" + msg.exchangeId() + "]");
+                    "nodeId=" + nodeId +
+                    ", queryId=" + msg.queryId() +
+                    ", fragmentId=" + msg.fragmentId() +
+                    ", exchangeId=" + msg.exchangeId() + "]");
         }
     }
 
-    /** */
+    /**
+     *
+     */
     protected void onMessage(String nodeId, OutboxCloseMessage msg) {
         Collection<Outbox<?>> outboxes = mailboxRegistry.outboxes(msg.queryId(), msg.fragmentId(), msg.exchangeId());
 
         if (!nullOrEmpty(outboxes)) {
-            for (Outbox<?> outbox : outboxes)
+            for (Outbox<?> outbox : outboxes) {
                 outbox.context().execute(outbox::close, outbox::onError);
+            }
 
-            for (Outbox<?> outbox : outboxes)
+            for (Outbox<?> outbox : outboxes) {
                 outbox.context().execute(outbox.context()::cancel, outbox::onError);
-        }
-        else if (LOG.isDebugEnabled()) {
+            }
+        } else if (LOG.isDebugEnabled()) {
             LOG.debug("Stale outbox cancel message received: [" +
-                "nodeId=" + nodeId +
-                ", queryId=" + msg.queryId() +
-                ", fragmentId=" + msg.fragmentId() +
-                ", exchangeId=" + msg.exchangeId() + "]");
+                    "nodeId=" + nodeId +
+                    ", queryId=" + msg.queryId() +
+                    ", fragmentId=" + msg.fragmentId() +
+                    ", exchangeId=" + msg.exchangeId() + "]");
         }
     }
 
-    /** */
+    /**
+     *
+     */
     protected void onMessage(String nodeId, QueryBatchAcknowledgeMessage msg) {
         Outbox<?> outbox = mailboxRegistry.outbox(msg.queryId(), msg.exchangeId());
 
         if (outbox != null) {
             try {
                 outbox.onAcknowledge(nodeId, msg.batchId());
-            }
-            catch (Throwable e) {
+            } catch (Throwable e) {
                 outbox.onError(e);
 
                 throw new IgniteInternalException("Unexpected exception", e);
             }
-        }
-        else if (LOG.isDebugEnabled()) {
+        } else if (LOG.isDebugEnabled()) {
             LOG.debug("Stale acknowledge message received: [" +
-                "nodeId=" + nodeId + ", " +
-                "queryId=" + msg.queryId() + ", " +
-                "fragmentId=" + msg.fragmentId() + ", " +
-                "exchangeId=" + msg.exchangeId() + ", " +
-                "batchId=" + msg.batchId() + "]");
+                    "nodeId=" + nodeId + ", " +
+                    "queryId=" + msg.queryId() + ", " +
+                    "fragmentId=" + msg.fragmentId() + ", " +
+                    "exchangeId=" + msg.exchangeId() + ", " +
+                    "batchId=" + msg.batchId() + "]");
         }
     }
 
-    /** */
+    /**
+     *
+     */
     protected void onMessage(String nodeId, QueryBatchMessage msg) {
         Inbox<?> inbox = mailboxRegistry.inbox(msg.queryId(), msg.exchangeId());
 
@@ -216,7 +234,7 @@ public class ExchangeServiceImpl implements ExchangeService {
             // first message sent before a fragment is built
             // note that an inbox source fragment id is also used as an exchange id
             Inbox<?> newInbox = new Inbox<>(baseInboxContext(nodeId, msg.queryId(), msg.fragmentId()),
-                this, mailboxRegistry, msg.exchangeId(), msg.exchangeId());
+                    this, mailboxRegistry, msg.exchangeId(), msg.exchangeId());
 
             inbox = mailboxRegistry.register(newInbox);
         }
@@ -224,20 +242,18 @@ public class ExchangeServiceImpl implements ExchangeService {
         if (inbox != null) {
             try {
                 inbox.onBatchReceived(nodeId, msg.batchId(), msg.last(), Commons.cast(msg.rows()));
-            }
-            catch (Throwable e) {
+            } catch (Throwable e) {
                 inbox.onError(e);
 
                 throw new IgniteInternalException("Unexpected exception", e);
             }
-        }
-        else if (LOG.isDebugEnabled()) {
+        } else if (LOG.isDebugEnabled()) {
             LOG.debug("Stale batch message received: [" +
-                "nodeId=" + nodeId + ", " +
-                "queryId=" + msg.queryId() + ", " +
-                "fragmentId=" + msg.fragmentId() + ", " +
-                "exchangeId=" + msg.exchangeId() + ", " +
-                "batchId=" + msg.batchId() + "]");
+                    "nodeId=" + nodeId + ", " +
+                    "queryId=" + msg.queryId() + ", " +
+                    "fragmentId=" + msg.fragmentId() + ", " +
+                    "exchangeId=" + msg.exchangeId() + ", " +
+                    "batchId=" + msg.batchId() + "]");
         }
     }
 
@@ -246,17 +262,17 @@ public class ExchangeServiceImpl implements ExchangeService {
      */
     private ExecutionContext<?> baseInboxContext(String nodeId, UUID qryId, long fragmentId) {
         return new ExecutionContext<>(
-            taskExecutor,
-            PlanningContext.builder()
-                .originatingNodeId(nodeId)
-                .build(),
-            qryId,
-            new FragmentDescription(
-                fragmentId,
+                taskExecutor,
+                PlanningContext.builder()
+                        .originatingNodeId(nodeId)
+                        .build(),
+                qryId,
+                new FragmentDescription(
+                        fragmentId,
+                        null,
+                        null,
+                        null),
                 null,
-                null,
-                null),
-            null,
-            ImmutableMap.of());
+                ImmutableMap.of());
     }
 }

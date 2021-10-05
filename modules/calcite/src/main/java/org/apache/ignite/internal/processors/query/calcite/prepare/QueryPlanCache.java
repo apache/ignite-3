@@ -24,8 +24,8 @@ import java.util.List;
  */
 public interface QueryPlanCache {
     /**
-     * @param ctx Context.
-     * @param key Cache key.
+     * @param ctx     Context.
+     * @param key     Cache key.
      * @param factory Factory method to generate a plan on cache miss.
      * @return Query plan.
      */

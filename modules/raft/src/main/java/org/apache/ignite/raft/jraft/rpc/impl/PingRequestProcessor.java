@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl;
 
 import java.util.concurrent.Executor;
@@ -54,7 +55,8 @@ public class PingRequestProcessor implements RpcProcessor<PingRequest> {
     }
 
     /** {@inheritDoc} */
-    @Override public Executor executor() {
+    @Override
+    public Executor executor() {
         return executor;
     }
 }

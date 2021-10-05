@@ -14,24 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.bytecode.expression;
 
-import java.util.List;
-import java.util.UUID;
-import org.junit.jupiter.api.Test;
+package com.facebook.presto.bytecode.expression;
 
 import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantLong;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 
+import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+
 public class TestNewInstanceBytecodeExpression {
     @Test
     public void testNewInstance()
-        throws Exception {
+            throws Exception {
         assertBytecodeExpression(newInstance(UUID.class, constantLong(3), constantLong(7)), new UUID(3L, 7L), "new UUID(3L, 7L)");
         assertBytecodeExpression(
-            newInstance(UUID.class, List.of(long.class, long.class), constantLong(3), constantLong(7)),
-            new UUID(3L, 7L),
-            "new UUID(3L, 7L)");
+                newInstance(UUID.class, List.of(long.class, long.class), constantLong(3), constantLong(7)),
+                new UUID(3L, 7L),
+                "new UUID(3L, 7L)");
     }
 }

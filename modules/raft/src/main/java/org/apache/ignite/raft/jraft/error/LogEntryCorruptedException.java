@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.error;
 
 /**
@@ -28,7 +29,7 @@ public class LogEntryCorruptedException extends JRaftException {
     }
 
     public LogEntryCorruptedException(final String message, final Throwable cause, final boolean enableSuppression,
-        final boolean writableStackTrace) {
+            final boolean writableStackTrace) {
         super(message, cause, enableSuppression, writableStackTrace);
 
     }

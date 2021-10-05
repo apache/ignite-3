@@ -17,11 +17,6 @@
 
 package com.facebook.presto.bytecode;
 
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import org.jetbrains.annotations.Nullable;
-
 import static com.facebook.presto.bytecode.ArrayOpCode.AType.T_BOOLEAN;
 import static com.facebook.presto.bytecode.ArrayOpCode.AType.T_BYTE;
 import static com.facebook.presto.bytecode.ArrayOpCode.AType.T_CHAR;
@@ -48,6 +43,11 @@ import static com.facebook.presto.bytecode.OpCode.SALOAD;
 import static com.facebook.presto.bytecode.OpCode.SASTORE;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
+
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.jetbrains.annotations.Nullable;
 
 public enum ArrayOpCode {
     NOT_PRIMITIVE(null, AALOAD, AASTORE, null),

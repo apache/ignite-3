@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
 
 import java.util.concurrent.BlockingQueue;
@@ -41,109 +42,103 @@ public final class ThreadPoolUtil {
     }
 
     /**
-     * Creates a new {@code MetricThreadPoolExecutor} or {@code LogThreadPoolExecutor} with the given initial parameters
-     * and default rejected execution handler.
+     * Creates a new {@code MetricThreadPoolExecutor} or {@code LogThreadPoolExecutor} with the given initial parameters and default
+     * rejected execution handler.
      *
-     * @param poolName the name of the thread pool
-     * @param enableMetric if metric is enabled
-     * @param coreThreads the number of threads to keep in the pool, even if they are idle, unless {@code
-     * allowCoreThreadTimeOut} is set.
-     * @param maximumThreads the maximum number of threads to allow in the pool
-     * @param keepAliveSeconds when the number of threads is greater than the core, this is the maximum time (seconds)
-     * that excess idle threads will wait for new tasks before terminating.
-     * @param workQueue the queue to use for holding tasks before they are executed. This queue will hold only the
-     * {@code Runnable} tasks submitted by the {@code execute} method.
-     * @param threadFactory the factory to use when the executor creates a new thread
-     * @throws IllegalArgumentException if one of the following holds:<br> {@code corePoolSize < 0}<br> {@code
-     * keepAliveSeconds < 0}<br> {@code maximumPoolSize <= 0}<br> {@code maximumPoolSize < corePoolSize}
-     * @throws NullPointerException if {@code workQueue} or {@code threadFactory} or {@code handler} is null
+     * @param poolName         the name of the thread pool
+     * @param enableMetric     if metric is enabled
+     * @param coreThreads      the number of threads to keep in the pool, even if they are idle, unless {@code allowCoreThreadTimeOut} is
+     *                         set.
+     * @param maximumThreads   the maximum number of threads to allow in the pool
+     * @param keepAliveSeconds when the number of threads is greater than the core, this is the maximum time (seconds) that excess idle
+     *                         threads will wait for new tasks before terminating.
+     * @param workQueue        the queue to use for holding tasks before they are executed. This queue will hold only the {@code Runnable}
+     *                         tasks submitted by the {@code execute} method.
+     * @param threadFactory    the factory to use when the executor creates a new thread
+     * @throws IllegalArgumentException if one of the following holds:<br> {@code corePoolSize < 0}<br> {@code keepAliveSeconds < 0}<br>
+     *                                  {@code maximumPoolSize <= 0}<br> {@code maximumPoolSize < corePoolSize}
+     * @throws NullPointerException     if {@code workQueue} or {@code threadFactory} or {@code handler} is null
      */
     public static ThreadPoolExecutor newThreadPool(final String poolName, final boolean enableMetric,
-        final int coreThreads, final int maximumThreads,
-        final long keepAliveSeconds,
-        final BlockingQueue<Runnable> workQueue,
-        final ThreadFactory threadFactory) {
+            final int coreThreads, final int maximumThreads,
+            final long keepAliveSeconds,
+            final BlockingQueue<Runnable> workQueue,
+            final ThreadFactory threadFactory) {
         return newThreadPool(poolName, enableMetric, coreThreads, maximumThreads, keepAliveSeconds, workQueue,
-            threadFactory, defaultHandler);
+                threadFactory, defaultHandler);
     }
 
     /**
-     * Creates a new {@code MetricThreadPoolExecutor} or {@code LogThreadPoolExecutor} with the given initial
-     * parameters.
+     * Creates a new {@code MetricThreadPoolExecutor} or {@code LogThreadPoolExecutor} with the given initial parameters.
      *
-     * @param poolName the name of the thread pool
-     * @param enableMetric if metric is enabled
-     * @param coreThreads the number of threads to keep in the pool, even if they are idle, unless {@code
-     * allowCoreThreadTimeOut} is set.
-     * @param maximumThreads the maximum number of threads to allow in the pool
-     * @param keepAliveSeconds when the number of threads is greater than the core, this is the maximum time (seconds)
-     * that excess idle threads will wait for new tasks before terminating.
-     * @param workQueue the queue to use for holding tasks before they are executed. This queue will hold only the
-     * {@code Runnable} tasks submitted by the {@code execute} method.
-     * @param threadFactory the factory to use when the executor creates a new thread
-     * @param rejectedHandler the handler to use when execution is blocked because the thread bounds and queue
-     * capacities are reached
-     * @throws IllegalArgumentException if one of the following holds:<br> {@code corePoolSize < 0}<br> {@code
-     * keepAliveSeconds < 0}<br> {@code maximumPoolSize <= 0}<br> {@code maximumPoolSize < corePoolSize}
-     * @throws NullPointerException if {@code workQueue} or {@code threadFactory} or {@code handler} is null
+     * @param poolName         the name of the thread pool
+     * @param enableMetric     if metric is enabled
+     * @param coreThreads      the number of threads to keep in the pool, even if they are idle, unless {@code allowCoreThreadTimeOut} is
+     *                         set.
+     * @param maximumThreads   the maximum number of threads to allow in the pool
+     * @param keepAliveSeconds when the number of threads is greater than the core, this is the maximum time (seconds) that excess idle
+     *                         threads will wait for new tasks before terminating.
+     * @param workQueue        the queue to use for holding tasks before they are executed. This queue will hold only the {@code Runnable}
+     *                         tasks submitted by the {@code execute} method.
+     * @param threadFactory    the factory to use when the executor creates a new thread
+     * @param rejectedHandler  the handler to use when execution is blocked because the thread bounds and queue capacities are reached
+     * @throws IllegalArgumentException if one of the following holds:<br> {@code corePoolSize < 0}<br> {@code keepAliveSeconds < 0}<br>
+     *                                  {@code maximumPoolSize <= 0}<br> {@code maximumPoolSize < corePoolSize}
+     * @throws NullPointerException     if {@code workQueue} or {@code threadFactory} or {@code handler} is null
      */
     public static ThreadPoolExecutor newThreadPool(final String poolName, final boolean enableMetric,
-        final int coreThreads, final int maximumThreads,
-        final long keepAliveSeconds,
-        final BlockingQueue<Runnable> workQueue,
-        final ThreadFactory threadFactory,
-        final RejectedExecutionHandler rejectedHandler) {
+            final int coreThreads, final int maximumThreads,
+            final long keepAliveSeconds,
+            final BlockingQueue<Runnable> workQueue,
+            final ThreadFactory threadFactory,
+            final RejectedExecutionHandler rejectedHandler) {
         final TimeUnit unit = TimeUnit.SECONDS;
         if (enableMetric) {
             return new MetricThreadPoolExecutor(coreThreads, maximumThreads, keepAliveSeconds, unit, workQueue,
-                threadFactory, rejectedHandler, poolName);
-        }
-        else {
+                    threadFactory, rejectedHandler, poolName);
+        } else {
             return new LogThreadPoolExecutor(coreThreads, maximumThreads, keepAliveSeconds, unit, workQueue,
-                threadFactory, rejectedHandler, poolName);
+                    threadFactory, rejectedHandler, poolName);
         }
     }
 
     /**
      * Creates a new ScheduledThreadPoolExecutor with the given initial parameters.
      *
-     * @param poolName the name of the thread pool
-     * @param enableMetric if metric is enabled
-     * @param coreThreads the number of threads to keep in the pool, even if they are idle, unless {@code
-     * allowCoreThreadTimeOut} is set.
+     * @param poolName      the name of the thread pool
+     * @param enableMetric  if metric is enabled
+     * @param coreThreads   the number of threads to keep in the pool, even if they are idle, unless {@code allowCoreThreadTimeOut} is set.
      * @param threadFactory the factory to use when the executor creates a new thread
      * @return a new ScheduledThreadPoolExecutor
      * @throws IllegalArgumentException if {@code corePoolSize < 0}
-     * @throws NullPointerException if {@code threadFactory} or {@code handler} is null
+     * @throws NullPointerException     if {@code threadFactory} or {@code handler} is null
      */
     public static ScheduledThreadPoolExecutor newScheduledThreadPool(final String poolName, final boolean enableMetric,
-        final int coreThreads,
-        final ThreadFactory threadFactory) {
+            final int coreThreads,
+            final ThreadFactory threadFactory) {
         return newScheduledThreadPool(poolName, enableMetric, coreThreads, threadFactory, defaultHandler);
     }
 
     /**
      * Creates a new ScheduledThreadPoolExecutor with the given initial parameters.
      *
-     * @param poolName the name of the thread pool
-     * @param enableMetric if metric is enabled
-     * @param coreThreads the number of threads to keep in the pool, even if they are idle, unless {@code
-     * allowCoreThreadTimeOut} is set.
-     * @param threadFactory the factory to use when the executor creates a new thread
-     * @param rejectedHandler the handler to use when execution is blocked because the thread bounds and queue
-     * capacities are reached
+     * @param poolName        the name of the thread pool
+     * @param enableMetric    if metric is enabled
+     * @param coreThreads     the number of threads to keep in the pool, even if they are idle, unless {@code allowCoreThreadTimeOut} is
+     *                        set.
+     * @param threadFactory   the factory to use when the executor creates a new thread
+     * @param rejectedHandler the handler to use when execution is blocked because the thread bounds and queue capacities are reached
      * @return a new ScheduledThreadPoolExecutor
      * @throws IllegalArgumentException if {@code corePoolSize < 0}
-     * @throws NullPointerException if {@code threadFactory} or {@code handler} is null
+     * @throws NullPointerException     if {@code threadFactory} or {@code handler} is null
      */
     public static ScheduledThreadPoolExecutor newScheduledThreadPool(final String poolName, final boolean enableMetric,
-        final int coreThreads,
-        final ThreadFactory threadFactory,
-        final RejectedExecutionHandler rejectedHandler) {
+            final int coreThreads,
+            final ThreadFactory threadFactory,
+            final RejectedExecutionHandler rejectedHandler) {
         if (enableMetric) {
             return new MetricScheduledThreadPoolExecutor(coreThreads, threadFactory, rejectedHandler, poolName);
-        }
-        else {
+        } else {
             return new LogScheduledThreadPoolExecutor(coreThreads, threadFactory, rejectedHandler, poolName);
         }
     }
@@ -212,7 +207,7 @@ public final class ThreadPoolUtil {
             Requires.requireNonNull(this.handler, "handler");
 
             return ThreadPoolUtil.newThreadPool(this.poolName, this.enableMetric, this.coreThreads,
-                this.maximumThreads, this.keepAliveSeconds, this.workQueue, this.threadFactory, this.handler);
+                    this.maximumThreads, this.keepAliveSeconds, this.workQueue, this.threadFactory, this.handler);
         }
     }
 
@@ -257,7 +252,7 @@ public final class ThreadPoolUtil {
             Requires.requireNonNull(this.handler, "handler");
 
             return ThreadPoolUtil.newScheduledThreadPool(this.poolName, this.enableMetric, this.coreThreads,
-                this.threadFactory, this.handler);
+                    this.threadFactory, this.handler);
         }
     }
 }

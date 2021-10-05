@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util;
 
 import java.nio.ByteBuffer;
@@ -41,7 +42,7 @@ public final class CrcUtil {
     /**
      * Compute CRC64 checksum for byte[].
      *
-     * @param array source array
+     * @param array  source array
      * @param offset starting position in the source array
      * @param length the number of array elements to be computed
      * @return checksum value

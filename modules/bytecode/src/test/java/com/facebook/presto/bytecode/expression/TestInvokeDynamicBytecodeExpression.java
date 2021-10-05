@@ -14,7 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.bytecode.expression;
+
+import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeDynamic;
 
 import java.lang.invoke.CallSite;
 import java.lang.invoke.ConstantCallSite;
@@ -25,33 +30,29 @@ import java.lang.reflect.Method;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeDynamic;
-
 public class TestInvokeDynamicBytecodeExpression {
     @Test
     public void testInvokeStaticMethod()
-        throws Exception {
+            throws Exception {
         assertBytecodeExpression(
-            invokeDynamic(TEST_BOOTSTRAP_METHOD, List.of("bar"), "foo", String.class, constantString("baz")),
-            "foo-bar-baz",
-            "[bootstrap(\"bar\")]=>foo(\"baz\")");
+                invokeDynamic(TEST_BOOTSTRAP_METHOD, List.of("bar"), "foo", String.class, constantString("baz")),
+                "foo-bar-baz",
+                "[bootstrap(\"bar\")]=>foo(\"baz\")");
     }
 
     public static final Method TEST_BOOTSTRAP_METHOD;
 
     static {
         try {
-            TEST_BOOTSTRAP_METHOD = TestInvokeDynamicBytecodeExpression.class.getMethod("bootstrap", MethodHandles.Lookup.class, String.class, MethodType.class, String.class);
-        }
-        catch (NoSuchMethodException e) {
+            TEST_BOOTSTRAP_METHOD = TestInvokeDynamicBytecodeExpression.class.getMethod("bootstrap", MethodHandles.Lookup.class,
+                    String.class, MethodType.class, String.class);
+        } catch (NoSuchMethodException e) {
             throw new RuntimeException(e);
         }
     }
 
     public static CallSite bootstrap(MethodHandles.Lookup callerLookup, String name, MethodType type, String prefix)
-        throws Exception {
+            throws Exception {
         MethodHandle methodHandle = callerLookup.findVirtual(String.class, "concat", MethodType.methodType(String.class, String.class));
         methodHandle = methodHandle.bindTo(name + "-" + prefix + "-");
         return new ConstantCallSite(methodHandle);

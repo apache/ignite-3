@@ -33,24 +33,24 @@ public final class MarshallerUtil {
     /**
      * Calculates size for serialized value of varlen type.
      *
-     * @param val Field value.
+     * @param val  Field value.
      * @param type Mapped type.
      * @return Serialized value size.
      */
     public static int getValueSize(Object val, NativeType type) {
         switch (type.spec()) {
             case BYTES:
-                return ((byte[])val).length;
+                return ((byte[]) val).length;
 
             case STRING:
                 // Overestimating size here prevents from later unwanted row buffer expanding.
-                return ((CharSequence)val).length() << 1;
+                return ((CharSequence) val).length() << 1;
 
             case NUMBER:
-                return RowAssembler.sizeInBytes((BigInteger)val);
+                return RowAssembler.sizeInBytes((BigInteger) val);
 
             case DECIMAL:
-                return RowAssembler.sizeInBytes((BigDecimal)val);
+                return RowAssembler.sizeInBytes((BigDecimal) val);
 
             default:
                 throw new InvalidTypeException("Unsupported variable-length type: " + type);
@@ -67,46 +67,49 @@ public final class MarshallerUtil {
         assert cls != null;
 
         // Primitives.
-        if (cls == byte.class)
+        if (cls == byte.class) {
             return BinaryMode.P_BYTE;
-        else if (cls == short.class)
+        } else if (cls == short.class) {
             return BinaryMode.P_SHORT;
-        else if (cls == int.class)
+        } else if (cls == int.class) {
             return BinaryMode.P_INT;
-        else if (cls == long.class)
+        } else if (cls == long.class) {
             return BinaryMode.P_LONG;
-        else if (cls == float.class)
+        } else if (cls == float.class) {
             return BinaryMode.P_FLOAT;
-        else if (cls == double.class)
+        } else if (cls == double.class) {
             return BinaryMode.P_DOUBLE;
+        }
 
-            // Boxed primitives.
-        else if (cls == Byte.class)
+        // Boxed primitives.
+        else if (cls == Byte.class) {
             return BinaryMode.BYTE;
-        else if (cls == Short.class)
+        } else if (cls == Short.class) {
             return BinaryMode.SHORT;
-        else if (cls == Integer.class)
+        } else if (cls == Integer.class) {
             return BinaryMode.INT;
-        else if (cls == Long.class)
+        } else if (cls == Long.class) {
             return BinaryMode.LONG;
-        else if (cls == Float.class)
+        } else if (cls == Float.class) {
             return BinaryMode.FLOAT;
-        else if (cls == Double.class)
+        } else if (cls == Double.class) {
             return BinaryMode.DOUBLE;
+        }
 
-            // Other types
-        else if (cls == byte[].class)
+        // Other types
+        else if (cls == byte[].class) {
             return BinaryMode.BYTE_ARR;
-        else if (cls == String.class)
+        } else if (cls == String.class) {
             return BinaryMode.STRING;
-        else if (cls == UUID.class)
+        } else if (cls == UUID.class) {
             return BinaryMode.UUID;
-        else if (cls == BitSet.class)
+        } else if (cls == BitSet.class) {
             return BinaryMode.BITSET;
-        else if (cls == BigInteger.class)
+        } else if (cls == BigInteger.class) {
             return BinaryMode.NUMBER;
-        else if (cls == BigDecimal.class)
+        } else if (cls == BigDecimal.class) {
             return BinaryMode.DECIMAL;
+        }
 
         return null;
     }
@@ -115,14 +118,15 @@ public final class MarshallerUtil {
      * Creates object factory for class.
      *
      * @param tCls Target class.
-     * @param <T> Target type.
+     * @param <T>  Target type.
      * @return Object factory.
      */
     public static <T> ObjectFactory<T> factoryForClass(Class<T> tCls) {
-        if (mode(tCls) == null)
+        if (mode(tCls) == null) {
             return new ObjectFactory<>(tCls);
-        else
+        } else {
             return null;
+        }
     }
 
     /** Stub. */

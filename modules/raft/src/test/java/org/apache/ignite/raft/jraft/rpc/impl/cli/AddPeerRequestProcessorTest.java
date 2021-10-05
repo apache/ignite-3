@@ -14,7 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.eq;
 
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
@@ -25,19 +30,15 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerResponse;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.eq;
-
 public class AddPeerRequestProcessorTest extends AbstractCliRequestProcessorTest<AddPeerRequest> {
 
     @Override
     public AddPeerRequest createRequest(String groupId, PeerId peerId) {
         return msgFactory.addPeerRequest()
-            .groupId(groupId)
-            .leaderId(peerId.toString())
-            .peerId("test:8181")
-            .build();
+                .groupId(groupId)
+                .leaderId(peerId.toString())
+                .peerId("test:8181")
+                .build();
     }
 
     @Override
@@ -54,9 +55,9 @@ public class AddPeerRequestProcessorTest extends AbstractCliRequestProcessorTest
         done.run(Status.OK());
         assertNotNull(this.asyncContext.getResponseObject());
         assertEquals("[localhost:8081, localhost:8082, localhost:8083]", this.asyncContext.as(AddPeerResponse.class)
-            .oldPeersList().toString());
+                .oldPeersList().toString());
         assertEquals("[localhost:8081, localhost:8082, localhost:8083, test:8181]",
-            this.asyncContext.as(AddPeerResponse.class).newPeersList().toString());
+                this.asyncContext.as(AddPeerResponse.class).newPeersList().toString());
     }
 
 }

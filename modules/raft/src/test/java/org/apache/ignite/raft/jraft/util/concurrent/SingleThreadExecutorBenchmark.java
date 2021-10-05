@@ -14,8 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.util.concurrent;
 
+import io.netty.util.concurrent.DefaultEventExecutor;
 import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -24,7 +26,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.LinkedTransferQueue;
 import java.util.concurrent.TimeUnit;
-import io.netty.util.concurrent.DefaultEventExecutor;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
@@ -76,11 +77,11 @@ public class SingleThreadExecutorBenchmark {
 
     public static void main(String[] args) throws RunnerException {
         final Options opt = new OptionsBuilder() //
-            .include(SingleThreadExecutorBenchmark.class.getSimpleName()) //
-            .warmupIterations(3) //
-            .measurementIterations(10) //
-            .forks(1) //
-            .build();
+                .include(SingleThreadExecutorBenchmark.class.getSimpleName()) //
+                .warmupIterations(3) //
+                .measurementIterations(10) //
+                .forks(1) //
+                .build();
 
         new Runner(opt).run();
     }
@@ -98,7 +99,7 @@ public class SingleThreadExecutorBenchmark {
     @Benchmark
     public void nettyDefaultEventExecutor() throws InterruptedException {
         execute(new DefaultSingleThreadExecutor(
-            new DefaultEventExecutor(new NamedThreadFactory("netty_executor", true))));
+                new DefaultEventExecutor(new NamedThreadFactory("netty_executor", true))));
     }
 
     @Benchmark
@@ -154,13 +155,13 @@ public class SingleThreadExecutorBenchmark {
 
     private static ExecutorService newProducers() {
         return ThreadPoolUtil.newBuilder() //
-            .coreThreads(THREADS) //
-            .maximumThreads(THREADS) //
-            .poolName("benchmark") //
-            .enableMetric(false) //
-            .workQueue(new ArrayBlockingQueue<>(TIMES)) //
-            .keepAliveSeconds(60L) //
-            .threadFactory(new NamedThreadFactory("benchmark", true)) //
-            .build();
+                .coreThreads(THREADS) //
+                .maximumThreads(THREADS) //
+                .poolName("benchmark") //
+                .enableMetric(false) //
+                .workQueue(new ArrayBlockingQueue<>(TIMES)) //
+                .keepAliveSeconds(60L) //
+                .threadFactory(new NamedThreadFactory("benchmark", true)) //
+                .build();
     }
 }

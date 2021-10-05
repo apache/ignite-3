@@ -14,7 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.core;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -63,15 +73,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.mockito.stubbing.Answer;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.same;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -133,7 +134,7 @@ public class ReplicatorTest {
     private void mockSendEmptyEntries(final boolean isHeartbeat) {
         final RpcRequests.AppendEntriesRequest request = createEmptyEntriesRequest(isHeartbeat);
         Mockito.when(this.rpcService.appendEntries(eq(this.peerId.getEndpoint()), eq(request), eq(-1), Mockito.any()))
-            .thenReturn(new CompletableFuture<>());
+                .thenReturn(new CompletableFuture<>());
     }
 
     private RpcRequests.AppendEntriesRequest createEmptyEntriesRequest() {
@@ -142,13 +143,13 @@ public class ReplicatorTest {
 
     private RpcRequests.AppendEntriesRequest createEmptyEntriesRequest(final boolean isHeartbeat) {
         AppendEntriesRequestBuilder rb = raftOptions.getRaftMessagesFactory().appendEntriesRequest()
-            .groupId("test")
-            .serverId(new PeerId("localhost", 8082).toString())
-            .peerId(this.peerId.toString())
-            .term(1)
-            .prevLogIndex(10)
-            .prevLogTerm(1)
-            .committedIndex(0);
+                .groupId("test")
+                .serverId(new PeerId("localhost", 8082).toString())
+                .peerId(this.peerId.toString())
+                .term(1)
+                .prevLogIndex(10)
+                .prevLogTerm(1)
+                .committedIndex(0);
         if (!isHeartbeat) {
             rb.data(ByteString.EMPTY);
         }
@@ -204,15 +205,15 @@ public class ReplicatorTest {
         assertNull(r.getBlockTimer());
         final RpcRequests.AppendEntriesRequest request = createEmptyEntriesRequest();
         final RpcRequests.AppendEntriesResponse response = raftOptions.getRaftMessagesFactory()
-            .appendEntriesResponse()
-            .success(false)
-            .lastLogIndex(12)
-            .term(2)
-            .build();
+                .appendEntriesResponse()
+                .success(false)
+                .lastLogIndex(12)
+                .term(2)
+                .build();
         this.id.unlock();
 
         Replicator.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, new Status(-1, "test error"), request,
-            response, 0, 0, Utils.monotonicMs());
+                response, 0, 0, Utils.monotonicMs());
         assertEquals(Replicator.RunningState.BLOCKING, r.statInfo.runningState);
         assertNotNull(r.getBlockTimer());
         return r;
@@ -226,14 +227,14 @@ public class ReplicatorTest {
 
         final RpcRequests.AppendEntriesRequest request = createEmptyEntriesRequest();
         final RpcRequests.AppendEntriesResponse response = raftOptions.getRaftMessagesFactory()
-            .appendEntriesResponse()
-            .success(false)
-            .lastLogIndex(12)
-            .term(2)
-            .build();
+                .appendEntriesResponse()
+                .success(false)
+                .lastLogIndex(12)
+                .term(2)
+                .build();
         r.getInflights().add(new Replicator.Inflight(RequestType.AppendEntries, r.getNextSendIndex(), 0, 0, 1, null));
         Replicator.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, new Status(-1, "test error"), request,
-            response, 1, 1, Utils.monotonicMs());
+                response, 1, 1, Utils.monotonicMs());
         assertEquals(Replicator.RunningState.BLOCKING, r.statInfo.runningState);
         assertNotNull(r.getBlockTimer());
         // the same timer
@@ -242,7 +243,7 @@ public class ReplicatorTest {
         Thread.sleep(r.getOpts().getDynamicHeartBeatTimeoutMs() * 2);
         r.getInflights().add(new Replicator.Inflight(RequestType.AppendEntries, r.getNextSendIndex(), 0, 0, 1, null));
         Replicator.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, new Status(-1, "test error"), request,
-            response, 1, 2, Utils.monotonicMs());
+                response, 1, 2, Utils.monotonicMs());
         assertEquals(Replicator.RunningState.BLOCKING, r.statInfo.runningState);
         assertNotNull(r.getBlockTimer());
         // the same timer
@@ -254,19 +255,19 @@ public class ReplicatorTest {
         final Replicator r = getReplicator();
         final RpcRequests.AppendEntriesRequest request = createEmptyEntriesRequest();
         final RpcRequests.AppendEntriesResponse response = raftOptions.getRaftMessagesFactory()
-            .appendEntriesResponse()
-            .success(false)
-            .lastLogIndex(12)
-            .term(2)
-            .build();
+                .appendEntriesResponse()
+                .success(false)
+                .lastLogIndex(12)
+                .term(2)
+                .build();
         this.id.unlock();
 
         Replicator.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, Status.OK(), request, response, 0, 0,
-            Utils.monotonicMs());
+                Utils.monotonicMs());
         Mockito.verify(this.node).increaseTermTo(
-            2,
-            new Status(RaftError.EHIGHERTERMRESPONSE, "Leader receives higher term heartbeat_response from peer:%s",
-                this.peerId));
+                2,
+                new Status(RaftError.EHIGHERTERMRESPONSE, "Leader receives higher term heartbeat_response from peer:%s",
+                        this.peerId));
         assertTrue(r.id.isDestroyed());
     }
 
@@ -276,32 +277,32 @@ public class ReplicatorTest {
         assertEquals(11, r.getRealNextIndex());
         final RpcRequests.AppendEntriesRequest request = createEmptyEntriesRequest();
         final RpcRequests.AppendEntriesResponse response = raftOptions.getRaftMessagesFactory()
-            .appendEntriesResponse()
-            .success(false)
-            .lastLogIndex(12)
-            .term(1)
-            .build();
+                .appendEntriesResponse()
+                .success(false)
+                .lastLogIndex(12)
+                .term(1)
+                .build();
         this.id.unlock();
         final Future<Message> rpcInFly = r.getRpcInFly();
         assertNotNull(rpcInFly);
 
         Mockito.when(this.logManager.getTerm(9)).thenReturn(1L);
         final RpcRequests.AppendEntriesRequest newReq = raftOptions.getRaftMessagesFactory()
-            .appendEntriesRequest()
-            .groupId("test")
-            .serverId(new PeerId("localhost", 8082).toString())
-            .peerId(this.peerId.toString())
-            .term(1)
-            .prevLogIndex(9)
-            .data(ByteString.EMPTY)
-            .prevLogTerm(1)
-            .committedIndex(0)
-            .build();
+                .appendEntriesRequest()
+                .groupId("test")
+                .serverId(new PeerId("localhost", 8082).toString())
+                .peerId(this.peerId.toString())
+                .term(1)
+                .prevLogIndex(9)
+                .data(ByteString.EMPTY)
+                .prevLogTerm(1)
+                .committedIndex(0)
+                .build();
         Mockito.when(this.rpcService.appendEntries(eq(this.peerId.getEndpoint()), eq(newReq), eq(-1), Mockito.any()))
-            .thenReturn(new CompletableFuture<>());
+                .thenReturn(new CompletableFuture<>());
 
         Replicator.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, Status.OK(), request, response, 0, 0,
-            Utils.monotonicMs());
+                Utils.monotonicMs());
 
         assertNotNull(r.getRpcInFly());
         assertNotSame(r.getRpcInFly(), rpcInFly);
@@ -317,32 +318,32 @@ public class ReplicatorTest {
         assertEquals(11, r.getRealNextIndex());
         final RpcRequests.AppendEntriesRequest request = createEmptyEntriesRequest();
         final RpcRequests.AppendEntriesResponse response = raftOptions.getRaftMessagesFactory()
-            .appendEntriesResponse()
-            .success(false)
-            .lastLogIndex(8)
-            .term(1)
-            .build();
+                .appendEntriesResponse()
+                .success(false)
+                .lastLogIndex(8)
+                .term(1)
+                .build();
         this.id.unlock();
         final Future<Message> rpcInFly = r.getRpcInFly();
         assertNotNull(rpcInFly);
 
         Mockito.when(this.logManager.getTerm(8)).thenReturn(1L);
         final RpcRequests.AppendEntriesRequest newReq = raftOptions.getRaftMessagesFactory()
-            .appendEntriesRequest()
-            .groupId("test")
-            .serverId(new PeerId("localhost", 8082).toString())
-            .peerId(this.peerId.toString())
-            .term(1)
-            .prevLogIndex(8)
-            .prevLogTerm(1)
-            .data(ByteString.EMPTY)
-            .committedIndex(0)
-            .build();
+                .appendEntriesRequest()
+                .groupId("test")
+                .serverId(new PeerId("localhost", 8082).toString())
+                .peerId(this.peerId.toString())
+                .term(1)
+                .prevLogIndex(8)
+                .prevLogTerm(1)
+                .data(ByteString.EMPTY)
+                .committedIndex(0)
+                .build();
         Mockito.when(this.rpcService.appendEntries(eq(this.peerId.getEndpoint()), eq(newReq), eq(-1), Mockito.any()))
-            .thenReturn(new CompletableFuture<>());
+                .thenReturn(new CompletableFuture<>());
 
         Replicator.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, Status.OK(), request, response, 0, 0,
-            Utils.monotonicMs());
+                Utils.monotonicMs());
 
         assertNotNull(r.getRpcInFly());
         assertNotSame(r.getRpcInFly(), rpcInFly);
@@ -359,11 +360,11 @@ public class ReplicatorTest {
 
         final RpcRequests.AppendEntriesRequest request = createEmptyEntriesRequest();
         final RpcRequests.AppendEntriesResponse response = raftOptions.getRaftMessagesFactory()
-            .appendEntriesResponse()
-            .success(true)
-            .lastLogIndex(10)
-            .term(1)
-            .build();
+                .appendEntriesResponse()
+                .success(true)
+                .lastLogIndex(10)
+                .term(1)
+                .build();
         this.id.unlock();
         Mockito.when(this.logManager.wait(eq(10L), Mockito.any(), same(this.id))).thenReturn(99L);
 
@@ -377,7 +378,7 @@ public class ReplicatorTest {
         }, node.getOptions().getCommonExecutor());
 
         Replicator.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, Status.OK(), request, response, 0, 0,
-            Utils.monotonicMs());
+                Utils.monotonicMs());
 
         assertEquals(Replicator.RunningState.IDLE, r.statInfo.runningState);
         this.id.unlock(); // TODO asch fix bad unlock IGNITE-14832
@@ -434,14 +435,14 @@ public class ReplicatorTest {
         assertNotNull(rpcInFly);
 
         final AppendEntriesRequestBuilder rb = raftOptions.getRaftMessagesFactory()
-            .appendEntriesRequest()
-            .groupId("test")
-            .serverId(new PeerId("localhost", 8082).toString())
-            .peerId(this.peerId.toString())
-            .term(1)
-            .prevLogIndex(10)
-            .prevLogTerm(1)
-            .committedIndex(0);
+                .appendEntriesRequest()
+                .groupId("test")
+                .serverId(new PeerId("localhost", 8082).toString())
+                .peerId(this.peerId.toString())
+                .term(1)
+                .prevLogIndex(10)
+                .prevLogTerm(1)
+                .committedIndex(0);
 
         int totalDataLen = 0;
         List<RaftOutter.EntryMeta> entries = new ArrayList<>();
@@ -454,11 +455,11 @@ public class ReplicatorTest {
             value.setId(new LogId(11 + i, 1));
             Mockito.when(this.logManager.getEntry(11 + i)).thenReturn(value);
             entries.add(raftOptions.getRaftMessagesFactory()
-                .entryMeta()
-                .term(1)
-                .type(EnumOutter.EntryType.ENTRY_TYPE_DATA)
-                .dataLen(i)
-                .build());
+                    .entryMeta()
+                    .term(1)
+                    .type(EnumOutter.EntryType.ENTRY_TYPE_DATA)
+                    .dataLen(i)
+                    .build());
         }
 
         rb.entriesList(entries);
@@ -467,11 +468,12 @@ public class ReplicatorTest {
 
         final RpcRequests.AppendEntriesRequest request = rb.build();
         Mockito.when(this.rpcService.appendEntries(eq(this.peerId.getEndpoint()), eq(request), eq(-1), Mockito.any()))
-            .thenAnswer(new Answer<Future>() {
-                @Override public Future answer(InvocationOnMock invocation) throws Throwable {
-                    return new CompletableFuture<>();
-                }
-            });
+                .thenAnswer(new Answer<Future>() {
+                    @Override
+                    public Future answer(InvocationOnMock invocation) throws Throwable {
+                        return new CompletableFuture<>();
+                    }
+                });
 
         assertEquals(11, r.statInfo.firstLogIndex);
         assertEquals(10, r.statInfo.lastLogIndex);
@@ -492,8 +494,8 @@ public class ReplicatorTest {
         assertNull(r.getHeartbeatInFly());
         final RpcRequests.AppendEntriesRequest request = createEmptyEntriesRequest(true);
         Mockito.when(
-            this.rpcService.appendEntries(eq(this.peerId.getEndpoint()), eq(request),
-                eq(this.opts.getElectionTimeoutMs() / 2), Mockito.any())).thenReturn(new CompletableFuture<>());
+                this.rpcService.appendEntries(eq(this.peerId.getEndpoint()), eq(request),
+                        eq(this.opts.getElectionTimeoutMs() / 2), Mockito.any())).thenReturn(new CompletableFuture<>());
         this.id.setError(RaftError.ETIMEDOUT.getNumber());
         Thread.sleep(this.opts.getElectionTimeoutMs() + 1000);
         assertNotNull(r.getHeartbeatInFly());
@@ -506,7 +508,7 @@ public class ReplicatorTest {
         final ScheduledFuture<?> timer = r.getHeartbeatTimer();
         assertNotNull(timer);
         Replicator.onHeartbeatReturned(this.id, new Status(-1, "test"), createEmptyEntriesRequest(), null,
-            Utils.monotonicMs());
+                Utils.monotonicMs());
         assertNotNull(r.getHeartbeatTimer());
         assertNotSame(timer, r.getHeartbeatTimer());
     }
@@ -518,13 +520,13 @@ public class ReplicatorTest {
         final ScheduledFuture<?> timer = r.getHeartbeatTimer();
         assertNotNull(timer);
         final RpcRequests.AppendEntriesResponse response = raftOptions.getRaftMessagesFactory()
-            .appendEntriesResponse()
-            .success(false)
-            .lastLogIndex(10)
-            .term(1)
-            .build();
+                .appendEntriesResponse()
+                .success(false)
+                .lastLogIndex(10)
+                .term(1)
+                .build();
         Replicator
-            .onHeartbeatReturned(this.id, Status.OK(), createEmptyEntriesRequest(), response, Utils.monotonicMs());
+                .onHeartbeatReturned(this.id, Status.OK(), createEmptyEntriesRequest(), response, Utils.monotonicMs());
         assertNotNull(r.getHeartbeatTimer());
         assertNotSame(timer, r.getHeartbeatTimer());
     }
@@ -534,18 +536,18 @@ public class ReplicatorTest {
         final Replicator r = getReplicator();
         final RpcRequests.AppendEntriesRequest request = createEmptyEntriesRequest();
         final RpcRequests.AppendEntriesResponse response = raftOptions.getRaftMessagesFactory()
-            .appendEntriesResponse()
-            .success(false)
-            .lastLogIndex(12)
-            .term(2)
-            .build();
+                .appendEntriesResponse()
+                .success(false)
+                .lastLogIndex(12)
+                .term(2)
+                .build();
         this.id.unlock();
 
         Replicator.onHeartbeatReturned(this.id, Status.OK(), request, response, Utils.monotonicMs());
         Mockito.verify(this.node).increaseTermTo(
-            2,
-            new Status(RaftError.EHIGHERTERMRESPONSE, "Leader receives higher term heartbeat_response from peer:%s",
-                this.peerId));
+                2,
+                new Status(RaftError.EHIGHERTERMRESPONSE, "Leader receives higher term heartbeat_response from peer:%s",
+                        this.peerId));
         assertTrue(r.id.isDestroyed());
     }
 
@@ -579,8 +581,8 @@ public class ReplicatorTest {
 
         final RpcRequests.TimeoutNowRequest request = createTimeoutnowRequest();
         Mockito.when(
-            this.rpcService.timeoutNow(eq(this.opts.getPeerId().getEndpoint()), eq(request), eq(-1),
-                Mockito.any())).thenReturn(new CompletableFuture<>());
+                this.rpcService.timeoutNow(eq(this.opts.getPeerId().getEndpoint()), eq(request), eq(-1),
+                        Mockito.any())).thenReturn(new CompletableFuture<>());
 
         assertTrue(Replicator.transferLeadership(this.id, 10));
         assertEquals(0, r.getTimeoutNowIndex());
@@ -595,9 +597,10 @@ public class ReplicatorTest {
         assertNull(r.getHeartbeatInFly());
         final RpcRequests.AppendEntriesRequest request = createEmptyEntriesRequest(true);
         Mockito.when(
-            this.rpcService.appendEntries(eq(this.peerId.getEndpoint()), eq(request),
-                eq(this.opts.getElectionTimeoutMs() / 2), Mockito.any())).thenAnswer(new Answer<Future>() {
-            @Override public Future answer(InvocationOnMock invocation) throws Throwable {
+                this.rpcService.appendEntries(eq(this.peerId.getEndpoint()), eq(request),
+                        eq(this.opts.getElectionTimeoutMs() / 2), Mockito.any())).thenAnswer(new Answer<Future>() {
+            @Override
+            public Future answer(InvocationOnMock invocation) throws Throwable {
                 return new CompletableFuture<>();
             }
         });
@@ -626,17 +629,17 @@ public class ReplicatorTest {
         assertNull(r.getTimeoutNowInFly());
         final RpcRequests.TimeoutNowRequest request = createTimeoutnowRequest();
         Mockito.verify(this.rpcService).timeoutNow(eq(this.opts.getPeerId().getEndpoint()), eq(request),
-            eq(10), Mockito.any());
+                eq(10), Mockito.any());
     }
 
     private RpcRequests.TimeoutNowRequest createTimeoutnowRequest() {
         return raftOptions.getRaftMessagesFactory()
-            .timeoutNowRequest()
-            .term(this.opts.getTerm())
-            .groupId(this.opts.getGroupId())
-            .serverId(this.opts.getServerId().toString())
-            .peerId(this.opts.getPeerId().toString())
-            .build();
+                .timeoutNowRequest()
+                .term(this.opts.getTerm())
+                .groupId(this.opts.getGroupId())
+                .serverId(this.opts.getServerId().toString())
+                .peerId(this.opts.getPeerId().toString())
+                .build();
     }
 
     @Test
@@ -675,27 +678,27 @@ public class ReplicatorTest {
         final String uri = "remote://localhost:8081/99";
         Mockito.when(reader.generateURIForCopy()).thenReturn(uri);
         final RaftOutter.SnapshotMeta meta = raftOptions.getRaftMessagesFactory().snapshotMeta()
-            .lastIncludedIndex(11)
-            .lastIncludedTerm(1)
-            .build();
+                .lastIncludedIndex(11)
+                .lastIncludedTerm(1)
+                .build();
         Mockito.when(reader.load()).thenReturn(meta);
 
         assertEquals(0, r.statInfo.lastLogIncluded);
         assertEquals(0, r.statInfo.lastTermIncluded);
 
         final RpcRequests.InstallSnapshotRequest req = raftOptions.getRaftMessagesFactory()
-            .installSnapshotRequest()
-            .term(this.opts.getTerm())
-            .groupId(this.opts.getGroupId())
-            .serverId(this.opts.getServerId().toString())
-            .peerId(this.opts.getPeerId().toString())
-            .meta(meta)
-            .uri(uri)
-            .build();
+                .installSnapshotRequest()
+                .term(this.opts.getTerm())
+                .groupId(this.opts.getGroupId())
+                .serverId(this.opts.getServerId().toString())
+                .peerId(this.opts.getPeerId().toString())
+                .meta(meta)
+                .uri(uri)
+                .build();
 
         Mockito.when(
-            this.rpcService.installSnapshot(eq(this.opts.getPeerId().getEndpoint()), eq(req),
-                Mockito.any())).thenReturn(new CompletableFuture<>());
+                this.rpcService.installSnapshot(eq(this.opts.getPeerId().getEndpoint()), eq(req),
+                        Mockito.any())).thenReturn(new CompletableFuture<>());
 
         r.installSnapshot();
         assertNotNull(r.getRpcInFly());
@@ -711,17 +714,17 @@ public class ReplicatorTest {
         this.id.unlock();
         final RpcRequests.TimeoutNowRequest request = createTimeoutnowRequest();
         final RpcRequests.TimeoutNowResponse response = raftOptions.getRaftMessagesFactory()
-            .timeoutNowResponse()
-            .success(false)
-            .term(12)
-            .build();
+                .timeoutNowResponse()
+                .success(false)
+                .term(12)
+                .build();
         this.id.unlock();
 
         Replicator.onTimeoutNowReturned(this.id, Status.OK(), request, response, false);
         Mockito.verify(this.node).increaseTermTo(
-            12,
-            new Status(RaftError.EHIGHERTERMRESPONSE, "Leader receives higher term timeout_now_response from peer:%s",
-                this.peerId));
+                12,
+                new Status(RaftError.EHIGHERTERMRESPONSE, "Leader receives higher term timeout_now_response from peer:%s",
+                        this.peerId));
         assertTrue(r.id.isDestroyed());
     }
 
@@ -733,10 +736,10 @@ public class ReplicatorTest {
 
         final RpcRequests.InstallSnapshotRequest request = createInstallSnapshotRequest();
         final RpcRequests.InstallSnapshotResponse response = raftOptions.getRaftMessagesFactory()
-            .installSnapshotResponse()
-            .success(true)
-            .term(1)
-            .build();
+                .installSnapshotResponse()
+                .success(true)
+                .term(1)
+                .build();
         assertEquals(-1, r.getWaitId());
         Mockito.when(this.logManager.getTerm(11)).thenReturn(1L);
         Replicator.onRpcReturned(this.id, Replicator.RequestType.Snapshot, Status.OK(), request, response, 0, 0, -1);
@@ -752,14 +755,14 @@ public class ReplicatorTest {
 
         final RpcRequests.InstallSnapshotRequest request = createInstallSnapshotRequest();
         final RpcRequests.InstallSnapshotResponse response = raftOptions.getRaftMessagesFactory()
-            .installSnapshotResponse()
-            .success(true)
-            .term(1)
-            .build();
+                .installSnapshotResponse()
+                .success(true)
+                .term(1)
+                .build();
         assertEquals(-1, r.getWaitId());
         Mockito.lenient().when(this.logManager.getTerm(11)).thenReturn(1L);
         Replicator.onRpcReturned(this.id, Replicator.RequestType.Snapshot, new Status(-1, "test"), request, response,
-            0, 0, -1);
+                0, 0, -1);
         assertNotNull(r.getBlockTimer());
         assertEquals(-1, r.getWaitId());
     }
@@ -772,10 +775,10 @@ public class ReplicatorTest {
 
         final RpcRequests.InstallSnapshotRequest request = createInstallSnapshotRequest();
         final RpcRequests.InstallSnapshotResponse response = raftOptions.getRaftMessagesFactory()
-            .installSnapshotResponse()
-            .success(false)
-            .term(1)
-            .build();
+                .installSnapshotResponse()
+                .success(false)
+                .term(1)
+                .build();
         assertEquals(-1, r.getWaitId());
         Mockito.lenient().when(this.logManager.getTerm(11)).thenReturn(1L);
         Replicator.onRpcReturned(this.id, Replicator.RequestType.Snapshot, Status.OK(), request, response, 0, 0, -1);
@@ -790,20 +793,20 @@ public class ReplicatorTest {
 
         final RpcRequests.AppendEntriesRequest request = createEmptyEntriesRequest();
         final RpcRequests.AppendEntriesResponse response = raftOptions.getRaftMessagesFactory()
-            .appendEntriesResponse()
-            .success(true)
-            .lastLogIndex(10)
-            .term(1)
-            .build();
+                .appendEntriesResponse()
+                .success(true)
+                .lastLogIndex(10)
+                .term(1)
+                .build();
         assertNull(r.getBlockTimer());
         this.id.unlock();
 
         assertTrue(r.getPendingResponses().isEmpty());
         Replicator.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, Status.OK(), request, response, 1, 0,
-            Utils.monotonicMs());
+                Utils.monotonicMs());
         assertEquals(1, r.getPendingResponses().size());
         Replicator.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, Status.OK(), request, response, 0, 0,
-            Utils.monotonicMs());
+                Utils.monotonicMs());
         assertTrue(r.getPendingResponses().isEmpty());
         assertEquals(0, r.getWaitId());
         assertEquals(11, r.getRealNextIndex());
@@ -813,19 +816,19 @@ public class ReplicatorTest {
     private void mockSendEntries(@SuppressWarnings("SameParameterValue") final int n) {
         final RpcRequests.AppendEntriesRequest request = createEntriesRequest(n);
         Mockito.lenient().when(this.rpcService.appendEntries(eq(this.peerId.getEndpoint()), eq(request), eq(-1), Mockito.any()))
-            .thenReturn(new CompletableFuture<>());
+                .thenReturn(new CompletableFuture<>());
     }
 
     private RpcRequests.AppendEntriesRequest createEntriesRequest(final int n) {
         final AppendEntriesRequestBuilder rb = raftOptions.getRaftMessagesFactory()
-            .appendEntriesRequest()
-            .groupId("test")
-            .serverId(new PeerId("localhost", 8082).toString())
-            .peerId(this.peerId.toString())
-            .term(1)
-            .prevLogIndex(10)
-            .prevLogTerm(1)
-            .committedIndex(0);
+                .appendEntriesRequest()
+                .groupId("test")
+                .serverId(new PeerId("localhost", 8082).toString())
+                .peerId(this.peerId.toString())
+                .term(1)
+                .prevLogIndex(10)
+                .prevLogTerm(1)
+                .committedIndex(0);
 
         List<RaftOutter.EntryMeta> entries = new ArrayList<>();
 
@@ -836,11 +839,11 @@ public class ReplicatorTest {
             Mockito.when(this.logManager.getEntry(i + 11)).thenReturn(log);
             Mockito.when(this.logManager.getTerm(i + 11)).thenReturn(1L);
             entries.add(raftOptions.getRaftMessagesFactory()
-                .entryMeta()
-                .dataLen(i)
-                .term(1)
-                .type(EnumOutter.EntryType.ENTRY_TYPE_DATA)
-                .build());
+                    .entryMeta()
+                    .dataLen(i)
+                    .term(1)
+                    .type(EnumOutter.EntryType.ENTRY_TYPE_DATA)
+                    .build());
         }
 
         rb.entriesList(entries);
@@ -862,17 +865,17 @@ public class ReplicatorTest {
     private RpcRequests.InstallSnapshotRequest createInstallSnapshotRequest() {
         final String uri = "remote://localhost:8081/99";
         final RaftOutter.SnapshotMeta meta = raftOptions.getRaftMessagesFactory()
-            .snapshotMeta()
-            .lastIncludedIndex(11)
-            .lastIncludedTerm(1)
-            .build();
+                .snapshotMeta()
+                .lastIncludedIndex(11)
+                .lastIncludedTerm(1)
+                .build();
         return raftOptions.getRaftMessagesFactory().installSnapshotRequest()
-            .term(this.opts.getTerm())
-            .groupId(this.opts.getGroupId())
-            .serverId(this.opts.getServerId().toString())
-            .peerId(this.opts.getPeerId().toString())
-            .meta(meta)
-            .uri(uri)
-            .build();
+                .term(this.opts.getTerm())
+                .groupId(this.opts.getGroupId())
+                .serverId(this.opts.getServerId().toString())
+                .peerId(this.opts.getPeerId().toString())
+                .meta(meta)
+                .uri(uri)
+                .build();
     }
 }

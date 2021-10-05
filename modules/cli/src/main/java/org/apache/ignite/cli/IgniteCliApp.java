@@ -34,8 +34,7 @@ public class IgniteCliApp {
             AnsiConsole.systemInstall();
 
             exitCode = IgniteCliSpec.initCli(applicationCtx).execute(args);
-        }
-        finally {
+        } finally {
             AnsiConsole.systemUninstall();
         }
 
