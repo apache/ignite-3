@@ -97,6 +97,9 @@ public class RaftGroupServiceTest {
     /** Call timeout. */
     private static final int TIMEOUT = 1000;
 
+    /** Network timeout. **/
+    private static final int NETWORK_TIMEOUT = 1000;
+
     /** Retry delay. */
     private static final int DELAY = 200;
 

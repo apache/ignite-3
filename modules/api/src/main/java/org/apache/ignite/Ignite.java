@@ -17,8 +17,10 @@
 
 package org.apache.ignite;
 
+import java.util.Set;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.jetbrains.annotations.ApiStatus.Experimental;
 
 /**
  * Ignite node interface. Main entry-point for all Ignite APIs.
@@ -44,4 +46,21 @@ public interface Ignite extends AutoCloseable {
      * @return Ignite transactions.
      */
     IgniteTransactions transactions();
+
+    /**
+     * Set new baseline nodes for table assignments.
+     *
+     * Current implementation has significant restrictions:
+     * - Only current (known on this node) tables will be updated by this call.
+     * - Only alive nodes can be a part of new baseline.
+     * - Potentially it can be a long operation and current
+     * synchronous changePeers-based implementation can't handle this issue well.
+     * - No any recovery logic supported, if setBaseline fails - it can produce random state of cluster.
+     *
+     * TODO: this and other issues must be fixed under IGNITE-14209
+     *
+     * @param baselineNodes Names of baseline nodes.
+     */
+    @Experimental
+    void setBaseline(Set<String> baselineNodes);
 }
