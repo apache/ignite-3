@@ -235,13 +235,13 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
             } catch (IOException e) {
                 throw new IgniteInternalException("Failed to create directory: " + tempPath, e);
             }
-        }, snapshotExecutor).thenCompose(aVoid ->
+        }, snapshotExecutor).thenCompose(unused ->
                 // Create futures for capturing SST snapshots of the column families
                 CompletableFuture.allOf(
                         CompletableFuture.runAsync(() -> createSstFile(data, snapshot, tempPath), snapshotExecutor),
                         CompletableFuture.runAsync(() -> createSstFile(index, snapshot, tempPath), snapshotExecutor)
                 )
-        ).whenComplete((aVoid, throwable) -> {
+        ).whenComplete((unused, throwable) -> {
             // Release a snapshot
             db.releaseSnapshot(snapshot);
 

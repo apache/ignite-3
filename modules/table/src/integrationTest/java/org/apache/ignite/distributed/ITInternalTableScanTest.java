@@ -534,7 +534,7 @@ public class ITInternalTableScanTest {
 
             when(cursor.hasNext()).thenAnswer(hnInvocation -> cursorTouchCnt.get() < submittedItems.size());
 
-            when(cursor.next()).thenAnswer(nInvocation -> submittedItems.get(cursorTouchCnt.getAndIncrement()));
+            when(cursor.next()).thenAnswer(invocation1 -> submittedItems.get(cursorTouchCnt.getAndIncrement()));
 
             return cursor;
         });

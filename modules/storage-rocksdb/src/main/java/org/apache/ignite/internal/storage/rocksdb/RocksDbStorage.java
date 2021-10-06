@@ -396,7 +396,7 @@ public class RocksDbStorage implements Storage {
             }
         }, snapshotExecutor)
         .thenRunAsync(() -> createSstFile(data, snapshot, tempPath), snapshotExecutor)
-        .whenComplete((aVoid, throwable) -> {
+        .whenComplete((unused, throwable) -> {
             // Release a snapshot
             db.releaseSnapshot(snapshot);
 
