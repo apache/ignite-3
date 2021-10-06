@@ -59,40 +59,43 @@ public class AbstractBasicIntegrationTest {
     private static final IgniteLogger LOG = IgniteLogger.forClass(AbstractBasicIntegrationTest.class);
 
     /** Nodes bootstrap configuration. */
-    private static final Map<String, String> NODES_BOOTSTRAP_CFG = new LinkedHashMap<>() {{
-        put(
-                "node0", "{\n"
-                        + "  \"node\": {\n"
-                        + "    \"metastorageNodes\":[ \"node0\" ]\n"
-                        + "  },\n"
-                        + "  \"network\": {\n"
-                        + "    \"port\":3344,\n"
-                        + "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                        + "  }\n"
-                        + "}");
+    private static final Map<String, String> NODES_BOOTSTRAP_CFG = new LinkedHashMap<>() {
+        {
+            put("node0",
+                    "{\n"
+                            + "  \"node\": {\n"
+                            + "    \"metastorageNodes\":[ \"node0\" ]\n"
+                            + "  },\n"
+                            + "  \"network\": {\n"
+                            + "    \"port\":3344,\n"
+                            + "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                            + "  }\n"
+                            + "}"
+            );
 
-        put(
-                "node1", "{\n"
-                        + "  \"node\": {\n"
-                        + "    \"metastorageNodes\":[ \"node0\" ]\n"
-                        + "  },\n"
-                        + "  \"network\": {\n"
-                        + "    \"port\":3345,\n"
-                        + "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                        + "  }\n"
-                        + "}");
+            put(
+                    "node1", "{\n"
+                            + "  \"node\": {\n"
+                            + "    \"metastorageNodes\":[ \"node0\" ]\n"
+                            + "  },\n"
+                            + "  \"network\": {\n"
+                            + "    \"port\":3345,\n"
+                            + "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                            + "  }\n"
+                            + "}");
 
-        put(
-                "node2", "{\n"
-                        + "  \"node\": {\n"
-                        + "    \"metastorageNodes\":[ \"node0\" ]\n"
-                        + "  },\n"
-                        + "  \"network\": {\n"
-                        + "    \"port\":3346,\n"
-                        + "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                        + "  }\n"
-                        + "}");
-    }};
+            put(
+                    "node2", "{\n"
+                            + "  \"node\": {\n"
+                            + "    \"metastorageNodes\":[ \"node0\" ]\n"
+                            + "  },\n"
+                            + "  \"network\": {\n"
+                            + "    \"port\":3346,\n"
+                            + "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                            + "  }\n"
+                            + "}");
+        }
+    };
 
     /** Cluster nodes. */
     protected static final List<Ignite> CLUSTER_NODES = new ArrayList<>();

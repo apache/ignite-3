@@ -188,21 +188,20 @@ public class SerializerBenchmarkTest {
             classDef.declareField(EnumSet.of(Access.PRIVATE), "col" + i, ParameterizedType.type(fieldType));
         }
 
-        { // Build constructor.
-            final MethodDefinition methodDef = classDef.declareConstructor(EnumSet.of(Access.PUBLIC));
-            final Variable rnd = methodDef.getScope().declareVariable(Random.class, "rnd");
+        // Build constructor.
+        final MethodDefinition methodDef = classDef.declareConstructor(EnumSet.of(Access.PUBLIC));
+        final Variable rnd = methodDef.getScope().declareVariable(Random.class, "rnd");
 
-            final BytecodeBlock body = methodDef.getBody()
-                    .append(methodDef.getThis())
-                    .invokeConstructor(classDef.getSuperClass())
-                    .append(rnd.set(BytecodeExpressions.newInstance(Random.class)));
+        final BytecodeBlock body = methodDef.getBody()
+                .append(methodDef.getThis())
+                .invokeConstructor(classDef.getSuperClass())
+                .append(rnd.set(BytecodeExpressions.newInstance(Random.class)));
 
-            for (int i = 0; i < maxFields; i++) {
-                body.append(methodDef.getThis().setField("col" + i, rnd.invoke("nextLong", long.class).cast(fieldType)));
-            }
-
-            body.ret();
+        for (int i = 0; i < maxFields; i++) {
+            body.append(methodDef.getThis().setField("col" + i, rnd.invoke("nextLong", long.class).cast(fieldType)));
         }
+
+        body.ret();
 
         return ClassGenerator.classGenerator(getClass().getClassLoader()).defineClass(classDef, Object.class);
     }

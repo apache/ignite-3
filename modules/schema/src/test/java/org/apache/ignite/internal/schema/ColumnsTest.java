@@ -132,40 +132,37 @@ public class ColumnsTest {
      */
     @Test
     public void columnSchemaIndex() {
-        {
-            Columns cols = new Columns(
-                    0,
-                    new Column("uuidCol", UUID, false),
-                    new Column("intCol2", INT32, false),
-                    new Column("intCol1", INT32, false)
-            );
+        Columns cols0 = new Columns(
+                0,
+                new Column("uuidCol", UUID, false),
+                new Column("intCol2", INT32, false),
+                new Column("intCol1", INT32, false)
+        );
 
-            assertEquals("intCol1", cols.column(0).name());
-            assertEquals(0, cols.column(0).schemaIndex());
+        assertEquals("intCol1", cols0.column(0).name());
+        assertEquals(0, cols0.column(0).schemaIndex());
 
-            assertEquals("intCol2", cols.column(1).name());
-            assertEquals(1, cols.column(1).schemaIndex());
+        assertEquals("intCol2", cols0.column(1).name());
+        assertEquals(1, cols0.column(1).schemaIndex());
 
-            assertEquals("uuidCol", cols.column(2).name());
-            assertEquals(2, cols.column(2).schemaIndex());
-        }
-        {
-            Columns cols = new Columns(
-                    3,
-                    new Column("uuidCol", UUID, false),
-                    new Column("intCol2", INT32, false),
-                    new Column("intCol1", INT32, false)
-            );
+        assertEquals("uuidCol", cols0.column(2).name());
+        assertEquals(2, cols0.column(2).schemaIndex());
 
-            assertEquals("intCol1", cols.column(0).name());
-            assertEquals(3, cols.column(0).schemaIndex());
+        Columns cols1 = new Columns(
+                3,
+                new Column("uuidCol", UUID, false),
+                new Column("intCol2", INT32, false),
+                new Column("intCol1", INT32, false)
+        );
 
-            assertEquals("intCol2", cols.column(1).name());
-            assertEquals(4, cols.column(1).schemaIndex());
+        assertEquals("intCol1", cols1.column(0).name());
+        assertEquals(3, cols1.column(0).schemaIndex());
 
-            assertEquals("uuidCol", cols.column(2).name());
-            assertEquals(5, cols.column(2).schemaIndex());
-        }
+        assertEquals("intCol2", cols1.column(1).name());
+        assertEquals(4, cols1.column(1).schemaIndex());
+
+        assertEquals("uuidCol", cols1.column(2).name());
+        assertEquals(5, cols1.column(2).schemaIndex());
     }
 
     /**

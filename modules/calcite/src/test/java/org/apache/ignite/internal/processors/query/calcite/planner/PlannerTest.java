@@ -1800,61 +1800,57 @@ public class PlannerTest extends AbstractPlannerTest {
 
         String sql = "SELECT * FROM TEST OFFSET 10 ROWS FETCH FIRST 10 ROWS ONLY";
 
-        {
-            IgniteRel phys = physicalPlan(sql, publicSchema);
+        IgniteRel phys0 = physicalPlan(sql, publicSchema);
 
-            assertNotNull(phys);
+        assertNotNull(phys0);
 
-            AtomicInteger limit = new AtomicInteger();
-            AtomicBoolean sort = new AtomicBoolean();
+        AtomicInteger limit0 = new AtomicInteger();
+        AtomicBoolean sort0 = new AtomicBoolean();
 
-            relTreeVisit(phys, (node, ordinal, parent) -> {
-                if (node instanceof IgniteLimit) {
-                    limit.incrementAndGet();
-                }
-
-                if (node instanceof IgniteSort) {
-                    sort.set(true);
-                }
+        relTreeVisit(phys0, (node, ordinal, parent) -> {
+                    if (node instanceof IgniteLimit) {
+                        limit0.incrementAndGet();
                     }
-            );
 
-            String errMsg = "Invalid plan: \n" + RelOptUtil.toString(phys);
+                    if (node instanceof IgniteSort) {
+                        sort0.set(true);
+                    }
+                }
+        );
 
-            assertEquals(1, limit.get(), errMsg);
-            assertFalse(sort.get(), errMsg);
+        String errMsg0 = "Invalid plan: \n" + RelOptUtil.toString(phys0);
 
-            checkSplitAndSerialization(phys, publicSchema);
-        }
+        assertEquals(1, limit0.get(), errMsg0);
+        assertFalse(sort0.get(), errMsg0);
+
+        checkSplitAndSerialization(phys0, publicSchema);
 
         sql = "SELECT * FROM TEST ORDER BY ID OFFSET 10 ROWS FETCH FIRST 10 ROWS ONLY";
 
-        {
-            IgniteRel phys = physicalPlan(sql, publicSchema);
+        IgniteRel phys1 = physicalPlan(sql, publicSchema);
 
-            assertNotNull(phys);
+        assertNotNull(phys1);
 
-            AtomicInteger limit = new AtomicInteger();
-            AtomicBoolean sort = new AtomicBoolean();
+        AtomicInteger limit1 = new AtomicInteger();
+        AtomicBoolean sort1 = new AtomicBoolean();
 
-            relTreeVisit(phys, (node, ordinal, parent) -> {
-                if (node instanceof IgniteLimit) {
-                    limit.incrementAndGet();
-                }
-
-                if (node instanceof IgniteSort) {
-                    sort.set(true);
-                }
+        relTreeVisit(phys1, (node, ordinal, parent) -> {
+                    if (node instanceof IgniteLimit) {
+                        limit1.incrementAndGet();
                     }
-            );
 
-            String errMsg = "Invalid plan: \n" + RelOptUtil.toString(phys);
+                    if (node instanceof IgniteSort) {
+                        sort1.set(true);
+                    }
+                }
+        );
 
-            assertEquals(1, limit.get(), errMsg);
-            assertTrue(sort.get(), errMsg);
+        String errMsg1 = "Invalid plan: \n" + RelOptUtil.toString(phys1);
 
-            checkSplitAndSerialization(phys, publicSchema);
-        }
+        assertEquals(1, limit1.get(), errMsg1);
+        assertTrue(sort1.get(), errMsg1);
+
+        checkSplitAndSerialization(phys1, publicSchema);
     }
 
     /**

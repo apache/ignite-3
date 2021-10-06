@@ -159,11 +159,11 @@ public class SchemaDescriptorConverterTest {
                         postProcess.apply(SchemaBuilders.column("DECIMAL", ColumnType.decimalOf(1, 1))),
                         postProcess.apply(SchemaBuilders.column("NUMBER", ColumnType.numberOf(12))),
                         postProcess.apply(SchemaBuilders.column("BITMASK_FS10", ColumnType.bitmaskOf(10)))
-                        // TODO: IGNITE-13750 uncomment after unsigned types available
-                        // postProcess.apply(SchemaBuilders.column("UINT8", ColumnType.UINT8)),
-                        // postProcess.apply(SchemaBuilders.column("UINT16", ColumnType.UINT16)),
-                        // postProcess.apply(SchemaBuilders.column("UINT32", ColumnType.UINT32)),
-                        // postProcess.apply(SchemaBuilders.column("UINT64", ColumnType.UINT64)),
+                // TODO: IGNITE-13750 uncomment after unsigned types available
+                // postProcess.apply(SchemaBuilders.column("UINT8", ColumnType.UINT8)),
+                // postProcess.apply(SchemaBuilders.column("UINT16", ColumnType.UINT16)),
+                // postProcess.apply(SchemaBuilders.column("UINT32", ColumnType.UINT32)),
+                // postProcess.apply(SchemaBuilders.column("UINT64", ColumnType.UINT64)),
                 );
         if (withPk) {
             res.withPrimaryKey("ID");

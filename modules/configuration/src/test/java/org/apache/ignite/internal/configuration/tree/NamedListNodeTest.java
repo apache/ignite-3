@@ -66,12 +66,12 @@ public class NamedListNodeTest {
          *
          */
         @NamedConfigValue
-        public СConfigurationSchema c;
+        public CConfigurationSchema c;
     }
 
     /** Simple configuration schema. */
     @Config
-    public static class СConfigurationSchema {
+    public static class CConfigurationSchema {
         /** Integer value. */
         @Value(hasDefault = true)
         public int i = 1;

@@ -399,35 +399,29 @@ public class Processor extends AbstractProcessor {
                 );
             }
 
-            {
-                MethodSpec.Builder getMtdBuilder = MethodSpec.methodBuilder(fieldName)
-                        .addModifiers(PUBLIC, ABSTRACT)
-                        .returns(viewFieldType);
+            MethodSpec.Builder getMtdBuilder = MethodSpec.methodBuilder(fieldName)
+                    .addModifiers(PUBLIC, ABSTRACT)
+                    .returns(viewFieldType);
 
-                viewClsBuilder.addMethod(getMtdBuilder.build());
-            }
+            viewClsBuilder.addMethod(getMtdBuilder.build());
 
-            {
-                String changeMtdName = "change" + capitalize(fieldName);
+            String changeMtdName = "change" + capitalize(fieldName);
 
-                {
-                    MethodSpec.Builder changeMtdBuilder = MethodSpec.methodBuilder(changeMtdName)
-                            .addModifiers(PUBLIC, ABSTRACT)
-                            .returns(changeClsName);
+            MethodSpec.Builder changeMtdBuilder = MethodSpec.methodBuilder(changeMtdName)
+                    .addModifiers(PUBLIC, ABSTRACT)
+                    .returns(changeClsName);
 
-                    if (valAnnotation != null) {
-                        if (schemaFieldType.getKind() == TypeKind.ARRAY) {
-                            changeMtdBuilder.varargs(true);
-                        }
-
-                        changeMtdBuilder.addParameter(changeFieldType, fieldName);
-                    } else {
-                        changeMtdBuilder.addParameter(ParameterizedTypeName.get(consumerClsName, changeFieldType), fieldName);
-                    }
-
-                    changeClsBuilder.addMethod(changeMtdBuilder.build());
+            if (valAnnotation != null) {
+                if (schemaFieldType.getKind() == TypeKind.ARRAY) {
+                    changeMtdBuilder.varargs(true);
                 }
+
+                changeMtdBuilder.addParameter(changeFieldType, fieldName);
+            } else {
+                changeMtdBuilder.addParameter(ParameterizedTypeName.get(consumerClsName, changeFieldType), fieldName);
             }
+
+            changeClsBuilder.addMethod(changeMtdBuilder.build());
         }
 
         TypeSpec viewCls = viewClsBuilder.build();

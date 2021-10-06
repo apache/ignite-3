@@ -205,62 +205,60 @@ class ITTableCreationTest {
 
         clusterNodes.forEach(Assertions::assertNotNull);
 
-        { /* Table 1. */
-            Table tbl1 = clusterNodes.get(1).tables().table("tbl1");
-            RecordView<Tuple> recView = tbl1.recordView();
-            KeyValueView<Tuple, Tuple> kvView1 = tbl1.keyValueView();
+        /* Table 1. */
+        Table tbl1 = clusterNodes.get(1).tables().table("tbl1");
+        RecordView<Tuple> recView1 = tbl1.recordView();
+        KeyValueView<Tuple, Tuple> kvView1 = tbl1.keyValueView();
 
-            recView.insert(Tuple.create().set("key", 1L).set("val", 111));
-            kvView1.put(Tuple.create().set("key", 2L), Tuple.create().set("val", 222));
+        recView1.insert(Tuple.create().set("key", 1L).set("val", 111));
+        kvView1.put(Tuple.create().set("key", 2L), Tuple.create().set("val", 222));
 
-            Table tbl2 = clusterNodes.get(2).tables().table("tbl1");
-            RecordView<Tuple> recView2 = tbl2.recordView();
-            KeyValueView<Tuple, Tuple> kvView2 = tbl2.keyValueView();
+        Table tbl2 = clusterNodes.get(2).tables().table("tbl1");
+        RecordView<Tuple> recView2 = tbl2.recordView();
+        KeyValueView<Tuple, Tuple> kvView2 = tbl2.keyValueView();
 
-            final Tuple keyTuple1 = Tuple.create().set("key", 1L);
-            final Tuple keyTuple2 = Tuple.create().set("key", 2L);
+        Tuple keyTuple1 = Tuple.create().set("key", 1L);
+        Tuple keyTuple2 = Tuple.create().set("key", 2L);
 
-            assertEquals(111, (Integer) recView2.get(keyTuple1).value("val"));
-            assertEquals(111, (Integer) kvView2.get(keyTuple1).value("val"));
-            assertEquals(222, (Integer) recView2.get(keyTuple2).value("val"));
-            assertEquals(222, (Integer) kvView2.get(keyTuple2).value("val"));
-        }
+        assertEquals(111, (Integer) recView2.get(keyTuple1).value("val"));
+        assertEquals(111, (Integer) kvView2.get(keyTuple1).value("val"));
+        assertEquals(222, (Integer) recView2.get(keyTuple2).value("val"));
+        assertEquals(222, (Integer) kvView2.get(keyTuple2).value("val"));
 
-        { /* Table 2. */
-            final UUID uuid = UUID.randomUUID();
-            final UUID uuid2 = UUID.randomUUID();
+        /* Table 2. */
+        final UUID uuid = UUID.randomUUID();
+        final UUID uuid2 = UUID.randomUUID();
 
-            // Put data on node 1.
-            Table tbl1 = clusterNodes.get(1).tables().table("tbl1");
-            RecordView<Tuple> recView = tbl1.recordView();
-            KeyValueView<Tuple, Tuple> kvView1 = tbl1.keyValueView();
+        // Put data on node 1.
+        tbl1 = clusterNodes.get(1).tables().table("tbl1");
+        recView1 = tbl1.recordView();
+        kvView1 = tbl1.keyValueView();
 
-            recView.insert(Tuple.create().set("key", uuid).set("affKey", 42L)
-                    .set("valStr", "String value").set("valInt", 73).set("valNullable", null));
+        recView1.insert(Tuple.create().set("key", uuid).set("affKey", 42L)
+                .set("valStr", "String value").set("valInt", 73).set("valNullable", null));
 
-            kvView1.put(Tuple.create().set("key", uuid2).set("affKey", 4242L),
-                    Tuple.create().set("valStr", "String value 2").set("valInt", 7373).set("valNullable", null));
+        kvView1.put(Tuple.create().set("key", uuid2).set("affKey", 4242L),
+                Tuple.create().set("valStr", "String value 2").set("valInt", 7373).set("valNullable", null));
 
-            // Get data on node 2.
-            Table tbl2 = clusterNodes.get(2).tables().table("tbl1");
-            RecordView<Tuple> recView2 = tbl2.recordView();
-            KeyValueView<Tuple, Tuple> kvView2 = tbl2.keyValueView();
+        // Get data on node 2.
+        tbl2 = clusterNodes.get(2).tables().table("tbl1");
+        recView2 = tbl2.recordView();
+        kvView2 = tbl2.keyValueView();
 
-            final Tuple keyTuple1 = Tuple.create().set("key", uuid).set("affKey", 42L);
-            final Tuple keyTuple2 = Tuple.create().set("key", uuid2).set("affKey", 4242L);
+        keyTuple1 = Tuple.create().set("key", uuid).set("affKey", 42L);
+        keyTuple2 = Tuple.create().set("key", uuid2).set("affKey", 4242L);
 
-            assertEquals("String value", recView2.get(keyTuple1).value("valStr"));
-            assertEquals("String value", kvView2.get(keyTuple1).value("valStr"));
-            assertEquals("String value 2", recView2.get(keyTuple2).value("valStr"));
-            assertEquals("String value 2", kvView2.get(keyTuple2).value("valStr"));
-            assertEquals(73, (Integer) recView2.get(keyTuple1).value("valInt"));
-            assertEquals(73, (Integer) kvView2.get(keyTuple1).value("valInt"));
-            assertEquals(7373, (Integer) recView2.get(keyTuple2).value("valInt"));
-            assertEquals(7373, (Integer) kvView2.get(keyTuple2).value("valInt"));
-            assertNull(recView2.get(keyTuple1).value("valNullable"));
-            assertNull(kvView2.get(keyTuple1).value("valNullable"));
-            assertNull(recView2.get(keyTuple2).value("valNullable"));
-            assertNull(kvView2.get(keyTuple2).value("valNullable"));
-        }
+        assertEquals("String value", recView2.get(keyTuple1).value("valStr"));
+        assertEquals("String value", kvView2.get(keyTuple1).value("valStr"));
+        assertEquals("String value 2", recView2.get(keyTuple2).value("valStr"));
+        assertEquals("String value 2", kvView2.get(keyTuple2).value("valStr"));
+        assertEquals(73, (Integer) recView2.get(keyTuple1).value("valInt"));
+        assertEquals(73, (Integer) kvView2.get(keyTuple1).value("valInt"));
+        assertEquals(7373, (Integer) recView2.get(keyTuple2).value("valInt"));
+        assertEquals(7373, (Integer) kvView2.get(keyTuple2).value("valInt"));
+        assertNull(recView2.get(keyTuple1).value("valNullable"));
+        assertNull(kvView2.get(keyTuple1).value("valNullable"));
+        assertNull(recView2.get(keyTuple2).value("valNullable"));
+        assertNull(kvView2.get(keyTuple2).value("valNullable"));
     }
 }

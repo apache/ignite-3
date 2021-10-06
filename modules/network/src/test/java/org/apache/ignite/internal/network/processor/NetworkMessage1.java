@@ -15,18 +15,17 @@
  * limitations under the License.
  */
 
+
 package org.apache.ignite.internal.network.processor;
 
-import org.apache.ignite.network.TestMessageTypes;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.network.NetworkMessage;
 
 /**
  *
  */
-@Transferable(TestMessageTypes.INHERITED_MESSAGE)
-public interface InheritedMessage extends NetworkMessage2 {
+interface NetworkMessage1 extends NetworkMessage {
     /**
      *
      */
-    int z();
+    int y();
 }

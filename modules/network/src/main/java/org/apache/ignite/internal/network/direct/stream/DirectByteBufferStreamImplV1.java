@@ -602,8 +602,6 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 }
 
                 uuidState = 0;
-            default:
-                break;
         }
     }
 
@@ -649,8 +647,6 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 }
 
                 uuidState = 0;
-            default:
-                break;
         }
     }
 
@@ -1144,8 +1140,6 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 }
 
                 uuidState = 0;
-            default:
-                break;
         }
 
         UUID val = new UUID(uuidMost, uuidLeast);
@@ -1198,8 +1192,6 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 }
 
                 uuidState = 0;
-            default:
-                break;
         }
 
         final IgniteUuid val = new IgniteUuid(new UUID(uuidMost, uuidLeast), uuidLocId);
