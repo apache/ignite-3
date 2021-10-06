@@ -421,8 +421,8 @@ public class TraitUtils {
             }
 
             @Override
-            public boolean getBoolean(String tag, boolean default_) {
-                return input.getBoolean(tag, default_);
+            public boolean getBoolean(String tag, boolean def) {
+                return input.getBoolean(tag, def);
             }
         };
     }

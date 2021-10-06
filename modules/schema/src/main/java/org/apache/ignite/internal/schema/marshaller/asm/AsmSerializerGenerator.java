@@ -174,22 +174,22 @@ public class AsmSerializerGenerator implements SerializerFactory {
     /**
      * Creates marshaller code generator for given class.
      *
-     * @param tClass      Target class.
+     * @param targetClass      Target class.
      * @param columns     Columns that tClass mapped to.
      * @param firstColIdx First column absolute index in schema.
      * @return Marshaller code generator.
      */
     private static MarshallerCodeGenerator createMarshaller(
-            Class<?> tClass,
+            Class<?> targetClass,
             Columns columns,
             int firstColIdx
     ) {
-        final BinaryMode mode = MarshallerUtil.mode(tClass);
+        final BinaryMode mode = MarshallerUtil.mode(targetClass);
 
         if (mode == null) {
-            return new ObjectMarshallerCodeGenerator(columns, tClass, firstColIdx);
+            return new ObjectMarshallerCodeGenerator(columns, targetClass, firstColIdx);
         } else {
-            return new IdentityMarshallerCodeGenerator(tClass, ColumnAccessCodeGenerator.createAccessor(mode, firstColIdx));
+            return new IdentityMarshallerCodeGenerator(targetClass, ColumnAccessCodeGenerator.createAccessor(mode, firstColIdx));
         }
     }
 

@@ -167,10 +167,10 @@ public abstract class QueryChecker {
         return new SubstringMatcher("contains", false, substring) {
             /** {@inheritDoc} */
             @Override
-            protected boolean evalSubstringOf(String sIn) {
-                sIn = sIn.replaceAll("\n", "");
+            protected boolean evalSubstringOf(String item) {
+                item = item.replaceAll("\n", "");
 
-                return sIn.matches(substring);
+                return item.matches(substring);
             }
         };
     }
@@ -189,10 +189,10 @@ public abstract class QueryChecker {
         return new SubstringMatcher("contains once", false, substring) {
             /** {@inheritDoc} */
             @Override
-            protected boolean evalSubstringOf(String sIn) {
-                sIn = sIn.replaceAll("\n", "");
+            protected boolean evalSubstringOf(String item) {
+                item = item.replaceAll("\n", "");
 
-                return containsOnce(sIn, substring);
+                return containsOnce(item, substring);
             }
         };
     }

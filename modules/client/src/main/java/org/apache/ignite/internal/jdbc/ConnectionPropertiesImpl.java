@@ -194,8 +194,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
 
     /** {@inheritDoc} */
     @Override
-    public void setReconnectThrottlingRetries(Integer retries) throws SQLException {
-        reconnectThrottlingRetries.setValue(retries);
+    public void setReconnectThrottlingRetries(Integer reconnectThrottlingRetries) throws SQLException {
+        this.reconnectThrottlingRetries.setValue(reconnectThrottlingRetries);
     }
 
     /** {@inheritDoc} */

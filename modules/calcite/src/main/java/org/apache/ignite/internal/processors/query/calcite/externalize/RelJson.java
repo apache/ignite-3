@@ -211,9 +211,9 @@ class RelJson {
     /**
      *
      */
-    private static void register(ImmutableMap.Builder<String, Enum<?>> builder, Class<? extends Enum> aClass) {
-        String preffix = aClass.getSimpleName() + "#";
-        for (Enum enumConstant : aClass.getEnumConstants()) {
+    private static void register(ImmutableMap.Builder<String, Enum<?>> builder, Class<? extends Enum> clazz) {
+        String preffix = clazz.getSimpleName() + "#";
+        for (Enum enumConstant : clazz.getEnumConstants()) {
             builder.put(preffix + enumConstant.name(), enumConstant);
         }
     }
@@ -264,12 +264,12 @@ class RelJson {
     /**
      *
      */
-    String classToTypeName(Class<? extends RelNode> class_) {
-        if (IgniteRel.class.isAssignableFrom(class_)) {
-            return class_.getSimpleName();
+    String classToTypeName(Class<? extends RelNode> clazz) {
+        if (IgniteRel.class.isAssignableFrom(clazz)) {
+            return clazz.getSimpleName();
         }
 
-        String canonicalName = class_.getName();
+        String canonicalName = clazz.getName();
         for (String package_ : PACKAGES) {
             if (canonicalName.startsWith(package_)) {
                 String remaining = canonicalName.substring(package_.length());

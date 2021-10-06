@@ -146,15 +146,15 @@ public class SerializerBenchmarkTest {
     /**
      * Map fields to columns.
      *
-     * @param aClass Object class.
+     * @param clazz Object class.
      * @return Columns for schema
      */
-    private Column[] mapFieldsToColumns(Class<?> aClass) {
-        if (aClass == Long.class) {
+    private Column[] mapFieldsToColumns(Class<?> clazz) {
+        if (clazz == Long.class) {
             return new Column[]{new Column("col0", INT64, true)};
         }
 
-        final Field[] fields = aClass.getDeclaredFields();
+        final Field[] fields = clazz.getDeclaredFields();
         final Column[] cols = new Column[fields.length];
 
         for (int i = 0; i < fields.length; i++) {

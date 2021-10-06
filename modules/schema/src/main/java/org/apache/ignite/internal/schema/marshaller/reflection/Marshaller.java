@@ -38,18 +38,18 @@ class Marshaller {
      *
      * @param cols       Columns.
      * @param firstColId First column position in schema.
-     * @param aClass     Type.
+     * @param clazz     Type.
      * @return Marshaller.
      */
-    static Marshaller createMarshaller(Columns cols, int firstColId, Class<? extends Object> aClass) {
-        final BinaryMode mode = MarshallerUtil.mode(aClass);
+    static Marshaller createMarshaller(Columns cols, int firstColId, Class<? extends Object> clazz) {
+        final BinaryMode mode = MarshallerUtil.mode(clazz);
 
         if (mode != null) {
             final Column col = cols.column(0);
 
             assert cols.length() == 1;
             assert mode.typeSpec() == col.type().spec() : "Target type is not compatible.";
-            assert !aClass.isPrimitive() : "Non-nullable types are not allowed.";
+            assert !clazz.isPrimitive() : "Non-nullable types are not allowed.";
 
             return new Marshaller(FieldAccessor.createIdentityAccessor(col, firstColId, mode));
         }
@@ -61,10 +61,10 @@ class Marshaller {
             final Column col = cols.column(i);
 
             final int colIdx = firstColId + i; /* Absolute column idx in schema. */
-            fieldAccessors[i] = FieldAccessor.create(aClass, col, colIdx);
+            fieldAccessors[i] = FieldAccessor.create(clazz, col, colIdx);
         }
 
-        return new Marshaller(new ObjectFactory<>(aClass), fieldAccessors);
+        return new Marshaller(new ObjectFactory<>(clazz), fieldAccessors);
     }
 
     /**

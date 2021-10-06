@@ -279,9 +279,9 @@ public class RelJsonReader {
 
         /** {@inheritDoc} */
         @Override
-        public boolean getBoolean(String tag, boolean default_) {
+        public boolean getBoolean(String tag, boolean def) {
             Boolean b = (Boolean) jsonRel.get(tag);
-            return b != null ? b : default_;
+            return b != null ? b : def;
         }
 
         /** {@inheritDoc} */

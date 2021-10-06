@@ -111,13 +111,13 @@ public final class MarshallerUtil {
     /**
      * Creates object factory for class.
      *
-     * @param tCls Target class.
+     * @param targetCls Target class.
      * @param <T>  Target type.
      * @return Object factory.
      */
-    public static <T> ObjectFactory<T> factoryForClass(Class<T> tCls) {
-        if (mode(tCls) == null) {
-            return new ObjectFactory<>(tCls);
+    public static <T> ObjectFactory<T> factoryForClass(Class<T> targetCls) {
+        if (mode(targetCls) == null) {
+            return new ObjectFactory<>(targetCls);
         } else {
             return null;
         }

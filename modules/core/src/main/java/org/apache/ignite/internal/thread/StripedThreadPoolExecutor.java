@@ -56,12 +56,12 @@ public class StripedThreadPoolExecutor implements ExecutorService {
     public StripedThreadPoolExecutor(
             int concurrentLvl,
             String threadNamePrefix,
-            UncaughtExceptionHandler eHnd,
+            UncaughtExceptionHandler exHnd,
             boolean allowCoreThreadTimeOut,
             long keepAliveTime) {
         execs = new ExecutorService[concurrentLvl];
 
-        ThreadFactory factory = new NamedThreadFactory(threadNamePrefix, true, eHnd);
+        ThreadFactory factory = new NamedThreadFactory(threadNamePrefix, true, exHnd);
 
         for (int i = 0; i < concurrentLvl; i++) {
             ThreadPoolExecutor executor = new ThreadPoolExecutor(

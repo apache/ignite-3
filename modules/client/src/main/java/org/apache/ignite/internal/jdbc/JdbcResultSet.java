@@ -1827,7 +1827,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public void updateNString(int colIdx, String nStr) throws SQLException {
+    public void updateNString(int colIdx, String val) throws SQLException {
         ensureNotClosed();
 
         throw new SQLFeatureNotSupportedException("Updates are not supported.");
@@ -1835,7 +1835,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public void updateNString(String colLb, String nStr) throws SQLException {
+    public void updateNString(String colLb, String val) throws SQLException {
         ensureNotClosed();
 
         throw new SQLFeatureNotSupportedException("Updates are not supported.");
@@ -1843,7 +1843,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public void updateNClob(int colIdx, NClob nClob) throws SQLException {
+    public void updateNClob(int colIdx, NClob val) throws SQLException {
         ensureNotClosed();
 
         throw new SQLFeatureNotSupportedException("Updates are not supported.");
@@ -1851,7 +1851,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public void updateNClob(String colLb, NClob nClob) throws SQLException {
+    public void updateNClob(String colLb, NClob val) throws SQLException {
         ensureNotClosed();
 
         throw new SQLFeatureNotSupportedException("Updates are not supported.");

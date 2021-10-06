@@ -152,13 +152,13 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
 
     /** {@inheritDoc} */
     @Override
-    public void initStaticHandlers(ClassDefinition classDef, FieldDefinition tClassField) {
+    public void initStaticHandlers(ClassDefinition classDef, FieldDefinition targetClassField) {
         final MethodDefinition init = classDef.getClassInitializer();
         final Variable lookup = init.getScope().createTempVariable(MethodHandles.Lookup.class);
 
         final BytecodeBlock body = init.getBody().append(
                 BytecodeExpressions.setStatic(
-                        tClassField,
+                targetClassField,
                         BytecodeExpressions.invokeStatic(Class.class, "forName", Class.class,
                                 BytecodeExpressions.constantString(targetClass.getName()))
                 ));
@@ -173,7 +173,7 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
                                 MethodHandles.class,
                                 "privateLookupIn",
                                 MethodHandles.Lookup.class,
-                                BytecodeExpressions.getStatic(tClassField),
+                                BytecodeExpressions.getStatic(targetClassField),
                                 BytecodeExpressions.invokeStatic(MethodHandles.class, "lookup", MethodHandles.Lookup.class))
                 ));
 
@@ -185,7 +185,7 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
                     BytecodeExpressions.setStatic(fld, lookup.invoke(
                             "findVarHandle",
                             VarHandle.class,
-                            BytecodeExpressions.getStatic(tClassField),
+                            BytecodeExpressions.getStatic(targetClassField),
                             BytecodeExpressions.constantString(columns.column(i).name()),
                             BytecodeExpressions.constantClass(columnAccessors[i].mappedType())
                     ))

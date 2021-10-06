@@ -63,9 +63,9 @@ public interface MarshallerCodeGenerator {
 
     /**
      * @param classDef    Class definition.
-     * @param tClassField Target class field definition.
+     * @param targetClassField Target class field definition.
      */
-    default void initStaticHandlers(ClassDefinition classDef, FieldDefinition tClassField) {
+    default void initStaticHandlers(ClassDefinition classDef, FieldDefinition targetClassField) {
 
     }
 }

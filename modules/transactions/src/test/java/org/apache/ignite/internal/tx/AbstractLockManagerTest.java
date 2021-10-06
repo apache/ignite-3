@@ -369,17 +369,17 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     /**
      * @param duration The duration.
-     * @param rLocks   Read lock accumulator.
-     * @param wLocks   Write lock accumulator.
-     * @param fLocks   Failed lock accumulator.
+     * @param readLocks   Read lock accumulator.
+     * @param writeLocks   Write lock accumulator.
+     * @param failedLocks   Failed lock accumulator.
      * @param mode     Mode: 0 - read only, 1 - write only, 2 - mixed random.
      * @throws InterruptedException If interrupted while waiting.
      */
     private void doTestSingleKeyMultithreaded(
             long duration,
-            LongAdder rLocks,
-            LongAdder wLocks,
-            LongAdder fLocks,
+            LongAdder readLocks,
+            LongAdder writeLocks,
+            LongAdder failedLocks,
             int mode
     ) throws InterruptedException {
         Object key = new String("test");
@@ -410,12 +410,12 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
                                 CompletableFuture<Void> fut = lockManager.tryAcquire(key, timestamp);
                                 try {
                                     fut.get();
-                                    wLocks.increment();
+                                    writeLocks.increment();
                                 } catch (Exception e) {
                                     fail("Expected normal execution");
                                 }
                             } catch (LockException e) {
-                                fLocks.increment();
+                                failedLocks.increment();
                                 continue;
                             }
 
@@ -429,12 +429,12 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
                                 CompletableFuture<Void> fut = lockManager.tryAcquireShared(key, timestamp);
                                 try {
                                     fut.get();
-                                    rLocks.increment();
+                                    readLocks.increment();
                                 } catch (Exception e) {
                                     fail("Expected normal execution");
                                 }
                             } catch (LockException e) {
-                                fLocks.increment();
+                                failedLocks.increment();
                                 continue;
                             }
 
@@ -460,7 +460,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
             }
         }
 
-        log.info("After test rLocks={} wLocks={} fLocks={}", rLocks.sum(), wLocks.sum(), fLocks.sum());
+        log.info("After test rLocks={} wLocks={} fLocks={}", readLocks.sum(), writeLocks.sum(), failedLocks.sum());
 
         assertTrue(lockManager.queue(key).isEmpty());
     }
