@@ -191,13 +191,13 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
             projects = null;
         }
 
-        cond = new RexShuttle() {
+        final RexNode cond1 = new RexShuttle() {
             @Override
             public RexNode visitLocalRef(RexLocalRef ref) {
                 return new RexLocalRef(targetMapping.getTarget(ref.getIndex()), ref.getType());
             }
         }.apply(cond);
 
-        call.transformTo(createNode(cluster, scan, traits, projects, cond, requiredColumns));
+        call.transformTo(createNode(cluster, scan, traits, projects, cond1, requiredColumns));
     }
 }

@@ -72,6 +72,13 @@ public abstract class DistributionFunction {
     }
 
     /**
+     *
+     */
+    public static DistributionFunction affinity(int cacheId, Object identity) {
+        return new AffinityDistribution(cacheId, identity);
+    }
+
+    /**
      * Creates a destination based on this function algorithm, given nodes mapping and given distribution keys.
      *
      * @param ctx             Execution context.
