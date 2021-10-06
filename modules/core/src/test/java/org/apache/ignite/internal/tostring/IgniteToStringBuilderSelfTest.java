@@ -377,12 +377,12 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         assertTrue(IgniteToStringBuilder.arrayToString(doubleArr).contains("... and 1 more"),
                 "Can't find \"... and 1 more\" in overflowed array string!");
 
-        char[] cArr = new char[1];
+        char[] c = new char[1];
 
-        cArr[0] = 'a';
-        assertEquals(Arrays.toString(cArr), IgniteToStringBuilder.arrayToString(cArr));
-        cArr = Arrays.copyOf(cArr, 101);
-        assertTrue(IgniteToStringBuilder.arrayToString(cArr).contains("... and 1 more"),
+        c[0] = 'a';
+        assertEquals(Arrays.toString(c), IgniteToStringBuilder.arrayToString(c));
+        c = Arrays.copyOf(c, 101);
+        assertTrue(IgniteToStringBuilder.arrayToString(c).contains("... and 1 more"),
                 "Can't find \"... and 1 more\" in overflowed array string!");
 
         Map<String, String> strMap = new TreeMap<>();

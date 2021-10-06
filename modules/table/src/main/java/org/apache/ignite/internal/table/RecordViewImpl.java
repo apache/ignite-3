@@ -63,9 +63,9 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
         RecordSerializer<R> marsh = serializer();
 
-        Row kRow = marsh.serialize(keyRec);  // Convert to portable format to pass TX/storage layer.
+        Row keyRow = marsh.serialize(keyRec);  // Convert to portable format to pass TX/storage layer.
 
-        return tbl.get(kRow, tx)  // Load async.
+        return tbl.get(keyRow, tx)  // Load async.
                 .thenApply(this::wrap) // Binary -> schema-aware row
                 .thenApply(marsh::deserialize); // Deserialize.
     }

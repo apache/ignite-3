@@ -144,8 +144,8 @@ class RelJson {
         Class<?> clazz = null;
 
         if (!typeName.contains(".")) {
-            for (String package_ : PACKAGES) {
-                if ((clazz = classForName(package_ + typeName, true)) != null) {
+            for (String package0 : PACKAGES) {
+                if ((clazz = classForName(package0 + typeName, true)) != null) {
                     break;
                 }
             }
@@ -167,10 +167,10 @@ class RelJson {
         }
 
         BlockBuilder builder = new BlockBuilder();
-        ParameterExpression input_ = Expressions.parameter(RelInput.class);
-        builder.add(Expressions.new_(constructor, input_));
+        ParameterExpression input = Expressions.parameter(RelInput.class);
+        builder.add(Expressions.new_(constructor, input));
         MethodDeclaration declaration = Expressions.methodDecl(
-                Modifier.PUBLIC, RelNode.class, "apply", asList(input_), builder.toBlock());
+                Modifier.PUBLIC, RelNode.class, "apply", asList(input), builder.toBlock());
         return Commons.compile(RelFactory.class, Expressions.toString(asList(declaration), "\n", true));
     }
 
@@ -270,9 +270,9 @@ class RelJson {
         }
 
         String canonicalName = clazz.getName();
-        for (String package_ : PACKAGES) {
-            if (canonicalName.startsWith(package_)) {
-                String remaining = canonicalName.substring(package_.length());
+        for (String package0 : PACKAGES) {
+            if (canonicalName.startsWith(package0)) {
+                String remaining = canonicalName.substring(package0.length());
                 if (remaining.indexOf('.') < 0 && remaining.indexOf('$') < 0) {
                     return remaining;
                 }
@@ -892,9 +892,9 @@ class RelJson {
                 return operator;
             }
         }
-        String class_ = (String) map.get("class");
-        if (class_ != null) {
-            return AvaticaUtils.instantiatePlugin(SqlOperator.class, class_);
+        String clazz = (String) map.get("class");
+        if (clazz != null) {
+            return AvaticaUtils.instantiatePlugin(SqlOperator.class, clazz);
         }
         return null;
     }
@@ -926,9 +926,9 @@ class RelJson {
     private <T extends Enum<T>> T toEnum(Object o) {
         if (o instanceof Map) {
             Map<String, Object> map = (Map<String, Object>) o;
-            String class_ = (String) map.get("class");
+            String clazz = (String) map.get("class");
             String name = map.get("name").toString();
-            return Util.enumVal((Class<T>) classForName(class_, false), name);
+            return Util.enumVal((Class<T>) classForName(clazz, false), name);
         }
 
         assert o instanceof String && ENUM_BY_NAME.containsKey(o);

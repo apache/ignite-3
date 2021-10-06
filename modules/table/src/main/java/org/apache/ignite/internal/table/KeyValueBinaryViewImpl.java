@@ -69,9 +69,9 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public @NotNull CompletableFuture<Tuple> getAsync(@NotNull Tuple key) {
         Objects.requireNonNull(key);
 
-        Row kRow = marshaller().marshal(key, null); // Convert to portable format to pass TX/storage layer.
+        Row keyRow = marshaller().marshal(key, null); // Convert to portable format to pass TX/storage layer.
 
-        return tbl.get(kRow, tx)  // Load async.
+        return tbl.get(keyRow, tx)  // Load async.
                 .thenApply(this::wrap) // Binary -> schema-aware row
                 .thenApply(TableRow::valueTuple); // Narrow to value.
     }

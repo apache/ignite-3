@@ -179,8 +179,8 @@ public class MessageClass {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        MessageClass aClass = (MessageClass) o;
-        return element.equals(aClass.element);
+        MessageClass clazz = (MessageClass) o;
+        return element.equals(clazz.element);
     }
 
     /** {@inheritDoc} */

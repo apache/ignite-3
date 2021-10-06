@@ -225,8 +225,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
             parseUrl(url, props0);
         }
 
-        for (ConnectionProperty aPropsArray : propsArray) {
-            aPropsArray.init(props0);
+        for (ConnectionProperty arr : propsArray) {
+            arr.init(props0);
         }
     }
 

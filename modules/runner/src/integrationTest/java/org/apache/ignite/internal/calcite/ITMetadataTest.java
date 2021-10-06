@@ -40,10 +40,10 @@ public class ITMetadataTest extends AbstractBasicIntegrationTest {
      */
     @Test
     public void trimColumnNames() {
-        String X300 = generate(() -> "X").limit(300).collect(joining());
-        String X256 = "'" + X300.substring(0, 255);
+        String x300 = generate(() -> "X").limit(300).collect(joining());
+        String x256 = "'" + x300.substring(0, 255);
 
-        assertQuery("select '" + X300 + "' from person").columnNames(X256).check();
+        assertQuery("select '" + x300 + "' from person").columnNames(x256).check();
     }
 
     /**

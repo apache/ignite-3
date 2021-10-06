@@ -125,12 +125,12 @@ public class AccumulatorsFactory<Row> implements Supplier<List<AccumulatorWrappe
     private static Function<Object, Object> compileCast(IgniteTypeFactory typeFactory, RelDataType from,
             RelDataType to) {
         RelDataType rowType = createRowType(typeFactory, from);
-        ParameterExpression in_ = Expressions.parameter(Object.class, "in");
+        ParameterExpression in = Expressions.parameter(Object.class, "in");
 
         RexToLixTranslator.InputGetter getter =
                 new RexToLixTranslator.InputGetterImpl(
                         ImmutableList.of(
-                                Pair.of(EnumUtils.convert(in_, Object.class, typeFactory.getJavaClass(from)),
+                                Pair.of(EnumUtils.convert(in, Object.class, typeFactory.getJavaClass(from)),
                                         PhysTypeImpl.of(typeFactory, rowType,
                                                 JavaRowFormat.SCALAR, false))));
 
@@ -145,7 +145,7 @@ public class AccumulatorsFactory<Row> implements Supplier<List<AccumulatorWrappe
         list.add(projects.get(0));
 
         MethodDeclaration decl = Expressions.methodDecl(
-                Modifier.PUBLIC, Object.class, "apply", ImmutableList.of(in_), list.toBlock());
+                Modifier.PUBLIC, Object.class, "apply", ImmutableList.of(in), list.toBlock());
 
         return Commons.compile(CastFunction.class, Expressions.toString(List.of(decl), "\n", false));
     }

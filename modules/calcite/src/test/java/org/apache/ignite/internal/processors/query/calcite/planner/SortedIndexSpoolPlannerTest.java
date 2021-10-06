@@ -96,23 +96,23 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
 
         IgniteSortedIndexSpool idxSpool = findFirstNode(phys, byClass(IgniteSortedIndexSpool.class));
 
-        List<RexNode> lBound = idxSpool.indexCondition().lowerBound();
+        List<RexNode> lowerBound = idxSpool.indexCondition().lowerBound();
 
-        assertNotNull(lBound);
-        assertEquals(3, lBound.size());
+        assertNotNull(lowerBound);
+        assertEquals(3, lowerBound.size());
 
-        assertTrue(((RexLiteral) lBound.get(0)).isNull());
-        assertTrue(((RexLiteral) lBound.get(2)).isNull());
-        assertTrue(lBound.get(1) instanceof RexFieldAccess);
+        assertTrue(((RexLiteral) lowerBound.get(0)).isNull());
+        assertTrue(((RexLiteral) lowerBound.get(2)).isNull());
+        assertTrue(lowerBound.get(1) instanceof RexFieldAccess);
 
-        List<RexNode> uBound = idxSpool.indexCondition().upperBound();
+        List<RexNode> upperBound = idxSpool.indexCondition().upperBound();
 
-        assertNotNull(uBound);
-        assertEquals(3, uBound.size());
+        assertNotNull(upperBound);
+        assertEquals(3, upperBound.size());
 
-        assertTrue(((RexLiteral) uBound.get(0)).isNull());
-        assertTrue(((RexLiteral) uBound.get(2)).isNull());
-        assertTrue(uBound.get(1) instanceof RexFieldAccess);
+        assertTrue(((RexLiteral) upperBound.get(0)).isNull());
+        assertTrue(((RexLiteral) upperBound.get(2)).isNull());
+        assertTrue(upperBound.get(1) instanceof RexFieldAccess);
     }
 
     /**
@@ -172,24 +172,24 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
 
         IgniteSortedIndexSpool idxSpool = findFirstNode(phys, byClass(IgniteSortedIndexSpool.class));
 
-        List<RexNode> lBound = idxSpool.indexCondition().lowerBound();
+        List<RexNode> lowerBound = idxSpool.indexCondition().lowerBound();
 
-        assertNotNull(lBound);
-        assertEquals(4, lBound.size());
+        assertNotNull(lowerBound);
+        assertEquals(4, lowerBound.size());
 
-        assertTrue(((RexLiteral) lBound.get(0)).isNull());
-        assertTrue(((RexLiteral) lBound.get(2)).isNull());
-        assertTrue(((RexLiteral) lBound.get(3)).isNull());
-        assertTrue(lBound.get(1) instanceof RexFieldAccess);
+        assertTrue(((RexLiteral) lowerBound.get(0)).isNull());
+        assertTrue(((RexLiteral) lowerBound.get(2)).isNull());
+        assertTrue(((RexLiteral) lowerBound.get(3)).isNull());
+        assertTrue(lowerBound.get(1) instanceof RexFieldAccess);
 
-        List<RexNode> uBound = idxSpool.indexCondition().upperBound();
+        List<RexNode> upperBound = idxSpool.indexCondition().upperBound();
 
-        assertNotNull(uBound);
-        assertEquals(4, uBound.size());
+        assertNotNull(upperBound);
+        assertEquals(4, upperBound.size());
 
-        assertTrue(((RexLiteral) uBound.get(0)).isNull());
-        assertTrue(((RexLiteral) lBound.get(2)).isNull());
-        assertTrue(((RexLiteral) lBound.get(3)).isNull());
-        assertTrue(uBound.get(1) instanceof RexFieldAccess);
+        assertTrue(((RexLiteral) upperBound.get(0)).isNull());
+        assertTrue(((RexLiteral) lowerBound.get(2)).isNull());
+        assertTrue(((RexLiteral) lowerBound.get(3)).isNull());
+        assertTrue(upperBound.get(1) instanceof RexFieldAccess);
     }
 }

@@ -243,12 +243,12 @@ public class Example {
         KeyValueView<OrderKey, OrderValue> orderKvView = t.keyValueView(Mappers.ofKeyClass(OrderKey.class),
                 Mappers.ofValueClassBuilder(OrderValue.class)
                         .map("billingDetails", (row) -> {
-                            BinaryObject bObj = row.binaryObjectValue("conditionalDetails");
+                            BinaryObject binObj = row.binaryObjectValue("conditionalDetails");
                             int type = row.intValue("type");
 
                             return type == 0
-                                    ? BinaryObjects.deserialize(bObj, CreditCard.class) :
-                                    BinaryObjects.deserialize(bObj, BankAccount.class);
+                                    ? BinaryObjects.deserialize(binObj, CreditCard.class) :
+                                    BinaryObjects.deserialize(binObj, BankAccount.class);
                         }).build());
 
         OrderValue ov = orderKvView.get(new OrderKey(1, 1));
@@ -360,12 +360,12 @@ public class Example {
         RecordView<TruncatedRecord> truncatedView2 = t.recordView(
                 Mappers.ofRecordClassBuilder(TruncatedRecord.class)
                         .map("upgradedObject", (row) -> {
-                            BinaryObject bObj = row.binaryObjectValue("upgradedObject");
+                            BinaryObject binObj1 = row.binaryObjectValue("upgradedObject");
                             int dept = row.intValue("department");
 
                             return dept == 0
-                                    ? BinaryObjects.deserialize(bObj, JavaPerson.class) :
-                                    BinaryObjects.deserialize(bObj, JavaPersonV2.class);
+                                    ? BinaryObjects.deserialize(binObj1, JavaPerson.class) :
+                                    BinaryObjects.deserialize(binObj1, JavaPersonV2.class);
                         }).build());
     }
 

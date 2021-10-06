@@ -102,9 +102,9 @@ public final class LoggerMessageHelper {
         // use string builder for better multicore performance
         StringBuilder sbuf = new StringBuilder(messagePattern.length() + 50);
 
-        int L;
+        int l;
 
-        for (L = 0; L < params.length; L++) {
+        for (l = 0; l < params.length; l++) {
 
             j = messagePattern.indexOf(DELIM_STR, i);
 
@@ -121,7 +121,7 @@ public final class LoggerMessageHelper {
             } else {
                 if (isEscapedDelimeter(messagePattern, j)) {
                     if (!isDoubleEscaped(messagePattern, j)) {
-                        L--; // DELIM_START was escaped, thus should not be incremented
+                        l--; // DELIM_START was escaped, thus should not be incremented
 
                         sbuf.append(messagePattern, i, j - 1);
 
@@ -134,7 +134,7 @@ public final class LoggerMessageHelper {
                         // we have to consume one backward slash
                         sbuf.append(messagePattern, i, j - 1);
 
-                        deeplyAppendParameter(sbuf, params[L], new HashSet<>());
+                        deeplyAppendParameter(sbuf, params[l], new HashSet<>());
 
                         i = j + 2;
                     }
@@ -142,7 +142,7 @@ public final class LoggerMessageHelper {
                     // normal case
                     sbuf.append(messagePattern, i, j);
 
-                    deeplyAppendParameter(sbuf, params[L], new HashSet<>());
+                    deeplyAppendParameter(sbuf, params[l], new HashSet<>());
 
                     i = j + 2;
                 }
@@ -230,9 +230,9 @@ public final class LoggerMessageHelper {
      */
     private static void safeObjectAppend(StringBuilder sbuf, Object o) {
         try {
-            String oAsString = o.toString();
+            String s = o.toString();
 
-            sbuf.append(oAsString);
+            sbuf.append(s);
         } catch (Throwable t) {
             sbuf.append("Failed toString() invocation on an object of type [cls=" + o.getClass().getName()
                     + ", errMsg=" + t.getClass().getName()

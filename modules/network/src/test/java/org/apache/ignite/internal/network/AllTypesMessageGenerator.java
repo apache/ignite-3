@@ -157,11 +157,11 @@ public class AllTypesMessageGenerator {
             }
             return booleans;
         } else if (type == String.class) {
-            int aLetter = 'a';
+            int l = 'a';
             int strLen = random.nextInt(1024);
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < strLen; i++) {
-                int letter = aLetter + random.nextInt(26);
+                int letter = l + random.nextInt(26);
                 sb.append(letter);
             }
             return sb.toString();

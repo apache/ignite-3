@@ -241,10 +241,10 @@ public class RestModule implements IgniteComponent {
 
             res.json(presentation.representByPath(cfgPath));
         } catch (IllegalArgumentException pathE) {
-            ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", pathE.getMessage());
+            ErrorResult errRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", pathE.getMessage());
 
             res.status(BAD_REQUEST);
-            res.json(Map.of("error", eRes));
+            res.json(Map.of("error", errRes));
         }
     }
 
@@ -269,20 +269,20 @@ public class RestModule implements IgniteComponent {
 
             presentation.update(updateReq);
         } catch (IllegalArgumentException e) {
-            ErrorResult eRes = new ErrorResult("INVALID_CONFIG_FORMAT", e.getMessage());
+            ErrorResult errRes = new ErrorResult("INVALID_CONFIG_FORMAT", e.getMessage());
 
             res.status(BAD_REQUEST);
-            res.json(Map.of("error", eRes));
+            res.json(Map.of("error", errRes));
         } catch (ConfigurationValidationException e) {
-            ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", e.getMessage());
+            ErrorResult errRes = new ErrorResult("VALIDATION_EXCEPTION", e.getMessage());
 
             res.status(BAD_REQUEST);
-            res.json(Map.of("error", eRes));
+            res.json(Map.of("error", errRes));
         } catch (IgniteException e) {
-            ErrorResult eRes = new ErrorResult("APPLICATION_EXCEPTION", e.getMessage());
+            ErrorResult errRes = new ErrorResult("APPLICATION_EXCEPTION", e.getMessage());
 
             res.status(BAD_REQUEST);
-            res.json(Map.of("error", eRes));
+            res.json(Map.of("error", errRes));
         }
     }
 }

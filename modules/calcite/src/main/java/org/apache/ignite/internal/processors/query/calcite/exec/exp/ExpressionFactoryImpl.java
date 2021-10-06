@@ -293,40 +293,40 @@ public class ExpressionFactoryImpl<Row> implements ExpressionFactory<Row> {
 
         BlockBuilder builder = new BlockBuilder();
 
-        ParameterExpression ctx_ =
+        ParameterExpression ctx =
                 Expressions.parameter(ExecutionContext.class, "ctx");
 
-        ParameterExpression in_ =
+        ParameterExpression in =
                 Expressions.parameter(Object.class, "in");
 
-        ParameterExpression out_ =
+        ParameterExpression out =
                 Expressions.parameter(Object.class, "out");
 
         builder.add(
-                Expressions.declare(Modifier.FINAL, DataContext.ROOT, Expressions.convert_(ctx_, DataContext.class)));
+                Expressions.declare(Modifier.FINAL, DataContext.ROOT, Expressions.convert_(ctx, DataContext.class)));
 
-        Expression hnd_ = builder.append("hnd",
-                Expressions.call(ctx_,
+        Expression hnd = builder.append("hnd",
+                Expressions.call(ctx,
                         IgniteMethod.CONTEXT_ROW_HANDLER.method()));
 
-        InputGetter inputGetter = new FieldGetter(hnd_, in_, type);
+        InputGetter inputGetter = new FieldGetter(hnd, in, type);
 
-        Function1<String, InputGetter> correlates = new CorrelatesBuilder(builder, ctx_, hnd_).build(nodes);
+        Function1<String, InputGetter> correlates = new CorrelatesBuilder(builder, ctx, hnd).build(nodes);
 
         List<Expression> projects = RexToLixTranslator.translateProjects(program, typeFactory, conformance,
-                builder, null, ctx_, inputGetter, correlates);
+                builder, null, ctx, inputGetter, correlates);
 
         for (int i = 0; i < projects.size(); i++) {
             builder.add(
                     Expressions.statement(
-                            Expressions.call(hnd_,
+                            Expressions.call(hnd,
                                     IgniteMethod.ROW_HANDLER_SET.method(),
-                                    Expressions.constant(i), out_, projects.get(i))));
+                                    Expressions.constant(i), out, projects.get(i))));
         }
 
         MethodDeclaration decl = Expressions.methodDecl(
                 Modifier.PUBLIC, void.class, IgniteMethod.SCALAR_EXECUTE.method().getName(),
-                ImmutableList.of(ctx_, in_, out_), builder.toBlock());
+                ImmutableList.of(ctx, in, out), builder.toBlock());
 
         return Commons.compile(Scalar.class, Expressions.toString(List.of(decl), "\n", false));
     }
@@ -521,11 +521,11 @@ public class ExpressionFactoryImpl<Row> implements ExpressionFactory<Row> {
         /** {@inheritDoc} */
         @Override
         public Expression field(BlockBuilder list, int index, Type desiredType) {
-            Expression row_ = list.append("row", this.row);
+            Expression row = list.append("row", this.row);
 
             Expression field = Expressions.call(hnd,
                     IgniteMethod.ROW_HANDLER_GET.method(),
-                    Expressions.constant(index), row_);
+                    Expressions.constant(index), row);
 
             Type fieldType = typeFactory.getJavaClass(rowType.getFieldList().get(index).getType());
 
@@ -593,7 +593,7 @@ public class ExpressionFactoryImpl<Row> implements ExpressionFactory<Row> {
         /** {@inheritDoc} */
         @Override
         public RexNode visitCorrelVariable(RexCorrelVariable variable) {
-            Expression corr_ = builder.append("corr",
+            Expression corr = builder.append("corr",
                     Expressions.call(ctx, IgniteMethod.CONTEXT_GET_CORRELATED_VALUE.method(),
                             Expressions.constant(variable.id.getId())));
 
@@ -601,7 +601,7 @@ public class ExpressionFactoryImpl<Row> implements ExpressionFactory<Row> {
                 correlates = new HashMap<>();
             }
 
-            correlates.put(variable.getName(), new FieldGetter(hnd, corr_, variable.getType()));
+            correlates.put(variable.getName(), new FieldGetter(hnd, corr, variable.getType()));
 
             return variable;
         }

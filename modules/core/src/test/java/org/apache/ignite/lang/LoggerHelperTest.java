@@ -272,8 +272,8 @@ public class LoggerHelperTest {
         result = LoggerMessageHelper.format("{}{}", new Object[]{"a", multiOA});
         assertEquals("a[[1, 2, 3], [10, 20, 30]]", result);
 
-        Object[][][] _3DOA = new Object[][][]{multiOA, multiOA};
-        result = LoggerMessageHelper.format("{}{}", new Object[]{"a", _3DOA});
+        Object[][][] multiOA3 = new Object[][][]{multiOA, multiOA};
+        result = LoggerMessageHelper.format("{}{}", new Object[]{"a", multiOA3});
         assertEquals("a[[[1, 2, 3], [10, 20, 30]], [[1, 2, 3], [10, 20, 30]]]", result);
     }
 

@@ -98,22 +98,22 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
         RelNode left = rel.getLeft();
         RelNode right = rel.getRight();
 
-        FragmentMapping fLeft = _fragmentMapping(left, mq);
-        FragmentMapping fRight = _fragmentMapping(right, mq);
+        FragmentMapping fragLeft = _fragmentMapping(left, mq);
+        FragmentMapping fragRight = _fragmentMapping(right, mq);
 
         try {
-            return fLeft.colocate(fRight);
+            return fragLeft.colocate(fragRight);
         } catch (ColocationMappingException e) {
-            IgniteExchange lExch = new IgniteExchange(rel.getCluster(), left.getTraitSet(), left, TraitUtils.distribution(left));
-            IgniteExchange rExch = new IgniteExchange(rel.getCluster(), right.getTraitSet(), right, TraitUtils.distribution(right));
+            IgniteExchange leftExch = new IgniteExchange(rel.getCluster(), left.getTraitSet(), left, TraitUtils.distribution(left));
+            IgniteExchange rightExch = new IgniteExchange(rel.getCluster(), right.getTraitSet(), right, TraitUtils.distribution(right));
 
-            RelNode lVar = rel.copy(rel.getTraitSet(), ImmutableList.of(lExch, right));
-            RelNode rVar = rel.copy(rel.getTraitSet(), ImmutableList.of(left, rExch));
+            RelNode leftVar = rel.copy(rel.getTraitSet(), ImmutableList.of(leftExch, right));
+            RelNode rightVar = rel.copy(rel.getTraitSet(), ImmutableList.of(left, rightExch));
 
-            RelOptCost lVarCost = mq.getCumulativeCost(lVar);
-            RelOptCost rVarCost = mq.getCumulativeCost(rVar);
+            RelOptCost leftVarCost = mq.getCumulativeCost(leftVar);
+            RelOptCost rightVarCost = mq.getCumulativeCost(rightVar);
 
-            if (lVarCost.isLt(rVarCost)) {
+            if (leftVarCost.isLt(rightVarCost)) {
                 throw new NodeMappingException("Failed to calculate physical distribution", left, e);
             } else {
                 throw new NodeMappingException("Failed to calculate physical distribution", right, e);

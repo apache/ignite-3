@@ -293,34 +293,34 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testSingleKeyMultithreadedRead() throws InterruptedException {
-        LongAdder rLocks = new LongAdder();
-        LongAdder wLocks = new LongAdder();
-        LongAdder fLocks = new LongAdder();
+        LongAdder readLocks = new LongAdder();
+        LongAdder writeLocks = new LongAdder();
+        LongAdder failedLocks = new LongAdder();
 
-        doTestSingleKeyMultithreaded(5_000, rLocks, wLocks, fLocks, 0);
+        doTestSingleKeyMultithreaded(5_000, readLocks, writeLocks, failedLocks, 0);
 
-        assertTrue(wLocks.sum() == 0);
-        assertTrue(fLocks.sum() == 0);
+        assertTrue(writeLocks.sum() == 0);
+        assertTrue(failedLocks.sum() == 0);
     }
 
     @Test
     public void testSingleKeyMultithreadedWrite() throws InterruptedException {
-        LongAdder rLocks = new LongAdder();
-        LongAdder wLocks = new LongAdder();
-        LongAdder fLocks = new LongAdder();
+        LongAdder readLocks = new LongAdder();
+        LongAdder writeLocks = new LongAdder();
+        LongAdder failedLocks = new LongAdder();
 
-        doTestSingleKeyMultithreaded(5_000, rLocks, wLocks, fLocks, 1);
+        doTestSingleKeyMultithreaded(5_000, readLocks, writeLocks, failedLocks, 1);
 
-        assertTrue(rLocks.sum() == 0);
+        assertTrue(readLocks.sum() == 0);
     }
 
     @Test
     public void testSingleKeyMultithreadedRandom() throws InterruptedException {
-        LongAdder rLocks = new LongAdder();
-        LongAdder wLocks = new LongAdder();
-        LongAdder fLocks = new LongAdder();
+        LongAdder readLocks = new LongAdder();
+        LongAdder writeLocks = new LongAdder();
+        LongAdder failedLocks = new LongAdder();
 
-        doTestSingleKeyMultithreaded(5_000, rLocks, wLocks, fLocks, 2);
+        doTestSingleKeyMultithreaded(5_000, readLocks, writeLocks, failedLocks, 2);
     }
 
     @Test

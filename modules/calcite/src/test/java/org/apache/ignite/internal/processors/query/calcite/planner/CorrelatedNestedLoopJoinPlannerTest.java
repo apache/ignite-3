@@ -99,23 +99,23 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
 
         IgniteIndexScan idxScan = findFirstNode(phys, byClass(IgniteIndexScan.class));
 
-        List<RexNode> lBound = idxScan.lowerBound();
+        List<RexNode> lowerBound = idxScan.lowerBound();
 
-        assertNotNull(lBound, "Invalid plan\n" + RelOptUtil.toString(phys));
-        assertEquals(3, lBound.size());
+        assertNotNull(lowerBound, "Invalid plan\n" + RelOptUtil.toString(phys));
+        assertEquals(3, lowerBound.size());
 
-        assertTrue(((RexLiteral) lBound.get(0)).isNull());
-        assertTrue(((RexLiteral) lBound.get(2)).isNull());
-        assertTrue(lBound.get(1) instanceof RexFieldAccess);
+        assertTrue(((RexLiteral) lowerBound.get(0)).isNull());
+        assertTrue(((RexLiteral) lowerBound.get(2)).isNull());
+        assertTrue(lowerBound.get(1) instanceof RexFieldAccess);
 
-        List<RexNode> uBound = idxScan.upperBound();
+        List<RexNode> upperBound = idxScan.upperBound();
 
-        assertNotNull(uBound, "Invalid plan\n" + RelOptUtil.toString(phys));
-        assertEquals(3, uBound.size());
+        assertNotNull(upperBound, "Invalid plan\n" + RelOptUtil.toString(phys));
+        assertEquals(3, upperBound.size());
 
-        assertTrue(((RexLiteral) uBound.get(0)).isNull());
-        assertTrue(((RexLiteral) uBound.get(2)).isNull());
-        assertTrue(uBound.get(1) instanceof RexFieldAccess);
+        assertTrue(((RexLiteral) upperBound.get(0)).isNull());
+        assertTrue(((RexLiteral) upperBound.get(2)).isNull());
+        assertTrue(upperBound.get(1) instanceof RexFieldAccess);
     }
 
     /**

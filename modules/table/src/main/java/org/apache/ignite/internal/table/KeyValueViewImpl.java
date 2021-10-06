@@ -66,9 +66,9 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
         final KVSerializer<K, V> marsh = marshaller();
 
-        Row kRow = marsh.serialize(key, null); // Convert to portable format to pass TX/storage layer.
+        Row keyRow = marsh.serialize(key, null); // Convert to portable format to pass TX/storage layer.
 
-        return tbl.get(kRow, tx)
+        return tbl.get(keyRow, tx)
                 .thenApply(this::wrap) // Binary -> schema-aware row
                 .thenApply(marsh::deserializeValue); // row -> deserialized obj.
     }
