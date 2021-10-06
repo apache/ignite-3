@@ -48,9 +48,9 @@ public class NetworkConfigurationSchema {
     @ConfigValue
     public OutboundConfigurationSchema outbound;
 
-    /** ScaleCube configuration. */
+    /** Membership configuration. */
     @ConfigValue
-    public ScaleCubeConfigurationSchema scaleCube;
+    public ClusterMembershipConfigurationSchema membership;
 
     /** NodeFinder configuration. */
     @ConfigValue

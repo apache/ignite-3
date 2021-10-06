@@ -32,6 +32,7 @@ import io.scalecube.cluster.ClusterMessageHandler;
 import io.scalecube.cluster.membership.MembershipEvent;
 import io.scalecube.cluster.transport.api.Message;
 import io.scalecube.net.Address;
+import org.apache.ignite.configuration.schemas.network.ClusterMembershipView;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkView;
 import org.apache.ignite.configuration.schemas.network.ScaleCubeView;
@@ -91,7 +92,7 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
 
                 NodeFinder finder = NodeFinderFactory.createNodeFinder(networkConfigurationView.nodeFinder());
 
-                this.cluster = new ClusterImpl(clusterConfig(networkConfigurationView.scaleCube()))
+                this.cluster = new ClusterImpl(clusterConfig(networkConfigurationView.membership()))
                     .handler(cl -> new ClusterMessageHandler() {
                         /** {@inheritDoc} */
                         @Override public void onMessage(Message message) {
@@ -163,19 +164,22 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
      * Returns ScaleCube's cluster configuration. Can be overridden in subclasses for finer control of the created
      * {@link ClusterService} instances.
      *
+     * @param cfg Membership configuration.
      * @return Cluster configuration.
      */
-    protected ClusterConfig clusterConfig(ScaleCubeView cfg) {
+    protected ClusterConfig clusterConfig(ClusterMembershipView cfg) {
+        ScaleCubeView scaleCube = cfg.scaleCube();
+
         return ClusterConfig.defaultLocalConfig()
             .membership(opts ->
                 opts.syncInterval(cfg.membershipSyncInterval())
-                    .suspicionMult(cfg.membershipSuspicionMultiplier())
+                    .suspicionMult(scaleCube.membershipSuspicionMultiplier())
             )
             .failureDetector(opts ->
                 opts.pingInterval(cfg.failurePingInterval())
-                    .pingReqMembers(cfg.failurePingRequestMembers())
+                    .pingReqMembers(scaleCube.failurePingRequestMembers())
             )
-            .gossip(opts -> opts.gossipInterval(cfg.gossipInterval()));
+            .gossip(opts -> opts.gossipInterval(scaleCube.gossipInterval()));
     }
 
     /**

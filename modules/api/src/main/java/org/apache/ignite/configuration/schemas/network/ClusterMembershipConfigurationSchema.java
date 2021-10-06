@@ -18,30 +18,23 @@
 package org.apache.ignite.configuration.schemas.network;
 
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * ScaleCube configuration.
+ * Cluster membership configuration.
  */
 @Config
-public class ScaleCubeConfigurationSchema {
-    /**
-     * This multiplier is used to calculate the timeout after which the node is considered dead.
-     * For more information see {@link io.scalecube.cluster.ClusterMath#suspicionTimeout}.
-     */
+public class ClusterMembershipConfigurationSchema {
+    /** Periodic membership data sync interval. */
     @Value(hasDefault = true)
-    public final int membershipSuspicionMultiplier = 1;
+    public final int membershipSyncInterval = 1000;
 
-    /**
-     * Number of members to be randomly selected by a cluster node for an indirect ping request.
-     */
+    /** Failure detector ping interval. */
     @Value(hasDefault = true)
-    public final int failurePingRequestMembers = 1;
+    public final int failurePingInterval = 500;
 
-    /**
-     * Gossip spreading interval.
-     * @see <a href="https://en.wikipedia.org/wiki/Gossip_protocol">Gossip Protocol</a>.
-     */
-    @Value(hasDefault = true)
-    public final int gossipInterval = 10;
+    /** ScaleCube-specific configuration. */
+    @ConfigValue
+    public ScaleCubeConfigurationSchema scaleCube;
 }
