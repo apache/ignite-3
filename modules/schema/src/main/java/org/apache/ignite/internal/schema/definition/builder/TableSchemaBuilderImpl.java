@@ -148,8 +148,7 @@ public class TableSchemaBuilderImpl implements TableSchemaBuilder {
                 throw new IllegalStateException("Index column must exist in the schema.");
             }
 
-            if (idx0.unique() &&
-                    !(idx0.columns().stream().map(IndexColumnDefinition::name).allMatch(affColNames::contains))) {
+            if (idx0.unique() && !(idx0.columns().stream().map(IndexColumnDefinition::name).allMatch(affColNames::contains))) {
                 throw new IllegalStateException("Unique index must contains all affinity columns.");
             }
         }

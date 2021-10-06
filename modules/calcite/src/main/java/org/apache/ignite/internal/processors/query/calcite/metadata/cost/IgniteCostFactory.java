@@ -51,8 +51,8 @@ public class IgniteCostFactory implements RelOptCostFactory {
      */
     public IgniteCostFactory(double cpuWeight, double memoryWeight, double ioWeight, double networkWeight) {
         if (cpuWeight < 0 || memoryWeight < 0 || ioWeight < 0 || networkWeight < 0) {
-            throw new IllegalArgumentException("Weight should be non negative: cpu=" + cpuWeight +
-                    ", memory=" + memoryWeight + ", io=" + ioWeight + ", network=" + networkWeight);
+            throw new IllegalArgumentException("Weight should be non negative: cpu=" + cpuWeight
+                    + ", memory=" + memoryWeight + ", io=" + ioWeight + ", network=" + networkWeight);
         }
 
         this.cpuWeight = cpuWeight;

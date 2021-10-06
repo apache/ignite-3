@@ -162,8 +162,8 @@ public class IgniteImpl implements Ignite {
                         new MessageSerializationRegistryImpl()
                 ),
                 nodeCfgMgr,
-                () -> StaticNodeFinder.fromConfiguration(nodeCfgMgr.configurationRegistry().
-                        getConfiguration(NetworkConfiguration.KEY).value())
+                () -> StaticNodeFinder.fromConfiguration(nodeCfgMgr.configurationRegistry()
+                        .getConfiguration(NetworkConfiguration.KEY).value())
         );
 
         raftMgr = new Loza(clusterSvc, workDir);
@@ -406,8 +406,8 @@ public class IgniteImpl implements Ignite {
             try {
                 componentToExecBeforeNodeStop.beforeNodeStop();
             } catch (Exception e) {
-                LOG.error("Unable to execute before node stop on the component=[" +
-                        componentToExecBeforeNodeStop + "] within node=[" + name + ']', e);
+                LOG.error("Unable to execute before node stop on the component=["
+                        + componentToExecBeforeNodeStop + "] within node=[" + name + ']', e);
             }
         }
 

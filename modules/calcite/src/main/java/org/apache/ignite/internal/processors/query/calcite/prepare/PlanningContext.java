@@ -260,7 +260,8 @@ public final class PlanningContext implements Context {
             return catalogReader;
         }
 
-        SchemaPlus dfltSchema = schema(), rootSchema = dfltSchema;
+        SchemaPlus dfltSchema = schema();
+        SchemaPlus rootSchema = dfltSchema;
 
         while (rootSchema.getParentSchema() != null) {
             rootSchema = rootSchema.getParentSchema();

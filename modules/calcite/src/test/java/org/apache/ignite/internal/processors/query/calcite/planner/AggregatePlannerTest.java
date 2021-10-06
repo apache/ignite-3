@@ -219,9 +219,9 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
 
         publicSchema.addTable("TEST", tbl);
 
-        String sql = "SELECT " +
-                "/*+ EXPAND_DISTINCT_AGG */ " +
-                "SUM(DISTINCT val0), AVG(DISTINCT val1) FROM test GROUP BY grp0";
+        String sql = "SELECT "
+                + "/*+ EXPAND_DISTINCT_AGG */ "
+                + "SUM(DISTINCT val0), AVG(DISTINCT val1) FROM test GROUP BY grp0";
 
         IgniteRel phys = physicalPlan(
                 sql,

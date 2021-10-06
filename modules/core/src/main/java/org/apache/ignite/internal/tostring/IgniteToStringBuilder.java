@@ -904,6 +904,18 @@ public class IgniteToStringBuilder {
     }
 
     /**
+     * Produces uniformed output of string with context properties
+     *
+     * @param str  Output prefix or {@code null} if empty.
+     * @param name Property name.
+     * @param val  Property value.
+     * @return String presentation.
+     */
+    public static String toString(String str, String name, @Nullable Object val) {
+        return toString(str, name, val, false);
+    }
+
+    /**
      * Writes array to buffer.
      *
      * @param buf     String builder buffer.
@@ -1226,18 +1238,6 @@ public class IgniteToStringBuilder {
             // No other option here.
             throw new IgniteInternalException(e);
         }
-    }
-
-    /**
-     * Produces uniformed output of string with context properties
-     *
-     * @param str  Output prefix or {@code null} if empty.
-     * @param name Property name.
-     * @param val  Property value.
-     * @return String presentation.
-     */
-    public static String toString(String str, String name, @Nullable Object val) {
-        return toString(str, name, val, false);
     }
 
     /**

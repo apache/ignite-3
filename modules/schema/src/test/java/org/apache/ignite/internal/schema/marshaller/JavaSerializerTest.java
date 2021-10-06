@@ -537,25 +537,25 @@ public class JavaSerializerTest {
 
             TestObject object = (TestObject) o;
 
-            return pByteCol == object.pByteCol &&
-                    pShortCol == object.pShortCol &&
-                    pIntCol == object.pIntCol &&
-                    pLongCol == object.pLongCol &&
-                    Float.compare(object.pFloatCol, pFloatCol) == 0 &&
-                    Double.compare(object.pDoubleCol, pDoubleCol) == 0 &&
-                    Objects.equals(byteCol, object.byteCol) &&
-                    Objects.equals(shortCol, object.shortCol) &&
-                    Objects.equals(intCol, object.intCol) &&
-                    Objects.equals(longCol, object.longCol) &&
-                    Objects.equals(nullLongCol, object.nullLongCol) &&
-                    Objects.equals(floatCol, object.floatCol) &&
-                    Objects.equals(doubleCol, object.doubleCol) &&
-                    Objects.equals(uuidCol, object.uuidCol) &&
-                    Objects.equals(bitmaskCol, object.bitmaskCol) &&
-                    Objects.equals(stringCol, object.stringCol) &&
-                    Arrays.equals(bytesCol, object.bytesCol) &&
-                    Objects.equals(numberCol, object.numberCol) &&
-                    Objects.equals(decimalCol, object.decimalCol);
+            return pByteCol == object.pByteCol
+                    && pShortCol == object.pShortCol
+                    && pIntCol == object.pIntCol
+                    && pLongCol == object.pLongCol
+                    && Float.compare(object.pFloatCol, pFloatCol) == 0
+                    && Double.compare(object.pDoubleCol, pDoubleCol) == 0
+                    && Objects.equals(byteCol, object.byteCol)
+                    && Objects.equals(shortCol, object.shortCol)
+                    && Objects.equals(intCol, object.intCol)
+                    && Objects.equals(longCol, object.longCol)
+                    && Objects.equals(nullLongCol, object.nullLongCol)
+                    && Objects.equals(floatCol, object.floatCol)
+                    && Objects.equals(doubleCol, object.doubleCol)
+                    && Objects.equals(uuidCol, object.uuidCol)
+                    && Objects.equals(bitmaskCol, object.bitmaskCol)
+                    && Objects.equals(stringCol, object.stringCol)
+                    && Arrays.equals(bytesCol, object.bytesCol)
+                    && Objects.equals(numberCol, object.numberCol)
+                    && Objects.equals(decimalCol, object.decimalCol);
         }
 
         /** {@inheritDoc} */

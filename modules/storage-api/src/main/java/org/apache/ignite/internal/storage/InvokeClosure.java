@@ -48,7 +48,7 @@ public interface InvokeClosure<T> {
 
     /**
      * @return Operation type for this closure or {@code null} if it is unknown. After method {@link #call(DataRow)} has been called,
-     * operation type must be computed and this method cannot return {@code null}.
+     *      operation type must be computed and this method cannot return {@code null}.
      */
     @Nullable OperationType operationType();
 }

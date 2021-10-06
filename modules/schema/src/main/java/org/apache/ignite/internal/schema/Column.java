@@ -153,8 +153,7 @@ public class Column implements Comparable<Column>, Serializable {
 
         Column col = (Column) o;
 
-        return name.equals(col.name) &&
-                type.equals(col.type);
+        return name.equals(col.name) && type.equals(col.type);
     }
 
     /** {@inheritDoc} */
@@ -182,18 +181,18 @@ public class Column implements Comparable<Column>, Serializable {
      */
     public void validate(Object val) {
         if (val == null && !nullable) {
-            throw new IllegalArgumentException("Failed to set column (null was passed, but column is not nullable): " +
-                    "[col=" + this + ']');
+            throw new IllegalArgumentException("Failed to set column (null was passed, but column is not nullable): "
+                    + "[col=" + this + ']');
         }
 
         NativeType objType = NativeTypes.fromObject(val);
 
         if (objType != null && type.mismatch(objType)) {
-            throw new InvalidTypeException("Column's type mismatch [" +
-                    "column=" + this +
-                    ", expectedType=" + type +
-                    ", actualType=" + objType +
-                    ", val=" + val + ']');
+            throw new InvalidTypeException("Column's type mismatch ["
+                    + "column=" + this
+                    + ", expectedType=" + type
+                    + ", actualType=" + objType
+                    + ", val=" + val + ']');
         }
     }
 

@@ -54,6 +54,14 @@ public class IgniteMdRowCount extends RelMdRowCount {
     }
 
     /**
+     * RowCount of Spool equals to estimated row count of its child by default, but IndexSpool has internal filter that could filter out
+     * some rows, hence we need to estimate it differently.
+     */
+    public double getRowCount(IgniteSortedIndexSpool rel, RelMetadataQuery mq) {
+        return rel.estimateRowCount(mq);
+    }
+
+    /**
      *
      */
     @Nullable
@@ -116,14 +124,6 @@ public class IgniteMdRowCount extends RelMdRowCount {
         }
 
         return rowsCount;
-    }
-
-    /**
-     * RowCount of Spool equals to estimated row count of its child by default, but IndexSpool has internal filter that could filter out
-     * some rows, hence we need to estimate it differently.
-     */
-    public double getRowCount(IgniteSortedIndexSpool rel, RelMetadataQuery mq) {
-        return rel.estimateRowCount(mq);
     }
 
     /**

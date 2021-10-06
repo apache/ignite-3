@@ -245,6 +245,35 @@ class ClientTableCommon {
     }
 
     /**
+     * Reads a tuple.
+     *
+     * @param unpacker Unpacker.
+     * @param keyOnly  Whether only key fields are expected.
+     * @param schema   Tuple schema.
+     * @return Tuple.
+     */
+    public static Tuple readTuple(
+            ClientMessageUnpacker unpacker,
+            boolean keyOnly,
+            SchemaDescriptor schema
+    ) {
+        var cnt = keyOnly ? schema.keyColumns().length() : schema.length();
+
+        var tuple = Tuple.create(cnt);
+
+        for (int i = 0; i < cnt; i++) {
+            if (unpacker.getNextFormat() == MessageFormat.NIL) {
+                unpacker.skipValue();
+                continue;
+            }
+
+            readAndSetColumnValue(unpacker, tuple, schema.column(i));
+        }
+
+        return tuple;
+    }
+
+    /**
      * Reads multiple tuples.
      *
      * @param unpacker Unpacker.
@@ -277,35 +306,6 @@ class ClientTableCommon {
         var schemaId = unpacker.unpackInt();
 
         return table.schemaView().schema(schemaId);
-    }
-
-    /**
-     * Reads a tuple.
-     *
-     * @param unpacker Unpacker.
-     * @param keyOnly  Whether only key fields are expected.
-     * @param schema   Tuple schema.
-     * @return Tuple.
-     */
-    public static Tuple readTuple(
-            ClientMessageUnpacker unpacker,
-            boolean keyOnly,
-            SchemaDescriptor schema
-    ) {
-        var cnt = keyOnly ? schema.keyColumns().length() : schema.length();
-
-        var tuple = Tuple.create(cnt);
-
-        for (int i = 0; i < cnt; i++) {
-            if (unpacker.getNextFormat() == MessageFormat.NIL) {
-                unpacker.skipValue();
-                continue;
-            }
-
-            readAndSetColumnValue(unpacker, tuple, schema.column(i));
-        }
-
-        return tuple;
     }
 
     /**

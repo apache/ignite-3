@@ -74,6 +74,17 @@ public abstract class AbstractMultiStepPlan implements MultiStepPlan {
         return mapping(fragment.fragmentId());
     }
 
+    /**
+     *
+     */
+    private FragmentMapping mapping(long fragmentId) {
+        return Objects.requireNonNull(executionPlan).fragments().stream()
+                .filter(f -> f.fragmentId() == fragmentId)
+                .findAny().orElseThrow(() -> new IllegalStateException("Cannot find fragment with given ID. ["
+                        + "fragmentId=" + fragmentId + ", " + "fragments=" + fragments() + "]"))
+                .mapping();
+    }
+
     /** {@inheritDoc} */
     @Override
     public ColocationGroup target(Fragment fragment) {
@@ -107,17 +118,5 @@ public abstract class AbstractMultiStepPlan implements MultiStepPlan {
     @Override
     public void init(PlanningContext ctx) {
         executionPlan = queryTemplate.map(ctx);
-    }
-
-    /**
-     *
-     */
-    private FragmentMapping mapping(long fragmentId) {
-        return Objects.requireNonNull(executionPlan).fragments().stream()
-                .filter(f -> f.fragmentId() == fragmentId)
-                .findAny().orElseThrow(() -> new IllegalStateException("Cannot find fragment with given ID. [" +
-                        "fragmentId=" + fragmentId + ", " +
-                        "fragments=" + fragments() + "]"))
-                .mapping();
     }
 }

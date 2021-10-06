@@ -42,7 +42,6 @@ public class IgniteSingleSortAggregate extends IgniteSingleAggregateBase impleme
     /** Collation. */
     private final RelCollation collation;
 
-    /** {@inheritDoc} */
     public IgniteSingleSortAggregate(
             RelOptCluster cluster,
             RelTraitSet traitSet,
@@ -59,7 +58,6 @@ public class IgniteSingleSortAggregate extends IgniteSingleAggregateBase impleme
         collation = TraitUtils.collation(traitSet);
     }
 
-    /** {@inheritDoc} */
     public IgniteSingleSortAggregate(RelInput input) {
         super(input);
 

@@ -390,15 +390,6 @@ abstract class FieldAccessor {
     }
 
     /**
-     * Reads value fom row to object field.
-     *
-     * @param reader Row reader.
-     * @param obj    Target object.
-     * @throws Exception If failed.
-     */
-    protected abstract void read0(Row reader, Object obj) throws Exception;
-
-    /**
      * Read value.
      *
      * @param reader Row reader.
@@ -407,6 +398,15 @@ abstract class FieldAccessor {
     public Object read(Row reader) {
         throw new UnsupportedOperationException();
     }
+
+    /**
+     * Reads value fom row to object field.
+     *
+     * @param reader Row reader.
+     * @param obj    Target object.
+     * @throws Exception If failed.
+     */
+    protected abstract void read0(Row reader, Object obj) throws Exception;
 
     /**
      * Reads object field value.

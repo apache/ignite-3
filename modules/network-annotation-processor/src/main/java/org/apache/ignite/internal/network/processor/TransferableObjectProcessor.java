@@ -242,8 +242,8 @@ public class TransferableObjectProcessor extends AbstractProcessor {
                     .collect(Collectors.toList());
 
             throw new ProcessingException(
-                    "Invalid number of message groups (classes annotated with @MessageGroup), " +
-                            "only one can be present in a compilation unit: " + sortedNames
+                    "Invalid number of message groups (classes annotated with @MessageGroup), "
+                            + "only one can be present in a compilation unit: " + sortedNames
             );
         }
 

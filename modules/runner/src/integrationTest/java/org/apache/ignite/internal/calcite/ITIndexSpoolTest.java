@@ -77,9 +77,9 @@ public class ITIndexSpoolTest extends AbstractBasicIntegrationTest {
 
         List<SqlCursor<List<?>>> cursors = engine.query(
                 "PUBLIC",
-                "SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'MergeJoinConverter') */" +
-                        "T0.val, T1.val FROM TEST0 as T0 " +
-                        "JOIN TEST1 as T1 on T0.jid = T1.jid "
+                "SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'MergeJoinConverter') */"
+                        + "T0.val, T1.val FROM TEST0 as T0 "
+                        + "JOIN TEST1 as T1 on T0.jid = T1.jid "
         );
 
         List<List<?>> res = getAllFromCursor(cursors.get(0));

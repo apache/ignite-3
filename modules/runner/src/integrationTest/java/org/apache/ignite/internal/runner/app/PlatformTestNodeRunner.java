@@ -56,16 +56,16 @@ public class PlatformTestNodeRunner {
 
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {{
-        put(NODE_NAME, "{\n" +
-                "  \"node\": {\n" +
-                "    \"metastorageNodes\":[ \"" + NODE_NAME + "\" ]\n" +
-                "  },\n" +
-                "  \"clientConnector\":{\"port\": 10942,\"portRange\":10}," +
-                "  \"network\": {\n" +
-                "    \"port\":3344,\n" +
-                "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\" ]\n" +
-                "  }\n" +
-                "}");
+        put(NODE_NAME, "{\n"
+                + "  \"node\": {\n"
+                + "    \"metastorageNodes\":[ \"" + NODE_NAME + "\" ]\n"
+                + "  },\n"
+                + "  \"clientConnector\":{\"port\": 10942,\"portRange\":10},"
+                + "  \"network\": {\n"
+                + "    \"port\":3344,\n"
+                + "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\" ]\n"
+                + "  }\n"
+                + "}");
     }};
 
     /** Base path for all temporary folders. */

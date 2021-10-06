@@ -176,9 +176,8 @@ public class ITSecondaryIndexTest extends AbstractBasicIntegrationTest {
      */
     @Test
     public void testIndexLoopJoin() {
-        assertQuery("" +
-                "SELECT /*+ DISABLE_RULE('MergeJoinConverter', 'NestedLoopJoinConverter') */ d1.name, d2.name " +
-                "FROM Developer d1, Developer d2 WHERE d1.id = d2.id")
+        assertQuery("SELECT /*+ DISABLE_RULE('MergeJoinConverter', 'NestedLoopJoinConverter') */ d1.name, d2.name "
+                + "FROM Developer d1, Developer d2 WHERE d1.id = d2.id")
                 .matches(containsSubPlan("IgniteCorrelatedNestedLoopJoin"))
                 .returns("Bach", "Bach")
                 .returns("Beethoven", "Beethoven")
@@ -916,9 +915,9 @@ public class ITSecondaryIndexTest extends AbstractBasicIntegrationTest {
      */
     @Test
     public void testSelectWithRanges() {
-        String sql = "select depId from Developer " +
-                "where depId in (1,2,3,5,6,7,9,10,13,14,15,18,19,20,21,22,23,24,25,26,27,28,30,31,32,33) " +
-                "   or depId between 7 and 8 order by depId limit 5";
+        String sql = "select depId from Developer "
+                + "where depId in (1,2,3,5,6,7,9,10,13,14,15,18,19,20,21,22,23,24,25,26,27,28,30,31,32,33) "
+                + "   or depId between 7 and 8 order by depId limit 5";
 
         assertQuery(sql)
                 .returns(1)

@@ -76,7 +76,7 @@ public class TupleMarshallerVarlenOnlyBenchmark {
     public int dataSize;
 
     /** Nullable cols. */
-//    @Param({"true", "false"})
+    //    @Param({"true", "false"})
     public boolean nullable = true;
 
     /** Column types. */

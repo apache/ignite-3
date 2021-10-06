@@ -105,18 +105,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         close(null);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void onMessage(ByteBuf buf) {
-        processNextMessage(buf);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void onDisconnected(@Nullable Exception e) {
-        close(e);
-    }
-
     /**
      * Close the channel with cause.
      */
@@ -128,6 +116,18 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 pendingReq.completeExceptionally(new IgniteClientConnectionException("Channel is closed", cause));
             }
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void onMessage(ByteBuf buf) {
+        processNextMessage(buf);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void onDisconnected(@Nullable Exception e) {
+        close(e);
     }
 
     /** {@inheritDoc} */

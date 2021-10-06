@@ -186,8 +186,8 @@ public class ModuleCommandSpec extends CategorySpec implements IgniteCommand {
                     .collect(Collectors.toList());
 
             if (externalInstalledModules.isEmpty()) {
-                out.println("    No additional Maven dependencies installed. Use the " +
-                        cs.commandText("ignite module add") + " command to add a dependency.");
+                out.println("    No additional Maven dependencies installed. Use the "
+                        + cs.commandText("ignite module add") + " command to add a dependency.");
             } else {
                 Table table = new Table(0, cs);
 
@@ -200,8 +200,8 @@ public class ModuleCommandSpec extends CategorySpec implements IgniteCommand {
                 }
 
                 out.println(table);
-                out.println("Type " + cs.commandText("ignite module remove") + " " +
-                        cs.parameterText("<groupId>:<artifactId>:<version>") + " to remove a dependency.");
+                out.println("Type " + cs.commandText("ignite module remove") + " "
+                        + cs.parameterText("<groupId>:<artifactId>:<version>") + " to remove a dependency.");
             }
         }
 

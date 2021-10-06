@@ -398,7 +398,8 @@ public class HashAggregateNode<Row> extends AbstractNode<Row> implements SingleN
 
                 Object[] fields = new Object[grpSet.cardinality() + wrappers.size()];
 
-                int j = 0, k = 0;
+                int j = 0;
+                int k = 0;
 
                 for (Integer field : grpSet) {
                     fields[j++] = grpFields.get(field) ? grpKey.field(k++) : null;

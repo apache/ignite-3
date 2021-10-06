@@ -153,13 +153,13 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> removeAsync(@NotNull K key) {
+    public boolean remove(@NotNull K key, @NotNull V val) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean remove(@NotNull K key, @NotNull V val) {
+    public @NotNull CompletableFuture<Boolean> removeAsync(@NotNull K key) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -201,13 +201,13 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, V val) {
+    public boolean replace(@NotNull K key, V oldVal, V newVal) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@NotNull K key, V oldVal, V newVal) {
+    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, V val) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 

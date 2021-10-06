@@ -97,8 +97,8 @@ public class ClusterServiceTestUtils {
             public void start() {
                 nodeConfigurationMgr.start();
 
-                nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).
-                        change(netCfg -> netCfg.changePort(port)).join();
+                nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY)
+                        .change(netCfg -> netCfg.changePort(port)).join();
 
                 clusterSvc.start();
             }

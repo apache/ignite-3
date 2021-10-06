@@ -33,8 +33,7 @@ public class IgniteIndex {
      */
     private final String idxName;
 
-    /** */
-//    private final GridIndex<H2Row> idx;
+    //    private final GridIndex<H2Row> idx;
 
     /**
      *

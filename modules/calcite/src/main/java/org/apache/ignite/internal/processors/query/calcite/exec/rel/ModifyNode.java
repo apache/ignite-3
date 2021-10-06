@@ -235,8 +235,8 @@ public class ModifyNode<Row> extends AbstractNode<Row> implements SingleNode<Row
                     );
 
                     throw new IgniteInternalException(
-                            "Failed to INSERT some keys because they are already in cache. " +
-                                    "[tuples=" + duplicates.stream()
+                            "Failed to INSERT some keys because they are already in cache. "
+                                    + "[tuples=" + duplicates.stream()
                                     .map(tup -> desc.toRow(context(), tup, rowFactory, null))
                                     .map(context().rowHandler()::toString)
                                     .collect(Collectors.toList()) + ']'

@@ -112,13 +112,9 @@ class RocksStorageUtils {
         boolean hasValue = valueBytes[Long.BYTES] != 0;
 
         byte[] val;
-        if (hasValue)
-        // Copy the value.
-        {
+        if (hasValue) { // Copy the value.
             val = Arrays.copyOfRange(valueBytes, Long.BYTES + 1, valueBytes.length);
-        } else
-        // There is no value, mark it as a tombstone.
-        {
+        } else { // There is no value, mark it as a tombstone.
             val = TOMBSTONE;
         }
 

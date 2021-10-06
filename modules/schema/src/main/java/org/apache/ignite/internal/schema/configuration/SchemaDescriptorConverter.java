@@ -159,6 +159,36 @@ public class SchemaDescriptorConverter {
     }
 
     /**
+     * Build schema descriptor by table schema.
+     *
+     * @param schemaVer Schema version.
+     * @param tblCfg    Table schema.
+     * @return SchemaDescriptor.
+     */
+    public static SchemaDescriptor convert(int schemaVer, TableDefinition tblCfg) {
+        List<ColumnDefinition> keyColsCfg = new ArrayList<>(tblCfg.keyColumns());
+
+        Column[] keyCols = new Column[keyColsCfg.size()];
+
+        for (int i = 0; i < keyCols.length; i++) {
+            keyCols[i] = convert(keyColsCfg.get(i));
+        }
+
+        String[] affCols = tblCfg.affinityColumns().stream().map(ColumnDefinition::name)
+                .toArray(String[]::new);
+
+        List<ColumnDefinition> valColsCfg = new ArrayList<>(tblCfg.valueColumns());
+
+        Column[] valCols = new Column[valColsCfg.size()];
+
+        for (int i = 0; i < valCols.length; i++) {
+            valCols[i] = convert(valColsCfg.get(i));
+        }
+
+        return new SchemaDescriptor(schemaVer, keyCols, affCols, valCols);
+    }
+
+    /**
      * TODO: https://issues.apache.org/jira/browse/IGNITE-14479 Fix default conversion.
      *
      * @param type Column type.
@@ -207,36 +237,6 @@ public class SchemaDescriptorConverter {
     }
 
     /**
-     * Build schema descriptor by table schema.
-     *
-     * @param schemaVer Schema version.
-     * @param tblCfg    Table schema.
-     * @return SchemaDescriptor.
-     */
-    public static SchemaDescriptor convert(int schemaVer, TableDefinition tblCfg) {
-        List<ColumnDefinition> keyColsCfg = new ArrayList<>(tblCfg.keyColumns());
-
-        Column[] keyCols = new Column[keyColsCfg.size()];
-
-        for (int i = 0; i < keyCols.length; i++) {
-            keyCols[i] = convert(keyColsCfg.get(i));
-        }
-
-        String[] affCols = tblCfg.affinityColumns().stream().map(ColumnDefinition::name)
-                .toArray(String[]::new);
-
-        List<ColumnDefinition> valColsCfg = new ArrayList<>(tblCfg.valueColumns());
-
-        Column[] valCols = new Column[valColsCfg.size()];
-
-        for (int i = 0; i < valCols.length; i++) {
-            valCols[i] = convert(valColsCfg.get(i));
-        }
-
-        return new SchemaDescriptor(schemaVer, keyCols, affCols, valCols);
-    }
-
-    /**
      * Constant value supplier.
      */
     private static class ConstantSupplier implements Supplier<Object>, Serializable {
@@ -250,7 +250,7 @@ public class SchemaDescriptorConverter {
             this.val = val;
         }
 
-        /** {@inheritDoc */
+        /** {@inheritDoc} */
         @Override
         public Object get() {
             return val;

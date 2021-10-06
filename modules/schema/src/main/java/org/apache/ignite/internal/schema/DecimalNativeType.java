@@ -74,8 +74,7 @@ public class DecimalNativeType extends NativeType {
 
         DecimalNativeType type = (DecimalNativeType) o;
 
-        return precision == type.precision &&
-                scale == type.scale;
+        return precision == type.precision && scale == type.scale;
     }
 
     /** {@inheritDoc} */

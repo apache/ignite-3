@@ -165,13 +165,13 @@ public class TableManagerTest {
             nodeCfgMgr.start();
             clusterCfgMgr.start();
 
-            nodeCfgMgr.bootstrap("{\n" +
-                    "   \"node\":{\n" +
-                    "      \"metastorageNodes\":[\n" +
-                    "         \"" + NODE_NAME + "\"\n" +
-                    "      ]\n" +
-                    "   }\n" +
-                    "}");
+            nodeCfgMgr.bootstrap("{\n"
+                    + "   \"node\":{\n"
+                    + "      \"metastorageNodes\":[\n"
+                    + "         \"" + NODE_NAME + "\"\n"
+                    + "      ]\n"
+                    + "   }\n"
+                    + "}");
         } catch (Exception e) {
             LOG.error("Failed to bootstrap the test configuration manager.", e);
 
@@ -351,8 +351,7 @@ public class TableManagerTest {
         AtomicBoolean tableCreatedFlag = new AtomicBoolean();
 
         try (MockedStatic<SchemaUtils> schemaServiceMock = mockStatic(SchemaUtils.class)) {
-            schemaServiceMock.when(() -> SchemaUtils.prepareSchemaDescriptor(anyInt(), any())).
-                    thenReturn(mock(SchemaDescriptor.class));
+            schemaServiceMock.when(() -> SchemaUtils.prepareSchemaDescriptor(anyInt(), any())).thenReturn(mock(SchemaDescriptor.class));
         }
 
         try (MockedStatic<AffinityUtils> affinityServiceMock = mockStatic(AffinityUtils.class)) {
@@ -362,8 +361,7 @@ public class TableManagerTest {
                 assignment.add(new ArrayList<>(Collections.singleton(node)));
             }
 
-            affinityServiceMock.when(() -> AffinityUtils.calculateAssignments(any(), anyInt(), anyInt())).
-                    thenReturn(assignment);
+            affinityServiceMock.when(() -> AffinityUtils.calculateAssignments(any(), anyInt(), anyInt())).thenReturn(assignment);
         }
 
         TableManager tableManager = new TableManager(
@@ -393,11 +391,11 @@ public class TableManagerTest {
             int tablesBeforeCreation = tableManager.tables().size();
 
             clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().listen(ctx -> {
-                boolean createTbl = ctx.newValue().get(tableDefinition.canonicalName()) != null &&
-                        ctx.oldValue().get(tableDefinition.canonicalName()) == null;
+                boolean createTbl = ctx.newValue().get(tableDefinition.canonicalName()) != null
+                        && ctx.oldValue().get(tableDefinition.canonicalName()) == null;
 
-                boolean dropTbl = ctx.oldValue().get(tableDefinition.canonicalName()) != null &&
-                        ctx.newValue().get(tableDefinition.canonicalName()) == null;
+                boolean dropTbl = ctx.oldValue().get(tableDefinition.canonicalName()) != null
+                        && ctx.newValue().get(tableDefinition.canonicalName()) == null;
 
                 if (!createTbl && !dropTbl) {
                     return CompletableFuture.completedFuture(null);

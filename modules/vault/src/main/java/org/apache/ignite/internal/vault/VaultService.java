@@ -34,7 +34,7 @@ public interface VaultService extends AutoCloseable, IgniteComponent {
      *
      * @param key Key. Couldn't be {@code null}.
      * @return An entry for the given key. Couldn't be {@code null}. If there is no mapping for the provided {@code key}, then {@code Entry}
-     * with value that equals to null will be returned.
+     *      with value that equals to null will be returned.
      */
     @NotNull CompletableFuture<VaultEntry> get(@NotNull ByteArray key);
 

@@ -130,12 +130,12 @@ public class PlannerTest extends AbstractPlannerTest {
         SchemaPlus schema = createRootSchema(false)
                 .add("PUBLIC", publicSchema);
 
-        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 " +
-                "FROM PUBLIC.Developer d JOIN (" +
-                "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp" +
-                ") p " +
-                "ON d.projectId = p.id0 + 1" +
-                "WHERE (d.projectId + 1) > ?";
+        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 "
+                + "FROM PUBLIC.Developer d JOIN ("
+                + "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp"
+                + ") p "
+                + "ON d.projectId = p.id0 + 1"
+                + "WHERE (d.projectId + 1) > ?";
 
         RelTraitDef<?>[] traitDefs = {
                 ConventionTraitDef.INSTANCE
@@ -206,12 +206,12 @@ public class PlannerTest extends AbstractPlannerTest {
         SchemaPlus schema = createRootSchema(false)
                 .add("PUBLIC", publicSchema);
 
-        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 " +
-                "FROM Developer d JOIN (" +
-                "SELECT pp.id as id0, pp.ver as ver0 FROM Project pp" +
-                ") p " +
-                "ON d.projectId = p.id0 " +
-                "WHERE (d.projectId + 1) > ?";
+        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 "
+                + "FROM Developer d JOIN ("
+                + "SELECT pp.id as id0, pp.ver as ver0 FROM Project pp"
+                + ") p "
+                + "ON d.projectId = p.id0 "
+                + "WHERE (d.projectId + 1) > ?";
 
         RelTraitDef<?>[] traitDefs = {
                 ConventionTraitDef.INSTANCE
@@ -282,8 +282,7 @@ public class PlannerTest extends AbstractPlannerTest {
         SchemaPlus schema = createRootSchema(false)
                 .add("PUBLIC", publicSchema);
 
-        String sql = "SELECT d.id, (SELECT p.name FROM Project p WHERE p.id = d.id) name, d.projectId " +
-                "FROM Developer d";
+        String sql = "SELECT d.id, (SELECT p.name FROM Project p WHERE p.id = d.id) name, d.projectId FROM Developer d";
 
         RelTraitDef<?>[] traitDefs = {
                 ConventionTraitDef.INSTANCE
@@ -394,12 +393,12 @@ public class PlannerTest extends AbstractPlannerTest {
         SchemaPlus schema = createRootSchema(false)
                 .add("PUBLIC", publicSchema);
 
-        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 " +
-                "FROM PUBLIC.Developer d JOIN (" +
-                "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp" +
-                ") p " +
-                "ON d.projectId = p.id0 " +
-                "WHERE (d.projectId + 1) > ?";
+        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 "
+                + "FROM PUBLIC.Developer d JOIN ("
+                + "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp"
+                + ") p "
+                + "ON d.projectId = p.id0 "
+                + "WHERE (d.projectId + 1) > ?";
 
         RelTraitDef<?>[] traitDefs = {
                 ConventionTraitDef.INSTANCE
@@ -485,13 +484,13 @@ public class PlannerTest extends AbstractPlannerTest {
         SchemaPlus schema = createRootSchema(false)
                 .add("PUBLIC", publicSchema);
 
-        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 " +
-                "FROM PUBLIC.Developer d " +
-                "JOIN (" +
-                "   SELECT pp.id as id0, pp.ver as ver0 " +
-                "   FROM PUBLIC.Project pp" +
-                ") p ON d.projectId = p.id0 " +
-                "WHERE (d.projectId + 1) > ?";
+        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 "
+                + "FROM PUBLIC.Developer d "
+                + "JOIN ("
+                + "   SELECT pp.id as id0, pp.ver as ver0 "
+                + "   FROM PUBLIC.Project pp"
+                + ") p ON d.projectId = p.id0 "
+                + "WHERE (d.projectId + 1) > ?";
 
         RelTraitDef<?>[] traitDefs = {
                 DistributionTraitDef.INSTANCE,
@@ -609,11 +608,11 @@ public class PlannerTest extends AbstractPlannerTest {
         SchemaPlus schema = createRootSchema(false)
                 .add("PUBLIC", publicSchema);
 
-        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 " +
-                "FROM PUBLIC.Developer d JOIN (" +
-                "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp" +
-                ") p " +
-                "ON d.id = p.id0";
+        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 "
+                + "FROM PUBLIC.Developer d JOIN ("
+                + "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp"
+                + ") p "
+                + "ON d.id = p.id0";
 
         RelTraitDef<?>[] traitDefs = {
                 ConventionTraitDef.INSTANCE,
@@ -733,12 +732,12 @@ public class PlannerTest extends AbstractPlannerTest {
         SchemaPlus schema = createRootSchema(false)
                 .add("PUBLIC", publicSchema);
 
-        String sql = "SELECT d.id, (d.id + 1) as id2, d.name, d.projectId, p.id0, p.ver0 " +
-                "FROM PUBLIC.Developer d JOIN (" +
-                "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp" +
-                ") p " +
-                "ON d.id = p.id0 " +
-                "WHERE (d.projectId + 1) > ?";
+        String sql = "SELECT d.id, (d.id + 1) as id2, d.name, d.projectId, p.id0, p.ver0 "
+                + "FROM PUBLIC.Developer d JOIN ("
+                + "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp"
+                + ") p "
+                + "ON d.id = p.id0 "
+                + "WHERE (d.projectId + 1) > ?";
 
         RelTraitDef<?>[] traitDefs = {
                 DistributionTraitDef.INSTANCE,
@@ -861,12 +860,12 @@ public class PlannerTest extends AbstractPlannerTest {
         SchemaPlus schema = createRootSchema(false)
                 .add("PUBLIC", publicSchema);
 
-        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 " +
-                "FROM PUBLIC.Developer d JOIN (" +
-                "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp" +
-                ") p " +
-                "ON d.id = p.id0 " +
-                "WHERE (d.projectId + 1) > ?";
+        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 "
+                + "FROM PUBLIC.Developer d JOIN ("
+                + "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp"
+                + ") p "
+                + "ON d.id = p.id0 "
+                + "WHERE (d.projectId + 1) > ?";
 
         RelTraitDef<?>[] traitDefs = {
                 DistributionTraitDef.INSTANCE,
@@ -986,12 +985,12 @@ public class PlannerTest extends AbstractPlannerTest {
         SchemaPlus schema = createRootSchema(false)
                 .add("PUBLIC", publicSchema);
 
-        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 " +
-                "FROM PUBLIC.Developer d JOIN (" +
-                "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp" +
-                ") p " +
-                "ON d.projectId = p.id0 " +
-                "WHERE (d.projectId + 1) > ?";
+        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 "
+                + "FROM PUBLIC.Developer d JOIN ("
+                + "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp"
+                + ") p "
+                + "ON d.projectId = p.id0 "
+                + "WHERE (d.projectId + 1) > ?";
 
         RelTraitDef<?>[] traitDefs = {
                 DistributionTraitDef.INSTANCE,
@@ -1113,12 +1112,12 @@ public class PlannerTest extends AbstractPlannerTest {
         SchemaPlus schema = createRootSchema(false)
                 .add("PUBLIC", publicSchema);
 
-        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 " +
-                "FROM PUBLIC.Developer d JOIN (" +
-                "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp" +
-                ") p " +
-                "ON d.projectId = p.id0 " +
-                "WHERE (d.projectId + 1) > ?";
+        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 "
+                + "FROM PUBLIC.Developer d JOIN ("
+                + "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp"
+                + ") p "
+                + "ON d.projectId = p.id0 "
+                + "WHERE (d.projectId + 1) > ?";
 
         RelTraitDef<?>[] traitDefs = {
                 DistributionTraitDef.INSTANCE,
@@ -1234,12 +1233,12 @@ public class PlannerTest extends AbstractPlannerTest {
         SchemaPlus schema = createRootSchema(false)
                 .add("PUBLIC", publicSchema);
 
-        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 " +
-                "FROM PUBLIC.Developer d JOIN (" +
-                "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp" +
-                ") p " +
-                "ON d.projectId = p.ver0 " +
-                "WHERE (d.projectId + 1) > ?";
+        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 "
+                + "FROM PUBLIC.Developer d JOIN ("
+                + "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp"
+                + ") p "
+                + "ON d.projectId = p.ver0 "
+                + "WHERE (d.projectId + 1) > ?";
 
         RelTraitDef<?>[] traitDefs = {
                 DistributionTraitDef.INSTANCE,
@@ -1349,12 +1348,12 @@ public class PlannerTest extends AbstractPlannerTest {
         SchemaPlus schema = createRootSchema(false)
                 .add("PUBLIC", publicSchema);
 
-        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 " +
-                "FROM PUBLIC.Developer d JOIN (" +
-                "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp" +
-                ") p " +
-                "ON d.projectId = p.id0 " +
-                "WHERE (d.projectId + 1) > ?";
+        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 "
+                + "FROM PUBLIC.Developer d JOIN ("
+                + "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp"
+                + ") p "
+                + "ON d.projectId = p.id0 "
+                + "WHERE (d.projectId + 1) > ?";
 
         RelTraitDef<?>[] traitDefs = {
                 DistributionTraitDef.INSTANCE,
@@ -1465,12 +1464,11 @@ public class PlannerTest extends AbstractPlannerTest {
         SchemaPlus schema = createRootSchema(false)
                 .add("PUBLIC", publicSchema);
 
-        String sql = "" +
-                "SELECT val from (\n" +
-                "   SELECT * \n" +
-                "   FROM TEST \n" +
-                "   WHERE VAL = 10) \n" +
-                "WHERE VAL = 10";
+        String sql = "SELECT val from (\n"
+                + "   SELECT * \n"
+                + "   FROM TEST \n"
+                + "   WHERE VAL = 10) \n"
+                + "WHERE VAL = 10";
 
         RelTraitDef<?>[] traitDefs = {
                 ConventionTraitDef.INSTANCE,
@@ -1589,9 +1587,9 @@ public class PlannerTest extends AbstractPlannerTest {
         SchemaPlus schema = createRootSchema(false)
                 .add("PUBLIC", publicSchema);
 
-        String sql = "select d.deptno, e.deptno " +
-                "from dept d, emp e " +
-                "where d.deptno + e.deptno = 2";
+        String sql = "select d.deptno, e.deptno "
+                + "from dept d, emp e "
+                + "where d.deptno + e.deptno = 2";
 
         RelTraitDef<?>[] traitDefs = {
                 DistributionTraitDef.INSTANCE,
@@ -1635,12 +1633,12 @@ public class PlannerTest extends AbstractPlannerTest {
 
             assertNotNull(rel);
             assertEquals("" +
-                            "LogicalFilter(condition=[=(CAST(+($0, $1)):INTEGER, 2)])\n" +
-                            "  LogicalJoin(condition=[true], joinType=[inner])\n" +
-                            "    LogicalProject(DEPTNO=[$0])\n" +
-                            "      IgniteLogicalTableScan(table=[[PUBLIC, DEPT]])\n" +
-                            "    LogicalProject(DEPTNO=[$2])\n" +
-                            "      IgniteLogicalTableScan(table=[[PUBLIC, EMP]])\n",
+                            "LogicalFilter(condition=[=(CAST(+($0, $1)):INTEGER, 2)])\n"
+                            + "  LogicalJoin(condition=[true], joinType=[inner])\n"
+                            + "    LogicalProject(DEPTNO=[$0])\n"
+                            + "      IgniteLogicalTableScan(table=[[PUBLIC, DEPT]])\n"
+                            + "    LogicalProject(DEPTNO=[$2])\n"
+                            + "      IgniteLogicalTableScan(table=[[PUBLIC, EMP]])\n",
                     RelOptUtil.toString(rel));
 
             // Transformation chain
@@ -1654,10 +1652,11 @@ public class PlannerTest extends AbstractPlannerTest {
 
             assertNotNull(phys);
             assertEquals(
-                    "IgniteCorrelatedNestedLoopJoin(condition=[=(CAST(+($0, $1)):INTEGER, 2)], joinType=[inner], " +
-                            "correlationVariables=[[$cor1]])\n" +
-                            "  IgniteTableScan(table=[[PUBLIC, DEPT]], requiredColumns=[{0}])\n" +
-                            "  IgniteTableScan(table=[[PUBLIC, EMP]], filters=[=(CAST(+($cor1.DEPTNO, $t0)):INTEGER, 2)], requiredColumns=[{2}])\n",
+                    "IgniteCorrelatedNestedLoopJoin(condition=[=(CAST(+($0, $1)):INTEGER, 2)], joinType=[inner], "
+                            + "correlationVariables=[[$cor1]])\n"
+                            + "  IgniteTableScan(table=[[PUBLIC, DEPT]], requiredColumns=[{0}])\n"
+                            + "  IgniteTableScan(table=[[PUBLIC, EMP]], filters=[=(CAST(+($cor1.DEPTNO, $t0)):INTEGER, 2)], "
+                            + "requiredColumns=[{2}])\n",
                     RelOptUtil.toString(phys),
                     "Invalid plan:\n" + RelOptUtil.toString(phys)
             );
@@ -1715,11 +1714,10 @@ public class PlannerTest extends AbstractPlannerTest {
         IgniteRel phys = physicalPlan(sql, publicSchema);
 
         assertNotNull(phys);
-        assertEquals("" +
-                        "IgniteMergeJoin(condition=[AND(=($0, $4), =($3, $1))], joinType=[inner], leftCollation=[[0, 1]], " +
-                        "rightCollation=[[2, 1]])\n" +
-                        "  IgniteIndexScan(table=[[PUBLIC, DEPT]], index=[dep_idx])\n" +
-                        "  IgniteIndexScan(table=[[PUBLIC, EMP]], index=[emp_idx])\n",
+        assertEquals("IgniteMergeJoin(condition=[AND(=($0, $4), =($3, $1))], joinType=[inner], leftCollation=[[0, 1]], "
+                        + "rightCollation=[[2, 1]])\n"
+                        + "  IgniteIndexScan(table=[[PUBLIC, DEPT]], index=[dep_idx])\n"
+                        + "  IgniteIndexScan(table=[[PUBLIC, EMP]], index=[emp_idx])\n",
                 RelOptUtil.toString(phys));
 
         checkSplitAndSerialization(phys, publicSchema);
@@ -1771,12 +1769,11 @@ public class PlannerTest extends AbstractPlannerTest {
         RelNode phys = physicalPlan(sql, publicSchema, "CorrelatedNestedLoopJoin");
 
         assertNotNull(phys);
-        assertEquals("" +
-                        "IgniteSort(sort0=[$3], sort1=[$0], dir0=[ASC], dir1=[ASC])\n" +
-                        "  IgniteProject(DEPTNO=[$3], NAME=[$4], ID=[$0], NAME0=[$1], DEPTNO0=[$2])\n" +
-                        "    IgniteNestedLoopJoin(condition=[AND(=($3, $2), >=($1, $4))], joinType=[inner])\n" +
-                        "      IgniteIndexScan(table=[[PUBLIC, EMP]], index=[emp_idx])\n" +
-                        "      IgniteIndexScan(table=[[PUBLIC, DEPT]], index=[dep_idx])\n",
+        assertEquals("IgniteSort(sort0=[$3], sort1=[$0], dir0=[ASC], dir1=[ASC])\n"
+                        + "  IgniteProject(DEPTNO=[$3], NAME=[$4], ID=[$0], NAME0=[$1], DEPTNO0=[$2])\n"
+                        + "    IgniteNestedLoopJoin(condition=[AND(=($3, $2), >=($1, $4))], joinType=[inner])\n"
+                        + "      IgniteIndexScan(table=[[PUBLIC, EMP]], index=[emp_idx])\n"
+                        + "      IgniteIndexScan(table=[[PUBLIC, DEPT]], index=[dep_idx])\n",
                 RelOptUtil.toString(phys));
     }
 

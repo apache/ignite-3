@@ -69,16 +69,16 @@ public class MailboxRegistryImpl implements MailboxRegistry {
 
     /** {@inheritDoc} */
     @Override
-    public void unregister(Inbox<?> inbox) {
-        remotes.remove(new MailboxKey(inbox.queryId(), inbox.exchangeId()), inbox);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public void register(Outbox<?> outbox) {
         Outbox<?> res = locals.put(new MailboxKey(outbox.queryId(), outbox.exchangeId()), outbox);
 
         assert res == null : res;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void unregister(Inbox<?> inbox) {
+        remotes.remove(new MailboxKey(inbox.queryId(), inbox.exchangeId()), inbox);
     }
 
     /** {@inheritDoc} */

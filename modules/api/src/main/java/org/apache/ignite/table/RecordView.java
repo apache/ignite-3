@@ -150,14 +150,6 @@ public interface RecordView<R> {
     boolean replace(@NotNull R rec);
 
     /**
-     * Asynchronously replaces an existed record associated with the same key columns values as the given one has.
-     *
-     * @param rec A record to replace with. The record cannot be {@code null}.
-     * @return Future representing pending completion of the operation.
-     */
-    @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull R rec);
-
-    /**
      * Replaces an expected record in the table with the given new one.
      *
      * @param oldRec A record to replace. The record cannot be {@code null}.
@@ -165,6 +157,14 @@ public interface RecordView<R> {
      * @return {@code True} if the old record replaced successfully, {@code false} otherwise.
      */
     boolean replace(@NotNull R oldRec, @NotNull R newRec);
+
+    /**
+     * Asynchronously replaces an existed record associated with the same key columns values as the given one has.
+     *
+     * @param rec A record to replace with. The record cannot be {@code null}.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull R rec);
 
     /**
      * Asynchronously replaces an expected record in the table with the given new one.

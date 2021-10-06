@@ -105,7 +105,7 @@ public class ColocationGroup implements Serializable {
 
     /**
      * @return List of partitions (index) and nodes (items) having an appropriate partition in OWNING state, calculated for distributed
-     * tables, involved in query execution.
+     *      tables, involved in query execution.
      */
     public List<List<String>> assignments() {
         return assignments == null ? Collections.emptyList() : assignments;
@@ -153,8 +153,8 @@ public class ColocationGroup implements Serializable {
         }
 
         if (nodeIds != null && nodeIds.isEmpty()) {
-            throw new ColocationMappingException("Failed to map fragment to location. " +
-                    "Replicated query parts are not co-located on all nodes");
+            throw new ColocationMappingException("Failed to map fragment to location. "
+                    + "Replicated query parts are not co-located on all nodes");
         }
 
         List<List<String>> assignments;
@@ -169,8 +169,8 @@ public class ColocationGroup implements Serializable {
                     List<String> assignment = Commons.intersect(filter, assignments.get(i));
 
                     if (assignment.isEmpty()) { // TODO check with partition filters
-                        throw new ColocationMappingException("Failed to map fragment to location. " +
-                                "Partition mapping is empty [part=" + i + "]");
+                        throw new ColocationMappingException("Failed to map fragment to location. "
+                                + "Partition mapping is empty [part=" + i + "]");
                     }
 
                     assignments0.add(assignment);
@@ -189,8 +189,7 @@ public class ColocationGroup implements Serializable {
                     assignment.retainAll(filter);
                 }
 
-                if (assignment.isEmpty()) // TODO check with partition filters
-                {
+                if (assignment.isEmpty()) { // TODO check with partition filters
                     throw new ColocationMappingException("Failed to map fragment to location. Partition mapping is empty [part=" + i + "]");
                 }
 

@@ -207,18 +207,18 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
     /** {@inheritDoc} */
     @Override
+    public boolean replace(@NotNull Tuple oldRec, @NotNull Tuple newRec) {
+        return sync(replaceAsync(oldRec, newRec));
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
         final Row keyRow = marshaller().marshal(rec);
 
         return tbl.replace(keyRow, tx);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean replace(@NotNull Tuple oldRec, @NotNull Tuple newRec) {
-        return sync(replaceAsync(oldRec, newRec));
     }
 
     /** {@inheritDoc} */

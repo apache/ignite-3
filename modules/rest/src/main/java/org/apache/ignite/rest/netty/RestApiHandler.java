@@ -78,9 +78,8 @@ public class RestApiHandler extends SimpleChannelInboundHandler<HttpObject> {
             if (maybeRoute.isPresent()) {
                 var resp = new RestApiHttpResponse(new DefaultHttpResponse(HttpVersion.HTTP_1_1, OK));
                 maybeRoute.get().handle(req, resp);
-                var content = resp.content() != null ?
-                        Unpooled.wrappedBuffer(resp.content()) :
-                        new EmptyByteBuf(UnpooledByteBufAllocator.DEFAULT);
+                var content = resp.content() != null
+                        ? Unpooled.wrappedBuffer(resp.content()) : new EmptyByteBuf(UnpooledByteBufAllocator.DEFAULT);
                 res = new DefaultFullHttpResponse(resp.protocolVersion(), resp.status(),
                         content, resp.headers(), EmptyHttpHeaders.INSTANCE);
             } else {

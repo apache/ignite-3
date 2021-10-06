@@ -103,8 +103,10 @@ public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
             RelTraitSet nodeTraits,
             List<RelTraitSet> inputTraits
     ) {
-        RelTraitSet left = inputTraits.get(0), right = inputTraits.get(1);
-        RelCollation leftCollation = TraitUtils.collation(left), rightCollation = TraitUtils.collation(right);
+        RelTraitSet left = inputTraits.get(0);
+        RelTraitSet right = inputTraits.get(1);
+        RelCollation leftCollation = TraitUtils.collation(left);
+        RelCollation rightCollation = TraitUtils.collation(right);
 
         List<Integer> newRightCollationFields = maxPrefix(rightCollation.getKeys(), joinInfo.leftKeys);
 
@@ -129,7 +131,8 @@ public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
             List<RelTraitSet> inputTraits
     ) {
         // Correlated nested loop requires rewindable right edge.
-        RelTraitSet left = inputTraits.get(0), right = inputTraits.get(1);
+        RelTraitSet left = inputTraits.get(0);
+        RelTraitSet right = inputTraits.get(1);
 
         RewindabilityTrait rewindability = TraitUtils.rewindability(left);
 
@@ -143,7 +146,8 @@ public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
             RelTraitSet nodeTraits,
             List<RelTraitSet> inputTraits
     ) {
-        RelTraitSet left = inputTraits.get(0), right = inputTraits.get(1);
+        RelTraitSet left = inputTraits.get(0);
+        RelTraitSet right = inputTraits.get(1);
 
         // We preserve left edge collation only if batch size == 1
         if (variablesSet.size() == 1) {
@@ -166,7 +170,8 @@ public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
     @Override
     public Pair<RelTraitSet, List<RelTraitSet>> passThroughRewindability(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
         // Correlated nested loop requires rewindable right edge.
-        RelTraitSet left = inputTraits.get(0), right = inputTraits.get(1);
+        RelTraitSet left = inputTraits.get(0);
+        RelTraitSet right = inputTraits.get(1);
 
         RewindabilityTrait rewindability = TraitUtils.rewindability(nodeTraits);
 

@@ -128,8 +128,7 @@ public class RexUtils {
             // each odd operand except last one has to return a boolean type
             for (int i = 0; i < operands.length; i += 2) {
                 if (operands[i].getType().getSqlTypeName() != SqlTypeName.BOOLEAN && i < operands.length - 1) {
-                    throw new AssertionError("Unexpected operand type. " +
-                            "[operands=" + Arrays.toString(operands) + "]");
+                    throw new AssertionError("Unexpected operand type. [operands=" + Arrays.toString(operands) + "]");
                 }
             }
         }
@@ -263,9 +262,8 @@ public class RexUtils {
                 break; // No bounds, so break the loop.
             }
 
-            if (i > 0 && bestLower != bestUpper)
-            // Go behind the first index field only in the case of multiple "=" conditions on index fields.
-            {
+            if (i > 0 && bestLower != bestUpper) {
+                // Go behind the first index field only in the case of multiple "=" conditions on index fields.
                 break; // TODO https://issues.apache.org/jira/browse/IGNITE-13568
             }
 
@@ -430,9 +428,7 @@ public class RexUtils {
      *
      */
     public static boolean isBinaryComparison(RexNode exp) {
-        return TREE_INDEX_COMPARISON.contains(exp.getKind()) &&
-                (exp instanceof RexCall) &&
-                ((RexCall) exp).getOperands().size() == 2;
+        return TREE_INDEX_COMPARISON.contains(exp.getKind()) && (exp instanceof RexCall) && ((RexCall) exp).getOperands().size() == 2;
     }
 
     /**
@@ -538,15 +534,15 @@ public class RexUtils {
     /**
      *
      */
-    public static List<RexNode> replaceLocalRefs(List<RexNode> nodes) {
-        return LocalRefReplacer.INSTANCE.apply(nodes);
+    public static List<RexNode> replaceInputRefs(List<RexNode> nodes) {
+        return InputRefReplacer.INSTANCE.apply(nodes);
     }
 
     /**
      *
      */
-    public static List<RexNode> replaceInputRefs(List<RexNode> nodes) {
-        return InputRefReplacer.INSTANCE.apply(nodes);
+    public static RexNode replaceInputRefs(RexNode node) {
+        return InputRefReplacer.INSTANCE.apply(node);
     }
 
     /**
@@ -559,8 +555,8 @@ public class RexUtils {
     /**
      *
      */
-    public static RexNode replaceInputRefs(RexNode node) {
-        return InputRefReplacer.INSTANCE.apply(node);
+    public static List<RexNode> replaceLocalRefs(List<RexNode> nodes) {
+        return LocalRefReplacer.INSTANCE.apply(nodes);
     }
 
     /**
@@ -604,25 +600,6 @@ public class RexUtils {
     /**
      *
      */
-    public static Set<Integer> notNullKeys(List<RexNode> row) {
-        if (nullOrEmpty(row)) {
-            return Collections.emptySet();
-        }
-
-        Set<Integer> keys = new HashSet<>();
-
-        for (int i = 0; i < row.size(); ++i) {
-            if (isNotNull(row.get(i))) {
-                keys.add(i);
-            }
-        }
-
-        return keys;
-    }
-
-    /**
-     *
-     */
     public static Set<CorrelationId> extractCorrelationIds(List<RexNode> nodes) {
         final Set<CorrelationId> cors = new HashSet<>();
 
@@ -638,6 +615,26 @@ public class RexUtils {
         nodes.forEach(rex -> rex.accept(v));
 
         return cors;
+    }
+
+
+    /**
+     *
+     */
+    public static Set<Integer> notNullKeys(List<RexNode> row) {
+        if (nullOrEmpty(row)) {
+            return Collections.emptySet();
+        }
+
+        Set<Integer> keys = new HashSet<>();
+
+        for (int i = 0; i < row.size(); ++i) {
+            if (isNotNull(row.get(i))) {
+                keys.add(i);
+            }
+        }
+
+        return keys;
     }
 
     /** Visitor for replacing scan local refs to input refs. */

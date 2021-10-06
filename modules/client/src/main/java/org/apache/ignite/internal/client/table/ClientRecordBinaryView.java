@@ -181,6 +181,12 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
     /** {@inheritDoc} */
     @Override
+    public boolean replace(@NotNull Tuple oldRec, @NotNull Tuple newRec) {
+        return replaceAsync(oldRec, newRec).join();
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
@@ -188,12 +194,6 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 ClientOp.TUPLE_REPLACE,
                 (s, w) -> tbl.writeTuple(rec, s, w, false),
                 ClientMessageUnpacker::unpackBoolean);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean replace(@NotNull Tuple oldRec, @NotNull Tuple newRec) {
-        return replaceAsync(oldRec, newRec).join();
     }
 
     /** {@inheritDoc} */

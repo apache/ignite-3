@@ -83,9 +83,9 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
                         .addIndex(RelCollations.of(ImmutableIntList.of(1, 0)), "t1_jid_idx")
         );
 
-        String sql = "select * " +
-                "from t0 " +
-                "join t1 on t0.jid = t1.jid";
+        String sql = "select * "
+                + "from t0 "
+                + "join t1 on t0.jid = t1.jid";
 
         IgniteRel phys = physicalPlan(
                 sql,
@@ -160,9 +160,9 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
                         .addIndex(RelCollations.of(ImmutableIntList.of(1, 0)), "t1_jid_idx")
         );
 
-        String sql = "select * " +
-                "from t0 " +
-                "join t1 on t0.jid + 2 > t1.jid * 2";
+        String sql = "select * "
+                + "from t0 "
+                + "join t1 on t0.jid + 2 > t1.jid * 2";
 
         IgniteRel phys = physicalPlan(
                 sql,

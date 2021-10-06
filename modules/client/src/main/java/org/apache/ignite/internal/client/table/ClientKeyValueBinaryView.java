@@ -176,6 +176,12 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
     /** {@inheritDoc} */
     @Override
+    public boolean remove(@NotNull Tuple key, @NotNull Tuple val) {
+        return removeAsync(key, val).join();
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public @NotNull CompletableFuture<Boolean> removeAsync(@NotNull Tuple key) {
         Objects.requireNonNull(key);
 
@@ -183,12 +189,6 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                 ClientOp.TUPLE_DELETE,
                 (s, w) -> tbl.writeTuple(key, s, w, true),
                 ClientMessageUnpacker::unpackBoolean);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean remove(@NotNull Tuple key, @NotNull Tuple val) {
-        return removeAsync(key, val).join();
     }
 
     /** {@inheritDoc} */
@@ -244,6 +244,12 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
     /** {@inheritDoc} */
     @Override
+    public boolean replace(@NotNull Tuple key, Tuple oldVal, Tuple newVal) {
+        return replaceAsync(key, oldVal, newVal).join();
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple key, Tuple val) {
         Objects.requireNonNull(key);
 
@@ -251,12 +257,6 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                 ClientOp.TUPLE_REPLACE,
                 (s, w) -> tbl.writeKvTuple(key, val, s, w, false),
                 ClientMessageUnpacker::unpackBoolean);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean replace(@NotNull Tuple key, Tuple oldVal, Tuple newVal) {
-        return replaceAsync(key, oldVal, newVal).join();
     }
 
     /** {@inheritDoc} */

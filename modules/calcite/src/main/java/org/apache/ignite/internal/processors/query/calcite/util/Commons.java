@@ -416,9 +416,7 @@ public final class Commons {
             cbe.setImplementedInterfaces(new Class[]{interfaceType});
             cbe.setParentClassLoader(ExpressionFactoryImpl.class.getClassLoader());
 
-            if (debug)
-            // Add line numbers to the generated janino class
-            {
+            if (debug) { // Add line numbers to the generated janino class
                 cbe.setDebuggingInformation(true, true, true);
             }
 

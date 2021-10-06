@@ -314,15 +314,13 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         for (String colName : colNames) {
             Object colValue = tuple.value(colName);
 
-            if (colValue == null) // Can't detect type of 'null'
-            {
+            if (colValue == null) { // Can't detect type of 'null'
                 throw new InvalidTypeException("Live schema upgrade for 'null' value is not supported yet.");
             }
 
             ColumnType colType = SchemaConfigurationConverter.columnType(colValue.getClass());
 
-            if (colType == null) // No native support for type.
-            {
+            if (colType == null) { // No native support for type.
                 throw new InvalidTypeException("Live schema upgrade for type [" + colValue.getClass() + "] is not supported.");
             }
 

@@ -95,8 +95,7 @@ class DelegatingTransportFactory implements TransportFactory {
             @Override
             public Mono<Message> requestResponse(Address address, Message request) {
                 return address.equals(address()) ?
-                        requestResponseToSelf(request) :
-                        delegate.requestResponse(address, request);
+                        requestResponseToSelf(request) : delegate.requestResponse(address, request);
             }
 
             /**

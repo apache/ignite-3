@@ -148,8 +148,8 @@ public class ModuleManager {
                 ));
 
                 out.println();
-                out.println("New Maven dependency successfully added. To remove, type: " +
-                        cs.commandText("ignite module remove ") + cs.parameterText(mvnName));
+                out.println("New Maven dependency successfully added. To remove, type: "
+                        + cs.commandText("ignite module remove ") + cs.parameterText(mvnName));
             } catch (IOException e) {
                 throw new IgniteCLIException("\nFailed to install " + name, e);
             }

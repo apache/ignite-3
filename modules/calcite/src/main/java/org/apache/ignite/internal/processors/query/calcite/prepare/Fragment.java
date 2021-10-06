@@ -120,6 +120,33 @@ public class Fragment {
     }
 
     /**
+     *
+     */
+    private FragmentMapping mapping(PlanningContext ctx, RelMetadataQuery mq, Supplier<List<String>> nodesSource) {
+        try {
+            FragmentMapping mapping = IgniteMdFragmentMapping._fragmentMapping(root, mq);
+
+            if (rootFragment()) {
+                mapping = FragmentMapping.create(ctx.localNodeId()).colocate(mapping);
+            }
+
+            if (single() && mapping.nodeIds().size() > 1) {
+                // this is possible when the fragment contains scan of a replicated cache, which brings
+                // several nodes (actually all containing nodes) to the colocation group, but this fragment
+                // supposed to be executed on a single node, so let's choose one wisely
+                mapping = FragmentMapping.create(mapping.nodeIds()
+                        .get(ThreadLocalRandom.current().nextInt(mapping.nodeIds().size()))).colocate(mapping);
+            }
+
+            return mapping.finalize(nodesSource);
+        } catch (NodeMappingException e) {
+            throw new FragmentMappingException("Failed to calculate physical distribution", this, e.node(), e);
+        } catch (ColocationMappingException e) {
+            throw new FragmentMappingException("Failed to calculate physical distribution", this, root, e);
+        }
+    }
+
+    /**
      * @return Fragment remote sources.
      */
     public List<IgniteReceiver> remotes() {
@@ -165,33 +192,6 @@ public class Fragment {
         }
 
         return new Fragment(id, root, remotes, rootSer, mapping(ctx, mq, nodesSource(mappingSrvc, ctx)));
-    }
-
-    /**
-     *
-     */
-    private FragmentMapping mapping(PlanningContext ctx, RelMetadataQuery mq, Supplier<List<String>> nodesSource) {
-        try {
-            FragmentMapping mapping = IgniteMdFragmentMapping._fragmentMapping(root, mq);
-
-            if (rootFragment()) {
-                mapping = FragmentMapping.create(ctx.localNodeId()).colocate(mapping);
-            }
-
-            if (single() && mapping.nodeIds().size() > 1) {
-                // this is possible when the fragment contains scan of a replicated cache, which brings
-                // several nodes (actually all containing nodes) to the colocation group, but this fragment
-                // supposed to be executed on a single node, so let's choose one wisely
-                mapping = FragmentMapping.create(mapping.nodeIds()
-                        .get(ThreadLocalRandom.current().nextInt(mapping.nodeIds().size()))).colocate(mapping);
-            }
-
-            return mapping.finalize(nodesSource);
-        } catch (NodeMappingException e) {
-            throw new FragmentMappingException("Failed to calculate physical distribution", this, e.node(), e);
-        } catch (ColocationMappingException e) {
-            throw new FragmentMappingException("Failed to calculate physical distribution", this, root, e);
-        }
     }
 
     /**

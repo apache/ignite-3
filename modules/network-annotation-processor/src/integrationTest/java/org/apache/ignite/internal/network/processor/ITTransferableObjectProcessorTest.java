@@ -184,10 +184,10 @@ public class ITTransferableObjectProcessorTest {
         );
 
         assertThat(compilation).hadErrorContaining(
-                "Invalid number of message groups (classes annotated with @MessageGroup), " +
-                        "only one can be present in a compilation unit: " +
-                        "[org.apache.ignite.internal.network.processor.ITTestMessageGroup, " +
-                        "org.apache.ignite.internal.network.processor.SecondGroup]"
+                "Invalid number of message groups (classes annotated with @MessageGroup), "
+                        + "only one can be present in a compilation unit: "
+                        + "[org.apache.ignite.internal.network.processor.ITTestMessageGroup, "
+                        + "org.apache.ignite.internal.network.processor.SecondGroup]"
         );
     }
 

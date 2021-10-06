@@ -112,6 +112,14 @@ public class SchemaDescriptor implements Serializable {
     }
 
     /**
+     * @param name Column name.
+     * @return Column.
+     */
+    public @Nullable Column column(@NotNull String name) {
+        return colMap.get(name);
+    }
+
+    /**
      * Validates the column index.
      *
      * @param colIdx Column index.
@@ -155,14 +163,6 @@ public class SchemaDescriptor implements Serializable {
      */
     public int length() {
         return keyCols.length() + valCols.length();
-    }
-
-    /**
-     * @param name Column name.
-     * @return Column.
-     */
-    public @Nullable Column column(@NotNull String name) {
-        return colMap.get(name);
     }
 
     /**

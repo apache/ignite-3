@@ -58,33 +58,31 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
 
     /** Query timeout. */
     private final IntegerProperty qryTimeout = new IntegerProperty("queryTimeout",
-            "Sets the number of seconds the driver will wait for a <code>Statement</code> object to execute." +
-                    " Zero means there is no limits.",
+            "Sets the number of seconds the driver will wait for a <code>Statement</code> object to execute."
+                    + " Zero means there is no limits.",
             null, false, 0, Integer.MAX_VALUE);
 
     /** JDBC connection timeout. */
     private final IntegerProperty connTimeout = new IntegerProperty("connectionTimeout",
-            "Sets the number of milliseconds JDBC client will waits for server to response." +
-                    " Zero means there is no limits.",
+            "Sets the number of milliseconds JDBC client will waits for server to response."
+                    + " Zero means there is no limits.",
             0L, false, 0, Integer.MAX_VALUE);
 
     /** JDBC retry limit. */
     private final IntegerProperty retryLimit = new IntegerProperty("retryLimit",
-            "Sets the retry limit. When a request fails due to a connection error, and multiple server connections " +
-                    "are available, Ignite will retry the request on every connection. When this property is greater than " +
-                    "zero, Ignite will limit the number of retries.",
+            "Sets the retry limit. When a request fails due to a connection error, and multiple server connections "
+                    + "are available, Ignite will retry the request on every connection. When this property is greater than "
+                    + "zero, Ignite will limit the number of retries.",
             IgniteClientConfiguration.DFLT_RETRY_LIMIT, false, 0, Integer.MAX_VALUE);
 
     /** JDBC reconnect throttling period. */
     private final LongProperty reconnectThrottlingPeriod = new LongProperty("reconnectThrottlingPeriod",
-            "Sets the reconnect throttling period, in milliseconds." +
-                    " Zero means there is no limits.",
+            "Sets the reconnect throttling period, in milliseconds. Zero means there is no limits.",
             IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_PERIOD, false, 0, Long.MAX_VALUE);
 
     /** JDBC reconnect throttling retries. */
     private final IntegerProperty reconnectThrottlingRetries = new IntegerProperty("reconnectThrottlingRetries",
-            "Sets the reconnect throttling retries." +
-                    " Zero means there is no limits.",
+            "Sets the reconnect throttling retries. Zero means there is no limits.",
             IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_RETRIES, false, 0, Integer.MAX_VALUE);
 
     /** Properties array. */
@@ -268,18 +266,13 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
 
         boolean semicolonMode;
 
-        if (semicolonPos == -1 && slashPos == -1 && queryPos == -1)
-        // No special char -> any mode could be used, choose semicolon for simplicity.
-        {
+        if (semicolonPos == -1 && slashPos == -1 && queryPos == -1) {
+            // No special char -> any mode could be used, choose semicolon for simplicity.
             semicolonMode = true;
         } else {
-            if (semicolonPos != -1) {
-                // Use semicolon mode if it appears earlier than slash or query.
-                semicolonMode =
-                        (slashPos == -1 || semicolonPos < slashPos) && (queryPos == -1 || semicolonPos < queryPos);
-            } else
-            // Semicolon is not found.
-            {
+            if (semicolonPos != -1) { // Use semicolon mode if it appears earlier than slash or query.
+                semicolonMode = (slashPos == -1 || semicolonPos < slashPos) && (queryPos == -1 || semicolonPos < queryPos);
+            } else { // Semicolon is not found.
                 semicolonMode = false;
             }
         }
@@ -347,8 +340,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         parseEndpoints(pathParts[0]);
 
         if (pathParts.length > 2) {
-            throw new SQLException("Invalid URL format (only schema name is allowed in URL path parameter " +
-                    "'host:port[/schemaName]'): " + this.url, SqlStateCode.CLIENT_CONNECTION_FAILED);
+            throw new SQLException("Invalid URL format (only schema name is allowed in URL path parameter "
+                    + "'host:port[/schemaName]'): " + this.url, SqlStateCode.CLIENT_CONNECTION_FAILED);
         }
 
         setSchema(pathParts.length == 2 ? pathParts[1] : null);
@@ -409,8 +402,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
                 int eqSymPos = token.indexOf('=');
 
                 if (eqSymPos < 0) {
-                    throw new SQLException("Invalid parameter format (should be \"key1=val1" + delimChar +
-                            "key2=val2" + delimChar + "...\"): " + token);
+                    throw new SQLException("Invalid parameter format (should be \"key1=val1" + delimChar
+                            + "key2=val2" + delimChar + "...\"): " + token);
                 }
 
                 if (eqSymPos == token.length()) {
@@ -436,8 +429,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
             }
 
             if (val.contains("{") || val.contains("}")) {
-                throw new SQLException("Braces cannot be escaped in the value. " +
-                        "Please use the connection Properties for such values. [property=" + key + ']');
+                throw new SQLException("Braces cannot be escaped in the value. "
+                        + "Please use the connection Properties for such values. [property=" + key + ']');
             }
 
             if (!insideBrace) {
@@ -707,13 +700,13 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         void setValue(Number val) throws SQLException {
             if (range != null) {
                 if (val.doubleValue() < range[0].doubleValue()) {
-                    throw new SQLException("Property cannot be lower than " + range[0].toString() + " [name=" + name +
-                            ", value=" + val.toString() + ']', SqlStateCode.CLIENT_CONNECTION_FAILED);
+                    throw new SQLException("Property cannot be lower than " + range[0].toString() + " [name=" + name
+                            + ", value=" + val.toString() + ']', SqlStateCode.CLIENT_CONNECTION_FAILED);
                 }
 
                 if (val.doubleValue() > range[1].doubleValue()) {
-                    throw new SQLException("Property cannot be upper than " + range[1].toString() + " [name=" + name +
-                            ", value=" + val.toString() + ']', SqlStateCode.CLIENT_CONNECTION_FAILED);
+                    throw new SQLException("Property cannot be upper than " + range[1].toString() + " [name=" + name
+                            + ", value=" + val.toString() + ']', SqlStateCode.CLIENT_CONNECTION_FAILED);
                 }
             }
 

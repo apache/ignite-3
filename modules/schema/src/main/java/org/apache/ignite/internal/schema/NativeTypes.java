@@ -140,26 +140,6 @@ public class NativeTypes {
     }
 
     /**
-     * Creates DATETIME type as pair (date, time).
-     *
-     * @param precision Fractional seconds meaningful digits. Allowed values are 0-9 for second to nanosecond precision.
-     * @return Native type.
-     */
-    public static NativeType datetime(int precision) {
-        return TemporalNativeType.datetime(precision);
-    }
-
-    /**
-     * Creates TIMESTAMP type.
-     *
-     * @param precision Fractional seconds meaningful digits. Allowed values are 0-9 for second to nanosecond precision.
-     * @return Native type.
-     */
-    public static NativeType timestamp(int precision) {
-        return TemporalNativeType.timestamp(precision);
-    }
-
-    /**
      * Creates a TIME type with default precision.
      *
      * @return Native type.
@@ -170,6 +150,16 @@ public class NativeTypes {
     }
 
     /**
+     * Creates DATETIME type as pair (date, time).
+     *
+     * @param precision Fractional seconds meaningful digits. Allowed values are 0-9 for second to nanosecond precision.
+     * @return Native type.
+     */
+    public static NativeType datetime(int precision) {
+        return TemporalNativeType.datetime(precision);
+    }
+
+    /**
      * Creates DATETIME type with default precision.
      *
      * @return Native type.
@@ -177,6 +167,16 @@ public class NativeTypes {
      */
     public static NativeType datetime() {
         return TemporalNativeType.datetime(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
+    }
+
+    /**
+     * Creates TIMESTAMP type.
+     *
+     * @param precision Fractional seconds meaningful digits. Allowed values are 0-9 for second to nanosecond precision.
+     * @return Native type.
+     */
+    public static NativeType timestamp(int precision) {
+        return TemporalNativeType.timestamp(precision);
     }
 
     /**
@@ -316,15 +316,15 @@ public class NativeTypes {
             case STRING:
                 return new VarlenNativeType(
                         NativeTypeSpec.STRING,
-                        ((ColumnType.VarLenColumnType) type).length() > 0 ?
-                                ((ColumnType.VarLenColumnType) type).length() : Integer.MAX_VALUE
+                        ((ColumnType.VarLenColumnType) type).length() > 0
+                                ? ((ColumnType.VarLenColumnType) type).length() : Integer.MAX_VALUE
                 );
 
             case BLOB:
                 return new VarlenNativeType(
                         NativeTypeSpec.BYTES,
-                        ((ColumnType.VarLenColumnType) type).length() > 0 ?
-                                ((ColumnType.VarLenColumnType) type).length() : Integer.MAX_VALUE
+                        ((ColumnType.VarLenColumnType) type).length() > 0
+                                ? ((ColumnType.VarLenColumnType) type).length() : Integer.MAX_VALUE
                 );
 
             case NUMBER: {

@@ -1218,9 +1218,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 }
 
                 // message group type will be equal to Short.MIN_VALUE if a nested message is null
-                if (msgGroupType == Short.MIN_VALUE)
-                // lastFinished is "true" here, so no further parsing will be required
-                {
+                if (msgGroupType == Short.MIN_VALUE) { // lastFinished is "true" here, so no further parsing will be required
                     return null;
                 }
 

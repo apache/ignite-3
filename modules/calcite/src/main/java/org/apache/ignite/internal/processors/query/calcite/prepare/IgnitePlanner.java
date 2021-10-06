@@ -229,6 +229,12 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         return typeSpec.deriveType(validator());
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public RelNode convert(SqlNode sql) {
+        throw new UnsupportedOperationException();
+    }
+
     /**
      * Validates a SQL statement.
      *
@@ -241,12 +247,6 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         List<List<String>> origins = validator().getFieldOrigins(validatedNode);
 
         return new ValidationResult(validatedNode, type, origins);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public RelNode convert(SqlNode sql) {
-        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -273,7 +273,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         try {
             sqlNode = parser.parseQuery();
         } catch (SqlParseException e) {
-//            throw new IgniteSQLException("parse failed", IgniteQueryErrorCode.PARSING, e);
+            //            throw new IgniteSQLException("parse failed", IgniteQueryErrorCode.PARSING, e);
             throw new IgniteException("parse failed", e);
         }
 

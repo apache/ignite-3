@@ -201,18 +201,18 @@ public class SqlDdlParserTest {
      */
     @Test
     public void createTableWithOptions() throws SqlParseException {
-        String query = "create table my_table(id int) with" +
-                " template=\"my_template\"," +
-                " backups=2," +
-                " affinity_key=my_aff," +
-                " atomicity=atomic," +
-                " write_synchronization_mode=transactional," +
-                " cache_group=my_cache_group," +
-                " cache_name=my_cache_name," +
-                " data_region=my_data_region," +
-                " key_type=my_key_type," +
-                " value_type=my_value_type," +
-                " encrypted=true";
+        String query = "create table my_table(id int) with"
+                + " template=\"my_template\","
+                + " backups=2,"
+                + " affinity_key=my_aff,"
+                + " atomicity=atomic,"
+                + " write_synchronization_mode=transactional,"
+                + " cache_group=my_cache_group,"
+                + " cache_name=my_cache_name,"
+                + " data_region=my_data_region,"
+                + " key_type=my_key_type,"
+                + " value_type=my_value_type,"
+                + " encrypted=true";
 
         SqlNode node = parse(query);
 

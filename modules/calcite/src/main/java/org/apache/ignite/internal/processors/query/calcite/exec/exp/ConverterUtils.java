@@ -61,6 +61,13 @@ public class ConverterUtils {
     /**
      *
      */
+    private static Type toInternal(RelDataType type) {
+        return toInternal(type, false);
+    }
+
+    /**
+     *
+     */
     private static Expression toInternal(Expression operand,
             Type fromType, Type targetType) {
         if (fromType == java.sql.Date.class) {
@@ -160,13 +167,6 @@ public class ConverterUtils {
             }
         }
         return list;
-    }
-
-    /**
-     *
-     */
-    private static Type toInternal(RelDataType type) {
-        return toInternal(type, false);
     }
 
     /**

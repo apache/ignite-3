@@ -158,6 +158,7 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
                         server.unregisterMBean(name);
                     }
                 } catch (MalformedObjectNameException | InstanceNotFoundException | MBeanRegistrationException ignore) {
+                    // No op.
                 }
             }
         };

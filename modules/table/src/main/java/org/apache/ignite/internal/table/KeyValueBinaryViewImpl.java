@@ -179,18 +179,18 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override
+    public boolean remove(@NotNull Tuple key, @NotNull Tuple val) {
+        return sync(removeAsync(key, val));
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public @NotNull CompletableFuture<Boolean> removeAsync(@NotNull Tuple key) {
         Objects.requireNonNull(key);
 
         Row row = marshaller().marshal(key, null); // Convert to portable format to pass TX/storage layer.
 
         return tbl.delete(row, tx);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean remove(@NotNull Tuple key, @NotNull Tuple val) {
-        return sync(removeAsync(key, val));
     }
 
     /** {@inheritDoc} */
@@ -247,16 +247,6 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple key, Tuple val) {
-        Objects.requireNonNull(key);
-
-        Row row = marshaller().marshal(key, val); // Convert to portable format to pass TX/storage layer.
-
-        return tbl.replace(row, tx);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public boolean replace(@NotNull Tuple key, Tuple oldVal, Tuple newVal) {
         return sync(replaceAsync(key, oldVal, newVal));
     }
@@ -270,6 +260,16 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         Row newRow = marshaller().marshal(key, newVal); // Convert to portable format to pass TX/storage layer.
 
         return tbl.replace(oldRow, newRow, tx);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple key, Tuple val) {
+        Objects.requireNonNull(key);
+
+        Row row = marshaller().marshal(key, val); // Convert to portable format to pass TX/storage layer.
+
+        return tbl.replace(row, tx);
     }
 
     /** {@inheritDoc} */

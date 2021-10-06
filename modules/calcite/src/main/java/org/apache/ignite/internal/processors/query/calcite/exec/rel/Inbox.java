@@ -128,8 +128,8 @@ public class Inbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Singl
      */
     public void init(
             ExecutionContext<Row> ctx, RelDataType rowType, Collection<String> srcNodeIds, @Nullable Comparator<Row> comp) {
-        assert context().fragmentId() == ctx.fragmentId() : "different fragments unsupported: previous=" + context().fragmentId() +
-                " current=" + ctx.fragmentId();
+        assert context().fragmentId() == ctx.fragmentId() : "different fragments unsupported: previous=" + context().fragmentId()
+                + " current=" + ctx.fragmentId();
 
         // It's important to set proper context here because
         // the one, that is created on a first message
@@ -303,7 +303,8 @@ public class Inbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Singl
      *
      */
     private void pushUnordered() throws Exception {
-        int idx = 0, noProgress = 0;
+        int idx = 0;
+        int noProgress = 0;
 
         inLoop = true;
         try {

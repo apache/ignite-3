@@ -104,6 +104,27 @@ public class StripedThreadPoolExecutor implements ExecutorService {
         return CompletableFuture.runAsync(task, execs[threadId(idx)]);
     }
 
+    /** {@inheritDoc} */
+    @NotNull
+    @Override
+    public <T> Future<T> submit(Callable<T> task) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @NotNull
+    @Override
+    public <T> Future<T> submit(Runnable task, T res) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @NotNull
+    @Override
+    public Future<?> submit(Runnable task) {
+        throw new UnsupportedOperationException();
+    }
+
     /**
      * @param idx Index.
      * @return Stripped thread ID.
@@ -172,27 +193,6 @@ public class StripedThreadPoolExecutor implements ExecutorService {
         }
 
         return res;
-    }
-
-    /** {@inheritDoc} */
-    @NotNull
-    @Override
-    public <T> Future<T> submit(Callable<T> task) {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @NotNull
-    @Override
-    public <T> Future<T> submit(Runnable task, T res) {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @NotNull
-    @Override
-    public Future<?> submit(Runnable task) {
-        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */

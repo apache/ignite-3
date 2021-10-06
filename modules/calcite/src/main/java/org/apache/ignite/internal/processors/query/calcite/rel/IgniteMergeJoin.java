@@ -144,14 +144,14 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
             RelTraitSet nodeTraits,
             List<RelTraitSet> inputTraits
     ) {
-        RelTraitSet left = inputTraits.get(0), right = inputTraits.get(1);
-        RelCollation leftCollation = TraitUtils.collation(left), rightCollation = TraitUtils.collation(right);
+        RelTraitSet left = inputTraits.get(0);
+        RelTraitSet right = inputTraits.get(1);
+        RelCollation leftCollation = TraitUtils.collation(left);
+        RelCollation rightCollation = TraitUtils.collation(right);
 
-        if (isPrefix(leftCollation.getKeys(), joinInfo.leftKeys)) // preserve left collation
-        {
+        if (isPrefix(leftCollation.getKeys(), joinInfo.leftKeys)) { // preserve left collation
             rightCollation = leftCollation.apply(buildProjectionMapping(true));
-        } else if (isPrefix(rightCollation.getKeys(), joinInfo.rightKeys))// preserve right collation
-        {
+        } else if (isPrefix(rightCollation.getKeys(), joinInfo.rightKeys)) { // preserve right collation
             leftCollation = rightCollation.apply(buildProjectionMapping(false));
         } else { // generate new collations
             leftCollation = RelCollations.of(joinInfo.leftKeys);
@@ -176,7 +176,8 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
             List<RelTraitSet> inputTraits
     ) {
         RelCollation collation = TraitUtils.collation(nodeTraits);
-        RelTraitSet left = inputTraits.get(0), right = inputTraits.get(1);
+        RelTraitSet left = inputTraits.get(0);
+        RelTraitSet right = inputTraits.get(1);
 
         int rightOff = this.left.getRowType().getFieldCount();
 
@@ -193,7 +194,8 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
 
         boolean preserveNodeCollation = false;
 
-        List<Integer> newLeftCollation, newRightCollation;
+        List<Integer> newLeftCollation;
+        List<Integer> newRightCollation;
 
         Map<Integer, Integer> leftToRight = joinInfo.pairs().stream()
                 .collect(Collectors.toMap(p -> p.source, p -> p.target));

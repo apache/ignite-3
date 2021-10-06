@@ -158,8 +158,8 @@ public class ClientHandlerModule implements IgniteComponent {
         }
 
         if (ch == null) {
-            String msg = "Cannot start thin client connector endpoint. " +
-                    "All ports in range [" + desiredPort + ", " + (desiredPort + portRange) + "] are in use.";
+            String msg = "Cannot start thin client connector endpoint. "
+                    + "All ports in range [" + desiredPort + ", " + (desiredPort + portRange) + "] are in use.";
 
             LOG.error(msg);
 

@@ -30,8 +30,8 @@ public abstract class CategorySpec extends SpecAdapter {
         PrintWriter out = spec.commandLine().getOut();
         ColorScheme cs = spec.commandLine().getColorScheme();
 
-        out.println(cs.errorText("[ERROR] ") + "Unknown command: " +
-                cs.commandText(spec.qualifiedName()) + ". See the list of available commands below.\n");
+        out.println(cs.errorText("[ERROR] ") + "Unknown command: "
+                + cs.commandText(spec.qualifiedName()) + ". See the list of available commands below.\n");
 
         spec.parent().commandLine().usage(out);
     }

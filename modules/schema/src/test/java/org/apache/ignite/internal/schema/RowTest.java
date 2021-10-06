@@ -270,8 +270,8 @@ public class RowTest {
 
         SchemaDescriptor sch = new SchemaDescriptor(1, keyCols, valCols);
 
-        Object[] checkArr = generateRowValues(sch, t -> (t.spec() == NativeTypeSpec.BYTES) ?
-                randomBytes(rnd, rnd.nextInt(Constants.MiB) + (2 << 16)) :
+        Object[] checkArr = generateRowValues(sch, t -> (t.spec() == NativeTypeSpec.BYTES)
+                ? randomBytes(rnd, rnd.nextInt(Constants.MiB) + (2 << 16)) :
                 randomString(rnd, rnd.nextInt(Constants.MiB) + (2 << 16)));
 
         checkValues(sch, checkArr);

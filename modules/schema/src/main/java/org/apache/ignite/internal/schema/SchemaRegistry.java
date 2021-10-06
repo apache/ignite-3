@@ -31,7 +31,7 @@ import org.jetbrains.annotations.NotNull;
  * table no longer has a data of these versions.
  *
  * @implSpec The changes in between two arbitrary actual versions MUST NOT be lost. Thus, schema versions can only be removed from the
- * beginning.
+ *      beginning.
  * @implSpec Initial schema history MAY be registered without the first outdated versions that could be cleaned up earlier.
  */
 public interface SchemaRegistry {
@@ -43,11 +43,6 @@ public interface SchemaRegistry {
     SchemaDescriptor schema();
 
     /**
-     * @return Last registereg schema version.
-     */
-    public int lastSchemaVersion();
-
-    /**
      * Gets schema descriptor for given version.
      *
      * @param ver Schema version to get descriptor for.
@@ -55,6 +50,11 @@ public interface SchemaRegistry {
      * @throws SchemaRegistryException If no schema found for given version.
      */
     @NotNull SchemaDescriptor schema(int ver) throws SchemaRegistryException;
+
+    /**
+     * @return Last registereg schema version.
+     */
+    public int lastSchemaVersion();
 
     /**
      * @param row Binary row.

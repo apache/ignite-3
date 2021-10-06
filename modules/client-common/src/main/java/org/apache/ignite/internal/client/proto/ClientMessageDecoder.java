@@ -85,7 +85,7 @@ public class ClientMessageDecoder extends LengthFieldBasedFrameDecoder {
 
         magicFailed = true;
 
-        throw new IgniteException("Invalid magic header in thin client connection. " +
-                "Expected 'IGNI', but was '" + new String(data, CharsetUtil.US_ASCII) + "'.");
+        throw new IgniteException("Invalid magic header in thin client connection. "
+                + "Expected 'IGNI', but was '" + new String(data, CharsetUtil.US_ASCII) + "'.");
     }
 }

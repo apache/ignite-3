@@ -63,7 +63,7 @@ public class VaultManager implements IgniteComponent {
      *
      * @param key Key. Couldn't be {@code null}.
      * @return An entry for the given key. Couldn't be {@code null}. If there is no mapping for the provided {@code key}, then {@code Entry}
-     * with value that equals to {@code null} will be returned.
+     *      with value that equals to {@code null} will be returned.
      */
     public CompletableFuture<VaultEntry> get(@NotNull ByteArray key) {
         return vaultSvc.get(key);

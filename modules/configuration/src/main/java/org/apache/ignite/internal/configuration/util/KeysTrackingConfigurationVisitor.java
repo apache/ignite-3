@@ -157,7 +157,7 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
      * @return Previous length of {@link #currentKey} so it can be passed to {@link #endVisit(int)} later.
      */
     private int startVisit(String key, boolean escape, boolean leaf) {
-        int previousKeyLength = currentKey.length();
+        final int previousKeyLength = currentKey.length();
 
         currentKey.append(escape ? ConfigurationUtil.escape(key) : key);
 

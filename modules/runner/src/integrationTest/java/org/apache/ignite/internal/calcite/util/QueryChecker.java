@@ -95,8 +95,7 @@ public abstract class QueryChecker {
      * @return Matcher.
      */
     public static Matcher<String> notContainsProject(String schema, String tblName) {
-        return CoreMatchers.not(containsSubPlan("Scan(table=[[" + schema + ", " +
-                tblName + "]], " + "requiredColunms="));
+        return CoreMatchers.not(containsSubPlan("Scan(table=[[" + schema + ", " + tblName + "]], " + "requiredColunms="));
     }
 
     /**
@@ -115,9 +114,9 @@ public abstract class QueryChecker {
      * @return Matcher.
      */
     public static Matcher<String> containsProject(String schema, String tblName, int... requiredColunms) {
-        Matcher<String> res = matches(".*Ignite(Table|Index)Scan\\(table=\\[\\[" + schema + ", " +
-                tblName + "\\]\\], " + ".*requiredColumns=\\[\\{" +
-                Arrays.toString(requiredColunms)
+        Matcher<String> res = matches(".*Ignite(Table|Index)Scan\\(table=\\[\\[" + schema + ", "
+                + tblName + "\\]\\], " + ".*requiredColumns=\\[\\{"
+                + Arrays.toString(requiredColunms)
                         .replaceAll("\\[", "")
                         .replaceAll("]", "") + "\\}\\].*");
         return res;
@@ -132,9 +131,9 @@ public abstract class QueryChecker {
      * @return Matcher.
      */
     public static Matcher<String> containsOneProject(String schema, String tblName, int... requiredColunms) {
-        return matchesOnce(".*Ignite(Table|Index)Scan\\(table=\\[\\[" + schema + ", " +
-                tblName + "\\]\\], " + ".*requiredColumns=\\[\\{" +
-                Arrays.toString(requiredColunms)
+        return matchesOnce(".*Ignite(Table|Index)Scan\\(table=\\[\\[" + schema + ", "
+                + tblName + "\\]\\], " + ".*requiredColumns=\\[\\{"
+                + Arrays.toString(requiredColunms)
                         .replaceAll("\\[", "")
                         .replaceAll("]", "") + "\\}\\].*");
     }
@@ -147,8 +146,8 @@ public abstract class QueryChecker {
      * @return Matcher.
      */
     public static Matcher<String> containsAnyProject(String schema, String tblName) {
-        return matchesOnce(".*Ignite(Table|Index)Scan\\(table=\\[\\[" + schema + ", " +
-                tblName + "\\]\\],.*requiredColumns=\\[\\{(\\d|\\W|,)+\\}\\].*");
+        return matchesOnce(".*Ignite(Table|Index)Scan\\(table=\\[\\[" + schema + ", "
+                + tblName + "\\]\\],.*requiredColumns=\\[\\{(\\d|\\W|,)+\\}\\].*");
     }
 
     /**
@@ -174,6 +173,15 @@ public abstract class QueryChecker {
                 return sIn.matches(substring);
             }
         };
+    }
+
+    /**
+     *
+     */
+    public QueryChecker matches(Matcher<String>... planMatcher) {
+        Collections.addAll(planMatchers, planMatcher);
+
+        return this;
     }
 
     /** Matches only one occurrence. */
@@ -318,15 +326,6 @@ public abstract class QueryChecker {
      */
     public QueryChecker columnTypes(Type... columns) {
         expectedColumnTypes = Arrays.asList(columns);
-
-        return this;
-    }
-
-    /**
-     *
-     */
-    public QueryChecker matches(Matcher<String>... planMatcher) {
-        Collections.addAll(planMatchers, planMatcher);
 
         return this;
     }

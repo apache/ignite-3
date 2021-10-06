@@ -58,14 +58,6 @@ public class SortedIndexDefinitionBuilderImpl extends AbstractIndexBuilder imple
         return new SortedIndexColumnBuilderImpl(this).withName(name);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public SortedIndexDefinitionBuilderImpl unique(boolean unique) {
-        super.unique(unique);
-
-        return this;
-    }
-
     /**
      * @param idxBuilder Index builder.
      */
@@ -73,6 +65,14 @@ public class SortedIndexDefinitionBuilderImpl extends AbstractIndexBuilder imple
         if (cols.put(idxBuilder.name(), idxBuilder) != null) {
             throw new IllegalArgumentException("Index with same name already exists: " + idxBuilder.name());
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public SortedIndexDefinitionBuilderImpl unique(boolean unique) {
+        super.unique(unique);
+
+        return this;
     }
 
     /**

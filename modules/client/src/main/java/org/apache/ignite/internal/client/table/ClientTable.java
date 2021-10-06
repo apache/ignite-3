@@ -118,15 +118,15 @@ public class ClientTable implements Table {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
+    @Override
+    public RecordView<Tuple> recordView() {
+        return new ClientRecordBinaryView(this);
+    }
+
     /** {@inheritDoc} */
     @Override
     public <K, V> KeyValueView<K, V> keyValueView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper) {
         throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    @Override
-    public RecordView<Tuple> recordView() {
-        return new ClientRecordBinaryView(this);
     }
 
     /** {@inheritDoc} */

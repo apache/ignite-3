@@ -95,8 +95,7 @@ public class ITRecoveryHandshakeTest {
         try {
             from2to1 = manager2.channel(manager1.consistentId(), manager1.getLocalAddress()).get(3, TimeUnit.SECONDS);
         } catch (Exception e) {
-            if (scenario.clientFailAt == CLIENT_DOESNT_FAIL &&
-                    scenario.serverFailAt == SERVER_DOESNT_FAIL) {
+            if (scenario.clientFailAt == CLIENT_DOESNT_FAIL && scenario.serverFailAt == SERVER_DOESNT_FAIL) {
                 Assertions.fail(e);
             }
 
@@ -196,9 +195,7 @@ public class ITRecoveryHandshakeTest {
         List<HandshakeScenario> res = new ArrayList<>();
 
         for (ServerStageFail serverOpt : serverOpts) {
-            for (ClientStageFail clientOpt : clientOpts)
-            // The case in if statement is handled in separate test
-            {
+            for (ClientStageFail clientOpt : clientOpts) { // The case in if statement is handled in separate test
                 if (serverOpt != SERVER_CLIENT_RESPONDED && clientOpt != CLIENT_DOESNT_FAIL) {
                     res.add(new HandshakeScenario(serverOpt, clientOpt));
                 }

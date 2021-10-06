@@ -163,8 +163,8 @@ public class ITFunctionsTest extends AbstractBasicIntegrationTest {
             }
 
             // Correlated INNER join.
-            assertQuery("SELECT t.val FROM test t WHERE t.val < 5 AND " +
-                    "t.id in (SELECT x FROM table(system_range(t.val, t.val))) ")
+            assertQuery("SELECT t.val FROM test t WHERE t.val < 5 AND "
+                    + "t.id in (SELECT x FROM table(system_range(t.val, t.val))) ")
                     .returns(0)
                     .returns(1)
                     .returns(2)
@@ -173,26 +173,26 @@ public class ITFunctionsTest extends AbstractBasicIntegrationTest {
                     .check();
 
             // Correlated LEFT joins.
-            assertQuery("SELECT t.val FROM test t WHERE t.val < 5 AND " +
-                    "EXISTS (SELECT x FROM table(system_range(t.val, t.val)) WHERE mod(x, 2) = 0) ")
+            assertQuery("SELECT t.val FROM test t WHERE t.val < 5 AND "
+                    + "EXISTS (SELECT x FROM table(system_range(t.val, t.val)) WHERE mod(x, 2) = 0) ")
                     .returns(0)
                     .returns(2)
                     .returns(4)
                     .check();
 
-            assertQuery("SELECT t.val FROM test t WHERE t.val < 5 AND " +
-                    "NOT EXISTS (SELECT x FROM table(system_range(t.val, t.val)) WHERE mod(x, 2) = 0) ")
+            assertQuery("SELECT t.val FROM test t WHERE t.val < 5 AND "
+                    + "NOT EXISTS (SELECT x FROM table(system_range(t.val, t.val)) WHERE mod(x, 2) = 0) ")
                     .returns(1)
                     .returns(3)
                     .check();
 
-            assertQuery("SELECT t.val FROM test t WHERE " +
-                    "EXISTS (SELECT x FROM table(system_range(t.val, null))) ")
+            assertQuery("SELECT t.val FROM test t WHERE "
+                    + "EXISTS (SELECT x FROM table(system_range(t.val, null))) ")
                     .check();
 
             // Non-correlated join.
-            assertQuery("SELECT t.val FROM test t JOIN table(system_range(1, 50)) as r ON t.id = r.x " +
-                    "WHERE mod(r.x, 10) = 0")
+            assertQuery("SELECT t.val FROM test t JOIN table(system_range(1, 50)) as r ON t.id = r.x "
+                    + "WHERE mod(r.x, 10) = 0")
                     .returns(10)
                     .returns(20)
                     .returns(30)

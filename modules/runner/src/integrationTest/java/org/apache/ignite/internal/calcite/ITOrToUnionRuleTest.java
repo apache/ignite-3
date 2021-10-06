@@ -120,10 +120,10 @@ public class ITOrToUnionRuleTest extends AbstractBasicIntegrationTest {
      */
     @Test
     public void testEqualityOrToUnionAllRewrite() {
-        assertQuery("SELECT * " +
-                "FROM products " +
-                "WHERE category = 'Video' " +
-                "OR subcategory ='Camera Lens'")
+        assertQuery("SELECT * "
+                + "FROM products "
+                + "WHERE category = 'Video' "
+                + "OR subcategory ='Camera Lens'")
                 .matches(containsUnion(true))
                 .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_CATEGORY"))
                 .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_SUBCATEGORY"))
@@ -143,10 +143,10 @@ public class ITOrToUnionRuleTest extends AbstractBasicIntegrationTest {
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-13710")
     public void testNonDistinctOrToUnionAllRewrite() {
-        assertQuery("SELECT * " +
-                "FROM products " +
-                "WHERE subcategory = 'Camera Lens' " +
-                "OR subcategory = 'Other'")
+        assertQuery("SELECT * "
+                + "FROM products "
+                + "WHERE subcategory = 'Camera Lens' "
+                + "OR subcategory = 'Other'")
                 .matches(containsUnion(true))
                 .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_SUBCATEGORY"))
                 .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_SUBCATEGORY"))
@@ -164,10 +164,10 @@ public class ITOrToUnionRuleTest extends AbstractBasicIntegrationTest {
      */
     @Test
     public void testMixedOrToUnionAllRewrite() {
-        assertQuery("SELECT * " +
-                "FROM products " +
-                "WHERE category = 'Photo' " +
-                "OR (subcat_id > 12 AND subcat_id < 22)")
+        assertQuery("SELECT * "
+                + "FROM products "
+                + "WHERE category = 'Photo' "
+                + "OR (subcat_id > 12 AND subcat_id < 22)")
                 .matches(containsUnion(true))
                 .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_CATEGORY"))
                 .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_SUBCAT_ID"))
@@ -186,10 +186,10 @@ public class ITOrToUnionRuleTest extends AbstractBasicIntegrationTest {
      */
     @Test
     public void testRangeOrToUnionAllRewrite() {
-        assertQuery("SELECT * " +
-                "FROM products " +
-                "WHERE cat_id > 1 " +
-                "OR subcat_id < 10")
+        assertQuery("SELECT * "
+                + "FROM products "
+                + "WHERE cat_id > 1 "
+                + "OR subcat_id < 10")
                 .matches(not(containsUnion(true)))
                 .matches(containsTableScan("PUBLIC", "PRODUCTS"))
                 .returns(5, "Video", 2, "Camera Media", 21, "Media 3")
@@ -204,10 +204,10 @@ public class ITOrToUnionRuleTest extends AbstractBasicIntegrationTest {
      */
     @Test
     public void testNonIndexedOrToUnionAllRewrite() {
-        assertQuery("SELECT * " +
-                "FROM products " +
-                "WHERE name = 'Canon' " +
-                "OR category = 'Video'")
+        assertQuery("SELECT * "
+                + "FROM products "
+                + "WHERE name = 'Canon' "
+                + "OR category = 'Video'")
                 .matches(containsUnion(true))
                 .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_CATEGORY"))
                 .returns(5, "Video", 2, "Camera Media", 21, "Media 3")
@@ -223,10 +223,10 @@ public class ITOrToUnionRuleTest extends AbstractBasicIntegrationTest {
      */
     @Test
     public void testAllNonIndexedOrToUnionAllRewrite() {
-        assertQuery("SELECT * " +
-                "FROM products " +
-                "WHERE name = 'Canon' " +
-                "OR name = 'Sony'")
+        assertQuery("SELECT * "
+                + "FROM products "
+                + "WHERE name = 'Canon' "
+                + "OR name = 'Sony'")
                 .matches(not(containsUnion(true)))
                 .matches(containsTableScan("PUBLIC", "PRODUCTS"))
                 .returns(7, "Video", 1, null, 0, "Canon")

@@ -1008,9 +1008,8 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         try (RocksIterator iterator = index.newIterator()) {
             iterator.seek(key);
 
-            RocksBiPredicate predicate = strictlyHigher ?
-                    (k, v) -> CMP.compare(k, key) > 0 :
-                    (k, v) -> CMP.compare(k, key) >= 0;
+            RocksBiPredicate predicate = strictlyHigher
+                    ? (k, v) -> CMP.compare(k, key) > 0 : (k, v) -> CMP.compare(k, key) >= 0;
 
             boolean found = find(iterator, predicate);
 

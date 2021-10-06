@@ -62,8 +62,8 @@ public abstract class AbstractMessagingService implements MessagingService {
 
             if (oldHandler.messageGroup != messageGroup) {
                 throw new IllegalArgumentException(String.format(
-                        "Handlers are already registered for a message group with the same group ID " +
-                                "but different class. Group ID: %d, given message group: %s, existing message group: %s",
+                        "Handlers are already registered for a message group with the same group ID "
+                                + "but different class. Group ID: %d, given message group: %s, existing message group: %s",
                         getMessageGroupType(messageGroup), messageGroup, oldHandler.messageGroup
                 ));
             }

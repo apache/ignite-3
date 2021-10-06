@@ -184,11 +184,10 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         assert curChangeId <= changeId.get();
         assert lsnr != null : "Configuration listener must be initialized before write.";
 
-        if (curChangeId < changeId.get())
-        // This means that curChangeId is less than version and other node has already updated configuration and
-        // write should be retried. Actual version will be set when watch and corresponding configuration listener
-        // updates configuration.
-        {
+        if (curChangeId < changeId.get()) {
+            // This means that curChangeId is less than version and other node has already updated configuration and
+            // write should be retried. Actual version will be set when watch and corresponding configuration listener
+            // updates configuration.
             return CompletableFuture.completedFuture(false);
         }
 
@@ -197,10 +196,9 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         for (Map.Entry<String, ? extends Serializable> entry : newValues.entrySet()) {
             ByteArray key = new ByteArray(DISTRIBUTED_PREFIX + entry.getKey());
 
-            if (entry.getValue() != null)
-            // TODO: investigate overhead when serialize int, long, double, boolean, string, arrays of above
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-14698
-            {
+            if (entry.getValue() != null) {
+                // TODO: investigate overhead when serialize int, long, double, boolean, string, arrays of above
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-14698
                 operations.add(Operations.put(key, ByteUtils.toBytes(entry.getValue())));
             } else {
                 operations.add(Operations.remove(key));
@@ -256,9 +254,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                         } else {
                             String key = e.key().toString().substring(DISTRIBUTED_PREFIX.length());
 
-                            Serializable value = e.value() == null ?
-                                    null :
-                                    (Serializable) ByteUtils.fromBytes(e.value());
+                            Serializable value = e.value() == null ? null : (Serializable) ByteUtils.fromBytes(e.value());
 
                             data.put(key, value);
                         }

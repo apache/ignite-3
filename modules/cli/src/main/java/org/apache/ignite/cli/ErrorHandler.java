@@ -55,8 +55,8 @@ public class ErrorHandler implements CommandLine.IExecutionExceptionHandler, Com
         if (cli.getCommand() instanceof CategorySpec) {
             ((Runnable) cli.getCommand()).run();
         } else {
-            cli.getErr().println(cli.getColorScheme().errorText("[ERROR] ") + ex.getMessage() +
-                    ". See usage information below.\n");
+            cli.getErr().println(cli.getColorScheme().errorText("[ERROR] ") + ex.getMessage()
+                    + ". See usage information below.\n");
 
             cli.usage(cli.getOut());
         }

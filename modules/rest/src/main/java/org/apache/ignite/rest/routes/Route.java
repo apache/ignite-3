@@ -82,9 +82,9 @@ public class Route {
      * @return true if route matches the request, else otherwise.
      */
     public boolean match(HttpRequest req) {
-        return req.method().equals(method) &&
-                matchUri(req.uri()) &&
-                matchContentType(req.headers().get(HttpHeaderNames.CONTENT_TYPE));
+        return req.method().equals(method)
+                && matchUri(req.uri())
+                && matchContentType(req.headers().get(HttpHeaderNames.CONTENT_TYPE));
     }
 
     /**

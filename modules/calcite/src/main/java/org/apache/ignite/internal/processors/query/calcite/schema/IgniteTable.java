@@ -41,8 +41,8 @@ public interface IgniteTable extends TranslatableTable {
     TableDescriptor descriptor();
 
     /** {@inheritDoc} */
-    default @Override
-    RelDataType getRowType(RelDataTypeFactory typeFactory) {
+     @Override
+     default RelDataType getRowType(RelDataTypeFactory typeFactory) {
         return getRowType(typeFactory, null);
     }
 

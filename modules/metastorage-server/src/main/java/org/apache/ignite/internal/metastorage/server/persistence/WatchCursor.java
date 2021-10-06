@@ -125,10 +125,9 @@ class WatchCursor implements Cursor<WatchEvent> {
                 storage.lock().readLock().lock();
 
                 try {
-                    if (nextRetRev != -1)
-                    // Next revision is already calculated and is not -1, meaning that there is a set of keys
-                    // matching the revision and the predicate.
-                    {
+                    if (nextRetRev != -1) {
+                        // Next revision is already calculated and is not -1, meaning that there is a set of keys
+                        // matching the revision and the predicate.
                         return true;
                     }
 

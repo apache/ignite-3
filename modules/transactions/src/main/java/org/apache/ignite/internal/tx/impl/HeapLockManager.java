@@ -134,10 +134,10 @@ public class HeapLockManager implements LockManager {
             synchronized (waiters) {
                 Map.Entry<Timestamp, WaiterImpl> first = waiters.firstEntry();
 
-                if (first == null ||
-                        !first.getKey().equals(timestamp) ||
-                        !first.getValue().locked() ||
-                        first.getValue().isForRead()) {
+                if (first == null
+                        || !first.getKey().equals(timestamp)
+                        || !first.getValue().locked()
+                        || first.getValue().isForRead()) {
                     throw new LockException("Not exclusively locked by " + timestamp);
                 }
 

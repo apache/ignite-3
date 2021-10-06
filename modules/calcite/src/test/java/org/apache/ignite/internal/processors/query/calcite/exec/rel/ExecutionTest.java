@@ -587,6 +587,7 @@ public class ExecutionTest extends AbstractExecutionTest {
             try {
                 Thread.sleep(5_000);
             } catch (InterruptedException ignored) {
+                // No op.
             }
 
             if (!root.isClosed()) {

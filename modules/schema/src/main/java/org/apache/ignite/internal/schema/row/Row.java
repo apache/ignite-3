@@ -471,8 +471,7 @@ public class Row implements BinaryRow, SchemaAware {
             time <<= 16;
             time |= Short.toUnsignedLong(readShort(off + 4));
             time = (time >>> TemporalTypesHelper.NANOSECOND_PART_LEN) << 32 | (time & TemporalTypesHelper.NANOSECOND_PART_MASK);
-        } else // Decompress
-        {
+        } else { // Decompress
             time = (time >>> TemporalTypesHelper.MILLISECOND_PART_LEN) << 32 | (time & TemporalTypesHelper.MILLISECOND_PART_MASK);
         }
 
@@ -534,8 +533,7 @@ public class Row implements BinaryRow, SchemaAware {
         }
 
         if (cols.column(colIdx).type().spec() != type) {
-            throw new InvalidTypeException("Invalid column type requested [requested=" + type +
-                    ", column=" + cols.column(colIdx) + ']');
+            throw new InvalidTypeException("Invalid column type requested [requested=" + type + ", column=" + cols.column(colIdx) + ']');
         }
 
         int nullMapLen = (flags & VarTableFormat.OMIT_NULL_MAP_FLAG) == 0 ? cols.nullMapSize() : 0;
@@ -552,8 +550,8 @@ public class Row implements BinaryRow, SchemaAware {
             dataOffset += format.vartableLength(format.readVartableSize(row, dataOffset));
         }
 
-        return type.fixedLength() ?
-                fixedSizeColumnOffset(chunkBaseOff, dataOffset, cols, colIdx, nullMapLen > 0) :
+        return type.fixedLength()
+                ? fixedSizeColumnOffset(chunkBaseOff, dataOffset, cols, colIdx, nullMapLen > 0) :
                 varlenColumnOffsetAndLength(chunkBaseOff, dataOffset, cols, colIdx, nullMapLen, format);
     }
 
@@ -576,8 +574,8 @@ public class Row implements BinaryRow, SchemaAware {
 
         // Set bits starting from posInByte, inclusive, up to either the end of the byte or the last column index, inclusive
         int startBit = idx & 7; // Equivalent expression for: idx % 8
-        int endBit = (colByteIdx == (cols.length() + 7) >> 3 - 1) /* last byte */ ?
-                ((cols.numberOfFixsizeColumns() - 1) & 7) : 7; // Equivalent expression for: (expr) % 8
+        int endBit = (colByteIdx == (cols.length() + 7) >> 3 - 1) /* last byte */
+                ? ((cols.numberOfFixsizeColumns() - 1) & 7) : 7; // Equivalent expression for: (expr) % 8
         int mask = (0xFF >> (7 - endBit)) & (0xFF << startBit);
 
         if (hasNullmap) {
@@ -636,15 +634,11 @@ public class Row implements BinaryRow, SchemaAware {
             for (int i = nullStartByte; i <= nullEndByte; i++) {
                 byte nullmapByte = row.readByte(nullMapOffset(baseOff) + i);
 
-                if (i == nullStartByte)
-                // We need to clear startBitInByte least significant bits
-                {
+                if (i == nullStartByte) { // We need to clear startBitInByte least significant bits
                     nullmapByte &= (0xFF << startBitInByte);
                 }
 
-                if (i == nullEndByte)
-                // We need to clear 8-endBitInByte most significant bits
-                {
+                if (i == nullEndByte) { // We need to clear 8-endBitInByte most significant bits
                     nullmapByte &= (0xFF >> (8 - endBitInByte));
                 }
 
@@ -662,7 +656,9 @@ public class Row implements BinaryRow, SchemaAware {
             int off = cols.numberOfFixsizeColumns() == 0 ? dataOff
                     : fixedSizeColumnOffset(baseOff, dataOff, cols, cols.numberOfFixsizeColumns(), nullMapLen > 0);
 
-            long len = format != null ? // Length is either diff between current offset and next varlen offset or end-of-chunk.
+            long len = format != null
+                    ?
+                    // Length is either diff between current offset and next varlen offset or end-of-chunk.
                     dataOff + format.readVarlenOffset(row, varTableOffset(baseOff, nullMapLen), 0) - off :
                     (baseOff + chunkLength(baseOff)) - off;
 
@@ -677,7 +673,8 @@ public class Row implements BinaryRow, SchemaAware {
         // Offset of idx-th column is from base offset.
         int resOff = dataOff + format.readVarlenOffset(row, varTblOff, idx - 1);
 
-        long len = (vartblSize == idx) ?
+        long len = (vartblSize == idx)
+                ?
                 // totalLength - columnStartOffset
                 (baseOff + chunkLength(baseOff)) - resOff :
                 // nextColumnStartOffset - columnStartOffset

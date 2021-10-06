@@ -541,6 +541,16 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Gets byte value from given address.
+     *
+     * @param addr Address.
+     * @return Byte value from given address.
+     */
+    public static byte getByte(long addr) {
+        return UNSAFE.getByte(addr);
+    }
+
+    /**
      * Stores a byte value into a byte array.
      *
      * @param arr Byte array.
@@ -552,6 +562,16 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Stores given byte value.
+     *
+     * @param addr Address.
+     * @param val  Value.
+     */
+    public static void putByte(long addr, byte val) {
+        UNSAFE.putByte(addr, val);
+    }
+
+    /**
      * Gets a short value from a byte array. Alignment aware.
      *
      * @param arr Byte array.
@@ -560,6 +580,16 @@ public abstract class GridUnsafe {
      */
     public static short getShort(byte[] arr, long off) {
         return UNALIGNED ? UNSAFE.getShort(arr, off) : getShortByByte(arr, off, BIG_ENDIAN);
+    }
+
+    /**
+     * Gets short value from given address. Alignment aware.
+     *
+     * @param addr Address.
+     * @return Short value from given address.
+     */
+    public static short getShort(long addr) {
+        return UNALIGNED ? UNSAFE.getShort(addr) : getShortByByte(addr, BIG_ENDIAN);
     }
 
     /**
@@ -578,6 +608,20 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Stores given short value. Alignment aware.
+     *
+     * @param addr Address.
+     * @param val  Value.
+     */
+    public static void putShort(long addr, short val) {
+        if (UNALIGNED) {
+            UNSAFE.putShort(addr, val);
+        } else {
+            putShortByByte(addr, val, BIG_ENDIAN);
+        }
+    }
+
+    /**
      * Gets a char value from a byte array. Alignment aware.
      *
      * @param arr Byte array.
@@ -586,6 +630,16 @@ public abstract class GridUnsafe {
      */
     public static char getChar(byte[] arr, long off) {
         return UNALIGNED ? UNSAFE.getChar(arr, off) : getCharByByte(arr, off, BIG_ENDIAN);
+    }
+
+    /**
+     * Gets char value from given address. Alignment aware.
+     *
+     * @param addr Address.
+     * @return Char value from given address.
+     */
+    public static char getChar(long addr) {
+        return UNALIGNED ? UNSAFE.getChar(addr) : getCharByByte(addr, BIG_ENDIAN);
     }
 
     /**
@@ -604,6 +658,20 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Stores given char value. Alignment aware.
+     *
+     * @param addr Address.
+     * @param val  Value.
+     */
+    public static void putChar(long addr, char val) {
+        if (UNALIGNED) {
+            UNSAFE.putChar(addr, val);
+        } else {
+            putCharByByte(addr, val, BIG_ENDIAN);
+        }
+    }
+
+    /**
      * Gets an integer value from a byte array. Alignment aware.
      *
      * @param arr Byte array.
@@ -612,6 +680,16 @@ public abstract class GridUnsafe {
      */
     public static int getInt(byte[] arr, long off) {
         return UNALIGNED ? UNSAFE.getInt(arr, off) : getIntByByte(arr, off, BIG_ENDIAN);
+    }
+
+    /**
+     * Gets integer value from given address. Alignment aware.
+     *
+     * @param addr Address.
+     * @return Integer value from given address.
+     */
+    public static int getInt(long addr) {
+        return UNALIGNED ? UNSAFE.getInt(addr) : getIntByByte(addr, BIG_ENDIAN);
     }
 
     /**
@@ -630,6 +708,20 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Stores given integer value. Alignment aware.
+     *
+     * @param addr Address.
+     * @param val  Value.
+     */
+    public static void putInt(long addr, int val) {
+        if (UNALIGNED) {
+            UNSAFE.putInt(addr, val);
+        } else {
+            putIntByByte(addr, val, BIG_ENDIAN);
+        }
+    }
+
+    /**
      * Gets a long value from a byte array. Alignment aware.
      *
      * @param arr Byte array.
@@ -638,6 +730,16 @@ public abstract class GridUnsafe {
      */
     public static long getLong(byte[] arr, long off) {
         return UNALIGNED ? UNSAFE.getLong(arr, off) : getLongByByte(arr, off, BIG_ENDIAN);
+    }
+
+    /**
+     * Gets long value from given address. Alignment aware.
+     *
+     * @param addr Address.
+     * @return Long value from given address.
+     */
+    public static long getLong(long addr) {
+        return UNALIGNED ? UNSAFE.getLong(addr) : getLongByByte(addr, BIG_ENDIAN);
     }
 
     /**
@@ -656,6 +758,20 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Stores given integer value. Alignment aware.
+     *
+     * @param addr Address.
+     * @param val  Value.
+     */
+    public static void putLong(long addr, long val) {
+        if (UNALIGNED) {
+            UNSAFE.putLong(addr, val);
+        } else {
+            putLongByByte(addr, val, BIG_ENDIAN);
+        }
+    }
+
+    /**
      * Gets a float value from a byte array. Alignment aware.
      *
      * @param arr Object.
@@ -664,6 +780,16 @@ public abstract class GridUnsafe {
      */
     public static float getFloat(byte[] arr, long off) {
         return UNALIGNED ? UNSAFE.getFloat(arr, off) : Float.intBitsToFloat(getIntByByte(arr, off, BIG_ENDIAN));
+    }
+
+    /**
+     * Gets float value from given address. Alignment aware.
+     *
+     * @param addr Address.
+     * @return Float value from given address.
+     */
+    public static float getFloat(long addr) {
+        return UNALIGNED ? UNSAFE.getFloat(addr) : Float.intBitsToFloat(getIntByByte(addr, BIG_ENDIAN));
     }
 
     /**
@@ -682,6 +808,20 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Stores given float value. Alignment aware.
+     *
+     * @param addr Address.
+     * @param val  Value.
+     */
+    public static void putFloat(long addr, float val) {
+        if (UNALIGNED) {
+            UNSAFE.putFloat(addr, val);
+        } else {
+            putIntByByte(addr, Float.floatToIntBits(val), BIG_ENDIAN);
+        }
+    }
+
+    /**
      * Gets a double value from a byte array. Alignment aware.
      *
      * @param arr byte array.
@@ -690,6 +830,16 @@ public abstract class GridUnsafe {
      */
     public static double getDouble(byte[] arr, long off) {
         return UNALIGNED ? UNSAFE.getDouble(arr, off) : Double.longBitsToDouble(getLongByByte(arr, off, BIG_ENDIAN));
+    }
+
+    /**
+     * Gets double value from given address. Alignment aware.
+     *
+     * @param addr Address.
+     * @return Double value from given address.
+     */
+    public static double getDouble(long addr) {
+        return UNALIGNED ? UNSAFE.getDouble(addr) : Double.longBitsToDouble(getLongByByte(addr, BIG_ENDIAN));
     }
 
     /**
@@ -708,6 +858,20 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Stores given double value. Alignment aware.
+     *
+     * @param addr Address.
+     * @param val  Value.
+     */
+    public static void putDouble(long addr, double val) {
+        if (UNALIGNED) {
+            UNSAFE.putDouble(addr, val);
+        } else {
+            putLongByByte(addr, Double.doubleToLongBits(val), BIG_ENDIAN);
+        }
+    }
+
+    /**
      * Gets short value from byte array assuming that value stored in little-endian byte order and native byte order is big-endian.
      * Alignment aware.
      *
@@ -717,6 +881,17 @@ public abstract class GridUnsafe {
      */
     public static short getShortLE(byte[] arr, long off) {
         return UNALIGNED ? Short.reverseBytes(UNSAFE.getShort(arr, off)) : getShortByByte(arr, off, false);
+    }
+
+    /**
+     * Gets short value from given address assuming that value stored in little-endian byte order and native byte order is big-endian.
+     * Alignment aware.
+     *
+     * @param addr Address.
+     * @return Short value from given address.
+     */
+    public static short getShortLE(long addr) {
+        return UNALIGNED ? Short.reverseBytes(UNSAFE.getShort(addr)) : getShortByByte(addr, false);
     }
 
     /**
@@ -732,6 +907,21 @@ public abstract class GridUnsafe {
             UNSAFE.putShort(arr, off, Short.reverseBytes(val));
         } else {
             putShortByByte(arr, off, val, false);
+        }
+    }
+
+    /**
+     * Stores given short value assuming that value should be stored in little-endian byte order and native byte order is big-endian.
+     * Alignment aware.
+     *
+     * @param addr Address.
+     * @param val  Value.
+     */
+    public static void putShortLE(long addr, short val) {
+        if (UNALIGNED) {
+            UNSAFE.putShort(addr, Short.reverseBytes(val));
+        } else {
+            putShortByByte(addr, val, false);
         }
     }
 
@@ -764,6 +954,32 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Stores given char value assuming that value should be stored in little-endian byte order and native byte order is big-endian.
+     * Alignment aware.
+     *
+     * @param addr Address.
+     * @param val  Value.
+     */
+    public static void putCharLE(long addr, char val) {
+        if (UNALIGNED) {
+            UNSAFE.putChar(addr, Character.reverseBytes(val));
+        } else {
+            putCharByByte(addr, val, false);
+        }
+    }
+
+    /**
+     * Gets char value from given address assuming that value stored in little-endian byte order and native byte order is big-endian.
+     * Alignment aware.
+     *
+     * @param addr Address.
+     * @return Char value from given address.
+     */
+    public static char getCharLE(long addr) {
+        return UNALIGNED ? Character.reverseBytes(UNSAFE.getChar(addr)) : getCharByByte(addr, false);
+    }
+
+    /**
      * Gets integer value from byte array assuming that value stored in little-endian byte order and native byte order is big-endian.
      * Alignment aware.
      *
@@ -773,6 +989,17 @@ public abstract class GridUnsafe {
      */
     public static int getIntLE(byte[] arr, long off) {
         return UNALIGNED ? Integer.reverseBytes(UNSAFE.getInt(arr, off)) : getIntByByte(arr, off, false);
+    }
+
+    /**
+     * Gets integer value from given address assuming that value stored in little-endian byte order and native byte order is big-endian.
+     * Alignment aware.
+     *
+     * @param addr Address.
+     * @return Integer value from given address.
+     */
+    public static int getIntLE(long addr) {
+        return UNALIGNED ? Integer.reverseBytes(UNSAFE.getInt(addr)) : getIntByByte(addr, false);
     }
 
     /**
@@ -792,6 +1019,21 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Stores given integer value assuming that value should be stored in little-endian byte order and native byte order is big-endian.
+     * Alignment aware.
+     *
+     * @param addr Address.
+     * @param val  Value.
+     */
+    public static void putIntLE(long addr, int val) {
+        if (UNALIGNED) {
+            UNSAFE.putInt(addr, Integer.reverseBytes(val));
+        } else {
+            putIntByByte(addr, val, false);
+        }
+    }
+
+    /**
      * Gets long value from byte array assuming that value stored in little-endian byte order and native byte order is big-endian. Alignment
      * aware.
      *
@@ -801,6 +1043,17 @@ public abstract class GridUnsafe {
      */
     public static long getLongLE(byte[] arr, long off) {
         return UNALIGNED ? Long.reverseBytes(UNSAFE.getLong(arr, off)) : getLongByByte(arr, off, false);
+    }
+
+    /**
+     * Gets long value from given address assuming that value stored in little-endian byte order and native byte order is big-endian.
+     * Alignment aware.
+     *
+     * @param addr Address.
+     * @return Long value from given address.
+     */
+    public static long getLongLE(long addr) {
+        return UNALIGNED ? Long.reverseBytes(UNSAFE.getLong(addr)) : getLongByByte(addr, false);
     }
 
     /**
@@ -820,6 +1073,21 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Stores given integer value assuming that value should be stored in little-endian byte order and native byte order is big-endian.
+     * Alignment aware.
+     *
+     * @param addr Address.
+     * @param val  Value.
+     */
+    public static void putLongLE(long addr, long val) {
+        if (UNALIGNED) {
+            UNSAFE.putLong(addr, Long.reverseBytes(val));
+        } else {
+            putLongByByte(addr, val, false);
+        }
+    }
+
+    /**
      * Gets float value from byte array assuming that value stored in little-endian byte order and native byte order is big-endian.
      * Alignment aware.
      *
@@ -831,6 +1099,17 @@ public abstract class GridUnsafe {
         return Float.intBitsToFloat(
                 UNALIGNED ? Integer.reverseBytes(UNSAFE.getInt(arr, off)) : getIntByByte(arr, off, false)
         );
+    }
+
+    /**
+     * Gets float value from given address assuming that value stored in little-endian byte order and native byte order is big-endian.
+     * Alignment aware.
+     *
+     * @param addr Address.
+     * @return Float value from given address.
+     */
+    public static float getFloatLE(long addr) {
+        return Float.intBitsToFloat(UNALIGNED ? Integer.reverseBytes(UNSAFE.getInt(addr)) : getIntByByte(addr, false));
     }
 
     /**
@@ -852,6 +1131,23 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Stores given float value assuming that value should be stored in little-endian byte order and native byte order is big-endian.
+     * Alignment aware.
+     *
+     * @param addr Address.
+     * @param val  Value.
+     */
+    public static void putFloatLE(long addr, float val) {
+        int intVal = Float.floatToIntBits(val);
+
+        if (UNALIGNED) {
+            UNSAFE.putInt(addr, Integer.reverseBytes(intVal));
+        } else {
+            putIntByByte(addr, intVal, false);
+        }
+    }
+
+    /**
      * Gets double value from byte array assuming that value stored in little-endian byte order and native byte order is big-endian.
      * Alignment aware.
      *
@@ -862,6 +1158,19 @@ public abstract class GridUnsafe {
     public static double getDoubleLE(byte[] arr, long off) {
         return Double.longBitsToDouble(
                 UNALIGNED ? Long.reverseBytes(UNSAFE.getLong(arr, off)) : getLongByByte(arr, off, false)
+        );
+    }
+
+    /**
+     * Gets double value from given address assuming that value stored in little-endian byte order and native byte order is big-endian.
+     * Alignment aware.
+     *
+     * @param addr Address.
+     * @return Double value from given address.
+     */
+    public static double getDoubleLE(long addr) {
+        return Double.longBitsToDouble(
+                UNALIGNED ? Long.reverseBytes(UNSAFE.getLong(addr)) : getLongByByte(addr, false)
         );
     }
 
@@ -881,315 +1190,6 @@ public abstract class GridUnsafe {
         } else {
             putLongByByte(arr, off, longVal, false);
         }
-    }
-
-    /**
-     * Gets byte value from given address.
-     *
-     * @param addr Address.
-     * @return Byte value from given address.
-     */
-    public static byte getByte(long addr) {
-        return UNSAFE.getByte(addr);
-    }
-
-    /**
-     * Stores given byte value.
-     *
-     * @param addr Address.
-     * @param val  Value.
-     */
-    public static void putByte(long addr, byte val) {
-        UNSAFE.putByte(addr, val);
-    }
-
-    /**
-     * Gets short value from given address. Alignment aware.
-     *
-     * @param addr Address.
-     * @return Short value from given address.
-     */
-    public static short getShort(long addr) {
-        return UNALIGNED ? UNSAFE.getShort(addr) : getShortByByte(addr, BIG_ENDIAN);
-    }
-
-    /**
-     * Stores given short value. Alignment aware.
-     *
-     * @param addr Address.
-     * @param val  Value.
-     */
-    public static void putShort(long addr, short val) {
-        if (UNALIGNED) {
-            UNSAFE.putShort(addr, val);
-        } else {
-            putShortByByte(addr, val, BIG_ENDIAN);
-        }
-    }
-
-    /**
-     * Gets char value from given address. Alignment aware.
-     *
-     * @param addr Address.
-     * @return Char value from given address.
-     */
-    public static char getChar(long addr) {
-        return UNALIGNED ? UNSAFE.getChar(addr) : getCharByByte(addr, BIG_ENDIAN);
-    }
-
-    /**
-     * Stores given char value. Alignment aware.
-     *
-     * @param addr Address.
-     * @param val  Value.
-     */
-    public static void putChar(long addr, char val) {
-        if (UNALIGNED) {
-            UNSAFE.putChar(addr, val);
-        } else {
-            putCharByByte(addr, val, BIG_ENDIAN);
-        }
-    }
-
-    /**
-     * Gets integer value from given address. Alignment aware.
-     *
-     * @param addr Address.
-     * @return Integer value from given address.
-     */
-    public static int getInt(long addr) {
-        return UNALIGNED ? UNSAFE.getInt(addr) : getIntByByte(addr, BIG_ENDIAN);
-    }
-
-    /**
-     * Stores given integer value. Alignment aware.
-     *
-     * @param addr Address.
-     * @param val  Value.
-     */
-    public static void putInt(long addr, int val) {
-        if (UNALIGNED) {
-            UNSAFE.putInt(addr, val);
-        } else {
-            putIntByByte(addr, val, BIG_ENDIAN);
-        }
-    }
-
-    /**
-     * Gets long value from given address. Alignment aware.
-     *
-     * @param addr Address.
-     * @return Long value from given address.
-     */
-    public static long getLong(long addr) {
-        return UNALIGNED ? UNSAFE.getLong(addr) : getLongByByte(addr, BIG_ENDIAN);
-    }
-
-    /**
-     * Stores given integer value. Alignment aware.
-     *
-     * @param addr Address.
-     * @param val  Value.
-     */
-    public static void putLong(long addr, long val) {
-        if (UNALIGNED) {
-            UNSAFE.putLong(addr, val);
-        } else {
-            putLongByByte(addr, val, BIG_ENDIAN);
-        }
-    }
-
-    /**
-     * Gets float value from given address. Alignment aware.
-     *
-     * @param addr Address.
-     * @return Float value from given address.
-     */
-    public static float getFloat(long addr) {
-        return UNALIGNED ? UNSAFE.getFloat(addr) : Float.intBitsToFloat(getIntByByte(addr, BIG_ENDIAN));
-    }
-
-    /**
-     * Stores given float value. Alignment aware.
-     *
-     * @param addr Address.
-     * @param val  Value.
-     */
-    public static void putFloat(long addr, float val) {
-        if (UNALIGNED) {
-            UNSAFE.putFloat(addr, val);
-        } else {
-            putIntByByte(addr, Float.floatToIntBits(val), BIG_ENDIAN);
-        }
-    }
-
-    /**
-     * Gets double value from given address. Alignment aware.
-     *
-     * @param addr Address.
-     * @return Double value from given address.
-     */
-    public static double getDouble(long addr) {
-        return UNALIGNED ? UNSAFE.getDouble(addr) : Double.longBitsToDouble(getLongByByte(addr, BIG_ENDIAN));
-    }
-
-    /**
-     * Stores given double value. Alignment aware.
-     *
-     * @param addr Address.
-     * @param val  Value.
-     */
-    public static void putDouble(long addr, double val) {
-        if (UNALIGNED) {
-            UNSAFE.putDouble(addr, val);
-        } else {
-            putLongByByte(addr, Double.doubleToLongBits(val), BIG_ENDIAN);
-        }
-    }
-
-    /**
-     * Gets short value from given address assuming that value stored in little-endian byte order and native byte order is big-endian.
-     * Alignment aware.
-     *
-     * @param addr Address.
-     * @return Short value from given address.
-     */
-    public static short getShortLE(long addr) {
-        return UNALIGNED ? Short.reverseBytes(UNSAFE.getShort(addr)) : getShortByByte(addr, false);
-    }
-
-    /**
-     * Stores given short value assuming that value should be stored in little-endian byte order and native byte order is big-endian.
-     * Alignment aware.
-     *
-     * @param addr Address.
-     * @param val  Value.
-     */
-    public static void putShortLE(long addr, short val) {
-        if (UNALIGNED) {
-            UNSAFE.putShort(addr, Short.reverseBytes(val));
-        } else {
-            putShortByByte(addr, val, false);
-        }
-    }
-
-    /**
-     * Gets char value from given address assuming that value stored in little-endian byte order and native byte order is big-endian.
-     * Alignment aware.
-     *
-     * @param addr Address.
-     * @return Char value from given address.
-     */
-    public static char getCharLE(long addr) {
-        return UNALIGNED ? Character.reverseBytes(UNSAFE.getChar(addr)) : getCharByByte(addr, false);
-    }
-
-    /**
-     * Stores given char value assuming that value should be stored in little-endian byte order and native byte order is big-endian.
-     * Alignment aware.
-     *
-     * @param addr Address.
-     * @param val  Value.
-     */
-    public static void putCharLE(long addr, char val) {
-        if (UNALIGNED) {
-            UNSAFE.putChar(addr, Character.reverseBytes(val));
-        } else {
-            putCharByByte(addr, val, false);
-        }
-    }
-
-    /**
-     * Gets integer value from given address assuming that value stored in little-endian byte order and native byte order is big-endian.
-     * Alignment aware.
-     *
-     * @param addr Address.
-     * @return Integer value from given address.
-     */
-    public static int getIntLE(long addr) {
-        return UNALIGNED ? Integer.reverseBytes(UNSAFE.getInt(addr)) : getIntByByte(addr, false);
-    }
-
-    /**
-     * Stores given integer value assuming that value should be stored in little-endian byte order and native byte order is big-endian.
-     * Alignment aware.
-     *
-     * @param addr Address.
-     * @param val  Value.
-     */
-    public static void putIntLE(long addr, int val) {
-        if (UNALIGNED) {
-            UNSAFE.putInt(addr, Integer.reverseBytes(val));
-        } else {
-            putIntByByte(addr, val, false);
-        }
-    }
-
-    /**
-     * Gets long value from given address assuming that value stored in little-endian byte order and native byte order is big-endian.
-     * Alignment aware.
-     *
-     * @param addr Address.
-     * @return Long value from given address.
-     */
-    public static long getLongLE(long addr) {
-        return UNALIGNED ? Long.reverseBytes(UNSAFE.getLong(addr)) : getLongByByte(addr, false);
-    }
-
-    /**
-     * Stores given integer value assuming that value should be stored in little-endian byte order and native byte order is big-endian.
-     * Alignment aware.
-     *
-     * @param addr Address.
-     * @param val  Value.
-     */
-    public static void putLongLE(long addr, long val) {
-        if (UNALIGNED) {
-            UNSAFE.putLong(addr, Long.reverseBytes(val));
-        } else {
-            putLongByByte(addr, val, false);
-        }
-    }
-
-    /**
-     * Gets float value from given address assuming that value stored in little-endian byte order and native byte order is big-endian.
-     * Alignment aware.
-     *
-     * @param addr Address.
-     * @return Float value from given address.
-     */
-    public static float getFloatLE(long addr) {
-        return Float.intBitsToFloat(UNALIGNED ? Integer.reverseBytes(UNSAFE.getInt(addr)) : getIntByByte(addr, false));
-    }
-
-    /**
-     * Stores given float value assuming that value should be stored in little-endian byte order and native byte order is big-endian.
-     * Alignment aware.
-     *
-     * @param addr Address.
-     * @param val  Value.
-     */
-    public static void putFloatLE(long addr, float val) {
-        int intVal = Float.floatToIntBits(val);
-
-        if (UNALIGNED) {
-            UNSAFE.putInt(addr, Integer.reverseBytes(intVal));
-        } else {
-            putIntByByte(addr, intVal, false);
-        }
-    }
-
-    /**
-     * Gets double value from given address assuming that value stored in little-endian byte order and native byte order is big-endian.
-     * Alignment aware.
-     *
-     * @param addr Address.
-     * @return Double value from given address.
-     */
-    public static double getDoubleLE(long addr) {
-        return Double.longBitsToDouble(
-                UNALIGNED ? Long.reverseBytes(UNSAFE.getLong(addr)) : getLongByByte(addr, false)
-        );
     }
 
     /**
@@ -1755,6 +1755,18 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * @param addr      Address.
+     * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
+     */
+    private static short getShortByByte(long addr, boolean bigEndian) {
+        if (bigEndian) {
+            return (short) (UNSAFE.getByte(addr) << 8 | (UNSAFE.getByte(addr + 1) & 0xff));
+        } else {
+            return (short) (UNSAFE.getByte(addr + 1) << 8 | (UNSAFE.getByte(addr) & 0xff));
+        }
+    }
+
+    /**
      * @param obj       Object.
      * @param off       Offset.
      * @param val       Value.
@@ -1771,6 +1783,21 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * @param addr      Address.
+     * @param val       Value.
+     * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
+     */
+    private static void putShortByByte(long addr, short val, boolean bigEndian) {
+        if (bigEndian) {
+            UNSAFE.putByte(addr, (byte) (val >> 8));
+            UNSAFE.putByte(addr + 1, (byte) val);
+        } else {
+            UNSAFE.putByte(addr + 1, (byte) (val >> 8));
+            UNSAFE.putByte(addr, (byte) val);
+        }
+    }
+
+    /**
      * @param obj       Object.
      * @param off       Offset.
      * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
@@ -1780,6 +1807,18 @@ public abstract class GridUnsafe {
             return (char) (UNSAFE.getByte(obj, off) << 8 | (UNSAFE.getByte(obj, off + 1) & 0xff));
         } else {
             return (char) (UNSAFE.getByte(obj, off + 1) << 8 | (UNSAFE.getByte(obj, off) & 0xff));
+        }
+    }
+
+    /**
+     * @param addr      Address.
+     * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
+     */
+    private static char getCharByByte(long addr, boolean bigEndian) {
+        if (bigEndian) {
+            return (char) (UNSAFE.getByte(addr) << 8 | (UNSAFE.getByte(addr + 1) & 0xff));
+        } else {
+            return (char) (UNSAFE.getByte(addr + 1) << 8 | (UNSAFE.getByte(addr) & 0xff));
         }
     }
 
@@ -1800,21 +1839,54 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * @param addr      Address.
+     * @param val       Value.
+     * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
+     */
+    private static void putCharByByte(long addr, char val, boolean bigEndian) {
+        if (bigEndian) {
+            UNSAFE.putByte(addr, (byte) (val >> 8));
+            UNSAFE.putByte(addr + 1, (byte) val);
+        } else {
+            UNSAFE.putByte(addr + 1, (byte) (val >> 8));
+            UNSAFE.putByte(addr, (byte) val);
+        }
+    }
+
+    /**
      * @param obj       Object.
      * @param addr      Address.
      * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
      */
     private static int getIntByByte(Object obj, long addr, boolean bigEndian) {
         if (bigEndian) {
-            return (((int) UNSAFE.getByte(obj, addr)) << 24) |
-                    (((int) UNSAFE.getByte(obj, addr + 1) & 0xff) << 16) |
-                    (((int) UNSAFE.getByte(obj, addr + 2) & 0xff) << 8) |
-                    (((int) UNSAFE.getByte(obj, addr + 3) & 0xff));
+            return (((int) UNSAFE.getByte(obj, addr)) << 24)
+                    | (((int) UNSAFE.getByte(obj, addr + 1) & 0xff) << 16)
+                    | (((int) UNSAFE.getByte(obj, addr + 2) & 0xff) << 8)
+                    | (((int) UNSAFE.getByte(obj, addr + 3) & 0xff));
         } else {
-            return (((int) UNSAFE.getByte(obj, addr + 3)) << 24) |
-                    (((int) UNSAFE.getByte(obj, addr + 2) & 0xff) << 16) |
-                    (((int) UNSAFE.getByte(obj, addr + 1) & 0xff) << 8) |
-                    (((int) UNSAFE.getByte(obj, addr) & 0xff));
+            return (((int) UNSAFE.getByte(obj, addr + 3)) << 24)
+                    | (((int) UNSAFE.getByte(obj, addr + 2) & 0xff) << 16)
+                    | (((int) UNSAFE.getByte(obj, addr + 1) & 0xff) << 8)
+                    | (((int) UNSAFE.getByte(obj, addr) & 0xff));
+        }
+    }
+
+    /**
+     * @param addr      Address.
+     * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
+     */
+    private static int getIntByByte(long addr, boolean bigEndian) {
+        if (bigEndian) {
+            return (((int) UNSAFE.getByte(addr)) << 24)
+                    | (((int) UNSAFE.getByte(addr + 1) & 0xff) << 16)
+                    | (((int) UNSAFE.getByte(addr + 2) & 0xff) << 8)
+                    | (((int) UNSAFE.getByte(addr + 3) & 0xff));
+        } else {
+            return (((int) UNSAFE.getByte(addr + 3)) << 24)
+                    | (((int) UNSAFE.getByte(addr + 2) & 0xff) << 16)
+                    | (((int) UNSAFE.getByte(addr + 1) & 0xff) << 8)
+                    | (((int) UNSAFE.getByte(addr) & 0xff));
         }
     }
 
@@ -1839,29 +1911,74 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * @param addr      Address.
+     * @param val       Value.
+     * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
+     */
+    private static void putIntByByte(long addr, int val, boolean bigEndian) {
+        if (bigEndian) {
+            UNSAFE.putByte(addr, (byte) (val >> 24));
+            UNSAFE.putByte(addr + 1, (byte) (val >> 16));
+            UNSAFE.putByte(addr + 2, (byte) (val >> 8));
+            UNSAFE.putByte(addr + 3, (byte) (val));
+        } else {
+            UNSAFE.putByte(addr + 3, (byte) (val >> 24));
+            UNSAFE.putByte(addr + 2, (byte) (val >> 16));
+            UNSAFE.putByte(addr + 1, (byte) (val >> 8));
+            UNSAFE.putByte(addr, (byte) (val));
+        }
+    }
+
+    /**
      * @param obj       Object.
      * @param addr      Address.
      * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
      */
     private static long getLongByByte(Object obj, long addr, boolean bigEndian) {
         if (bigEndian) {
-            return (((long) UNSAFE.getByte(obj, addr)) << 56) |
-                    (((long) UNSAFE.getByte(obj, addr + 1) & 0xff) << 48) |
-                    (((long) UNSAFE.getByte(obj, addr + 2) & 0xff) << 40) |
-                    (((long) UNSAFE.getByte(obj, addr + 3) & 0xff) << 32) |
-                    (((long) UNSAFE.getByte(obj, addr + 4) & 0xff) << 24) |
-                    (((long) UNSAFE.getByte(obj, addr + 5) & 0xff) << 16) |
-                    (((long) UNSAFE.getByte(obj, addr + 6) & 0xff) << 8) |
-                    (((long) UNSAFE.getByte(obj, addr + 7) & 0xff));
+            return (((long) UNSAFE.getByte(obj, addr)) << 56)
+                    | (((long) UNSAFE.getByte(obj, addr + 1) & 0xff) << 48)
+                    | (((long) UNSAFE.getByte(obj, addr + 2) & 0xff) << 40)
+                    | (((long) UNSAFE.getByte(obj, addr + 3) & 0xff) << 32)
+                    | (((long) UNSAFE.getByte(obj, addr + 4) & 0xff) << 24)
+                    | (((long) UNSAFE.getByte(obj, addr + 5) & 0xff) << 16)
+                    | (((long) UNSAFE.getByte(obj, addr + 6) & 0xff) << 8)
+                    | (((long) UNSAFE.getByte(obj, addr + 7) & 0xff));
         } else {
-            return (((long) UNSAFE.getByte(obj, addr + 7)) << 56) |
-                    (((long) UNSAFE.getByte(obj, addr + 6) & 0xff) << 48) |
-                    (((long) UNSAFE.getByte(obj, addr + 5) & 0xff) << 40) |
-                    (((long) UNSAFE.getByte(obj, addr + 4) & 0xff) << 32) |
-                    (((long) UNSAFE.getByte(obj, addr + 3) & 0xff) << 24) |
-                    (((long) UNSAFE.getByte(obj, addr + 2) & 0xff) << 16) |
-                    (((long) UNSAFE.getByte(obj, addr + 1) & 0xff) << 8) |
-                    (((long) UNSAFE.getByte(obj, addr) & 0xff));
+            return (((long) UNSAFE.getByte(obj, addr + 7)) << 56)
+                    | (((long) UNSAFE.getByte(obj, addr + 6) & 0xff) << 48)
+                    | (((long) UNSAFE.getByte(obj, addr + 5) & 0xff) << 40)
+                    | (((long) UNSAFE.getByte(obj, addr + 4) & 0xff) << 32)
+                    | (((long) UNSAFE.getByte(obj, addr + 3) & 0xff) << 24)
+                    | (((long) UNSAFE.getByte(obj, addr + 2) & 0xff) << 16)
+                    | (((long) UNSAFE.getByte(obj, addr + 1) & 0xff) << 8)
+                    | (((long) UNSAFE.getByte(obj, addr) & 0xff));
+        }
+    }
+
+    /**
+     * @param addr      Address.
+     * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
+     */
+    private static long getLongByByte(long addr, boolean bigEndian) {
+        if (bigEndian) {
+            return (((long) UNSAFE.getByte(addr)) << 56)
+                    | (((long) UNSAFE.getByte(addr + 1) & 0xff) << 48)
+                    | (((long) UNSAFE.getByte(addr + 2) & 0xff) << 40)
+                    | (((long) UNSAFE.getByte(addr + 3) & 0xff) << 32)
+                    | (((long) UNSAFE.getByte(addr + 4) & 0xff) << 24)
+                    | (((long) UNSAFE.getByte(addr + 5) & 0xff) << 16)
+                    | (((long) UNSAFE.getByte(addr + 6) & 0xff) << 8)
+                    | (((long) UNSAFE.getByte(addr + 7) & 0xff));
+        } else {
+            return (((long) UNSAFE.getByte(addr + 7)) << 56)
+                    | (((long) UNSAFE.getByte(addr + 6) & 0xff) << 48)
+                    | (((long) UNSAFE.getByte(addr + 5) & 0xff) << 40)
+                    | (((long) UNSAFE.getByte(addr + 4) & 0xff) << 32)
+                    | (((long) UNSAFE.getByte(addr + 3) & 0xff) << 24)
+                    | (((long) UNSAFE.getByte(addr + 2) & 0xff) << 16)
+                    | (((long) UNSAFE.getByte(addr + 1) & 0xff) << 8)
+                    | (((long) UNSAFE.getByte(addr) & 0xff));
         }
     }
 
@@ -1890,123 +2007,6 @@ public abstract class GridUnsafe {
             UNSAFE.putByte(obj, addr + 2, (byte) (val >> 16));
             UNSAFE.putByte(obj, addr + 1, (byte) (val >> 8));
             UNSAFE.putByte(obj, addr, (byte) (val));
-        }
-    }
-
-    /**
-     * @param addr      Address.
-     * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
-     */
-    private static short getShortByByte(long addr, boolean bigEndian) {
-        if (bigEndian) {
-            return (short) (UNSAFE.getByte(addr) << 8 | (UNSAFE.getByte(addr + 1) & 0xff));
-        } else {
-            return (short) (UNSAFE.getByte(addr + 1) << 8 | (UNSAFE.getByte(addr) & 0xff));
-        }
-    }
-
-    /**
-     * @param addr      Address.
-     * @param val       Value.
-     * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
-     */
-    private static void putShortByByte(long addr, short val, boolean bigEndian) {
-        if (bigEndian) {
-            UNSAFE.putByte(addr, (byte) (val >> 8));
-            UNSAFE.putByte(addr + 1, (byte) val);
-        } else {
-            UNSAFE.putByte(addr + 1, (byte) (val >> 8));
-            UNSAFE.putByte(addr, (byte) val);
-        }
-    }
-
-    /**
-     * @param addr      Address.
-     * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
-     */
-    private static char getCharByByte(long addr, boolean bigEndian) {
-        if (bigEndian) {
-            return (char) (UNSAFE.getByte(addr) << 8 | (UNSAFE.getByte(addr + 1) & 0xff));
-        } else {
-            return (char) (UNSAFE.getByte(addr + 1) << 8 | (UNSAFE.getByte(addr) & 0xff));
-        }
-    }
-
-    /**
-     * @param addr      Address.
-     * @param val       Value.
-     * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
-     */
-    private static void putCharByByte(long addr, char val, boolean bigEndian) {
-        if (bigEndian) {
-            UNSAFE.putByte(addr, (byte) (val >> 8));
-            UNSAFE.putByte(addr + 1, (byte) val);
-        } else {
-            UNSAFE.putByte(addr + 1, (byte) (val >> 8));
-            UNSAFE.putByte(addr, (byte) val);
-        }
-    }
-
-    /**
-     * @param addr      Address.
-     * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
-     */
-    private static int getIntByByte(long addr, boolean bigEndian) {
-        if (bigEndian) {
-            return (((int) UNSAFE.getByte(addr)) << 24) |
-                    (((int) UNSAFE.getByte(addr + 1) & 0xff) << 16) |
-                    (((int) UNSAFE.getByte(addr + 2) & 0xff) << 8) |
-                    (((int) UNSAFE.getByte(addr + 3) & 0xff));
-        } else {
-            return (((int) UNSAFE.getByte(addr + 3)) << 24) |
-                    (((int) UNSAFE.getByte(addr + 2) & 0xff) << 16) |
-                    (((int) UNSAFE.getByte(addr + 1) & 0xff) << 8) |
-                    (((int) UNSAFE.getByte(addr) & 0xff));
-        }
-    }
-
-    /**
-     * @param addr      Address.
-     * @param val       Value.
-     * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
-     */
-    private static void putIntByByte(long addr, int val, boolean bigEndian) {
-        if (bigEndian) {
-            UNSAFE.putByte(addr, (byte) (val >> 24));
-            UNSAFE.putByte(addr + 1, (byte) (val >> 16));
-            UNSAFE.putByte(addr + 2, (byte) (val >> 8));
-            UNSAFE.putByte(addr + 3, (byte) (val));
-        } else {
-            UNSAFE.putByte(addr + 3, (byte) (val >> 24));
-            UNSAFE.putByte(addr + 2, (byte) (val >> 16));
-            UNSAFE.putByte(addr + 1, (byte) (val >> 8));
-            UNSAFE.putByte(addr, (byte) (val));
-        }
-    }
-
-    /**
-     * @param addr      Address.
-     * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
-     */
-    private static long getLongByByte(long addr, boolean bigEndian) {
-        if (bigEndian) {
-            return (((long) UNSAFE.getByte(addr)) << 56) |
-                    (((long) UNSAFE.getByte(addr + 1) & 0xff) << 48) |
-                    (((long) UNSAFE.getByte(addr + 2) & 0xff) << 40) |
-                    (((long) UNSAFE.getByte(addr + 3) & 0xff) << 32) |
-                    (((long) UNSAFE.getByte(addr + 4) & 0xff) << 24) |
-                    (((long) UNSAFE.getByte(addr + 5) & 0xff) << 16) |
-                    (((long) UNSAFE.getByte(addr + 6) & 0xff) << 8) |
-                    (((long) UNSAFE.getByte(addr + 7) & 0xff));
-        } else {
-            return (((long) UNSAFE.getByte(addr + 7)) << 56) |
-                    (((long) UNSAFE.getByte(addr + 6) & 0xff) << 48) |
-                    (((long) UNSAFE.getByte(addr + 5) & 0xff) << 40) |
-                    (((long) UNSAFE.getByte(addr + 4) & 0xff) << 32) |
-                    (((long) UNSAFE.getByte(addr + 3) & 0xff) << 24) |
-                    (((long) UNSAFE.getByte(addr + 2) & 0xff) << 16) |
-                    (((long) UNSAFE.getByte(addr + 1) & 0xff) << 8) |
-                    (((long) UNSAFE.getByte(addr) & 0xff));
         }
     }
 

@@ -372,10 +372,10 @@ public class ITJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             Set<String> actualPks = new HashSet<>(expectedPks.size());
 
             while (rs.next()) {
-                actualPks.add(rs.getString("TABLE_SCHEM") +
-                        '.' + rs.getString("TABLE_NAME") +
-                        '.' + rs.getString("PK_NAME") +
-                        '.' + rs.getString("COLUMN_NAME"));
+                actualPks.add(rs.getString("TABLE_SCHEM")
+                        + '.' + rs.getString("TABLE_NAME")
+                        + '.' + rs.getString("PK_NAME")
+                        + '.' + rs.getString("COLUMN_NAME"));
             }
 
             assertEquals(expectedPks, actualPks, "Metadata contains unexpected primary keys info.");

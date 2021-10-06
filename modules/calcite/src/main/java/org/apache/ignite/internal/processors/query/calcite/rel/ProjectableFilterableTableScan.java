@@ -90,17 +90,23 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
         requiredColumns = input.get("requiredColumns") == null ? null : input.getBitSet("requiredColumns");
     }
 
-    /** @return Projections. */
+    /**
+     * @return Projections.
+     */
     public List<RexNode> projects() {
         return projects;
     }
 
-    /** @return Rex condition. */
+    /**
+     * @return Rex condition.
+     */
     public RexNode condition() {
         return condition;
     }
 
-    /** @return Participating columns. */
+    /**
+     * @return Participating columns.
+     */
     public ImmutableBitSet requiredColumns() {
         return requiredColumns;
     }

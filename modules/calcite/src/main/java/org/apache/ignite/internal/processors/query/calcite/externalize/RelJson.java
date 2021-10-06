@@ -179,7 +179,6 @@ class RelJson {
      */
     private static final ImmutableMap<String, Enum<?>> ENUM_BY_NAME;
 
-    /** */
     static {
         // Build a mapping from enum constants (e.g. LEADING) to the enum
         // that contains them (e.g. SqlTrimFunction.Flag). If there two
@@ -335,6 +334,22 @@ class RelJson {
             throw new UnsupportedOperationException("type not serializable: "
                     + value + " (type " + value.getClass().getCanonicalName() + ")");
         }
+    }
+
+    /**
+     *
+     */
+    private Object toJson(Enum<?> enum0) {
+        String key = enum0.getDeclaringClass().getSimpleName() + "#" + enum0.name();
+
+        if (ENUM_BY_NAME.get(key) == enum0) {
+            return key;
+        }
+
+        Map<String, Object> map = map();
+        map.put("class", enum0.getDeclaringClass().getName());
+        map.put("name", enum0.name());
+        return map;
     }
 
     /**
@@ -720,22 +735,6 @@ class RelJson {
             list.add(toRex(relInput, operand));
         }
         return list;
-    }
-
-    /**
-     *
-     */
-    private Object toJson(Enum<?> enum0) {
-        String key = enum0.getDeclaringClass().getSimpleName() + "#" + enum0.name();
-
-        if (ENUM_BY_NAME.get(key) == enum0) {
-            return key;
-        }
-
-        Map<String, Object> map = map();
-        map.put("class", enum0.getDeclaringClass().getName());
-        map.put("name", enum0.name());
-        return map;
     }
 
     /**

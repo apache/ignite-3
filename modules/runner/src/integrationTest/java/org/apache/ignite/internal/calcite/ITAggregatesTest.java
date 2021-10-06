@@ -130,8 +130,8 @@ public class ITAggregatesTest extends AbstractBasicIntegrationTest {
 
         assertThrows(
                 IgniteInternalException.class,
-                () -> assertQuery("SELECT t.id, (SELECT x FROM " +
-                        "TABLE(system_range(t.id, t.id + 1))) FROM person t").check()
+                () -> assertQuery("SELECT t.id, (SELECT x FROM "
+                        + "TABLE(system_range(t.id, t.id + 1))) FROM person t").check()
         );
 
         assertQuery("SELECT t.id, (SELECT x FROM TABLE(system_range(t.id, t.id))) FROM person t").check();

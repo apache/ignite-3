@@ -86,6 +86,25 @@ public class ClientMessagePackerUnpackerTest {
         testUUID(new UUID(0, 0));
     }
 
+    private void testUUID(UUID u) {
+        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
+            packer.packUuid(u);
+
+            var buf = packer.getBuffer();
+            var len = buf.readInt();
+
+            byte[] data = new byte[buf.readableBytes()];
+            buf.readBytes(data);
+
+            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
+                var res = unpacker.unpackUuid();
+
+                assertEquals(18, len); // 1 ext + 1 ext type + 16 UUID data
+                assertEquals(u, res);
+            }
+        }
+    }
+
     @Test
     public void testNumber() {
         testNumber(BigInteger.ZERO);
@@ -95,6 +114,25 @@ public class ClientMessagePackerUnpackerTest {
         testNumber(new BigInteger(randomBytes(rnd, 100)));
         testNumber(new BigInteger(randomBytes(rnd, 250)));
         testNumber(new BigInteger(randomBytes(rnd, 1000)));
+    }
+
+    private void testNumber(BigInteger val) {
+        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
+            packer.packNumber(val);
+
+            var buf = packer.getBuffer();
+            //noinspection unused
+            var len = buf.readInt();
+
+            byte[] data = new byte[buf.readableBytes()];
+            buf.readBytes(data);
+
+            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
+                var res = unpacker.unpackNumber();
+
+                assertEquals(val, res);
+            }
+        }
     }
 
     @Test
@@ -108,12 +146,50 @@ public class ClientMessagePackerUnpackerTest {
         testDecimal(new BigDecimal(new BigInteger(randomBytes(rnd, 1000)), 500));
     }
 
+    private void testDecimal(BigDecimal val) {
+        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
+            packer.packDecimal(val);
+
+            var buf = packer.getBuffer();
+            //noinspection unused
+            var len = buf.readInt();
+
+            byte[] data = new byte[buf.readableBytes()];
+            buf.readBytes(data);
+
+            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
+                var res = unpacker.unpackDecimal();
+
+                assertEquals(val, res);
+            }
+        }
+    }
+
     @Test
     public void testBitSet() {
         testBitSet(BitSet.valueOf(new byte[0]));
         testBitSet(BitSet.valueOf(randomBytes(rnd, 1)));
         testBitSet(BitSet.valueOf(randomBytes(rnd, 100)));
         testBitSet(BitSet.valueOf(randomBytes(rnd, 1000)));
+    }
+
+    private void testBitSet(BitSet val) {
+        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
+            packer.packBitSet(val);
+
+            var buf = packer.getBuffer();
+            //noinspection unused
+            var len = buf.readInt();
+
+            byte[] data = new byte[buf.readableBytes()];
+            buf.readBytes(data);
+
+            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
+                var res = unpacker.unpackBitSet();
+
+                assertEquals(val, res);
+            }
+        }
     }
 
     @Test
@@ -179,82 +255,6 @@ public class ClientMessagePackerUnpackerTest {
                         assertEquals(values[i], unpacker.unpackObject(i + 1));
                     }
                 }
-            }
-        }
-    }
-
-    private void testBitSet(BitSet val) {
-        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
-            packer.packBitSet(val);
-
-            var buf = packer.getBuffer();
-            //noinspection unused
-            var len = buf.readInt();
-
-            byte[] data = new byte[buf.readableBytes()];
-            buf.readBytes(data);
-
-            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
-                var res = unpacker.unpackBitSet();
-
-                assertEquals(val, res);
-            }
-        }
-    }
-
-    private void testUUID(UUID u) {
-        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
-            packer.packUuid(u);
-
-            var buf = packer.getBuffer();
-            var len = buf.readInt();
-
-            byte[] data = new byte[buf.readableBytes()];
-            buf.readBytes(data);
-
-            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
-                var res = unpacker.unpackUuid();
-
-                assertEquals(18, len); // 1 ext + 1 ext type + 16 UUID data
-                assertEquals(u, res);
-            }
-        }
-    }
-
-    private void testNumber(BigInteger val) {
-        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
-            packer.packNumber(val);
-
-            var buf = packer.getBuffer();
-            //noinspection unused
-            var len = buf.readInt();
-
-            byte[] data = new byte[buf.readableBytes()];
-            buf.readBytes(data);
-
-            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
-                var res = unpacker.unpackNumber();
-
-                assertEquals(val, res);
-            }
-        }
-    }
-
-    private void testDecimal(BigDecimal val) {
-        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
-            packer.packDecimal(val);
-
-            var buf = packer.getBuffer();
-            //noinspection unused
-            var len = buf.readInt();
-
-            byte[] data = new byte[buf.readableBytes()];
-            buf.readBytes(data);
-
-            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
-                var res = unpacker.unpackDecimal();
-
-                assertEquals(val, res);
             }
         }
     }

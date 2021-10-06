@@ -50,7 +50,6 @@ public interface IgniteResource {
     /**
      *
      */
-    @Resources.BaseMessage("Illegal value of {0}. The value must be positive and less than Integer.MAX_VALUE " +
-            "(" + Integer.MAX_VALUE + ").")
+    @Resources.BaseMessage("Illegal value of {0}. The value must be positive and less than Integer.MAX_VALUE (" + Integer.MAX_VALUE + ").")
     Resources.ExInst<SqlValidatorException> correctIntegerLimit(String a0);
 }

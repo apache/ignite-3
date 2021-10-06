@@ -160,14 +160,6 @@ public interface KeyValueView<K, V> {
     boolean remove(@NotNull K key);
 
     /**
-     * Asynchronously removes value associated with given key from the table.
-     *
-     * @param key A key which mapping is to be removed from the table. The key cannot be {@code null}.
-     * @return Future representing pending completion of the operation.
-     */
-    @NotNull CompletableFuture<Boolean> removeAsync(@NotNull K key);
-
-    /**
      * Removes an expected value associated with the given key from the table.
      *
      * @param key A key which associated value is to be removed from the table. The key cannot be {@code null}.
@@ -175,6 +167,14 @@ public interface KeyValueView<K, V> {
      * @return {@code True} if the expected value for the specified key was successfully removed, {@code false} otherwise.
      */
     boolean remove(@NotNull K key, @NotNull V val);
+
+    /**
+     * Asynchronously removes value associated with given key from the table.
+     *
+     * @param key A key which mapping is to be removed from the table. The key cannot be {@code null}.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull CompletableFuture<Boolean> removeAsync(@NotNull K key);
 
     /**
      * Asynchronously removes expected value associated with given key from the table.
@@ -235,15 +235,6 @@ public interface KeyValueView<K, V> {
     boolean replace(@NotNull K key, V val);
 
     /**
-     * Asynchronously replaces the value for a key only if exists. See {@link #replace(Object, Object)}.
-     *
-     * @param key A key with which the specified value is associated. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key.
-     * @return Future representing pending completion of the operation.
-     */
-    @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, V val);
-
-    /**
      * Replaces the expected value for a key. This is equivalent to
      * <pre><code>
      * if (cache.get(key) == oldVal) {
@@ -260,6 +251,15 @@ public interface KeyValueView<K, V> {
      * @return {@code True} if an old value was replaced, {@code false} otherwise.
      */
     boolean replace(@NotNull K key, V oldVal, V newVal);
+
+    /**
+     * Asynchronously replaces the value for a key only if exists. See {@link #replace(Object, Object)}.
+     *
+     * @param key A key with which the specified value is associated. The key cannot be {@code null}.
+     * @param val Value to be associated with the specified key.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, V val);
 
     /**
      * Asynchronously replaces the expected value for a key. See {@link #replace(Object, Object, Object)}

@@ -287,10 +287,10 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
     @NotNull
     private Set<Thread> getAllDisruptorCurrentThreads() {
         return Thread.getAllStackTraces().keySet().stream().filter(t ->
-                        t.getName().contains("JRaft-FSMCaller-Disruptor") ||
-                                t.getName().contains("JRaft-NodeImpl-Disruptor") ||
-                                t.getName().contains("JRaft-ReadOnlyService-Disruptor") ||
-                                t.getName().contains("JRaft-LogManager-Disruptor"))
+                        t.getName().contains("JRaft-FSMCaller-Disruptor")
+                                || t.getName().contains("JRaft-NodeImpl-Disruptor")
+                                || t.getName().contains("JRaft-ReadOnlyService-Disruptor")
+                                || t.getName().contains("JRaft-LogManager-Disruptor"))
                 .collect(Collectors.toSet());
     }
 
@@ -319,7 +319,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
     }
 
     /**
-     * @throws Exception
+     * @throws Exception If failed.
      */
     @Test
     public void testCounterCommandListener() throws Exception {
@@ -489,8 +489,8 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         client1.refreshLeader().get();
         client2.refreshLeader().get();
 
-        NodeImpl leader = servers.stream().map(s -> ((NodeImpl) s.raftGroupService(COUNTER_GROUP_0).getRaftNode())).
-                filter(n -> n.getState() == STATE_LEADER).findFirst().orElse(null);
+        NodeImpl leader = servers.stream().map(s -> ((NodeImpl) s.raftGroupService(COUNTER_GROUP_0).getRaftNode()))
+                .filter(n -> n.getState() == STATE_LEADER).findFirst().orElse(null);
 
         assertNotNull(leader);
 

@@ -1092,7 +1092,7 @@ public class ITJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
      */
     @Test
     public void testGetSetClientInfoPair() throws Exception {
-//        fail("https://issues.apache.org/jira/browse/IGNITE-5425");
+        //        fail("https://issues.apache.org/jira/browse/IGNITE-5425");
 
         try (Connection conn = DriverManager.getConnection(URL)) {
             final String name = "ApplicationName";

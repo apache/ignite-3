@@ -106,6 +106,15 @@ public interface Tuple extends Iterable<Object> {
     }
 
     /**
+     * Returns the hash code value for this tuple.
+     *
+     * @return the hash code value for this tuple.
+     * @see #hashCode(Tuple)
+     * @see Object#hashCode()
+     */
+    int hashCode();
+
+    /**
      * Compares tuples for equality.
      * <p>
      * Returns {@code true} if both tuples represent the same column name to column value mappings.
@@ -143,6 +152,15 @@ public interface Tuple extends Iterable<Object> {
 
         return true;
     }
+
+    /**
+     * Indicates whether some other object is "equal to" this one.
+     *
+     * @return {@code true} if this object is the same as the obj argument; {@code false} otherwise.
+     * @see Tuple#equals(Tuple, Tuple)
+     * @see Object#equals(Object)
+     */
+    boolean equals(Object obj);
 
     /**
      * Gets the number of columns in this tuple.
@@ -458,22 +476,4 @@ public interface Tuple extends Iterable<Object> {
      * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     Instant timestampValue(int columnIndex);
-
-    /**
-     * Returns the hash code value for this tuple.
-     *
-     * @return the hash code value for this tuple.
-     * @see #hashCode(Tuple)
-     * @see Object#hashCode()
-     */
-    int hashCode();
-
-    /**
-     * Indicates whether some other object is "equal to" this one.
-     *
-     * @return {@code true} if this object is the same as the obj argument; {@code false} otherwise.
-     * @see Tuple#equals(Tuple, Tuple)
-     * @see Object#equals(Object)
-     */
-    boolean equals(Object obj);
 }

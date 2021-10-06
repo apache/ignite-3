@@ -181,8 +181,8 @@ public class ConnectionManager {
         // when the client is ready for write operations, so previously started client, that didn't establish connection
         // or didn't perform the handhsake operaton, can be reused.
         NettyClient client = clients.compute(address, (addr, existingClient) ->
-                existingClient != null && !existingClient.failedToConnect() && !existingClient.isDisconnected() ?
-                        existingClient : connect(addr)
+                existingClient != null && !existingClient.failedToConnect() && !existingClient.isDisconnected()
+                        ? existingClient : connect(addr)
         );
 
         CompletableFuture<NettySender> sender = client.sender();

@@ -258,7 +258,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
                 checkSplitAndSerialization(rel, publicSchema);
 
-//                System.out.println(RelOptUtil.toString(rel));
+                //                System.out.println(RelOptUtil.toString(rel));
 
                 return rel;
             } catch (Throwable ex) {
@@ -302,6 +302,20 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     /**
+     * Creates test table with given params.
+     *
+     * @param name   Name of the table.
+     * @param distr  Distribution of the table.
+     * @param fields List of the required fields. Every odd item should be a string representing a column name, every even item should be a
+     *               class representing column's type. E.g. {@code createTable("MY_TABLE", distribution, "ID", Integer.class, "VAL",
+     *               String.class)}.
+     * @return Instance of the {@link TestTable}.
+     */
+    protected static TestTable createTable(String name, IgniteDistribution distr, Object... fields) {
+        return createTable(name, DEFAULT_TBL_SIZE, distr, fields);
+    }
+
+    /**
      *
      */
     protected <T extends RelNode> void assertPlan(String sql, IgniteSchema schema, Predicate<T> predicate,
@@ -309,8 +323,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         IgniteRel plan = physicalPlan(sql, schema, disabledRules);
 
         if (!predicate.test((T) plan)) {
-            String invalidPlanMsg = "Invalid plan (" + lastErrorMsg + "):\n" +
-                    RelOptUtil.toString(plan, SqlExplainLevel.ALL_ATTRIBUTES);
+            String invalidPlanMsg = "Invalid plan (" + lastErrorMsg + "):\n" + RelOptUtil.toString(plan, SqlExplainLevel.ALL_ATTRIBUTES);
 
             fail(invalidPlanMsg);
         }
@@ -404,20 +417,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
             return predicate.test((T) node.getInput(idx));
         };
-    }
-
-    /**
-     * Creates test table with given params.
-     *
-     * @param name   Name of the table.
-     * @param distr  Distribution of the table.
-     * @param fields List of the required fields. Every odd item should be a string representing a column name, every even item should be a
-     *               class representing column's type. E.g. {@code createTable("MY_TABLE", distribution, "ID", Integer.class, "VAL",
-     *               String.class)}.
-     * @return Instance of the {@link TestTable}.
-     */
-    protected static TestTable createTable(String name, IgniteDistribution distr, Object... fields) {
-        return createTable(name, DEFAULT_TBL_SIZE, distr, fields);
     }
 
     /**
@@ -535,9 +534,9 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             if (!expected.deepEquals(deserialized)) {
                 assertTrue(
                         expected.deepEquals(deserialized),
-                        "Invalid serialization / deserialization.\n" +
-                                "Expected:\n" + RelOptUtil.toString(expected) +
-                                "Deserialized:\n" + RelOptUtil.toString(deserialized)
+                        "Invalid serialization / deserialization.\n"
+                                + "Expected:\n" + RelOptUtil.toString(expected)
+                                + "Deserialized:\n" + RelOptUtil.toString(deserialized)
                 );
             }
         }
@@ -659,37 +658,37 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         @Override
         public Statistic getStatistic() {
             return new Statistic() {
-                /** {@inheritDoc */
+                /** {@inheritDoc} */
                 @Override
                 public Double getRowCount() {
                     return rowCnt;
                 }
 
-                /** {@inheritDoc */
+                /** {@inheritDoc} */
                 @Override
                 public boolean isKey(ImmutableBitSet cols) {
                     return false;
                 }
 
-                /** {@inheritDoc */
+                /** {@inheritDoc} */
                 @Override
                 public List<ImmutableBitSet> getKeys() {
                     throw new AssertionError();
                 }
 
-                /** {@inheritDoc */
+                /** {@inheritDoc} */
                 @Override
                 public List<RelReferentialConstraint> getReferentialConstraints() {
                     throw new AssertionError();
                 }
 
-                /** {@inheritDoc */
+                /** {@inheritDoc} */
                 @Override
                 public List<RelCollation> getCollations() {
                     return Collections.emptyList();
                 }
 
-                /** {@inheritDoc */
+                /** {@inheritDoc} */
                 @Override
                 public RelDistribution getDistribution() {
                     throw new AssertionError();

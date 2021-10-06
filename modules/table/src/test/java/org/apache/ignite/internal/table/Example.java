@@ -80,6 +80,7 @@ public class Example {
                 this.orgId = orgId;
             }
         }
+
         RecordView<Employee> employeeView = t.recordView(Employee.class);
 
         Employee e = employeeView.get(new Employee(1, 1));
@@ -245,8 +246,8 @@ public class Example {
                             BinaryObject bObj = row.binaryObjectValue("conditionalDetails");
                             int type = row.intValue("type");
 
-                            return type == 0 ?
-                                    BinaryObjects.deserialize(bObj, CreditCard.class) :
+                            return type == 0
+                                    ? BinaryObjects.deserialize(bObj, CreditCard.class) :
                                     BinaryObjects.deserialize(bObj, BankAccount.class);
                         }).build());
 
@@ -283,8 +284,8 @@ public class Example {
         binObj = orderRecord.billingDetails;
 
         // Manual deserialization is possible as well.
-        Object billingDetails = orderRecord.type == 0 ?
-                BinaryObjects.deserialize(binObj, CreditCard.class) :
+        Object billingDetails = orderRecord.type == 0
+                ? BinaryObjects.deserialize(binObj, CreditCard.class) :
                 BinaryObjects.deserialize(binObj, BankAccount.class);
     }
 
@@ -362,8 +363,8 @@ public class Example {
                             BinaryObject bObj = row.binaryObjectValue("upgradedObject");
                             int dept = row.intValue("department");
 
-                            return dept == 0 ?
-                                    BinaryObjects.deserialize(bObj, JavaPerson.class) :
+                            return dept == 0
+                                    ? BinaryObjects.deserialize(bObj, JavaPerson.class) :
                                     BinaryObjects.deserialize(bObj, JavaPersonV2.class);
                         }).build());
     }

@@ -278,10 +278,7 @@ public enum NativeTypeSpec {
             return NativeTypeSpec.FLOAT;
         } else if (cls == double.class) {
             return NativeTypeSpec.DOUBLE;
-        }
-
-        // Boxed primitives.
-        else if (cls == Byte.class) {
+        } else if (cls == Byte.class) { // Boxed primitives.
             return NativeTypeSpec.INT8;
         } else if (cls == Short.class) {
             return NativeTypeSpec.INT16;
@@ -293,10 +290,7 @@ public enum NativeTypeSpec {
             return NativeTypeSpec.FLOAT;
         } else if (cls == Double.class) {
             return NativeTypeSpec.DOUBLE;
-        }
-
-        // Temporal types.
-        else if (cls == LocalDate.class) {
+        } else if (cls == LocalDate.class) { // Temporal types.
             return NativeTypeSpec.DATE;
         } else if (cls == LocalTime.class) {
             return NativeTypeSpec.TIME;
@@ -304,10 +298,7 @@ public enum NativeTypeSpec {
             return NativeTypeSpec.DATETIME;
         } else if (cls == Instant.class) {
             return NativeTypeSpec.TIMESTAMP;
-        }
-
-        // Other types.
-        else if (cls == byte[].class) {
+        } else if (cls == byte[].class) { // Other types.
             return NativeTypeSpec.BYTES;
         } else if (cls == String.class) {
             return NativeTypeSpec.STRING;

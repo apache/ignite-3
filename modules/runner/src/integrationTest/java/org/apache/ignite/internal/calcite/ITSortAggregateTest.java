@@ -85,10 +85,10 @@ public class ITSortAggregateTest extends AbstractBasicIntegrationTest {
     @Test
     public void mapReduceAggregate() {
         List<List<?>> res = sql(
-                "SELECT /*+ DISABLE_RULE('HashAggregateConverterRule') */" +
-                        "SUM(val0), SUM(val1), grp0 FROM TEST " +
-                        "GROUP BY grp0 " +
-                        "HAVING SUM(val1) > 10"
+                "SELECT /*+ DISABLE_RULE('HashAggregateConverterRule') */"
+                        + "SUM(val0), SUM(val1), grp0 FROM TEST "
+                        + "GROUP BY grp0 "
+                        + "HAVING SUM(val1) > 10"
         );
 
         assertEquals(ROWS / 10, res.size());

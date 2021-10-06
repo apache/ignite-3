@@ -130,8 +130,8 @@ public class ConfigurationClient {
             if (res.statusCode() == HttpURLConnection.HTTP_OK) {
                 out.println("Configuration was updated successfully.");
                 out.println();
-                out.println("Use the " + cs.commandText("ignite config get") +
-                        " command to view the updated configuration.");
+                out.println("Use the " + cs.commandText("ignite config get")
+                        + " command to view the updated configuration.");
             } else {
                 throw error("Failed to set configuration", res);
             }

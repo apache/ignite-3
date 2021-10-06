@@ -519,7 +519,8 @@ public class TraitUtils {
      */
     private static boolean fillRecursive(RelTraitSet outTraits, List<List<RelTraitSet>> inTraits,
             Set<Pair<RelTraitSet, List<RelTraitSet>>> result, RelTraitSet[] combination, int idx) throws ControlFlowException {
-        boolean processed = false, last = idx == inTraits.size() - 1;
+        boolean processed = false;
+        boolean last = idx == inTraits.size() - 1;
         for (RelTraitSet t : inTraits.get(idx)) {
             if (t.getConvention() != IgniteConvention.INSTANCE) {
                 continue;

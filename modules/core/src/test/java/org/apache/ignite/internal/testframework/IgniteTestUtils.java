@@ -101,7 +101,7 @@ public final class IgniteTestUtils {
 
             boolean isStatic = (field.getModifiers() & Modifier.STATIC) != 0;
 
-            /**
+            /*
              * http://java.sun.com/docs/books/jls/third_edition/html/memory.html#17.5.3
              * If a final field is initialized to a compile-time constant in the field declaration,
              *   changes to the final field may not be observed.

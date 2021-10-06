@@ -306,11 +306,11 @@ public class RowAssembler {
 
         final Columns valCols = schema.valueColumns();
 
-        int size = BinaryRow.HEADER_SIZE + 2 * BinaryRow.CHUNK_LEN_FLD_SIZE +
-                keyVarlenSize + valVarlenSize +
-                keyVartblLen + valVartblLen +
-                curCols.fixsizeMaxLen() + valCols.fixsizeMaxLen() +
-                curCols.nullMapSize() + valCols.nullMapSize();
+        int size = BinaryRow.HEADER_SIZE + 2 * BinaryRow.CHUNK_LEN_FLD_SIZE
+                + keyVarlenSize + valVarlenSize
+                + keyVartblLen + valVartblLen
+                + curCols.fixsizeMaxLen() + valCols.fixsizeMaxLen()
+                + curCols.nullMapSize() + valCols.nullMapSize();
 
         buf = new ExpandableByteBuf(size);
         buf.putShort(0, (short) schema.version());
@@ -473,9 +473,9 @@ public class RowAssembler {
 
         //0 is a magic number for "unlimited precision"
         if (type.precision() > 0 && new BigDecimal(val).precision() > type.precision()) {
-            throw new IllegalArgumentException("Failed to set number value for column '" + col.name() + "' " +
-                    "(max precision exceeds allocated precision) " +
-                    "[number=" + val + ", max precision=" + type.precision() + "]");
+            throw new IllegalArgumentException("Failed to set number value for column '" + col.name() + "' "
+                    + "(max precision exceeds allocated precision) "
+                    + "[number=" + val + ", max precision=" + type.precision() + "]");
         }
 
         byte[] bytes = val.toByteArray();
@@ -511,9 +511,9 @@ public class RowAssembler {
         val = val.setScale(type.scale(), RoundingMode.HALF_UP);
 
         if (val.precision() > type.precision()) {
-            throw new IllegalArgumentException("Failed to set decimal value for column '" + col.name() + "' " +
-                    "(max precision exceeds allocated precision)" +
-                    " [decimal=" + val + ", max precision=" + type.precision() + "]");
+            throw new IllegalArgumentException("Failed to set decimal value for column '" + col.name() + "' "
+                    + "(max precision exceeds allocated precision)"
+                    + " [decimal=" + val + ", max precision=" + type.precision() + "]");
         }
 
         byte[] bytes = val.unscaledValue().toByteArray();
@@ -620,8 +620,8 @@ public class RowAssembler {
         BitmaskNativeType maskType = (BitmaskNativeType) col.type();
 
         if (bitSet.length() > maskType.bits()) {
-            throw new IllegalArgumentException("Failed to set bitmask for column '" + col.name() + "' " +
-                    "(mask size exceeds allocated size) [mask=" + bitSet + ", maxSize=" + maskType.bits() + "]");
+            throw new IllegalArgumentException("Failed to set bitmask for column '" + col.name() + "' "
+                    + "(mask size exceeds allocated size) [mask=" + bitSet + ", maxSize=" + maskType.bits() + "]");
         }
 
         byte[] arr = bitSet.toByteArray();
@@ -726,8 +726,7 @@ public class RowAssembler {
 
         buf.putLong(curOff, seconds);
 
-        if (type.precision() != 0) // Write only meaningful bytes.
-        {
+        if (type.precision() != 0) { // Write only meaningful bytes.
             buf.putInt(curOff + 8, nanos);
         }
 
@@ -846,8 +845,7 @@ public class RowAssembler {
         Column col = curCols.column(curCol);
 
         if (col.type().spec() != type) {
-            throw new IllegalArgumentException("Failed to set column (int was passed, but column is of different " +
-                    "type): " + col);
+            throw new IllegalArgumentException("Failed to set column (int was passed, but column is of different type): " + col);
         }
     }
 

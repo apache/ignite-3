@@ -172,9 +172,8 @@ public class NettyClient {
 
             return channelFuture
                     .handle((sender, throwable) ->
-                            channel == null ?
-                                    CompletableFuture.<Void>completedFuture(null) :
-                                    NettyUtils.toCompletableFuture(channel.close()))
+                            channel == null
+                                    ? CompletableFuture.<Void>completedFuture(null) : NettyUtils.toCompletableFuture(channel.close()))
                     .thenCompose(Function.identity());
         }
     }

@@ -120,9 +120,9 @@ public class MavenArtifactResolver {
                     int cnt = ((EndResolveEvent) event).getReport().getArtifacts().size();
 
                     bar.setMax(cnt * 3);
-                } else if (event instanceof EndArtifactDownloadEvent ||
-                        event instanceof EndResolveDependencyEvent ||
-                        event instanceof EndRetrieveArtifactEvent) {
+                } else if (event instanceof EndArtifactDownloadEvent
+                        || event instanceof EndResolveDependencyEvent
+                        || event instanceof EndRetrieveArtifactEvent) {
                     bar.step();
                 }
             });

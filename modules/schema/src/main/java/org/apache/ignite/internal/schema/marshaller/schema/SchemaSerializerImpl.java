@@ -126,13 +126,13 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
     /** {@inheritDoc} */
     @Override
     public int size(SchemaDescriptor desc) {
-        return SHORT +                      //Assembler version
-                INT +                          //Descriptor version
-                getColumnsSize(desc.keyColumns()) +
-                getColumnsSize(desc.valueColumns()) +
-                ARRAY_HEADER_LENGTH +          //Affinity columns length
-                getStringArraySize(desc.affinityColumns()) +
-                getColumnMappingSize(desc.columnMapping(), desc.length());
+        return SHORT //Assembler version
+                + INT //Descriptor version
+                + getColumnsSize(desc.keyColumns())
+                + getColumnsSize(desc.valueColumns())
+                + ARRAY_HEADER_LENGTH //Affinity columns length
+                + getStringArraySize(desc.affinityColumns())
+                + getColumnMappingSize(desc.columnMapping(), desc.length());
     }
 
     /**
@@ -196,11 +196,12 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
      * @return Column size in bytes.
      */
     private int getColumnSize(Column col) {
-        return INT +                      //Schema index
-                BYTE +                         //nullable flag
-                getStringSize(col.name()) +
-                getNativeTypeSize(col.type()) +
-                BYTE + getDefaultObjectSize(col.type(), col.defaultValue());
+        return INT //Schema index
+                + BYTE //nullable flag
+                + getStringSize(col.name())
+                + getNativeTypeSize(col.type())
+                + BYTE
+                + getDefaultObjectSize(col.type(), col.defaultValue());
     }
 
     /**
@@ -285,8 +286,8 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
                 break;
         }
 
-        return getStringSize(type.spec().name()) + //native type name
-                typeSize;
+        return getStringSize(type.spec().name()) //native type name
+                + typeSize;
     }
 
     /**
@@ -296,8 +297,8 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
      * @return Byte array size.
      */
     private int getStringSize(String str) {
-        return STRING_HEADER + //string byte array header
-                str.getBytes().length; // string byte array length
+        return STRING_HEADER //string byte array header
+                + str.getBytes().length; // string byte array length
     }
 
     /**

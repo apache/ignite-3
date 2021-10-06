@@ -63,9 +63,9 @@ public final class Operation {
         assert (type == OperationType.NO_OP && key == null && val == null)
                 || (type == OperationType.PUT && key != null && val != null)
                 || (type == OperationType.REMOVE && key != null && val == null)
-                : "Invalid operation parameters: [type=" + type +
-                ", key=" + (key == null ? "null" : IgniteUtils.toHexString(key, 256)) +
-                ", val=" + (val == null ? "null" : IgniteUtils.toHexString(val, 256)) + ']';
+                : "Invalid operation parameters: [type=" + type
+                + ", key=" + (key == null ? "null" : IgniteUtils.toHexString(key, 256))
+                + ", val=" + (val == null ? "null" : IgniteUtils.toHexString(val, 256)) + ']';
 
         this.key = key;
         this.val = val;

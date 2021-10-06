@@ -84,9 +84,9 @@ public class HashIndexSpoolPlannerTest extends AbstractPlannerTest {
                         .addIndex(RelCollations.of(ImmutableIntList.of(1, 0)), "t1_jid_idx")
         );
 
-        String sql = "select * " +
-                "from t0 " +
-                "join t1 on t0.jid = t1.jid";
+        String sql = "select * "
+                + "from t0 "
+                + "join t1 on t0.jid = t1.jid";
 
         IgniteRel phys = physicalPlan(
                 sql,
@@ -151,9 +151,9 @@ public class HashIndexSpoolPlannerTest extends AbstractPlannerTest {
                         .addIndex(RelCollations.of(ImmutableIntList.of(1, 0)), "t1_jid0_idx")
         );
 
-        String sql = "select * " +
-                "from t0 " +
-                "join t1 on t0.jid0 = t1.jid0 and t0.jid1 = t1.jid1";
+        String sql = "select * "
+                + "from t0 "
+                + "join t1 on t0.jid0 = t1.jid0 and t0.jid1 = t1.jid1";
 
         IgniteRel phys = physicalPlan(
                 sql,
@@ -214,9 +214,9 @@ public class HashIndexSpoolPlannerTest extends AbstractPlannerTest {
                 }
         );
 
-        String sql = "select * " +
-                "from t0 " +
-                "join t1 on t0.jid = t1.jid";
+        String sql = "select * "
+                + "from t0 "
+                + "join t1 on t0.jid = t1.jid";
 
         IgniteRel phys = physicalPlan(
                 sql,

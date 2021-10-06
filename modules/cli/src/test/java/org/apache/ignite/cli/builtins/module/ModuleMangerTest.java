@@ -99,8 +99,8 @@ public class ModuleMangerTest extends AbstractCliTest {
         moduleMgr.addModule("mvn:any-group:test-module:1.0", ignitePaths, Collections.emptyList());
 
         verify(moduleRegistry).saveModule(argThat(m ->
-                m.cliArtifacts.equals(Arrays.asList(rootArtifact, depArtifact)) &&
-                        m.artifacts.equals(Collections.emptyList())));
+                m.cliArtifacts.equals(Arrays.asList(rootArtifact, depArtifact))
+                        && m.artifacts.equals(Collections.emptyList())));
     }
 
     /**
@@ -125,8 +125,8 @@ public class ModuleMangerTest extends AbstractCliTest {
         moduleMgr.addModule("mvn:any-group:test-module:1.0", ignitePaths, Collections.emptyList());
 
         verify(moduleRegistry).saveModule(argThat(m ->
-                m.artifacts.equals(Arrays.asList(rootArtifact, depArtifact)) &&
-                        m.cliArtifacts.equals(Collections.emptyList())));
+                m.artifacts.equals(Arrays.asList(rootArtifact, depArtifact))
+                        && m.cliArtifacts.equals(Collections.emptyList())));
     }
 
     /**

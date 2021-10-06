@@ -81,8 +81,8 @@ public class NodeCommandSpec extends CategorySpec {
                     out);
 
             out.println();
-            out.println("Node is successfully started. To stop, type " +
-                    cs.commandText("ignite node stop ") + cs.parameterText(node.name));
+            out.println("Node is successfully started. To stop, type "
+                    + cs.commandText("ignite node stop ") + cs.parameterText(node.name));
             out.println();
 
             Table tbl = new Table(0, cs);

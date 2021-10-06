@@ -60,9 +60,9 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
 
         IgniteSchema schema = createSchema(tbl);
 
-        String sql = "select count(*) " +
-                "from TEST_TBL t1 " +
-                "join TEST_TBL t2 on t1.id = t2.id";
+        String sql = "select count(*) "
+                + "from TEST_TBL t1 "
+                + "join TEST_TBL t2 on t1.id = t2.id";
 
         RelNode phys = physicalPlan(sql, schema, "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin");
 
@@ -93,9 +93,9 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
 
         IgniteSchema schema = createSchema(tbl);
 
-        String sql = "select count(*) " +
-                "from TEST_TBL t1 " +
-                "join TEST_TBL t2 on t1.id1 = t2.id1 and t1.id2 = t2.id2";
+        String sql = "select count(*) "
+                + "from TEST_TBL t1 "
+                + "join TEST_TBL t2 on t1.id1 = t2.id1 and t1.id2 = t2.id2";
 
         RelNode phys = physicalPlan(sql, schema, "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin");
 
@@ -137,9 +137,9 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
 
         IgniteSchema schema = createSchema(complexTbl, simpleTbl);
 
-        String sql = "select count(*) " +
-                "from COMPLEX_TBL t1 " +
-                "join SIMPLE_TBL t2 on t1.id1 = t2.id";
+        String sql = "select count(*) "
+                + "from COMPLEX_TBL t1 "
+                + "join SIMPLE_TBL t2 on t1.id1 = t2.id";
 
         RelNode phys = physicalPlan(sql, schema, "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin");
 
@@ -186,9 +186,9 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
 
         IgniteSchema schema = createSchema(complexTblDirect, complexTblIndirect);
 
-        String sql = "select count(*) " +
-                "from COMPLEX_TBL_DIRECT t1 " +
-                "join COMPLEX_TBL_INDIRECT t2 on t1.id1 = t2.id1 and t1.id2 = t2.id2";
+        String sql = "select count(*) "
+                + "from COMPLEX_TBL_DIRECT t1 "
+                + "join COMPLEX_TBL_INDIRECT t2 on t1.id1 = t2.id1 and t1.id2 = t2.id2";
 
         RelNode phys = physicalPlan(sql, schema, "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin");
 

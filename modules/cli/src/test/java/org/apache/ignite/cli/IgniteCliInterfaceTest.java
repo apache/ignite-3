@@ -233,8 +233,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             verify(moduleMgr).removeModule(moduleName);
             Assertions.assertEquals(0, exitCode);
-            assertEquals("Module " + cmd.getColorScheme().parameterText(moduleName) +
-                    " was removed successfully.\n", out.toString());
+            assertEquals("Module " + cmd.getColorScheme().parameterText(moduleName)
+                    + " was removed successfully.\n", out.toString());
         }
 
         /**
@@ -253,8 +253,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             verify(moduleMgr).removeModule(moduleName);
             Assertions.assertEquals(0, exitCode);
-            assertEquals("Nothing to do: module " + cmd.getColorScheme().parameterText(moduleName) +
-                    " is not yet added.\n", out.toString());
+            assertEquals("Nothing to do: module " + cmd.getColorScheme().parameterText(moduleName)
+                    + " is not yet added.\n", out.toString());
         }
 
         /**
@@ -299,24 +299,24 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             verify(moduleMgr).builtinModules();
             Assertions.assertEquals(0, exitCode);
 
-            var expOutput = cmd.getColorScheme().text("@|bold Optional Ignite Modules|@\n" +
-                    "+---------+--------------+------------+\n" +
-                    "| @|bold Name|@    | @|bold Description|@  | @|bold Installed?|@ |\n" +
-                    "+---------+--------------+------------+\n" +
-                    "| module1 | description1 | Yes        |\n" +
-                    "+---------+--------------+------------+\n" +
-                    "| module2 | description2 | No         |\n" +
-                    "+---------+--------------+------------+\n" +
-                    "\n" +
-                    "@|bold Additional Maven Dependencies|@\n" +
-                    "+-------------------+-------------+---------+\n" +
-                    "| @|bold Group ID|@          | @|bold Artifact ID|@ | @|bold Version|@ |\n" +
-                    "+-------------------+-------------+---------+\n" +
-                    "| org.apache.ignite | snapshot    | 2.9.0   |\n" +
-                    "+-------------------+-------------+---------+\n" +
-                    "Type " + cmd.getColorScheme().commandText("ignite module remove") + " " +
-                    cmd.getColorScheme().parameterText("<groupId>:<artifactId>:<version>") +
-                    " to remove a dependency.\n"
+            var expOutput = cmd.getColorScheme().text("@|bold Optional Ignite Modules|@\n"
+                    + "+---------+--------------+------------+\n"
+                    + "| @|bold Name|@    | @|bold Description|@  | @|bold Installed?|@ |\n"
+                    + "+---------+--------------+------------+\n"
+                    + "| module1 | description1 | Yes        |\n" +
+                    "+---------+--------------+------------+\n"
+                    + "| module2 | description2 | No         |\n"
+                    + "+---------+--------------+------------+\n"
+                    + "\n"
+                    + "@|bold Additional Maven Dependencies|@\n"
+                    + "+-------------------+-------------+---------+\n"
+                    + "| @|bold Group ID|@          | @|bold Artifact ID|@ | @|bold Version|@ |\n"
+                    + "+-------------------+-------------+---------+\n"
+                    + "| org.apache.ignite | snapshot    | 2.9.0   |\n"
+                    + "+-------------------+-------------+---------+\n"
+                    + "Type " + cmd.getColorScheme().commandText("ignite module remove") + " "
+                    + cmd.getColorScheme().parameterText("<groupId>:<artifactId>:<version>")
+                    + " to remove a dependency.\n"
             ).toString();
             assertEquals(expOutput, out.toString());
         }
@@ -372,14 +372,14 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     Path.of("conf.json"),
                     cli.getOut());
 
-            assertEquals("\nNode is successfully started. To stop, type ignite node stop " + nodeName + "\n\n" +
-                            "+-----------+---------+\n" +
-                            "| Node name | node1   |\n" +
-                            "+-----------+---------+\n" +
-                            "| PID       | 1       |\n" +
-                            "+-----------+---------+\n" +
-                            "| Log File  | logfile |\n" +
-                            "+-----------+---------+\n",
+            assertEquals("\nNode is successfully started. To stop, type ignite node stop " + nodeName + "\n\n"
+                            + "+-----------+---------+\n"
+                            + "| Node name | node1   |\n"
+                            + "+-----------+---------+\n"
+                            + "| PID       | 1       |\n"
+                            + "+-----------+---------+\n"
+                            + "| Log File  | logfile |\n"
+                            + "+-----------+---------+\n",
                     out.toString());
         }
 
@@ -404,9 +404,9 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             Assertions.assertEquals(0, exitCode);
             verify(nodeMgr).stopWait(nodeName, ignitePaths.cliPidsDir());
             assertEquals(
-                    "Stopping locally running node with consistent ID " +
-                            cmd.getColorScheme().parameterText(nodeName) +
-                            cmd.getColorScheme().text("... @|bold,green Done!|@\n"),
+                    "Stopping locally running node with consistent ID "
+                            + cmd.getColorScheme().parameterText(nodeName)
+                            + cmd.getColorScheme().text("... @|bold,green Done!|@\n"),
                     out.toString());
         }
 
@@ -431,9 +431,9 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             Assertions.assertEquals(0, exitCode);
             verify(nodeMgr).stopWait(nodeName, ignitePaths.cliPidsDir());
             assertEquals(
-                    "Stopping locally running node with consistent ID " +
-                            cmd.getColorScheme().parameterText(nodeName) +
-                            cmd.getColorScheme().text("... @|bold,red Failed|@\n"),
+                    "Stopping locally running node with consistent ID "
+                            + cmd.getColorScheme().parameterText(nodeName)
+                            + cmd.getColorScheme().text("... @|bold,red Failed|@\n"),
                     out.toString());
         }
 
@@ -458,14 +458,14 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             Assertions.assertEquals(0, exitCode);
             verify(nodeMgr).getRunningNodes(ignitePaths.logDir, ignitePaths.cliPidsDir());
-            assertEquals(cmd.getColorScheme().text("Number of running nodes: @|bold 2|@\n\n") +
-                            "+---------------+-----+----------+\n" +
-                            cmd.getColorScheme().text("| @|bold Consistent ID|@ | @|bold PID|@ | @|bold Log File|@ |\n") +
-                            "+---------------+-----+----------+\n" +
-                            "| new1          | 1   | logFile1 |\n" +
-                            "+---------------+-----+----------+\n" +
-                            "| new2          | 2   | logFile2 |\n" +
-                            "+---------------+-----+----------+\n",
+            assertEquals(cmd.getColorScheme().text("Number of running nodes: @|bold 2|@\n\n")
+                            + "+---------------+-----+----------+\n"
+                            + cmd.getColorScheme().text("| @|bold Consistent ID|@ | @|bold PID|@ | @|bold Log File|@ |\n")
+                            + "+---------------+-----+----------+\n"
+                            + "| new1          | 1   | logFile1 |\n"
+                            + "+---------------+-----+----------+\n"
+                            + "| new2          | 2   | logFile2 |\n"
+                            + "+---------------+-----+----------+\n",
                     out.toString());
         }
 
@@ -487,8 +487,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             Assertions.assertEquals(0, exitCode);
             verify(nodeMgr).getRunningNodes(ignitePaths.logDir, ignitePaths.cliPidsDir());
-            assertEquals("Currently, there are no locally running nodes.\n\n" +
-                            "Use the " + cmd.getColorScheme().commandText("ignite node start") + " command to start a new node.\n",
+            assertEquals("Currently, there are no locally running nodes.\n\n"
+                            + "Use the " + cmd.getColorScheme().commandText("ignite node start") + " command to start a new node.\n",
                     out.toString());
         }
 
@@ -554,16 +554,16 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             Assertions.assertEquals(0, exitCode);
             verify(httpClient).send(
-                    argThat(r -> "http://localhost:8081/management/v1/configuration/node/".equals(r.uri().toString()) &&
-                            "application/json".equals(r.headers().firstValue("Content-Type").get())),
+                    argThat(r -> "http://localhost:8081/management/v1/configuration/node/".equals(r.uri().toString())
+                            && "application/json".equals(r.headers().firstValue("Content-Type").get())),
                     any());
-            assertEquals("{\n" +
-                    "  \"baseline\" : {\n" +
-                    "    \"autoAdjust\" : {\n" +
-                    "      \"enabled\" : true\n" +
-                    "    }\n" +
-                    "  }\n" +
-                    "}\n", out.toString());
+            assertEquals("{\n"
+                    + "  \"baseline\" : {\n"
+                    + "    \"autoAdjust\" : {\n"
+                    + "      \"enabled\" : true\n"
+                    + "    }\n"
+                    + "  }\n"
+                    + "}\n", out.toString());
         }
 
         /**
@@ -578,20 +578,20 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             when(httpClient.<String>send(any(), any())).thenReturn(res);
 
             var exitCode =
-                    cmd(ctx).execute(("config get --node-endpoint localhost:8081 " +
-                            "--selector local.baseline --type node").split(" "));
+                    cmd(ctx).execute(("config get --node-endpoint localhost:8081 "
+                            + "--selector local.baseline --type node").split(" "));
 
             Assertions.assertEquals(0, exitCode);
             verify(httpClient).send(
                     argThat(r ->
-                            "http://localhost:8081/management/v1/configuration/node/local.baseline".equals(r.uri().toString()) &&
-                                    "application/json".equals(r.headers().firstValue("Content-Type").get())),
+                            "http://localhost:8081/management/v1/configuration/node/local.baseline".equals(r.uri().toString())
+                                    && "application/json".equals(r.headers().firstValue("Content-Type").get())),
                     any());
-            assertEquals("{\n" +
-                    "  \"autoAdjust\" : {\n" +
-                    "    \"enabled\" : true\n" +
-                    "  }\n" +
-                    "}\n", out.toString());
+            assertEquals("{\n"
+                    + "  \"autoAdjust\" : {\n"
+                    + "    \"enabled\" : true\n"
+                    + "  }\n"
+                    + "}\n", out.toString());
         }
 
         /**
@@ -614,14 +614,14 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             Assertions.assertEquals(0, exitCode);
             verify(httpClient).send(
-                    argThat(r -> "http://localhost:8081/management/v1/configuration/node/".equals(r.uri().toString()) &&
-                            "PUT".equals(r.method()) &&
-                            r.bodyPublisher().get().contentLength() == expSentContent.getBytes().length &&
-                            "application/json".equals(r.headers().firstValue("Content-Type").get())),
+                    argThat(r -> "http://localhost:8081/management/v1/configuration/node/".equals(r.uri().toString())
+                            && "PUT".equals(r.method()) &&
+                            r.bodyPublisher().get().contentLength() == expSentContent.getBytes().length
+                            && "application/json".equals(r.headers().firstValue("Content-Type").get())),
                     any());
-            assertEquals("Configuration was updated successfully.\n\n" +
-                    "Use the " + cmd.getColorScheme().commandText("ignite config get") +
-                    " command to view the updated configuration.\n", out.toString());
+            assertEquals("Configuration was updated successfully.\n\n"
+                    + "Use the " + cmd.getColorScheme().commandText("ignite config get")
+                    + " command to view the updated configuration.\n", out.toString());
         }
 
         /**
@@ -647,14 +647,14 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             Assertions.assertEquals(0, exitCode);
             verify(httpClient).send(
-                    argThat(r -> "http://localhost:8081/management/v1/configuration/node/".equals(r.uri().toString()) &&
-                            "PUT".equals(r.method()) &&
-                            r.bodyPublisher().get().contentLength() == expSentContent.getBytes().length &&
+                    argThat(r -> "http://localhost:8081/management/v1/configuration/node/".equals(r.uri().toString())
+                            && "PUT".equals(r.method())
+                            && r.bodyPublisher().get().contentLength() == expSentContent.getBytes().length &&
                             "application/json".equals(r.headers().firstValue("Content-Type").get())),
                     any());
-            assertEquals("Configuration was updated successfully.\n\n" +
-                    "Use the " + cmd.getColorScheme().commandText("ignite config get") +
-                    " command to view the updated configuration.\n", out.toString());
+            assertEquals("Configuration was updated successfully.\n\n"
+                    + "Use the " + cmd.getColorScheme().commandText("ignite config get")
+                    + " command to view the updated configuration.\n", out.toString());
         }
     }
 

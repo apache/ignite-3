@@ -85,7 +85,8 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
         // We preserve left collation since it's translated into a nested loop join with an outer loop
         // over a left edge. The code below checks and projects left collation on an output row type.
 
-        RelTraitSet left = inputTraits.get(0), right = inputTraits.get(1);
+        RelTraitSet left = inputTraits.get(0);
+        RelTraitSet right = inputTraits.get(1);
 
         RelCollation collation = TraitUtils.collation(left);
 
@@ -112,7 +113,8 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
     public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
         // The node is rewindable only if both sources are rewindable.
 
-        RelTraitSet left = inputTraits.get(0), right = inputTraits.get(1);
+        RelTraitSet left = inputTraits.get(0);
+        RelTraitSet right = inputTraits.get(1);
 
         RewindabilityTrait leftRewindability = TraitUtils.rewindability(left);
         RewindabilityTrait rightRewindability = TraitUtils.rewindability(right);
@@ -142,7 +144,8 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
         //      3.2) it's a right join and a hash distributed table is at right
         //      3.3) it's an inner join, this case a hash distributed table may be at any side
 
-        RelTraitSet left = inputTraits.get(0), right = inputTraits.get(1);
+        RelTraitSet left = inputTraits.get(0);
+        RelTraitSet right = inputTraits.get(1);
 
         List<Pair<RelTraitSet, List<RelTraitSet>>> res = new ArrayList<>();
 
@@ -221,7 +224,8 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
 
         RelCollation collation = TraitUtils.collation(nodeTraits);
 
-        RelTraitSet left = inputTraits.get(0), right = inputTraits.get(1);
+        RelTraitSet left = inputTraits.get(0);
+        RelTraitSet right = inputTraits.get(1);
 
         if (collation.equals(RelCollations.EMPTY)) {
             return Pair.of(nodeTraits,
@@ -258,7 +262,8 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
         //      3.2) it's a right join and a hash distributed table is at right
         //      3.3) it's an inner join, this case a hash distributed table may be at any side
 
-        RelTraitSet left = inputTraits.get(0), right = inputTraits.get(1);
+        RelTraitSet left = inputTraits.get(0);
+        RelTraitSet right = inputTraits.get(1);
 
         IgniteDistribution distribution = TraitUtils.distribution(nodeTraits);
 

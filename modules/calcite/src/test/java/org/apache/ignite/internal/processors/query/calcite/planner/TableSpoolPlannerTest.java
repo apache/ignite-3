@@ -73,9 +73,9 @@ public class TableSpoolPlannerTest extends AbstractPlannerTest {
         publicSchema.addTable("T0", t0);
         publicSchema.addTable("T1", t1);
 
-        String sql = "select * " +
-                "from t0 " +
-                "join t1 on t0.jid > t1.jid";
+        String sql = "select * "
+                + "from t0 "
+                + "join t1 on t0.jid > t1.jid";
 
         RelNode phys = physicalPlan(sql, publicSchema,
                 "MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeRule");
@@ -127,9 +127,9 @@ public class TableSpoolPlannerTest extends AbstractPlannerTest {
         publicSchema.addTable("T0", t0);
         publicSchema.addTable("T1", t1);
 
-        String sql = "select * " +
-                "from t0 " +
-                "join t1 on t0.jid = t1.jid";
+        String sql = "select * "
+                + "from t0 "
+                + "join t1 on t0.jid = t1.jid";
 
         RelNode phys = physicalPlan(sql, publicSchema,
                 "MergeJoinConverter", "NestedLoopJoinConverter",

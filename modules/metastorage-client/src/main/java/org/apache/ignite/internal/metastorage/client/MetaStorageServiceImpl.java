@@ -112,8 +112,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys, long revUpperBound) {
-        return metaStorageRaftGrpSvc.run(new GetAllCommand(keys, revUpperBound)).
-                thenApply(MetaStorageServiceImpl::multipleEntryResult);
+        return metaStorageRaftGrpSvc.run(new GetAllCommand(keys, revUpperBound)).thenApply(MetaStorageServiceImpl::multipleEntryResult);
     }
 
     /** {@inheritDoc} */
@@ -138,8 +137,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Map<ByteArray, Entry>> getAndPutAll(@NotNull Map<ByteArray, byte[]> vals) {
-        return metaStorageRaftGrpSvc.run(new GetAndPutAllCommand(vals)).
-                thenApply(MetaStorageServiceImpl::multipleEntryResult);
+        return metaStorageRaftGrpSvc.run(new GetAndPutAllCommand(vals)).thenApply(MetaStorageServiceImpl::multipleEntryResult);
     }
 
     /** {@inheritDoc} */
@@ -164,8 +162,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Map<ByteArray, Entry>> getAndRemoveAll(@NotNull Set<ByteArray> keys) {
-        return metaStorageRaftGrpSvc.run(new GetAndRemoveAllCommand(keys)).
-                thenApply(MetaStorageServiceImpl::multipleEntryResult);
+        return metaStorageRaftGrpSvc.run(new GetAndRemoveAllCommand(keys)).thenApply(MetaStorageServiceImpl::multipleEntryResult);
     }
 
     @Override

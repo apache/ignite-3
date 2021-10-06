@@ -31,7 +31,6 @@ public class IgniteProperties {
     /** Properties. */
     private static final Properties PROPS;
 
-    /** */
     static {
         PROPS = new Properties();
 

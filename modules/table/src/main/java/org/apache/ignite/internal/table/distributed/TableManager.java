@@ -171,8 +171,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** {@inheritDoc} */
     @Override
     public void start() {
-        tablesCfg.tables().
-                listenElements(new ConfigurationNamedListListener<TableView>() {
+        tablesCfg.tables()
+                .listenElements(new ConfigurationNamedListListener<>() {
                     @Override
                     public @NotNull CompletableFuture<?> onCreate(@NotNull ConfigurationNotificationEvent<TableView> ctx) {
                         // Empty assignments might be a valid case if tables are created from within cluster init HOCON
@@ -183,14 +183,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         final IgniteUuid tblId = IgniteUuid.fromString(((ExtendedTableView) ctx.newValue()).id());
 
                         // TODO: IGNITE-15409 Listener with any placeholder should be used instead.
-                        ((ExtendedTableConfiguration) tablesCfg.tables().get(ctx.newValue().name())).schemas().
-                                listenElements(new ConfigurationNamedListListener<>() {
+                        ((ExtendedTableConfiguration) tablesCfg.tables().get(ctx.newValue().name())).schemas()
+                                .listenElements(new ConfigurationNamedListListener<>() {
                                     @Override
                                     public @NotNull CompletableFuture<?> onCreate(
                                             @NotNull ConfigurationNotificationEvent<SchemaView> schemasCtx) {
                                         try {
-                                            ((SchemaRegistryImpl) tables.get(ctx.newValue().name()).schemaView()).
-                                                    onSchemaRegistered(
+                                            ((SchemaRegistryImpl) tables.get(ctx.newValue().name()).schemaView())
+                                                    .onSchemaRegistered(
                                                             SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema()))
                                                     );
 
@@ -225,8 +225,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 ctx.newValue().name(),
                                 IgniteUuid.fromString(((ExtendedTableView) ctx.newValue()).id()),
                                 (List<List<ClusterNode>>) ByteUtils.fromBytes(((ExtendedTableView) ctx.newValue()).assignments()),
-                                SchemaSerializerImpl.INSTANCE.deserialize(((ExtendedTableView) ctx.newValue()).schemas().
-                                        get(String.valueOf(INITIAL_SCHEMA_VERSION)).schema())
+                                SchemaSerializerImpl.INSTANCE.deserialize(((ExtendedTableView) ctx.newValue()).schemas()
+                                        .get(String.valueOf(INITIAL_SCHEMA_VERSION)).schema())
                         );
 
                         return CompletableFuture.completedFuture(null);
@@ -470,11 +470,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         name,
                                         (ch) -> {
                                             tableInitChange.accept(ch);
-                                            ((ExtendedTableChange) ch).
+                                            ((ExtendedTableChange) ch)
                                                     // Table id specification.
-                                                            changeId(tblId.toString()).
+                                                    .changeId(tblId.toString())
                                                     // Affinity assignments calculation.
-                                                            changeAssignments(
+                                                    .changeAssignments(
                                                             ByteUtils.toBytes(
                                                                     AffinityUtils.calculateAssignments(
                                                                             baselineMgr.nodes(),
@@ -482,9 +482,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                                             ch.replicas()
                                                                     )
                                                             )
-                                                    ).
+                                                    )
                                                     // Table schema preparation.
-                                                            changeSchemas(
+                                                    .changeSchemas(
                                                             schemasCh -> schemasCh.create(
                                                                     String.valueOf(INITIAL_SCHEMA_VERSION),
                                                                     schemaCh -> schemaCh.changeSchema(
@@ -754,12 +754,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return tableAsync(name).join();
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Table> tableAsync(String name) {
-        return tableAsync(name, true);
-    }
-
     /**
      * Gets a table if it exists or {@code null} if it was not created or was removed before.
      *
@@ -809,6 +803,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return getTblFut.join();
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Table> tableAsync(String name) {
+        return tableAsync(name, true);
+    }
+
     /**
      * Gets a table if it exists or {@code null} if it was not created or was removed before.
      *
@@ -856,8 +856,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         tbl = tables.get(name);
 
-        if (tbl != null && getTblFut.complete(tbl) ||
-                !isTableConfigured(name) && getTblFut.complete(null)) {
+        if (tbl != null && getTblFut.complete(tbl) || !isTableConfigured(name) && getTblFut.complete(null)) {
             removeListener(TableEvent.CREATE, clo, null);
         }
 

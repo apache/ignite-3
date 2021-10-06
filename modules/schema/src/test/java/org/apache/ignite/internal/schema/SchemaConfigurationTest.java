@@ -102,7 +102,8 @@ public class SchemaConfigurationTest {
                                 .asNonNull()
                                 .build()
                 )
-                .addKeyColumn( // It looks safe to add non-affinity column to key.
+                .addKeyColumn(
+                        // It looks safe to add non-affinity column to key.
                         SchemaBuilders.column("subId", ColumnType.string())
                                 .asNonNull()
                                 .build()

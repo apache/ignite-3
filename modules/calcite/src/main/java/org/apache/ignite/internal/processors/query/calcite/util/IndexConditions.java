@@ -149,11 +149,11 @@ public class IndexConditions {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return "IndexConditions{" +
-                "lowerCond=" + lowerCond +
-                ", upperCond=" + upperCond +
-                ", lowerBound=" + lowerBound +
-                ", upperBound=" + upperBound +
-                '}';
+        return "IndexConditions{"
+                + "lowerCond=" + lowerCond
+                + ", upperCond=" + upperCond
+                + ", lowerBound=" + lowerBound
+                + ", upperBound=" + upperBound
+                + '}';
     }
 }

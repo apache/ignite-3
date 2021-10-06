@@ -36,18 +36,18 @@ public interface MailboxRegistry {
     <T> Inbox<T> register(Inbox<T> inbox);
 
     /**
-     * Unregisters an inbox.
-     *
-     * @param inbox Inbox to unregister.
-     */
-    void unregister(Inbox<?> inbox);
-
-    /**
      * Registers an outbox.
      *
      * @param outbox Outbox to register.
      */
     void register(Outbox<?> outbox);
+
+    /**
+     * Unregisters an inbox.
+     *
+     * @param inbox Inbox to unregister.
+     */
+    void unregister(Inbox<?> inbox);
 
     /**
      * Unregisters an outbox.

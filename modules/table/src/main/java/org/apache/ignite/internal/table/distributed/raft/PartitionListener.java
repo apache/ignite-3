@@ -389,9 +389,8 @@ public class PartitionListener implements RaftGroupListener {
 
         storage.invoke(keyRow, getAndRemoveClosure);
 
-        BinaryRow removedRow = getAndRemoveClosure.result() ?
-                new ByteBufferRow(getAndRemoveClosure.oldRow().valueBytes()) :
-                null;
+        BinaryRow removedRow = getAndRemoveClosure.result()
+                ? new ByteBufferRow(getAndRemoveClosure.oldRow().valueBytes()) : null;
 
         clo.result(new SingleRowResponse(removedRow));
     }

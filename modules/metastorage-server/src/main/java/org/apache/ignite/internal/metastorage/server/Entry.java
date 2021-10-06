@@ -76,7 +76,8 @@ public class Entry {
      * @param rev     Revision.
      * @param updCntr Update counter.
      */
-    // TODO: It seems user will never create Entry, so we can reduce constructor scope to protected or package-private and reuse it from two-place private constructor.
+    // TODO: It seems user will never create Entry, so we can reduce constructor scope to protected or package-private
+    //  and reuse it from two-place private constructor.
     public Entry(@NotNull byte[] key, @NotNull byte[] val, long rev, long updCntr) {
         assert key != null : "key can't be null";
         assert val != null : "value can't be null";
@@ -115,6 +116,15 @@ public class Entry {
     }
 
     /**
+     * Returns value which denotes whether entry is empty or not.
+     *
+     * @return {@code True} if entry is empty, otherwise - {@code false}.
+     */
+    public boolean empty() {
+        return val == null && rev == 0 && updCntr == 0;
+    }
+
+    /**
      * Creates an instance of tombstone entry for a given key and a revision.
      *
      * @param key     Key bytes. Couldn't be {@code null}.
@@ -129,6 +139,16 @@ public class Entry {
 
         return new Entry(key, rev, updCntr);
     }
+
+    /**
+     * Returns value which denotes whether entry is tombstone or not.
+     *
+     * @return {@code True} if entry is tombstone, otherwise - {@code false}.
+     */
+    public boolean tombstone() {
+        return val == null && rev > 0 && updCntr > 0;
+    }
+
 
     /**
      * Returns a key.
@@ -166,23 +186,5 @@ public class Entry {
      */
     public long updateCounter() {
         return updCntr;
-    }
-
-    /**
-     * Returns value which denotes whether entry is tombstone or not.
-     *
-     * @return {@code True} if entry is tombstone, otherwise - {@code false}.
-     */
-    public boolean tombstone() {
-        return val == null && rev > 0 && updCntr > 0;
-    }
-
-    /**
-     * Returns value which denotes whether entry is empty or not.
-     *
-     * @return {@code True} if entry is empty, otherwise - {@code false}.
-     */
-    public boolean empty() {
-        return val == null && rev == 0 && updCntr == 0;
     }
 }

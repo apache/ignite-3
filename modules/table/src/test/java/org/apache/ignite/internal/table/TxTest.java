@@ -159,8 +159,8 @@ public class TxTest {
      */
     @Test
     public void testTxAsync() {
-        igniteTransactions.beginAsync().thenApply(tx -> accounts.recordView().withTransaction(tx)).
-                thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
+        igniteTransactions.beginAsync().thenApply(tx -> accounts.recordView().withTransaction(tx))
+                .thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
                         .thenCombine(txAcc.getAsync(makeKey(2)), Pair::new)
                         .thenCompose(pair -> allOf(
                                         txAcc.upsertAsync(makeRecord(1, pair.getFirst().doubleValue("balance") - DELTA)),
@@ -181,8 +181,8 @@ public class TxTest {
      */
     @Test
     public void testTxAsyncKeyValue() {
-        igniteTransactions.beginAsync().thenApply(tx -> accounts.keyValueView().withTransaction(tx)).
-                thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
+        igniteTransactions.beginAsync().thenApply(tx -> accounts.keyValueView().withTransaction(tx))
+                .thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
                         .thenCombine(txAcc.getAsync(makeKey(2)), Pair::new)
                         .thenCompose(pair -> allOf(
                                         txAcc.putAsync(makeKey(1), makeValue(pair.getFirst().doubleValue("balance") - DELTA)),

@@ -173,9 +173,9 @@ public class ITMixedQueriesTest extends AbstractBasicIntegrationTest {
     @Test
     public void testDistinctQueryWithInConditionWithSubquery() {
         List<List<?>> rows = sql(
-                "SELECT distinct(name) FROM emp1 o WHERE name IN (" +
-                        "   SELECT name" +
-                        "   FROM emp2)");
+                "SELECT distinct(name) FROM emp1 o WHERE name IN ("
+                        + "   SELECT name"
+                        + "   FROM emp2)");
 
         assertEquals(2, rows.size());
     }
@@ -197,10 +197,10 @@ public class ITMixedQueriesTest extends AbstractBasicIntegrationTest {
     @Test
     public void testExistsConditionWithSubquery() {
         List<List<?>> rows = sql(
-                "SELECT name FROM emp1 o WHERE EXISTS (" +
-                        "   SELECT 1" +
-                        "   FROM emp2 a" +
-                        "   WHERE o.name = a.name)");
+                "SELECT name FROM emp1 o WHERE EXISTS ("
+                        + "   SELECT 1"
+                        + "   FROM emp2 a"
+                        + "   WHERE o.name = a.name)");
 
         assertEquals(4, rows.size());
     }
@@ -211,26 +211,26 @@ public class ITMixedQueriesTest extends AbstractBasicIntegrationTest {
     @Test
     public void testNotExistsConditionWithSubquery() {
         List<List<?>> rows = sql(
-                "SELECT name FROM emp1 o WHERE NOT EXISTS (" +
-                        "   SELECT 1" +
-                        "   FROM emp2 a" +
-                        "   WHERE o.name = a.name)");
+                "SELECT name FROM emp1 o WHERE NOT EXISTS ("
+                        + "   SELECT 1"
+                        + "   FROM emp2 a"
+                        + "   WHERE o.name = a.name)");
 
         assertEquals(3, rows.size());
 
         rows = sql(
-                "SELECT name FROM emp1 o WHERE NOT EXISTS (" +
-                        "   SELECT name" +
-                        "   FROM emp2 a" +
-                        "   WHERE o.name = a.name)");
+                "SELECT name FROM emp1 o WHERE NOT EXISTS ("
+                        + "   SELECT name"
+                        + "   FROM emp2 a"
+                        + "   WHERE o.name = a.name)");
 
         assertEquals(3, rows.size());
 
         rows = sql(
-                "SELECT distinct(name) FROM emp1 o WHERE NOT EXISTS (" +
-                        "   SELECT name" +
-                        "   FROM emp2 a" +
-                        "   WHERE o.name = a.name)");
+                "SELECT distinct(name) FROM emp1 o WHERE NOT EXISTS ("
+                        + "   SELECT name"
+                        + "   FROM emp2 a"
+                        + "   WHERE o.name = a.name)");
 
         assertEquals(1, rows.size());
     }

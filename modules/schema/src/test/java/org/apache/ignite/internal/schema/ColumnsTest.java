@@ -427,13 +427,9 @@ public class ColumnsTest {
 
                 assertTrue(colDef[idx].type().spec().fixedLength());
 
-                if (nullMasks[idx])
-                // set bit in the mask (indicate null value).
-                {
+                if (nullMasks[idx]) { // set bit in the mask (indicate null value).
                     mask |= (1 << bit);
-                } else
-                // non-null, sum the size.
-                {
+                } else { // non-null, sum the size.
                     size += colDef[idx].type().sizeInBytes();
                 }
             }

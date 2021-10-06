@@ -104,8 +104,8 @@ public class RuntimeTreeIndexTest extends IgniteAbstractTest {
                     assertEquals(
                             (rowIdUp / notUnique - rowIdLow / notUnique + 1) * notUnique,
                             rows,
-                            "Invalid results [rowType=" + testIdx.getKey() + ", notUnique=" + notUnique +
-                                    ", rowIdLow=" + rowIdLow + ", rowIdUp=" + rowIdUp
+                            "Invalid results [rowType=" + testIdx.getKey() + ", notUnique=" + notUnique
+                                    + ", rowIdLow=" + rowIdLow + ", rowIdUp=" + rowIdUp
                     );
                 }
             }

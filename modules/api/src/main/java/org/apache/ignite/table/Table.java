@@ -57,6 +57,17 @@ public interface Table {
     RecordView<Tuple> recordView();
 
     /**
+     * Creates record view of table for record class provided.
+     *
+     * @param recCls Record class.
+     * @param <R>    Record type.
+     * @return Table record view.
+     */
+    default <R> RecordView<R> recordView(Class<R> recCls) {
+        return recordView(Mappers.ofRecordClass(recCls));
+    }
+
+    /**
      * Creates key-value view of table for key-value class mappers provided.
      *
      * @param keyMapper Key class mapper.
@@ -73,17 +84,6 @@ public interface Table {
      * @return Table key-value view.
      */
     KeyValueView<Tuple, Tuple> keyValueView();
-
-    /**
-     * Creates record view of table for record class provided.
-     *
-     * @param recCls Record class.
-     * @param <R>    Record type.
-     * @return Table record view.
-     */
-    default <R> RecordView<R> recordView(Class<R> recCls) {
-        return recordView(Mappers.ofRecordClass(recCls));
-    }
 
     /**
      * Creates key-value view of table for key and value classes provided.

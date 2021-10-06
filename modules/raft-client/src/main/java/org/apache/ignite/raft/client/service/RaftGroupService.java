@@ -68,13 +68,13 @@ public interface RaftGroupService {
 
     /**
      * @return A list of voting peers or {@code null} if it has not been yet initialized. The order is corresponding to the time of joining
-     * to the replication group.
+     *      to the replication group.
      */
     @Nullable List<Peer> peers();
 
     /**
      * @return A list of leaners or {@code null} if it has not been yet initialized. The order is corresponding to the time of joining to
-     * the replication group.
+     *      the replication group.
      */
     @Nullable List<Peer> learners();
 

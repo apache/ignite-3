@@ -69,7 +69,8 @@ public interface IgniteMapSetOp extends IgniteSetOp {
 
         return ImmutableList.of(
                 Pair.of(nodeTraits.replace(IgniteDistributions.random()), Commons.transform(inputTraits,
-                        t -> TraitUtils.distribution(t) == IgniteDistributions.broadcast() ?
+                        t -> TraitUtils.distribution(t) == IgniteDistributions.broadcast()
+                                ?
                                 // Allow broadcast with trim-exchange to be used in map-reduce set-op.
                                 t.replace(IgniteDistributions.hash(ImmutableList.of(0))) :
                                 t.replace(IgniteDistributions.random())))

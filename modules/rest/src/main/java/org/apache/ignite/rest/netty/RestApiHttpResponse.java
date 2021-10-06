@@ -68,6 +68,15 @@ public class RestApiHttpResponse {
     }
 
     /**
+     * Returns content in a form of raw bytes.
+     *
+     * @return Content.
+     */
+    public byte[] content() {
+        return content;
+    }
+
+    /**
      * Set JSON representation of input object as response body.
      *
      * @param content Content object.
@@ -78,15 +87,6 @@ public class RestApiHttpResponse {
         this.content = new Gson().toJson(content).getBytes(StandardCharsets.UTF_8);
         headers().set(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON.toString());
         return this;
-    }
-
-    /**
-     * Returns content in a form of raw bytes.
-     *
-     * @return Content.
-     */
-    public byte[] content() {
-        return content;
     }
 
     /**

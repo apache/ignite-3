@@ -885,6 +885,40 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     }
 
     /** {@inheritDoc} */
+    @Override
+    public ResultSet getSchemas(String catalog, String schemaPtrn) throws SQLException {
+        conn.ensureNotClosed();
+
+        final List<JdbcColumnMeta> meta = asList(
+                new JdbcColumnMeta(null, null, "TABLE_SCHEM", String.class),
+                new JdbcColumnMeta(null, null, "TABLE_CATALOG", String.class)
+        );
+
+        if (!isValidCatalog(catalog)) {
+            return new JdbcResultSet(Collections.emptyList(), meta);
+        }
+
+        JdbcMetaSchemasResult res = conn.handler().schemasMeta(new JdbcMetaSchemasRequest(schemaPtrn));
+
+        if (!res.hasResults()) {
+            throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+        }
+
+        List<List<Object>> rows = new LinkedList<>();
+
+        for (String schema : res.schemas()) {
+            List<Object> row = new ArrayList<>(2);
+
+            row.add(schema);
+            row.add(CATALOG_NAME);
+
+            rows.add(row);
+        }
+
+        return new JdbcResultSet(rows, meta);
+    }
+
+    /** {@inheritDoc} */
     @SuppressWarnings("ArraysAsListWithZeroOrOneArgument")
     @Override
     public ResultSet getCatalogs() {
@@ -1483,40 +1517,6 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
 
     /** {@inheritDoc} */
     @Override
-    public ResultSet getSchemas(String catalog, String schemaPtrn) throws SQLException {
-        conn.ensureNotClosed();
-
-        final List<JdbcColumnMeta> meta = asList(
-                new JdbcColumnMeta(null, null, "TABLE_SCHEM", String.class),
-                new JdbcColumnMeta(null, null, "TABLE_CATALOG", String.class)
-        );
-
-        if (!isValidCatalog(catalog)) {
-            return new JdbcResultSet(Collections.emptyList(), meta);
-        }
-
-        JdbcMetaSchemasResult res = conn.handler().schemasMeta(new JdbcMetaSchemasRequest(schemaPtrn));
-
-        if (!res.hasResults()) {
-            throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
-        }
-
-        List<List<Object>> rows = new LinkedList<>();
-
-        for (String schema : res.schemas()) {
-            List<Object> row = new ArrayList<>(2);
-
-            row.add(schema);
-            row.add(CATALOG_NAME);
-
-            rows.add(row);
-        }
-
-        return new JdbcResultSet(rows, meta);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public boolean supportsStoredFunctionsUsingCallSyntax() {
         return false;
     }
@@ -1620,7 +1620,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
      *
      * @param catalog Catalog name or {@code null}.
      * @return {@code true} If catalog equal ignoring case to {@link JdbcDatabaseMetadata#CATALOG_NAME} or null (which means any catalog).
-     * Otherwise returns {@code false}.
+     *      Otherwise returns {@code false}.
      */
     private static boolean isValidCatalog(String catalog) {
         return catalog == null || catalog.equalsIgnoreCase(CATALOG_NAME);

@@ -106,10 +106,10 @@ public class ITIgniteNodeRestartTest extends IgniteAbstractTest {
     public void twoCustomPropertiesTest(TestInfo testInfo) {
         String nodeName = testNodeName(testInfo, 3344);
 
-        String startCfg = "network: {\n" +
-                "  port:3344,\n" +
-                "  netClusterNodes:[ \"localhost:3344\" ]\n" +
-                "}";
+        String startCfg = "network: {\n"
+                + "  port:3344,\n"
+                + "  netClusterNodes:[ \"localhost:3344\" ]\n"
+                + "}";
 
         IgniteImpl ignite = (IgniteImpl) IgnitionManager.start(nodeName, startCfg, workDir);
 
@@ -152,15 +152,15 @@ public class ITIgniteNodeRestartTest extends IgniteAbstractTest {
     public void nodeWithDataTest(TestInfo testInfo) {
         String nodeName = testNodeName(testInfo, 3344);
 
-        Ignite ignite = IgnitionManager.start(nodeName, "{\n" +
-                "  \"node\": {\n" +
-                "    \"metastorageNodes\":[ " + nodeName + " ]\n" +
-                "  },\n" +
-                "  \"network\": {\n" +
-                "    \"port\":3344,\n" +
-                "    \"netClusterNodes\":[ \"localhost:3344\" ]\n" +
-                "  }\n" +
-                "}", workDir);
+        Ignite ignite = IgnitionManager.start(nodeName, "{\n"
+                + "  \"node\": {\n"
+                + "    \"metastorageNodes\":[ " + nodeName + " ]\n"
+                + "  },\n"
+                + "  \"network\": {\n"
+                + "    \"port\":3344,\n"
+                + "    \"netClusterNodes\":[ \"localhost:3344\" ]\n"
+                + "  }\n"
+                + "}", workDir);
 
         TableDefinition scmTbl1 = SchemaBuilders.tableBuilder("PUBLIC", TABLE_NAME).columns(
                 SchemaBuilders.column("id", ColumnType.INT32).asNonNull().build(),

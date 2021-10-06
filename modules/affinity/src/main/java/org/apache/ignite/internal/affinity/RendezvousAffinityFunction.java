@@ -170,8 +170,8 @@ public class RendezvousAffinityFunction {
             }
 
             if (!exclNeighborsWarn) {
-                LOG.warn("Affinity function excludeNeighbors property is ignored " +
-                        "because topology has no enough nodes to assign all replicas.");
+                LOG.warn("Affinity function excludeNeighbors property is ignored "
+                        + "because topology has no enough nodes to assign all replicas.");
 
                 exclNeighborsWarn = true;
             }
@@ -254,8 +254,7 @@ public class RendezvousAffinityFunction {
 
         List<List<ClusterNode>> assignments = new ArrayList<>(partitions);
 
-        Map<String, Collection<ClusterNode>> neighborhoodCache = exclNeighbors ?
-                neighbors(currentTopologySnapshot) : null;
+        Map<String, Collection<ClusterNode>> neighborhoodCache = exclNeighbors ? neighbors(currentTopologySnapshot) : null;
 
         List<ClusterNode> nodes = new ArrayList<>(currentTopologySnapshot);
 

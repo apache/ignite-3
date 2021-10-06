@@ -169,11 +169,11 @@ public class ExchangeServiceImpl implements ExchangeService {
                 inbox.context().execute(inbox::close, inbox::onError);
             }
         } else if (LOG.isDebugEnabled()) {
-            LOG.debug("Stale inbox cancel message received: [" +
-                    "nodeId=" + nodeId +
-                    ", queryId=" + msg.queryId() +
-                    ", fragmentId=" + msg.fragmentId() +
-                    ", exchangeId=" + msg.exchangeId() + "]");
+            LOG.debug("Stale inbox cancel message received: ["
+                    + "nodeId=" + nodeId
+                    + ", queryId=" + msg.queryId()
+                    + ", fragmentId=" + msg.fragmentId()
+                    + ", exchangeId=" + msg.exchangeId() + "]");
         }
     }
 
@@ -192,11 +192,11 @@ public class ExchangeServiceImpl implements ExchangeService {
                 outbox.context().execute(outbox.context()::cancel, outbox::onError);
             }
         } else if (LOG.isDebugEnabled()) {
-            LOG.debug("Stale outbox cancel message received: [" +
-                    "nodeId=" + nodeId +
-                    ", queryId=" + msg.queryId() +
-                    ", fragmentId=" + msg.fragmentId() +
-                    ", exchangeId=" + msg.exchangeId() + "]");
+            LOG.debug("Stale outbox cancel message received: ["
+                    + "nodeId=" + nodeId
+                    + ", queryId=" + msg.queryId()
+                    + ", fragmentId=" + msg.fragmentId()
+                    + ", exchangeId=" + msg.exchangeId() + "]");
         }
     }
 
@@ -215,12 +215,12 @@ public class ExchangeServiceImpl implements ExchangeService {
                 throw new IgniteInternalException("Unexpected exception", e);
             }
         } else if (LOG.isDebugEnabled()) {
-            LOG.debug("Stale acknowledge message received: [" +
-                    "nodeId=" + nodeId + ", " +
-                    "queryId=" + msg.queryId() + ", " +
-                    "fragmentId=" + msg.fragmentId() + ", " +
-                    "exchangeId=" + msg.exchangeId() + ", " +
-                    "batchId=" + msg.batchId() + "]");
+            LOG.debug("Stale acknowledge message received: ["
+                    + "nodeId=" + nodeId + ", "
+                    + "queryId=" + msg.queryId() + ", "
+                    + "fragmentId=" + msg.fragmentId() + ", "
+                    + "exchangeId=" + msg.exchangeId() + ", "
+                    + "batchId=" + msg.batchId() + "]");
         }
     }
 
@@ -248,12 +248,12 @@ public class ExchangeServiceImpl implements ExchangeService {
                 throw new IgniteInternalException("Unexpected exception", e);
             }
         } else if (LOG.isDebugEnabled()) {
-            LOG.debug("Stale batch message received: [" +
-                    "nodeId=" + nodeId + ", " +
-                    "queryId=" + msg.queryId() + ", " +
-                    "fragmentId=" + msg.fragmentId() + ", " +
-                    "exchangeId=" + msg.exchangeId() + ", " +
-                    "batchId=" + msg.batchId() + "]");
+            LOG.debug("Stale batch message received: ["
+                    + "nodeId=" + nodeId + ", "
+                    + "queryId=" + msg.queryId() + ", "
+                    + "fragmentId=" + msg.fragmentId() + ", "
+                    + "exchangeId=" + msg.exchangeId() + ", "
+                    + "batchId=" + msg.batchId() + "]");
         }
     }
 

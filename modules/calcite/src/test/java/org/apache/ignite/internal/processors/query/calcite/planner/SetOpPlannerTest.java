@@ -81,10 +81,9 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @EnumSource
     public void testSetOpRandom(SetOp setOp) throws Exception {
-        String sql =
-                "SELECT * FROM random_tbl1 " +
-                        setOp(setOp) +
-                        "SELECT * FROM random_tbl2 ";
+        String sql = "SELECT * FROM random_tbl1 "
+                + setOp(setOp)
+                + "SELECT * FROM random_tbl2 ";
 
         assertPlan(sql, publicSchema, isInstanceOf(setOp.reduce).and(n -> !n.all())
                 .and(hasChildThat(isInstanceOf(setOp.map)
@@ -100,10 +99,9 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @EnumSource
     public void testSetOpAllRandom(SetOp setOp) throws Exception {
-        String sql =
-                "SELECT * FROM random_tbl1 " +
-                        setOpAll(setOp) +
-                        "SELECT * FROM random_tbl2 ";
+        String sql = "SELECT * FROM random_tbl1 "
+                + setOpAll(setOp)
+                + "SELECT * FROM random_tbl2 ";
 
         assertPlan(sql, publicSchema, isInstanceOf(setOp.reduce).and(IgniteSetOp::all)
                 .and(hasChildThat(isInstanceOf(setOp.map)
@@ -119,10 +117,9 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @EnumSource
     public void testSetOpBroadcast(SetOp setOp) throws Exception {
-        String sql =
-                "SELECT * FROM broadcast_tbl1 " +
-                        setOp(setOp) +
-                        "SELECT * FROM broadcast_tbl2 ";
+        String sql = "SELECT * FROM broadcast_tbl1 "
+                + setOp(setOp)
+                + "SELECT * FROM broadcast_tbl2 ";
 
         assertPlan(sql, publicSchema, isInstanceOf(setOp.single)
                 .and(input(0, isTableScan("broadcast_tbl1")))
@@ -136,10 +133,9 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @EnumSource
     public void testSetOpSingle(SetOp setOp) throws Exception {
-        String sql =
-                "SELECT * FROM single_tbl1 " +
-                        setOp(setOp) +
-                        "SELECT * FROM single_tbl2 ";
+        String sql = "SELECT * FROM single_tbl1 "
+                + setOp(setOp)
+                + "SELECT * FROM single_tbl2 ";
 
         assertPlan(sql, publicSchema, isInstanceOf(setOp.single)
                 .and(input(0, isTableScan("single_tbl1")))
@@ -152,10 +148,9 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @EnumSource
     public void testSetOpSingleAndRandom(SetOp setOp) throws Exception {
-        String sql =
-                "SELECT * FROM single_tbl1 " +
-                        setOp(setOp) +
-                        "SELECT * FROM random_tbl1 ";
+        String sql = "SELECT * FROM single_tbl1 "
+                + setOp(setOp)
+                + "SELECT * FROM random_tbl1 ";
 
         assertPlan(sql, publicSchema, isInstanceOf(setOp.single)
                 .and(input(0, isTableScan("single_tbl1")))
@@ -168,10 +163,9 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @EnumSource
     public void testSetOpSingleAndAffinity(SetOp setOp) throws Exception {
-        String sql =
-                "SELECT * FROM single_tbl1 " +
-                        setOp(setOp) +
-                        "SELECT * FROM affinity_tbl1 ";
+        String sql = "SELECT * FROM single_tbl1 "
+                + setOp(setOp)
+                + "SELECT * FROM affinity_tbl1 ";
 
         assertPlan(sql, publicSchema, isInstanceOf(setOp.single)
                 .and(input(0, isTableScan("single_tbl1")))
@@ -184,10 +178,9 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @EnumSource
     public void testSetOpSingleAndBroadcast(SetOp setOp) throws Exception {
-        String sql =
-                "SELECT * FROM single_tbl1 " +
-                        setOp(setOp) +
-                        "SELECT * FROM broadcast_tbl1 ";
+        String sql = "SELECT * FROM single_tbl1 "
+                + setOp(setOp)
+                + "SELECT * FROM broadcast_tbl1 ";
 
         assertPlan(sql, publicSchema, isInstanceOf(setOp.single)
                 .and(input(0, isTableScan("single_tbl1")))
@@ -201,10 +194,9 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @EnumSource
     public void testSetOpAffinity(SetOp setOp) throws Exception {
-        String sql =
-                "SELECT * FROM affinity_tbl1 " +
-                        setOp(setOp) +
-                        "SELECT * FROM affinity_tbl2 ";
+        String sql = "SELECT * FROM affinity_tbl1 "
+                + setOp(setOp)
+                + "SELECT * FROM affinity_tbl2 ";
 
         assertPlan(sql, publicSchema, isInstanceOf(setOp.reduce)
                 .and(hasChildThat(isInstanceOf(setOp.map)
@@ -220,10 +212,9 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @EnumSource
     public void testSetOpBroadcastAndRandom(SetOp setOp) throws Exception {
-        String sql =
-                "SELECT * FROM random_tbl1 " +
-                        setOp(setOp) +
-                        "SELECT * FROM broadcast_tbl1 ";
+        String sql = "SELECT * FROM random_tbl1 "
+                + setOp(setOp)
+                + "SELECT * FROM broadcast_tbl1 ";
 
         assertPlan(sql, publicSchema, isInstanceOf(setOp.single)
                 .and(input(0, hasChildThat(isTableScan("random_tbl1"))))
@@ -237,12 +228,12 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @EnumSource
     public void testSetOpRandomNested(SetOp setOp) throws Exception {
-        String sql =
-                "SELECT * FROM random_tbl2 " + setOp(setOp) + "(" +
-                        "   SELECT * FROM random_tbl1 " +
-                        setOp(setOp) +
-                        "   SELECT * FROM random_tbl2" +
-                        ")";
+        String sql = "SELECT * FROM random_tbl2 "
+                + setOp(setOp) + "("
+                + "   SELECT * FROM random_tbl1 "
+                + setOp(setOp)
+                + "   SELECT * FROM random_tbl2"
+                + ")";
 
         if (setOp == SetOp.EXCEPT) {
             assertPlan(sql, publicSchema, isInstanceOf(setOp.single)
@@ -272,12 +263,13 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @EnumSource
     public void testSetOpBroadcastAndRandomNested(SetOp setOp) throws Exception {
-        String sql =
-                "SELECT * FROM broadcast_tbl1 " + setOp(setOp) + "(" +
-                        "   SELECT * FROM random_tbl1 " +
-                        setOp(setOp) +
-                        "   SELECT * FROM random_tbl2" +
-                        ")";
+        String sql = "SELECT * FROM broadcast_tbl1 "
+                + setOp(setOp)
+                + "("
+                + "   SELECT * FROM random_tbl1 "
+                + setOp(setOp)
+                + "   SELECT * FROM random_tbl2"
+                + ")";
 
         if (setOp == SetOp.EXCEPT) {
             assertPlan(sql, publicSchema, isInstanceOf(setOp.single)
@@ -307,14 +299,13 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @EnumSource
     public void testSetOpMerge(SetOp setOp) throws Exception {
-        String sql =
-                "SELECT * FROM random_tbl1 " +
-                        setOp(setOp) +
-                        "SELECT * FROM random_tbl2 " +
-                        setOp(setOp) +
-                        "SELECT * FROM affinity_tbl1 " +
-                        setOp(setOp) +
-                        "SELECT * FROM affinity_tbl2 ";
+        String sql = "SELECT * FROM random_tbl1 "
+                + setOp(setOp)
+                + "SELECT * FROM random_tbl2 "
+                + setOp(setOp)
+                + "SELECT * FROM affinity_tbl1 "
+                + setOp(setOp)
+                + "SELECT * FROM affinity_tbl2 ";
 
         assertPlan(sql, publicSchema, isInstanceOf(setOp.reduce)
                 .and(hasChildThat(isInstanceOf(setOp.map)
@@ -332,14 +323,13 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @EnumSource
     public void testSetOpAllMerge(SetOp setOp) throws Exception {
-        String sql =
-                "SELECT * FROM random_tbl1 " +
-                        setOpAll(setOp) +
-                        "SELECT * FROM random_tbl2 " +
-                        setOpAll(setOp) +
-                        "SELECT * FROM affinity_tbl1 " +
-                        setOpAll(setOp) +
-                        "SELECT * FROM affinity_tbl2 ";
+        String sql = "SELECT * FROM random_tbl1 "
+                + setOpAll(setOp)
+                + "SELECT * FROM random_tbl2 "
+                + setOpAll(setOp)
+                + "SELECT * FROM affinity_tbl1 "
+                + setOpAll(setOp)
+                + "SELECT * FROM affinity_tbl2 ";
 
         assertPlan(sql, publicSchema, isInstanceOf(setOp.reduce).and(IgniteSetOp::all)
                 .and(hasChildThat(isInstanceOf(setOp.map)
@@ -357,12 +347,11 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @EnumSource
     public void testSetOpAllWithExceptMerge(SetOp setOp) throws Exception {
-        String sql =
-                "SELECT * FROM random_tbl1 " +
-                        setOpAll(setOp) +
-                        "SELECT * FROM random_tbl2 " +
-                        setOp(setOp) +
-                        "SELECT * FROM affinity_tbl1 ";
+        String sql = "SELECT * FROM random_tbl1 "
+                + setOpAll(setOp)
+                + "SELECT * FROM random_tbl2 "
+                + setOp(setOp)
+                + "SELECT * FROM affinity_tbl1 ";
 
         assertPlan(sql, publicSchema, isInstanceOf(setOp.reduce).and(n -> !n.all())
                 .and(hasChildThat(isInstanceOf(setOp.map)

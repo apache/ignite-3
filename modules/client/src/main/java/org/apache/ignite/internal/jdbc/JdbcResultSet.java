@@ -289,6 +289,14 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    public String getString(String colLb) throws SQLException {
+        int colIdx = findColumn(colLb);
+
+        return getString(colIdx);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public boolean getBoolean(int colIdx) throws SQLException {
         Object val = getValue(colIdx);
 
@@ -311,6 +319,14 @@ public class JdbcResultSet implements ResultSet {
         } else {
             throw new SQLException("Cannot convert to boolean: " + val, SqlStateCode.CONVERSION_FAILED);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean getBoolean(String colLb) throws SQLException {
+        int colIdx = findColumn(colLb);
+
+        return getBoolean(colIdx);
     }
 
     /** {@inheritDoc} */
@@ -341,6 +357,14 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    public byte getByte(String colLb) throws SQLException {
+        int colIdx = findColumn(colLb);
+
+        return getByte(colIdx);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public short getShort(int colIdx) throws SQLException {
         Object val = getValue(colIdx);
 
@@ -363,6 +387,14 @@ public class JdbcResultSet implements ResultSet {
         } else {
             throw new SQLException("Cannot convert to short: " + val, SqlStateCode.CONVERSION_FAILED);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public short getShort(String colLb) throws SQLException {
+        int colIdx = findColumn(colLb);
+
+        return getShort(colIdx);
     }
 
     /** {@inheritDoc} */
@@ -393,6 +425,14 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    public int getInt(String colLb) throws SQLException {
+        int colIdx = findColumn(colLb);
+
+        return getInt(colIdx);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public long getLong(int colIdx) throws SQLException {
         Object val = getValue(colIdx);
 
@@ -415,6 +455,14 @@ public class JdbcResultSet implements ResultSet {
         } else {
             throw new SQLException("Cannot convert to long: " + val, SqlStateCode.CONVERSION_FAILED);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long getLong(String colLb) throws SQLException {
+        int colIdx = findColumn(colLb);
+
+        return getLong(colIdx);
     }
 
     /** {@inheritDoc} */
@@ -445,6 +493,14 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    public float getFloat(String colLb) throws SQLException {
+        int colIdx = findColumn(colLb);
+
+        return getFloat(colIdx);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public double getDouble(int colIdx) throws SQLException {
         Object val = getValue(colIdx);
 
@@ -467,6 +523,14 @@ public class JdbcResultSet implements ResultSet {
         } else {
             throw new SQLException("Cannot convert to double: " + val, SqlStateCode.CONVERSION_FAILED);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public double getDouble(String colLb) throws SQLException {
+        int colIdx = findColumn(colLb);
+
+        return getDouble(colIdx);
     }
 
     /** {@inheritDoc} */
@@ -548,6 +612,14 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    public Date getDate(String colLb) throws SQLException {
+        int colIdx = findColumn(colLb);
+
+        return getDate(colIdx);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public Time getTime(int colIdx) throws SQLException {
         Object val = getValue(colIdx);
 
@@ -567,6 +639,14 @@ public class JdbcResultSet implements ResultSet {
         } else {
             throw new SQLException("Cannot convert to time: " + val, SqlStateCode.CONVERSION_FAILED);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Time getTime(String colLb) throws SQLException {
+        int colIdx = findColumn(colLb);
+
+        return getTime(colIdx);
     }
 
     /** {@inheritDoc} */
@@ -609,6 +689,14 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    public InputStream getUnicodeStream(String colLb) throws SQLException {
+        ensureNotClosed();
+
+        throw new SQLFeatureNotSupportedException("Streams are not supported.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public InputStream getBinaryStream(int colIdx) throws SQLException {
         ensureNotClosed();
 
@@ -617,74 +705,10 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public String getString(String colLb) throws SQLException {
-        int colIdx = findColumn(colLb);
+    public InputStream getBinaryStream(String colLb) throws SQLException {
+        ensureNotClosed();
 
-        return getString(colIdx);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean getBoolean(String colLb) throws SQLException {
-        int colIdx = findColumn(colLb);
-
-        return getBoolean(colIdx);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public byte getByte(String colLb) throws SQLException {
-        int colIdx = findColumn(colLb);
-
-        return getByte(colIdx);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public short getShort(String colLb) throws SQLException {
-        int colIdx = findColumn(colLb);
-
-        return getShort(colIdx);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int getInt(String colLb) throws SQLException {
-        int colIdx = findColumn(colLb);
-
-        return getInt(colIdx);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public long getLong(String colLb) throws SQLException {
-        int colIdx = findColumn(colLb);
-
-        return getLong(colIdx);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public float getFloat(String colLb) throws SQLException {
-        int colIdx = findColumn(colLb);
-
-        return getFloat(colIdx);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public double getDouble(String colLb) throws SQLException {
-        int colIdx = findColumn(colLb);
-
-        return getDouble(colIdx);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BigDecimal getBigDecimal(String colLb, int scale) throws SQLException {
-        int colIdx = findColumn(colLb);
-
-        return getBigDecimal(colIdx, scale);
+        throw new SQLFeatureNotSupportedException("Streams are not supported.");
     }
 
     /** {@inheritDoc} */
@@ -697,47 +721,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public Date getDate(String colLb) throws SQLException {
-        int colIdx = findColumn(colLb);
-
-        return getDate(colIdx);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Time getTime(String colLb) throws SQLException {
-        int colIdx = findColumn(colLb);
-
-        return getTime(colIdx);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Timestamp getTimestamp(String colLb) throws SQLException {
-        int colIdx = findColumn(colLb);
-
-        return getTimestamp(colIdx);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public InputStream getAsciiStream(String colLb) throws SQLException {
-        ensureNotClosed();
-
-        throw new SQLFeatureNotSupportedException("Streams are not supported.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public InputStream getUnicodeStream(String colLb) throws SQLException {
-        ensureNotClosed();
-
-        throw new SQLFeatureNotSupportedException("Streams are not supported.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public InputStream getBinaryStream(String colLb) throws SQLException {
         ensureNotClosed();
 
         throw new SQLFeatureNotSupportedException("Streams are not supported.");
@@ -837,6 +821,14 @@ public class JdbcResultSet implements ResultSet {
         } else {
             throw new SQLException("Cannot convert to BigDecimal: " + val, SqlStateCode.CONVERSION_FAILED);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal getBigDecimal(String colLb, int scale) throws SQLException {
+        int colIdx = findColumn(colLb);
+
+        return getBigDecimal(colIdx, scale);
     }
 
     /** {@inheritDoc} */
@@ -1504,6 +1496,14 @@ public class JdbcResultSet implements ResultSet {
     /** {@inheritDoc} */
     @Override
     public Timestamp getTimestamp(String colLb, Calendar cal) throws SQLException {
+        int colIdx = findColumn(colLb);
+
+        return getTimestamp(colIdx);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Timestamp getTimestamp(String colLb) throws SQLException {
         int colIdx = findColumn(colLb);
 
         return getTimestamp(colIdx);

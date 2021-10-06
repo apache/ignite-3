@@ -252,11 +252,11 @@ public class ITSetOpTest extends AbstractBasicIntegrationTest {
      */
     @Test
     public void testUnionAll() {
-        List<List<?>> rows = sql("SELECT name, salary FROM emp1 " +
-                "UNION ALL " +
-                "SELECT name, salary FROM emp2 " +
-                "UNION ALL " +
-                "SELECT name, salary FROM emp1 WHERE salary > 13 ");
+        List<List<?>> rows = sql("SELECT name, salary FROM emp1 "
+                + "UNION ALL "
+                + "SELECT name, salary FROM emp2 "
+                + "UNION ALL "
+                + "SELECT name, salary FROM emp1 WHERE salary > 13 ");
 
         assertEquals(14, rows.size());
     }
@@ -266,11 +266,11 @@ public class ITSetOpTest extends AbstractBasicIntegrationTest {
      */
     @Test
     public void testUnion() {
-        List<List<?>> rows = sql("SELECT name, salary FROM emp1 " +
-                "UNION " +
-                "SELECT name, salary FROM emp2 " +
-                "UNION " +
-                "SELECT name, salary FROM emp1 WHERE salary > 13 ");
+        List<List<?>> rows = sql("SELECT name, salary FROM emp1 "
+                + "UNION "
+                + "SELECT name, salary FROM emp2 "
+                + "UNION "
+                + "SELECT name, salary FROM emp1 WHERE salary > 13 ");
 
         assertEquals(9, rows.size());
     }

@@ -140,8 +140,8 @@ public class IgniteSqlFunctions {
                 return ((Number) val).longValue();
             }
 
-            throw new IllegalArgumentException("Unsupported argument type [arg=" + name +
-                    ", type=" + val.getClass().getSimpleName() + ']');
+            throw new IllegalArgumentException("Unsupported argument type [arg=" + name
+                    + ", type=" + val.getClass().getSimpleName() + ']');
         }
 
         /** {@inheritDoc} */

@@ -147,6 +147,18 @@ public final class ReliableChannel implements AutoCloseable {
         return fut;
     }
 
+    /**
+     * Sends request without payload and handles response asynchronously.
+     *
+     * @param opCode        Operation code.
+     * @param payloadReader Payload reader.
+     * @param <T>           Response type.
+     * @return Future for the operation.
+     */
+    public <T> CompletableFuture<T> serviceAsync(int opCode, PayloadReader<T> payloadReader) {
+        return serviceAsync(opCode, null, payloadReader);
+    }
+
     private <T> void handleServiceAsync(final CompletableFuture<T> fut,
             int opCode,
             PayloadWriter payloadWriter,
@@ -227,18 +239,6 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     /**
-     * Sends request without payload and handles response asynchronously.
-     *
-     * @param opCode        Operation code.
-     * @param payloadReader Payload reader.
-     * @param <T>           Response type.
-     * @return Future for the operation.
-     */
-    public <T> CompletableFuture<T> serviceAsync(int opCode, PayloadReader<T> payloadReader) {
-        return serviceAsync(opCode, null, payloadReader);
-    }
-
-    /**
      * Sends request with payload and handles response asynchronously.
      *
      * @param opCode        Operation code.
@@ -251,7 +251,7 @@ public final class ReliableChannel implements AutoCloseable {
 
     /**
      * @return host:port_range address lines parsed as {@link InetSocketAddress} as a key. Value is the amount of appearences of an address
-     * in {@code addrs} parameter.
+     *      in {@code addrs} parameter.
      */
     private static Map<InetSocketAddress, Integer> parsedAddresses(String[] addrs) throws IgniteClientException {
         if (addrs == null || addrs.length == 0) {
@@ -563,8 +563,8 @@ public final class ReliableChannel implements AutoCloseable {
         private ClientChannelHolder(ClientChannelConfiguration chCfg) {
             this.chCfg = chCfg;
 
-            reconnectRetries = chCfg.clientConfiguration().reconnectThrottlingRetries() > 0 &&
-                    chCfg.clientConfiguration().reconnectThrottlingPeriod() > 0L
+            reconnectRetries = chCfg.clientConfiguration().reconnectThrottlingRetries() > 0
+                    && chCfg.clientConfiguration().reconnectThrottlingPeriod() > 0L
                     ? new long[chCfg.clientConfiguration().reconnectThrottlingRetries()]
                     : null;
         }
@@ -632,6 +632,7 @@ public final class ReliableChannel implements AutoCloseable {
                 try {
                     ch.close();
                 } catch (Exception ignored) {
+                    // No op.
                 }
 
                 ch = null;

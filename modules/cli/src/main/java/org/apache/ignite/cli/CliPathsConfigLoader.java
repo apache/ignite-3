@@ -82,8 +82,8 @@ public class CliPathsConfigLoader {
 
         if (ignitePaths.isPresent()) {
             if (!ignitePaths.get().validateDirs()) {
-                throw new IgniteCLIException("Some required directories are absent. " +
-                        "Try to run 'init' command to fix the issue.");
+                throw new IgniteCLIException("Some required directories are absent. "
+                        + "Try to run 'init' command to fix the issue.");
             }
 
             return ignitePaths.get();
@@ -111,12 +111,12 @@ public class CliPathsConfigLoader {
             Properties props = new Properties();
             props.load(inputStream);
 
-            if ((props.getProperty("bin") == null) ||
-                    (props.getProperty("work") == null) ||
-                    (props.getProperty("config") == null) ||
-                    (props.getProperty("log") == null)) {
-                throw new IgniteCLIException("Config file has wrong format. " +
-                        "It must contain correct paths to bin, work, config and log dirs");
+            if ((props.getProperty("bin") == null)
+                    || (props.getProperty("work") == null)
+                    || (props.getProperty("config") == null)
+                    || (props.getProperty("log") == null)) {
+                throw new IgniteCLIException("Config file has wrong format. "
+                        + "It must contain correct paths to bin, work, config and log dirs");
             }
 
             return new IgnitePaths(

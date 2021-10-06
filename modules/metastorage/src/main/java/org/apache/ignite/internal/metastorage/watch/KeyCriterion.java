@@ -74,8 +74,8 @@ public abstract class KeyCriterion {
      * @return Common exception that indicates the given key criterions cannot be combined.
      */
     private static RuntimeException unsupportedUnionException(KeyCriterion keyCriterion1, KeyCriterion keyCriterion2) {
-        return new UnsupportedOperationException("Can't calculate the union between " + keyCriterion1.getClass() +
-                "and " + keyCriterion2.getClass() + " key criteria.");
+        return new UnsupportedOperationException("Can't calculate the union between " + keyCriterion1.getClass()
+                + "and " + keyCriterion2.getClass() + " key criteria.");
     }
 
     /**

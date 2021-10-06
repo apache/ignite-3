@@ -56,7 +56,8 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
     /**
      * Method with auto-generated implementation. Must look like this:
      * <pre><code>
-     * {@literal @}Override public void traverseChild(String key, ConfigurationVisitor visitor, boolean includeInternal) throws NoSuchElementException {
+     * {@literal @}Override
+     *  public void traverseChild(String key, ConfigurationVisitor visitor, boolean includeInternal) throws NoSuchElementException {
      *     if (boolean includeInternal) {
      *         switch (key) {
      *             case "pojoField1":
@@ -107,7 +108,8 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
     /**
      * Method with auto-generated implementation. Must look like this:
      * <pre><code>
-     * {@literal @}Override public abstract void construct(String key, ConfigurationSource src, boolean includeInternal) throws NoSuchElementException {
+     * {@literal @}Override
+     *  public abstract void construct(String key, ConfigurationSource src, boolean includeInternal) throws NoSuchElementException {
      *     if (includeInternal) {
      *         switch (key) {
      *              case "namedList":

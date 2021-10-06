@@ -181,7 +181,8 @@ public class RendezvousAffinityFunctionTest {
         List<T> l = new ArrayList<>(col);
         Collections.sort(l);
 
-        T left = l.get(0), right = left;
+        T left = l.get(0);
+        T right = left;
         for (int i = 1; i < l.size(); i++) {
             T val = l.get(i);
 

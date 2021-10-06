@@ -124,9 +124,9 @@ public class DdlSqlToCommandConverter {
             return convertDropTable((SqlDropTable) ddlNode, ctx);
         }
 
-        throw new IgniteException("Unsupported operation [" +
-                "sqlNodeKind=" + ddlNode.getKind() + "; " +
-                "querySql=\"" + ctx.query() + "\"]"/*, IgniteQueryErrorCode.UNSUPPORTED_OPERATION*/);
+        throw new IgniteException("Unsupported operation ["
+                + "sqlNodeKind=" + ddlNode.getKind() + "; "
+                + "querySql=\"" + ctx.query() + "\"]"/*, IgniteQueryErrorCode.UNSUPPORTED_OPERATION*/);
     }
 
     /**
@@ -161,9 +161,9 @@ public class DdlSqlToCommandConverter {
 
         for (SqlColumnDeclaration col : colDeclarations) {
             if (!col.name.isSimple()) {
-                throw new IgniteException("Unexpected value of columnName [" +
-                        "expected a simple identifier, but was " + col.name + "; " +
-                        "querySql=\"" + ctx.query() + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
+                throw new IgniteException("Unexpected value of columnName ["
+                        + "expected a simple identifier, but was " + col.name + "; "
+                        + "querySql=\"" + ctx.query() + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
             }
 
             String name = col.name.getSimple();
@@ -185,9 +185,9 @@ public class DdlSqlToCommandConverter {
                 .collect(Collectors.toList());
 
         if (pkConstraints.size() > 1) {
-            throw new IgniteException("Unexpected amount of primary key constraints [" +
-                    "expected at most one, but was " + pkConstraints.size() + "; " +
-                    "querySql=\"" + ctx.query() + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
+            throw new IgniteException("Unexpected amount of primary key constraints ["
+                    + "expected at most one, but was " + pkConstraints.size() + "; "
+                    + "querySql=\"" + ctx.query() + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
         }
 
         if (!nullOrEmpty(pkConstraints)) {
@@ -233,9 +233,9 @@ public class DdlSqlToCommandConverter {
             SqlIdentifier schemaId = id.skipLast(1);
 
             if (!schemaId.isSimple()) {
-                throw new IgniteException("Unexpected value of schemaName [" +
-                        "expected a simple identifier, but was " + schemaId + "; " +
-                        "querySql=\"" + ctx.query() + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
+                throw new IgniteException("Unexpected value of schemaName ["
+                        + "expected a simple identifier, but was " + schemaId + "; "
+                        + "querySql=\"" + ctx.query() + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
             }
 
             schemaName = schemaId.getSimple();
@@ -255,9 +255,9 @@ public class DdlSqlToCommandConverter {
         SqlIdentifier objId = id.getComponent(id.skipLast(1).names.size());
 
         if (!objId.isSimple()) {
-            throw new IgniteException("Unexpected value of " + objDesc + " [" +
-                    "expected a simple identifier, but was " + objId + "; " +
-                    "querySql=\"" + ctx.query() + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
+            throw new IgniteException("Unexpected value of " + objDesc + " ["
+                    + "expected a simple identifier, but was " + objId + "; "
+                    + "querySql=\"" + ctx.query() + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
         }
 
         return objId.getSimple();
@@ -322,9 +322,9 @@ public class DdlSqlToCommandConverter {
      * @param qry A query the validation was failed for.
      */
     private static void throwOptionParsingException(IgniteSqlCreateTableOption opt, String exp, String qry) {
-        throw new IgniteException("Unexpected value for param " + opt.key() + " [" +
-                "expected " + exp + ", but was " + opt.value() + "; " +
-                "querySql=\"" + qry + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
+        throw new IgniteException("Unexpected value for param " + opt.key() + " ["
+                + "expected " + exp + ", but was " + opt.value() + "; "
+                + "querySql=\"" + qry + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
     }
 
     /**

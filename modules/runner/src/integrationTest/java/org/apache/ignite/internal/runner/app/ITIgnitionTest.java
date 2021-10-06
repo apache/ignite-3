@@ -74,35 +74,35 @@ class ITIgnitionTest {
 
         nodesBootstrapCfg.put(
                 node0Name,
-                "{\n" +
-                        "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n" +
-                        "  network: {\n" +
-                        "    port: " + PORTS[0] + "\n" +
-                        "    netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-                        "  }\n" +
-                        "}"
+                "{\n"
+                        + "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n"
+                        + "  network: {\n"
+                        + "    port: " + PORTS[0] + "\n"
+                        + "    netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                        + "  }\n"
+                        + "}"
         );
 
         nodesBootstrapCfg.put(
                 node1Name,
-                "{\n" +
-                        "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n" +
-                        "  network: {\n" +
-                        "    port: " + PORTS[1] + "\n" +
-                        "    netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-                        "  }\n" +
-                        "}"
+                "{\n"
+                        + "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n"
+                        + "  network: {\n"
+                        + "    port: " + PORTS[1] + "\n"
+                        + "    netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                        + "  }\n"
+                        + "}"
         );
 
         nodesBootstrapCfg.put(
                 node2Name,
-                "{\n" +
-                        "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n" +
-                        "  network: {\n" +
-                        "    port: " + PORTS[2] + "\n" +
-                        "    netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-                        "  }\n" +
-                        "}"
+                "{\n"
+                        + "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n"
+                        + "  network: {\n"
+                        + "    port: " + PORTS[2] + "\n"
+                        + "    netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                        + "  }\n"
+                        + "}"
         );
     }
 
@@ -144,19 +144,19 @@ class ITIgnitionTest {
     @Test
     void testErrorWhenStartSingleNodeClusterWithoutMetastorage() throws Exception {
         try {
-            startedNodes.add(IgnitionManager.start("other-name", "{\n" +
-                    "    \"node\": {\n" +
-                    "        \"metastorageNodes\": [\n" +
-                    "            \"node-0\", \"node-1\", \"node-2\"\n" +
-                    "        ]\n" +
-                    "    },\n" +
-                    "    \"network\": {\n" +
-                    "        \"port\": 3344,\n" +
-                    "        \"netClusterNodes\": [\n" +
-                    "            \"localhost:3344\"\n" +
-                    "        ]\n" +
-                    "    }\n" +
-                    "}", workDir.resolve("other-name")));
+            startedNodes.add(IgnitionManager.start("other-name", "{\n"
+                    + "    \"node\": {\n"
+                    + "        \"metastorageNodes\": [\n"
+                    + "            \"node-0\", \"node-1\", \"node-2\"\n"
+                    + "        ]\n"
+                    + "    },\n"
+                    + "    \"network\": {\n"
+                    + "        \"port\": 3344,\n"
+                    + "        \"netClusterNodes\": [\n"
+                    + "            \"localhost:3344\"\n"
+                    + "        ]\n"
+                    + "    }\n"
+                    + "}", workDir.resolve("other-name")));
         } catch (Throwable th) {
             assertTrue(IgniteTestUtils.hasCause(th,
                     IgniteException.class,
@@ -175,33 +175,33 @@ class ITIgnitionTest {
         Ignite ig2 = null;
 
         try {
-            ig1 = IgnitionManager.start("node-0", "{\n" +
-                    "    \"node\": {\n" +
-                    "        \"metastorageNodes\": [\n" +
-                    "            \"node-0\", \"node-1\", \"node-2\"\n" +
-                    "        ]\n" +
-                    "    },\n" +
-                    "    \"network\": {\n" +
-                    "        \"port\": 3344,\n" +
-                    "        \"netClusterNodes\": [\n" +
-                    "            \"localhost:3344\"\n" +
-                    "        ]\n" +
-                    "    }\n" +
-                    "}", workDir.resolve("node-0"));
+            ig1 = IgnitionManager.start("node-0", "{\n"
+                    + "    \"node\": {\n"
+                    + "        \"metastorageNodes\": [\n"
+                    + "            \"node-0\", \"node-1\", \"node-2\"\n"
+                    + "        ]\n"
+                    + "    },\n"
+                    + "    \"network\": {\n"
+                    + "        \"port\": 3344,\n"
+                    + "        \"netClusterNodes\": [\n"
+                    + "            \"localhost:3344\"\n"
+                    + "        ]\n"
+                    + "    }\n"
+                    + "}", workDir.resolve("node-0"));
 
-            ig2 = IgnitionManager.start("other-name", "{\n" +
-                    "    \"node\": {\n" +
-                    "        \"metastorageNodes\": [\n" +
-                    "            \"node-0\", \"node-1\", \"node-2\"\n" +
-                    "        ]\n" +
-                    "    },\n" +
-                    "    \"network\": {\n" +
-                    "        \"port\": 3344,\n" +
-                    "        \"netClusterNodes\": [\n" +
-                    "            \"localhost:3344\"\n" +
-                    "        ]\n" +
-                    "    }\n" +
-                    "}", workDir.resolve("other-name"));
+            ig2 = IgnitionManager.start("other-name", "{\n"
+                    + "    \"node\": {\n"
+                    + "        \"metastorageNodes\": [\n"
+                    + "            \"node-0\", \"node-1\", \"node-2\"\n"
+                    + "        ]\n"
+                    + "    },\n"
+                    + "    \"network\": {\n"
+                    + "        \"port\": 3344,\n"
+                    + "        \"netClusterNodes\": [\n"
+                    + "            \"localhost:3344\"\n"
+                    + "        ]\n"
+                    + "    }\n"
+                    + "}", workDir.resolve("other-name"));
 
             assertEquals(ig2.name(), "other-name");
         } finally {

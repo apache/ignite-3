@@ -135,8 +135,8 @@ public class SchemaUtils {
      * @return {@code True} if schemas are equal, {@code false} otherwise.
      */
     public static boolean equalSchemas(SchemaDescriptor exp, SchemaDescriptor actual) {
-        if (exp.keyColumns().length() != actual.keyColumns().length() ||
-                exp.valueColumns().length() != actual.valueColumns().length()) {
+        if (exp.keyColumns().length() != actual.keyColumns().length()
+                || exp.valueColumns().length() != actual.valueColumns().length()) {
             return false;
         }
 

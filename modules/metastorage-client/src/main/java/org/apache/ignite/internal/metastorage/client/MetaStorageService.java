@@ -176,7 +176,7 @@ public interface MetaStorageService {
      *
      * @param keys The keys collection. Couldn't be {@code null}.
      * @return A map of previous entries for given keys.. The order of entries in the result list corresponds to the traversal order of
-     * {@code keys} collection. Couldn't be {@code null}.
+     *      {@code keys} collection. Couldn't be {@code null}.
      * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
      * @see ByteArray
      * @see Entry

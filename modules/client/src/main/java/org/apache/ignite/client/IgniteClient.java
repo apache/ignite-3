@@ -110,8 +110,8 @@ public interface IgniteClient extends Ignite {
          */
         public Builder connectTimeout(long connectTimeout) {
             if (connectTimeout < 0) {
-                throw new IllegalArgumentException("Connect timeout [" + connectTimeout + "] " +
-                        "must be a non-negative integer value.");
+                throw new IllegalArgumentException("Connect timeout [" + connectTimeout + "] "
+                        + "must be a non-negative integer value.");
             }
 
             this.connectTimeout = connectTimeout;

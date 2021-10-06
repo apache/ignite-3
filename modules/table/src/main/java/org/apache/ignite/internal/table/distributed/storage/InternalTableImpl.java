@@ -400,7 +400,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** Partition scan publisher. */
     private class PartitionScanPublisher implements Publisher<BinaryRow> {
-        /** {@link Publisher<BinaryRow>} that relatively notifies about partition rows. */
+        /** {@link Publisher} that relatively notifies about partition rows. */
         private final RaftGroupService raftGrpSvc;
 
         /**
@@ -473,8 +473,8 @@ public class InternalTableImpl implements InternalTable {
                 if (n <= 0) {
                     cancel();
 
-                    subscriber.onError(new IllegalArgumentException(LoggerMessageHelper.
-                            format("Invalid requested amount of items [requested={}, minValue=1]", n))
+                    subscriber.onError(new IllegalArgumentException(LoggerMessageHelper
+                            .format("Invalid requested amount of items [requested={}, minValue=1]", n))
                     );
                 }
 
@@ -547,8 +547,8 @@ public class InternalTableImpl implements InternalTable {
                                 })
                         .exceptionally(
                                 t -> {
-                                    if (t instanceof NoSuchElementException ||
-                                            t instanceof CompletionException && t.getCause() instanceof NoSuchElementException) {
+                                    if (t instanceof NoSuchElementException
+                                            || t instanceof CompletionException && t.getCause() instanceof NoSuchElementException) {
                                         return null;
                                     }
 

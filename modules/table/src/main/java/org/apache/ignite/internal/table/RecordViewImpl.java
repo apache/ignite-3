@@ -150,13 +150,13 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull R rec) {
+    public boolean replace(@NotNull R oldRec, @NotNull R newRec) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@NotNull R oldRec, @NotNull R newRec) {
+    public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull R rec) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 

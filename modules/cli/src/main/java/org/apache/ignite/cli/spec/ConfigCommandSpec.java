@@ -160,8 +160,8 @@ public class ConfigCommandSpec extends CategorySpec {
             var hostPort = endpoint.split(":");
 
             if (hostPort.length != 2) {
-                throw new IgniteCLIException("Incorrect host:port pair provided " +
-                        "(example of valid value 'localhost:10300')");
+                throw new IgniteCLIException("Incorrect host:port pair provided "
+                        + "(example of valid value 'localhost:10300')");
             }
 
             return hostPort;

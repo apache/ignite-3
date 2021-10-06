@@ -114,8 +114,8 @@ public class InitIgniteCommand {
         initDefaultServerConfigs(cfg.serverDefaultConfigFile());
 
         out.println();
-        out.println("Apache Ignite is successfully initialized. Use the " +
-                cs.commandText("ignite node start") + " command to start a new local node.");
+        out.println("Apache Ignite is successfully initialized. Use the "
+                + cs.commandText("ignite node start") + " command to start a new local node.");
     }
 
     /**

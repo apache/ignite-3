@@ -107,9 +107,7 @@ public final class ProtocolVersion implements Comparable<ProtocolVersion> {
 
         ProtocolVersion other = (ProtocolVersion) obj;
 
-        return major == other.major &&
-                minor == other.minor &&
-                patch == other.patch;
+        return major == other.major && minor == other.minor && patch == other.patch;
     }
 
     /** {@inheritDoc} */

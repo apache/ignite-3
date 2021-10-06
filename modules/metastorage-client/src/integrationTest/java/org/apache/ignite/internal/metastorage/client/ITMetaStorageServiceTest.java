@@ -366,8 +366,7 @@ public class ITMetaStorageServiceTest {
         // Assert keys equality.
         assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keysCaptor.getValue().size());
 
-        List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream().
-                map(ByteArray::bytes).collect(toList());
+        List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream().map(ByteArray::bytes).collect(toList());
 
         for (int i = 0; i < expKeys.size(); i++) {
             assertArrayEquals(expKeys.get(i), keysCaptor.getValue().get(i));
@@ -376,8 +375,7 @@ public class ITMetaStorageServiceTest {
         // Assert values equality.
         assertEquals(EXPECTED_RESULT_MAP.values().size(), valuesCaptor.getValue().size());
 
-        List<byte[]> expVals = EXPECTED_RESULT_MAP.values().stream().
-                map(Entry::value).collect(toList());
+        List<byte[]> expVals = EXPECTED_RESULT_MAP.values().stream().map(Entry::value).collect(toList());
 
         for (int i = 0; i < expKeys.size(); i++) {
             assertArrayEquals(expVals.get(i), valuesCaptor.getValue().get(i));
@@ -411,8 +409,7 @@ public class ITMetaStorageServiceTest {
         // Assert keys equality.
         assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keysCaptor.getValue().size());
 
-        List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream().
-                map(ByteArray::bytes).collect(toList());
+        List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream().map(ByteArray::bytes).collect(toList());
 
         for (int i = 0; i < expKeys.size(); i++) {
             assertArrayEquals(expKeys.get(i), keysCaptor.getValue().get(i));
@@ -421,8 +418,7 @@ public class ITMetaStorageServiceTest {
         // Assert values equality.
         assertEquals(EXPECTED_RESULT_MAP.values().size(), valuesCaptor.getValue().size());
 
-        List<byte[]> expVals = EXPECTED_RESULT_MAP.values().stream().
-                map(Entry::value).collect(toList());
+        List<byte[]> expVals = EXPECTED_RESULT_MAP.values().stream().map(Entry::value).collect(toList());
 
         for (int i = 0; i < expKeys.size(); i++) {
             assertArrayEquals(expVals.get(i), valuesCaptor.getValue().get(i));
@@ -480,8 +476,7 @@ public class ITMetaStorageServiceTest {
 
         metaStorageSvc.removeAll(EXPECTED_RESULT_MAP.keySet()).get();
 
-        List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream().
-                map(ByteArray::bytes).collect(toList());
+        List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream().map(ByteArray::bytes).collect(toList());
 
         ArgumentCaptor<List<byte[]>> keysCaptor = ArgumentCaptor.forClass(List.class);
 
@@ -514,8 +509,7 @@ public class ITMetaStorageServiceTest {
         // Assert keys equality.
         assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keysCaptor.getValue().size());
 
-        List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream().
-                map(ByteArray::bytes).collect(toList());
+        List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream().map(ByteArray::bytes).collect(toList());
 
         for (int i = 0; i < expKeys.size(); i++) {
             assertArrayEquals(expKeys.get(i), keysCaptor.getValue().get(i));

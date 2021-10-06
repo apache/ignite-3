@@ -232,6 +232,97 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
     }
 
     /**
+     *
+     */
+    private SqlCursor<List<?>> executeQuery(UUID qryId, MultiStepPlan plan, PlanningContext pctx) {
+        plan.init(pctx);
+
+        List<Fragment> fragments = plan.fragments();
+
+        // Local execution
+        Fragment fragment = first(fragments);
+
+        if (IgniteUtils.assertionsEnabled()) {
+            assert fragment != null;
+
+            FragmentMapping mapping = plan.mapping(fragment);
+
+            assert mapping != null;
+
+            List<String> nodes = mapping.nodeIds();
+
+            assert nodes != null && nodes.size() == 1 && first(nodes).equals(pctx.localNodeId());
+        }
+
+        FragmentDescription fragmentDesc = new FragmentDescription(
+                fragment.fragmentId(),
+                plan.mapping(fragment),
+                plan.target(fragment),
+                plan.remotes(fragment));
+
+        ExecutionContext<Row> ectx = new ExecutionContext<>(
+                taskExecutor,
+                pctx,
+                qryId,
+                fragmentDesc,
+                handler,
+                Commons.parametersMap(pctx.parameters()));
+
+        Node<Row> node = new LogicalRelImplementor<>(ectx, affSrvc, mailboxRegistry,
+                exchangeSrvc).go(fragment.root());
+
+        QueryInfo info = new QueryInfo(ectx, plan, node);
+
+        // register query
+        register(info);
+
+        // start remote execution
+        for (int i = 1; i < fragments.size(); i++) {
+            fragment = fragments.get(i);
+            fragmentDesc = new FragmentDescription(
+                    fragment.fragmentId(),
+                    plan.mapping(fragment),
+                    plan.target(fragment),
+                    plan.remotes(fragment));
+
+            Throwable ex = null;
+            for (String nodeId : fragmentDesc.nodeIds()) {
+                if (ex != null) {
+                    info.onResponse(nodeId, fragment.fragmentId(), ex);
+                } else {
+                    try {
+                        QueryStartRequest req = FACTORY.queryStartRequest()
+                                .queryId(qryId)
+                                .fragmentId(fragment.fragmentId())
+                                .schema(pctx.schemaName())
+                                .root(fragment.serialized())
+                                .topologyVersion(pctx.topologyVersion())
+                                .fragmentDescription(fragmentDesc)
+                                .parameters(pctx.parameters())
+                                .build();
+
+                        msgSrvc.send(nodeId, req);
+                    } catch (Throwable e) {
+                        info.onResponse(nodeId, fragment.fragmentId(), ex = e);
+                    }
+                }
+            }
+        }
+
+        return Commons.createCursor(new TransformingIterator<>(info.iterator(), row -> {
+            int rowSize = ectx.rowHandler().columnCount(row);
+
+            List<Object> res = new ArrayList<>(rowSize);
+
+            for (int i = 0; i < rowSize; i++) {
+                res.add(ectx.rowHandler().get(i, row));
+            }
+
+            return res;
+        }), plan);
+    }
+
+    /**
      * Executes prepared plans.
      *
      * @param qryPlans Query plans.
@@ -338,6 +429,27 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
     /**
      *
      */
+    private QueryPlan prepareQuery(SqlNode sqlNode, PlanningContext ctx) {
+        IgnitePlanner planner = ctx.planner();
+
+        // Validate
+        ValidationResult validated = planner.validateAndGetTypeMetadata(sqlNode);
+
+        sqlNode = validated.sqlNode();
+
+        IgniteRel igniteRel = optimize(sqlNode, planner, LOG);
+
+        // Split query plan to query fragments.
+        List<Fragment> fragments = new Splitter().go(igniteRel);
+
+        QueryTemplate template = new QueryTemplate(mappingSrvc, fragments);
+
+        return new MultiStepQueryPlan(template, queryFieldsMetadata(ctx, validated.dataType(), validated.origins()));
+    }
+
+    /**
+     *
+     */
     private List<QueryPlan> prepareFragment(PlanningContext ctx) {
         return ImmutableList.of(new FragmentPlan(fromJson(ctx, ctx.query())));
     }
@@ -373,31 +485,10 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
                 return prepareDdl(sqlNode, ctx);
 
             default:
-                throw new IgniteInternalException("Unsupported operation [" +
-                        "sqlNodeKind=" + sqlNode.getKind() + "; " +
-                        "querySql=\"" + ctx.query() + "\"]");
+                throw new IgniteInternalException("Unsupported operation ["
+                        + "sqlNodeKind=" + sqlNode.getKind() + "; "
+                        + "querySql=\"" + ctx.query() + "\"]");
         }
-    }
-
-    /**
-     *
-     */
-    private QueryPlan prepareQuery(SqlNode sqlNode, PlanningContext ctx) {
-        IgnitePlanner planner = ctx.planner();
-
-        // Validate
-        ValidationResult validated = planner.validateAndGetTypeMetadata(sqlNode);
-
-        sqlNode = validated.sqlNode();
-
-        IgniteRel igniteRel = optimize(sqlNode, planner, LOG);
-
-        // Split query plan to query fragments.
-        List<Fragment> fragments = new Splitter().go(igniteRel);
-
-        QueryTemplate template = new QueryTemplate(mappingSrvc, fragments);
-
-        return new MultiStepQueryPlan(template, queryFieldsMetadata(ctx, validated.dataType(), validated.origins()));
     }
 
     /**
@@ -492,101 +583,10 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
     /**
      *
      */
-    private SqlCursor<List<?>> executeQuery(UUID qryId, MultiStepPlan plan, PlanningContext pctx) {
-        plan.init(pctx);
-
-        List<Fragment> fragments = plan.fragments();
-
-        // Local execution
-        Fragment fragment = first(fragments);
-
-        if (IgniteUtils.assertionsEnabled()) {
-            assert fragment != null;
-
-            FragmentMapping mapping = plan.mapping(fragment);
-
-            assert mapping != null;
-
-            List<String> nodes = mapping.nodeIds();
-
-            assert nodes != null && nodes.size() == 1 && first(nodes).equals(pctx.localNodeId());
-        }
-
-        FragmentDescription fragmentDesc = new FragmentDescription(
-                fragment.fragmentId(),
-                plan.mapping(fragment),
-                plan.target(fragment),
-                plan.remotes(fragment));
-
-        ExecutionContext<Row> ectx = new ExecutionContext<>(
-                taskExecutor,
-                pctx,
-                qryId,
-                fragmentDesc,
-                handler,
-                Commons.parametersMap(pctx.parameters()));
-
-        Node<Row> node = new LogicalRelImplementor<>(ectx, affSrvc, mailboxRegistry,
-                exchangeSrvc).go(fragment.root());
-
-        QueryInfo info = new QueryInfo(ectx, plan, node);
-
-        // register query
-        register(info);
-
-        // start remote execution
-        for (int i = 1; i < fragments.size(); i++) {
-            fragment = fragments.get(i);
-            fragmentDesc = new FragmentDescription(
-                    fragment.fragmentId(),
-                    plan.mapping(fragment),
-                    plan.target(fragment),
-                    plan.remotes(fragment));
-
-            Throwable ex = null;
-            for (String nodeId : fragmentDesc.nodeIds()) {
-                if (ex != null) {
-                    info.onResponse(nodeId, fragment.fragmentId(), ex);
-                } else {
-                    try {
-                        QueryStartRequest req = FACTORY.queryStartRequest()
-                                .queryId(qryId)
-                                .fragmentId(fragment.fragmentId())
-                                .schema(pctx.schemaName())
-                                .root(fragment.serialized())
-                                .topologyVersion(pctx.topologyVersion())
-                                .fragmentDescription(fragmentDesc)
-                                .parameters(pctx.parameters())
-                                .build();
-
-                        msgSrvc.send(nodeId, req);
-                    } catch (Throwable e) {
-                        info.onResponse(nodeId, fragment.fragmentId(), ex = e);
-                    }
-                }
-            }
-        }
-
-        return Commons.createCursor(new TransformingIterator<>(info.iterator(), row -> {
-            int rowSize = ectx.rowHandler().columnCount(row);
-
-            List<Object> res = new ArrayList<>(rowSize);
-
-            for (int i = 0; i < rowSize; i++) {
-                res.add(ectx.rowHandler().get(i, row));
-            }
-
-            return res;
-        }), plan);
-    }
-
-    /**
-     *
-     */
     private SqlCursor<List<?>> executeExplain(ExplainPlan plan) {
         SqlCursor<List<?>> cur = Commons.createCursor(singletonList(singletonList(plan.plan())), plan);
         // TODO: fix this
-//        cur.fieldsMeta(plan.fieldsMeta().queryFieldsMetadata(pctx.typeFactory()));
+        //        cur.fieldsMeta(plan.fieldsMeta().queryFieldsMetadata(pctx.typeFactory()));
 
         return cur;
     }

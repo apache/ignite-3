@@ -59,8 +59,8 @@ public class NativeType implements Comparable<NativeType>, Serializable {
      */
     protected NativeType(NativeTypeSpec typeSpec) {
         if (typeSpec.fixedLength()) {
-            throw new IllegalArgumentException("Fixed-length types must be created by the " +
-                    "length-aware constructor: " + typeSpec);
+            throw new IllegalArgumentException("Fixed-length types must be created by the "
+                    + "length-aware constructor: " + typeSpec);
         }
 
         this.typeSpec = typeSpec;
@@ -69,7 +69,7 @@ public class NativeType implements Comparable<NativeType>, Serializable {
 
     /**
      * @return Size in bytes of the type if it is a fixlen type. For varlen types the return value is undefined, so the user should
-     * explicitly check {@code spec().fixedLength()} before using this method.
+     *      explicitly check {@code spec().fixedLength()} before using this method.
      * @see NativeTypeSpec#fixedLength()
      */
     public int sizeInBytes() {

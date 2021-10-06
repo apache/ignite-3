@@ -99,9 +99,7 @@ public abstract class DistributionFunction {
     /** {@inheritDoc} */
     @Override
     public final boolean equals(Object obj) {
-        if (obj instanceof DistributionFunction)
-        //noinspection StringEquality
-        {
+        if (obj instanceof DistributionFunction) { //noinspection StringEquality
             return name() == ((DistributionFunction) obj).name();
         }
 
@@ -152,20 +150,13 @@ public abstract class DistributionFunction {
     /**
      *
      */
-    public static DistributionFunction affinity(int cacheId, Object identity) {
-        return new AffinityDistribution(cacheId, identity);
-    }
-
-    /**
-     *
-     */
     public static boolean satisfy(DistributionFunction f0, DistributionFunction f1) {
         if (f0 == f1 || f0.name() == f1.name()) {
             return true;
         }
 
-        return f0 instanceof AffinityDistribution && f1 instanceof AffinityDistribution &&
-                Objects.equals(((AffinityDistribution) f0).identity(), ((AffinityDistribution) f1).identity());
+        return f0 instanceof AffinityDistribution && f1 instanceof AffinityDistribution
+                && Objects.equals(((AffinityDistribution) f0).identity(), ((AffinityDistribution) f1).identity());
     }
 
     /**
@@ -176,6 +167,13 @@ public abstract class DistributionFunction {
          *
          */
         public static final DistributionFunction INSTANCE = new AnyDistribution();
+
+        /**
+         *
+         */
+        public static DistributionFunction affinity(int cacheId, Object identity) {
+            return new AffinityDistribution(cacheId, identity);
+        }
 
         /** {@inheritDoc} */
         @Override

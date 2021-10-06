@@ -34,14 +34,6 @@ public interface TupleMarshaller {
     Row marshal(@NotNull Tuple tuple);
 
     /**
-     * Marshal tuple key part only.
-     *
-     * @param tuple Record tuple with key columns only.
-     * @return Table row with columns set from given tuples.
-     */
-    Row marshalKey(@NotNull Tuple tuple);
-
-    /**
      * Marshals KV pair.
      *
      * @param keyTuple Key tuple.
@@ -49,4 +41,12 @@ public interface TupleMarshaller {
      * @return Table row with columns set from given tuples.
      */
     Row marshal(@NotNull Tuple keyTuple, Tuple valTuple);
+
+    /**
+     * Marshal tuple key part only.
+     *
+     * @param tuple Record tuple with key columns only.
+     * @return Table row with columns set from given tuples.
+     */
+    Row marshalKey(@NotNull Tuple tuple);
 }

@@ -69,9 +69,9 @@ public class ITConfigCommandTest extends AbstractCliTest {
         clientPort = getAvailablePort();
         networkPort = getAvailablePort();
 
-        String configStr = "network.port=" + networkPort + "\n" +
-                "rest.port=" + restPort + "\n" + "rest.portRange=0" + "\n" +
-                "clientConnector.port=" + clientPort + "\n" + "clientConnector.portRange=0";
+        String configStr = "network.port=" + networkPort + "\n"
+                + "rest.port=" + restPort + "\n" + "rest.portRange=0" + "\n"
+                + "clientConnector.port=" + clientPort + "\n" + "clientConnector.portRange=0";
 
         IgnitionManager.start(testNodeName(testInfo, networkPort), configStr, workDir);
 
@@ -105,8 +105,8 @@ public class ITConfigCommandTest extends AbstractCliTest {
 
         assertEquals(0, exitCode);
         assertEquals(
-                "Configuration was updated successfully." + nl + nl +
-                        "Use the ignite config get command to view the updated configuration." + nl,
+                "Configuration was updated successfully." + nl + nl
+                        + "Use the ignite config get command to view the updated configuration." + nl,
                 out.toString()
         );
 
@@ -122,10 +122,10 @@ public class ITConfigCommandTest extends AbstractCliTest {
 
         assertEquals(0, exitCode);
         assertEquals(
-                "\"{\"clientConnector\":{\"connectTimeout\":5000,\"port\":" + clientPort + ",\"portRange\":0}," +
-                        "\"network\":{\"netClusterNodes\":[],\"port\":" + networkPort + "}," +
-                        "\"node\":{\"metastorageNodes\":[\"localhost1\"]}," +
-                        "\"rest\":{\"port\":" + restPort + ",\"portRange\":0}}\"" + nl,
+                "\"{\"clientConnector\":{\"connectTimeout\":5000,\"port\":" + clientPort + ",\"portRange\":0},"
+                        + "\"network\":{\"netClusterNodes\":[],\"port\":" + networkPort + "},"
+                        + "\"node\":{\"metastorageNodes\":[\"localhost1\"]},"
+                        + "\"rest\":{\"port\":" + restPort + ",\"portRange\":0}}\"" + nl,
                 unescapeQuotes(out.toString())
         );
     }

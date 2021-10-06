@@ -1357,7 +1357,8 @@ public class ConfigurationAsmGenerator {
                         constantNull(fieldDef.getType()),
                         srcVar.invoke(UNWRAP, constantClass(fieldDef.getType())).cast(fieldDef.getType())
                 )));
-            } else if (isConfigValue(schemaField)) { // this.field = src == null ? null : src.descend(field = (field == null ? new FieldType() : field.copy()));
+            } else if (isConfigValue(schemaField)) {
+                // this.field = src == null ? null : src.descend(field = (field == null ? new FieldType() : field.copy()));
                 caseClause.append(new IfStatement()
                         .condition(isNull(srcVar))
                         .ifTrue(constructMtd.getThis().setField(fieldDef, constantNull(fieldDef.getType())))

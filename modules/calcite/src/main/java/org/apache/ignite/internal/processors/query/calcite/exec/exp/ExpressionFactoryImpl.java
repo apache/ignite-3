@@ -72,7 +72,6 @@ import org.apache.ignite.internal.processors.query.calcite.util.IgniteMethod;
  * wrapper over it is returned.
  */
 public class ExpressionFactoryImpl<Row> implements ExpressionFactory<Row> {
-//    /** */
 //    private static final Map<String, Scalar> SCALAR_CACHE = new GridBoundedConcurrentLinkedHashMap<>(1024);
 
     /**

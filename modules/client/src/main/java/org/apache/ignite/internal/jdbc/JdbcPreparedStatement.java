@@ -114,8 +114,21 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
 
     /** {@inheritDoc} */
     @Override
+    public void addBatch(String sql) throws SQLException {
+        throw new SQLException("The method 'addBatch(String)' is called on PreparedStatement instance.",
+                SqlStateCode.UNSUPPORTED_OPERATION);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void setNull(int paramIdx, int sqlType) throws SQLException {
         setArgument(paramIdx, null);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setNull(int paramIdx, int sqlType, String typeName) throws SQLException {
+        setNull(paramIdx, sqlType);
     }
 
     /** {@inheritDoc} */
@@ -186,13 +199,32 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
 
     /** {@inheritDoc} */
     @Override
+    public void setDate(int paramIdx, Date x, Calendar cal) throws SQLException {
+        setArgument(paramIdx, x);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void setTime(int paramIdx, Time x) throws SQLException {
         setArgument(paramIdx, x);
     }
 
     /** {@inheritDoc} */
     @Override
+    public void setTime(int paramIdx, Time x, Calendar cal) throws SQLException {
+        setArgument(paramIdx, x);
+    }
+
+
+    /** {@inheritDoc} */
+    @Override
     public void setTimestamp(int paramIdx, Timestamp x) throws SQLException {
+        setArgument(paramIdx, x);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setTimestamp(int paramIdx, Timestamp x, Calendar cal) throws SQLException {
         setArgument(paramIdx, x);
     }
 
@@ -242,13 +274,6 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
 
     /** {@inheritDoc} */
     @Override
-    public void addBatch(String sql) throws SQLException {
-        throw new SQLException("The method 'addBatch(String)' is called on PreparedStatement instance.",
-                SqlStateCode.UNSUPPORTED_OPERATION);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public void setCharacterStream(int paramIdx, Reader x, int len) throws SQLException {
         ensureNotClosed();
 
@@ -273,7 +298,23 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
 
     /** {@inheritDoc} */
     @Override
+    public void setBlob(int paramIdx, InputStream inputStream, long len) throws SQLException {
+        ensureNotClosed();
+
+        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void setClob(int paramIdx, Clob x) throws SQLException {
+        ensureNotClosed();
+
+        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setClob(int paramIdx, Reader reader, long len) throws SQLException {
         ensureNotClosed();
 
         throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
@@ -293,30 +334,6 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
         ensureNotClosed();
 
         throw new SQLFeatureNotSupportedException("Meta data for prepared statement is not supported.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setDate(int paramIdx, Date x, Calendar cal) throws SQLException {
-        setArgument(paramIdx, x);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setTime(int paramIdx, Time x, Calendar cal) throws SQLException {
-        setArgument(paramIdx, x);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setTimestamp(int paramIdx, Timestamp x, Calendar cal) throws SQLException {
-        setArgument(paramIdx, x);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setNull(int paramIdx, int sqlType, String typeName) throws SQLException {
-        setNull(paramIdx, sqlType);
     }
 
     /** {@inheritDoc} */
@@ -362,22 +379,6 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     /** {@inheritDoc} */
     @Override
     public void setNClob(int paramIdx, NClob val) throws SQLException {
-        ensureNotClosed();
-
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setClob(int paramIdx, Reader reader, long len) throws SQLException {
-        ensureNotClosed();
-
-        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setBlob(int paramIdx, InputStream inputStream, long len) throws SQLException {
         ensureNotClosed();
 
         throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
@@ -525,29 +526,29 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     /** {@inheritDoc} */
     @Override
     public int executeUpdate(String sql, String[] colNames) throws SQLException {
-        throw new SQLException("The method 'executeUpdate(String, String[])' is called on PreparedStatement " +
-                "instance.", SqlStateCode.UNSUPPORTED_OPERATION);
+        throw new SQLException("The method 'executeUpdate(String, String[])' is called on PreparedStatement "
+                + "instance.", SqlStateCode.UNSUPPORTED_OPERATION);
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean execute(String sql, int autoGeneratedKeys) throws SQLException {
-        throw new SQLException("The method 'executeUpdate(String, int)' is called on PreparedStatement " +
-                "instance.", SqlStateCode.UNSUPPORTED_OPERATION);
+        throw new SQLException("The method 'executeUpdate(String, int)' is called on PreparedStatement "
+                + "instance.", SqlStateCode.UNSUPPORTED_OPERATION);
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean execute(String sql, int[] colNames) throws SQLException {
-        throw new SQLException("The method 'execute(String, int[])' is called on PreparedStatement " +
-                "instance.", SqlStateCode.UNSUPPORTED_OPERATION);
+        throw new SQLException("The method 'execute(String, int[])' is called on PreparedStatement "
+                + "instance.", SqlStateCode.UNSUPPORTED_OPERATION);
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean execute(String sql, String[] colNames) throws SQLException {
-        throw new SQLException("The method 'execute(String, String[]) is called on PreparedStatement " +
-                "instance.", SqlStateCode.UNSUPPORTED_OPERATION);
+        throw new SQLException("The method 'execute(String, String[]) is called on PreparedStatement "
+                + "instance.", SqlStateCode.UNSUPPORTED_OPERATION);
     }
 
     /** {@inheritDoc} */

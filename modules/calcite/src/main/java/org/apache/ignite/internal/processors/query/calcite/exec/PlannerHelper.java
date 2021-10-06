@@ -123,7 +123,7 @@ public class PlannerHelper {
      * Modify node updates rows only, then a spool is required if 1) we are scaning an index and 2) any of the indexed column is updated by
      * modify node.
      * </li>
-     * <ol/>
+     * </ol>
      */
     private static class FixDependentModifyNodeShuttle extends IgniteRelShuttle {
         /**

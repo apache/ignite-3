@@ -263,8 +263,7 @@ public class Columns implements Serializable {
         int[] resMask = new int[fixsizeNullMapSize];
 
         for (int b = 0; b < fixsizeNullMapSize; b++) {
-            int bitsInMask = b == fixsizeNullMapSize - 1 ?
-                    (numFixsize - 8 * b) : 8;
+            int bitsInMask = b == fixsizeNullMapSize - 1 ? (numFixsize - 8 * b) : 8;
 
             int totalMasks = 1 << bitsInMask;
 
@@ -305,9 +304,8 @@ public class Columns implements Serializable {
             int idx = b * 8 + bit;
 
             if (hasVal && idx < numberOfFixsizeColumns()) {
-                assert cols[idx].type().spec().fixedLength() : "Expected fixed-size column [b=" + b +
-                        ", mask=" + mask +
-                        ", cols" + Arrays.toString(cols) + ']';
+                assert cols[idx].type().spec().fixedLength() : "Expected fixed-size column [b=" + b
+                        + ", mask=" + mask + ", cols" + Arrays.toString(cols) + ']';
 
                 size += cols[idx].type().sizeInBytes();
             }

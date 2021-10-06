@@ -161,11 +161,11 @@ public class IgnitePaths {
      * @return true if check passes, false otherwise.
      */
     public boolean validateDirs() {
-        return workDir.toFile().exists() &&
-                binDir.toFile().exists() &&
-                libsDir().toFile().exists() &&
-                cliLibsDir().toFile().exists() &&
-                cfgDir.toFile().exists() &&
-                logDir.toFile().exists();
+        return workDir.toFile().exists()
+                && binDir.toFile().exists()
+                && libsDir().toFile().exists()
+                && cliLibsDir().toFile().exists()
+                && cfgDir.toFile().exists()
+                && logDir.toFile().exists();
     }
 }

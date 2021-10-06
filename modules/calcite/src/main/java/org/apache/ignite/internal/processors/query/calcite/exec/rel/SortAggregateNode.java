@@ -325,9 +325,8 @@ public class SortAggregateNode<Row> extends AbstractNode<Row> implements SingleN
          *
          */
         private void addOnReducer(Row row) {
-            List<Accumulator> accums = hasAccumulators() ?
-                    (List<Accumulator>) handler.get(handler.columnCount(row) - 1, row)
-                    : Collections.emptyList();
+            List<Accumulator> accums = hasAccumulators()
+                    ? (List<Accumulator>) handler.get(handler.columnCount(row) - 1, row) : Collections.emptyList();
 
             for (int i = 0; i < accums.size(); i++) {
                 AccumulatorWrapper<Row> wrapper = accumWrps.get(i);

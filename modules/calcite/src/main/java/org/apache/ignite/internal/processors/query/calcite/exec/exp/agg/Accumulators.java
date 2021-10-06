@@ -778,7 +778,6 @@ public class Accumulators {
          */
         private long sum;
 
-        /** */
         /** {@inheritDoc} */
         @Override
         public void add(Object... args) {
@@ -997,8 +996,8 @@ public class Accumulators {
                 return;
             }
 
-            val = empty ? in : min ?
-                    (CharSeqComparator.INSTANCE.compare(val, in) < 0 ? val : in) :
+            val = empty ? in : min
+                    ? (CharSeqComparator.INSTANCE.compare(val, in) < 0 ? val : in) :
                     (CharSeqComparator.INSTANCE.compare(val, in) < 0 ? in : val);
 
             empty = false;
@@ -1013,8 +1012,8 @@ public class Accumulators {
                 return;
             }
 
-            val = empty ? other0.val : min ?
-                    (CharSeqComparator.INSTANCE.compare(val, other0.val) < 0 ? val : other0.val) :
+            val = empty ? other0.val : min
+                    ? (CharSeqComparator.INSTANCE.compare(val, other0.val) < 0 ? val : other0.val) :
                     (CharSeqComparator.INSTANCE.compare(val, other0.val) < 0 ? other0.val : val);
 
             empty = false;

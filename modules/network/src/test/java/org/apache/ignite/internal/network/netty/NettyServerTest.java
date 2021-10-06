@@ -158,7 +158,7 @@ public class NettyServerTest {
     /**
      * Tests that a {@link NettyServer#start} method can be called only once.
      *
-     * @throws Exception
+     * @throws Exception If failed.
      */
     @Test
     public void testStartTwice() throws Exception {

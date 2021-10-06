@@ -105,7 +105,9 @@ public abstract class ConfigurationNode<VIEW> implements ConfigurationProperty<V
         updateListeners.remove(listener);
     }
 
-    /** @return List of update listeners. */
+    /**
+     * @return List of update listeners.
+     */
     public Collection<ConfigurationListener<VIEW>> listeners() {
         return unmodifiableCollection(updateListeners);
     }

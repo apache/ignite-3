@@ -28,7 +28,7 @@ public interface WatchListener {
      *
      * @param evt A single event or a batch. The batch always contains updates for specific revision.
      * @return {@code True} if listener must continue event handling. If returns {@code false} then the listener and corresponding watch
-     * will be unregistered.
+     *      will be unregistered.
      */
     boolean onUpdate(@NotNull WatchEvent evt);
 
