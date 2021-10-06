@@ -21,12 +21,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 
 /**
- * This example demonstrates the usage of the {@link Table} API.
+ * This example demonstrates the usage of the {@link KeyValueView} API.
  * <p>
  * To run the example, do the following:
  * <ol>
@@ -41,11 +41,11 @@ import org.apache.ignite.table.Tuple;
  *     <li>Run the example in the IDE.</li>
  * </ol>
  */
-public class TableExample {
+public class KeyValueViewExample {
     public static void main(String[] args) throws Exception {
         Ignite ignite = IgnitionManager.start(
             "node-0",
-            Files.readString(Path.of("config", "ignite-config.json")),
+            Files.readString(Path.of("config", "ignite-config.json").toAbsolutePath()),
             Path.of("work")
         );
 
@@ -62,7 +62,7 @@ public class TableExample {
         //
         //---------------------------------------------------------------------------------
 
-        RecordView<Tuple> accounts = ignite.tables().createTable("PUBLIC.accounts", tbl -> tbl
+        Table accounts = ignite.tables().createTable("PUBLIC.accounts", tbl -> tbl
             .changeName("PUBLIC.accounts")
             .changeColumns(cols -> cols
                 .create("0", c -> c.changeName("accountNumber").changeType(t -> t.changeType("int32")).changeNullable(false))
@@ -77,7 +77,9 @@ public class TableExample {
                     .changeColumns(cols -> cols.create("0", c -> c.changeName("accountNumber").changeAsc(true)))
                 )
             )
-        ).recordView();
+        );
+
+        KeyValueView<Tuple, Tuple> kvView = accounts.keyValueView();
 
         //---------------------------------------------------------------------------------
         //
@@ -85,13 +87,15 @@ public class TableExample {
         //
         //---------------------------------------------------------------------------------
 
-        Tuple newAccountTuple = Tuple.create()
-            .set("accountNumber", 123456)
+        Tuple key = Tuple.create()
+            .set("accountNumber", 123456);
+
+        Tuple value = Tuple.create()
             .set("firstName", "Val")
             .set("lastName", "Kulichenko")
             .set("balance", 100.00d);
 
-        accounts.insert(newAccountTuple);
+        kvView.put(key, value);
 
         //---------------------------------------------------------------------------------
         //
@@ -99,14 +103,12 @@ public class TableExample {
         //
         //---------------------------------------------------------------------------------
 
-        Tuple accountNumberTuple = Tuple.create().set("accountNumber", 123456);
-
-        Tuple accountTuple = accounts.get(accountNumberTuple);
+        value = accounts.recordView().get(key);
 
         System.out.println(
-            "Retrieved using Tuple API\n" +
-            "    Account Number: " + accountTuple.intValue("accountNumber") + '\n' +
-            "    Owner: " + accountTuple.stringValue("firstName") + " " + accountTuple.stringValue("lastName") + '\n' +
-            "    Balance: $" + accountTuple.doubleValue("balance"));
+            "Retrieved using Key-Value API\n" +
+            "    Account Number: " + key.intValue("accountNumber") + '\n' +
+            "    Owner: " + value.stringValue("firstName") + " " + value.stringValue("lastName") + '\n' +
+            "    Balance: $" + value.doubleValue("balance"));
     }
 }

@@ -21,12 +21,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 
 /**
- * This example demonstrates the usage of the {@link KeyValueView} API.
+ * This example demonstrates the usage of the {@link Table} API.
  * <p>
  * To run the example, do the following:
  * <ol>
@@ -41,11 +41,11 @@ import org.apache.ignite.table.Tuple;
  *     <li>Run the example in the IDE.</li>
  * </ol>
  */
-public class KeyValueBinaryViewExample {
+public class RecordViewExample {
     public static void main(String[] args) throws Exception {
         Ignite ignite = IgnitionManager.start(
             "node-0",
-            Files.readString(Path.of("config", "ignite-config.json").toAbsolutePath()),
+            Files.readString(Path.of("config", "ignite-config.json")),
             Path.of("work")
         );
 
@@ -62,7 +62,7 @@ public class KeyValueBinaryViewExample {
         //
         //---------------------------------------------------------------------------------
 
-        Table accounts = ignite.tables().createTable("PUBLIC.accounts", tbl -> tbl
+        RecordView<Tuple> accounts = ignite.tables().createTable("PUBLIC.accounts", tbl -> tbl
             .changeName("PUBLIC.accounts")
             .changeColumns(cols -> cols
                 .create("0", c -> c.changeName("accountNumber").changeType(t -> t.changeType("int32")).changeNullable(false))
@@ -77,9 +77,7 @@ public class KeyValueBinaryViewExample {
                     .changeColumns(cols -> cols.create("0", c -> c.changeName("accountNumber").changeAsc(true)))
                 )
             )
-        );
-
-        KeyValueView<Tuple, Tuple> kvView = accounts.keyValueView();
+        ).recordView();
 
         //---------------------------------------------------------------------------------
         //
@@ -87,15 +85,13 @@ public class KeyValueBinaryViewExample {
         //
         //---------------------------------------------------------------------------------
 
-        Tuple key = Tuple.create()
-            .set("accountNumber", 123456);
-
-        Tuple value = Tuple.create()
+        Tuple newAccountTuple = Tuple.create()
+            .set("accountNumber", 123456)
             .set("firstName", "Val")
             .set("lastName", "Kulichenko")
             .set("balance", 100.00d);
 
-        kvView.put(key, value);
+        accounts.insert(newAccountTuple);
 
         //---------------------------------------------------------------------------------
         //
@@ -103,12 +99,14 @@ public class KeyValueBinaryViewExample {
         //
         //---------------------------------------------------------------------------------
 
-        value = accounts.recordView().get(key);
+        Tuple accountNumberTuple = Tuple.create().set("accountNumber", 123456);
+
+        Tuple accountTuple = accounts.get(accountNumberTuple);
 
         System.out.println(
-            "Retrieved using Key-Value API\n" +
-            "    Account Number: " + key.intValue("accountNumber") + '\n' +
-            "    Owner: " + value.stringValue("firstName") + " " + value.stringValue("lastName") + '\n' +
-            "    Balance: $" + value.doubleValue("balance"));
+            "Retrieved using Tuple API\n" +
+            "    Account Number: " + accountTuple.intValue("accountNumber") + '\n' +
+            "    Owner: " + accountTuple.stringValue("firstName") + " " + accountTuple.stringValue("lastName") + '\n' +
+            "    Balance: $" + accountTuple.doubleValue("balance"));
     }
 }
