@@ -33,13 +33,13 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteCorrelatedN
 /**
  * Correlation trait is created by node that creates and sets correlation variables {@link RelNode#getVariablesSet()}} (e.g. {@link
  * IgniteCorrelatedNestedLoopJoin}) and pass through this trait to input that uses correlation variable(s).
- * <p>
- * The correlation trait is used to prevent the insertion of nodes that cannot preserve correlation in the correlated data stream. e.g.
+ *
+ * <p>The correlation trait is used to prevent the insertion of nodes that cannot preserve correlation in the correlated data stream. e.g.
  * these nodes are IgniteExchange, IgniteTableSpool, etc.
- * <p>
- * Let's describe more details: IgniteExchange: current implementation is not rewindable and not send values of the correlation variables to
- * Senders. TableSpool: stores the input data stream and rewind it many times So. it cannot be depends on the value of the correlation
- * variables.
+ *
+ * <p>Let's describe more details: IgniteExchange: current implementation is not rewindable and not send values of the correlation
+ * variables to Senders. TableSpool: stores the input data stream and rewind it many times So. it cannot be depends on the value of the
+ * correlation variables.
  */
 public class CorrelationTrait implements RelTrait {
     /**

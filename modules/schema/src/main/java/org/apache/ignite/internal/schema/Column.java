@@ -25,8 +25,8 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * Column description for a type schema. Column contains a column name, a column type and a nullability flag.
- * <p>
- * Column instances are comparable in lexicographic order, native type first and then column name. Nullability flag is not taken into
+ *
+ * <p>Column instances are comparable in lexicographic order, native type first and then column name. Nullability flag is not taken into
  * account when columns are compared.
  */
 public class Column implements Comparable<Column>, Serializable {

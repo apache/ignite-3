@@ -42,8 +42,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Tests client tuple builder implementation.
- * <p>
- * Should be in sync with org.apache.ignite.internal.table.TupleBuilderImplTest.
+ *
+ * <p>Should be in sync with org.apache.ignite.internal.table.TupleBuilderImplTest.
  */
 public class ClientTupleTest {
     private static final ClientSchema SCHEMA = new ClientSchema(1, new ClientColumn[]{

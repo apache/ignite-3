@@ -711,8 +711,8 @@ public class JdbcStatement implements Statement {
 
     /**
      * Sets timeout in milliseconds.
-     * <p>
-     * For test purposes.
+     *
+     * <p>For test purposes.
      *
      * @param timeout Timeout.
      * @throws SQLException If timeout condition is not satisfied.

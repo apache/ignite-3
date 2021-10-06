@@ -22,8 +22,8 @@ import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
  * Entry point for sending messages between network members in both weak and patient mode.
- * <p>
- * TODO: allow removing event handlers, see https://issues.apache.org/jira/browse/IGNITE-14519
+ *
+ * <p>TODO: allow removing event handlers, see https://issues.apache.org/jira/browse/IGNITE-14519
  */
 public interface MessagingService {
     /**
@@ -92,8 +92,8 @@ public interface MessagingService {
 
     /**
      * Registers a listener for a group of network message events.
-     * <p>
-     * Message group is specified by providing a class annotated with the {@link MessageGroup} annotation.
+     *
+     * <p>Message group is specified by providing a class annotated with the {@link MessageGroup} annotation.
      *
      * @param messageGroup Message group descriptor.
      * @param handler      Message handler.

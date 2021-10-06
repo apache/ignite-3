@@ -34,8 +34,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Basic table operations test.
- * <p>
- * TODO: IGNITE-14487 Add bulk operations tests.
+ *
+ * <p>TODO: IGNITE-14487 Add bulk operations tests.
  * TODO: IGNITE-14487 Add async operations tests.
  * TODO: IGNITE-14487 Check non-key fields in Tuple is ignored for keys.
  * TODO: IGNITE-14487 Check key fields in Tuple is ignored for value or exception is thrown?

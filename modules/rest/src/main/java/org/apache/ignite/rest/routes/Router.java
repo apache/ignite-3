@@ -29,8 +29,8 @@ import org.apache.ignite.rest.netty.RestApiHttpResponse;
 
 /**
  * Dispatcher of http requests.
- * <p>
- * Example:
+ *
+ * <p>Example:
  * <pre>
  * {@code
  * var router = new Router();

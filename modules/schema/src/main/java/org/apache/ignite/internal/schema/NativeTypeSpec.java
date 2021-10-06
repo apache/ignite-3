@@ -31,9 +31,9 @@ import org.apache.ignite.internal.tostring.S;
  * Base class for storage built-in data types definition. The class contains predefined values for fixed-sized types and some of the
  * variable-sized types. Parameterized types, such as bitmask of size <code>n</code> bits or number of max n bytes are created using static
  * methods.
- * <p>
- * An instance of native type provides necessary indirection to read any field as an instance of {@code java.lang.Object} to avoid switching
- * inside the row methods.
+ *
+ * <p>An instance of native type provides necessary indirection to read any field as an instance of {@code java.lang.Object} to avoid
+ * switching inside the row methods.
  */
 public enum NativeTypeSpec {
     /**

@@ -33,8 +33,8 @@ import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 /**
  * Class for generating classes for registering all generated {@link MessageSerializationFactory} implementations in a {@link
  * MessageSerializationRegistry}.
- * <p>
- * It is expected that only a single class will be generated for each module that declares any type of network messages.
+ *
+ * <p>It is expected that only a single class will be generated for each module that declares any type of network messages.
  */
 public class RegistryInitializerGenerator {
     /**

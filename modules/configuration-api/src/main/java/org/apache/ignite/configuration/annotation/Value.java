@@ -27,8 +27,8 @@ import java.lang.annotation.Target;
 /**
  * This annotation marks configuration schema field as a configuration tree leaf. Every field annotated with this annotation will produce a
  * {@code DynamicProperty} field in generated configuration class.
- * <p>
- * Type must be one of the following (or array of one of the following):
+ *
+ * <p>Type must be one of the following (or array of one of the following):
  * <ul>
  *     <li>boolean</li>
  *     <li>int</li>

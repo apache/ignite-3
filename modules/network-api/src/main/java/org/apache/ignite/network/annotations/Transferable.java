@@ -38,8 +38,8 @@ import org.apache.ignite.network.serialization.MessageSerializer;
  *     <li>They must extend the {@link NetworkMessage} interface either directly or transitively. This
  *     requirement is subject to change in the future when nested Transferable Objects will be supported.</li>
  * </ol>
- * <p>
- * When such interface is marked by this annotation, it can be used by the annotation processor to generate
+ *
+ * <p>When such interface is marked by this annotation, it can be used by the annotation processor to generate
  * the following classes:
  *
  * <ol>
@@ -47,8 +47,8 @@ import org.apache.ignite.network.serialization.MessageSerializer;
  *     <li>An immutable implementation of the interface and a nested implementation of the generated builder
  *     for creating new instances;</li>
  * </ol>
- * <p>
- * If the {@link #autoSerializable} property is set to {@code true}, the annotation processor will additionally generate
+ *
+ * <p>If the {@link #autoSerializable} property is set to {@code true}, the annotation processor will additionally generate
  * serialization-related classes:
  *
  * <ol>
@@ -56,8 +56,8 @@ import org.apache.ignite.network.serialization.MessageSerializer;
  *     <li>{@link MessageDeserializer};</li>
  *     <li>{@link MessageSerializationFactory}.</li>
  * </ol>
- * <p>
- * Properties of Transferable Objects that can be auto-serialized can only be of <i>directly marshallable type</i>,
+ *
+ * <p>Properties of Transferable Objects that can be auto-serialized can only be of <i>directly marshallable type</i>,
  * which is one of the following:
  *
  * <ol>
@@ -71,8 +71,8 @@ import org.apache.ignite.network.serialization.MessageSerializer;
  *     <li>{@code Collection} of boxed primitive types or other directly marshallable types;</li>
  *     <li>{@code Map} where both keys and values can be of a directly marshallable type.</li>
  * </ol>
- * <p>
- * After all marked interfaces in a module have been processed, the processor will use the
+ *
+ * <p>After all marked interfaces in a module have been processed, the processor will use the
  * <i>message group descriptor</i> (class annotated with {@link MessageGroup}) to expose the builders via a
  * Message Factory.
  *

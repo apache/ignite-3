@@ -21,11 +21,11 @@ import java.io.Serializable;
 
 /**
  * Invoke processor interface provides API to run code on server side against a table record associated with provided key.
- * <p>
- * For non-binary projections row will be deserialized to user object(s) before the invocation and serialized back if a new value was set
+ *
+ * <p>For non-binary projections row will be deserialized to user object(s) before the invocation and serialized back if a new value was set
  * via {@linkplain InvocationContext#value(Object)}.
- * <p>
- * Invoke operation arguments along with invoke operation result classes MUST be serializable as they can be transferred over network.
+ *
+ * <p>Invoke operation arguments along with invoke operation result classes MUST be serializable as they can be transferred over network.
  *
  * @param <K> Key object type.
  * @param <V> Value type.

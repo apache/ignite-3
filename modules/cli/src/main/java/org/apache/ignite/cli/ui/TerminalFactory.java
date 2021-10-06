@@ -31,8 +31,8 @@ import org.jline.terminal.TerminalBuilder;
 public class TerminalFactory {
     /**
      * Produce terminal instances.
-     * <p>
-     * Important: It's always must be a singleton bean. JLine has an issues with building more than 1 terminal instance per process.
+     *
+     * <p>Important: It's always must be a singleton bean. JLine has an issues with building more than 1 terminal instance per process.
      *
      * @return Terminal instance.
      * @throws IOException if an error occurs.

@@ -283,8 +283,8 @@ public final class ArrayUtils {
     /**
      * Converts array to {@link List}. Note that resulting list cannot be altered in size, as it it based on the passed in array - only
      * current elements can be changed.
-     * <p>
-     * Note that unlike {@link Arrays#asList(Object[])}, this method is {@code null}-safe. If {@code null} is passed in, then empty list
+     *
+     * <p>Note that unlike {@link Arrays#asList(Object[])}, this method is {@code null}-safe. If {@code null} is passed in, then empty list
      * will be returned.
      *
      * @param vals Array of values

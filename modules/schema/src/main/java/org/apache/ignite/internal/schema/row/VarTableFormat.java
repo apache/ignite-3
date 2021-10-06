@@ -22,8 +22,8 @@ import org.apache.ignite.internal.util.Constants;
 
 /**
  * Vartable format helper provides methods for reading/writing the chunk vartable content.
- * <p>
- * Once total data size of the chunk is known then vartable could be (re)written in a compact way using proper format {{@link
+ *
+ * <p>Once total data size of the chunk is known then vartable could be (re)written in a compact way using proper format {{@link
  * #compactVarTable(ExpandableByteBuf, int, int)}}. The vartable format is coded into chunk flags.
  *
  * @see #format(int)

@@ -43,8 +43,8 @@ class TupleImpl implements Tuple, Serializable {
 
     /**
      * Column name -&gt; index mapping.
-     * <p>
-     * Note: Transient because it's recoverable from {@link #colNames}.
+     *
+     * <p>Note: Transient because it's recoverable from {@link #colNames}.
      */
     private transient Map<String, Integer> colMapping;
 

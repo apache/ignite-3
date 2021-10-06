@@ -24,8 +24,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Defines operation which will be applied to an entry identified by the key.
- * <p>
- * Invariants:
+ *
+ * <p>Invariants:
  * <ul>
  *     <li>Any operation identifies a target entry by not null {@code key} except of {@link OperationType#NO_OP}.</li>
  *     <li>Only {@link OperationType#PUT} operation contains value which will be written to meta storage.</li>

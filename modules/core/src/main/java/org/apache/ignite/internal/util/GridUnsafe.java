@@ -40,8 +40,8 @@ import sun.misc.Unsafe;
 
 /**
  * Wrapper for the {@link sun.misc.Unsafe} class.
- * <p>
- * All memory access operations have the following properties:
+ *
+ * <p>All memory access operations have the following properties:
  * <ul>
  * <li>All {@code putXxx(long addr, xxx val)}, {@code getXxx(long addr)}, {@code putXxx(byte[] arr, long off, xxx val)},
  * {@code getXxx(byte[] arr, long off)} and corresponding methods with {@code LE} suffix are alignment aware

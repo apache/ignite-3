@@ -32,8 +32,8 @@ public final class IgniteSystemProperties {
      * Setting to {@code PLAIN} enables writing sensitive information in {@code toString()} output. Setting to {@code HASH"} enables writing
      * hash of sensitive information in {@code toString()} output. Setting to {@code NONE} disables writing sensitive information in {@code
      * toString()} output.
-     * <p>
-     * Default: {@code HASH}.
+     *
+     * <p>Default: {@code HASH}.
      *
      * @see IgniteToStringBuilder
      */
@@ -41,8 +41,8 @@ public final class IgniteSystemProperties {
 
     /**
      * Limit collection (map, array) elements number to output.
-     * <p>
-     * Default: 100
+     *
+     * <p>Default: 100
      *
      * @see IgniteToStringBuilder
      */
@@ -51,8 +51,8 @@ public final class IgniteSystemProperties {
     /**
      * Boolean flag indicating whether {@link IgniteToStringBuilder} should ignore {@link RuntimeException} when building string
      * representation of an object and just print information about exception into the log or rethrow.
-     * <p>
-     * Default: {@code True}.
+     *
+     * <p>Default: {@code True}.
      *
      * @see IgniteToStringBuilder
      */
@@ -60,8 +60,8 @@ public final class IgniteSystemProperties {
 
     /**
      * Maximum length for {@code IgniteToStringBuilder.toString(...)} methods result.
-     * <p>
-     * Default: 10_000.
+     *
+     * <p>Default: 10_000.
      *
      * @see IgniteToStringBuilder
      */

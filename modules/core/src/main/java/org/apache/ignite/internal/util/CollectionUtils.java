@@ -107,8 +107,8 @@ public final class CollectionUtils {
 
     /**
      * Create a lazy concatenation of iterables.
-     * <p>
-     * NOTE: {@link Iterator#remove} - not supported.
+     *
+     * <p>NOTE: {@link Iterator#remove} - not supported.
      *
      * @param iterables Iterables.
      * @param <T>       Type of the elements.

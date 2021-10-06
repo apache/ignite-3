@@ -112,8 +112,8 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
     /**
      * Group type of the message that is currently being received.
-     * <p>
-     * This field saves the partial message header, because it is not received in one piece, but rather in two: message group type and
+     *
+     * <p>This field saves the partial message header, because it is not received in one piece, but rather in two: message group type and
      * message type.
      */
     private short msgGroupType;

@@ -35,21 +35,21 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Adapter provides Tuple access methods and mutability for a Row.
- * <p>
- * Once adapter get created, it delegates all data access methods to the {@link #row}.
- * <p>
- * Mutability. Underlying Row is immutable serialized object and can't be mutated directly. Because of this fact, first call of {@link
+ *
+ * <p>Once adapter get created, it delegates all data access methods to the {@link #row}.
+ *
+ * <p>Mutability. Underlying Row is immutable serialized object and can't be mutated directly. Because of this fact, first call of {@link
  * #set(String, Object)} method implies the Row conversion to a Tuple.
- * <p>
- * After the first mutation the {@link #tuple} becomes a full copy of {@link #row}, all data access methods delegate to a {@link #tuple},
- * and the {@link #row} one is no longer useful. The adapter acts as simple schema-less tuple {@link Tuple} and {@link #schema()} return
+ *
+ * <p>After the first mutation the {@link #tuple} becomes a full copy of {@link #row}, all data access methods delegate to a {@link #tuple}
+ * ,and the {@link #row} one is no longer useful. The adapter acts as simple schema-less tuple {@link Tuple} and {@link #schema()} return
  * null.
- * <p>
- * Serialization. Row access methods implicitly require a context (schema) for a binary data reading, The context may be huge comparing to a
- * row data, and its serialization is unwanted. So, Row firstly is converted to Tuple.
- * <p>
- * Because of after that the adapter will act as underlying tuple {@link Tuple}, the adapter will be substituted unconditionally with the
- * tuple itself during deserialization.
+ *
+ * <p>Serialization. Row access methods implicitly require a context (schema) for a binary data reading, The context may be huge comparing
+ * to a row data, and its serialization is unwanted. So, Row firstly is converted to Tuple.
+ *
+ * <p>Because of after that the adapter will act as underlying tuple {@link Tuple}, the adapter will be substituted unconditionally with
+ * the tuple itself during deserialization.
  *
  * @see Tuple
  * @see #unmarshalRow()
@@ -311,9 +311,9 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements S
     /**
      * Overrides default serialization flow. Serialized {@code tuple} instead of {@code this}, as wrapper make no sense after tuple is fully
      * materialized.
-     * <p>
-     * Note: The method has protected modifier and subclass access to this method follows java accessibility rules. Thus, class successors
-     * may obtain similar behaviour.
+     *
+     * <p>Note: The method has protected modifier and subclass access to this method follows java accessibility rules. Thus, class
+     * successors may obtain similar behaviour.
      *
      * @return Tuple to serialize.
      * @throws ObjectStreamException If failed.

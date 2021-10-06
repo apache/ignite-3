@@ -83,11 +83,11 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      * Currently known change id. Either matches or will soon match the Meta Storage revision of the latest configuration update. It is
      * possible that {@code changeId} is already updated but notifications are not yet handled, thus revision is valid but not applied. This
      * is fine.
-     * <p>
-     * Given that {@link #MASTER_KEY} is updated on every configuration change, one could assume that {@code changeId} matches the revision
-     * of {@link #MASTER_KEY}.
-     * <p>
-     * This is true for all cases except for node restart. Key-specific revision values are lost on local vault copy after restart, so
+     *
+     * <p>Given that {@link #MASTER_KEY} is updated on every configuration change, one could assume that {@code changeId} matches the
+     * revision of {@link #MASTER_KEY}.
+     *
+     * <p>This is true for all cases except for node restart. Key-specific revision values are lost on local vault copy after restart, so
      * stored {@link MetaStorageManager#APPLIED_REV} value is used instead. This fact has very important side effect: it's no longer
      * possible to use {@link Condition.RevisionCondition#eq} on {@link #MASTER_KEY} in {@link DistributedConfigurationStorage#write(Map,
      * long)}. {@link Condition.RevisionCondition#le(long)} must be used instead.
@@ -297,8 +297,8 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     /**
      * Method that returns all distributed configuration keys from the meta storage that were stored in the vault filtered out by the
      * current applied revision as an upper bound. Applied revision is a revision of the last successful vault update.
-     * <p>
-     * This is possible to distinguish cfg keys from meta storage because we add a special prefix {@link
+     *
+     * <p>This is possible to distinguish cfg keys from meta storage because we add a special prefix {@link
      * DistributedConfigurationStorage#DISTRIBUTED_PREFIX} to all configuration keys that we put to the meta storage.
      *
      * @return Iterator built upon all distributed configuration entries stored in vault.

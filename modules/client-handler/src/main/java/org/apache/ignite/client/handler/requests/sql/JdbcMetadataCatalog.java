@@ -91,8 +91,8 @@ public class JdbcMetadataCatalog {
 
     /**
      * See {@link DatabaseMetaData#getPrimaryKeys(String, String, String)} for details.
-     * <p>
-     * Ignite has only one possible CATALOG_NAME, it is handled on the client (driver) side.
+     *
+     * <p>Ignite has only one possible CATALOG_NAME, it is handled on the client (driver) side.
      *
      * @param schemaNamePtrn Sql pattern for schema name.
      * @param tblNamePtrn    Sql pattern for table name.
@@ -118,11 +118,11 @@ public class JdbcMetadataCatalog {
 
     /**
      * See {@link DatabaseMetaData#getTables(String, String, String, String[])} for details.
-     * <p>
-     * Ignite has only one possible value for CATALOG_NAME and has only one table type so these parameters are handled on the client
+     *
+     * <p>Ignite has only one possible value for CATALOG_NAME and has only one table type so these parameters are handled on the client
      * (driver) side.
-     * <p>
-     * Result is ordered by (schema name, table name).
+     *
+     * <p>Result is ordered by (schema name, table name).
      *
      * @param schemaNamePtrn Sql pattern for schema name.
      * @param tblNamePtrn    Sql pattern for table name.
@@ -146,8 +146,8 @@ public class JdbcMetadataCatalog {
 
     /**
      * See {@link DatabaseMetaData#getColumns(String, String, String, String)} for details.
-     * <p>
-     * Ignite has only one possible CATALOG_NAME, it is handled on the client (driver) side.
+     *
+     * <p>Ignite has only one possible CATALOG_NAME, it is handled on the client (driver) side.
      *
      * @param schemaNamePtrn Schema name java regex pattern.
      * @param tblNamePtrn    Table name java regex pattern.
@@ -195,8 +195,8 @@ public class JdbcMetadataCatalog {
 
     /**
      * See {@link DatabaseMetaData#getSchemas(String, String)} for details.
-     * <p>
-     * Ignite has only one possible CATALOG_NAME, it is handled on the client (driver) side.
+     *
+     * <p>Ignite has only one possible CATALOG_NAME, it is handled on the client (driver) side.
      *
      * @param schemaNamePtrn Sql pattern for schema name filter.
      * @return schema names that matches provided pattern.

@@ -25,8 +25,8 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * Table provides different views (key-value vs record) and approaches (mapped-object vs binary) to reach the data.
- * <p>
- * Binary table views might be useful in cases (but not limited) when user key-value classes are not in classpath and/or when
+ *
+ * <p>Binary table views might be useful in cases (but not limited) when user key-value classes are not in classpath and/or when
  * deserialization of whole table record is unwanted due to performance reasons.
  *
  * @see RecordView

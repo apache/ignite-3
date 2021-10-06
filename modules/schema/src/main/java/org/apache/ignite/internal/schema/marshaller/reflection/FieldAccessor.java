@@ -45,8 +45,8 @@ abstract class FieldAccessor {
 
     /**
      * Mapped column position in schema.
-     * <p>
-     * NODE: Do not mix up with column index in {@link Columns} container.
+     *
+     * <p>NODE: Do not mix up with column index in {@link Columns} container.
      */
     protected final int colIdx;
 

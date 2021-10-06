@@ -27,11 +27,11 @@ import java.lang.annotation.Target;
 /**
  * This annotation can only be applied to a class that is either marked with {@link ConfigurationRoot} or the superclass is marked with
  * {@link ConfigurationRoot}, {@link Config}.
- * <p>
- * It indicates that this is an internal configuration that should be hidden from the end user. Any extensions are allowed for any
+ *
+ * <p>It indicates that this is an internal configuration that should be hidden from the end user. Any extensions are allowed for any
  * configuration.
- * <p>
- * NOTE: Field name collisions are not allowed.
+ *
+ * <p>NOTE: Field name collisions are not allowed.
  *
  * @see ConfigurationRoot
  * @see Config

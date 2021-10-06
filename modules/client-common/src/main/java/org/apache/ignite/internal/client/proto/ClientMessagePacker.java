@@ -43,8 +43,8 @@ import org.msgpack.value.Value;
 
 /**
  * Ignite-specific MsgPack extension based on Netty ByteBuf.
- * <p>
- * Releases wrapped buffer on {@link #close()} .
+ *
+ * <p>Releases wrapped buffer on {@link #close()} .
  */
 public class ClientMessagePacker extends MessagePacker {
     /** Underlying buffer. */

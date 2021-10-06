@@ -21,9 +21,8 @@ import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**
  * Network configuration of a node.
- * <p>
- * TODO: migrate to common configuration class when it's available, see
- *  https://issues.apache.org/jira/browse/IGNITE-14496
+ *
+ * <p>TODO: migrate to common configuration class when it's available, see https://issues.apache.org/jira/browse/IGNITE-14496
  */
 public class ClusterLocalConfiguration {
     /** The network alias of a node. */

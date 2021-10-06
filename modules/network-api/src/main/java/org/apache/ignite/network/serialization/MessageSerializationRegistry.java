@@ -39,9 +39,9 @@ public interface MessageSerializationRegistry {
 
     /**
      * Creates a {@link MessageSerializer} for the given message type.
-     * <p>
-     * {@link MessageSerializationRegistry} does not track the correspondence between the message type and its Java representation, so the
-     * actual generic specialization of the returned provider relies on the caller of this method.
+     *
+     * <p>{@link MessageSerializationRegistry} does not track the correspondence between the message type and its Java representation,
+     * so the actual generic specialization of the returned provider relies on the caller of this method.
      *
      * @param <T>         Type of a message.
      * @param groupType   Group type of a message.
@@ -52,9 +52,9 @@ public interface MessageSerializationRegistry {
 
     /**
      * Creates a {@link MessageDeserializer} for the given message type.
-     * <p>
-     * {@link MessageSerializationRegistry} does not track the correspondence between the message type and its Java representation, so the
-     * actual generic specialization of the returned provider relies on the caller of this method.
+     *
+     * <p>{@link MessageSerializationRegistry} does not track the correspondence between the message type and its Java representation,
+     * so the actual generic specialization of the returned provider relies on the caller of this method.
      *
      * @param <T>         Type of a message.
      * @param groupType   Group type of a message.

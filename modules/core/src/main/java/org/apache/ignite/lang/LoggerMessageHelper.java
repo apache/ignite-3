@@ -22,46 +22,43 @@ import java.util.HashSet;
 /**
  * Formats messages according to very simple substitution rules. Substitutions can be made 1, 2 or more arguments.
  *
- * <p>
- * For example,
+ * <p>For example,
  *
  * <pre>
  * LoggerMessageHelper.format(&quot;Hi {}.&quot;, &quot;there&quot;).get1();
  * </pre>
- * <p>
- * will return the string "Hi there.".
- * <p>
- * The {} pair is called the <em>formatting anchor</em>. It serves to designate the location where arguments need to be substituted within
- * the message pattern.
- * <p>
- * In case your message contains the '{' or the '}' character, you do not have to do anything special unless the '}' character immediately
- * follows '{'. For example,
+ *
+ * <p>will return the string "Hi there.".
+ *
+ * <p>The {} pair is called the <em>formatting anchor</em>. It serves to designate the location where arguments need to be substituted
+ * within the message pattern.
+ *
+ * <p>In case your message contains the '{' or the '}' character, you do not have to do anything special unless the '}' character
+ * immediately follows '{'. For example,
  *
  * <pre>
  * LoggerMessageHelper.format(&quot;Set {1,2,3} is not equal to {}.&quot;, &quot;1,2&quot;).get1();
  * </pre>
- * <p>
- * will return the string "Set {1,2,3} is not equal to 1,2.".
  *
- * <p>
- * If for whatever reason you need to place the string "{}" in the message without its <em>formatting anchor</em> meaning, then you need to
- * escape the '{' character with '\', that is the backslash character. Only the '{' character should be escaped. There is no need to escape
- * the '}' character. For example,
+ * <p>will return the string "Set {1,2,3} is not equal to 1,2.".
+ *
+ * <p>If for whatever reason you need to place the string "{}" in the message without its <em>formatting anchor</em> meaning, then you need
+ * to escape the '{' character with '\', that is the backslash character. Only the '{' character should be escaped. There is no need to
+ * escape the '}' character. For example,
  *
  * <pre>
  * LoggerMessageHelper.format(&quot;Set \\{} is not equal to {}.&quot;, &quot;1,2&quot;).get1();
  * </pre>
- * <p>
- * will return the string "Set {} is not equal to 1,2.".
  *
- * <p>
- * The escaping behavior just described can be overridden by escaping the escape character '\'. Calling
+ * <p>will return the string "Set {} is not equal to 1,2.".
+ *
+ * <p>The escaping behavior just described can be overridden by escaping the escape character '\'. Calling
  *
  * <pre>
  * LoggerMessageHelper.format(&quot;File name is C:\\\\{}.&quot;, &quot;file.zip&quot;).get1();
  * </pre>
- * <p>
- * will return the string "File name is C:\file.zip".
+ *
+ * <p>will return the string "File name is C:\file.zip".
  */
 public final class LoggerMessageHelper {
     /** Left brace. */

@@ -69,8 +69,8 @@ import reactor.core.publisher.Mono;
 class ITScaleCubeNetworkMessagingTest {
     /**
      * Test cluster.
-     * <p>
-     * Each test should create its own cluster with the required number of nodes.
+     *
+     * <p>Each test should create its own cluster with the required number of nodes.
      */
     private Cluster testCluster;
 

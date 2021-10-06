@@ -26,8 +26,8 @@ import java.lang.annotation.Target;
 
 /**
  * Annotation to validate whole table configuration.
- * <p>
- * Activate TableValidatorImpl in configuration engine for {@link TablesConfigurationSchema#tables}.
+ *
+ * <p>Activate TableValidatorImpl in configuration engine for {@link TablesConfigurationSchema#tables}.
  */
 @Target({FIELD, PARAMETER})
 @Retention(RUNTIME)

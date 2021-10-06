@@ -39,8 +39,8 @@ import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTr
 
 /**
  * Rule to convert LogicalCorrelate operator to IgniteCorrelatedNestedLoopJoin.
- * <p>
- * LogicalCorrelate operators are created during sub-query rewriting. In most cases LogicalCorrelate can be further converted to other
+ *
+ * <p>LogicalCorrelate operators are created during sub-query rewriting. In most cases LogicalCorrelate can be further converted to other
  * logical operators if decorrelation is enabled, but in some cases query can't be decorrelated (when table function is used for example),
  * this rule is required to support such cases.
  */

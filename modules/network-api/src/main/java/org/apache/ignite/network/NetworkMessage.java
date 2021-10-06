@@ -26,8 +26,8 @@ public interface NetworkMessage {
 
     /**
      * Message type. Must be <b>distinct</b> among all messages in a <i>message group</i>. Only positive values are allowed.
-     * <p>
-     * Message types are not required to be universally unique among multiple groups.
+     *
+     * <p>Message types are not required to be universally unique among multiple groups.
      *
      * @return message type.
      */
@@ -35,8 +35,8 @@ public interface NetworkMessage {
 
     /**
      * Message group type. Must be the <b>same</b> for all messages in a <i>message group</i>. Only positive values are allowed.
-     * <p>
-     * Message group types are required to be universally unique among all groups.
+     *
+     * <p>Message group types are required to be universally unique among all groups.
      *
      * @return group type.
      */

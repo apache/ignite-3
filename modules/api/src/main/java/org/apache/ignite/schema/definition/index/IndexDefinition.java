@@ -33,8 +33,8 @@ public interface IndexDefinition extends SchemaObject {
 
     /**
      * Unique index flag.
-     * <p>
-     * Limitation: Index MUST have all affinity columns declared explicitly. This requirement allows omitting cluster wide constraint
+     *
+     * <p>Limitation: Index MUST have all affinity columns declared explicitly. This requirement allows omitting cluster wide constraint
      * checks.
      *
      * @return Unique flag.

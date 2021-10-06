@@ -29,12 +29,12 @@ import org.apache.ignite.internal.util.Constants;
 /**
  * A simple byte array wrapper to allow dynamic byte array expansion during the row construction. Grows exponentially up to 1 MB, then
  * expands by 1 MB each time an expansion is required. Values are always written in LITTLE_ENDIAN format.
- * <p>
- * Additionally, it tracks the high watermark of the values ever written to the buffer so that only written bytes are returned from the
+ *
+ * <p>Additionally, it tracks the high watermark of the values ever written to the buffer so that only written bytes are returned from the
  * {@link #toArray()} method. If the current (expanded) buffer size does not match the high watermark, the {@link #toArray()} method will
  * return a smaller copy of the array to exactly match the watermark.
- * <p>
- * All write methods have an absolute position. The buffer will automatically expand to fit the value being written. If there is a gap
+ *
+ * <p>All write methods have an absolute position. The buffer will automatically expand to fit the value being written. If there is a gap
  * between previously written values and the current value, it will be filled with zero bytes:
  * <pre>
  * ExpandableByteBuf b = new ExpandableByteBuf(1);

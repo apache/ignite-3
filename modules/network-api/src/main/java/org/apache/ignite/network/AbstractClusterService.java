@@ -19,8 +19,8 @@ package org.apache.ignite.network;
 
 /**
  * Default implementation of a {@link ClusterService}.
- * <p>
- * Extending classes should use {@link #start()} and {@link #stop()} to allocate and free any network-related resources.
+ *
+ * <p>Extending classes should use {@link #start()} and {@link #stop()} to allocate and free any network-related resources.
  */
 public abstract class AbstractClusterService implements ClusterService {
     /** Context. */

@@ -152,8 +152,8 @@ public final class IgniteTestUtils {
     /**
      * Checks if passed in {@code 'Throwable'} has given class in {@code 'cause'} hierarchy
      * <b>including</b> that throwable itself.
-     * <p>
-     * Note that this method follows includes {@link Throwable#getSuppressed()} into check.
+     *
+     * <p>Note that this method follows includes {@link Throwable#getSuppressed()} into check.
      *
      * @param t   Throwable to check.
      * @param cls Cause classes to check.

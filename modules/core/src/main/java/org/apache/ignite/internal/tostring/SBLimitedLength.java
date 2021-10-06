@@ -26,8 +26,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * String builder with limited length.
- * <p>
- * Keeps head and tail for long strings that not fit to the limit cutting the middle of the string.
+ *
+ * <p>Keeps head and tail for long strings that not fit to the limit cutting the middle of the string.
  */
 class SBLimitedLength extends IgniteStringBuilder {
     /** Max string length. */

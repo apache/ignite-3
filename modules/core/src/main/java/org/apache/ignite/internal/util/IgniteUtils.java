@@ -141,8 +141,8 @@ public class IgniteUtils {
     /**
      * Returns a capacity that is sufficient to keep the map from being resized as long as it grows no larger than expSize and the load
      * factor is &gt;= its default (0.75).
-     * <p>
-     * Copy pasted from guava. See com.google.common.collect.Maps#capacity(int)
+     *
+     * <p>Copy pasted from guava. See com.google.common.collect.Maps#capacity(int)
      *
      * @param expSize Expected size of the created map.
      * @return Capacity.
@@ -187,8 +187,8 @@ public class IgniteUtils {
      * Applies a supplemental hash function to a given hashCode, which defends against poor quality hash functions.  This is critical
      * because ConcurrentHashMap uses power-of-two length hash tables, that otherwise encounter collisions for hashCodes that do not differ
      * in lower or upper bits.
-     * <p>
-     * This function has been taken from Java 8 ConcurrentHashMap with slightly modifications.
+     *
+     * <p>This function has been taken from Java 8 ConcurrentHashMap with slightly modifications.
      *
      * @param h Value to hash.
      * @return Hash value.
@@ -209,8 +209,8 @@ public class IgniteUtils {
      * Applies a supplemental hash function to a given hashCode, which defends against poor quality hash functions.  This is critical
      * because ConcurrentHashMap uses power-of-two length hash tables, that otherwise encounter collisions for hashCodes that do not differ
      * in lower or upper bits.
-     * <p>
-     * This function has been taken from Java 8 ConcurrentHashMap with slightly modifications.
+     *
+     * <p>This function has been taken from Java 8 ConcurrentHashMap with slightly modifications.
      *
      * @param obj Value to hash.
      * @return Hash value.

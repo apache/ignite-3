@@ -747,8 +747,8 @@ public class ITJdbcStatementSelfTest extends AbstractJdbcSelfTest {
 
     /**
      * TODO Enable when batch query is supported
-     * <p>
-     * Verifies that empty batch can be performed.
+     *
+     * <p>Verifies that empty batch can be performed.
      *
      * @throws Exception If failed.
      */

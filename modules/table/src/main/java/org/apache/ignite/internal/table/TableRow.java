@@ -26,8 +26,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Row to Tuple adapter.
- * <p>
- * Provides methods to access columns values by column names.
+ *
+ * <p>Provides methods to access columns values by column names.
  */
 public class TableRow extends MutableRowTupleAdapter {
     /**

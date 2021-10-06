@@ -29,8 +29,8 @@ import org.apache.ignite.configuration.DirectConfigurationProperty;
 /**
  * Annotation that marks a configuration field or a whole configuration that can be accessed directly from the storage. Such fields or
  * configurations will be generated as a {@link DirectConfigurationProperty} in addition to regular {@link ConfigurationProperty}.
- * <p>
- * Usage note: for implementation-specific reasons it is illegal to place this annotation on schema fields that are either annotated with
+ *
+ * <p>Usage note: for implementation-specific reasons it is illegal to place this annotation on schema fields that are either annotated with
  * {@link ConfigValue} or {@link NamedConfigValue}. For creating direct nested configurations this annotation should be placed on the
  * corresponding {@link Config} classes.
  *

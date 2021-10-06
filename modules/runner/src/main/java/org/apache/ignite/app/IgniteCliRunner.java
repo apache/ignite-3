@@ -32,8 +32,8 @@ public class IgniteCliRunner {
 
     /**
      * Main method for run new Ignite node.
-     * <p>
-     * For CLI args info see {@link IgniteCliRunner#USAGE}
+     *
+     * <p>For CLI args info see {@link IgniteCliRunner#USAGE}
      *
      * @param args CLI args to start new node.
      * @throws IOException if any issues with reading config file.

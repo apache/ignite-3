@@ -34,8 +34,8 @@ import org.apache.ignite.table.Table;
 
 /**
  * This example demonstrates usage of Ignite JDBC driver.
- * <p>
- * To run the example, do the following:
+ *
+ * <p>To run the example, do the following:
  * <ol>
  *     <li>Import the examples project into you IDE.</li>
  *     <li>Run the example in the IDE.</li>

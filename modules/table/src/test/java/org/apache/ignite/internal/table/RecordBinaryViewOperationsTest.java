@@ -38,8 +38,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Basic table operations test.
- * <p>
- * TODO: IGNITE-14486 Add tests for invoke operations.
+ *
+ * <p>TODO: IGNITE-14486 Add tests for invoke operations.
  * TODO: IGNITE-14486 Add tests for bulk operations.
  * TODO: IGNITE-14486 Add tests for async operations.
  */

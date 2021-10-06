@@ -21,10 +21,10 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Synchronization aid to track "busy" state of a subsystem that owns it.
- * <p>
- * This class is implemented over {@link IgniteSpinReadWriteLock}.
- * <p>
- * For example, there may be a manager that have different threads for some purposes and the manager must not be stopped while at least a
+ *
+ * <p>This class is implemented over {@link IgniteSpinReadWriteLock}.
+ *
+ * <p>For example, there may be a manager that have different threads for some purposes and the manager must not be stopped while at least a
  * single thread is in "busy" state. In this situation each thread must enter to "busy" state calling method {@link #enterBusy()} in
  * critical pieces of code which, i.e. use grid kernal functionality, notifying that the manager and the whole grid kernal cannot be stopped
  * while it's in progress. Once the activity is done, the thread should leave "busy" state calling method {@link #leaveBusy()}. The manager

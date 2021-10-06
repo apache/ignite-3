@@ -87,8 +87,8 @@ public interface IgniteClient extends Ignite {
         /**
          * Sets the retry limit. When a request fails due to a connection error, and multiple server connections are available, Ignite will
          * retry the request on every connection. When this property is greater than zero, Ignite will limit the number of retries.
-         * <p>
-         * Default is {@link IgniteClientConfiguration#DFLT_RETRY_LIMIT}.
+         *
+         * <p>Default is {@link IgniteClientConfiguration#DFLT_RETRY_LIMIT}.
          *
          * @param retryLimit Retry limit.
          * @return This instance.
@@ -101,8 +101,8 @@ public interface IgniteClient extends Ignite {
 
         /**
          * Sets the socket connection timeout, in milliseconds.
-         * <p>
-         * Default is {@link IgniteClientConfiguration#DFLT_CONNECT_TIMEOUT}.
+         *
+         * <p>Default is {@link IgniteClientConfiguration#DFLT_CONNECT_TIMEOUT}.
          *
          * @param connectTimeout Socket connection timeout, in milliseconds.
          * @return This instance.
@@ -133,8 +133,8 @@ public interface IgniteClient extends Ignite {
 
         /**
          * Sets the reconnect throttling period, in milliseconds.
-         * <p>
-         * Default is {@link IgniteClientConfiguration#DFLT_RECONNECT_THROTTLING_PERIOD}.
+         *
+         * <p>Default is {@link IgniteClientConfiguration#DFLT_RECONNECT_THROTTLING_PERIOD}.
          *
          * @param reconnectThrottlingPeriod Reconnect throttling period, in milliseconds.
          * @return This instance.
@@ -147,8 +147,8 @@ public interface IgniteClient extends Ignite {
 
         /**
          * Sets the reconnect throttling retries.
-         * <p>
-         * Default is {@link IgniteClientConfiguration#DFLT_RECONNECT_THROTTLING_RETRIES}.
+         *
+         * <p>Default is {@link IgniteClientConfiguration#DFLT_RECONNECT_THROTTLING_RETRIES}.
          *
          * @param reconnectThrottlingRetries Reconnect throttling retries.
          * @return This instance.

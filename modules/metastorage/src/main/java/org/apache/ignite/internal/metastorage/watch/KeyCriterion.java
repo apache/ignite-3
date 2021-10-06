@@ -48,8 +48,8 @@ public abstract class KeyCriterion {
 
     /**
      * Union two key criteria and produce the new one.
-     * <p>
-     * Rules for the union of different types of criteria:
+     *
+     * <p>Rules for the union of different types of criteria:
      * <pre>
      * exact + exact = collection|exact
      * collection + exact = collection

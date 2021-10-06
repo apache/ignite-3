@@ -53,8 +53,8 @@ public interface NamedConfigurationTree<T extends ConfigurationProperty<VIEW>, V
     /**
      * Returns a placeholder that allows you to add listeners for changing configuration value of any element of the named list and any of
      * its nested configurations.
-     * <p>
-     * NOTE: {@link ConfigurationListenOnlyException} will be thrown when trying to get/update the configuration values.
+     *
+     * <p>NOTE: {@link ConfigurationListenOnlyException} will be thrown when trying to get/update the configuration values.
      *
      * @return Placeholder to add listeners for any configuration.
      */

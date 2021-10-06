@@ -44,11 +44,11 @@ import org.junit.platform.commons.support.HierarchyTraversalMode;
 
 /**
  * JUnit extension for injecting temporary folders into test classes.
- * <p>
- * This extension supports both field and parameter injection of {@link Path} parameters annotated with the {@link WorkDirectory}
+ *
+ * <p>This extension supports both field and parameter injection of {@link Path} parameters annotated with the {@link WorkDirectory}
  * annotation.
- * <p>
- * A new temporary folder can be created for every test method (when used as a test parameter or as a member field) or a single time in a
+ *
+ * <p>A new temporary folder can be created for every test method (when used as a test parameter or as a member field) or a single time in a
  * test class' lifetime (when used as a parameter in a {@link BeforeAll} hook or as a static field). Temporary folders are located relative
  * to the module, where the tests are being run, and their paths depends on the lifecycle of the folder:
  *
@@ -56,8 +56,8 @@ import org.junit.platform.commons.support.HierarchyTraversalMode;
  *     <li>For test methods: "target/work/{@literal <name-of-the-test-class>/<name-of-the-test-method>_<current_time_millis>}"</li>
  *     <li>For test classes: "target/work/{@literal <name-of-the-test-class>/static_<current_time_millis>}"</li>
  * </ol>
- * <p>
- * Temporary folders are removed after tests have finished running, but this behaviour can be controlled by setting the
+ *
+ * <p>Temporary folders are removed after tests have finished running, but this behaviour can be controlled by setting the
  * {@link WorkDirectoryExtension#KEEP_WORK_DIR_PROPERTY} property to {@code true}, in which case the created folder can
  * be kept intact for debugging purposes.
  */

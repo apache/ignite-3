@@ -47,8 +47,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Tests server tuple builder implementation.
- * <p>
- * Should be in sync with org.apache.ignite.client.ClientTupleBuilderTest.
+ *
+ * <p>Should be in sync with org.apache.ignite.client.ClientTupleBuilderTest.
  */
 public class TupleImplTest {
     @Test

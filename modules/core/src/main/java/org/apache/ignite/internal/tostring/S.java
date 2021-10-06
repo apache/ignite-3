@@ -19,8 +19,8 @@ package org.apache.ignite.internal.tostring;
 
 /**
  * Defines a shortcut for {@link IgniteToStringBuilder}.
- * <p>
- * Since Java doesn't provide type aliases (like Scala, for example) we resort to these types of measures. Intended for internal use only
+ *
+ * <p>Since Java doesn't provide type aliases (like Scala, for example) we resort to these types of measures. Intended for internal use only
  * and meant to provide for more terse code when readability of code is not compromised.
  */
 @SuppressWarnings({"ExtendsUtilityClass"})

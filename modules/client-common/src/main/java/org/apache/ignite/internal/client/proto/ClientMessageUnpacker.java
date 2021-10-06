@@ -62,8 +62,8 @@ import org.msgpack.value.ImmutableValue;
 
 /**
  * Ignite-specific MsgPack extension based on Netty ByteBuf.
- * <p>
- * Releases wrapped buffer on {@link #close()} .
+ *
+ * <p>Releases wrapped buffer on {@link #close()} .
  */
 public class ClientMessageUnpacker extends MessageUnpacker {
     /** Underlying buffer. */

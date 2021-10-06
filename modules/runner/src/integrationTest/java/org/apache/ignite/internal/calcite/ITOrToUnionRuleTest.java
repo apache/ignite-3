@@ -32,13 +32,13 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Test OR -> UnionAll rewrite rule.
- * <p>
- * Example: SELECT * FROM products WHERE category = 'Photo' OR subcategory ='Camera Media';
- * <p>
- * A query above will be rewritten to next (or equivalient similar query)
- * <p>
- * SELECT * FROM products WHERE category = 'Photo' UNION ALL SELECT * FROM products WHERE subcategory ='Camera Media' AND LNNVL(category,
- * 'Photo');
+ *
+ * <p>Example: SELECT * FROM products WHERE category = 'Photo' OR subcategory ='Camera Media';
+ *
+ * <p>A query above will be rewritten to next (or equivalient similar query)
+ *
+ * <p>SELECT * FROM products WHERE category = 'Photo' UNION ALL SELECT * FROM products WHERE subcategory ='Camera Media' AND LNNVL(
+ * category,'Photo');
  */
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-14925")
 public class ITOrToUnionRuleTest extends AbstractBasicIntegrationTest {

@@ -30,8 +30,8 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * Tuple represents arbitrary set of columns whose values is accessible by column name.
- * <p>
- * Provides specialized method for some value-types to avoid boxing/unboxing.
+ *
+ * <p>Provides specialized method for some value-types to avoid boxing/unboxing.
  */
 public interface Tuple extends Iterable<Object> {
     /**
@@ -81,12 +81,12 @@ public interface Tuple extends Iterable<Object> {
 
     /**
      * Returns the hash code value for the tuple.
-     * <p>
-     * The hash code of a tuple is defined to be the sum of the hash codes of each pair of column name and column value. This ensures that
-     * {@code m1.equals(m2)} implies that {@code m1.hashCode()==m2.hashCode()} for any tuples {@code m1} and {@code m2}, as required by the
-     * general contract of {@link Object#hashCode}.
-     * <p>
-     * The hash code of a pair of column name and column value {@code i} is defined to be:
+     *
+     * <p>The hash code of a tuple is defined to be the sum of the hash codes of each pair of column name and column value. This ensures
+     * that {@code m1.equals(m2)} implies that {@code m1.hashCode()==m2.hashCode()} for any tuples {@code m1} and {@code m2}, as required
+     * by the general contract of {@link Object#hashCode}.
+     *
+     * <p>The hash code of a pair of column name and column value {@code i} is defined to be:
      * <pre>(columnName(i).hashCode()) ^ (value(i)==null ? 0 : value(i).hashCode())</pre>
      *
      * @param tuple Tuple.
@@ -116,12 +116,12 @@ public interface Tuple extends Iterable<Object> {
 
     /**
      * Compares tuples for equality.
-     * <p>
-     * Returns {@code true} if both tuples represent the same column name to column value mappings.
-     * <p>
-     * This implementation first checks if both tuples is of same size; if not, it returns {@code false}; If so, it iterates over columns of
-     * first tuple and checks that the second tuple contains each mapping that the first one contains.  If the second tuple fails to contain
-     * such a mapping, {@code false} is returned; If the iteration completes, {@code true} is returned.
+     *
+     * <p>Returns {@code true} if both tuples represent the same column name to column value mappings.
+     *
+     * <p>This implementation first checks if both tuples is of same size; if not, it returns {@code false}; If so, it iterates over
+     * columns of first tuple and checks that the second tuple contains each mapping that the first one contains.  If the second tuple
+     * fails to contain such a mapping, {@code false} is returned; If the iteration completes, {@code true} is returned.
      *
      * @param firstTuple  First tuple to compare.
      * @param secondTuple Second tuple to compare.

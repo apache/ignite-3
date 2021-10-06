@@ -33,8 +33,8 @@ import org.apache.ignite.internal.jdbc.JdbcConnection;
 
 /**
  * JDBC driver thin implementation for Apache Ignite 3.x.
- * <p>
- * Driver allows to get distributed data from Ignite Data Storage using standard SQL queries and standard JDBC API.
+ *
+ * <p>Driver allows to get distributed data from Ignite Data Storage using standard SQL queries and standard JDBC API.
  */
 public class IgniteJdbcDriver implements Driver {
     /** Driver instance. */

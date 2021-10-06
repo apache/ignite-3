@@ -123,8 +123,8 @@ public class MetaStorageManager implements IgniteComponent {
 
     /**
      * If true - all new watches will be deployed immediately.
-     * <p>
-     * If false - all new watches will be aggregated to one batch for further deploy by {@link MetaStorageManager#deployWatches()}
+     *
+     * <p>If false - all new watches will be aggregated to one batch for further deploy by {@link MetaStorageManager#deployWatches()}
      */
     private boolean deployed;
 
@@ -708,8 +708,8 @@ public class MetaStorageManager implements IgniteComponent {
     /**
      * Retrieves entries for the given key prefix in lexicographic order. Entries will be filtered out by the current applied revision as an
      * upper bound. Applied revision is a revision of the last successful vault update.
-     * <p>
-     * Prefix query is a synonym of the range query {@code (prefixKey, nextKey(prefixKey))}.
+     *
+     * <p>Prefix query is a synonym of the range query {@code (prefixKey, nextKey(prefixKey))}.
      *
      * @param keyPrefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
      * @return Cursor built upon entries corresponding to the given range and applied revision.
@@ -752,8 +752,8 @@ public class MetaStorageManager implements IgniteComponent {
     /**
      * Retrieves entries for the given key prefix in lexicographic order. Entries will be filtered out by upper bound of given revision
      * number.
-     * <p>
-     * Prefix query is a synonym of the range query {@code range(prefixKey, nextKey(prefixKey))}.
+     *
+     * <p>Prefix query is a synonym of the range query {@code range(prefixKey, nextKey(prefixKey))}.
      *
      * @param keyPrefix     Prefix of the key to retrieve the entries. Couldn't be {@code null}.
      * @param revUpperBound The upper bound for entry revision. {@code -1} means latest revision.
@@ -1039,8 +1039,8 @@ public class MetaStorageManager implements IgniteComponent {
 
     /**
      * Return metastorage nodes.
-     * <p>
-     * This code will be deleted after node init phase is developed. https://issues.apache.org/jira/browse/IGNITE-14414
+     *
+     * <p>This code will be deleted after node init phase is developed. https://issues.apache.org/jira/browse/IGNITE-14414
      */
     private List<ClusterNode> metastorageNodes() {
         String[] metastorageNodes = this.locCfgMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)

@@ -59,11 +59,11 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Provides auto-generation framework for {@code toString()} output.
- * <p>
- * In case of recursion, object fields will be printed only for the first entry to prevent recursion, and all the next repeated entrances
+ *
+ * <p>In case of recursion, object fields will be printed only for the first entry to prevent recursion, and all the next repeated entrances
  * will be shown as "ClassName@hash".
- * <p>
- * Default exclusion policy (can be overridden with {@link IgniteToStringInclude} annotation):
+ *
+ * <p>Default exclusion policy (can be overridden with {@link IgniteToStringInclude} annotation):
  * <ul>
  * <li>fields with {@link IgniteToStringExclude} annotation
  * <li>classes with {@link IgniteToStringExclude} annotation
@@ -116,8 +116,8 @@ public class IgniteToStringBuilder {
 
     /**
      * Tracks the objects currently printing in the string builder.
-     * <p>
-     * Since {@code toString()} methods can be chain-called from the same thread we have to keep a map of this objects pointed to the
+     *
+     * <p>Since {@code toString()} methods can be chain-called from the same thread we have to keep a map of this objects pointed to the
      * position of previous occurrence and remove/add them in each {@code toString(...)} apply.
      */
     private static final ThreadLocal<IdentityHashMap<Object, EntryReference>> savedObjects = ThreadLocal.withInitial(IdentityHashMap::new);
@@ -147,8 +147,8 @@ public class IgniteToStringBuilder {
 
     /**
      * Setting the logic of the {@link #includeSensitive} and {@link #getSensitiveDataLogging} methods.
-     * <p>
-     * Overrides default supplier that uses {@link IgniteSystemProperties#IGNITE_SENSITIVE_DATA_LOGGING} system property.
+     *
+     * <p>Overrides default supplier that uses {@link IgniteSystemProperties#IGNITE_SENSITIVE_DATA_LOGGING} system property.
      *
      * <b>Important!</b> Changing the logic is possible only until the first
      * call of {@link #includeSensitive} or {@link #getSensitiveDataLogging} methods.

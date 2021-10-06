@@ -41,13 +41,13 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * Schema-aware row.
- * <p>
- * The class contains non-generic methods to read boxed and unboxed primitives based on the schema column types. Any type conversions and
- * coercions should be implemented outside the row by the key-value or query runtime.
- * <p>
- * When a non-boxed primitive is read from a null column value, it is converted to the primitive type default value.
- * <p>
- * Natively supported temporal types are decoded automatically after read.
+ *
+ * <p>The class contains non-generic methods to read boxed and unboxed primitives based on the schema column types. Any type conversions
+ * and coercions should be implemented outside the row by the key-value or query runtime.
+ *
+ * <p>When a non-boxed primitive is read from a null column value, it is converted to the primitive type default value.
+ *
+ * <p>Natively supported temporal types are decoded automatically after read.
  *
  * @see TemporalTypesHelper
  */
@@ -601,8 +601,8 @@ public class Row implements BinaryRow, SchemaAware {
      * by folding the null-map bits. This number is used to adjust the column index and find the corresponding entry in the varlen table.
      * The length of the column is calculated either by subtracting two adjacent varlen table offsets, or by subtracting the last varlen
      * table offset from the chunk length.
-     * <p>
-     * Note: Offset for the very fisrt varlen is skipped in vartable and calculated from fixlen columns sizes.
+     *
+     * <p>Note: Offset for the very fisrt varlen is skipped in vartable and calculated from fixlen columns sizes.
      *
      * @param baseOff    Chunk base offset.
      * @param dataOff    Chunk data offset.

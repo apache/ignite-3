@@ -197,8 +197,8 @@ public class ColumnType {
 
     /**
      * Returns timezone-free type representing a time of day in hours, minutes, seconds, and fractional seconds.
-     * <p>
-     * Precision is a number of digits in fractional seconds part, from 0 - whole seconds precision up to 9 - nanoseconds precision.
+     *
+     * <p>Precision is a number of digits in fractional seconds part, from 0 - whole seconds precision up to 9 - nanoseconds precision.
      *
      * @param precision The number of digits in fractional seconds part. Accepted values are in range [0-9].
      * @return Native type.
@@ -225,8 +225,8 @@ public class ColumnType {
 
     /**
      * Returns timezone-free datetime encoded as (date, time).
-     * <p>
-     * Precision is a number of digits in fractional seconds part of time, from 0 - whole seconds precision up to 9 - nanoseconds
+     *
+     * <p>Precision is a number of digits in fractional seconds part of time, from 0 - whole seconds precision up to 9 - nanoseconds
      * precision.
      *
      * @param precision The number of digits in fractional seconds part. Accepted values are in range [0-9].
@@ -256,8 +256,8 @@ public class ColumnType {
     /**
      * Returns point in time as number of ticks since Jan 1, 1970 00:00:00.000 (with no timezone). Ticks that are stored can be precised to
      * second, millisecond, microsecond or nanosecond.
-     * <p>
-     * Precision is a number of digits in fractional seconds part of time, from 0 - whole seconds precision up to 9 - nanoseconds
+     *
+     * <p>Precision is a number of digits in fractional seconds part of time, from 0 - whole seconds precision up to 9 - nanoseconds
      * precision.
      *
      * @param precision The number of digits in fractional seconds part. Accepted values are in range [0-9].

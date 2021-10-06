@@ -51,8 +51,8 @@ public interface IgniteTables {
 
     /**
      * Creates a new table with the given {@code name} or returns an existing one with the same {@code name}.
-     * <p>
-     * Note: the configuration of the existed table will NOT be validated against the given {@code tableInitChange}.
+     *
+     * <p>Note: the configuration of the existed table will NOT be validated against the given {@code tableInitChange}.
      *
      * @param name            Table name.
      * @param tableInitChange Table changer.
@@ -62,8 +62,8 @@ public interface IgniteTables {
 
     /**
      * Creates a new table with the given {@code name} or returns an existing one with the same {@code name}.
-     * <p>
-     * Note: the configuration of the existed table will NOT be validated against the given {@code tableInitChange}.
+     *
+     * <p>Note: the configuration of the existed table will NOT be validated against the given {@code tableInitChange}.
      *
      * @param name            Table name.
      * @param tableInitChange Table changer.

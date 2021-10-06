@@ -29,8 +29,8 @@ import org.jetbrains.annotations.Nullable;
  *     Each change (which could include multiple entries) increments the revision. </li>
  *     <li>updateCounter - a number which increments on every update in the change under one revision.</li>
  * </ul>
- * <p>
- * Instance of {@link #Entry} could represents:
+ *
+ * <p>Instance of {@link #Entry} could represents:
  * <ul>
  *     <li>A regular entry which stores a particular key, a value and a revision number.</li>
  *     <li>An empty entry which denotes absence a regular entry in the meta storage for a given key.

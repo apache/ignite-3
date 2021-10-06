@@ -33,9 +33,9 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * A {@link LockManager} implementation which stores lock queues in the heap.
- * <p>
- * Lock waiters are placed in the queue, ordered from oldest to yongest (highest Timestamp). When a new waiter is placed in the queue, it's
- * validated against current lock owner: if where is an owner with a higher timestamp lock request is denied.
+ *
+ * <p>Lock waiters are placed in the queue, ordered from oldest to yongest (highest Timestamp). When a new waiter is placed in the queue,
+ * it's validated against current lock owner: if where is an owner with a higher timestamp lock request is denied.
  */
 public class HeapLockManager implements LockManager {
     /**

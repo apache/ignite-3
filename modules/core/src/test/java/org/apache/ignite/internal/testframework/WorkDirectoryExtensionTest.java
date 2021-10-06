@@ -48,9 +48,9 @@ import org.junit.platform.testkit.engine.EventType;
 
 /**
  * Tests for the {@link WorkDirectoryExtension}.
- * <p>
- * This class uses an approach when several nested classes are executed manually on the JUnit test engine, because some test methods should
- * fail as part of these meta-tests. Nested classes are skipped by the surefire plugin and must not be executed during the build.
+ *
+ * <p>This class uses an approach when several nested classes are executed manually on the JUnit test engine, because some test methods
+ * should fail as part of these meta-tests. Nested classes are skipped by the surefire plugin and must not be executed during the build.
  *
  * @see <a href="https://junit.org/junit5/docs/current/user-guide/#testkit">JUnit Platform Test Kit</a>
  */

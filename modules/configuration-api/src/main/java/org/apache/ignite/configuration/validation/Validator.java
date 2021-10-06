@@ -21,8 +21,8 @@ import java.lang.annotation.Annotation;
 
 /**
  * Interface for all configuration validators. Recommended to be a stateless class.
- * <p>
- * It is mandatory that all direct implementations of the interface explicitly specify types {@code A} and {@code VIEW}.
+ *
+ * <p>It is mandatory that all direct implementations of the interface explicitly specify types {@code A} and {@code VIEW}.
  *
  * @param <A>    Type of the annotation that puts current validator to the field.
  * @param <VIEW> Upper bound for field types that can be validated with this validator.

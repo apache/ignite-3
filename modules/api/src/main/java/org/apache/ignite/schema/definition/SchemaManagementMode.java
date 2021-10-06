@@ -19,8 +19,8 @@ package org.apache.ignite.schema.definition;
 
 /**
  * Schema mode.
- * <p>
- * Defines the way inserting data will be validated against the schema and schema evolution capabilities.
+ *
+ * <p>Defines the way inserting data will be validated against the schema and schema evolution capabilities.
  */
 //TODO: rename to MANUAL and AUTO?
 public enum SchemaManagementMode {

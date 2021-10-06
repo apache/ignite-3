@@ -57,8 +57,8 @@ import org.junit.jupiter.api.BeforeEach;
  *      }
  *  }
  * }</pre>
- * <p>
- * Same applies to methods with the difference that annotation translates into something like {@link BeforeEach} and {@link AfterEach}.
+ *
+ * <p>Same applies to methods with the difference that annotation translates into something like {@link BeforeEach} and {@link AfterEach}.
  * <br><br>
  * <pre>{@code  public class SomeTest {
  *      @Test

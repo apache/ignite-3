@@ -51,11 +51,11 @@ import org.apache.ignite.internal.schema.TemporalNativeType;
 /**
  * Utility class to build rows using column appending pattern. The external user of this class must consult with the schema and provide the
  * columns in strict internal column sort order during the row construction.
- * <p>
- * Additionally, the user of this class should pre-calculate the resulting row size when possible to avoid unnecessary data copies and allow
- * some size optimizations to be applied.
- * <p>
- * Natively supported temporal types are encoded automatically with preserving sort order before writing.
+ *
+ * <p>Additionally, the user of this class should pre-calculate the resulting row size when possible to avoid unnecessary data copies and
+ * allow some size optimizations to be applied.
+ *
+ * <p>Natively supported temporal types are encoded automatically with preserving sort order before writing.
  *
  * @see #utf8EncodedLength(CharSequence)
  * @see TemporalTypesHelper
@@ -255,8 +255,8 @@ public class RowAssembler {
 
     /**
      * Creates RowAssembler for chunks of unknown size.
-     * <p>
-     * RowAssembler will use adaptive buffer size and omit some optimizations for small key/value chunks.
+     *
+     * <p>RowAssembler will use adaptive buffer size and omit some optimizations for small key/value chunks.
      *
      * @param schema               Row schema.
      * @param nonNullVarlenKeyCols Number of non-null varlen columns in key chunk.
@@ -276,8 +276,8 @@ public class RowAssembler {
 
     /**
      * Creates RowAssembler for chunks with estimated sizes.
-     * <p>
-     * RowAssembler will apply optimizations based on chunks sizes estimations.
+     *
+     * <p>RowAssembler will apply optimizations based on chunks sizes estimations.
      *
      * @param schema        Row schema.
      * @param keyVarlenSize Key payload size. Estimated upper-bound or zero if unknown.

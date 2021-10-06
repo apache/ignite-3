@@ -44,8 +44,8 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      *     }
      * }
      * </code></pre>
-     * <p>
-     * Order of fields must be the same as they are described in configuration schema.
+     *
+     * <p>Order of fields must be the same as they are described in configuration schema.
      *
      * @param visitor         Configuration visitor.
      * @param includeInternal Include internal configuration nodes (private configuration extensions).

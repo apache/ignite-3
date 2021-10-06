@@ -36,8 +36,8 @@ public interface ConfigurationPresentation<R> {
 
     /**
      * Converts to presentation only a fraction of system configuration defined by given path.
-     * <p>
-     * If null path is passed method should fall back to returning whole system configuration.
+     *
+     * <p>If null path is passed method should fall back to returning whole system configuration.
      *
      * @param path Path to requested configuration in configuration tree or {@code null}.
      * @return Requested configuration fraction or whole configuration if {@code null} was passed.

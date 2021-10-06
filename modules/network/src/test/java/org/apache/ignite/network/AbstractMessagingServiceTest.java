@@ -38,8 +38,8 @@ public class AbstractMessagingServiceTest {
     /**
      * Tests a situation when multiple modules declare message group descriptors with the same group ID. Adding handlers for both of these
      * groups should result in an exception being thrown.
-     * <p>
-     * Since we can't declare multiple message groups in a single module, we have to reside to hacks using reflection.
+     *
+     * <p>Since we can't declare multiple message groups in a single module, we have to reside to hacks using reflection.
      */
     @Test
     public void testGroupIdClash() throws Exception {
