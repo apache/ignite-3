@@ -78,12 +78,12 @@ public class FieldAccessorTest {
     @Test
     public void fieldAccessor() throws Exception {
         Column[] cols = new Column[]{
-                new Column("pByteCol", INT8, false),
-                new Column("pShortCol", INT16, false),
-                new Column("pIntCol", INT32, false),
-                new Column("pLongCol", INT64, false),
-                new Column("pFloatCol", FLOAT, false),
-                new Column("pDoubleCol", DOUBLE, false),
+                new Column("primitiveByteCol", INT8, false),
+                new Column("primitiveShortCol", INT16, false),
+                new Column("primitiveIntCol", INT32, false),
+                new Column("primitiveLongCol", INT64, false),
+                new Column("primitiveFloatCol", FLOAT, false),
+                new Column("primitiveDoubleCol", DOUBLE, false),
 
                 new Column("byteCol", INT8, false),
                 new Column("shortCol", INT16, false),
@@ -121,12 +121,12 @@ public class FieldAccessorTest {
             accessor.read(row, restoredObj);
         }
 
-        assertEquals(obj.pByteCol, restoredObj.pByteCol);
-        assertEquals(obj.pShortCol, restoredObj.pShortCol);
-        assertEquals(obj.pIntCol, restoredObj.pIntCol);
-        assertEquals(obj.pLongCol, restoredObj.pLongCol);
-        assertEquals(obj.pFloatCol, restoredObj.pFloatCol);
-        assertEquals(obj.pDoubleCol, restoredObj.pDoubleCol);
+        assertEquals(obj.primitiveByteCol, restoredObj.primitiveByteCol);
+        assertEquals(obj.primitiveShortCol, restoredObj.primitiveShortCol);
+        assertEquals(obj.primitiveIntCol, restoredObj.primitiveIntCol);
+        assertEquals(obj.primitiveLongCol, restoredObj.primitiveLongCol);
+        assertEquals(obj.primitiveFloatCol, restoredObj.primitiveFloatCol);
+        assertEquals(obj.primitiveDoubleCol, restoredObj.primitiveDoubleCol);
 
         assertEquals(obj.byteCol, restoredObj.byteCol);
         assertEquals(obj.shortCol, restoredObj.shortCol);
@@ -307,12 +307,12 @@ public class FieldAccessorTest {
         public static TestObject randomObject(Random rnd) {
             final TestObject obj = new TestObject();
 
-            obj.pByteCol = (byte) rnd.nextInt(255);
-            obj.pShortCol = (short) rnd.nextInt(65535);
-            obj.pIntCol = rnd.nextInt();
-            obj.pLongCol = rnd.nextLong();
-            obj.pFloatCol = rnd.nextFloat();
-            obj.pDoubleCol = rnd.nextDouble();
+            obj.primitiveByteCol = (byte) rnd.nextInt(255);
+            obj.primitiveShortCol = (short) rnd.nextInt(65535);
+            obj.primitiveIntCol = rnd.nextInt();
+            obj.primitiveLongCol = rnd.nextLong();
+            obj.primitiveFloatCol = rnd.nextFloat();
+            obj.primitiveDoubleCol = rnd.nextDouble();
 
             obj.byteCol = (byte) rnd.nextInt(255);
             obj.shortCol = (short) rnd.nextInt(65535);
@@ -332,17 +332,17 @@ public class FieldAccessorTest {
         }
 
         // Primitive typed
-        private byte pByteCol;
+        private byte primitiveByteCol;
 
-        private short pShortCol;
+        private short primitiveShortCol;
 
-        private int pIntCol;
+        private int primitiveIntCol;
 
-        private long pLongCol;
+        private long primitiveLongCol;
 
-        private float pFloatCol;
+        private float primitiveFloatCol;
 
-        private double pDoubleCol;
+        private double primitiveDoubleCol;
 
         // Reference typed
         private Byte byteCol;
@@ -379,12 +379,12 @@ public class FieldAccessorTest {
                 return false;
             }
             TestObject object = (TestObject) o;
-            return pByteCol == object.pByteCol
-                    && pShortCol == object.pShortCol
-                    && pIntCol == object.pIntCol
-                    && pLongCol == object.pLongCol
-                    && Float.compare(object.pFloatCol, pFloatCol) == 0
-                    && Double.compare(object.pDoubleCol, pDoubleCol) == 0
+            return primitiveByteCol == object.primitiveByteCol
+                    && primitiveShortCol == object.primitiveShortCol
+                    && primitiveIntCol == object.primitiveIntCol
+                    && primitiveLongCol == object.primitiveLongCol
+                    && Float.compare(object.primitiveFloatCol, primitiveFloatCol) == 0
+                    && Double.compare(object.primitiveDoubleCol, primitiveDoubleCol) == 0
                     && Objects.equals(byteCol, object.byteCol)
                     && Objects.equals(shortCol, object.shortCol)
                     && Objects.equals(intCol, object.intCol)

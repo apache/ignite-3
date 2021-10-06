@@ -32,16 +32,16 @@ class IdentityMarshallerCodeGenerator implements MarshallerCodeGenerator {
     private final ColumnAccessCodeGenerator columnAccessor;
 
     /** Target class. */
-    private final Class<?> tClass;
+    private final Class<?> targetClass;
 
     /**
      * Constructor.
      *
-     * @param tClass         Target class.
+     * @param targetClass         Target class.
      * @param columnAccessor Row column code generator.
      */
-    IdentityMarshallerCodeGenerator(Class<?> tClass, ColumnAccessCodeGenerator columnAccessor) {
-        this.tClass = tClass;
+    IdentityMarshallerCodeGenerator(Class<?> targetClass, ColumnAccessCodeGenerator columnAccessor) {
+        this.targetClass = targetClass;
         this.columnAccessor = columnAccessor;
     }
 
@@ -54,7 +54,7 @@ class IdentityMarshallerCodeGenerator implements MarshallerCodeGenerator {
     /** {@inheritDoc} */
     @Override
     public Class<?> targetClass() {
-        return tClass;
+        return targetClass;
     }
 
     /** {@inheritDoc} */

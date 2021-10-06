@@ -41,7 +41,7 @@ public class NamedThreadFactory implements ThreadFactory {
     private final boolean daemon;
 
     /** Exception handler. */
-    private final Thread.UncaughtExceptionHandler eHnd;
+    private final Thread.UncaughtExceptionHandler exHnd;
 
     /**
      * Constructor
@@ -67,13 +67,13 @@ public class NamedThreadFactory implements ThreadFactory {
      *
      * @param prefix Thread name prefix.
      * @param daemon Daemon flag.
-     * @param eHnd   Uncaught exception handler.
+     * @param exHnd   Uncaught exception handler.
      */
-    public NamedThreadFactory(String prefix, boolean daemon, Thread.UncaughtExceptionHandler eHnd) {
+    public NamedThreadFactory(String prefix, boolean daemon, Thread.UncaughtExceptionHandler exHnd) {
         super();
         this.prefix = prefix;
         this.daemon = daemon;
-        this.eHnd = eHnd != null ? eHnd : DFLT_LOG_UNCAUGHT_EX_HANDLER;
+        this.exHnd = exHnd != null ? exHnd : DFLT_LOG_UNCAUGHT_EX_HANDLER;
     }
 
     /** {@inheritDoc} */
@@ -82,7 +82,7 @@ public class NamedThreadFactory implements ThreadFactory {
         Thread t = new Thread(r);
 
         t.setDaemon(this.daemon);
-        t.setUncaughtExceptionHandler(eHnd);
+        t.setUncaughtExceptionHandler(exHnd);
         t.setName(this.prefix + counter.getAndIncrement());
 
         return t;

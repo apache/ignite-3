@@ -268,14 +268,14 @@ public class PartitionCommandListenerTest {
      * @return Closure iterator.
      */
     private <T extends Command> Iterator<CommandClosure<T>> iterator(BiConsumer<Integer, CommandClosure<T>> func) {
-        return new Iterator<CommandClosure<T>>() {
+        return new Iterator<>() {
             /** Iteration. */
-            private int i = 0;
+            private int it = 0;
 
             /** {@inheritDoc} */
             @Override
             public boolean hasNext() {
-                return i < KEY_COUNT;
+                return it < KEY_COUNT;
             }
 
             /** {@inheritDoc} */
@@ -283,9 +283,9 @@ public class PartitionCommandListenerTest {
             public CommandClosure<T> next() {
                 CommandClosure<T> clo = mock(CommandClosure.class);
 
-                func.accept(i, clo);
+                func.accept(it, clo);
 
-                i++;
+                it++;
 
                 return clo;
             }

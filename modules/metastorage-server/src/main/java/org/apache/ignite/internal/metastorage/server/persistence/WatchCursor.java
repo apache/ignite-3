@@ -49,7 +49,7 @@ class WatchCursor implements Cursor<WatchEvent> {
     private final RocksDBKeyValueStorage storage;
 
     /** Key predicate. */
-    private final Predicate<byte[]> p;
+    private final Predicate<byte[]> predicate;
 
     /** Iterator for this cursor. */
     private final Iterator<WatchEvent> it;
@@ -75,11 +75,11 @@ class WatchCursor implements Cursor<WatchEvent> {
      *
      * @param storage Storage.
      * @param rev     Starting revision.
-     * @param p       Key predicate.
+     * @param predicate       Key predicate.
      */
-    WatchCursor(RocksDBKeyValueStorage storage, long rev, Predicate<byte[]> p) {
+    WatchCursor(RocksDBKeyValueStorage storage, long rev, Predicate<byte[]> predicate) {
         this.storage = storage;
-        this.p = p;
+        this.predicate = predicate;
         this.lastRetRev = rev - 1;
         this.nativeIterator = storage.newDataIterator(options);
         this.it = createIterator();
@@ -152,7 +152,7 @@ class WatchCursor implements Cursor<WatchEvent> {
 
                             byte[] key = rocksKeyToBytes(nativeIterator.key());
 
-                            if (p.test(key)) {
+                            if (predicate.test(key)) {
                                 // Current revision matches.
                                 nextRetRev = curRev;
 
@@ -200,7 +200,7 @@ class WatchCursor implements Cursor<WatchEvent> {
 
                             Value val = bytesToValue(v);
 
-                            if (p.test(key)) {
+                            if (predicate.test(key)) {
                                 Entry newEntry;
 
                                 if (val.tombstone()) {

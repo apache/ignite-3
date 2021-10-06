@@ -497,12 +497,12 @@ public class ExpressionFactoryImpl<Row> implements ExpressionFactory<Row> {
         /**
          *
          */
-        private final Expression hnd_;
+        private final Expression hnd;
 
         /**
          *
          */
-        private final Expression row_;
+        private final Expression row;
 
         /**
          *
@@ -512,18 +512,18 @@ public class ExpressionFactoryImpl<Row> implements ExpressionFactory<Row> {
         /**
          *
          */
-        private FieldGetter(Expression hnd_, Expression row_, RelDataType rowType) {
-            this.hnd_ = hnd_;
-            this.row_ = row_;
+        private FieldGetter(Expression hnd, Expression row, RelDataType rowType) {
+            this.hnd = hnd;
+            this.row = row;
             this.rowType = rowType;
         }
 
         /** {@inheritDoc} */
         @Override
         public Expression field(BlockBuilder list, int index, Type desiredType) {
-            Expression row_ = list.append("row", this.row_);
+            Expression row_ = list.append("row", this.row);
 
-            Expression field = Expressions.call(hnd_,
+            Expression field = Expressions.call(hnd,
                     IgniteMethod.ROW_HANDLER_GET.method(),
                     Expressions.constant(index), row_);
 
@@ -554,12 +554,12 @@ public class ExpressionFactoryImpl<Row> implements ExpressionFactory<Row> {
         /**
          *
          */
-        private final Expression ctx_;
+        private final Expression ctx;
 
         /**
          *
          */
-        private final Expression hnd_;
+        private final Expression hnd;
 
         /**
          *
@@ -569,10 +569,10 @@ public class ExpressionFactoryImpl<Row> implements ExpressionFactory<Row> {
         /**
          *
          */
-        private CorrelatesBuilder(BlockBuilder builder, Expression ctx_, Expression hnd_) {
+        private CorrelatesBuilder(BlockBuilder builder, Expression ctx, Expression hnd) {
             this.builder = builder;
-            this.hnd_ = hnd_;
-            this.ctx_ = ctx_;
+            this.hnd = hnd;
+            this.ctx = ctx;
         }
 
         /**
@@ -594,14 +594,14 @@ public class ExpressionFactoryImpl<Row> implements ExpressionFactory<Row> {
         @Override
         public RexNode visitCorrelVariable(RexCorrelVariable variable) {
             Expression corr_ = builder.append("corr",
-                    Expressions.call(ctx_, IgniteMethod.CONTEXT_GET_CORRELATED_VALUE.method(),
+                    Expressions.call(ctx, IgniteMethod.CONTEXT_GET_CORRELATED_VALUE.method(),
                             Expressions.constant(variable.id.getId())));
 
             if (correlates == null) {
                 correlates = new HashMap<>();
             }
 
-            correlates.put(variable.getName(), new FieldGetter(hnd_, corr_, variable.getType()));
+            correlates.put(variable.getName(), new FieldGetter(hnd, corr_, variable.getType()));
 
             return variable;
         }

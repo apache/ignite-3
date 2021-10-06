@@ -66,7 +66,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     private final ConcurrentHashMap<Long, SqlCursor<List<?>>> openCursors = new ConcurrentHashMap<>();
 
     /** Cursor Id generator. */
-    private final AtomicLong CURSOR_ID_GENERATOR = new AtomicLong();
+    private final AtomicLong cursorIdGenerator = new AtomicLong();
 
     /** Sql query processor. */
     private final QueryProcessor processor;
@@ -301,7 +301,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
      * @return JdbcQuerySingleResult filled with first batch of data.
      */
     private QuerySingleResult createJdbcResult(SqlCursor<List<?>> cur, QueryExecuteRequest req) {
-        long cursorId = CURSOR_ID_GENERATOR.getAndIncrement();
+        long cursorId = cursorIdGenerator.getAndIncrement();
 
         openCursors.put(cursorId, cur);
 

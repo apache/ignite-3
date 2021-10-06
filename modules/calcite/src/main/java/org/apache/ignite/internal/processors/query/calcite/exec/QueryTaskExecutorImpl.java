@@ -40,7 +40,7 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
     /**
      *
      */
-    private Thread.UncaughtExceptionHandler eHnd;
+    private Thread.UncaughtExceptionHandler exHnd;
 
     /**
      * @param stripedThreadPoolExecutor Executor.
@@ -50,10 +50,10 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
     }
 
     /**
-     * @param eHnd Uncaught exception handler.
+     * @param exHnd Uncaught exception handler.
      */
-    public void exceptionHandler(Thread.UncaughtExceptionHandler eHnd) {
-        this.eHnd = eHnd;
+    public void exceptionHandler(Thread.UncaughtExceptionHandler exHnd) {
+        this.exHnd = exHnd;
     }
 
     /** {@inheritDoc} */
@@ -92,8 +92,8 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
     /** {@inheritDoc} */
     @Override
     public void uncaughtException(Thread t, Throwable e) {
-        if (eHnd != null) {
-            eHnd.uncaughtException(t, e);
+        if (exHnd != null) {
+            exHnd.uncaughtException(t, e);
         }
     }
 

@@ -140,19 +140,19 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         /**
          *
          */
-        final TestVisitor v;
+        final TestVisitor visitor;
 
         /**
          *
          */
-        TestRelVisitor(TestVisitor v) {
-            this.v = v;
+        TestRelVisitor(TestVisitor visitor) {
+            this.visitor = visitor;
         }
 
         /** {@inheritDoc} */
         @Override
         public void visit(RelNode node, int ordinal, RelNode parent) {
-            v.visit(node, ordinal, parent);
+            visitor.visit(node, ordinal, parent);
 
             super.visit(node, ordinal, parent);
         }

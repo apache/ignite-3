@@ -773,7 +773,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         /**
          *
          */
-        private final Predicate<byte[]> p;
+        private final Predicate<byte[]> predicate;
 
         /**
          *
@@ -793,8 +793,8 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         /**
          *
          */
-        WatchCursor(long rev, Predicate<byte[]> p) {
-            this.p = p;
+        WatchCursor(long rev, Predicate<byte[]> predicate) {
+            this.predicate = predicate;
             this.lastRetRev = rev - 1;
             this.it = createIterator();
         }
@@ -845,7 +845,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                             }
 
                             for (byte[] key : entries.keySet()) {
-                                if (p.test(key)) {
+                                if (predicate.test(key)) {
                                     nextRetRev = curRev;
 
                                     return true;
@@ -876,7 +876,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
                                     Value val = e.getValue();
 
-                                    if (p.test(key)) {
+                                    if (predicate.test(key)) {
                                         Entry newEntry;
 
                                         if (val.tombstone()) {

@@ -44,7 +44,7 @@ import org.apache.ignite.lang.IgniteInternalException;
  */
 class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
     /** Target class. */
-    private final Class<?> tClass;
+    private final Class<?> targetClass;
 
     /** Mapped columns. */
     private final Columns columns;
@@ -54,16 +54,16 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
 
     ObjectMarshallerCodeGenerator(
             Columns columns,
-            Class<?> tClass,
+            Class<?> targetClass,
             int firstColIdx
     ) {
         this.columns = columns;
-        this.tClass = tClass;
+        this.targetClass = targetClass;
         columnAccessors = new ColumnAccessCodeGenerator[columns.length()];
 
         try {
             for (int i = 0; i < columns.length(); i++) {
-                final Field field = tClass.getDeclaredField(columns.column(i).name());
+                final Field field = targetClass.getDeclaredField(columns.column(i).name());
 
                 columnAccessors[i] = ColumnAccessCodeGenerator.createAccessor(MarshallerUtil.mode(field.getType()), i + firstColIdx);
             }
@@ -81,7 +81,7 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
     /** {@inheritDoc} */
     @Override
     public Class<?> targetClass() {
-        return tClass;
+        return targetClass;
     }
 
     /** {@inheritDoc} */
@@ -160,7 +160,7 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
                 BytecodeExpressions.setStatic(
                         tClassField,
                         BytecodeExpressions.invokeStatic(Class.class, "forName", Class.class,
-                                BytecodeExpressions.constantString(tClass.getName()))
+                                BytecodeExpressions.constantString(targetClass.getName()))
                 ));
 
         if (isSimpleType()) {

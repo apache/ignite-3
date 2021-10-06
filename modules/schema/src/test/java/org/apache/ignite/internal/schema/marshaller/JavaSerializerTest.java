@@ -137,12 +137,12 @@ public class JavaSerializerTest {
     @MethodSource("serializerFactoryProvider")
     public void complexType(SerializerFactory factory) throws SerializationException {
         Column[] cols = new Column[]{
-                new Column("pByteCol", INT8, false),
-                new Column("pShortCol", INT16, false),
-                new Column("pIntCol", INT32, false),
-                new Column("pLongCol", INT64, false),
-                new Column("pFloatCol", FLOAT, false),
-                new Column("pDoubleCol", DOUBLE, false),
+                new Column("primitiveByteCol", INT8, false),
+                new Column("primitiveShortCol", INT16, false),
+                new Column("primitiveIntCol", INT32, false),
+                new Column("primitiveLongCol", INT64, false),
+                new Column("primitiveFloatCol", FLOAT, false),
+                new Column("primitiveDoubleCol", DOUBLE, false),
 
                 new Column("byteCol", INT8, true),
                 new Column("shortCol", INT16, true),
@@ -213,7 +213,7 @@ public class JavaSerializerTest {
     @MethodSource("serializerFactoryProvider")
     public void classWithIncorrectBitmaskSize(SerializerFactory factory) {
         Column[] cols = new Column[]{
-                new Column("pLongCol", INT64, false),
+                new Column("primitiveLongCol", INT64, false),
                 new Column("bitmaskCol", NativeTypes.bitmaskOf(9), true),
         };
 
@@ -238,7 +238,7 @@ public class JavaSerializerTest {
     @MethodSource("serializerFactoryProvider")
     public void classWithPrivateConstructor(SerializerFactory factory) throws SerializationException {
         Column[] cols = new Column[]{
-                new Column("pLongCol", INT64, false),
+                new Column("primitiveLongCol", INT64, false),
         };
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
@@ -267,7 +267,7 @@ public class JavaSerializerTest {
     @MethodSource("serializerFactoryProvider")
     public void classWithNoDefaultConstructor(SerializerFactory factory) {
         Column[] cols = new Column[]{
-                new Column("pLongCol", INT64, false),
+                new Column("primitiveLongCol", INT64, false),
         };
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
@@ -285,7 +285,7 @@ public class JavaSerializerTest {
     @MethodSource("serializerFactoryProvider")
     public void privateClass(SerializerFactory factory) throws SerializationException {
         Column[] cols = new Column[]{
-                new Column("pLongCol", INT64, false),
+                new Column("primitiveLongCol", INT64, false),
         };
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
@@ -455,12 +455,12 @@ public class JavaSerializerTest {
         public static TestObject randomObject(Random rnd) {
             final TestObject obj = new TestObject();
 
-            obj.pByteCol = (byte) rnd.nextInt(255);
-            obj.pShortCol = (short) rnd.nextInt(65535);
-            obj.pIntCol = rnd.nextInt();
-            obj.pLongCol = rnd.nextLong();
-            obj.pFloatCol = rnd.nextFloat();
-            obj.pDoubleCol = rnd.nextDouble();
+            obj.primitiveByteCol = (byte) rnd.nextInt(255);
+            obj.primitiveShortCol = (short) rnd.nextInt(65535);
+            obj.primitiveIntCol = rnd.nextInt();
+            obj.primitiveLongCol = rnd.nextLong();
+            obj.primitiveFloatCol = rnd.nextFloat();
+            obj.primitiveDoubleCol = rnd.nextDouble();
 
             obj.byteCol = (byte) rnd.nextInt(255);
             obj.shortCol = (short) rnd.nextInt(65535);
@@ -482,17 +482,17 @@ public class JavaSerializerTest {
         }
 
         // Primitive typed
-        private byte pByteCol;
+        private byte primitiveByteCol;
 
-        private short pShortCol;
+        private short primitiveShortCol;
 
-        private int pIntCol;
+        private int primitiveIntCol;
 
-        private long pLongCol;
+        private long primitiveLongCol;
 
-        private float pFloatCol;
+        private float primitiveFloatCol;
 
-        private double pDoubleCol;
+        private double primitiveDoubleCol;
 
         // Reference typed
         private Byte byteCol;
@@ -536,12 +536,12 @@ public class JavaSerializerTest {
 
             TestObject object = (TestObject) o;
 
-            return pByteCol == object.pByteCol
-                    && pShortCol == object.pShortCol
-                    && pIntCol == object.pIntCol
-                    && pLongCol == object.pLongCol
-                    && Float.compare(object.pFloatCol, pFloatCol) == 0
-                    && Double.compare(object.pDoubleCol, pDoubleCol) == 0
+            return primitiveByteCol == object.primitiveByteCol
+                    && primitiveShortCol == object.primitiveShortCol
+                    && primitiveIntCol == object.primitiveIntCol
+                    && primitiveLongCol == object.primitiveLongCol
+                    && Float.compare(object.primitiveFloatCol, primitiveFloatCol) == 0
+                    && Double.compare(object.primitiveDoubleCol, primitiveDoubleCol) == 0
                     && Objects.equals(byteCol, object.byteCol)
                     && Objects.equals(shortCol, object.shortCol)
                     && Objects.equals(intCol, object.intCol)
@@ -575,13 +575,13 @@ public class JavaSerializerTest {
         static TestObjectWithPrivateConstructor randomObject(Random rnd) {
             final TestObjectWithPrivateConstructor obj = new TestObjectWithPrivateConstructor();
 
-            obj.pLongCol = rnd.nextLong();
+            obj.primitiveLongCol = rnd.nextLong();
 
             return obj;
         }
 
         /** Value. */
-        private long pLongCol;
+        private long primitiveLongCol;
 
         /**
          * Private constructor.
@@ -602,13 +602,13 @@ public class JavaSerializerTest {
 
             TestObjectWithPrivateConstructor object = (TestObjectWithPrivateConstructor) o;
 
-            return pLongCol == object.pLongCol;
+            return primitiveLongCol == object.primitiveLongCol;
         }
 
         /** {@inheritDoc} */
         @Override
         public int hashCode() {
-            return Objects.hash(pLongCol);
+            return Objects.hash(primitiveLongCol);
         }
     }
 
@@ -624,13 +624,13 @@ public class JavaSerializerTest {
         }
 
         /** Value. */
-        private final long pLongCol;
+        private final long primitiveLongCol;
 
         /**
          * Private constructor.
          */
         public WrongTestObject(long val) {
-            pLongCol = val;
+            primitiveLongCol = val;
         }
 
         /** {@inheritDoc} */
@@ -646,13 +646,13 @@ public class JavaSerializerTest {
 
             WrongTestObject object = (WrongTestObject) o;
 
-            return pLongCol == object.pLongCol;
+            return primitiveLongCol == object.primitiveLongCol;
         }
 
         /** {@inheritDoc} */
         @Override
         public int hashCode() {
-            return Objects.hash(pLongCol);
+            return Objects.hash(primitiveLongCol);
         }
     }
 
@@ -669,7 +669,7 @@ public class JavaSerializerTest {
         }
 
         /** Value. */
-        private long pLongCol;
+        private long primitiveLongCol;
 
         /** Constructor. */
         PrivateTestObject() {
@@ -679,7 +679,7 @@ public class JavaSerializerTest {
          * Private constructor.
          */
         PrivateTestObject(long val) {
-            pLongCol = val;
+            primitiveLongCol = val;
         }
 
         /** {@inheritDoc} */
@@ -695,13 +695,13 @@ public class JavaSerializerTest {
 
             WrongTestObject object = (WrongTestObject) o;
 
-            return pLongCol == object.pLongCol;
+            return primitiveLongCol == object.primitiveLongCol;
         }
 
         /** {@inheritDoc} */
         @Override
         public int hashCode() {
-            return Objects.hash(pLongCol);
+            return Objects.hash(primitiveLongCol);
         }
     }
 }

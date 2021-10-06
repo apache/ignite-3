@@ -484,21 +484,21 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
     @Test
     public void testHierarchy() {
         Wrapper w = new Wrapper();
-        Parent p = w.p;
+        Parent p = w.parent;
         String hash = identity(p);
 
-        assertEquals("Wrapper [p=Child [b=0, pb=Parent[] [null], super=Parent [a=0, pa=Parent[] [null]]]]",
+        assertEquals("Wrapper [parent=Child [bi=0, pb=Parent[] [null], super=Parent [ai=0, pa=Parent[] [null]]]]",
                 w.toString());
 
         p.pa[0] = p;
 
-        assertEquals("Wrapper [p=Child" + hash + " [b=0, pb=Parent[] [null],"
-                + " super=Parent [a=0, pa=Parent[] [Child" + hash + "]]]]", w.toString());
+        assertEquals("Wrapper [parent=Child" + hash + " [bi=0, pb=Parent[] [null],"
+                + " super=Parent [ai=0, pa=Parent[] [Child" + hash + "]]]]", w.toString());
 
         ((Child) p).pb[0] = p;
 
-        assertEquals("Wrapper [p=Child" + hash + " [b=0, pb=Parent[] [Child" + hash
-                + "], super=Parent [a=0, pa=Parent[] [Child" + hash + "]]]]", w.toString());
+        assertEquals("Wrapper [parent=Child" + hash + " [bi=0, pb=Parent[] [Child" + hash
+                + "], super=Parent [ai=0, pa=Parent[] [Child" + hash + "]]]]", w.toString());
     }
 
     /**
@@ -957,7 +957,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         /**
          *
          */
-        private int a;
+        private int ai;
 
         /**
          *
@@ -980,7 +980,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         /**
          *
          */
-        private int b;
+        private int bi;
 
         /**
          *
@@ -1003,7 +1003,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
          *
          */
         @IgniteToStringInclude
-        Parent p = new Child();
+        Parent parent = new Child();
 
         /** {@inheritDoc} */
         @Override

@@ -121,7 +121,7 @@ public final class CollectionUtils {
         } else {
             return () -> new Iterator<T>() {
                 /** Current index at {@code iterables}. */
-                int i = 0;
+                int idx = 0;
 
                 /** Current iterator. */
                 Iterator<? extends T> curr = emptyIterator();
@@ -129,8 +129,8 @@ public final class CollectionUtils {
                 /** {@inheritDoc} */
                 @Override
                 public boolean hasNext() {
-                    while (!curr.hasNext() && i < iterables.length) {
-                        curr = iterables[i++].iterator();
+                    while (!curr.hasNext() && idx < iterables.length) {
+                        curr = iterables[idx++].iterator();
                     }
 
                     return curr.hasNext();

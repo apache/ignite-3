@@ -130,13 +130,13 @@ public class ConfigurationUtil {
 
         var visitor = new ConfigurationVisitor<T>() {
             /** Current index of the key in the {@code keys}. */
-            private int i;
+            private int idx;
 
             /** {@inheritDoc} */
             @Override
             public T visitLeafNode(String key, Serializable val) {
-                if (i != keys.size()) {
-                    throw new KeyNotFoundException("Configuration value '" + join(keys.subList(0, i)) + "' is a leaf");
+                if (idx != keys.size()) {
+                    throw new KeyNotFoundException("Configuration value '" + join(keys.subList(0, idx)) + "' is a leaf");
                 } else {
                     return (T) val;
                 }
@@ -145,16 +145,16 @@ public class ConfigurationUtil {
             /** {@inheritDoc} */
             @Override
             public T visitInnerNode(String key, InnerNode node) {
-                if (i == keys.size()) {
+                if (idx == keys.size()) {
                     return (T) node;
                 } else if (node == null) {
-                    throw new KeyNotFoundException("Configuration node '" + join(keys.subList(0, i)) + "' is null");
+                    throw new KeyNotFoundException("Configuration node '" + join(keys.subList(0, idx)) + "' is null");
                 } else {
                     try {
-                        return node.traverseChild(keys.get(i++), this, includeInternal);
+                        return node.traverseChild(keys.get(idx++), this, includeInternal);
                     } catch (NoSuchElementException e) {
                         throw new KeyNotFoundException(
-                                "Configuration value '" + join(keys.subList(0, i)) + "' has not been found"
+                                "Configuration value '" + join(keys.subList(0, idx)) + "' has not been found"
                         );
                     }
                 }
@@ -163,10 +163,10 @@ public class ConfigurationUtil {
             /** {@inheritDoc} */
             @Override
             public T visitNamedListNode(String key, NamedListNode<?> node) {
-                if (i == keys.size()) {
+                if (idx == keys.size()) {
                     return (T) node;
                 } else {
-                    String name = keys.get(i++);
+                    String name = keys.get(idx++);
 
                     return visitInnerNode(name, node.get(name));
                 }

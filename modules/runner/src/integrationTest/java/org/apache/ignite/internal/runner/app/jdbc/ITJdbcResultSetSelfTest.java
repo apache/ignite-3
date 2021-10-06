@@ -1056,20 +1056,20 @@ public class ITJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
         /**
          *
          */
-        final int a;
+        final int ai;
 
         /**
          *
          */
-        final String b;
+        final String bi;
 
         /**
-         * @param a A.
-         * @param b B.
+         * @param ai A.
+         * @param bi B.
          */
-        private TestObjectField(int a, String b) {
-            this.a = a;
-            this.b = b;
+        private TestObjectField(int ai, String bi) {
+            this.ai = ai;
+            this.bi = bi;
         }
 
         /** {@inheritDoc} */
@@ -1084,15 +1084,15 @@ public class ITJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
 
             TestObjectField that = (TestObjectField) o;
 
-            return a == that.a && !(b != null ? !b.equals(that.b) : that.b != null);
+            return ai == that.ai && !(bi != null ? !bi.equals(that.bi) : that.bi != null);
         }
 
         /** {@inheritDoc} */
         @Override
         public int hashCode() {
-            int res = a;
+            int res = ai;
 
-            res = 31 * res + (b != null ? b.hashCode() : 0);
+            res = 31 * res + (bi != null ? bi.hashCode() : 0);
 
             return res;
         }

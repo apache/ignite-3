@@ -68,7 +68,7 @@ public class RestModule implements IgniteComponent {
     private static final String PATH_PARAM = "selector";
 
     /** Ignite logger. */
-    private final IgniteLogger LOG = IgniteLogger.forClass(RestModule.class);
+    private final IgniteLogger log = IgniteLogger.forClass(RestModule.class);
 
     /** Node configuration register. */
     private final ConfigurationRegistry nodeCfgRegistry;
@@ -181,7 +181,7 @@ public class RestModule implements IgniteComponent {
                         parentGrp.shutdownGracefully();
                         childGrp.shutdownGracefully();
 
-                        LOG.error("REST component was stopped", fut.cause());
+                        log.error("REST component was stopped", fut.cause());
                     }
                 });
 
@@ -199,7 +199,7 @@ public class RestModule implements IgniteComponent {
             String msg = "Cannot start REST endpoint. "
                     + "All ports in range [" + desiredPort + ", " + (desiredPort + portRange) + "] are in use.";
 
-            LOG.error(msg);
+            log.error(msg);
 
             parentGrp.shutdownGracefully();
             childGrp.shutdownGracefully();
@@ -207,8 +207,8 @@ public class RestModule implements IgniteComponent {
             throw new RuntimeException(msg);
         }
 
-        if (LOG.isInfoEnabled()) {
-            LOG.info("REST protocol started successfully on port " + port);
+        if (log.isInfoEnabled()) {
+            log.info("REST protocol started successfully on port " + port);
         }
 
         return ch.closeFuture();

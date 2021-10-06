@@ -547,16 +547,16 @@ public class IgniteIntList implements Externalizable {
      */
     public IgniteIntIterator iterator() {
         return new IgniteIntIterator() {
-            int c = 0;
+            int cur = 0;
 
             @Override
             public boolean hasNext() {
-                return c < idx;
+                return cur < idx;
             }
 
             @Override
             public int next() {
-                return arr[c++];
+                return arr[cur++];
             }
         };
     }
