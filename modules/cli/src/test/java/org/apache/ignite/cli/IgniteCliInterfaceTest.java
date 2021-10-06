@@ -18,10 +18,13 @@
 package org.apache.ignite.cli;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
@@ -315,6 +318,15 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             var node =
                 new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
+
+
+            File logProps = null;
+
+                InputStream rsrc = getClass().getClassLoader().getResourceAsStream("/java.util.logging.properties");
+
+                if (rsrc != null)
+                    logProps = new File(rsrc.toString());
+
 
             when(nodeMgr.start(any(), any(), any(), any(), any()))
                 .thenReturn(node);
