@@ -76,7 +76,7 @@ public class ClusterServiceTestUtils {
 
         var clusterSvc = clusterSvcFactory.createClusterService(
             ctx,
-            nodeConfigurationMgr
+            nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY)
         );
 
         assert nodeFinder instanceof StaticNodeFinder : "Only StaticNodeFinder is supported at the moment";

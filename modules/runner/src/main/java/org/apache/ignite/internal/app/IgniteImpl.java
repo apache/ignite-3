@@ -162,7 +162,7 @@ public class IgniteImpl implements Ignite {
                 name,
                 new MessageSerializationRegistryImpl()
             ),
-            nodeCfgMgr
+            nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY)
         );
 
         raftMgr = new Loza(clusterSvc, workDir);

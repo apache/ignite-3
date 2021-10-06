@@ -35,7 +35,6 @@ import io.scalecube.net.Address;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkView;
 import org.apache.ignite.configuration.schemas.network.ScaleCubeView;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
@@ -57,7 +56,7 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
     /** {@inheritDoc} */
     @Override public ClusterService createClusterService(
         ClusterLocalConfiguration context,
-        ConfigurationManager nodeConfiguration
+        NetworkConfiguration networkConfiguration
     ) {
         String consistentId = context.getName();
 
@@ -78,9 +77,6 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
 
             /** {@inheritDoc} */
             @Override public void start() {
-                NetworkConfiguration networkConfiguration = nodeConfiguration.configurationRegistry()
-                    .getConfiguration(NetworkConfiguration.KEY);
-
                 NetworkView networkConfigurationView = networkConfiguration.value();
 
                 this.connectionMgr = new ConnectionManager(
