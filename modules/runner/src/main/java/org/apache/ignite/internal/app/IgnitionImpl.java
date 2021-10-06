@@ -24,8 +24,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.app.Ignite;
-import org.apache.ignite.app.Ignition;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.Ignition;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.LoggerMessageHelper;
@@ -138,7 +138,14 @@ public class IgnitionImpl implements Ignition {
 
         ackBanner();
 
-        nodeToStart.start(cfgContent);
+        try {
+            nodeToStart.start(cfgContent);
+        }
+        catch (Exception e) {
+            nodes.remove(nodeName);
+
+            throw new IgniteException(e);
+        }
 
         ackSuccessStart();
 

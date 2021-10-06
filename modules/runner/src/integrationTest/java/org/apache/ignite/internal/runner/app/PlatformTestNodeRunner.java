@@ -25,8 +25,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.apache.ignite.app.Ignite;
-import org.apache.ignite.app.IgnitionManager;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -47,6 +47,9 @@ public class PlatformTestNodeRunner {
 
     /** */
     private static final String TABLE_NAME = "tbl1";
+
+    /** Time to keep the node alive. */
+    private static final int RUN_TIME_MINUTES = 30;
 
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {{
@@ -70,6 +73,18 @@ public class PlatformTestNodeRunner {
      * @param args Args.
      */
     public static void main(String[] args) throws Exception {
+        System.out.println("Starting test node runner...");
+
+        for (int i = 0; i < args.length; i++) {
+            System.out.println("Arg " + i + ": " + args[i]);
+        }
+
+        if (args.length > 0 && "dry-run".equals(args[0]))
+        {
+            System.out.println("Dry run succeeded.");
+            return;
+        }
+
         IgniteUtils.deleteIfExists(BASE_PATH);
         Files.createDirectories(BASE_PATH);
 
@@ -99,7 +114,9 @@ public class PlatformTestNodeRunner {
 
         System.out.println("THIN_CLIENT_PORTS=" + ports);
 
-        Thread.sleep(Long.MAX_VALUE);
+        Thread.sleep(RUN_TIME_MINUTES * 60_000);
+
+        System.out.println("Exiting after " + RUN_TIME_MINUTES + " minutes.");
     }
 
     /**
