@@ -17,6 +17,8 @@
 
 package org.apache.ignite.example.client;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.IgniteClient;
@@ -26,9 +28,6 @@ import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 /**
  * This example demonstrates the usage of the {@link Table} API of Java client.

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.example.client;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.IgniteClient;
@@ -24,11 +26,7 @@ import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConver
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 /**
  * This example demonstrates the usage of the {@link KeyValueView} API of Java client.
@@ -82,7 +80,7 @@ public class ClientKeyValueBinaryViewExample {
                     .changePartitions(10)
             );
 
-            try(IgniteClient client = IgniteClient.builder()
+            try (IgniteClient client = IgniteClient.builder()
                     .addresses("127.0.0.1:10800")
                     .build()
             ) {

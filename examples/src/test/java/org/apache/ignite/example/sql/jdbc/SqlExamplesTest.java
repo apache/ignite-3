@@ -17,13 +17,12 @@
 
 package org.apache.ignite.example.sql.jdbc;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 /**
  * These tests check that all SQL JDBC examples pass correctly.
