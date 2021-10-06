@@ -49,7 +49,7 @@ public class ClientTableExample {
     public static void main(String[] args) throws Exception {
         Ignite ignite = IgnitionManager.start(
             "node-0",
-            Files.readString(Path.of("examples","config", "ignite-config.json")),
+            Files.readString(Path.of("config", "ignite-config.json")),
             Path.of("work")
         );
 
