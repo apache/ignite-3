@@ -161,11 +161,11 @@ public abstract class GridUnsafe {
 
                 try {
                     directBufCtor = createAndTestNewDirectBufferCtor();
-                } catch (Exception eFallback) {
+                } catch (Exception exFallback) {
                     //noinspection CallToPrintStackTrace
-                    eFallback.printStackTrace();
+                    exFallback.printStackTrace();
 
-                    e.addSuppressed(eFallback);
+                    e.addSuppressed(exFallback);
 
                     throw e; // Fallback was not successful.
                 }
@@ -181,11 +181,11 @@ public abstract class GridUnsafe {
                 try {
                     nioAccessObj = javaNioAccessObject();
                     directBufMtd = newDirectBufferMethodHandle(nioAccessObj);
-                } catch (Exception eFallback) {
+                } catch (Exception exFallback) {
                     //noinspection CallToPrintStackTrace
-                    eFallback.printStackTrace();
+                    exFallback.printStackTrace();
 
-                    e.addSuppressed(eFallback);
+                    e.addSuppressed(exFallback);
 
                     throw e; // Fallback to shared secrets failed.
                 }
