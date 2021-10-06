@@ -25,7 +25,6 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.raft.jraft.disruptor.GroupAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
-import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -35,9 +34,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for striped disruptor.
  */
 public class StripedDisruptorTest extends IgniteAbstractTest {
-    /** Default RAFT options. */
-    private static final RaftOptions options = new RaftOptions();
-
     /**
      * Checks the correctness of disruptor batching in a handler.
      * This test creates only one stripe in order to the real Disruptor is shared between two groups.
