@@ -28,7 +28,6 @@ import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -47,9 +46,6 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
      */
     @Test
     public void testDisruptorBatch() throws Exception {
-        //TODO: IGNITE-15568 This asserts should be deleted after the issue would be fixed.
-        assertEquals(options.getApplyBatch(), 1);
-
         StripedDisruptor<GroupAwareTestObj> disruptor = new StripedDisruptor<>("test-disruptor",
             16384,
             GroupAwareTestObj::new,
@@ -129,10 +125,10 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
         int applied = 0;
 
         /** {@inheritDoc} */
-        @Override public void onEvent(GroupAwareTestObj event, long sequence, boolean endOfBatch) throws Exception {
+        @Override public void onEvent(GroupAwareTestObj event, long sequence, boolean endOfBatch) {
             batch.add(event.num);
 
-            if (endOfBatch || batch.size() >= options.getApplyBatch()) {
+            if (endOfBatch) {
                 applied += batch.size();
 
                 batch.clear();
