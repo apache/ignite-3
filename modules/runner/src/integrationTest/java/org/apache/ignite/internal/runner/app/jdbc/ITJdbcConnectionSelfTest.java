@@ -244,11 +244,9 @@ public class ITJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     @Disabled
     public void testCreateStatement2() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
-            int[] rsTypes = new int[]
-                    {TYPE_FORWARD_ONLY, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.TYPE_SCROLL_SENSITIVE};
+            int[] rsTypes = new int[]{TYPE_FORWARD_ONLY, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.TYPE_SCROLL_SENSITIVE};
 
-            int[] rsConcurs = new int[]
-                    {CONCUR_READ_ONLY, ResultSet.CONCUR_UPDATABLE};
+            int[] rsConcurs = new int[]{ CONCUR_READ_ONLY, ResultSet.CONCUR_UPDATABLE };
 
             DatabaseMetaData meta = conn.getMetaData();
 
@@ -288,14 +286,11 @@ public class ITJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     @Disabled
     public void testCreateStatement3() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
-            int[] rsTypes = new int[]
-                    {TYPE_FORWARD_ONLY, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.TYPE_SCROLL_SENSITIVE};
+            int[] rsTypes = new int[]{ TYPE_FORWARD_ONLY, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.TYPE_SCROLL_SENSITIVE };
 
-            int[] rsConcurs = new int[]
-                    {CONCUR_READ_ONLY, ResultSet.CONCUR_UPDATABLE};
+            int[] rsConcurs = new int[]{ CONCUR_READ_ONLY, ResultSet.CONCUR_UPDATABLE };
 
-            int[] rsHoldabilities = new int[]
-                    {HOLD_CURSORS_OVER_COMMIT, CLOSE_CURSORS_AT_COMMIT};
+            int[] rsHoldabilities = new int[]{ HOLD_CURSORS_OVER_COMMIT, CLOSE_CURSORS_AT_COMMIT };
 
             DatabaseMetaData meta = conn.getMetaData();
 
@@ -366,11 +361,9 @@ public class ITJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         try (Connection conn = DriverManager.getConnection(URL)) {
             final String sqlText = "select * from test where param = ?";
 
-            int[] rsTypes = new int[]
-                    {TYPE_FORWARD_ONLY, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.TYPE_SCROLL_SENSITIVE};
+            int[] rsTypes = new int[]{ TYPE_FORWARD_ONLY, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.TYPE_SCROLL_SENSITIVE };
 
-            int[] rsConcurs = new int[]
-                    {CONCUR_READ_ONLY, ResultSet.CONCUR_UPDATABLE};
+            int[] rsConcurs = new int[]{ CONCUR_READ_ONLY, ResultSet.CONCUR_UPDATABLE };
 
             DatabaseMetaData meta = conn.getMetaData();
 
@@ -417,14 +410,11 @@ public class ITJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         try (Connection conn = DriverManager.getConnection(URL)) {
             final String sqlText = "select * from test where param = ?";
 
-            int[] rsTypes = new int[]
-                    {TYPE_FORWARD_ONLY, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.TYPE_SCROLL_SENSITIVE};
+            int[] rsTypes = new int[]{ TYPE_FORWARD_ONLY, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.TYPE_SCROLL_SENSITIVE };
 
-            int[] rsConcurs = new int[]
-                    {CONCUR_READ_ONLY, ResultSet.CONCUR_UPDATABLE};
+            int[] rsConcurs = new int[]{ CONCUR_READ_ONLY, ResultSet.CONCUR_UPDATABLE };
 
-            int[] rsHoldabilities = new int[]
-                    {HOLD_CURSORS_OVER_COMMIT, CLOSE_CURSORS_AT_COMMIT};
+            int[] rsHoldabilities = new int[]{ HOLD_CURSORS_OVER_COMMIT, CLOSE_CURSORS_AT_COMMIT };
 
             DatabaseMetaData meta = conn.getMetaData();
 
@@ -753,9 +743,8 @@ public class ITJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
             // default level
             assertEquals(TRANSACTION_NONE, conn.getTransactionIsolation());
 
-            int[] levels = {
-                    TRANSACTION_READ_UNCOMMITTED, TRANSACTION_READ_COMMITTED,
-                    TRANSACTION_REPEATABLE_READ, TRANSACTION_SERIALIZABLE};
+            int[] levels = { TRANSACTION_READ_UNCOMMITTED, TRANSACTION_READ_COMMITTED,
+                    TRANSACTION_REPEATABLE_READ, TRANSACTION_SERIALIZABLE };
 
             for (int level : levels) {
                 conn.setTransactionIsolation(level);

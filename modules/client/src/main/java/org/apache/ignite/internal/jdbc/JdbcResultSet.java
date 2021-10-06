@@ -543,6 +543,50 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    public BigDecimal getBigDecimal(int colIdx) throws SQLException {
+        Object val = getValue(colIdx);
+
+        if (val == null) {
+            return null;
+        }
+
+        Class<?> cls = val.getClass();
+
+        if (cls == BigDecimal.class) {
+            return (BigDecimal) val;
+        } else if (val instanceof Number) {
+            return new BigDecimal(((Number) val).doubleValue());
+        } else if (cls == Boolean.class) {
+            return new BigDecimal((Boolean) val ? 1 : 0);
+        } else if (cls == String.class || cls == Character.class) {
+            try {
+                return (BigDecimal) decimalFormat.get().parse(val.toString());
+            } catch (ParseException e) {
+                throw new SQLException("Cannot convert to BigDecimal: " + val, SqlStateCode.CONVERSION_FAILED, e);
+            }
+        } else {
+            throw new SQLException("Cannot convert to BigDecimal: " + val, SqlStateCode.CONVERSION_FAILED);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal getBigDecimal(String colLb, int scale) throws SQLException {
+        int colIdx = findColumn(colLb);
+
+        return getBigDecimal(colIdx, scale);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal getBigDecimal(String colLb) throws SQLException {
+        int colIdx = findColumn(colLb);
+
+        return getBigDecimal(colIdx);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public byte[] getBytes(int colIdx) throws SQLException {
         Object val = getValue(colIdx);
 
@@ -585,6 +629,14 @@ public class JdbcResultSet implements ResultSet {
         } else {
             throw new SQLException("Cannot convert to byte[]: " + val, SqlStateCode.CONVERSION_FAILED);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] getBytes(String colLb) throws SQLException {
+        int colIdx = findColumn(colLb);
+
+        return getBytes(colIdx);
     }
 
     /** {@inheritDoc} */
@@ -681,6 +733,14 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    public InputStream getAsciiStream(String colLb) throws SQLException {
+        ensureNotClosed();
+
+        throw new SQLFeatureNotSupportedException("Streams are not supported.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public InputStream getUnicodeStream(int colIdx) throws SQLException {
         ensureNotClosed();
 
@@ -706,22 +766,6 @@ public class JdbcResultSet implements ResultSet {
     /** {@inheritDoc} */
     @Override
     public InputStream getBinaryStream(String colLb) throws SQLException {
-        ensureNotClosed();
-
-        throw new SQLFeatureNotSupportedException("Streams are not supported.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public byte[] getBytes(String colLb) throws SQLException {
-        int colIdx = findColumn(colLb);
-
-        return getBytes(colIdx);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public InputStream getAsciiStream(String colLb) throws SQLException {
         ensureNotClosed();
 
         throw new SQLFeatureNotSupportedException("Streams are not supported.");
@@ -793,50 +837,6 @@ public class JdbcResultSet implements ResultSet {
         ensureNotClosed();
 
         throw new SQLFeatureNotSupportedException("Streams are not supported.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BigDecimal getBigDecimal(int colIdx) throws SQLException {
-        Object val = getValue(colIdx);
-
-        if (val == null) {
-            return null;
-        }
-
-        Class<?> cls = val.getClass();
-
-        if (cls == BigDecimal.class) {
-            return (BigDecimal) val;
-        } else if (val instanceof Number) {
-            return new BigDecimal(((Number) val).doubleValue());
-        } else if (cls == Boolean.class) {
-            return new BigDecimal((Boolean) val ? 1 : 0);
-        } else if (cls == String.class || cls == Character.class) {
-            try {
-                return (BigDecimal) decimalFormat.get().parse(val.toString());
-            } catch (ParseException e) {
-                throw new SQLException("Cannot convert to BigDecimal: " + val, SqlStateCode.CONVERSION_FAILED, e);
-            }
-        } else {
-            throw new SQLException("Cannot convert to BigDecimal: " + val, SqlStateCode.CONVERSION_FAILED);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BigDecimal getBigDecimal(String colLb, int scale) throws SQLException {
-        int colIdx = findColumn(colLb);
-
-        return getBigDecimal(colIdx, scale);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BigDecimal getBigDecimal(String colLb) throws SQLException {
-        int colIdx = findColumn(colLb);
-
-        return getBigDecimal(colIdx);
     }
 
     /** {@inheritDoc} */
@@ -1023,7 +1023,23 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    public void updateNull(String colLb) throws SQLException {
+        ensureNotClosed();
+
+        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void updateBoolean(int colIdx, boolean x) throws SQLException {
+        ensureNotClosed();
+
+        throw new SQLFeatureNotSupportedException("Updates are not supported.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void updateBoolean(String colLb, boolean x) throws SQLException {
         ensureNotClosed();
 
         throw new SQLFeatureNotSupportedException("Updates are not supported.");
@@ -1160,22 +1176,6 @@ public class JdbcResultSet implements ResultSet {
     /** {@inheritDoc} */
     @Override
     public void updateObject(int colIdx, Object x) throws SQLException {
-        ensureNotClosed();
-
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void updateNull(String colLb) throws SQLException {
-        ensureNotClosed();
-
-        throw new SQLFeatureNotSupportedException("Updates are not supported.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void updateBoolean(String colLb, boolean x) throws SQLException {
         ensureNotClosed();
 
         throw new SQLFeatureNotSupportedException("Updates are not supported.");

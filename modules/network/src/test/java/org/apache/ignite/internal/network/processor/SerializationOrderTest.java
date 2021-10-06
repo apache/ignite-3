@@ -52,13 +52,11 @@ public class SerializationOrderTest {
      */
     @Test
     void testSerializationOrder() {
-        SerializationOrderMessage msg = messageFactory.serializationOrderMessage()
-                .a(1).b("2").c(3).d("4")
-                .build();
+        final SerializationOrderMessage msg = messageFactory.serializationOrderMessage().a(1).b("2").c(3).d("4").build();
 
-        MessageSerializer<SerializationOrderMessage> serializer = serializationFactory.createSerializer();
+        final MessageSerializer<SerializationOrderMessage> serializer = serializationFactory.createSerializer();
 
-        var mockWriter = mock(MessageWriter.class);
+        final var mockWriter = mock(MessageWriter.class);
 
         when(mockWriter.isHeaderWritten()).thenReturn(true);
         when(mockWriter.writeInt(anyString(), anyInt())).thenReturn(true);
@@ -79,9 +77,9 @@ public class SerializationOrderTest {
      */
     @Test
     void testDeserializationOrder() {
-        MessageDeserializer<SerializationOrderMessage> deserializer = serializationFactory.createDeserializer();
+        final MessageDeserializer<SerializationOrderMessage> deserializer = serializationFactory.createDeserializer();
 
-        var mockReader = mock(MessageReader.class);
+        final var mockReader = mock(MessageReader.class);
 
         when(mockReader.beforeMessageRead()).thenReturn(true);
         when(mockReader.isLastRead()).thenReturn(true);

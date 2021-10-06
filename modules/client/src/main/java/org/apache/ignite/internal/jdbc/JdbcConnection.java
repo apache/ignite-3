@@ -241,6 +241,22 @@ public class JdbcConnection implements Connection {
 
     /** {@inheritDoc} */
     @Override
+    public PreparedStatement prepareStatement(String sql, int[] colIndexes) throws SQLException {
+        ensureNotClosed();
+
+        throw new SQLFeatureNotSupportedException("Auto generated keys are not supported.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public PreparedStatement prepareStatement(String sql, String[] colNames) throws SQLException {
+        ensureNotClosed();
+
+        throw new SQLFeatureNotSupportedException("Auto generated keys are not supported.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public String nativeSQL(String sql) throws SQLException {
         ensureNotClosed();
 
@@ -536,22 +552,6 @@ public class JdbcConnection implements Connection {
         ensureNotClosed();
 
         throw new SQLFeatureNotSupportedException("Callable functions are not supported.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public PreparedStatement prepareStatement(String sql, int[] colIndexes) throws SQLException {
-        ensureNotClosed();
-
-        throw new SQLFeatureNotSupportedException("Auto generated keys are not supported.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public PreparedStatement prepareStatement(String sql, String[] colNames) throws SQLException {
-        ensureNotClosed();
-
-        throw new SQLFeatureNotSupportedException("Auto generated keys are not supported.");
     }
 
     /** {@inheritDoc} */

@@ -675,6 +675,9 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
             case TIMESTAMP:
                 return unpackTimestamp();
+
+            default:
+                break;
         }
 
         throw new IgniteException("Unknown client data type: " + dataType);

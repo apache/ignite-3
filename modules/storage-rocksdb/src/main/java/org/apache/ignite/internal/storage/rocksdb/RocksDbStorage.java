@@ -360,6 +360,9 @@ public class RocksDbStorage implements Storage {
 
                 case NOOP:
                     break;
+
+                default:
+                    break;
             }
 
             return clo.result();

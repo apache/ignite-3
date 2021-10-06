@@ -405,7 +405,7 @@ public class Outbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Sing
          *
          */
         public void close() {
-            int currBatchId = hwm;
+            final int currBatchId = hwm;
 
             if (hwm == Integer.MAX_VALUE) {
                 return;

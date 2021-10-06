@@ -88,7 +88,7 @@ public class WatchAggregatorTest {
         when(lsnr1.onUpdate(any())).thenReturn(true);
         var lsnr2 = mock(WatchListener.class);
         when(lsnr2.onUpdate(any())).thenReturn(true);
-        var id1 = watchAggregator.add(new ByteArray("1"), lsnr1);
+        final var id1 = watchAggregator.add(new ByteArray("1"), lsnr1);
         var id2 = watchAggregator.add(new ByteArray("2"), lsnr2);
 
         var entryEvt1 = new EntryEvent(

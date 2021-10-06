@@ -938,6 +938,17 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Gets char value from given address assuming that value stored in little-endian byte order and native byte order is big-endian.
+     * Alignment aware.
+     *
+     * @param addr Address.
+     * @return Char value from given address.
+     */
+    public static char getCharLE(long addr) {
+        return UNALIGNED ? Character.reverseBytes(UNSAFE.getChar(addr)) : getCharByByte(addr, false);
+    }
+
+    /**
      * Stores char value into byte array assuming that value should be stored in little-endian byte order and native byte order is
      * big-endian. Alignment aware.
      *
@@ -966,17 +977,6 @@ public abstract class GridUnsafe {
         } else {
             putCharByByte(addr, val, false);
         }
-    }
-
-    /**
-     * Gets char value from given address assuming that value stored in little-endian byte order and native byte order is big-endian.
-     * Alignment aware.
-     *
-     * @param addr Address.
-     * @return Char value from given address.
-     */
-    public static char getCharLE(long addr) {
-        return UNALIGNED ? Character.reverseBytes(UNSAFE.getChar(addr)) : getCharByByte(addr, false);
     }
 
     /**

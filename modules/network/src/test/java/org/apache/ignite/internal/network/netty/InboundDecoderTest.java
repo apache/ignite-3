@@ -158,9 +158,9 @@ public class InboundDecoderTest {
 
         Mockito.doReturn(channel).when(ctx).channel();
 
-        var decoder = new InboundDecoder(registry);
+        final var decoder = new InboundDecoder(registry);
 
-        var list = new ArrayList<>();
+        final var list = new ArrayList<>();
 
         var writer = new DirectMessageWriter(registry, ConnectionManager.DIRECT_PROTOCOL_VERSION);
 

@@ -493,8 +493,8 @@ public class ITJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
                 conn.setSchema("\"pers\"");
 
                 PreparedStatement updateStmt = conn.prepareStatement(
-                        "update Person p set orgId = 42 where p.name > ? and p.orgId > ?;" +
-                                "select orgId from Person p where p.name > ? and p.orgId > ?");
+                        "update Person p set orgId = 42 where p.name > ? and p.orgId > ?;"
+                                + "select orgId from Person p where p.name > ? and p.orgId > ?");
 
                 ParameterMetaData meta = updateStmt.getParameterMetaData();
 

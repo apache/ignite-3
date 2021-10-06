@@ -316,6 +316,36 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     /**
+     * Creates test table with given params.
+     *
+     * @param name   Name of the table.
+     * @param size   Required size of the table.
+     * @param distr  Distribution of the table.
+     * @param fields List of the required fields. Every odd item should be a string representing a column name, every even item should be a
+     *               class representing column's type. E.g. {@code createTable("MY_TABLE", 500, distribution, "ID", Integer.class, "VAL",
+     *               String.class)}.
+     * @return Instance of the {@link TestTable}.
+     */
+    protected static TestTable createTable(String name, int size, IgniteDistribution distr, Object... fields) {
+        if (ArrayUtils.nullOrEmpty(fields) || fields.length % 2 != 0) {
+            throw new IllegalArgumentException("'fields' should be non-null array with even number of elements");
+        }
+
+        RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(TYPE_FACTORY);
+
+        for (int i = 0; i < fields.length; i += 2) {
+            b.add((String) fields[i], TYPE_FACTORY.createJavaType((Class<?>) fields[i + 1]));
+        }
+
+        return new TestTable(name, b.build(), RewindabilityTrait.REWINDABLE, size) {
+            @Override
+            public IgniteDistribution distribution() {
+                return distr;
+            }
+        };
+    }
+
+    /**
      *
      */
     protected <T extends RelNode> void assertPlan(String sql, IgniteSchema schema, Predicate<T> predicate,
@@ -420,36 +450,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     /**
-     * Creates test table with given params.
-     *
-     * @param name   Name of the table.
-     * @param size   Required size of the table.
-     * @param distr  Distribution of the table.
-     * @param fields List of the required fields. Every odd item should be a string representing a column name, every even item should be a
-     *               class representing column's type. E.g. {@code createTable("MY_TABLE", 500, distribution, "ID", Integer.class, "VAL",
-     *               String.class)}.
-     * @return Instance of the {@link TestTable}.
-     */
-    protected static TestTable createTable(String name, int size, IgniteDistribution distr, Object... fields) {
-        if (ArrayUtils.nullOrEmpty(fields) || fields.length % 2 != 0) {
-            throw new IllegalArgumentException("'fields' should be non-null array with even number of elements");
-        }
-
-        RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(TYPE_FACTORY);
-
-        for (int i = 0; i < fields.length; i += 2) {
-            b.add((String) fields[i], TYPE_FACTORY.createJavaType((Class<?>) fields[i + 1]));
-        }
-
-        return new TestTable(name, b.build(), RewindabilityTrait.REWINDABLE, size) {
-            @Override
-            public IgniteDistribution distribution() {
-                return distr;
-            }
-        };
-    }
-
-    /**
      * Creates public schema from provided tables.
      *
      * @param tbls Tables to create schema for.
@@ -473,8 +473,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         rel = Cloner.clone(rel);
 
-        SchemaPlus schema = createRootSchema(false)
-                .add("PUBLIC", publicSchema);
+        final SchemaPlus schema = createRootSchema(false).add("PUBLIC", publicSchema);
 
         List<Fragment> fragments = new Splitter().go(rel);
         List<String> serialized = new ArrayList<>(fragments.size());

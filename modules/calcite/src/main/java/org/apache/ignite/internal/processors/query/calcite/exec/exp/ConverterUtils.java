@@ -93,6 +93,21 @@ public class ConverterUtils {
     }
 
     /**
+     *
+     */
+    static Type toInternal(RelDataType type, boolean forceNotNull) {
+        switch (type.getSqlTypeName()) {
+            case DATE:
+            case TIME:
+                return type.isNullable() && !forceNotNull ? Integer.class : int.class;
+            case TIMESTAMP:
+                return type.isNullable() && !forceNotNull ? Long.class : long.class;
+            default:
+                return null; // we don't care; use the default storage type
+        }
+    }
+
+    /**
      * Converts from internal representation to JDBC representation used by arguments of user-defined functions. For example, converts date
      * values from {@code int} to {@link java.sql.Date}.
      */
@@ -167,21 +182,6 @@ public class ConverterUtils {
             }
         }
         return list;
-    }
-
-    /**
-     *
-     */
-    static Type toInternal(RelDataType type, boolean forceNotNull) {
-        switch (type.getSqlTypeName()) {
-            case DATE:
-            case TIME:
-                return type.isNullable() && !forceNotNull ? Integer.class : int.class;
-            case TIMESTAMP:
-                return type.isNullable() && !forceNotNull ? Long.class : long.class;
-            default:
-                return null; // we don't care; use the default storage type
-        }
     }
 
     /**

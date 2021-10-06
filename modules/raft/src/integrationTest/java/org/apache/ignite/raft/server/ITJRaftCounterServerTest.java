@@ -604,7 +604,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         Path serverDataPath0 = toStop.getServerDataPath(COUNTER_GROUP_0);
         Path serverDataPath1 = toStop.getServerDataPath(COUNTER_GROUP_1);
 
-        int stopIdx = servers.indexOf(toStop);
+        final int stopIdx = servers.indexOf(toStop);
 
         toStop.stop();
 

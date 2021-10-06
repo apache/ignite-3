@@ -72,7 +72,7 @@ public class FilterSpoolMergeToHashIndexSpoolRule extends RelRule<FilterSpoolMer
             trait = trait.replace(filterCorr);
         }
 
-        RelNode input = spool.getInput();
+        final RelNode input = spool.getInput();
 
         RexNode condition0 = RexUtil.expandSearch(builder, null, filter.getCondition());
 

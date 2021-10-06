@@ -196,8 +196,8 @@ public class RecordBinaryViewOperationsTest {
         assertEqualsRows(schema, tuple, tbl.get(keyTuple));
 
         // TODO: IGNITE-14479: Fix default value usage.
-//        assertFalse(tbl.deleteExact(keyTuple));
-//        assertEqualsRows(schema, tuple, tbl.get(keyTuple));
+        //        assertFalse(tbl.deleteExact(keyTuple));
+        //        assertEqualsRows(schema, tuple, tbl.get(keyTuple));
 
         // Delete tuple with expected value.
         assertTrue(tbl.deleteExact(tuple));
@@ -269,10 +269,10 @@ public class RecordBinaryViewOperationsTest {
 
         // Ignore replace operation for non-existed row.
         // TODO: IGNITE-14479: Fix default value usage.
-//        assertTrue(tbl.replace(keyTuple, tuple));
+        //        assertTrue(tbl.replace(keyTuple, tuple));
 
-//        assertNull(tbl.get(keyTuple));
-//        assertNull(tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1)));
+        //        assertNull(tbl.get(keyTuple));
+        //        assertNull(tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1)));
 
         // Insert row.
         tbl.insert(tuple);

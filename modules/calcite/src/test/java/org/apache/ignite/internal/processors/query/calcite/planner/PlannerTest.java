@@ -1632,8 +1632,7 @@ public class PlannerTest extends AbstractPlannerTest {
             RelNode rel = relRoot.rel;
 
             assertNotNull(rel);
-            assertEquals("" +
-                            "LogicalFilter(condition=[=(CAST(+($0, $1)):INTEGER, 2)])\n"
+            assertEquals("LogicalFilter(condition=[=(CAST(+($0, $1)):INTEGER, 2)])\n"
                             + "  LogicalJoin(condition=[true], joinType=[inner])\n"
                             + "    LogicalProject(DEPTNO=[$0])\n"
                             + "      IgniteLogicalTableScan(table=[[PUBLIC, DEPT]])\n"

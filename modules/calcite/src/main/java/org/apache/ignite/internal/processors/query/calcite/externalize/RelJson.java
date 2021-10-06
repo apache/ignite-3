@@ -355,6 +355,173 @@ class RelJson {
     /**
      *
      */
+    private Object toJson(AggregateCall node) {
+        Map<String, Object> map = map();
+        map.put("agg", toJson(node.getAggregation()));
+        map.put("type", toJson(node.getType()));
+        map.put("distinct", node.isDistinct());
+        map.put("operands", node.getArgList());
+        map.put("filter", node.filterArg);
+        map.put("name", node.getName());
+        return map;
+    }
+
+    /**
+     *
+     */
+    private Object toJson(RelDataType node) {
+        if (node instanceof JavaType) {
+            Map<String, Object> map = map();
+            map.put("class", ((JavaType) node).getJavaClass().getName());
+            if (node.isNullable()) {
+                map.put("nullable", true);
+            }
+
+            return map;
+        }
+        if (node.isStruct()) {
+            List<Object> list = list();
+            for (RelDataTypeField field : node.getFieldList()) {
+                list.add(toJson(field));
+            }
+            return list;
+        } else if (node.getSqlTypeName() == SqlTypeName.ARRAY) {
+            Map<String, Object> map = map();
+            map.put("type", toJson(node.getSqlTypeName()));
+            map.put("elementType", toJson(node.getComponentType()));
+            return map;
+        } else {
+            Map<String, Object> map = map();
+            map.put("type", toJson(node.getSqlTypeName()));
+            if (node.isNullable()) {
+                map.put("nullable", true);
+            }
+            if (node.getSqlTypeName().allowsPrec()) {
+                map.put("precision", node.getPrecision());
+            }
+            if (node.getSqlTypeName().allowsScale()) {
+                map.put("scale", node.getScale());
+            }
+            return map;
+        }
+    }
+
+    /**
+     *
+     */
+    private Object toJson(RelDataTypeField node) {
+        Map<String, Object> map;
+        if (node.getType().isStruct()) {
+            map = map();
+            map.put("fields", toJson(node.getType()));
+        } else {
+            map = (Map<String, Object>) toJson(node.getType());
+        }
+        map.put("name", node.getName());
+        return map;
+    }
+
+    /**
+     *
+     */
+    private Object toJson(CorrelationId node) {
+        return node.getId();
+    }
+
+    /**
+     *
+     */
+    private Object toJson(RexNode node) {
+        // removes calls to SEARCH and the included Sarg and converts them to comparisons
+        node = RexUtil.expandSearch(cluster.getRexBuilder(), null, node);
+
+        Map<String, Object> map;
+        switch (node.getKind()) {
+            case FIELD_ACCESS:
+                map = map();
+                RexFieldAccess fieldAccess = (RexFieldAccess) node;
+                map.put("field", fieldAccess.getField().getName());
+                map.put("expr", toJson(fieldAccess.getReferenceExpr()));
+
+                return map;
+            case LITERAL:
+                RexLiteral literal = (RexLiteral) node;
+                Object value = literal.getValue3();
+                map = map();
+                map.put("literal", toJson(value));
+                map.put("type", toJson(node.getType()));
+
+                return map;
+            case INPUT_REF:
+                map = map();
+                map.put("input", ((RexSlot) node).getIndex());
+                map.put("name", ((RexVariable) node).getName());
+
+                return map;
+            case DYNAMIC_PARAM:
+                map = map();
+                map.put("input", ((RexDynamicParam) node).getIndex());
+                map.put("name", ((RexVariable) node).getName());
+                map.put("type", toJson(node.getType()));
+                map.put("dynamic", true);
+
+                return map;
+            case LOCAL_REF:
+                map = map();
+                map.put("input", ((RexSlot) node).getIndex());
+                map.put("name", ((RexVariable) node).getName());
+                map.put("type", toJson(node.getType()));
+
+                return map;
+            case CORREL_VARIABLE:
+                map = map();
+                map.put("correl", ((RexVariable) node).getName());
+                map.put("type", toJson(node.getType()));
+
+                return map;
+            default:
+                if (node instanceof RexCall) {
+                    RexCall call = (RexCall) node;
+                    map = map();
+                    map.put("op", toJson(call.getOperator()));
+                    List<Object> list = list();
+
+                    for (RexNode operand : call.getOperands()) {
+                        list.add(toJson(operand));
+                    }
+
+                    map.put("operands", list);
+
+                    if (node.getKind() == SqlKind.CAST) {
+                        map.put("type", toJson(node.getType()));
+                    }
+
+                    if (call.getOperator() instanceof SqlFunction) {
+                        if (((SqlFunction) call.getOperator()).getFunctionType().isUserDefined()) {
+                            SqlOperator op = call.getOperator();
+                            map.put("class", op.getClass().getName());
+                            map.put("type", toJson(node.getType()));
+                            map.put("deterministic", op.isDeterministic());
+                            map.put("dynamic", op.isDynamicFunction());
+                        }
+                    }
+
+                    if (call instanceof RexOver) {
+                        RexOver over = (RexOver) call;
+                        map.put("distinct", over.isDistinct());
+                        map.put("type", toJson(node.getType()));
+                        map.put("window", toJson(over.getWindow()));
+                    }
+
+                    return map;
+                }
+                throw new UnsupportedOperationException("unknown rex " + node);
+        }
+    }
+
+    /**
+     *
+     */
     RelCollation toCollation(List<Map<String, Object>> jsonFieldCollations) {
         if (jsonFieldCollations == null) {
             return RelCollations.EMPTY;
@@ -381,6 +548,8 @@ class RelJson {
                     return IgniteDistributions.broadcast();
                 case "random":
                     return IgniteDistributions.random();
+                default:
+                    break;
             }
         }
 
@@ -477,8 +646,8 @@ class RelJson {
                 Object jsonType = map.get("type");
                 Map window = (Map) map.get("window");
                 if (window != null) {
-                    SqlAggFunction operator = (SqlAggFunction) toOp(opMap);
-                    RelDataType type = toType(typeFactory, jsonType);
+                    final SqlAggFunction operator = (SqlAggFunction) toOp(opMap);
+                    final RelDataType type = toType(typeFactory, jsonType);
                     List<RexNode> partitionKeys = new ArrayList<>();
                     if (window.containsKey("partition")) {
                         partitionKeys = toRexList(relInput, (List) window.get("partition"));
@@ -735,173 +904,6 @@ class RelJson {
             list.add(toRex(relInput, operand));
         }
         return list;
-    }
-
-    /**
-     *
-     */
-    private Object toJson(AggregateCall node) {
-        Map<String, Object> map = map();
-        map.put("agg", toJson(node.getAggregation()));
-        map.put("type", toJson(node.getType()));
-        map.put("distinct", node.isDistinct());
-        map.put("operands", node.getArgList());
-        map.put("filter", node.filterArg);
-        map.put("name", node.getName());
-        return map;
-    }
-
-    /**
-     *
-     */
-    private Object toJson(RelDataType node) {
-        if (node instanceof JavaType) {
-            Map<String, Object> map = map();
-            map.put("class", ((JavaType) node).getJavaClass().getName());
-            if (node.isNullable()) {
-                map.put("nullable", true);
-            }
-
-            return map;
-        }
-        if (node.isStruct()) {
-            List<Object> list = list();
-            for (RelDataTypeField field : node.getFieldList()) {
-                list.add(toJson(field));
-            }
-            return list;
-        } else if (node.getSqlTypeName() == SqlTypeName.ARRAY) {
-            Map<String, Object> map = map();
-            map.put("type", toJson(node.getSqlTypeName()));
-            map.put("elementType", toJson(node.getComponentType()));
-            return map;
-        } else {
-            Map<String, Object> map = map();
-            map.put("type", toJson(node.getSqlTypeName()));
-            if (node.isNullable()) {
-                map.put("nullable", true);
-            }
-            if (node.getSqlTypeName().allowsPrec()) {
-                map.put("precision", node.getPrecision());
-            }
-            if (node.getSqlTypeName().allowsScale()) {
-                map.put("scale", node.getScale());
-            }
-            return map;
-        }
-    }
-
-    /**
-     *
-     */
-    private Object toJson(RelDataTypeField node) {
-        Map<String, Object> map;
-        if (node.getType().isStruct()) {
-            map = map();
-            map.put("fields", toJson(node.getType()));
-        } else {
-            map = (Map<String, Object>) toJson(node.getType());
-        }
-        map.put("name", node.getName());
-        return map;
-    }
-
-    /**
-     *
-     */
-    private Object toJson(CorrelationId node) {
-        return node.getId();
-    }
-
-    /**
-     *
-     */
-    private Object toJson(RexNode node) {
-        // removes calls to SEARCH and the included Sarg and converts them to comparisons
-        node = RexUtil.expandSearch(cluster.getRexBuilder(), null, node);
-
-        Map<String, Object> map;
-        switch (node.getKind()) {
-            case FIELD_ACCESS:
-                map = map();
-                RexFieldAccess fieldAccess = (RexFieldAccess) node;
-                map.put("field", fieldAccess.getField().getName());
-                map.put("expr", toJson(fieldAccess.getReferenceExpr()));
-
-                return map;
-            case LITERAL:
-                RexLiteral literal = (RexLiteral) node;
-                Object value = literal.getValue3();
-                map = map();
-                map.put("literal", toJson(value));
-                map.put("type", toJson(node.getType()));
-
-                return map;
-            case INPUT_REF:
-                map = map();
-                map.put("input", ((RexSlot) node).getIndex());
-                map.put("name", ((RexVariable) node).getName());
-
-                return map;
-            case DYNAMIC_PARAM:
-                map = map();
-                map.put("input", ((RexDynamicParam) node).getIndex());
-                map.put("name", ((RexVariable) node).getName());
-                map.put("type", toJson(node.getType()));
-                map.put("dynamic", true);
-
-                return map;
-            case LOCAL_REF:
-                map = map();
-                map.put("input", ((RexSlot) node).getIndex());
-                map.put("name", ((RexVariable) node).getName());
-                map.put("type", toJson(node.getType()));
-
-                return map;
-            case CORREL_VARIABLE:
-                map = map();
-                map.put("correl", ((RexVariable) node).getName());
-                map.put("type", toJson(node.getType()));
-
-                return map;
-            default:
-                if (node instanceof RexCall) {
-                    RexCall call = (RexCall) node;
-                    map = map();
-                    map.put("op", toJson(call.getOperator()));
-                    List<Object> list = list();
-
-                    for (RexNode operand : call.getOperands()) {
-                        list.add(toJson(operand));
-                    }
-
-                    map.put("operands", list);
-
-                    if (node.getKind() == SqlKind.CAST) {
-                        map.put("type", toJson(node.getType()));
-                    }
-
-                    if (call.getOperator() instanceof SqlFunction) {
-                        if (((SqlFunction) call.getOperator()).getFunctionType().isUserDefined()) {
-                            SqlOperator op = call.getOperator();
-                            map.put("class", op.getClass().getName());
-                            map.put("type", toJson(node.getType()));
-                            map.put("deterministic", op.isDeterministic());
-                            map.put("dynamic", op.isDynamicFunction());
-                        }
-                    }
-
-                    if (call instanceof RexOver) {
-                        RexOver over = (RexOver) call;
-                        map.put("distinct", over.isDistinct());
-                        map.put("type", toJson(node.getType()));
-                        map.put("window", toJson(over.getWindow()));
-                    }
-
-                    return map;
-                }
-                throw new UnsupportedOperationException("unknown rex " + node);
-        }
     }
 
     /**

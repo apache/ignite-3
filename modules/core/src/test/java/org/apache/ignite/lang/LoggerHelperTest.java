@@ -174,8 +174,8 @@ public class LoggerHelperTest {
     public void testNullArray() {
         String msg0 = "msg0";
         String msg1 = "msg1 {}";
-        String msg2 = "msg2 {} {}";
-        String msg3 = "msg3 {} {} {}";
+        final String msg2 = "msg2 {} {}";
+        final String msg3 = "msg3 {} {} {}";
 
         Object[] args = null;
 

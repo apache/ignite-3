@@ -146,10 +146,10 @@ public class Processor extends AbstractProcessor {
 
                 Element fieldTypeElement = processingEnv.getTypeUtils().asElement(field.asType());
 
-                String fieldName = field.getSimpleName().toString();
+                final String fieldName = field.getSimpleName().toString();
 
                 // Get configuration types (VIEW, CHANGE and so on)
-                TypeName interfaceGetMethodType = getInterfaceGetMethodType(field);
+                final TypeName interfaceGetMethodType = getInterfaceGetMethodType(field);
 
                 ConfigValue confAnnotation = field.getAnnotation(ConfigValue.class);
                 if (confAnnotation != null) {
@@ -245,9 +245,9 @@ public class Processor extends AbstractProcessor {
     /**
      * Create getters for configuration class.
      *
-     * @param configurationInterfaceBuilder
-     * @param fieldName
-     * @param interfaceGetMethodType
+     * @param configurationInterfaceBuilder Configuration interface builder.
+     * @param fieldName Field name.
+     * @param interfaceGetMethodType Return type of the get method.
      */
     private static void createGetters(
             TypeSpec.Builder configurationInterfaceBuilder,
@@ -265,7 +265,7 @@ public class Processor extends AbstractProcessor {
     /**
      * Get types for configuration classes generation.
      *
-     * @param field
+     * @param field Field.
      * @return Bundle with all types for configuration
      */
     private static TypeName getInterfaceGetMethodType(VariableElement field) {
@@ -551,8 +551,8 @@ public class Processor extends AbstractProcessor {
                             InternalConfiguration.class.getSimpleName(),
                             clazz.getQualifiedName()
                     ));
-                } else if (superClazz.getAnnotation(ConfigurationRoot.class) == null &&
-                        superClazz.getAnnotation(Config.class) == null) {
+                } else if (superClazz.getAnnotation(ConfigurationRoot.class) == null
+                        && superClazz.getAnnotation(Config.class) == null) {
                     throw new ProcessorException(String.format(
                             "Superclass must have @%s or @%s: %s",
                             ConfigurationRoot.class.getSimpleName(),

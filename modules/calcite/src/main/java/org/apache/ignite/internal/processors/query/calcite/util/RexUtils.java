@@ -510,6 +510,13 @@ public class RexUtils {
     /**
      *
      */
+    public static Mappings.TargetMapping permutation(List<RexNode> nodes, RelDataType inputRowType) {
+        return permutation(nodes, inputRowType, false);
+    }
+
+    /**
+     *
+     */
     public static Mappings.TargetMapping inversePermutation(List<RexNode> nodes, RelDataType inputRowType, boolean local) {
         final Mappings.TargetMapping mapping =
                 Mappings.create(MappingType.INVERSE_FUNCTION, nodes.size(), inputRowType.getFieldCount());
@@ -522,13 +529,6 @@ public class RexUtils {
             }
         }
         return mapping;
-    }
-
-    /**
-     *
-     */
-    public static Mappings.TargetMapping permutation(List<RexNode> nodes, RelDataType inputRowType) {
-        return permutation(nodes, inputRowType, false);
     }
 
     /**

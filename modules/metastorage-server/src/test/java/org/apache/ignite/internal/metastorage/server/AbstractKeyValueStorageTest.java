@@ -68,7 +68,7 @@ public abstract class AbstractKeyValueStorageTest {
     @Test
     public void put() {
         byte[] key = k(1);
-        byte[] val = kv(1, 1);
+        final byte[] val = kv(1, 1);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -104,14 +104,14 @@ public abstract class AbstractKeyValueStorageTest {
         byte[] key1 = k(1);
         byte[] val1 = kv(1, 1);
 
-        byte[] key2 = k(2);
-        byte[] val2_1 = kv(2, 21);
-        byte[] val2_2 = kv(2, 22);
+        final byte[] key2 = k(2);
+        final byte[] val2_1 = kv(2, 21);
+        final byte[] val2_2 = kv(2, 22);
 
-        byte[] key3 = k(3);
-        byte[] val3 = kv(3, 3);
+        final byte[] key3 = k(3);
+        final byte[] val3 = kv(3, 3);
 
-        byte[] key4 = k(4);
+        final byte[] key4 = k(4);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -178,14 +178,14 @@ public abstract class AbstractKeyValueStorageTest {
         byte[] key1 = k(1);
         byte[] val1 = kv(1, 1);
 
-        byte[] key2 = k(2);
-        byte[] val2_1 = kv(2, 21);
-        byte[] val2_2 = kv(2, 22);
+        final byte[] key2 = k(2);
+        final byte[] val2_1 = kv(2, 21);
+        final byte[] val2_2 = kv(2, 22);
 
-        byte[] key3 = k(3);
-        byte[] val3 = kv(3, 3);
+        final byte[] key3 = k(3);
+        final byte[] val3 = kv(3, 3);
 
-        byte[] key4 = k(4);
+        final byte[] key4 = k(4);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -289,7 +289,7 @@ public abstract class AbstractKeyValueStorageTest {
     @Test
     public void getAndPut() {
         byte[] key = k(1);
-        byte[] val = kv(1, 1);
+        final byte[] val = kv(1, 1);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -316,18 +316,18 @@ public abstract class AbstractKeyValueStorageTest {
 
     @Test
     public void putAll() {
-        byte[] key1 = k(1);
-        byte[] val1 = kv(1, 1);
+        final byte[] key1 = k(1);
+        final byte[] val1 = kv(1, 1);
 
         byte[] key2 = k(2);
         byte[] val2_1 = kv(2, 21);
-        byte[] val2_2 = kv(2, 22);
+        final byte[] val2_2 = kv(2, 22);
 
-        byte[] key3 = k(3);
-        byte[] val3_1 = kv(3, 31);
-        byte[] val3_2 = kv(3, 32);
+        final byte[] key3 = k(3);
+        final byte[] val3_1 = kv(3, 31);
+        final byte[] val3_2 = kv(3, 32);
 
-        byte[] key4 = k(4);
+        final byte[] key4 = k(4);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -392,18 +392,18 @@ public abstract class AbstractKeyValueStorageTest {
 
     @Test
     public void getAndPutAll() {
-        byte[] key1 = k(1);
-        byte[] val1 = kv(1, 1);
+        final byte[] key1 = k(1);
+        final byte[] val1 = kv(1, 1);
 
         byte[] key2 = k(2);
         byte[] val2_1 = kv(2, 21);
-        byte[] val2_2 = kv(2, 22);
+        final byte[] val2_2 = kv(2, 22);
 
-        byte[] key3 = k(3);
-        byte[] val3_1 = kv(3, 31);
-        byte[] val3_2 = kv(3, 32);
+        final byte[] key3 = k(3);
+        final byte[] val3_1 = kv(3, 31);
+        final byte[] val3_2 = kv(3, 32);
 
-        byte[] key4 = k(4);
+        final byte[] key4 = k(4);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -502,7 +502,7 @@ public abstract class AbstractKeyValueStorageTest {
     @Test
     public void remove() {
         byte[] key = k(1);
-        byte[] val = kv(1, 1);
+        final byte[] val = kv(1, 1);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -550,7 +550,7 @@ public abstract class AbstractKeyValueStorageTest {
     @Test
     public void getAndRemove() {
         byte[] key = k(1);
-        byte[] val = kv(1, 1);
+        final byte[] val = kv(1, 1);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -609,14 +609,14 @@ public abstract class AbstractKeyValueStorageTest {
         byte[] key1 = k(1);
         byte[] val1 = kv(1, 1);
 
-        byte[] key2 = k(2);
-        byte[] val2_1 = kv(2, 21);
-        byte[] val2_2 = kv(2, 22);
+        final byte[] key2 = k(2);
+        final byte[] val2_1 = kv(2, 21);
+        final byte[] val2_2 = kv(2, 22);
 
-        byte[] key3 = k(3);
-        byte[] val3_1 = kv(3, 31);
+        final byte[] key3 = k(3);
+        final byte[] val3_1 = kv(3, 31);
 
-        byte[] key4 = k(4);
+        final byte[] key4 = k(4);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -686,14 +686,14 @@ public abstract class AbstractKeyValueStorageTest {
         byte[] key1 = k(1);
         byte[] val1 = kv(1, 1);
 
-        byte[] key2 = k(2);
-        byte[] val2_1 = kv(2, 21);
-        byte[] val2_2 = kv(2, 22);
+        final byte[] key2 = k(2);
+        final byte[] val2_1 = kv(2, 21);
+        final byte[] val2_2 = kv(2, 22);
 
-        byte[] key3 = k(3);
-        byte[] val3_1 = kv(3, 31);
+        final byte[] key3 = k(3);
+        final byte[] val3_1 = kv(3, 31);
 
-        byte[] key4 = k(4);
+        final byte[] key4 = k(4);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -835,10 +835,10 @@ public abstract class AbstractKeyValueStorageTest {
     public void putGetRemoveCompact() {
         byte[] key1 = k(1);
         byte[] val1_1 = kv(1, 1);
-        byte[] val1_3 = kv(1, 3);
+        final byte[] val1_3 = kv(1, 3);
 
-        byte[] key2 = k(2);
-        byte[] val2_2 = kv(2, 2);
+        final byte[] key2 = k(2);
+        final byte[] val2_2 = kv(2, 2);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -966,13 +966,13 @@ public abstract class AbstractKeyValueStorageTest {
     public void invokeWithRevisionCondition_successBranch() {
         byte[] key1 = k(1);
         byte[] val1_1 = kv(1, 11);
-        byte[] val1_2 = kv(1, 12);
+        final byte[] val1_2 = kv(1, 12);
 
-        byte[] key2 = k(2);
-        byte[] val2 = kv(2, 2);
+        final byte[] key2 = k(2);
+        final byte[] val2 = kv(2, 2);
 
-        byte[] key3 = k(3);
-        byte[] val3 = kv(3, 3);
+        final byte[] key3 = k(3);
+        final byte[] val3 = kv(3, 3);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1022,13 +1022,13 @@ public abstract class AbstractKeyValueStorageTest {
     public void invokeWithRevisionCondition_failureBranch() {
         byte[] key1 = k(1);
         byte[] val1_1 = kv(1, 11);
-        byte[] val1_2 = kv(1, 12);
+        final byte[] val1_2 = kv(1, 12);
 
-        byte[] key2 = k(2);
-        byte[] val2 = kv(2, 2);
+        final byte[] key2 = k(2);
+        final byte[] val2 = kv(2, 2);
 
-        byte[] key3 = k(3);
-        byte[] val3 = kv(3, 3);
+        final byte[] key3 = k(3);
+        final byte[] val3 = kv(3, 3);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1078,13 +1078,13 @@ public abstract class AbstractKeyValueStorageTest {
     public void invokeWithExistsCondition_successBranch() {
         byte[] key1 = k(1);
         byte[] val1_1 = kv(1, 11);
-        byte[] val1_2 = kv(1, 12);
+        final byte[] val1_2 = kv(1, 12);
 
-        byte[] key2 = k(2);
-        byte[] val2 = kv(2, 2);
+        final byte[] key2 = k(2);
+        final byte[] val2 = kv(2, 2);
 
-        byte[] key3 = k(3);
-        byte[] val3 = kv(3, 3);
+        final byte[] key3 = k(3);
+        final byte[] val3 = kv(3, 3);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1134,13 +1134,13 @@ public abstract class AbstractKeyValueStorageTest {
     public void invokeWithExistsCondition_failureBranch() {
         byte[] key1 = k(1);
         byte[] val1_1 = kv(1, 11);
-        byte[] val1_2 = kv(1, 12);
+        final byte[] val1_2 = kv(1, 12);
 
-        byte[] key2 = k(2);
-        byte[] val2 = kv(2, 2);
+        final byte[] key2 = k(2);
+        final byte[] val2 = kv(2, 2);
 
-        byte[] key3 = k(3);
-        byte[] val3 = kv(3, 3);
+        final byte[] key3 = k(3);
+        final byte[] val3 = kv(3, 3);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1190,13 +1190,13 @@ public abstract class AbstractKeyValueStorageTest {
     public void invokeWithNotExistsCondition_successBranch() {
         byte[] key1 = k(1);
         byte[] val1_1 = kv(1, 11);
-        byte[] val1_2 = kv(1, 12);
+        final byte[] val1_2 = kv(1, 12);
 
-        byte[] key2 = k(2);
-        byte[] val2 = kv(2, 2);
+        final byte[] key2 = k(2);
+        final byte[] val2 = kv(2, 2);
 
-        byte[] key3 = k(3);
-        byte[] val3 = kv(3, 3);
+        final byte[] key3 = k(3);
+        final byte[] val3 = kv(3, 3);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1246,13 +1246,13 @@ public abstract class AbstractKeyValueStorageTest {
     public void invokeWithNotExistsCondition_failureBranch() {
         byte[] key1 = k(1);
         byte[] val1_1 = kv(1, 11);
-        byte[] val1_2 = kv(1, 12);
+        final byte[] val1_2 = kv(1, 12);
 
-        byte[] key2 = k(2);
-        byte[] val2 = kv(2, 2);
+        final byte[] key2 = k(2);
+        final byte[] val2 = kv(2, 2);
 
-        byte[] key3 = k(3);
-        byte[] val3 = kv(3, 3);
+        final byte[] key3 = k(3);
+        final byte[] val3 = kv(3, 3);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1303,11 +1303,11 @@ public abstract class AbstractKeyValueStorageTest {
         byte[] key1 = k(1);
         byte[] val1_1 = kv(1, 11);
 
-        byte[] key2 = k(2);
-        byte[] val2 = kv(2, 2);
+        final byte[] key2 = k(2);
+        final byte[] val2 = kv(2, 2);
 
-        byte[] key3 = k(3);
-        byte[] val3 = kv(3, 3);
+        final byte[] key3 = k(3);
+        final byte[] val3 = kv(3, 3);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1356,11 +1356,11 @@ public abstract class AbstractKeyValueStorageTest {
         byte[] key1 = k(1);
         byte[] val1_1 = kv(1, 11);
 
-        byte[] key2 = k(2);
-        byte[] val2 = kv(2, 2);
+        final byte[] key2 = k(2);
+        final byte[] val2 = kv(2, 2);
 
-        byte[] key3 = k(3);
-        byte[] val3 = kv(3, 3);
+        final byte[] key3 = k(3);
+        final byte[] val3 = kv(3, 3);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1407,13 +1407,13 @@ public abstract class AbstractKeyValueStorageTest {
     public void invokeWithValueCondition_successBranch() {
         byte[] key1 = k(1);
         byte[] val1_1 = kv(1, 11);
-        byte[] val1_2 = kv(1, 12);
+        final byte[] val1_2 = kv(1, 12);
 
-        byte[] key2 = k(2);
-        byte[] val2 = kv(2, 2);
+        final byte[] key2 = k(2);
+        final byte[] val2 = kv(2, 2);
 
-        byte[] key3 = k(3);
-        byte[] val3 = kv(3, 3);
+        final byte[] key3 = k(3);
+        final byte[] val3 = kv(3, 3);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1463,13 +1463,13 @@ public abstract class AbstractKeyValueStorageTest {
     public void invokeWithValueCondition_failureBranch() {
         byte[] key1 = k(1);
         byte[] val1_1 = kv(1, 11);
-        byte[] val1_2 = kv(1, 12);
+        final byte[] val1_2 = kv(1, 12);
 
-        byte[] key2 = k(2);
-        byte[] val2 = kv(2, 2);
+        final byte[] key2 = k(2);
+        final byte[] val2 = kv(2, 2);
 
-        byte[] key3 = k(3);
-        byte[] val3 = kv(3, 3);
+        final byte[] key3 = k(3);
+        final byte[] val3 = kv(3, 3);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1520,11 +1520,11 @@ public abstract class AbstractKeyValueStorageTest {
         byte[] key1 = k(1);
         byte[] val1 = kv(1, 1);
 
-        byte[] key2 = k(2);
-        byte[] val2 = kv(2, 2);
+        final byte[] key2 = k(2);
+        final byte[] val2 = kv(2, 2);
 
-        byte[] key3 = k(3);
-        byte[] val3 = kv(3, 3);
+        final byte[] key3 = k(3);
+        final byte[] val3 = kv(3, 3);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1789,14 +1789,14 @@ public abstract class AbstractKeyValueStorageTest {
     @Test
     public void watchCursorForRange() throws Exception {
         byte[] key1 = k(1);
-        byte[] val1_1 = kv(1, 11);
+        final byte[] val1_1 = kv(1, 11);
 
-        byte[] key2 = k(2);
-        byte[] val2_1 = kv(2, 21);
-        byte[] val2_2 = kv(2, 22);
+        final byte[] key2 = k(2);
+        final byte[] val2_1 = kv(2, 21);
+        final byte[] val2_2 = kv(2, 22);
 
-        byte[] key3 = k(3);
-        byte[] val3_1 = kv(3, 31);
+        final byte[] key3 = k(3);
+        final byte[] val3_1 = kv(3, 31);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1916,12 +1916,12 @@ public abstract class AbstractKeyValueStorageTest {
     @Test
     public void watchCursorForKey() {
         byte[] key1 = k(1);
-        byte[] val1_1 = kv(1, 11);
-        byte[] val1_2 = kv(1, 12);
+        final byte[] val1_1 = kv(1, 11);
+        final byte[] val1_2 = kv(1, 12);
 
-        byte[] key2 = k(2);
-        byte[] val2_1 = kv(2, 21);
-        byte[] val2_2 = kv(2, 22);
+        final byte[] key2 = k(2);
+        final byte[] val2_1 = kv(2, 21);
+        final byte[] val2_2 = kv(2, 22);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -2000,15 +2000,15 @@ public abstract class AbstractKeyValueStorageTest {
     @Test
     public void watchCursorForKeys() {
         byte[] key1 = k(1);
-        byte[] val1_1 = kv(1, 11);
+        final byte[] val1_1 = kv(1, 11);
 
         byte[] key2 = k(2);
-        byte[] val2_1 = kv(2, 21);
-        byte[] val2_2 = kv(2, 22);
+        final byte[] val2_1 = kv(2, 21);
+        final byte[] val2_2 = kv(2, 22);
 
-        byte[] key3 = k(3);
-        byte[] val3_1 = kv(3, 31);
-        byte[] val3_2 = kv(3, 32);
+        final byte[] key3 = k(3);
+        final byte[] val3_1 = kv(3, 31);
+        final byte[] val3_2 = kv(3, 32);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());

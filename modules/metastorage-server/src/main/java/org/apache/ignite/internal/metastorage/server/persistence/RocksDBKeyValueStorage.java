@@ -376,7 +376,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
             long[] revs = getRevisions(key);
 
-            long lastRev = revs.length == 0 ? 0 : lastRevision(revs);
+            final long lastRev = revs.length == 0 ? 0 : lastRevision(revs);
 
             addDataToBatch(batch, key, value, curRev, cntr);
 
@@ -999,7 +999,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
      * Gets an entry from the keys index with the least key greater than or equal to the specified key, depending on the strictlyHigher
      * parameter.
      *
-     * @param key
+     * @param key Key.
      * @param strictlyHigher {@code true} for a strictly higher entry, {@code false} for a ceiling one.
      * @return Entry for the least key greater than or equal to the specified key. If no such entry exists returns {@code null}.
      */

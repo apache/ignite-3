@@ -109,8 +109,8 @@ public class UsageTest {
      */
     @Test
     public void multiRootConfiguration() throws Exception {
-        int failureDetectionTimeout = 30_000;
-        int joinTimeout = 10_000;
+        final int failureDetectionTimeout = 30_000;
+        final int joinTimeout = 10_000;
 
         long autoAdjustTimeout = 30_000L;
 

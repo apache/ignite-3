@@ -220,7 +220,7 @@ class ITDynamicTableCreationTest {
 
         // Get data on node 2.
         Table tbl2 = clusterNodes.get(2).tables().table(scmTbl1.canonicalName());
-        RecordView<Tuple> recView2 = tbl2.recordView();
+        final RecordView<Tuple> recView2 = tbl2.recordView();
         KeyValueView<Tuple, Tuple> kvView2 = tbl2.keyValueView();
 
         final Tuple keyTuple1 = Tuple.create().set("key", uuid).set("affKey", 42L);

@@ -303,8 +303,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     + "+---------+--------------+------------+\n"
                     + "| @|bold Name|@    | @|bold Description|@  | @|bold Installed?|@ |\n"
                     + "+---------+--------------+------------+\n"
-                    + "| module1 | description1 | Yes        |\n" +
-                    "+---------+--------------+------------+\n"
+                    + "| module1 | description1 | Yes        |\n"
+                    + "+---------+--------------+------------+\n"
                     + "| module2 | description2 | No         |\n"
                     + "+---------+--------------+------------+\n"
                     + "\n"
@@ -608,15 +608,14 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             var cmd = cmd(ctx);
             var exitCode =
-                    cmd.execute(("config set --node-endpoint localhost:8081 " +
-                            "local.baseline.autoAdjust.enabled=true --type node"
+                    cmd.execute(("config set --node-endpoint localhost:8081 "
+                            + "local.baseline.autoAdjust.enabled=true --type node"
                     ).split(" "));
 
             Assertions.assertEquals(0, exitCode);
             verify(httpClient).send(
                     argThat(r -> "http://localhost:8081/management/v1/configuration/node/".equals(r.uri().toString())
-                            && "PUT".equals(r.method()) &&
-                            r.bodyPublisher().get().contentLength() == expSentContent.getBytes().length
+                            && "PUT".equals(r.method()) && r.bodyPublisher().get().contentLength() == expSentContent.getBytes().length
                             && "application/json".equals(r.headers().firstValue("Content-Type").get())),
                     any());
             assertEquals("Configuration was updated successfully.\n\n"
@@ -630,8 +629,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
         @Test
         @DisplayName(
-                "set --node-endpoint localhost:8081 {\"local\":{\"baseline\":{\"autoAdjust\":{\"enabled\":true}}}} " +
-                        "--type node"
+                "set --node-endpoint localhost:8081 {\"local\":{\"baseline\":{\"autoAdjust\":{\"enabled\":true}}}} --type node"
         )
         void setJson() throws IOException, InterruptedException {
             when(res.statusCode()).thenReturn(HttpURLConnection.HTTP_OK);
@@ -641,16 +639,16 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             var cmd = cmd(ctx);
             var exitCode =
-                    cmd.execute(("config set --node-endpoint localhost:8081 " +
-                            "local.baseline.autoAdjust.enabled=true --type node"
+                    cmd.execute(("config set --node-endpoint localhost:8081 "
+                            + "local.baseline.autoAdjust.enabled=true --type node"
                     ).split(" "));
 
             Assertions.assertEquals(0, exitCode);
             verify(httpClient).send(
                     argThat(r -> "http://localhost:8081/management/v1/configuration/node/".equals(r.uri().toString())
                             && "PUT".equals(r.method())
-                            && r.bodyPublisher().get().contentLength() == expSentContent.getBytes().length &&
-                            "application/json".equals(r.headers().firstValue("Content-Type").get())),
+                            && r.bodyPublisher().get().contentLength() == expSentContent.getBytes().length
+                            && "application/json".equals(r.headers().firstValue("Content-Type").get())),
                     any());
             assertEquals("Configuration was updated successfully.\n\n"
                     + "Use the " + cmd.getColorScheme().commandText("ignite config get")

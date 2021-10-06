@@ -204,7 +204,7 @@ public class MavenArtifactResolver {
 
         tmpDir.deleteOnExit();
 
-        EventManager evtMgr = new EventManager();
+        final EventManager evtMgr = new EventManager();
 
         IvySettings ivySettings = new IvySettings();
         ivySettings.setDefaultCache(tmpDir);
@@ -344,6 +344,9 @@ public class MavenArtifactResolver {
 
                 case Message.MSG_DEBUG:
                     log.trace(msg);
+                    break;
+
+                default:
                     break;
             }
         }

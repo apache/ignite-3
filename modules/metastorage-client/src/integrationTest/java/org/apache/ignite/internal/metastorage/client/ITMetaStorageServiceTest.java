@@ -822,7 +822,7 @@ public class ITMetaStorageServiceTest {
 
             Cursor<Entry> cursor2Node0 = metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null);
 
-            Cursor<Entry> cursorNode1 = metaStorageSvc2.range(EXPECTED_RESULT_ENTRY.key(), null);
+            final Cursor<Entry> cursorNode1 = metaStorageSvc2.range(EXPECTED_RESULT_ENTRY.key(), null);
 
             metaStorageSvc.closeCursors(NODE_ID_0).get();
 

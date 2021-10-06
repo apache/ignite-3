@@ -252,6 +252,9 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
 
             case NUMBER:
                 return INT + ((BigInteger) val).toByteArray().length;
+
+            default:
+                break;
         }
 
         return 0;
@@ -448,6 +451,8 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
 
                 break;
             }
+            default:
+                break;
         }
     }
 
@@ -648,6 +653,9 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
 
             case NUMBER:
                 return new BigInteger(readByteArray(buf));
+
+            default:
+                break;
         }
 
         return null;
@@ -729,6 +737,9 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
 
             case DATE:
                 return NativeTypes.DATE;
+
+            default:
+                break;
         }
 
         throw new InvalidTypeException("Unexpected type " + spec);

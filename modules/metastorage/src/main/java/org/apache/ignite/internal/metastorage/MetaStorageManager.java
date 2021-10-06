@@ -213,15 +213,15 @@ public class MetaStorageManager implements IgniteComponent {
         }
 
         // TODO: IGNITE-14088: Uncomment and use real serializer factory
-//        Arrays.stream(MetaStorageMessageTypes.values()).forEach(
-//            msgTypeInstance -> net.registerMessageMapper(
-//                msgTypeInstance.msgType(),
-//                new DefaultMessageMapperProvider()
-//            )
-//        );
+        //        Arrays.stream(MetaStorageMessageTypes.values()).forEach(
+        //            msgTypeInstance -> net.registerMessageMapper(
+        //                msgTypeInstance.msgType(),
+        //                new DefaultMessageMapperProvider()
+        //            )
+        //        );
 
         // TODO: IGNITE-14414 Cluster initialization flow. Here we should complete metaStorageServiceFuture.
-//        clusterNetSvc.messagingService().addMessageHandler((message, senderAddr, correlationId) -> {});
+        //        clusterNetSvc.messagingService().addMessageHandler((message, senderAddr, correlationId) -> {});
     }
 
     /** {@inheritDoc} */
@@ -330,28 +330,6 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
-     * Register watch listener by key prefix.
-     *
-     * @param key  Prefix to listen.
-     * @param lsnr Listener which will be notified for each update.
-     * @return Subscription identifier. Could be used in {@link #unregisterWatch} method in order to cancel subscription
-     */
-    public synchronized CompletableFuture<Long> registerWatchByPrefix(
-            @Nullable ByteArray key,
-            @NotNull WatchListener lsnr
-    ) {
-        if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException("Operation has been cancelled (node is stopping)."));
-        }
-
-        try {
-            return waitForReDeploy(watchAggregator.addPrefix(key, lsnr));
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
      * Register watch listener by collection of keys.
      *
      * @param keys Collection listen.
@@ -392,6 +370,29 @@ public class MetaStorageManager implements IgniteComponent {
 
         try {
             return waitForReDeploy(watchAggregator.add(from, to, lsnr));
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+
+    /**
+     * Register watch listener by key prefix.
+     *
+     * @param key  Prefix to listen.
+     * @param lsnr Listener which will be notified for each update.
+     * @return Subscription identifier. Could be used in {@link #unregisterWatch} method in order to cancel subscription
+     */
+    public synchronized CompletableFuture<Long> registerWatchByPrefix(
+            @Nullable ByteArray key,
+            @NotNull WatchListener lsnr
+    ) {
+        if (!busyLock.enterBusy()) {
+            return CompletableFuture.failedFuture(new NodeStoppingException("Operation has been cancelled (node is stopping)."));
+        }
+
+        try {
+            return waitForReDeploy(watchAggregator.addPrefix(key, lsnr));
         } finally {
             busyLock.leaveBusy();
         }
@@ -661,6 +662,23 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
+     * @see MetaStorageService#range(ByteArray, ByteArray)
+     */
+    public @NotNull Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException("Operation has been cancelled (node is stopping).");
+        }
+
+        try {
+            return new CursorWrapper<>(
+                    metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo))
+            );
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
      * Retrieves entries for the given key range in lexicographic order. Entries will be filtered out by the current applied revision as an
      * upper bound. Applied revision is a revision of the last successful vault update.
      *
@@ -681,23 +699,6 @@ public class MetaStorageManager implements IgniteComponent {
         try {
             return new CursorWrapper<>(
                     metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, appliedRevision()))
-            );
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
-     * @see MetaStorageService#range(ByteArray, ByteArray)
-     */
-    public @NotNull Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo) throws NodeStoppingException {
-        if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException("Operation has been cancelled (node is stopping).");
-        }
-
-        try {
-            return new CursorWrapper<>(
-                    metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo))
             );
         } finally {
             busyLock.leaveBusy();

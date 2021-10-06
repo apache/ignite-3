@@ -260,6 +260,8 @@ public class Inbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Singl
                 case WAITING:
 
                     return;
+                default:
+                    break;
             }
         }
 
@@ -285,6 +287,8 @@ public class Inbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Singl
                     case WAITING:
 
                         return;
+                    default:
+                        break;
                 }
             }
         } finally {
@@ -329,6 +333,8 @@ public class Inbox<Row> extends AbstractNode<Row> implements Mailbox<Row>, Singl
                             return;
                         }
 
+                        break;
+                    default:
                         break;
                 }
 

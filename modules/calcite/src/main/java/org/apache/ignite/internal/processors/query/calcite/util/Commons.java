@@ -341,14 +341,14 @@ public final class Commons {
             }
         }
     }
-//
-//    /**
-//     * @param o Object to close.
-//     */
-//    public static void closeQuiet(Object o) {
-//        if (o instanceof AutoCloseable)
-//            U.closeQuiet((AutoCloseable) o);
-//    }
+
+    //    /**
+    //     * @param o Object to close.
+    //     */
+    //    public static void closeQuiet(Object o) {
+    //        if (o instanceof AutoCloseable)
+    //            U.closeQuiet((AutoCloseable) o);
+    //    }
 
     /**
      *

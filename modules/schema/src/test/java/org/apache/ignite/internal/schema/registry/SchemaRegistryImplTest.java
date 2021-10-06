@@ -548,7 +548,7 @@ public class SchemaRegistryImplTest {
 
         final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null);
 
-        Map<Long, ColumnMapper> cache = reg.mappingCache();
+        final Map<Long, ColumnMapper> cache = reg.mappingCache();
 
         reg.onSchemaRegistered(schemaV1);
         reg.onSchemaRegistered(schemaV2);

@@ -196,7 +196,7 @@ public class TupleImplTest {
         assertNotEquals(new TupleImpl().set("foo", "foo"), new TupleImpl().set("bar", "bar"));
 
         TupleImpl tuple = new TupleImpl();
-        TupleImpl tuple2 = new TupleImpl();
+        final TupleImpl tuple2 = new TupleImpl();
 
         assertEquals(tuple, tuple);
 

@@ -69,6 +69,8 @@ public class CustomTuple implements Tuple {
                 return "id";
             case 1:
                 return "name";
+            default:
+                break;
         }
 
         return null;
@@ -81,6 +83,8 @@ public class CustomTuple implements Tuple {
                 return 0;
             case "name":
                 return 1;
+            default:
+                break;
         }
 
         return -1;
@@ -93,6 +97,8 @@ public class CustomTuple implements Tuple {
                 return (T) id;
             case "name":
                 return (T) name;
+            default:
+                break;
         }
 
         return def;
@@ -115,6 +121,8 @@ public class CustomTuple implements Tuple {
                 return (T) id;
             case 1:
                 return (T) name;
+            default:
+                break;
         }
 
         return null;

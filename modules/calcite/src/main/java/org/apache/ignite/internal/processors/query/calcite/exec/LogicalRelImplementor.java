@@ -297,26 +297,26 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
     @Override
     public Node<Row> visit(IgniteIndexScan rel) {
         // TODO: fix this
-//        RexNode condition = rel.condition();
-//        List<RexNode> projects = rel.projects();
+        //        RexNode condition = rel.condition();
+        //        List<RexNode> projects = rel.projects();
 
         IgniteTable tbl = rel.getTable().unwrap(IgniteTable.class);
         IgniteTypeFactory typeFactory = ctx.getTypeFactory();
 
         ImmutableBitSet requiredColumns = rel.requiredColumns();
-//        List<RexNode> lowerCond = rel.lowerBound();
-//        List<RexNode> upperCond = rel.upperBound();
+        //        List<RexNode> lowerCond = rel.lowerBound();
+        //        List<RexNode> upperCond = rel.upperBound();
 
         RelDataType rowType = tbl.getRowType(typeFactory, requiredColumns);
 
-//        Predicate<Row> filters = condition == null ? null : expressionFactory.predicate(condition, rowType);
-//        Supplier<Row> lower = lowerCond == null ? null : expressionFactory.rowSource(lowerCond);
-//        Supplier<Row> upper = upperCond == null ? null : expressionFactory.rowSource(upperCond);
-//        Function<Row, Row> prj = projects == null ? null : expressionFactory.project(projects, rowType);
-//
-//        IgniteIndex idx = tbl.getIndex(rel.indexName());
-//
-//        ColocationGroup group = ctx.group(rel.sourceId());
+        //        Predicate<Row> filters = condition == null ? null : expressionFactory.predicate(condition, rowType);
+        //        Supplier<Row> lower = lowerCond == null ? null : expressionFactory.rowSource(lowerCond);
+        //        Supplier<Row> upper = upperCond == null ? null : expressionFactory.rowSource(upperCond);
+        //        Function<Row, Row> prj = projects == null ? null : expressionFactory.project(projects, rowType);
+        //
+        //        IgniteIndex idx = tbl.getIndex(rel.indexName());
+        //
+        //        ColocationGroup group = ctx.group(rel.sourceId());
 
         Iterable<Row> rowsIter = (Iterable<Row>) List.of(new Object[]{0, 0},
                 new Object[]{1, 1}); //idx.scan(ctx, group, filters, lower, upper, prj, requiredColumns);

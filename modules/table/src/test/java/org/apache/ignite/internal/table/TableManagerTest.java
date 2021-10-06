@@ -388,7 +388,7 @@ public class TableManagerTest {
                 return cursor;
             });
 
-            int tablesBeforeCreation = tableManager.tables().size();
+            final int tablesBeforeCreation = tableManager.tables().size();
 
             clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().listen(ctx -> {
                 boolean createTbl = ctx.newValue().get(tableDefinition.canonicalName()) != null

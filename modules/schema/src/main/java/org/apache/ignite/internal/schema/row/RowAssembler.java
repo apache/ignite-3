@@ -564,7 +564,7 @@ public class RowAssembler {
         checkType(NativeTypes.STRING);
 
         try {
-            int written = buf.putString(curOff, val, encoder());
+            final int written = buf.putString(curOff, val, encoder());
 
             writeVarlenOffset(curVartblEntry, curOff - dataOff);
 
@@ -816,7 +816,7 @@ public class RowAssembler {
     /**
      * Writes time.
      *
-     * @param buf
+     * @param buf Buffer.
      * @param off  Offset.
      * @param val  Time.
      * @param type Native type.

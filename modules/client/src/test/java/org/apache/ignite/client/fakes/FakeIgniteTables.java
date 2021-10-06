@@ -188,6 +188,9 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
                                 new Column("name", NativeTypes.STRING, true),
                                 new Column("xyz", NativeTypes.STRING, true)
                         });
+
+            default:
+                break;
         }
 
         return null;

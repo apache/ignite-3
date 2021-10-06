@@ -432,10 +432,10 @@ public class FieldAccessorTest {
 
             TestSimpleObject object = (TestSimpleObject) o;
 
-            return Objects.equals(longCol, object.longCol) &&
-                    Objects.equals(intCol, object.intCol) &&
-                    Arrays.equals(bytesCol, object.bytesCol) &&
-                    Objects.equals(stringCol, object.stringCol);
+            return Objects.equals(longCol, object.longCol)
+                    && Objects.equals(intCol, object.intCol)
+                    && Arrays.equals(bytesCol, object.bytesCol)
+                    && Objects.equals(stringCol, object.stringCol);
         }
 
         /** {@inheritDoc} */

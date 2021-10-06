@@ -115,6 +115,9 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
 
             case NOOP:
                 break;
+
+            default:
+                break;
         }
     }
 }

@@ -233,7 +233,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     public void testSingleKeyReadWriteConflict4() throws LockException {
         Timestamp ts0 = Timestamp.nextVersion();
         Timestamp ts1 = Timestamp.nextVersion();
-        Timestamp ts2 = Timestamp.nextVersion();
+        final Timestamp ts2 = Timestamp.nextVersion();
         Timestamp ts3 = Timestamp.nextVersion();
         Object key = new String("test");
 

@@ -686,9 +686,7 @@ public class ConfigurationListenerTest {
             return completedFuture(null);
         });
 
-        Future<Void> fut = configuration.change(parent -> parent.changeElements(elements ->
-                elements.delete("name"))
-        );
+        final Future<Void> fut = configuration.change(parent -> parent.changeElements(elements -> elements.delete("name")));
 
         wait.countDown();
 
@@ -712,7 +710,7 @@ public class ConfigurationListenerTest {
         ConfigurationListener<ParentView> listener1 = configListener(ctx -> events.add("1"));
 
         ConfigurationNamedListListener<ChildView> listener2 = configNamedListenerOnUpdate(ctx -> events.add("2"));
-        ConfigurationNamedListListener<ChildView> listener3 = configNamedListenerOnUpdate(ctx -> events.add("3"));
+        final ConfigurationNamedListListener<ChildView> listener3 = configNamedListenerOnUpdate(ctx -> events.add("3"));
 
         configuration.listen(listener0);
         configuration.listen(listener1);

@@ -105,13 +105,13 @@ public class ITClientHandlerTest {
 
             // Read response.
             var unpacker = MessagePack.newDefaultUnpacker(sock.getInputStream());
-            var magic = unpacker.readPayload(4);
+            final var magic = unpacker.readPayload(4);
             unpacker.skipValue(3); // LE int zeros.
-            var len = unpacker.unpackInt();
-            var major = unpacker.unpackInt();
-            var minor = unpacker.unpackInt();
-            var patch = unpacker.unpackInt();
-            var errorCode = unpacker.unpackInt();
+            final var len = unpacker.unpackInt();
+            final var major = unpacker.unpackInt();
+            final var minor = unpacker.unpackInt();
+            final var patch = unpacker.unpackInt();
+            final var errorCode = unpacker.unpackInt();
 
             var featuresLen = unpacker.unpackBinaryHeader();
             unpacker.skipValue(featuresLen);
@@ -161,10 +161,10 @@ public class ITClientHandlerTest {
             unpacker.skipValue(3);
             var len = unpacker.unpackInt();
             var major = unpacker.unpackInt();
-            var minor = unpacker.unpackInt();
-            var patch = unpacker.unpackInt();
-            var errorCode = unpacker.unpackInt();
-            var err = unpacker.unpackString();
+            final var minor = unpacker.unpackInt();
+            final var patch = unpacker.unpackInt();
+            final var errorCode = unpacker.unpackInt();
+            final var err = unpacker.unpackString();
 
             assertArrayEquals(MAGIC, magic);
             assertEquals(31, len);

@@ -138,6 +138,8 @@ public class JavaLoggerFormatter extends Formatter {
                 return System.Logger.Level.ERROR;
             case SEVERITY_OFF:
                 return System.Logger.Level.OFF;
+            default:
+                break;
         }
 
         // return the nearest Level value >= the given level,

@@ -916,408 +916,6 @@ public class IgniteToStringBuilder {
     }
 
     /**
-     * Writes array to buffer.
-     *
-     * @param buf     String builder buffer.
-     * @param arrType Type of the array.
-     * @param obj     Array object.
-     */
-    private static void addArray(SBLimitedLength buf, Class arrType, Object obj) {
-        if (arrType.getComponentType().isPrimitive()) {
-            buf.a(arrayToString(obj));
-
-            return;
-        }
-
-        Object[] arr = (Object[]) obj;
-
-        buf.a(arrType.getSimpleName()).a(" [");
-
-        for (int i = 0; i < arr.length; i++) {
-            toString(buf, arr[i]);
-
-            if (i == COLLECTION_LIMIT - 1 || i == arr.length - 1) {
-                break;
-            }
-
-            buf.a(", ");
-        }
-
-        handleOverflow(buf, arr.length);
-
-        buf.a(']');
-    }
-
-    /**
-     * Writes collection to buffer.
-     *
-     * @param buf String builder buffer.
-     * @param col Collection object.
-     */
-    private static void addCollection(SBLimitedLength buf, Collection<?> col) {
-        buf.a(col.getClass().getSimpleName()).a(" [");
-
-        int cnt = 0;
-        boolean needHandleOverflow = true;
-
-        Iterator<?> iter = col.iterator();
-        int colSize = col.size();
-
-        while (iter.hasNext()) {
-            Object obj;
-
-            try {
-                obj = iter.next();
-            } catch (ConcurrentModificationException e) {
-                handleConcurrentModification(buf, cnt, colSize);
-
-                needHandleOverflow = false;
-                break;
-            }
-
-            toString(buf, obj);
-
-            if (++cnt == COLLECTION_LIMIT || cnt == colSize) {
-                break;
-            }
-
-            buf.a(", ");
-        }
-
-        if (needHandleOverflow) {
-            handleOverflow(buf, colSize);
-        }
-
-        buf.a(']');
-    }
-
-    /**
-     * Writes map to buffer.
-     *
-     * @param buf String builder buffer.
-     * @param map Map object.
-     */
-    private static <K, V> void addMap(SBLimitedLength buf, Map<K, V> map) {
-        buf.a(map.getClass().getSimpleName()).a(" {");
-
-        int cnt = 0;
-        boolean needHandleOverflow = true;
-
-        Iterator<Map.Entry<K, V>> iter = map.entrySet().iterator();
-        int mapSize = map.size();
-
-        while (iter.hasNext()) {
-            Object key;
-            Object value;
-
-            try {
-                Map.Entry<K, V> entry = iter.next();
-
-                key = entry.getKey();
-                value = entry.getValue();
-            } catch (ConcurrentModificationException e) {
-                handleConcurrentModification(buf, cnt, mapSize);
-
-                needHandleOverflow = false;
-                break;
-            }
-
-            toString(buf, key);
-
-            buf.a('=');
-
-            toString(buf, value);
-
-            if (++cnt == COLLECTION_LIMIT || cnt == mapSize) {
-                break;
-            }
-
-            buf.a(", ");
-        }
-
-        if (needHandleOverflow) {
-            handleOverflow(buf, mapSize);
-        }
-
-        buf.a('}');
-    }
-
-    /**
-     * Writes overflow message to buffer if needed.
-     *
-     * @param buf  String builder buffer.
-     * @param size Size to compare with limit.
-     */
-    private static void handleOverflow(SBLimitedLength buf, int size) {
-        int overflow = size - COLLECTION_LIMIT;
-
-        if (overflow > 0) {
-            buf.a("... and ").a(overflow).a(" more");
-        }
-    }
-
-    /**
-     * Writes message about situation of ConcurrentModificationException caught when iterating over collection.
-     *
-     * @param buf             String builder buffer.
-     * @param writtenElements Number of elements successfully written to output.
-     * @param size            Overall size of collection.
-     */
-    private static void handleConcurrentModification(SBLimitedLength buf, int writtenElements, int size) {
-        buf.a("... concurrent modification was detected, ").a(writtenElements).a(" out of ").a(size)
-                .a(" were written");
-    }
-
-    /**
-     * Creates an uniformed string presentation for the given object.
-     *
-     * @param <T>      Type of object.
-     * @param cls      Class of the object.
-     * @param buf      String builder buffer.
-     * @param obj      Object for which to get string presentation.
-     * @param addNames Names of additional values to be included.
-     * @param addVals  Additional values to be included.
-     * @param addSens  Sensitive flag of values or {@code null} if all values are not sensitive.
-     * @param addLen   How many additional values will be included.
-     * @return String presentation of the given object.
-     */
-    private static <T> String toStringImpl(
-            Class<T> cls,
-            SBLimitedLength buf,
-            T obj,
-            Object[] addNames,
-            Object[] addVals,
-            @Nullable boolean[] addSens,
-            int addLen) {
-        assert cls != null;
-        assert buf != null;
-        assert obj != null;
-        assert addNames != null;
-        assert addVals != null;
-        assert addNames.length == addVals.length;
-        assert addLen <= addNames.length;
-
-        boolean newStr = buf.length() == 0;
-
-        IdentityHashMap<Object, EntryReference> svdObjs = savedObjects.get();
-
-        if (newStr) {
-            svdObjs.put(obj, new EntryReference(buf.length()));
-        }
-
-        try {
-            int len = buf.length();
-
-            String s = toStringImpl0(cls, buf, obj, addNames, addVals, addSens, addLen);
-
-            if (newStr) {
-                return s;
-            }
-
-            buf.setLength(len);
-
-            return s.substring(len);
-        } finally {
-            if (newStr) {
-                svdObjs.remove(obj);
-            }
-        }
-    }
-
-    /**
-     * Creates an uniformed string presentation for the given object.
-     *
-     * @param cls      Class of the object.
-     * @param buf      String builder buffer.
-     * @param obj      Object for which to get string presentation.
-     * @param addNames Names of additional values to be included.
-     * @param addVals  Additional values to be included.
-     * @param addSens  Sensitive flag of values or {@code null} if all values are not sensitive.
-     * @param addLen   How many additional values will be included.
-     * @param <T>      Type of object.
-     * @return String presentation of the given object.
-     */
-    private static <T> String toStringImpl0(
-            Class<T> cls,
-            SBLimitedLength buf,
-            T obj,
-            Object[] addNames,
-            Object[] addVals,
-            @Nullable boolean[] addSens,
-            int addLen
-    ) {
-        try {
-            ClassDescriptor cd = getClassDescriptor(cls);
-
-            assert cd != null;
-
-            buf.a(cd.getSimpleClassName());
-
-            EntryReference ref = savedObjects.get().get(obj);
-
-            if (ref != null && ref.hashNeeded) {
-                buf.a(identity(obj));
-
-                ref.hashNeeded = false;
-            }
-
-            buf.a(" [");
-
-            boolean first = true;
-
-            for (FieldDescriptor fd : cd.getFields()) {
-                if (!first) {
-                    buf.a(", ");
-                } else {
-                    first = false;
-                }
-
-                buf.a(fd.getName()).a('=');
-
-                final VarHandle fH = fd.varHandle();
-
-                switch (fd.type()) {
-                    case FieldDescriptor.FIELD_TYPE_OBJECT:
-                        try {
-                            toString(buf, fd.fieldClass(), fH.get(obj));
-                        } catch (RuntimeException e) {
-                            if (IGNORE_RUNTIME_EXCEPTION) {
-                                buf.a("Runtime exception was caught when building string representation: "
-                                        + e.getMessage());
-                            } else {
-                                throw e;
-                            }
-                        }
-
-                        break;
-                    case FieldDescriptor.FIELD_TYPE_BYTE:
-                        buf.a((byte) fH.get(obj));
-
-                        break;
-                    case FieldDescriptor.FIELD_TYPE_BOOLEAN:
-                        buf.a((boolean) fH.get(obj));
-
-                        break;
-                    case FieldDescriptor.FIELD_TYPE_CHAR:
-                        buf.a((char) fH.get(obj));
-
-                        break;
-                    case FieldDescriptor.FIELD_TYPE_SHORT:
-                        buf.a((short) fH.get(obj));
-
-                        break;
-                    case FieldDescriptor.FIELD_TYPE_INT:
-                        buf.a((int) fH.get(obj));
-
-                        break;
-                    case FieldDescriptor.FIELD_TYPE_FLOAT:
-                        buf.a((float) fH.get(obj));
-
-                        break;
-                    case FieldDescriptor.FIELD_TYPE_LONG:
-                        buf.a((long) fH.get(obj));
-
-                        break;
-                    case FieldDescriptor.FIELD_TYPE_DOUBLE:
-                        buf.a((double) fH.get(obj));
-
-                        break;
-                }
-            }
-
-            appendVals(buf, first, addNames, addVals, addSens, addLen);
-
-            buf.a(']');
-
-            return buf.toString();
-        } catch (Exception e) { // Specifically catching all exceptions.
-            // Remove entry from cache to avoid potential memory leak
-            // in case new class loader got loaded under the same identity hash.
-            classCache.remove(cls.getName() + System.identityHashCode(cls.getClassLoader()));
-
-            // No other option here.
-            throw new IgniteInternalException(e);
-        }
-    }
-
-    /**
-     * Returns limited string representation of array.
-     *
-     * @param arr Array object. Each value is automatically wrapped if it has a primitive type.
-     * @return String representation of an array.
-     */
-    public static String arrayToString(Object arr) {
-        if (arr == null) {
-            return "null";
-        }
-
-        String res;
-
-        int arrLen;
-
-        if (arr instanceof Object[]) {
-            Object[] objArr = (Object[]) arr;
-
-            arrLen = objArr.length;
-
-            if (arrLen > COLLECTION_LIMIT) {
-                objArr = Arrays.copyOf(objArr, COLLECTION_LIMIT);
-            }
-
-            res = Arrays.toString(objArr);
-        } else {
-            res = toStringWithLimit(arr, COLLECTION_LIMIT);
-
-            arrLen = Array.getLength(arr);
-        }
-
-        if (arrLen > COLLECTION_LIMIT) {
-            StringBuilder resSB = new StringBuilder(res);
-
-            resSB.deleteCharAt(resSB.length() - 1);
-
-            resSB.append("... and ").append(arrLen - COLLECTION_LIMIT).append(" more]");
-
-            res = resSB.toString();
-        }
-
-        return res;
-    }
-
-    /**
-     * Returns limited string representation of array.
-     *
-     * @param arr   Input array. Each value is automatically wrapped if it has a primitive type.
-     * @param limit max array items to string limit.
-     * @return String representation of an array.
-     */
-    private static String toStringWithLimit(Object arr, int limit) {
-        int arrIdxMax = Array.getLength(arr) - 1;
-
-        if (arrIdxMax == -1) {
-            return "[]";
-        }
-
-        int idxMax = Math.min(arrIdxMax, limit);
-
-        StringBuilder b = new StringBuilder();
-
-        b.append('[');
-
-        for (int i = 0; i <= idxMax; ++i) {
-            b.append(Array.get(arr, i));
-
-            if (i == idxMax) {
-                return b.append(']').toString();
-            }
-
-            b.append(", ");
-        }
-
-        return b.toString();
-    }
-
-    /**
      * Produces uniformed output of string with context properties
      *
      * @param str  Output prefix or {@code null} if empty.
@@ -1670,6 +1268,410 @@ public class IgniteToStringBuilder {
                 sb.reset();
             }
         }
+    }
+
+    /**
+     * Writes array to buffer.
+     *
+     * @param buf     String builder buffer.
+     * @param arrType Type of the array.
+     * @param obj     Array object.
+     */
+    private static void addArray(SBLimitedLength buf, Class arrType, Object obj) {
+        if (arrType.getComponentType().isPrimitive()) {
+            buf.a(arrayToString(obj));
+
+            return;
+        }
+
+        Object[] arr = (Object[]) obj;
+
+        buf.a(arrType.getSimpleName()).a(" [");
+
+        for (int i = 0; i < arr.length; i++) {
+            toString(buf, arr[i]);
+
+            if (i == COLLECTION_LIMIT - 1 || i == arr.length - 1) {
+                break;
+            }
+
+            buf.a(", ");
+        }
+
+        handleOverflow(buf, arr.length);
+
+        buf.a(']');
+    }
+
+    /**
+     * Writes collection to buffer.
+     *
+     * @param buf String builder buffer.
+     * @param col Collection object.
+     */
+    private static void addCollection(SBLimitedLength buf, Collection<?> col) {
+        buf.a(col.getClass().getSimpleName()).a(" [");
+
+        int cnt = 0;
+        boolean needHandleOverflow = true;
+
+        Iterator<?> iter = col.iterator();
+        int colSize = col.size();
+
+        while (iter.hasNext()) {
+            Object obj;
+
+            try {
+                obj = iter.next();
+            } catch (ConcurrentModificationException e) {
+                handleConcurrentModification(buf, cnt, colSize);
+
+                needHandleOverflow = false;
+                break;
+            }
+
+            toString(buf, obj);
+
+            if (++cnt == COLLECTION_LIMIT || cnt == colSize) {
+                break;
+            }
+
+            buf.a(", ");
+        }
+
+        if (needHandleOverflow) {
+            handleOverflow(buf, colSize);
+        }
+
+        buf.a(']');
+    }
+
+    /**
+     * Writes map to buffer.
+     *
+     * @param buf String builder buffer.
+     * @param map Map object.
+     */
+    private static <K, V> void addMap(SBLimitedLength buf, Map<K, V> map) {
+        buf.a(map.getClass().getSimpleName()).a(" {");
+
+        int cnt = 0;
+        boolean needHandleOverflow = true;
+
+        Iterator<Map.Entry<K, V>> iter = map.entrySet().iterator();
+        int mapSize = map.size();
+
+        while (iter.hasNext()) {
+            Object key;
+            Object value;
+
+            try {
+                Map.Entry<K, V> entry = iter.next();
+
+                key = entry.getKey();
+                value = entry.getValue();
+            } catch (ConcurrentModificationException e) {
+                handleConcurrentModification(buf, cnt, mapSize);
+
+                needHandleOverflow = false;
+                break;
+            }
+
+            toString(buf, key);
+
+            buf.a('=');
+
+            toString(buf, value);
+
+            if (++cnt == COLLECTION_LIMIT || cnt == mapSize) {
+                break;
+            }
+
+            buf.a(", ");
+        }
+
+        if (needHandleOverflow) {
+            handleOverflow(buf, mapSize);
+        }
+
+        buf.a('}');
+    }
+
+    /**
+     * Writes overflow message to buffer if needed.
+     *
+     * @param buf  String builder buffer.
+     * @param size Size to compare with limit.
+     */
+    private static void handleOverflow(SBLimitedLength buf, int size) {
+        int overflow = size - COLLECTION_LIMIT;
+
+        if (overflow > 0) {
+            buf.a("... and ").a(overflow).a(" more");
+        }
+    }
+
+    /**
+     * Writes message about situation of ConcurrentModificationException caught when iterating over collection.
+     *
+     * @param buf             String builder buffer.
+     * @param writtenElements Number of elements successfully written to output.
+     * @param size            Overall size of collection.
+     */
+    private static void handleConcurrentModification(SBLimitedLength buf, int writtenElements, int size) {
+        buf.a("... concurrent modification was detected, ").a(writtenElements).a(" out of ").a(size)
+                .a(" were written");
+    }
+
+    /**
+     * Creates an uniformed string presentation for the given object.
+     *
+     * @param <T>      Type of object.
+     * @param cls      Class of the object.
+     * @param buf      String builder buffer.
+     * @param obj      Object for which to get string presentation.
+     * @param addNames Names of additional values to be included.
+     * @param addVals  Additional values to be included.
+     * @param addSens  Sensitive flag of values or {@code null} if all values are not sensitive.
+     * @param addLen   How many additional values will be included.
+     * @return String presentation of the given object.
+     */
+    private static <T> String toStringImpl(
+            Class<T> cls,
+            SBLimitedLength buf,
+            T obj,
+            Object[] addNames,
+            Object[] addVals,
+            @Nullable boolean[] addSens,
+            int addLen) {
+        assert cls != null;
+        assert buf != null;
+        assert obj != null;
+        assert addNames != null;
+        assert addVals != null;
+        assert addNames.length == addVals.length;
+        assert addLen <= addNames.length;
+
+        boolean newStr = buf.length() == 0;
+
+        IdentityHashMap<Object, EntryReference> svdObjs = savedObjects.get();
+
+        if (newStr) {
+            svdObjs.put(obj, new EntryReference(buf.length()));
+        }
+
+        try {
+            int len = buf.length();
+
+            String s = toStringImpl0(cls, buf, obj, addNames, addVals, addSens, addLen);
+
+            if (newStr) {
+                return s;
+            }
+
+            buf.setLength(len);
+
+            return s.substring(len);
+        } finally {
+            if (newStr) {
+                svdObjs.remove(obj);
+            }
+        }
+    }
+
+    /**
+     * Creates an uniformed string presentation for the given object.
+     *
+     * @param cls      Class of the object.
+     * @param buf      String builder buffer.
+     * @param obj      Object for which to get string presentation.
+     * @param addNames Names of additional values to be included.
+     * @param addVals  Additional values to be included.
+     * @param addSens  Sensitive flag of values or {@code null} if all values are not sensitive.
+     * @param addLen   How many additional values will be included.
+     * @param <T>      Type of object.
+     * @return String presentation of the given object.
+     */
+    private static <T> String toStringImpl0(
+            Class<T> cls,
+            SBLimitedLength buf,
+            T obj,
+            Object[] addNames,
+            Object[] addVals,
+            @Nullable boolean[] addSens,
+            int addLen
+    ) {
+        try {
+            ClassDescriptor cd = getClassDescriptor(cls);
+
+            assert cd != null;
+
+            buf.a(cd.getSimpleClassName());
+
+            EntryReference ref = savedObjects.get().get(obj);
+
+            if (ref != null && ref.hashNeeded) {
+                buf.a(identity(obj));
+
+                ref.hashNeeded = false;
+            }
+
+            buf.a(" [");
+
+            boolean first = true;
+
+            for (FieldDescriptor fd : cd.getFields()) {
+                if (!first) {
+                    buf.a(", ");
+                } else {
+                    first = false;
+                }
+
+                buf.a(fd.getName()).a('=');
+
+                final VarHandle fH = fd.varHandle();
+
+                switch (fd.type()) {
+                    case FieldDescriptor.FIELD_TYPE_OBJECT:
+                        try {
+                            toString(buf, fd.fieldClass(), fH.get(obj));
+                        } catch (RuntimeException e) {
+                            if (IGNORE_RUNTIME_EXCEPTION) {
+                                buf.a("Runtime exception was caught when building string representation: "
+                                        + e.getMessage());
+                            } else {
+                                throw e;
+                            }
+                        }
+
+                        break;
+                    case FieldDescriptor.FIELD_TYPE_BYTE:
+                        buf.a((byte) fH.get(obj));
+
+                        break;
+                    case FieldDescriptor.FIELD_TYPE_BOOLEAN:
+                        buf.a((boolean) fH.get(obj));
+
+                        break;
+                    case FieldDescriptor.FIELD_TYPE_CHAR:
+                        buf.a((char) fH.get(obj));
+
+                        break;
+                    case FieldDescriptor.FIELD_TYPE_SHORT:
+                        buf.a((short) fH.get(obj));
+
+                        break;
+                    case FieldDescriptor.FIELD_TYPE_INT:
+                        buf.a((int) fH.get(obj));
+
+                        break;
+                    case FieldDescriptor.FIELD_TYPE_FLOAT:
+                        buf.a((float) fH.get(obj));
+
+                        break;
+                    case FieldDescriptor.FIELD_TYPE_LONG:
+                        buf.a((long) fH.get(obj));
+
+                        break;
+                    case FieldDescriptor.FIELD_TYPE_DOUBLE:
+                        buf.a((double) fH.get(obj));
+
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            appendVals(buf, first, addNames, addVals, addSens, addLen);
+
+            buf.a(']');
+
+            return buf.toString();
+        } catch (Exception e) { // Specifically catching all exceptions.
+            // Remove entry from cache to avoid potential memory leak
+            // in case new class loader got loaded under the same identity hash.
+            classCache.remove(cls.getName() + System.identityHashCode(cls.getClassLoader()));
+
+            // No other option here.
+            throw new IgniteInternalException(e);
+        }
+    }
+
+    /**
+     * Returns limited string representation of array.
+     *
+     * @param arr Array object. Each value is automatically wrapped if it has a primitive type.
+     * @return String representation of an array.
+     */
+    public static String arrayToString(Object arr) {
+        if (arr == null) {
+            return "null";
+        }
+
+        String res;
+
+        int arrLen;
+
+        if (arr instanceof Object[]) {
+            Object[] objArr = (Object[]) arr;
+
+            arrLen = objArr.length;
+
+            if (arrLen > COLLECTION_LIMIT) {
+                objArr = Arrays.copyOf(objArr, COLLECTION_LIMIT);
+            }
+
+            res = Arrays.toString(objArr);
+        } else {
+            res = toStringWithLimit(arr, COLLECTION_LIMIT);
+
+            arrLen = Array.getLength(arr);
+        }
+
+        if (arrLen > COLLECTION_LIMIT) {
+            StringBuilder resSB = new StringBuilder(res);
+
+            resSB.deleteCharAt(resSB.length() - 1);
+
+            resSB.append("... and ").append(arrLen - COLLECTION_LIMIT).append(" more]");
+
+            res = resSB.toString();
+        }
+
+        return res;
+    }
+
+    /**
+     * Returns limited string representation of array.
+     *
+     * @param arr   Input array. Each value is automatically wrapped if it has a primitive type.
+     * @param limit max array items to string limit.
+     * @return String representation of an array.
+     */
+    private static String toStringWithLimit(Object arr, int limit) {
+        int arrIdxMax = Array.getLength(arr) - 1;
+
+        if (arrIdxMax == -1) {
+            return "[]";
+        }
+
+        int idxMax = Math.min(arrIdxMax, limit);
+
+        StringBuilder b = new StringBuilder();
+
+        b.append('[');
+
+        for (int i = 0; i <= idxMax; ++i) {
+            b.append(Array.get(arr, i));
+
+            if (i == idxMax) {
+                return b.append(']').toString();
+            }
+
+            b.append(", ");
+        }
+
+        return b.toString();
     }
 
     /**

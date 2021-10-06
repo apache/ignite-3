@@ -91,6 +91,12 @@ public class StripedThreadPoolExecutor implements ExecutorService {
         execs[threadId(idx)].execute(task);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void execute(Runnable cmd) {
+        throw new UnsupportedOperationException();
+    }
+
     /**
      * Submits a {@link Runnable} task for execution and returns a {@link CompletableFuture} representing that task. The command with the
      * same {@code index} will be executed in the same thread.
@@ -221,12 +227,6 @@ public class StripedThreadPoolExecutor implements ExecutorService {
     /** {@inheritDoc} */
     @Override
     public <T> T invokeAny(Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit) {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void execute(Runnable cmd) {
         throw new UnsupportedOperationException();
     }
 

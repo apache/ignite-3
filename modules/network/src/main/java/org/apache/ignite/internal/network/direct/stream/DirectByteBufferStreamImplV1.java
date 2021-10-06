@@ -602,6 +602,8 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 }
 
                 uuidState = 0;
+            default:
+                break;
         }
     }
 
@@ -647,6 +649,8 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 }
 
                 uuidState = 0;
+            default:
+                break;
         }
     }
 
@@ -1140,6 +1144,8 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 }
 
                 uuidState = 0;
+            default:
+                break;
         }
 
         UUID val = new UUID(uuidMost, uuidLeast);
@@ -1192,9 +1198,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 }
 
                 uuidState = 0;
+            default:
+                break;
         }
 
-        IgniteUuid val = new IgniteUuid(new UUID(uuidMost, uuidLeast), uuidLocId);
+        final IgniteUuid val = new IgniteUuid(new UUID(uuidMost, uuidLeast), uuidLocId);
 
         uuidMost = 0;
         uuidLeast = 0;
@@ -1572,7 +1580,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
             buf.position(pos + toRead);
 
-            T arr = (T) tmpArr;
+            final T arr = (T) tmpArr;
 
             tmpArr = null;
             tmpArrBytes = 0;
@@ -1650,7 +1658,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         buf.position(pos + toRead);
 
         if (lastFinished) {
-            T arr = (T) tmpArr;
+            final T arr = (T) tmpArr;
 
             tmpArr = null;
             tmpArrBytes = 0;

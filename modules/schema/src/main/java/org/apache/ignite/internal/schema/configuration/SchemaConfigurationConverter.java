@@ -442,8 +442,8 @@ public class SchemaConfigurationConverter {
     public static TableDefinitionImpl convert(TableView tblView) {
         String canonicalName = tblView.name();
         int sepPos = canonicalName.indexOf('.');
-        String schemaName = canonicalName.substring(0, sepPos);
-        String tableName = canonicalName.substring(sepPos + 1);
+        final String schemaName = canonicalName.substring(0, sepPos);
+        final String tableName = canonicalName.substring(sepPos + 1);
 
         NamedListView<? extends ColumnView> colsView = tblView.columns();
 
@@ -567,10 +567,7 @@ public class SchemaConfigurationConverter {
             return ColumnType.FLOAT;
         } else if (cls == double.class) {
             return ColumnType.DOUBLE;
-        }
-
-        // Boxed primitives.
-        else if (cls == Byte.class) {
+        } else if (cls == Byte.class) { // Boxed primitives.
             return ColumnType.INT8;
         } else if (cls == Short.class) {
             return ColumnType.INT16;
@@ -582,10 +579,7 @@ public class SchemaConfigurationConverter {
             return ColumnType.FLOAT;
         } else if (cls == Double.class) {
             return ColumnType.DOUBLE;
-        }
-
-        // Temporal types.
-        else if (cls == LocalDate.class) {
+        } else if (cls == LocalDate.class) { // Temporal types.
             return ColumnType.DATE;
         } else if (cls == LocalTime.class) {
             return ColumnType.time(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
@@ -593,10 +587,7 @@ public class SchemaConfigurationConverter {
             return ColumnType.datetime(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
         } else if (cls == Instant.class) {
             return ColumnType.timestamp(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
-        }
-
-        // Other types
-        else if (cls == String.class) {
+        } else if (cls == String.class) { // Other types
             return ColumnType.string();
         } else if (cls == UUID.class) {
             return ColumnType.UUID;

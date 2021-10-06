@@ -71,6 +71,8 @@ public class ColumnAccessCodeGenerator {
                 return new ColumnAccessCodeGenerator("numberValue", "appendNumber", BigInteger.class, colIdx);
             case DECIMAL:
                 return new ColumnAccessCodeGenerator("decimalValue", "appendDecimal", BigDecimal.class, colIdx);
+            default:
+                break;
         }
 
         throw new IgniteInternalException("Unsupported binary mode: " + mode);

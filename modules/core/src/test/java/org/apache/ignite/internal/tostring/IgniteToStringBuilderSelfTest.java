@@ -156,7 +156,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         Node n1 = new Node();
         Node n2 = new Node();
         Node n3 = new Node();
-        Node n4 = new Node();
+        final Node n4 = new Node();
 
         n1.name = "n1";
         n2.name = "n2";
@@ -189,7 +189,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         CompletableFuture<String> fut1 = runAsync(new BarrierCallable(bar, n1, expN1), pool);
         CompletableFuture<String> fut2 = runAsync(new BarrierCallable(bar, n2, expN2), pool);
         CompletableFuture<String> fut3 = runAsync(new BarrierCallable(bar, n3, expN3), pool);
-        CompletableFuture<String> fut4 = runAsync(new BarrierCallable(bar, n4, expN4), pool);
+        final CompletableFuture<String> fut4 = runAsync(new BarrierCallable(bar, n4, expN4), pool);
 
         fut1.get(3_000, TimeUnit.MILLISECONDS);
         fut2.get(3_000, TimeUnit.MILLISECONDS);
@@ -279,7 +279,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
      */
     private void checkArrayOverflow(Object[] arrOf, Object[] arr, int limit) {
         String arrStr = IgniteToStringBuilder.arrayToString(arr);
-        String arrOfStr = IgniteToStringBuilder.arrayToString(arrOf);
+        final String arrOfStr = IgniteToStringBuilder.arrayToString(arrOf);
 
         // Simulate overflow
         StringBuilder resultSB = new StringBuilder(arrStr);
@@ -455,7 +455,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
     @Test
     public void testToStringSizeLimits() {
         int limit = IgniteSystemProperties.getInteger(IGNITE_TO_STRING_MAX_LENGTH, 10_000);
-        int tailLen = limit / 10 * 2;
+        final int tailLen = limit / 10 * 2;
 
         StringBuilder sb = new StringBuilder(limit + 10);
 

@@ -92,7 +92,7 @@ class ITSimpleCounterServerTest extends RaftServerAbstractTest {
     void before() throws Exception {
         LOG.info(">>>> Starting test {}", testInfo.getTestMethod().orElseThrow().getName());
 
-        var addr = new NetworkAddress("localhost", PORT);
+        final var addr = new NetworkAddress("localhost", PORT);
 
         ClusterService service = clusterService(PORT, List.of(), true);
 

@@ -200,7 +200,7 @@ public class UpgradingRowAdapterTest {
      *
      * @param schema Row schema.
      * @param vals   Row values.
-     * @return
+     * @return Row bytes.
      */
     private byte[] serializeValuesToRow(SchemaDescriptor schema, List<Object> vals) {
         assertEquals(schema.keyColumns().length() + schema.valueColumns().length(), vals.size());

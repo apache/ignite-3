@@ -600,7 +600,8 @@ public class RowAssemblerSimpleSchemaTest {
                         new Column("valStrCol", STRING, true)
                 });
 
-        assertRowBytesEquals(new byte[]{
+        assertRowBytesEquals(
+                new byte[]{
                         42, 0, 0, -116, 113, -109, 94, -68,
                         12, 0, 0, 0, 33, 0, 107, 101, 121, 115, 116, 114,
                         15, 0, 0, 0, 0, 73, 0, 0, 0, 118, 97, 108, 115, 116, 114},
@@ -612,7 +613,8 @@ public class RowAssemblerSimpleSchemaTest {
                         .toBytes());
 
         // Null value.
-        assertRowBytesEquals(new byte[]{
+        assertRowBytesEquals(
+                new byte[]{
                         42, 0, 0, -116, -1, 98, 115, -49,
                         13, 0, 0, 0, 33, 0, 107, 101, 121, 115, 116, 114, 50,
                         5, 0, 0, 0, 3},
@@ -624,7 +626,8 @@ public class RowAssemblerSimpleSchemaTest {
                         .toBytes());
 
         // No value.
-        assertRowBytesEquals(new byte[]{
+        assertRowBytesEquals(
+                new byte[]{
                         42, 0, 1, 12, 113, -109, 94, -68,
                         12, 0, 0, 0, 33, 0, 107, 101, 121, 115, 116, 114},
                 new RowAssembler(schema, 1, 0)

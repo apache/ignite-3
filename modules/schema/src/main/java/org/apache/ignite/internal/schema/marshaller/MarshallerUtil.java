@@ -79,10 +79,7 @@ public final class MarshallerUtil {
             return BinaryMode.P_FLOAT;
         } else if (cls == double.class) {
             return BinaryMode.P_DOUBLE;
-        }
-
-        // Boxed primitives.
-        else if (cls == Byte.class) {
+        } else if (cls == Byte.class) { // Boxed primitives.
             return BinaryMode.BYTE;
         } else if (cls == Short.class) {
             return BinaryMode.SHORT;
@@ -94,10 +91,7 @@ public final class MarshallerUtil {
             return BinaryMode.FLOAT;
         } else if (cls == Double.class) {
             return BinaryMode.DOUBLE;
-        }
-
-        // Other types
-        else if (cls == byte[].class) {
+        } else if (cls == byte[].class) { // Other types
             return BinaryMode.BYTE_ARR;
         } else if (cls == String.class) {
             return BinaryMode.STRING;

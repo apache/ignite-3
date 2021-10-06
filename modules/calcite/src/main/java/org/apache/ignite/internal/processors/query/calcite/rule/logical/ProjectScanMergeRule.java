@@ -144,7 +144,7 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
 
         RelOptCluster cluster = scan.getCluster();
         List<RexNode> projects = relProject.getProjects();
-        RexNode cond = scan.condition();
+        final RexNode cond = scan.condition();
 
         // projection changes input collation and distribution.
         RelTraitSet traits = scan.getTraitSet();

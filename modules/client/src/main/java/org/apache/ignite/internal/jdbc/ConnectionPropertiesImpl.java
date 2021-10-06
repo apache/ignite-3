@@ -577,6 +577,14 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         }
 
         /**
+         * Init property.
+         *
+         * @param str String representation of the property value.
+         * @throws SQLException on error.
+         */
+        abstract void init(String str) throws SQLException;
+
+        /**
          * Check the choices.
          *
          * @param strVal Checked value.
@@ -598,14 +606,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
                         + ", choices=" + Arrays.toString(choices) + ']', SqlStateCode.CLIENT_CONNECTION_FAILED);
             }
         }
-
-        /**
-         * Init property.
-         *
-         * @param str String representation of the property value.
-         * @throws SQLException on error.
-         */
-        abstract void init(String str) throws SQLException;
 
         /**
          * Get the string representation of the property value.
@@ -670,8 +670,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
                 try {
                     setValue(parse(str));
                 } catch (NumberFormatException e) {
-                    throw new SQLException("Failed to parse int property [name=" + name +
-                            ", value=" + str + ']', SqlStateCode.CLIENT_CONNECTION_FAILED);
+                    throw new SQLException("Failed to parse int property [name=" + name
+                            + ", value=" + str + ']', SqlStateCode.CLIENT_CONNECTION_FAILED);
                 }
             }
         }

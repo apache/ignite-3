@@ -411,6 +411,9 @@ class ClientTableCommon {
 
             case TIMESTAMP:
                 return ClientDataType.TIMESTAMP;
+
+            default:
+                break;
         }
 
         throw new IgniteException("Unsupported native type: " + spec);

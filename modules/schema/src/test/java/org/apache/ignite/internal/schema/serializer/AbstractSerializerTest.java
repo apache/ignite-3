@@ -130,7 +130,7 @@ public class AbstractSerializerTest {
      */
     @Test
     public void columnMappingSerializeTest() {
-        AbstractSchemaSerializer assembler = SchemaSerializerImpl.INSTANCE;
+        final AbstractSchemaSerializer assembler = SchemaSerializerImpl.INSTANCE;
 
         SchemaDescriptor desc = new SchemaDescriptor(100500,
                 new Column[]{

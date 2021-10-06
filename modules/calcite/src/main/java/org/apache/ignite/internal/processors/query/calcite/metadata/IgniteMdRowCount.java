@@ -62,6 +62,20 @@ public class IgniteMdRowCount extends RelMdRowCount {
     }
 
     /**
+     * Estimation of row count for set op (MINUS, INTERSECT).
+     */
+    public double getRowCount(IgniteSetOp rel, RelMetadataQuery mq) {
+        return rel.estimateRowCount(mq);
+    }
+
+    /**
+     * Estimation of row count for Aggregate operator.
+     */
+    public double getRowCount(IgniteAggregate rel, RelMetadataQuery mq) {
+        return rel.estimateRowCount(mq);
+    }
+
+    /**
      *
      */
     @Nullable
@@ -124,19 +138,5 @@ public class IgniteMdRowCount extends RelMdRowCount {
         }
 
         return rowsCount;
-    }
-
-    /**
-     * Estimation of row count for set op (MINUS, INTERSECT).
-     */
-    public double getRowCount(IgniteSetOp rel, RelMetadataQuery mq) {
-        return rel.estimateRowCount(mq);
-    }
-
-    /**
-     * Estimation of row count for Aggregate operator.
-     */
-    public double getRowCount(IgniteAggregate rel, RelMetadataQuery mq) {
-        return rel.estimateRowCount(mq);
     }
 }

@@ -163,24 +163,28 @@ public class IgniteCost implements RelOptCost {
     @SuppressWarnings("FloatingPointEquality")
     @Override
     public boolean equals(RelOptCost cost) {
-        return this == cost || (cost instanceof IgniteCost
-                && rowCount == ((IgniteCost) cost).rowCount
-                && cpu == ((IgniteCost) cost).cpu
-                && memory == ((IgniteCost) cost).memory
-                && io == ((IgniteCost) cost).io
-                && network == ((IgniteCost) cost).network
+        return this == cost
+                || (
+                cost instanceof IgniteCost
+                        && rowCount == ((IgniteCost) cost).rowCount
+                        && cpu == ((IgniteCost) cost).cpu
+                        && memory == ((IgniteCost) cost).memory
+                        && io == ((IgniteCost) cost).io
+                        && network == ((IgniteCost) cost).network
         );
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean isEqWithEpsilon(RelOptCost cost) {
-        return this == cost || (cost instanceof IgniteCost
-                && Math.abs(rowCount - ((IgniteCost) cost).rowCount) < RelOptUtil.EPSILON
-                && Math.abs(cpu - ((IgniteCost) cost).cpu) < RelOptUtil.EPSILON
-                && Math.abs(memory - ((IgniteCost) cost).memory) < RelOptUtil.EPSILON
-                && Math.abs(io - ((IgniteCost) cost).io) < RelOptUtil.EPSILON
-                && Math.abs(network - ((IgniteCost) cost).network) < RelOptUtil.EPSILON
+        return this == cost
+                || (
+                cost instanceof IgniteCost
+                        && Math.abs(rowCount - ((IgniteCost) cost).rowCount) < RelOptUtil.EPSILON
+                        && Math.abs(cpu - ((IgniteCost) cost).cpu) < RelOptUtil.EPSILON
+                        && Math.abs(memory - ((IgniteCost) cost).memory) < RelOptUtil.EPSILON
+                        && Math.abs(io - ((IgniteCost) cost).io) < RelOptUtil.EPSILON
+                        && Math.abs(network - ((IgniteCost) cost).network) < RelOptUtil.EPSILON
         );
     }
 

@@ -74,20 +74,6 @@ public class WatchAggregator {
     }
 
     /**
-     * Adds new watch with filter by key prefix.
-     *
-     * @param key  Prefix for key.
-     * @param lsnr Listener which will be executed on watch event.
-     * @return id of registered watch. Can be used for remove watch from later.
-     */
-    public long addPrefix(ByteArray key, WatchListener lsnr) {
-        var watch = new Watch(KeyCriterion.RangeCriterion.fromPrefixKey(key), lsnr);
-        var id = idCntr.incrementAndGet();
-        watches.put(id, watch);
-        return id;
-    }
-
-    /**
      * Adds new watch with filter by collection of keys.
      *
      * @param from Start key of range to listen.
@@ -97,6 +83,20 @@ public class WatchAggregator {
      */
     public long add(ByteArray from, ByteArray to, WatchListener lsnr) {
         var watch = new Watch(new KeyCriterion.RangeCriterion(from, to), lsnr);
+        var id = idCntr.incrementAndGet();
+        watches.put(id, watch);
+        return id;
+    }
+
+    /**
+     * Adds new watch with filter by key prefix.
+     *
+     * @param key  Prefix for key.
+     * @param lsnr Listener which will be executed on watch event.
+     * @return id of registered watch. Can be used for remove watch from later.
+     */
+    public long addPrefix(ByteArray key, WatchListener lsnr) {
+        var watch = new Watch(KeyCriterion.RangeCriterion.fromPrefixKey(key), lsnr);
         var id = idCntr.incrementAndGet();
         watches.put(id, watch);
         return id;

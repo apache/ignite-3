@@ -399,18 +399,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return createTableAsync(name, tableInitChange, true);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public Table createTableIfNotExists(String name, Consumer<TableChange> tableInitChange) {
-        return createTableIfNotExistsAsync(name, tableInitChange).join();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Table> createTableIfNotExistsAsync(String name, Consumer<TableChange> tableInitChange) {
-        return createTableAsync(name, tableInitChange, false);
-    }
-
     /**
      * Creates a new table with the specified name or returns an existing table with the same name.
      *
@@ -511,6 +499,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         });
 
         return tblFut;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Table createTableIfNotExists(String name, Consumer<TableChange> tableInitChange) {
+        return createTableIfNotExistsAsync(name, tableInitChange).join();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Table> createTableIfNotExistsAsync(String name, Consumer<TableChange> tableInitChange) {
+        return createTableAsync(name, tableInitChange, false);
     }
 
     /** {@inheritDoc} */

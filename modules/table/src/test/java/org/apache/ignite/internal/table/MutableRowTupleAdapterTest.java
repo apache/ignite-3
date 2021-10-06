@@ -246,7 +246,7 @@ public class MutableRowTupleAdapterTest {
 
         Tuple tuple = TableRow.tuple(row);
         Tuple key = TableRow.keyTuple(row);
-        Tuple val = TableRow.valueTuple(row);
+        final Tuple val = TableRow.valueTuple(row);
 
         tuple.set("id", 2L);
 
@@ -273,7 +273,7 @@ public class MutableRowTupleAdapterTest {
 
         Tuple tuple = TableRow.tuple(row);
         Tuple key = TableRow.keyTuple(row);
-        Tuple val = TableRow.valueTuple(row);
+        final Tuple val = TableRow.valueTuple(row);
 
         assertTrue(tuple instanceof SchemaAware);
 
@@ -302,7 +302,7 @@ public class MutableRowTupleAdapterTest {
 
         Tuple tuple = TableRow.tuple(row);
         Tuple key = TableRow.keyTuple(row);
-        Tuple val = TableRow.valueTuple(row);
+        final Tuple val = TableRow.valueTuple(row);
 
         assertTrue(tuple instanceof SchemaAware);
 
@@ -325,7 +325,7 @@ public class MutableRowTupleAdapterTest {
 
         Tuple tuple = TableRow.tuple(row);
         Tuple key = TableRow.keyTuple(row);
-        Tuple val = TableRow.valueTuple(row);
+        final Tuple val = TableRow.valueTuple(row);
 
         assertTrue(tuple instanceof SchemaAware);
 
@@ -439,7 +439,7 @@ public class MutableRowTupleAdapterTest {
 
         Tuple rowKeyTuple = TableRow.keyTuple(row);
         Tuple rowValTuple = TableRow.valueTuple(row);
-        Tuple rowTuple = TableRow.tuple(new Row(fullSchema, new ByteBufferRow(marshaller.marshal(tuple).bytes())));
+        final Tuple rowTuple = TableRow.tuple(new Row(fullSchema, new ByteBufferRow(marshaller.marshal(tuple).bytes())));
 
         assertEquals(keyTuple, rowKeyTuple);
         assertEquals(rowKeyTuple, keyTuple);
@@ -453,7 +453,7 @@ public class MutableRowTupleAdapterTest {
         // Check deserialized.
         Tuple keyTuple2 = deserializeTuple(serializeTuple(rowKeyTuple));
         Tuple valTuple2 = deserializeTuple(serializeTuple(rowValTuple));
-        Tuple tuple2 = deserializeTuple(serializeTuple(rowTuple));
+        final Tuple tuple2 = deserializeTuple(serializeTuple(rowTuple));
 
         assertEquals(keyTuple, keyTuple2);
         assertEquals(keyTuple2, keyTuple);

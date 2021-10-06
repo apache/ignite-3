@@ -107,7 +107,7 @@ public class ITConnectionManagerTest {
      */
     @Test
     public void testReuseIncomingConnection() throws Exception {
-        String msgText = "test";
+        final String msgText = "test";
 
         TestMessage testMessage = messageFactory.testMessage().msg("test").build();
 
