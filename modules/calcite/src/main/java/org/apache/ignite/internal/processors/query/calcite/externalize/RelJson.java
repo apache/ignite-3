@@ -522,6 +522,117 @@ class RelJson {
     /**
      *
      */
+    private Object toJson(RexWindow window) {
+        Map<String, Object> map = map();
+        if (!window.partitionKeys.isEmpty()) {
+            map.put("partition", toJson(window.partitionKeys));
+        }
+        if (!window.orderKeys.isEmpty()) {
+            map.put("order", toJson(window.orderKeys));
+        }
+        if (window.getLowerBound() == null) {
+            // No ROWS or RANGE clause
+        } else if (window.getUpperBound() == null) {
+            if (window.isRows()) {
+                map.put("rows-lower", toJson(window.getLowerBound()));
+            } else {
+                map.put("range-lower", toJson(window.getLowerBound()));
+            }
+        } else if (window.isRows()) {
+            map.put("rows-lower", toJson(window.getLowerBound()));
+            map.put("rows-upper", toJson(window.getUpperBound()));
+        } else {
+            map.put("range-lower", toJson(window.getLowerBound()));
+            map.put("range-upper", toJson(window.getUpperBound()));
+        }
+        return map;
+    }
+
+    /**
+     *
+     */
+    private Object toJson(DistributionTrait distribution) {
+        Type type = distribution.getType();
+
+        switch (type) {
+            case ANY:
+            case BROADCAST_DISTRIBUTED:
+            case RANDOM_DISTRIBUTED:
+            case SINGLETON:
+
+                return type.shortName;
+            case HASH_DISTRIBUTED:
+                Map<String, Object> map = map();
+                List<Object> keys = list();
+                for (Integer key : distribution.getKeys()) {
+                    keys.add(toJson(key));
+                }
+
+                map.put("keys", keys);
+
+                return map;
+            default:
+                throw new AssertionError("Unexpected distribution type.");
+        }
+    }
+
+    /**
+     *
+     */
+    private Object toJson(RelCollationImpl node) {
+        List<Object> list = list();
+        for (RelFieldCollation fieldCollation : node.getFieldCollations()) {
+            Map<String, Object> map = map();
+            map.put("field", fieldCollation.getFieldIndex());
+            map.put("direction", toJson(fieldCollation.getDirection()));
+            map.put("nulls", toJson(fieldCollation.nullDirection));
+            list.add(map);
+        }
+        return list;
+    }
+
+    /**
+     *
+     */
+    private Object toJson(RexFieldCollation collation) {
+        Map<String, Object> map = map();
+        map.put("expr", toJson(collation.left));
+        map.put("direction", toJson(collation.getDirection()));
+        map.put("null-direction", toJson(collation.getNullDirection()));
+        return map;
+    }
+
+    /**
+     *
+     */
+    private Object toJson(RexWindowBound windowBound) {
+        Map<String, Object> map = map();
+        if (windowBound.isCurrentRow()) {
+            map.put("type", "CURRENT_ROW");
+        } else if (windowBound.isUnbounded()) {
+            map.put("type", windowBound.isPreceding() ? "UNBOUNDED_PRECEDING" : "UNBOUNDED_FOLLOWING");
+        } else {
+            map.put("type", windowBound.isPreceding() ? "PRECEDING" : "FOLLOWING");
+            map.put("offset", toJson(windowBound.getOffset()));
+        }
+        return map;
+    }
+
+    /**
+     *
+     */
+    private Object toJson(SqlOperator operator) {
+        // User-defined operators are not yet handled.
+        Map map = map();
+        map.put("name", operator.getName());
+        map.put("kind", toJson(operator.kind));
+        map.put("syntax", toJson(operator.getSyntax()));
+        return map;
+    }
+
+    /**
+     *
+     */
     RelCollation toCollation(List<Map<String, Object>> jsonFieldCollations) {
         if (jsonFieldCollations == null) {
             return RelCollations.EMPTY;
@@ -904,116 +1015,5 @@ class RelJson {
             list.add(toRex(relInput, operand));
         }
         return list;
-    }
-
-    /**
-     *
-     */
-    private Object toJson(RexWindow window) {
-        Map<String, Object> map = map();
-        if (!window.partitionKeys.isEmpty()) {
-            map.put("partition", toJson(window.partitionKeys));
-        }
-        if (!window.orderKeys.isEmpty()) {
-            map.put("order", toJson(window.orderKeys));
-        }
-        if (window.getLowerBound() == null) {
-            // No ROWS or RANGE clause
-        } else if (window.getUpperBound() == null) {
-            if (window.isRows()) {
-                map.put("rows-lower", toJson(window.getLowerBound()));
-            } else {
-                map.put("range-lower", toJson(window.getLowerBound()));
-            }
-        } else if (window.isRows()) {
-            map.put("rows-lower", toJson(window.getLowerBound()));
-            map.put("rows-upper", toJson(window.getUpperBound()));
-        } else {
-            map.put("range-lower", toJson(window.getLowerBound()));
-            map.put("range-upper", toJson(window.getUpperBound()));
-        }
-        return map;
-    }
-
-    /**
-     *
-     */
-    private Object toJson(DistributionTrait distribution) {
-        Type type = distribution.getType();
-
-        switch (type) {
-            case ANY:
-            case BROADCAST_DISTRIBUTED:
-            case RANDOM_DISTRIBUTED:
-            case SINGLETON:
-
-                return type.shortName;
-            case HASH_DISTRIBUTED:
-                Map<String, Object> map = map();
-                List<Object> keys = list();
-                for (Integer key : distribution.getKeys()) {
-                    keys.add(toJson(key));
-                }
-
-                map.put("keys", keys);
-
-                return map;
-            default:
-                throw new AssertionError("Unexpected distribution type.");
-        }
-    }
-
-    /**
-     *
-     */
-    private Object toJson(RelCollationImpl node) {
-        List<Object> list = list();
-        for (RelFieldCollation fieldCollation : node.getFieldCollations()) {
-            Map<String, Object> map = map();
-            map.put("field", fieldCollation.getFieldIndex());
-            map.put("direction", toJson(fieldCollation.getDirection()));
-            map.put("nulls", toJson(fieldCollation.nullDirection));
-            list.add(map);
-        }
-        return list;
-    }
-
-    /**
-     *
-     */
-    private Object toJson(RexFieldCollation collation) {
-        Map<String, Object> map = map();
-        map.put("expr", toJson(collation.left));
-        map.put("direction", toJson(collation.getDirection()));
-        map.put("null-direction", toJson(collation.getNullDirection()));
-        return map;
-    }
-
-    /**
-     *
-     */
-    private Object toJson(RexWindowBound windowBound) {
-        Map<String, Object> map = map();
-        if (windowBound.isCurrentRow()) {
-            map.put("type", "CURRENT_ROW");
-        } else if (windowBound.isUnbounded()) {
-            map.put("type", windowBound.isPreceding() ? "UNBOUNDED_PRECEDING" : "UNBOUNDED_FOLLOWING");
-        } else {
-            map.put("type", windowBound.isPreceding() ? "PRECEDING" : "FOLLOWING");
-            map.put("offset", toJson(windowBound.getOffset()));
-        }
-        return map;
-    }
-
-    /**
-     *
-     */
-    private Object toJson(SqlOperator operator) {
-        // User-defined operators are not yet handled.
-        Map map = map();
-        map.put("name", operator.getName());
-        map.put("kind", toJson(operator.kind));
-        map.put("syntax", toJson(operator.getSyntax()));
-        return map;
     }
 }

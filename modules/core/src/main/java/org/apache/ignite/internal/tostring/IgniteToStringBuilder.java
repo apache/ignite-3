@@ -1271,6 +1271,135 @@ public class IgniteToStringBuilder {
     }
 
     /**
+     * Produces uniformed output of string with context properties
+     *
+     * @param str   Output prefix or {@code null} if empty.
+     * @param name0 Property name.
+     * @param val0  Property value.
+     * @param sens0 Property sensitive flag.
+     * @param name1 Property name.
+     * @param val1  Property value.
+     * @param sens1 Property sensitive flag.
+     * @param name2 Property name.
+     * @param val2  Property value.
+     * @param sens2 Property sensitive flag.
+     * @param name3 Property name.
+     * @param val3  Property value.
+     * @param sens3 Property sensitive flag.
+     * @param name4 Property name.
+     * @param val4  Property value.
+     * @param sens4 Property sensitive flag.
+     * @param name5 Property name.
+     * @param val5  Property value.
+     * @param sens5 Property sensitive flag.
+     * @param name6 Property name.
+     * @param val6  Property value.
+     * @param sens6 Property sensitive flag.
+     * @return String presentation.
+     */
+    public static String toString(String str,
+            String name0, @Nullable Object val0, boolean sens0,
+            String name1, @Nullable Object val1, boolean sens1,
+            String name2, @Nullable Object val2, boolean sens2,
+            String name3, @Nullable Object val3, boolean sens3,
+            String name4, @Nullable Object val4, boolean sens4,
+            String name5, @Nullable Object val5, boolean sens5,
+            String name6, @Nullable Object val6, boolean sens6) {
+        assert name0 != null;
+        assert name1 != null;
+        assert name2 != null;
+        assert name3 != null;
+        assert name4 != null;
+        assert name5 != null;
+        assert name6 != null;
+
+        Object[] propNames = new Object[7];
+        Object[] propVals = new Object[7];
+        boolean[] propSens = new boolean[7];
+
+        propNames[0] = name0;
+        propVals[0] = val0;
+        propSens[0] = sens0;
+        propNames[1] = name1;
+        propVals[1] = val1;
+        propSens[1] = sens1;
+        propNames[2] = name2;
+        propVals[2] = val2;
+        propSens[2] = sens2;
+        propNames[3] = name3;
+        propVals[3] = val3;
+        propSens[3] = sens3;
+        propNames[4] = name4;
+        propVals[4] = val4;
+        propSens[4] = sens4;
+        propNames[5] = name5;
+        propVals[5] = val5;
+        propSens[5] = sens5;
+        propNames[6] = name6;
+        propVals[6] = val6;
+        propSens[6] = sens6;
+
+        SBLimitedLength sb = threadLocSB.get();
+
+        boolean newStr = sb.length() == 0;
+
+        try {
+            return toStringImpl(str, sb, propNames, propVals, propSens, 7);
+        } finally {
+            if (newStr) {
+                sb.reset();
+            }
+        }
+    }
+
+    /**
+     * Produces uniformed output of string with context properties
+     *
+     * @param str      Output prefix or {@code null} if empty.
+     * @param triplets Triplets {@code {name, value, sensitivity}}.
+     * @return String presentation.
+     */
+    public static String toString(String str, Object... triplets) {
+        if (triplets.length % 3 != 0) {
+            throw new IllegalArgumentException("Array length must be a multiple of 3");
+        }
+
+        int propCnt = triplets.length / 3;
+
+        Object[] propNames = new Object[propCnt];
+        Object[] propVals = new Object[propCnt];
+        boolean[] propSens = new boolean[propCnt];
+
+        for (int i = 0; i < propCnt; i++) {
+            Object name = triplets[i * 3];
+
+            assert name != null;
+
+            propNames[i] = name;
+
+            propVals[i] = triplets[i * 3 + 1];
+
+            Object sens = triplets[i * 3 + 2];
+
+            assert sens instanceof Boolean;
+
+            propSens[i] = (Boolean) sens;
+        }
+
+        SBLimitedLength sb = threadLocSB.get();
+
+        boolean newStr = sb.length() == 0;
+
+        try {
+            return toStringImpl(str, sb, propNames, propVals, propSens, propCnt);
+        } finally {
+            if (newStr) {
+                sb.reset();
+            }
+        }
+    }
+
+    /**
      * Writes array to buffer.
      *
      * @param buf     String builder buffer.
@@ -1480,6 +1609,40 @@ public class IgniteToStringBuilder {
     }
 
     /**
+     * Creates an uniformed string presentation for the binary-like object.
+     *
+     * @param str       Output prefix or {@code null} if empty.
+     * @param buf       String builder buffer.
+     * @param propNames Names of object properties.
+     * @param propVals  Property values.
+     * @param propSens  Sensitive flag of values or {@code null} if all values is not sensitive.
+     * @param propCnt   Properties count.
+     * @return String presentation of the object.
+     */
+    private static String toStringImpl(String str, SBLimitedLength buf, Object[] propNames, Object[] propVals,
+            boolean[] propSens, int propCnt) {
+
+        final boolean newStr = buf.length() == 0;
+
+        if (str != null) {
+            buf.a(str).a(" ");
+        }
+
+        buf.a("[");
+
+        appendVals(buf, true, propNames, propVals, propSens, propCnt);
+
+        buf.a(']');
+
+        if (newStr) {
+            return buf.toString();
+        }
+
+        // Called from another ITSB.toString(), so this string is already in the buffer and shouldn't be returned.
+        return "";
+    }
+
+    /**
      * Creates an uniformed string presentation for the given object.
      *
      * @param cls      Class of the object.
@@ -1672,169 +1835,6 @@ public class IgniteToStringBuilder {
         }
 
         return b.toString();
-    }
-
-    /**
-     * Produces uniformed output of string with context properties
-     *
-     * @param str   Output prefix or {@code null} if empty.
-     * @param name0 Property name.
-     * @param val0  Property value.
-     * @param sens0 Property sensitive flag.
-     * @param name1 Property name.
-     * @param val1  Property value.
-     * @param sens1 Property sensitive flag.
-     * @param name2 Property name.
-     * @param val2  Property value.
-     * @param sens2 Property sensitive flag.
-     * @param name3 Property name.
-     * @param val3  Property value.
-     * @param sens3 Property sensitive flag.
-     * @param name4 Property name.
-     * @param val4  Property value.
-     * @param sens4 Property sensitive flag.
-     * @param name5 Property name.
-     * @param val5  Property value.
-     * @param sens5 Property sensitive flag.
-     * @param name6 Property name.
-     * @param val6  Property value.
-     * @param sens6 Property sensitive flag.
-     * @return String presentation.
-     */
-    public static String toString(String str,
-            String name0, @Nullable Object val0, boolean sens0,
-            String name1, @Nullable Object val1, boolean sens1,
-            String name2, @Nullable Object val2, boolean sens2,
-            String name3, @Nullable Object val3, boolean sens3,
-            String name4, @Nullable Object val4, boolean sens4,
-            String name5, @Nullable Object val5, boolean sens5,
-            String name6, @Nullable Object val6, boolean sens6) {
-        assert name0 != null;
-        assert name1 != null;
-        assert name2 != null;
-        assert name3 != null;
-        assert name4 != null;
-        assert name5 != null;
-        assert name6 != null;
-
-        Object[] propNames = new Object[7];
-        Object[] propVals = new Object[7];
-        boolean[] propSens = new boolean[7];
-
-        propNames[0] = name0;
-        propVals[0] = val0;
-        propSens[0] = sens0;
-        propNames[1] = name1;
-        propVals[1] = val1;
-        propSens[1] = sens1;
-        propNames[2] = name2;
-        propVals[2] = val2;
-        propSens[2] = sens2;
-        propNames[3] = name3;
-        propVals[3] = val3;
-        propSens[3] = sens3;
-        propNames[4] = name4;
-        propVals[4] = val4;
-        propSens[4] = sens4;
-        propNames[5] = name5;
-        propVals[5] = val5;
-        propSens[5] = sens5;
-        propNames[6] = name6;
-        propVals[6] = val6;
-        propSens[6] = sens6;
-
-        SBLimitedLength sb = threadLocSB.get();
-
-        boolean newStr = sb.length() == 0;
-
-        try {
-            return toStringImpl(str, sb, propNames, propVals, propSens, 7);
-        } finally {
-            if (newStr) {
-                sb.reset();
-            }
-        }
-    }
-
-    /**
-     * Produces uniformed output of string with context properties
-     *
-     * @param str      Output prefix or {@code null} if empty.
-     * @param triplets Triplets {@code {name, value, sensitivity}}.
-     * @return String presentation.
-     */
-    public static String toString(String str, Object... triplets) {
-        if (triplets.length % 3 != 0) {
-            throw new IllegalArgumentException("Array length must be a multiple of 3");
-        }
-
-        int propCnt = triplets.length / 3;
-
-        Object[] propNames = new Object[propCnt];
-        Object[] propVals = new Object[propCnt];
-        boolean[] propSens = new boolean[propCnt];
-
-        for (int i = 0; i < propCnt; i++) {
-            Object name = triplets[i * 3];
-
-            assert name != null;
-
-            propNames[i] = name;
-
-            propVals[i] = triplets[i * 3 + 1];
-
-            Object sens = triplets[i * 3 + 2];
-
-            assert sens instanceof Boolean;
-
-            propSens[i] = (Boolean) sens;
-        }
-
-        SBLimitedLength sb = threadLocSB.get();
-
-        boolean newStr = sb.length() == 0;
-
-        try {
-            return toStringImpl(str, sb, propNames, propVals, propSens, propCnt);
-        } finally {
-            if (newStr) {
-                sb.reset();
-            }
-        }
-    }
-
-    /**
-     * Creates an uniformed string presentation for the binary-like object.
-     *
-     * @param str       Output prefix or {@code null} if empty.
-     * @param buf       String builder buffer.
-     * @param propNames Names of object properties.
-     * @param propVals  Property values.
-     * @param propSens  Sensitive flag of values or {@code null} if all values is not sensitive.
-     * @param propCnt   Properties count.
-     * @return String presentation of the object.
-     */
-    private static String toStringImpl(String str, SBLimitedLength buf, Object[] propNames, Object[] propVals,
-            boolean[] propSens, int propCnt) {
-
-        final boolean newStr = buf.length() == 0;
-
-        if (str != null) {
-            buf.a(str).a(" ");
-        }
-
-        buf.a("[");
-
-        appendVals(buf, true, propNames, propVals, propSens, propCnt);
-
-        buf.a(']');
-
-        if (newStr) {
-            return buf.toString();
-        }
-
-        // Called from another ITSB.toString(), so this string is already in the buffer and shouldn't be returned.
-        return "";
     }
 
     /**
