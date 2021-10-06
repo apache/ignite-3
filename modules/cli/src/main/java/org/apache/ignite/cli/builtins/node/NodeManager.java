@@ -115,7 +115,7 @@ public class NodeManager {
                     p.destroyForcibly();
 
                     throw new IgniteCLIException("Node wasn't started during timeout period "
-                        + NODE_START_TIMEOUT.toMillis() + "ms");
+                        + NODE_START_TIMEOUT.toMillis() + "ms. Read logs for details: " + logFile);
                 }
             }
             catch (InterruptedException | IOException e) {
