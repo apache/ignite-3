@@ -128,8 +128,8 @@ public class SqlJdbcExample {
 
             // Populate Person table with PreparedStatement.
             try (PreparedStatement stmt =
-                    conn.prepareStatement("INSERT INTO accounts (accountId, cityId, firstName, lastName, balance)" +
-                            " values (?, ?, ?, ?, ?)")) {
+                    conn.prepareStatement("INSERT INTO accounts (accountId, cityId, firstName, lastName, balance)"
+                            + " values (?, ?, ?, ?, ?)")) {
                 stmt.setInt(1, 1);
                 stmt.setInt(2, 1);
                 stmt.setString(3, "John");
@@ -169,8 +169,8 @@ public class SqlJdbcExample {
 
             try (Statement stmt = conn.createStatement()) {
                 try (ResultSet rs =
-                        stmt.executeQuery("SELECT a.firstName, a.lastName, c.name FROM accounts a " +
-                                "INNER JOIN city c on c.id = a.cityId")) {
+                        stmt.executeQuery("SELECT a.firstName, a.lastName, c.name FROM accounts a "
+                                + "INNER JOIN city c on c.id = a.cityId")) {
                     print("Query results:");
 
                     while (rs.next()) {
@@ -190,8 +190,8 @@ public class SqlJdbcExample {
 
             try (Statement stmt = conn.createStatement()) {
                 try (ResultSet rs =
-                        stmt.executeQuery("SELECT a.firstName, a.lastName, a.balance FROM accounts a " +
-                                "WHERE a.balance < 1500.0")) {
+                        stmt.executeQuery("SELECT a.firstName, a.lastName, a.balance FROM accounts a "
+                                + "WHERE a.balance < 1500.0")) {
                     print("Query results:");
 
                     while (rs.next()) {
@@ -218,8 +218,8 @@ public class SqlJdbcExample {
 
             try (Statement stmt = conn.createStatement()) {
                 try (ResultSet rs =
-                        stmt.executeQuery("SELECT a.firstName, a.lastName, c.name FROM accounts a " +
-                                "INNER JOIN city c on c.id = a.cityId")) {
+                        stmt.executeQuery("SELECT a.firstName, a.lastName, c.name FROM accounts a "
+                                + "INNER JOIN city c on c.id = a.cityId")) {
                     print("Query results:");
 
                     while (rs.next()) {

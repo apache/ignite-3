@@ -104,9 +104,10 @@ public class TableExample {
         Tuple accountTuple = accounts.get(accountNumberTuple);
 
         System.out.println(
-                "Retrieved using Tuple API\n" +
-                        "    Account Number: " + accountTuple.intValue("accountNumber") + '\n' +
-                        "    Owner: " + accountTuple.stringValue("firstName") + " " + accountTuple.stringValue("lastName") + '\n' +
-                        "    Balance: $" + accountTuple.doubleValue("balance"));
+                "Retrieved using Tuple API\n"
+                        + "    Account Number: " + accountTuple.intValue("accountNumber") + '\n'
+                        + "    Owner: " + accountTuple.stringValue("firstName") + " "
+                        + accountTuple.stringValue("lastName") + '\n'
+                        + "    Balance: $" + accountTuple.doubleValue("balance"));
     }
 }
