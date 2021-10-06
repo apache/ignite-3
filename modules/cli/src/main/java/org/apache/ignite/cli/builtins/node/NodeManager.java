@@ -158,8 +158,6 @@ public class NodeManager {
 
             if (content.contains(started))
                 return true;
-            else if (content.contains("Exception"))
-                throw new IgniteCLIException("Can't start the node. Read logs for details: " + file);
         }
 
         return false;
