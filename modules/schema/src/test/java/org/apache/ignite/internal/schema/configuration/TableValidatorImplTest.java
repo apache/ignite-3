@@ -42,7 +42,6 @@ public class TableValidatorImplTest {
     /** Basic table configuration to mutate and then validate. */
     @InjectConfiguration("mock.tables.table {\n" +
         "    name = schema.table,\n" +
-        "    dataRegion = default,\n" +
         "    columns.0 {name = id, type.type = STRING, nullable = true},\n" +
         "    primaryKey {columns = [id], affinityColumns = [id]}\n" +
         "}")
