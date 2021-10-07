@@ -42,9 +42,9 @@ public class TableExamplesTest {
     public void testTableExample() throws Exception {
         ExampleTestUtils.assertConsoleOutput(RecordViewExample::main, EMPTY_ARGS,
             "Retrieved using Tuple API\n" +
-                "    Account Number: 123456\n" +
-                "    Owner: Val Kulichenko\n" +
-                "    Balance: $100.0\n");
+            "    Account Number: 123456\n" +
+            "    Owner: Val Kulichenko\n" +
+            "    Balance: $100.0\n");
     }
 
     /**
@@ -56,9 +56,9 @@ public class TableExamplesTest {
     public void testKeyValueBinaryViewExample() throws Exception {
         ExampleTestUtils.assertConsoleOutput(KeyValueViewExample::main, EMPTY_ARGS,
             "Retrieved using Key-Value API\n" +
-                "    Account Number: 123456\n" +
-                "    Owner: Val Kulichenko\n" +
-                "    Balance: $100.0\n");
+            "    Account Number: 123456\n" +
+            "    Owner: Val Kulichenko\n" +
+            "    Balance: $100.0\n");
     }
 
     /**
