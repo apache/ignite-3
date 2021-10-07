@@ -47,74 +47,76 @@ import org.apache.ignite.table.Tuple;
  */
 public class ClientRecordViewExample {
     public static void main(String[] args) throws Exception {
-        Ignite ignite = IgnitionManager.start(
-            "node-0",
-            Files.readString(Path.of("config", "ignite-config.json")),
-            Path.of("work")
-        );
+        try (Ignite ignite = IgnitionManager.start(
+                "node-0",
+                Files.readString(Path.of("config", "ignite-config.json")),
+                Path.of("work")
+        )) {
 
-        //---------------------------------------------------------------------------------
-        //
-        // Creating a table. The API call below is the equivalent of the following DDL:
-        //
-        //     CREATE TABLE accounts (
-        //         accountNumber INT PRIMARY KEY,
-        //         firstName     VARCHAR,
-        //         lastName      VARCHAR,
-        //         balance       DOUBLE
-        //     )
-        //
-        //---------------------------------------------------------------------------------
+            //---------------------------------------------------------------------------------
+            //
+            // Creating a table. The API call below is the equivalent of the following DDL:
+            //
+            //     CREATE TABLE accounts (
+            //         accountNumber INT PRIMARY KEY,
+            //         firstName     VARCHAR,
+            //         lastName      VARCHAR,
+            //         balance       DOUBLE
+            //     )
+            //
+            //---------------------------------------------------------------------------------
 
-         ignite.tables().createTable("PUBLIC.accounts", tbl ->
-            SchemaConfigurationConverter.convert(
-                SchemaBuilders.tableBuilder("PUBLIC", "accounts")
-                    .columns(
-                        SchemaBuilders.column("accountNumber", ColumnType.INT32).asNonNull().build(),
-                        SchemaBuilders.column("firstName", ColumnType.string()).asNullable().build(),
-                        SchemaBuilders.column("lastName", ColumnType.string()).asNullable().build(),
-                        SchemaBuilders.column("balance", ColumnType.DOUBLE).asNullable().build()
-                    )
-                    .withPrimaryKey("accountNumber")
-                    .build(), tbl)
-                .changeReplicas(1)
-                .changePartitions(10)
-        );
+             ignite.tables().createTable("PUBLIC.accounts", tbl ->
+                SchemaConfigurationConverter.convert(
+                    SchemaBuilders.tableBuilder("PUBLIC", "accounts")
+                        .columns(
+                            SchemaBuilders.column("accountNumber", ColumnType.INT32).asNonNull().build(),
+                            SchemaBuilders.column("firstName", ColumnType.string()).asNullable().build(),
+                            SchemaBuilders.column("lastName", ColumnType.string()).asNullable().build(),
+                            SchemaBuilders.column("balance", ColumnType.DOUBLE).asNullable().build()
+                        )
+                        .withPrimaryKey("accountNumber")
+                        .build(), tbl)
+                    .changeReplicas(1)
+                    .changePartitions(10)
+            );
 
-        IgniteClient client = IgniteClient.builder()
-                .addresses("127.0.0.1:10800")
-                .build();
+            try (IgniteClient client = IgniteClient.builder()
+                    .addresses("127.0.0.1:10800")
+                    .build()
+            ) {
+                RecordView<Tuple> accounts = client.tables().table("PUBLIC.accounts").recordView();
 
-        RecordView<Tuple> accounts = client.tables().table("PUBLIC.accounts").recordView();
+                //---------------------------------------------------------------------------------
+                //
+                // Tuple API: insert operation.
+                //
+                //---------------------------------------------------------------------------------
 
-        //---------------------------------------------------------------------------------
-        //
-        // Tuple API: insert operation.
-        //
-        //---------------------------------------------------------------------------------
+                Tuple newAccountTuple = Tuple.create()
+                    .set("accountNumber", 123456)
+                    .set("firstName", "Val")
+                    .set("lastName", "Kulichenko")
+                    .set("balance", 100.00d);
 
-        Tuple newAccountTuple = Tuple.create()
-            .set("accountNumber", 123456)
-            .set("firstName", "Val")
-            .set("lastName", "Kulichenko")
-            .set("balance", 100.00d);
+                accounts.insert(newAccountTuple);
 
-        accounts.insert(newAccountTuple);
+                //---------------------------------------------------------------------------------
+                //
+                // Tuple API: get operation.
+                //
+                //---------------------------------------------------------------------------------
 
-        //---------------------------------------------------------------------------------
-        //
-        // Tuple API: get operation.
-        //
-        //---------------------------------------------------------------------------------
+                Tuple accountNumberTuple = Tuple.create().set("accountNumber", 123456);
 
-        Tuple accountNumberTuple = Tuple.create().set("accountNumber", 123456);
+                Tuple accountTuple = accounts.get(accountNumberTuple);
 
-        Tuple accountTuple = accounts.get(accountNumberTuple);
-
-        System.out.println(
-            "Retrieved using Tuple API\n" +
-                "    Account Number: " + accountTuple.intValue("accountNumber") + '\n' +
-                "    Owner: " + accountTuple.stringValue("firstName") + " " + accountTuple.stringValue("lastName") + '\n' +
-                "    Balance: $" + accountTuple.doubleValue("balance"));
+                System.out.println(
+                    "Retrieved using Tuple API\n" +
+                        "    Account Number: " + accountTuple.intValue("accountNumber") + '\n' +
+                        "    Owner: " + accountTuple.stringValue("firstName") + " " + accountTuple.stringValue("lastName") + '\n' +
+                        "    Balance: $" + accountTuple.doubleValue("balance"));
+            }
+        }
     }
 }
