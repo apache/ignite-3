@@ -19,6 +19,8 @@ package org.apache.ignite.example.sql.jdbc;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+
+import org.apache.ignite.example.ExampleTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,7 +40,22 @@ public class SqlExamplesTest {
      */
     @Test
     public void testSqlJdbcExample() throws Exception {
-        SqlJdbcExample.main(EMPTY_ARGS);
+        ExampleTestUtils.assertConsoleOutputContains(SqlJdbcExample::main, EMPTY_ARGS,
+                    ">>> Query results:\n" +
+                    ">>>    John, Doe, Forest Hill\n" +
+                    ">>>    Jane, Roe, Forest Hill\n" +
+                    ">>>    Mary, Major, Denver\n" +
+                    ">>>    Richard, Miles, St. Petersburg\n",
+
+                    ">>> Query results:\n" +
+                    ">>>    John, Doe, 1000.0\n" +
+                    ">>>    Richard, Miles, 1450.0\n",
+
+                    ">>> Query results:\n" +
+                    ">>>    Jane, Roe, Forest Hill\n" +
+                    ">>>    Mary, Major, Denver\n" +
+                    ">>>    Richard, Miles, St. Petersburg\n"
+        );
     }
 
     /**

@@ -19,6 +19,8 @@ package org.apache.ignite.example.table;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+
+import org.apache.ignite.example.ExampleTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,8 +39,12 @@ public class TableExamplesTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testRecordViewExample() throws Exception {
-        RecordViewExample.main(EMPTY_ARGS);
+    public void testTableExample() throws Exception {
+        ExampleTestUtils.assertConsoleOutput(RecordViewExample::main, EMPTY_ARGS,
+            "Retrieved using Tuple API\n" +
+                "    Account Number: 123456\n" +
+                "    Owner: Val Kulichenko\n" +
+                "    Balance: $100.0\n");
     }
 
     /**
@@ -47,8 +53,12 @@ public class TableExamplesTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testKeyValueViewExample() throws Exception {
-        KeyValueViewExample.main(EMPTY_ARGS);
+    public void testKeyValueBinaryViewExample() throws Exception {
+        ExampleTestUtils.assertConsoleOutput(KeyValueViewExample::main, EMPTY_ARGS,
+            "Retrieved using Key-Value API\n" +
+                "    Account Number: 123456\n" +
+                "    Owner: Val Kulichenko\n" +
+                "    Balance: $100.0\n");
     }
 
     /**
