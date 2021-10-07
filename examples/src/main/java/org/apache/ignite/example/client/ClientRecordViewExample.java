@@ -45,7 +45,7 @@ import org.apache.ignite.table.Tuple;
  *     <li>Run the example in the IDE.</li>
  * </ol>
  */
-public class ClientTableExample {
+public class ClientRecordViewExample {
     public static void main(String[] args) throws Exception {
         Ignite ignite = IgnitionManager.start(
             "node-0",

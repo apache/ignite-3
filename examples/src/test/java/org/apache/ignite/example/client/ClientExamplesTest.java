@@ -34,13 +34,13 @@ public class ClientExamplesTest {
     protected static final String[] EMPTY_ARGS = new String[0];
 
     /**
-     * Runs ClientTableExample.
+     * Runs ClientRecordViewExample and checks its output.
      *
      * @throws Exception If failed.
      */
     @Test
-    public void testClientTableExample() throws Exception {
-        ExampleTestUtils.assertConsoleOutput(ClientTableExample::main, EMPTY_ARGS,
+    public void testClientRecordViewExample() throws Exception {
+        ExampleTestUtils.assertConsoleOutput(ClientRecordViewExample::main, EMPTY_ARGS,
             "Retrieved using Tuple API\n" +
             "    Account Number: 123456\n" +
             "    Owner: Val Kulichenko\n" +
@@ -48,13 +48,13 @@ public class ClientExamplesTest {
     }
 
     /**
-     * Runs ClientKeyValueBinaryViewExample.
+     * Runs ClientKeyValueViewExample and checks its     output.
      *
      * @throws Exception If failed.
      */
     @Test
-    public void testClientKeyValueBinaryViewExample() throws Exception {
-        ExampleTestUtils.assertConsoleOutput(ClientKeyValueBinaryViewExample::main, EMPTY_ARGS,
+    public void testClientKeyValueViewExample() throws Exception {
+        ExampleTestUtils.assertConsoleOutput(ClientKeyValueViewExample::main, EMPTY_ARGS,
             "Retrieved using Key-Value API\n" +
             "    Account Number: 123456\n" +
             "    Owner: Val Kulichenko\n" +

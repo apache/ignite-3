@@ -34,7 +34,7 @@ public class SqlExamplesTest {
     protected static final String[] EMPTY_ARGS = new String[0];
 
     /**
-     * Runs SqlJdbcExample.
+     * Runs SqlJdbcExample and checks its output.
      *
      * @throws Exception If failed.
      */

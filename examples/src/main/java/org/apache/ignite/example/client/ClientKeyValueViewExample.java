@@ -44,7 +44,7 @@ import org.apache.ignite.table.Tuple;
  *     <li>Run the example in the IDE.</li>
  * </ol>
  */
-public class ClientKeyValueBinaryViewExample {
+public class ClientKeyValueViewExample {
     public static void main(String[] args) throws Exception {
         try (Ignite ignite = IgnitionManager.start(
             "node-0",

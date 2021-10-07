@@ -36,10 +36,10 @@ public class TableExamplesTest {
     /**
      * Runs RecordViewExample.
      *
-     * @throws Exception If failed.
+     * @throws Exception If failed and checks its output.
      */
     @Test
-    public void testTableExample() throws Exception {
+    public void testRecordViewExample() throws Exception {
         ExampleTestUtils.assertConsoleOutput(RecordViewExample::main, EMPTY_ARGS,
             "Retrieved using Tuple API\n" +
             "    Account Number: 123456\n" +
@@ -48,12 +48,12 @@ public class TableExamplesTest {
     }
 
     /**
-     * Runs KeyValueViewExample.
+     * Runs KeyValueViewExample and checks its output.
      *
      * @throws Exception If failed.
      */
     @Test
-    public void testKeyValueBinaryViewExample() throws Exception {
+    public void testKeyValueViewExample() throws Exception {
         ExampleTestUtils.assertConsoleOutput(KeyValueViewExample::main, EMPTY_ARGS,
             "Retrieved using Key-Value API\n" +
             "    Account Number: 123456\n" +
