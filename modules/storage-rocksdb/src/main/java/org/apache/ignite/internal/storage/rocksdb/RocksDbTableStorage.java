@@ -58,10 +58,6 @@ import static java.util.stream.Stream.concat;
  * Table storage implementation based on {@link RocksDB} instance.
  */
 public class RocksDbTableStorage implements TableStorage {
-    static {
-        RocksDB.loadLibrary();
-    }
-
     /**
      * Name of the meta column family matches default columns family, meaning that it always exist when new table is
      * created.
@@ -73,6 +69,9 @@ public class RocksDbTableStorage implements TableStorage {
 
     /** Prefix for SQL indexes column family names. */
     private static final String CF_INDEX_PREFIX = "cf-idx:";
+
+    /** Name of comparator used in indexes column family. */
+    private static final String INDEX_COMPARATOR_NAME = "index-comparator";
 
     /** Path for the directory that stores table data. */
     private final Path tablePath;
@@ -106,7 +105,7 @@ public class RocksDbTableStorage implements TableStorage {
     private Map<String, ColumnFamilyHandle> indicesCfHandles = new ConcurrentHashMap<>();
 
     /** Utility enum to describe a type of the column family - meta, partition or index. */
-    private enum CFType {
+    private enum ColumnFamilyType {
         META, PARTITION, INDEX
     }
 
@@ -132,9 +131,9 @@ public class RocksDbTableStorage implements TableStorage {
 
     /** {@inheritDoc} */
     @Override public void start() throws StorageException {
-        Map<CFType, List<String>> cfNamesGrouped = getCfNames();
+        Map<ColumnFamilyType, List<String>> cfNamesGrouped = getColumnFamiliesNames();
 
-        List<ColumnFamilyDescriptor> cfDescriptors = convertToCfDescriptors(cfNamesGrouped);
+        List<ColumnFamilyDescriptor> cfDescriptors = convertToColumnFamiliesDescriptors(cfNamesGrouped);
 
         List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
 
@@ -210,7 +209,7 @@ public class RocksDbTableStorage implements TableStorage {
         ColumnFamily partitionCf = partitionCfs.get(partId);
 
         if (partitionCf == null) {
-            String handleName = partitionCfName(partId);
+            String handleName = partitionColumnFamilyName(partId);
 
             ColumnFamilyDescriptor cfDescriptor = new ColumnFamilyDescriptor(
                 handleName.getBytes(StandardCharsets.UTF_8),
@@ -236,12 +235,12 @@ public class RocksDbTableStorage implements TableStorage {
 
     /**
      * Returns list of column families names that belong to RocksDB instance in the given path, grouped by thier
-     * {@link CFType}.
+     * {@link ColumnFamilyType}.
      *
      * @return Map with column families names.
      * @throws StorageException If something went wrong.
      */
-    private Map<CFType, List<String>> getCfNames() {
+    private Map<ColumnFamilyType, List<String>> getColumnFamiliesNames() {
         String absolutePathStr = tablePath.toAbsolutePath().toString();
 
         List<String> cfNames = new ArrayList<>();
@@ -254,12 +253,12 @@ public class RocksDbTableStorage implements TableStorage {
         }
         catch (RocksDBException e) {
             throw new StorageException(
-                "Failed to read list of columnfamilies names for the RocksDB instance located at path " + absolutePathStr,
+                "Failed to read list of column families names for the RocksDB instance located at path " + absolutePathStr,
                 e
             );
         }
 
-        return cfNames.stream().collect(groupingBy(this::cfType));
+        return cfNames.stream().collect(groupingBy(this::columnFamilyType));
     }
 
     /**
@@ -268,7 +267,10 @@ public class RocksDbTableStorage implements TableStorage {
      * @param cfGrouped Map from CF type to lists of names.
      * @return List of CF descriptors.
      */
-    @NotNull private List<ColumnFamilyDescriptor> convertToCfDescriptors(Map<CFType, List<String>> cfGrouped) {
+    @NotNull private List<ColumnFamilyDescriptor> convertToColumnFamiliesDescriptors(
+        Map<ColumnFamilyType,
+            List<String>> cfGrouped
+    ) {
         List<ColumnFamilyDescriptor> cfDescriptors = new ArrayList<>();
 
         Options cfOptions = addToCloseableResources(new Options().setCreateIfMissing(true));
@@ -278,7 +280,7 @@ public class RocksDbTableStorage implements TableStorage {
             addToCloseableResources(new ColumnFamilyOptions(cfOptions))
         ));
 
-        for (String partitionCfName : cfGrouped.getOrDefault(CFType.PARTITION, List.of())) {
+        for (String partitionCfName : cfGrouped.getOrDefault(ColumnFamilyType.PARTITION, List.of())) {
             cfDescriptors.add(new ColumnFamilyDescriptor(
                 partitionCfName.getBytes(StandardCharsets.UTF_8),
                 new ColumnFamilyOptions()
@@ -287,7 +289,7 @@ public class RocksDbTableStorage implements TableStorage {
 
         NamedListView<? extends TableIndexView> indicesCfgView = tableCfg.value().indices();
 
-        for (String indexCfName : cfGrouped.getOrDefault(CFType.INDEX, List.of())) {
+        for (String indexCfName : cfGrouped.getOrDefault(ColumnFamilyType.INDEX, List.of())) {
             String indexName = indexCfName.substring(CF_INDEX_PREFIX.length());
 
             TableIndexView indexCfgView = indicesCfgView.get(indexName);
@@ -303,7 +305,7 @@ public class RocksDbTableStorage implements TableStorage {
                         new AbstractComparator(addToCloseableResources(new ComparatorOptions())) {
                             /** {@inheritDoc} */
                             @Override public String name() {
-                                return "index-comparator";
+                                return INDEX_COMPARATOR_NAME;
                             }
 
                             /** {@inheritDoc} */
@@ -323,7 +325,7 @@ public class RocksDbTableStorage implements TableStorage {
      * @param partId Partition id.
      * @return Column family name.
      */
-    private static String partitionCfName(int partId) {
+    private static String partitionColumnFamilyName(int partId) {
         return CF_PARTITION_PREFIX + partId;
     }
 
@@ -343,7 +345,7 @@ public class RocksDbTableStorage implements TableStorage {
      * @param idxName Index name.
      * @return Column family name.
      */
-    private static String indexCfName(String idxName) {
+    private static String indexColumnFamilyName(String idxName) {
         return CF_INDEX_PREFIX + idxName;
     }
 
@@ -354,21 +356,21 @@ public class RocksDbTableStorage implements TableStorage {
      * @return Column family type.
      * @throws StorageException If column family name doesn't match any known pattern.
      */
-    private CFType cfType(String cfName) throws StorageException {
+    private ColumnFamilyType columnFamilyType(String cfName) throws StorageException {
         if (CF_META.equals(cfName))
-            return CFType.META;
+            return ColumnFamilyType.META;
 
         if (cfName.startsWith(CF_PARTITION_PREFIX))
-            return CFType.PARTITION;
+            return ColumnFamilyType.PARTITION;
 
         if (cfName.startsWith(CF_INDEX_PREFIX))
-            return CFType.INDEX;
+            return ColumnFamilyType.INDEX;
 
         throw new StorageException("Unidentified column family [name=" + cfName + ", table=" + tableCfg.name() + ']');
     }
 
     /**
-     * Addes resource to the {@link #autoCloseables} list.
+     * Adds resource to the {@link #autoCloseables} list.
      *
      * @param autoCloseable Closeable resource.
      * @param <R> Type of the resource.

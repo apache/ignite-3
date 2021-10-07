@@ -25,17 +25,16 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.Cache;
 import org.rocksdb.ClockCache;
 import org.rocksdb.LRUCache;
-import org.rocksdb.RocksDB;
 import org.rocksdb.WriteBufferManager;
+
+import static org.apache.ignite.configuration.schemas.store.DataRegionConfigurationSchema.ROCKSDB_CLOCK_CACHE;
+import static org.apache.ignite.configuration.schemas.store.DataRegionConfigurationSchema.ROCKSDB_DATA_REGION_TYPE;
+import static org.apache.ignite.configuration.schemas.store.DataRegionConfigurationSchema.ROCKSDB_LRU_CACHE;
 
 /**
  * Data region implementation for {@link RocksDbStorageEngine}. Based on a {@link Cache}.
  */
 public class RocksDbDataRegion implements DataRegion {
-    static {
-        RocksDB.loadLibrary();
-    }
-
     /** Region configuration. */
     private final DataRegionConfiguration cfg;
 
@@ -53,7 +52,7 @@ public class RocksDbDataRegion implements DataRegion {
     public RocksDbDataRegion(DataRegionConfiguration cfg) {
         this.cfg = cfg;
 
-        assert "rocksdb".equalsIgnoreCase(cfg.type().value());
+        assert ROCKSDB_DATA_REGION_TYPE.equalsIgnoreCase(cfg.type().value());
     }
 
     /** {@inheritDoc} */
@@ -65,12 +64,12 @@ public class RocksDbDataRegion implements DataRegion {
         long totalCacheSize = dataRegionView.size() + writeBufferSize;
 
         switch (dataRegionView.cache().toLowerCase(Locale.ROOT)) {
-            case "clock":
+            case ROCKSDB_CLOCK_CACHE:
                 cache = new ClockCache(totalCacheSize, dataRegionView.numShardBits(), false);
 
                 break;
 
-            case "lru":
+            case ROCKSDB_LRU_CACHE:
                 cache = new LRUCache(totalCacheSize, dataRegionView.numShardBits(), false);
 
                 break;

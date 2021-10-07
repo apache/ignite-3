@@ -60,10 +60,6 @@ import static org.apache.ignite.internal.rocksdb.RocksUtils.createSstFile;
  * Storage implementation based on a single RocksDB instance.
  */
 public class RocksDbPartitionStorage implements PartitionStorage {
-    static {
-        RocksDB.loadLibrary();
-    }
-
     /** Suffix for the temporary snapshot folder */
     private static final String TMP_SUFFIX = ".tmp";
 

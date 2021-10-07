@@ -28,11 +28,20 @@ import org.apache.ignite.configuration.validation.OneOf;
  */
 @Config
 public class DataRegionConfigurationSchema {
+    /** Type of the RocksDB data region. */
+    public static final String ROCKSDB_DATA_REGION_TYPE = "rocksdb";
+
+    /** Cache type for the RocksDB LRU cache. */
+    public static final String ROCKSDB_LRU_CACHE = "lru";
+
+    /** Cache type for the RocksDB LRU cache. */
+    public static final String ROCKSDB_CLOCK_CACHE = "clock";
+
     /** Type for the future polymorphic configuration schemas. */
     @Immutable
-    @OneOf("rocksdb")
+    @OneOf(ROCKSDB_DATA_REGION_TYPE)
     @Value(hasDefault = true)
-    public String type = "rocksdb";
+    public String type = ROCKSDB_DATA_REGION_TYPE;
 
     /** Size of the rocksdb offheap cache. */
     @Value(hasDefault = true)
@@ -44,9 +53,9 @@ public class DataRegionConfigurationSchema {
     public long writeBufferSize = 64 * 1024 * 1024;
 
     /** Cache type - only {@code LRU} is supported at the moment. {@code Clock} implementation has known bugs. */
-    @OneOf({"LRU"})
+    @OneOf({ROCKSDB_LRU_CACHE})
     @Value(hasDefault = true)
-    public String cache = "LRU";
+    public String cache = ROCKSDB_LRU_CACHE;
 
     /** The cache is sharded to 2^numShardBits shards, by hash of the key. */
     @Min(-1)

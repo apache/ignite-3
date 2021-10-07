@@ -27,11 +27,16 @@ import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.rocksdb.RocksDB;
 
 /**
  * Storage engine implementation based on RocksDB.
  */
 public class RocksDbStorageEngine implements StorageEngine {
+    static {
+        RocksDB.loadLibrary();
+    }
+
     /** {@inheritDoc} */
     @Override public DataRegion createDataRegion(DataRegionConfiguration regionCfg) {
         return new RocksDbDataRegion(regionCfg);
