@@ -24,7 +24,6 @@ import java.io.InputStream;
 import java.io.PrintWriter;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
@@ -322,13 +321,13 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             File logProps = null;
 
-                InputStream rsrc = getClass().getClassLoader().getResourceAsStream("/java.util.logging.properties");
+                InputStream rsrc = getClass().getClassLoader().getResourceAsStream("/ignite.java.util.logging.properties");
 
                 if (rsrc != null)
                     logProps = new File(rsrc.toString());
 
 
-            when(nodeMgr.start(any(), any(), any(), any(), any()))
+            when(nodeMgr.start(any(), any(), any(), any(), any(), any()))
                 .thenReturn(node);
 
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
@@ -345,6 +344,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                 ignitePaths.logDir,
                 ignitePaths.cliPidsDir(),
                 Path.of("conf.json"),
+                ignitePaths.serverJavaUtilLoggingPros(),
                 cli.getOut());
 
             assertEquals("\nNode is successfully started. To stop, type ignite node stop " + nodeName + "\n\n" +

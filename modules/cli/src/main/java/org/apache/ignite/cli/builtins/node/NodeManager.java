@@ -17,13 +17,9 @@
 
 package org.apache.ignite.cli.builtins.node;
 
-import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.PrintWriter;
-import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -81,45 +77,24 @@ public class NodeManager {
      * @param out PrintWriter for user messages.
      * @return Information about successfully started node
      */
-    public RunningNode start(String nodeName, Path logDir, Path pidsDir, Path srvCfg, PrintWriter out) {
+    public RunningNode start(String nodeName, Path logDir, Path pidsDir, Path srvCfg, Path javaLogProps, PrintWriter out) {
         if (getRunningNodes(logDir, pidsDir).stream().anyMatch(n -> n.name.equals(nodeName)))
             throw new IgniteCLIException("Node with nodeName " + nodeName + " is already exist");
 
         try {
             Path logFile = logFile(logDir, nodeName);
+
             if (Files.exists(logFile))
                 Files.delete(logFile);
 
             Files.createFile(logFile);
 
-            File logProps = null;
-
-//            try {
-                //URL rsrc = NodeManager.class.getClassLoader().getResource("/default-config.xml");
-                InputStream rsrc = getClass().getClassLoader().getResourceAsStream("/logback.xml");
-
-                out.println("check1");
-
-                if (rsrc != null) {
-                    out.println("NOT NPE");
-                    logProps = new File(rsrc.toString());
-                }
-                else
-                    out.println("NPE");
-  //          }
-//            catch (URISyntaxException ignored) {
-//                out.println("Cannot find java.util.logging.properties file, using default java logging formatting.");
-//                // Cannot find java.util.logging.properties file, using default java logging formatting.
-//            }
-
-            out.println(logProps.getCanonicalPath());
-
             var cmdArgs = new ArrayList<String>();
 
             cmdArgs.add("java");
 
-            if (logProps != null)
-                cmdArgs.add("-Djava.util.logging.config.file=" + logProps.getCanonicalPath());
+            if (javaLogProps != null)
+                cmdArgs.add("-Djava.util.logging.config.file=" + javaLogProps.toAbsolutePath());
 
             cmdArgs.add("-cp");
             cmdArgs.add(classpath());
