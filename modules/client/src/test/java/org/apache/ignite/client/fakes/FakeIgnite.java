@@ -51,6 +51,9 @@ public class FakeIgnite implements Ignite {
         return null;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override public void setBaseline(Set<String> baselineNodes) {
         throw new UnsupportedOperationException();
     }

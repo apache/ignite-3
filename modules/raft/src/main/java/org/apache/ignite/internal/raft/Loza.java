@@ -62,11 +62,11 @@ public class Loza implements IgniteComponent {
     private static final int CLIENT_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
 
     /** Timeout. */
-    // TODO: Correct value should be investigated IGNITE-15705
+    // TODO: IGNITE-15705 Correct value should be investigated
     private static final int TIMEOUT = 10000;
 
     /** Network timeout. */
-    // TODO: Correct value should be investigated IGNITE-15705
+    // TODO: IGNITE-15705 Correct value should be investigated
     private static final int NETWORK_TIMEOUT = 3000;
 
     /** Retry delay. */

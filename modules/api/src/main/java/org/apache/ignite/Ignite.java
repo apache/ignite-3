@@ -18,6 +18,7 @@
 package org.apache.ignite;
 
 import java.util.Set;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.ApiStatus.Experimental;
@@ -51,15 +52,16 @@ public interface Ignite extends AutoCloseable {
      * Set new baseline nodes for table assignments.
      *
      * Current implementation has significant restrictions:
-     * - Only current (known on this node) tables will be updated by this call.
      * - Only alive nodes can be a part of new baseline.
+     * If any passed nodes are not alive, {@link IgniteException} with appropriate message will be thrown.
      * - Potentially it can be a long operation and current
      * synchronous changePeers-based implementation can't handle this issue well.
-     * - No any recovery logic supported, if setBaseline fails - it can produce random state of cluster.
+     * - No recovery logic supported, if setBaseline fails - it can produce random state of cluster.
      *
-     * TODO: this and other issues must be fixed under IGNITE-14209
+     * TODO: IGNITE-14209 issues above must be fixed.
      *
      * @param baselineNodes Names of baseline nodes.
+     * @throws IgniteException if nodes empty/null or any node is not alive.
      */
     @Experimental
     void setBaseline(Set<String> baselineNodes);

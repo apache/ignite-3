@@ -102,6 +102,9 @@ public class TcpIgniteClient implements IgniteClient {
         return null;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override public void setBaseline(Set<String> baselineNodes) {
         throw new UnsupportedOperationException();
     }
