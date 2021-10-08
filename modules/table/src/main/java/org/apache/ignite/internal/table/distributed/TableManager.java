@@ -39,6 +39,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
@@ -150,7 +151,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     //TODO: IGNITE-15161 These should go into TableImpl instances.
     /** Instances of table storages that need to be stopped on component stop. */
-    private final Set<TableStorage> tableStorages = ConcurrentHashMap.newKeySet();
+    private final Map<IgniteUuid, TableStorage> tableStorages = new ConcurrentHashMap<>();
 
     /**
      * Creates a new table manager.
@@ -270,7 +271,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 raftGroupName(tblId, p),
                                 newPartitionAssignment,
                                 toAdd,
-                                prepareRaftGroupListenerSupplier(p, ctx.newValue().name())
+                                () -> new PartitionListener(tableStorages.get(tblId).getOrCreatePartition(p))
                             )
                                 .thenAccept(
                                     updatedRaftGroupService -> tables.get(ctx.newValue().name()).updateInternalTableRaftGroupService(p, updatedRaftGroupService)
@@ -328,7 +329,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override public void stop() {
-        for (TableStorage tableStorage : tableStorages) {
+        for (TableStorage tableStorage : tableStorages.values()) {
             try {
                 tableStorage.stop();
             }
@@ -387,7 +388,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         tableStorage.start();
 
-        tableStorages.add(tableStorage);
+        tableStorages.put(tblId, tableStorage);
 
         for (int p = 0; p < partitions; p++) {
             int partId = p;
@@ -1074,34 +1075,5 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         return CompletableFuture.allOf(futures);
-    }
-
-    /**
-     * Prepare {@link RaftGroupListener} supplier for given partition of the table.
-     * @param p Partition.
-     * @param name Table name.
-     * @return Supplier for {@link RaftGroupListener} for given partition of the table.
-     */
-    @NotNull private Supplier<RaftGroupListener> prepareRaftGroupListenerSupplier(int p, String name) {
-        return () -> {
-            Path storageDir = partitionsStoreDir.resolve(name);
-
-            try {
-                Files.createDirectories(storageDir);
-            }
-            catch (IOException e) {
-                throw new IgniteInternalException(
-                    "Failed to create partitions store directory for " + name + ": " + e.getMessage(),
-                    e
-                );
-            }
-
-            return new PartitionListener(
-                new RocksDbStorage(
-                    storageDir.resolve(String.valueOf(p)),
-                    ByteBuffer::compareTo
-                )
-            );
-        };
     }
 }
