@@ -35,7 +35,6 @@ public class TableConfigurationSchema {
     /** Table name. */
     @Value
     @Immutable
-    @DirectAccess
     public String name;
 
     /** Table partitions. */
