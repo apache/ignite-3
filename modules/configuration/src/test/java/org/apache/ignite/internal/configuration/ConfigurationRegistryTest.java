@@ -107,6 +107,8 @@ public class ConfigurationRegistryTest {
                 Second0PolymorphicConfigurationSchema.class
             )
         );
+
+        ThirdRootConfiguration a = null;
     }
 
     /**
@@ -164,8 +166,6 @@ public class ConfigurationRegistryTest {
      */
     @PolymorphicConfig(id = "first")
     public static class FirstPolymorphicConfigurationSchema {
-        @Value(hasDefault = true)
-        public String strVal = "123";
     }
 
     /**

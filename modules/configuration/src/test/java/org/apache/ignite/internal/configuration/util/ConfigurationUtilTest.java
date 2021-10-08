@@ -18,13 +18,12 @@
 package org.apache.ignite.internal.configuration.util;
 
 import java.io.Serializable;
-import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -47,7 +46,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static java.util.Collections.singletonMap;
-import static java.util.stream.Collectors.toSet;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.configuration.tree.NamedListNode.NAME;
@@ -455,28 +454,35 @@ public class ConfigurationUtilTest {
     /** */
     @Test
     void testSchemaFields() {
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> extensionsFields(
-                List.of(
-                    InternalExtendedSimpleRootConfigurationSchema.class,
-                    ErrorInternalExtendedSimpleRootConfigurationSchema.class
-                )
-            )
+        assertTrue(extensionsFields(List.of(), true).isEmpty());
+        assertTrue(extensionsFields(List.of(), false).isEmpty());
+
+        List<Class<?>> extensions0 = List.of(
+            InternalExtendedSimpleRootConfigurationSchema.class,
+            ErrorInternalExtendedSimpleRootConfigurationSchema.class
         );
 
-        assertTrue(extensionsFields(List.of()).isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> extensionsFields(extensions0, true));
 
-        List<Class<?>> extensions = List.of(
+        assertEquals(
+            extensions0.stream().flatMap(cls -> Arrays.stream(cls.getDeclaredFields())).collect(toList()),
+            List.copyOf(extensionsFields(extensions0, false))
+        );
+
+        List<Class<?>> extensions1 = List.of(
             InternalFirstSimpleRootConfigurationSchema.class,
             InternalSecondSimpleRootConfigurationSchema.class
         );
 
-        Set<Field> exp = extensions.stream()
-            .flatMap(cls -> Stream.of(cls.getDeclaredFields()))
-            .collect(toSet());
+        assertEquals(
+            extensions1.stream().flatMap(cls -> Arrays.stream(cls.getDeclaredFields())).collect(toList()),
+            List.copyOf(extensionsFields(extensions1, true))
+        );
 
-        assertEquals(exp, extensionsFields(extensions));
+        assertEquals(
+            extensions1.stream().flatMap(cls -> Arrays.stream(cls.getDeclaredFields())).collect(toList()),
+            List.copyOf(extensionsFields(extensions1, false))
+        );
     }
 
     /** */

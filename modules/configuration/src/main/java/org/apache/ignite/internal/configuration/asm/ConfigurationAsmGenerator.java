@@ -28,7 +28,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -115,6 +114,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.ex
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isConfigValue;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isNamedConfigValue;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isValue;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaFields;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
 import static org.apache.ignite.internal.util.CollectionUtils.union;
 import static org.objectweb.asm.Opcodes.H_NEWINVOKESPECIAL;
@@ -288,14 +288,14 @@ public class ConfigurationAsmGenerator {
      * @param internalSchemaExtensions Internal extensions ({@link InternalConfiguration})
      *      of configuration schemas ({@link ConfigurationRoot} and {@link Config}).
      *      Mapping: original schema -> extensions.
-     * @param polymorphicExtensions Polymorphic extensions ({@link PolymorphicConfigInstance})
+     * @param polymorphicSchemaExtensions Polymorphic extensions ({@link PolymorphicConfigInstance})
      *      of configuration schemas ({@link PolymorphicConfig}).
      *      Mapping: original schema -> extensions.
      */
     public synchronized void compileRootSchema(
         Class<?> rootSchemaClass,
         Map<Class<?>, Set<Class<?>>> internalSchemaExtensions,
-        Map<Class<?>, Set<Class<?>>> polymorphicExtensions
+        Map<Class<?>, Set<Class<?>>> polymorphicSchemaExtensions
     ) {
         if (schemasInfo.containsKey(rootSchemaClass))
             return; // Already compiled.
@@ -318,14 +318,17 @@ public class ConfigurationAsmGenerator {
 
             assert schemasInfo.containsKey(schemaClass) : schemaClass;
 
-            Field[] schemaFields = Arrays.stream(schemaClass.getDeclaredFields()).filter(
-                field -> isValue(field) || isConfigValue(field) || isNamedConfigValue(field)
-            ).toArray(Field[]::new);
+            Set<Class<?>> internalExtensions = internalSchemaExtensions.getOrDefault(schemaClass, Set.of());
+            Set<Class<?>> polymorphicExtensions = polymorphicSchemaExtensions.getOrDefault(schemaClass, Set.of());
 
-            Set<Class<?>> schemaExtensions = internalSchemaExtensions.getOrDefault(schemaClass, Set.of());
-            Set<Field> extensionsFields = extensionsFields(schemaExtensions);
+            assert internalExtensions.isEmpty() || polymorphicExtensions.isEmpty() :
+                "Internal and polymorphic extensions are not allowed at the same time: " + schemaClass;
 
-            for (Field schemaField : concat(asList(schemaFields), extensionsFields)) {
+            Collection<Field> schemaFields = schemaFields(schemaClass);
+            Collection<Field> internalExtensionsFields = extensionsFields(internalExtensions, true);
+            Collection<Field> polymorphicExtensionsFields = extensionsFields(polymorphicExtensions, false);
+
+            for (Field schemaField : concat(schemaFields, internalExtensionsFields, polymorphicExtensionsFields)) {
                 if (isConfigValue(schemaField) || isNamedConfigValue(schemaField)) {
                     Class<?> subSchemaClass = schemaField.getType();
 
@@ -339,8 +342,23 @@ public class ConfigurationAsmGenerator {
 
             schemas.add(schemaClass);
 
-            definitions.add(createNodeClass(schemaClass, schemaExtensions, schemaFields, extensionsFields));
-            definitions.add(createCfgImplClass(schemaClass, schemaExtensions, schemaFields, extensionsFields));
+            definitions.add(createNodeClass(
+                schemaClass,
+                internalExtensions,
+                polymorphicExtensions,
+                schemaFields,
+                internalExtensionsFields,
+                polymorphicExtensionsFields
+            ));
+
+            definitions.add(createCfgImplClass(
+                schemaClass,
+                internalExtensions,
+                polymorphicExtensions,
+                schemaFields,
+                internalExtensionsFields,
+                polymorphicExtensionsFields
+            ));
         }
 
         Map<String, Class<?>> definedClasses = generator.defineClasses(definitions);
@@ -357,17 +375,23 @@ public class ConfigurationAsmGenerator {
      * Construct a {@link InnerNode} definition for a configuration schema.
      *
      * @param schemaClass Configuration schema class.
-     * @param schemaExtensions Internal extensions of the configuration schema.
+     * @param internalSchemaExtensions Internal extensions of the configuration schema.
+     * @param polymorphicSchemaExtensions Polymorphic extensions of the configuration schema.
      * @param schemaFields Fields of the schema class.
-     * @param extensionsFields Fields of internal extensions of the configuration schema.
+     * @param internalExtensionsFields Fields of internal extensions of the configuration schema.
+     * @param polymorphicExtensionsFields Fields of polymorphic extensions of the configuration schema.
      * @return Constructed {@link InnerNode} definition for the configuration schema.
      */
     private ClassDefinition createNodeClass(
         Class<?> schemaClass,
-        Set<Class<?>> schemaExtensions,
-        Field[] schemaFields,
-        Set<Field> extensionsFields
+        Set<Class<?>> internalSchemaExtensions,
+        Set<Class<?>> polymorphicSchemaExtensions,
+        Collection<Field> schemaFields,
+        Collection<Field> internalExtensionsFields,
+        Collection<Field> polymorphicExtensionsFields
     ) {
+        // TODO: 08.10.2021  
+        
         SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaClass);
 
         // Node class definition.
@@ -375,7 +399,7 @@ public class ConfigurationAsmGenerator {
             of(PUBLIC, FINAL),
             internalName(schemaClassInfo.nodeClassName),
             type(InnerNode.class),
-            nodeClassInterfaces(schemaClass, schemaExtensions)
+            nodeClassInterfaces(schemaClass, internalSchemaExtensions)
         );
 
         // Spec fields.
@@ -383,7 +407,7 @@ public class ConfigurationAsmGenerator {
 
         int i = 0;
 
-        for (Class<?> clazz : concat(List.of(schemaClass), schemaExtensions))
+        for (Class<?> clazz : concat(List.of(schemaClass), internalSchemaExtensions))
             specFields.put(clazz, classDef.declareField(of(PRIVATE, FINAL), "_spec" + i++, clazz));
 
         // org.apache.ignite.internal.configuration.tree.InnerNode#schemaType
@@ -392,17 +416,17 @@ public class ConfigurationAsmGenerator {
         // Define the rest of the fields.
         Map<String, FieldDefinition> fieldDefs = new HashMap<>();
 
-        for (Field schemaField : concat(asList(schemaFields), extensionsFields)) {
+        for (Field schemaField : concat(schemaFields, internalExtensionsFields)) {
             assert isValue(schemaField) || isConfigValue(schemaField) || isNamedConfigValue(schemaField) : schemaField;
 
             fieldDefs.put(schemaField.getName(), addNodeField(classDef, schemaField));
         }
 
         // Constructor.
-        addNodeConstructor(classDef, specFields, fieldDefs, schemaFields, extensionsFields);
+        addNodeConstructor(classDef, specFields, fieldDefs, schemaFields, internalExtensionsFields);
 
         // VIEW and CHANGE methods.
-        for (Field schemaField : concat(asList(schemaFields), extensionsFields)) {
+        for (Field schemaField : concat(schemaFields, internalExtensionsFields)) {
             String fieldName = schemaField.getName();
 
             FieldDefinition fieldDef = fieldDefs.get(fieldName);
@@ -416,16 +440,16 @@ public class ConfigurationAsmGenerator {
         }
 
         // traverseChildren
-        addNodeTraverseChildrenMethod(classDef, fieldDefs, schemaFields, extensionsFields);
+        addNodeTraverseChildrenMethod(classDef, fieldDefs, schemaFields, internalExtensionsFields);
 
         // traverseChild
-        addNodeTraverseChildMethod(classDef, fieldDefs, schemaFields, extensionsFields);
+        addNodeTraverseChildMethod(classDef, fieldDefs, schemaFields, internalExtensionsFields);
 
         // construct
-        addNodeConstructMethod(classDef, fieldDefs, schemaFields, extensionsFields);
+        addNodeConstructMethod(classDef, fieldDefs, schemaFields, internalExtensionsFields);
 
         // constructDefault
-        addNodeConstructDefaultMethod(classDef, specFields, fieldDefs, schemaFields, extensionsFields);
+        addNodeConstructDefaultMethod(classDef, specFields, fieldDefs, schemaFields, internalExtensionsFields);
 
         return classDef;
     }
@@ -498,8 +522,8 @@ public class ConfigurationAsmGenerator {
         ClassDefinition classDef,
         Map<Class<?>, FieldDefinition> specFields,
         Map<String, FieldDefinition> fieldDefs,
-        Field[] schemaFields,
-        Set<Field> extensionsFields
+        Collection<Field> schemaFields,
+        Collection<Field> extensionsFields
     ) {
         MethodDefinition ctor = classDef.declareConstructor(of(PUBLIC));
 
@@ -510,7 +534,7 @@ public class ConfigurationAsmGenerator {
         for (Map.Entry<Class<?>, FieldDefinition> e : specFields.entrySet())
             ctor.getBody().append(ctor.getThis().setField(e.getValue(), newInstance(e.getKey())));
 
-        for (Field schemaField : concat(asList(schemaFields), extensionsFields)) {
+        for (Field schemaField : concat(schemaFields, extensionsFields)) {
             if (!isNamedConfigValue(schemaField))
                 continue;
 
@@ -688,8 +712,8 @@ public class ConfigurationAsmGenerator {
     private static void addNodeTraverseChildrenMethod(
         ClassDefinition classDef,
         Map<String, FieldDefinition> fieldDefs,
-        Field[] schemaFields,
-        Set<Field> extensionsFields
+        Collection<Field> schemaFields,
+        Collection<Field> extensionsFields
     ) {
         MethodDefinition traverseChildrenMtd = classDef.declareMethod(
             of(PUBLIC),
@@ -701,7 +725,7 @@ public class ConfigurationAsmGenerator {
 
         BytecodeBlock mtdBody = traverseChildrenMtd.getBody();
 
-        invokeVisitForTraverseChildren(asList(schemaFields), fieldDefs, traverseChildrenMtd)
+        invokeVisitForTraverseChildren(schemaFields, fieldDefs, traverseChildrenMtd)
             .forEach(mtdBody::append);
 
         if (!extensionsFields.isEmpty()) {
@@ -729,8 +753,8 @@ public class ConfigurationAsmGenerator {
     private static void addNodeTraverseChildMethod(
         ClassDefinition classDef,
         Map<String, FieldDefinition> fieldDefs,
-        Field[] schemaFields,
-        Set<Field> extensionsFields
+        Collection<Field> schemaFields,
+        Collection<Field> extensionsFields
     ) {
         MethodDefinition traverseChildMtd = classDef.declareMethod(
             of(PUBLIC),
@@ -744,15 +768,15 @@ public class ConfigurationAsmGenerator {
         BytecodeBlock mtdBody = traverseChildMtd.getBody();
 
         if (extensionsFields.isEmpty())
-            mtdBody.append(invokeVisitForTraverseChild(asList(schemaFields), fieldDefs, traverseChildMtd));
+            mtdBody.append(invokeVisitForTraverseChild(schemaFields, fieldDefs, traverseChildMtd));
         else {
             Variable includeInternalVar = traverseChildMtd.getScope().getVariable("includeInternal");
 
             mtdBody.append(
                 new IfStatement()
                     .condition(includeInternalVar)
-                    .ifTrue(invokeVisitForTraverseChild(union(extensionsFields, schemaFields), fieldDefs, traverseChildMtd))
-                    .ifFalse(invokeVisitForTraverseChild(asList(schemaFields), fieldDefs, traverseChildMtd))
+                    .ifTrue(invokeVisitForTraverseChild(union(schemaFields, extensionsFields), fieldDefs, traverseChildMtd))
+                    .ifFalse(invokeVisitForTraverseChild(schemaFields, fieldDefs, traverseChildMtd))
             );
         }
     }
@@ -794,8 +818,8 @@ public class ConfigurationAsmGenerator {
     private void addNodeConstructMethod(
         ClassDefinition classDef,
         Map<String, FieldDefinition> fieldDefs,
-        Field[] schemaFields,
-        Set<Field> extensionsFields
+        Collection<Field> schemaFields,
+        Collection<Field> extensionsFields
     ) {
         MethodDefinition constructMtd = classDef.declareMethod(
             of(PUBLIC),
@@ -809,15 +833,15 @@ public class ConfigurationAsmGenerator {
         BytecodeBlock mtdBody = constructMtd.getBody();
 
         if (extensionsFields.isEmpty())
-            mtdBody.append(treatSourceForConstruct(asList(schemaFields), fieldDefs, constructMtd)).ret();
+            mtdBody.append(treatSourceForConstruct(schemaFields, fieldDefs, constructMtd)).ret();
         else {
             Variable includeInternalVar = constructMtd.getScope().getVariable("includeInternal");
 
             mtdBody.append(
                 new IfStatement()
                     .condition(includeInternalVar)
-                    .ifTrue(treatSourceForConstruct(union(extensionsFields, schemaFields), fieldDefs, constructMtd))
-                    .ifFalse(treatSourceForConstruct(asList(schemaFields), fieldDefs, constructMtd))
+                    .ifTrue(treatSourceForConstruct(union(schemaFields, extensionsFields), fieldDefs, constructMtd))
+                    .ifFalse(treatSourceForConstruct(schemaFields, fieldDefs, constructMtd))
             ).ret();
         }
     }
@@ -836,8 +860,8 @@ public class ConfigurationAsmGenerator {
         ClassDefinition classDef,
         Map<Class<?>, FieldDefinition> specFields,
         Map<String, FieldDefinition> fieldDefs,
-        Field[] schemaFields,
-        Set<Field> extensionsFields
+        Collection<Field> schemaFields,
+        Collection<Field> extensionsFields
     ) {
         MethodDefinition constructDfltMtd = classDef.declareMethod(
             of(PUBLIC),
@@ -851,7 +875,7 @@ public class ConfigurationAsmGenerator {
         StringSwitchBuilder switchBuilder = new StringSwitchBuilder(constructDfltMtd.getScope())
             .expression(keyVar);
 
-        for (Field schemaField : concat(asList(schemaFields), extensionsFields)) {
+        for (Field schemaField : concat(schemaFields, extensionsFields)) {
             if (!isValue(schemaField))
                 continue;
 
@@ -941,17 +965,21 @@ public class ConfigurationAsmGenerator {
      * Construct a {@link DynamicConfiguration} definition for a configuration schema.
      *
      * @param schemaClass Configuration schema class.
-     * @param schemaExtensions Internal extensions of the configuration schema.
+     * @param internalSchemaExtensions Internal extensions of the configuration schema.
      * @param schemaFields Fields of the schema class.
-     * @param extensionsFields Fields of internal extensions of the configuration schema.
+     * @param internalExtensionsFields Fields of internal extensions of the configuration schema.
      * @return Constructed {@link DynamicConfiguration} definition for the configuration schema.
      */
     private ClassDefinition createCfgImplClass(
         Class<?> schemaClass,
-        Set<Class<?>> schemaExtensions,
-        Field[] schemaFields,
-        Set<Field> extensionsFields
+        Set<Class<?>> internalSchemaExtensions,
+        Set<Class<?>> polymorphicSchemaExtensions,
+        Collection<Field> schemaFields,
+        Collection<Field> internalExtensionsFields,
+        Collection<Field> polymorphicExtensionsFields
     ) {
+        // TODO: 08.10.2021  
+        
         SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaClass);
 
         Class<?> superClass = schemaClassInfo.direct ? DirectDynamicConfiguration.class : DynamicConfiguration.class;
@@ -961,19 +989,19 @@ public class ConfigurationAsmGenerator {
             of(PUBLIC, FINAL),
             internalName(schemaClassInfo.cfgImplClassName),
             type(superClass),
-            configClassInterfaces(schemaClass, schemaExtensions)
+            configClassInterfaces(schemaClass, internalSchemaExtensions)
         );
 
         // Fields.
         Map<String, FieldDefinition> fieldDefs = new HashMap<>();
 
-        for (Field schemaField : concat(asList(schemaFields), extensionsFields))
+        for (Field schemaField : concat(schemaFields, internalExtensionsFields))
             fieldDefs.put(schemaField.getName(), addConfigurationImplField(classDef, schemaField));
 
         // Constructor
-        addConfigurationImplConstructor(classDef, schemaClassInfo, fieldDefs, schemaFields, extensionsFields);
+        addConfigurationImplConstructor(classDef, schemaClassInfo, fieldDefs, schemaFields, internalExtensionsFields);
 
-        for (Field schemaField : concat(asList(schemaFields), extensionsFields))
+        for (Field schemaField : concat(schemaFields, internalExtensionsFields))
             addConfigurationImplGetMethod(classDef, schemaClass, fieldDefs, schemaField);
 
         // org.apache.ignite.internal.configuration.DynamicConfiguration#configType
@@ -1028,8 +1056,8 @@ public class ConfigurationAsmGenerator {
         ClassDefinition classDef,
         SchemaClassesInfo schemaClassInfo,
         Map<String, FieldDefinition> fieldDefs,
-        Field[] schemaFields,
-        Set<Field> extensionsFields
+        Collection<Field> schemaFields,
+        Collection<Field> extensionsFields
     ) {
         MethodDefinition ctor = classDef.declareConstructor(
             of(PUBLIC),
@@ -1059,7 +1087,7 @@ public class ConfigurationAsmGenerator {
         BytecodeExpression thisKeysVar = ctor.getThis().getField("keys", List.class);
 
         int newIdx = 0;
-        for (Field schemaField : concat(asList(schemaFields), extensionsFields)) {
+        for (Field schemaField : concat(schemaFields, extensionsFields)) {
             FieldDefinition fieldDef = fieldDefs.get(schemaField.getName());
 
             BytecodeExpression newValue;

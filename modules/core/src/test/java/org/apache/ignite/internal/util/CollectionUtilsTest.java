@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.util;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.StreamSupport;
@@ -52,7 +53,7 @@ public class CollectionUtilsTest {
 
     /** */
     @Test
-    void testUnion() {
+    void testSetUnion() {
         assertTrue(union(null, null).isEmpty());
         assertTrue(union(Set.of(), null).isEmpty());
         assertTrue(union(null, new Object[] {}).isEmpty());
@@ -104,6 +105,19 @@ public class CollectionUtilsTest {
         assertEquals(Set.of(1, 2, 3, 4), difference(Set.of(1, 2, 3, 4), Set.of(5, 6, 7)));
 
         assertEquals(Set.of(), difference(Set.of(1, 2, 3, 4), Set.of(1, 2, 3, 4)));
+    }
+
+    /** */
+    @Test
+    void testCollectionUnion() {
+        assertTrue(union().isEmpty());
+        assertTrue(union(new Collection[] {}).isEmpty());
+        assertTrue(union(List.of()).isEmpty());
+
+        assertEquals(List.of(1), collect(union(List.of(1), List.of())));
+        assertEquals(List.of(1), collect(union(List.of(), List.of(1))));
+
+        assertEquals(List.of(1, 2), collect(union(List.of(1), List.of(2))));
     }
 
     /**

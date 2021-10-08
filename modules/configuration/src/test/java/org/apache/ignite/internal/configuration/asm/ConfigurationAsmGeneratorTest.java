@@ -27,6 +27,8 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.ConfigurationChanger;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
@@ -65,6 +67,11 @@ public class ConfigurationAsmGeneratorTest {
             ExtendedSecondTestConfigurationSchema.class
         );
 
+        Collection<Class<?>> polymorphicExtensions = List.of(
+            FirstPolymorphicInstanceTestConfigurationSchema.class,
+            SecondPolymorphicInstanceTestConfigurationSchema.class
+        );
+
         generator = new ConfigurationAsmGenerator();
 
         changer = new TestConfigurationChanger(
@@ -73,7 +80,7 @@ public class ConfigurationAsmGeneratorTest {
             Map.of(),
             new TestConfigurationStorage(LOCAL),
             internalExtensions,
-            List.of()
+            polymorphicExtensions
         );
 
         changer.start();
@@ -232,6 +239,16 @@ public class ConfigurationAsmGeneratorTest {
         subInnerNode.construct("i1", null, true);
     }
 
+    /** */
+    @Test
+    void test() {
+        DynamicConfiguration<?, ?> config = generator.instantiateCfg(TestRootConfiguration.KEY, changer);
+
+        TestRootConfiguration rootConfig = (TestRootConfiguration)config;
+
+        // TODO: 08.10.2021
+    }
+
     /**
      * Test root configuration schema.
      */
@@ -252,6 +269,10 @@ public class ConfigurationAsmGeneratorTest {
         /** Named configuration field. */
         @NamedConfigValue
         public TestConfigurationSchema namedCfg;
+
+        /** Polymorphic sub configuration field. */
+        @ConfigValue
+        public PolymorphicTestConfigurationSchema polymorphicSubCfg;
     }
 
     /**
@@ -306,5 +327,39 @@ public class ConfigurationAsmGeneratorTest {
         /** Integer field. */
         @Value(hasDefault = true)
         public int i1 = 0;
+    }
+
+    /**
+     * Polymorphic configuration scheme.
+     */
+    @PolymorphicConfig
+    public static class PolymorphicTestConfigurationSchema {
+        /** String value. */
+        @Value(hasDefault = true)
+        public String strVal = "strVal";
+    }
+
+    /**
+     * First instance of the polymorphic configuration schema.
+     */
+    @PolymorphicConfigInstance(id = "first")
+    public static class FirstPolymorphicInstanceTestConfigurationSchema extends PolymorphicTestConfigurationSchema {
+        /** Integer value. */
+        @Value(hasDefault = true)
+        public int intVal = 0;
+    }
+
+    /**
+     * Second instance of the polymorphic configuration schema.
+     */
+    @PolymorphicConfigInstance(id = "second")
+    public static class SecondPolymorphicInstanceTestConfigurationSchema extends PolymorphicTestConfigurationSchema {
+        /** Integer value. */
+        @Value(hasDefault = true)
+        public int intVal = 0;
+
+        /** Long value. */
+        @Value(hasDefault = true)
+        public long longVal = 0;
     }
 }

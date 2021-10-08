@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -55,7 +56,9 @@ import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 
 /** */
 public class ConfigurationUtil {
@@ -632,41 +635,6 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Get merged schema extension fields.
-     *
-     * @param extensions Configuration schema extensions ({@link InternalConfiguration}).
-     * @return Unique fields of the schema and its extensions.
-     * @throws IllegalArgumentException If there is a conflict in field names.
-     */
-    public static Set<Field> extensionsFields(Collection<Class<?>> extensions) {
-        if (extensions.isEmpty())
-            return Set.of();
-        else {
-            Map<String, Field> res = new HashMap<>();
-
-            for (Class<?> extension : extensions) {
-                assert extension.isAnnotationPresent(InternalConfiguration.class) : extension;
-
-                for (Field field : extension.getDeclaredFields()) {
-                    String fieldName = field.getName();
-
-                    if (res.containsKey(fieldName)) {
-                        throw new IllegalArgumentException(String.format(
-                            "Duplicate field names are not allowed [field=%s, classes=%s]",
-                            field,
-                            classNames(res.get(fieldName), field)
-                        ));
-                    }
-                    else
-                        res.put(fieldName, field);
-                }
-            }
-
-            return Set.copyOf(res.values());
-        }
-    }
-
-    /**
      * Collect all configuration schemes with {@link ConfigurationRoot}, {@link Config} or {@link PolymorphicConfig}
      * including all sub configuration schemes for fields with {@link ConfigValue} or {@link NamedConfigValue}.
      *
@@ -791,5 +759,56 @@ public class ConfigurationUtil {
         }
 
         return res;
+    }
+
+    /**
+     * Collects fields of configuration schema that contain {@link Value}, {@link ConfigValue} or
+     *      {@link NamedConfigValue}.
+     *
+     * @param schemaClass Configuration schema class.
+     * @return Schema fields.
+     */
+    public static Collection<Field> schemaFields(Class<?> schemaClass) {
+        return Arrays.stream(schemaClass.getDeclaredFields())
+            .filter(f -> isValue(f) || isConfigValue(f) || isNamedConfigValue(f))
+            .collect(toList());
+    }
+
+    /**
+     * Collects fields of configuration schema extensions that contain {@link Value}, {@link ConfigValue} or
+     *      {@link NamedConfigValue}.
+     *
+     * @param extensions Configuration schema extensions.
+     * @param uniqueByName Checking the uniqueness of fields by {@link Field#getName name}.
+     * @return Schema extensions fields.
+     * @throws IllegalArgumentException If there was a field name conflict for {@code uniqueByName == true}.
+     */
+    public static Collection<Field> extensionsFields(Collection<Class<?>> extensions, boolean uniqueByName) {
+        if (extensions.isEmpty())
+            return List.of();
+
+        if (uniqueByName) {
+            return extensions.stream()
+                .flatMap(cls -> Arrays.stream(cls.getDeclaredFields()))
+                .filter(f -> isValue(f) || isConfigValue(f) || isNamedConfigValue(f))
+                .collect(toMap(
+                    Field::getName,
+                    identity(),
+                    (f1, f2) -> {
+                        throw new IllegalArgumentException(String.format(
+                            "Duplicate field names are not allowed [field=%s, classes=%s]",
+                            f1.getName(),
+                            classNames(f1, f2)
+                        ));
+                    },
+                    LinkedHashMap::new
+                )).values();
+        }
+        else {
+            return extensions.stream()
+                .flatMap(cls -> Arrays.stream(cls.getDeclaredFields()))
+                .filter(f -> isValue(f) || isConfigValue(f) || isNamedConfigValue(f))
+                .collect(toList());
+        }
     }
 }
