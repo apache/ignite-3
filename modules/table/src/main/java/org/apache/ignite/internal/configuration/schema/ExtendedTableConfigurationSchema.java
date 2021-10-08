@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.schema;
 
+import org.apache.ignite.configuration.annotation.DirectAccess;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
@@ -32,6 +33,7 @@ public class ExtendedTableConfigurationSchema extends TableConfigurationSchema {
     /** Table id. String representation of {@link org.apache.ignite.lang.IgniteUuid}. */
     @Value
     @Immutable
+    @DirectAccess
     public String id;
 
     /**
