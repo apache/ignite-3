@@ -13,6 +13,23 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 
+/**
+ * This example demonstrates data rebalance on new nodes.
+ *
+ * - Start 3 nodes (A, B, C)
+ * - Put some data
+ * - Add 2 new nodes (D, E)
+ * - Set new baseline to (A, D, E)
+ * - Stop (B, C)
+ * - Check that data is still available on the new configuration
+ *
+ * <p>
+ * To run the example, do the following:
+ * <ol>
+ *     <li>Import the examples project into you IDE.</li>
+ *     <li>Run the example in the IDE.</li>
+ * </ol>
+ */
 public class RebalanceExample {
 
     public static void main(String[] args) throws Exception {
@@ -48,8 +65,8 @@ public class RebalanceExample {
 
         kvView.put(key, value);
 
-        value = testTable.recordView().get(key).value("value");
-        System.out.println("Value on "
+        String oldValue = testTable.recordView().get(key).value("value");
+        System.out.println("Value in the start cluster configuration " + oldValue);
 
         for (int i = 3; i < 5; i++) {
             nodes.add(IgnitionManager.start("node-" + i,
@@ -64,7 +81,10 @@ public class RebalanceExample {
 
         var valueOnNewNode = nodes.get(4).tables().table("PUBLIC.rebalance").recordView().get(key).value("value");
 
-        System.out.println("Value on new node " + valueOnNewNode);
-        System.exit(0);
+        System.out.println("Value in the new cluster configuration " + valueOnNewNode);
+
+        IgnitionManager.stop(nodes.get(0).name());
+        IgnitionManager.stop(nodes.get(3).name());
+        IgnitionManager.stop(nodes.get(4).name());
     }
 }
