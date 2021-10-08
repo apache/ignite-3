@@ -50,7 +50,7 @@ public class IgniteCliApp {
     }
 
     /**
-     * This is a temporary solution to hide unnecessary java util logs that are prodfuced by ivy.
+     * This is a temporary solution to hide unnecessary java util logs that are produced by ivy.
      * ConsoleHandler.level should be set to SEVERE.
      * TODO: https://issues.apache.org/jira/browse/IGNITE-15713
      */
