@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.asm;
 
+import java.io.File;
 import java.io.Serializable;
 import java.lang.invoke.LambdaMetafactory;
 import java.lang.invoke.MethodHandle;
@@ -63,6 +64,7 @@ import org.apache.ignite.configuration.annotation.DirectAccess;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.DirectDynamicConfiguration;
 import org.apache.ignite.internal.configuration.DirectDynamicProperty;
@@ -221,7 +223,8 @@ public class ConfigurationAsmGenerator {
     private final Map<Class<?>, SchemaClassesInfo> schemasInfo = new HashMap<>();
 
     /** Class generator instance. */
-    private final ClassGenerator generator = ClassGenerator.classGenerator(getClass().getClassLoader());
+    private final ClassGenerator generator = ClassGenerator.classGenerator(getClass().getClassLoader())
+        .dumpClassFilesTo(new File("C:\\test").toPath());
 
     /**
      * Creates new instance of {@code *Node} class corresponding to the given Configuration Schema.
@@ -284,10 +287,14 @@ public class ConfigurationAsmGenerator {
      * @param internalSchemaExtensions Internal extensions ({@link InternalConfiguration})
      *      of configuration schemas ({@link ConfigurationRoot} and {@link Config}).
      *      Mapping: original schema -> extensions.
+     * @param polymorphicExtensions Polymorphic extensions ({@link PolymorphicConfigInstance})
+     *      of configuration schemas ({@link PolymorphicConfig}).
+     *      Mapping: original schema -> extensions.
      */
     public synchronized void compileRootSchema(
         Class<?> rootSchemaClass,
-        Map<Class<?>, Set<Class<?>>> internalSchemaExtensions
+        Map<Class<?>, Set<Class<?>>> internalSchemaExtensions,
+        Map<Class<?>, Set<Class<?>>> polymorphicExtensions
     ) {
         if (schemasInfo.containsKey(rootSchemaClass))
             return; // Already compiled.
@@ -328,6 +335,7 @@ public class ConfigurationAsmGenerator {
             }
 
             schemas.add(schemaClass);
+
             definitions.add(createNodeClass(schemaClass, schemaExtensions, schemaFields, extensionsFields));
             definitions.add(createCfgImplClass(schemaClass, schemaExtensions, schemaFields, extensionsFields));
         }

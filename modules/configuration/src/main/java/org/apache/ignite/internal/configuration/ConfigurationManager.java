@@ -54,7 +54,7 @@ public class ConfigurationManager implements IgniteComponent {
      * @param polymorphicSchemaExtensions Polymorphic extensions ({@link PolymorphicConfigInstance})
      *      of configuration schemes.
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type,
-     *      or if the schema or its extensions (and polymorphic) are not valid.
+     *      or if the schema or its extensions are not valid.
      */
     public ConfigurationManager(
         Collection<RootKey<?, ?>> rootKeys,

@@ -85,7 +85,7 @@ public class ConfigurationUtilTest {
     public static void beforeAll() {
         cgen = new ConfigurationAsmGenerator();
 
-        cgen.compileRootSchema(ParentConfigurationSchema.class, Map.of());
+        cgen.compileRootSchema(ParentConfigurationSchema.class, Map.of(), Map.of());
     }
 
     @AfterAll
@@ -490,7 +490,7 @@ public class ConfigurationUtilTest {
         ));
 
         ConfigurationAsmGenerator generator = new ConfigurationAsmGenerator();
-        generator.compileRootSchema(SimpleRootConfigurationSchema.class, extensions);
+        generator.compileRootSchema(SimpleRootConfigurationSchema.class, extensions, Map.of());
 
         InnerNode innerNode = generator.instantiateNode(SimpleRootConfigurationSchema.class);
 
@@ -526,7 +526,7 @@ public class ConfigurationUtilTest {
         ));
 
         ConfigurationAsmGenerator generator = new ConfigurationAsmGenerator();
-        generator.compileRootSchema(SimpleRootConfigurationSchema.class, extensions);
+        generator.compileRootSchema(SimpleRootConfigurationSchema.class, extensions, Map.of());
 
         InnerNode innerNode = generator.instantiateNode(SimpleRootConfigurationSchema.class);
 
@@ -583,7 +583,7 @@ public class ConfigurationUtilTest {
         Class<?> schemaClass = InternalWithoutSuperclassConfigurationSchema.class;
         RootKey<?, ?> schemaKey = InternalWithoutSuperclassConfiguration.KEY;
 
-        generator.compileRootSchema(schemaClass, Map.of());
+        generator.compileRootSchema(schemaClass, Map.of(), Map.of());
 
         SuperRoot superRoot = new SuperRoot(
             s -> new RootInnerNode(schemaKey, generator.instantiateNode(schemaClass))

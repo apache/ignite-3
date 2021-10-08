@@ -164,6 +164,8 @@ public class ConfigurationRegistryTest {
      */
     @PolymorphicConfig(id = "first")
     public static class FirstPolymorphicConfigurationSchema {
+        @Value(hasDefault = true)
+        public String strVal = "123";
     }
 
     /**

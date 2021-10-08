@@ -58,7 +58,7 @@ public class ConfigurationAsmGeneratorTest {
     /** */
     @BeforeAll
     public static void beforeAll() {
-        Collection<Class<?>> extensions = List.of(
+        Collection<Class<?>> internalExtensions = List.of(
             ExtendedTestRootConfigurationSchema.class,
             ExtendedSecondTestRootConfigurationSchema.class,
             ExtendedTestConfigurationSchema.class,
@@ -72,7 +72,8 @@ public class ConfigurationAsmGeneratorTest {
             List.of(TestRootConfiguration.KEY),
             Map.of(),
             new TestConfigurationStorage(LOCAL),
-            extensions
+            internalExtensions,
+            List.of()
         );
 
         changer.start();
