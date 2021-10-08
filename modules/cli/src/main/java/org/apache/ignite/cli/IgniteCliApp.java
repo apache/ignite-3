@@ -17,12 +17,12 @@
 
 package org.apache.ignite.cli;
 
-import io.micronaut.context.ApplicationContext;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import io.micronaut.context.ApplicationContext;
 import org.apache.ignite.cli.spec.IgniteCliSpec;
 import org.fusesource.jansi.AnsiConsole;
 
