@@ -962,10 +962,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private void updateAssignments(Set<ClusterNode> clusterNodes) {
         var setBaselineFut = new CompletableFuture<>();
 
-        var changePeersQueue = new HashMap<IgniteUuid, Supplier<CompletableFuture<Void>>>();
+        var changePeersQueue = new ArrayList<Supplier<CompletableFuture<Void>>>();
 
         tablesCfg.tables().change(
             tbls -> {
+                changePeersQueue.clear();
                 for (int i = 0; i < tbls.size(); i++) {
                     tbls.createOrUpdate(tbls.get(i).name(), changeX -> {
                         ExtendedTableChange change = (ExtendedTableChange)changeX;
@@ -978,7 +979,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         if (!recalculatedAssignments.equals(ByteUtils.fromBytes(currAssignments))) {
                             change.changeAssignments(ByteUtils.toBytes(recalculatedAssignments));
-                            changePeersQueue.put(IgniteUuid.fromString(change.id()), () ->
+                            changePeersQueue.add(() ->
                                 updateRaftTopology(
                                     (List<List<ClusterNode>>)ByteUtils.fromBytes(currAssignments),
                                     recalculatedAssignments,
@@ -990,7 +991,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 CompletableFuture<?>[] changePeersFutures = new CompletableFuture<?>[changePeersQueue.size()];
 
                 int i = 0;
-                for (Supplier<CompletableFuture<Void>> task: changePeersQueue.values()) {
+                for (Supplier<CompletableFuture<Void>> task: changePeersQueue) {
                     changePeersFutures[i++] = task.get();
                 }
 
