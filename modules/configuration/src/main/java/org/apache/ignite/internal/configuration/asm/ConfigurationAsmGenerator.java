@@ -467,10 +467,18 @@ public class ConfigurationAsmGenerator {
             polymorphicTypeIdFieldDef
         );
 
-        // TODO: IGNITE-14645 continue.
-
         // traverseChild
-        addNodeTraverseChildMethod(classDef, fieldDefs, schemaFields, internalFields);
+        addNodeTraverseChildMethod(
+            classDef,
+            specFields,
+            fieldDefs,
+            schemaFields,
+            internalFields,
+            polymorphicFields,
+            polymorphicTypeIdFieldDef
+        );
+
+        // TODO: IGNITE-14645 continue.
 
         // construct
         addNodeConstructMethod(classDef, fieldDefs, schemaFields, internalFields);
@@ -793,7 +801,6 @@ public class ConfigurationAsmGenerator {
      * @param specFields Field definitions for the schema and its extensions: {@code _spec#}.
      * @param fieldDefs Definitions for all fields in {@code schemaFields}.
      * @param schemaFields Fields of the schema class.
-     * @param schemaFields Fields of the schema class.
      * @param internalFields Fields of internal extensions of the configuration schema.
      * @param polymorphicFields Fields of polymorphic extensions of the configuration schema.
      * @param polymorphicTypeIdFieldDef Identification field for the polymorphic configuration instance.
@@ -821,20 +828,21 @@ public class ConfigurationAsmGenerator {
 
         if (polymorphicTypeIdFieldDef != null) {
             // visitor.visitLeafNode("typeId", this.typeId);
-            BytecodeExpression invokeVisitLeaf = traverseChildrenMtd.getScope().getVariable("visitor").invoke(
+            BytecodeBlock invokeVisitTypeId = invokeVisit(
+                traverseChildrenMtd,
+                polymorphicTypeIdFieldDef.getName(),
                 VISIT_LEAF,
-                constantString(polymorphicTypeIdFieldDef.getName()),
-                thisVar.getField(polymorphicTypeIdFieldDef)
+                polymorphicTypeIdFieldDef
             );
 
-            mtdBody.append(new BytecodeBlock().append(invokeVisitLeaf).pop());
+            mtdBody.append(invokeVisitTypeId.pop());
         }
 
         for (Field schemaField : schemaFields) {
             String fieldName = schemaField.getName();
 
             mtdBody.append(
-                invokeVisitForTraverseChildren(traverseChildrenMtd, schemaField, fieldDefs.get(fieldName))
+                invokeVisit(traverseChildrenMtd, schemaField, fieldDefs.get(fieldName)).pop()
             );
         }
 
@@ -847,7 +855,7 @@ public class ConfigurationAsmGenerator {
                 String fieldName = internalField.getName();
 
                 includeInternalBlock.append(
-                    invokeVisitForTraverseChildren(traverseChildrenMtd, internalField, fieldDefs.get(fieldName))
+                    invokeVisit(traverseChildrenMtd, internalField, fieldDefs.get(fieldName)).pop()
                 );
             }
 
@@ -871,7 +879,7 @@ public class ConfigurationAsmGenerator {
                     String fieldName = polymorphicFieldName(polymorphicField, specFields);
 
                     codeBlock.append(
-                        invokeVisitForTraverseChildren(traverseChildrenMtd, polymorphicField, fieldDefs.get(fieldName))
+                        invokeVisit(traverseChildrenMtd, polymorphicField, fieldDefs.get(fieldName)).pop()
                     );
                 }
 
@@ -891,15 +899,21 @@ public class ConfigurationAsmGenerator {
      * Implements {@link InnerNode#traverseChild(String, ConfigurationVisitor, boolean)} method.
      *
      * @param classDef Class definition.
+     * @param specFields Field definitions for the schema and its extensions: {@code _spec#}.
      * @param fieldDefs Definitions for all fields in {@code schemaFields}.
      * @param schemaFields Fields of the schema class.
-     * @param extensionsFields Fields of internal extensions of the configuration schema.
+     * @param internalFields Fields of internal extensions of the configuration schema.
+     * @param polymorphicFields Fields of polymorphic extensions of the configuration schema.
+     * @param polymorphicTypeIdFieldDef Identification field for the polymorphic configuration instance.
      */
     private static void addNodeTraverseChildMethod(
         ClassDefinition classDef,
+        Map<Class<?>, FieldDefinition> specFields,
         Map<String, FieldDefinition> fieldDefs,
         Collection<Field> schemaFields,
-        Collection<Field> extensionsFields
+        Collection<Field> internalFields,
+        Collection<Field> polymorphicFields,
+        @Nullable FieldDefinition polymorphicTypeIdFieldDef
     ) {
         MethodDefinition traverseChildMtd = classDef.declareMethod(
             of(PUBLIC),
@@ -912,17 +926,108 @@ public class ConfigurationAsmGenerator {
 
         BytecodeBlock mtdBody = traverseChildMtd.getBody();
 
-        if (extensionsFields.isEmpty())
-            mtdBody.append(invokeVisitForTraverseChild(schemaFields, fieldDefs, traverseChildMtd));
-        else {
-            Variable includeInternalVar = traverseChildMtd.getScope().getVariable("includeInternal");
+        Variable keyVar = traverseChildMtd.getScope().getVariable("key");
+        Variable thisVar = traverseChildMtd.getThis();
+
+        if (polymorphicTypeIdFieldDef != null) {
+            StringSwitchBuilder switchBuilder = new StringSwitchBuilder(traverseChildMtd.getScope())
+                .expression(keyVar)
+                .defaultCase(throwException(NoSuchElementException.class, keyVar));
+
+            // visitor.visitLeafNode("typeId", this.typeId);
+            BytecodeBlock invokeVisitTypeId = invokeVisit(
+                traverseChildMtd,
+                polymorphicTypeIdFieldDef.getName(),
+                VISIT_LEAF,
+                polymorphicTypeIdFieldDef
+            );
+
+            switchBuilder.addCase(
+                polymorphicTypeIdFieldDef.getName(),
+                invokeVisitTypeId.retObject()
+            );
+
+            for (Field schemaField : schemaFields) {
+                String fieldName = schemaField.getName();
+
+                switchBuilder.addCase(
+                    fieldName,
+                    invokeVisit(traverseChildMtd, schemaField, fieldDefs.get(fieldName)).retObject()
+                );
+            }
+
+            Map<String, List<Field>> groupByName = polymorphicFields.stream().collect(groupingBy(Field::getName));
+
+            for (Map.Entry<String, List<Field>> e : groupByName.entrySet()) {
+                BytecodeExpression typeIdVar = traverseChildMtd.getThis().getField(polymorphicTypeIdFieldDef);
+
+                StringSwitchBuilder switchBuilder1 = new StringSwitchBuilder(traverseChildMtd.getScope())
+                    .expression(typeIdVar)
+                    .defaultCase(throwException(NoSuchElementException.class, typeIdVar));
+
+                for (Field polymorphicField : e.getValue()) {
+                    String fieldName = polymorphicFieldName(polymorphicField, specFields);
+
+                    switchBuilder1.addCase(
+                        polymorphicField.getDeclaringClass().getAnnotation(PolymorphicConfigInstance.class).id(),
+                        invokeVisit(traverseChildMtd, polymorphicField, fieldDefs.get(fieldName)).retObject()
+                    );
+                }
+
+                switchBuilder.addCase(e.getKey(), switchBuilder1.build());
+            }
+
+            mtdBody.append(switchBuilder.build());
+        }
+        else if (!internalFields.isEmpty()) {
+            StringSwitchBuilder switchBuilderAll = new StringSwitchBuilder(traverseChildMtd.getScope())
+                .expression(keyVar)
+                .defaultCase(throwException(NoSuchElementException.class, keyVar));
+
+            for (Field schemaField : union(schemaFields, internalFields)) {
+                String fieldName = schemaField.getName();
+
+                switchBuilderAll.addCase(
+                    fieldName,
+                    invokeVisit(traverseChildMtd, schemaField, fieldDefs.get(fieldName)).retObject()
+                );
+            }
+
+            StringSwitchBuilder switchBuilderInternalOnly = new StringSwitchBuilder(traverseChildMtd.getScope())
+                .expression(keyVar)
+                .defaultCase(throwException(NoSuchElementException.class, keyVar));
+
+            for (Field schemaField : internalFields) {
+                String fieldName = schemaField.getName();
+
+                switchBuilderInternalOnly.addCase(
+                    fieldName,
+                    invokeVisit(traverseChildMtd, schemaField, fieldDefs.get(fieldName)).retObject()
+                );
+            }
 
             mtdBody.append(
                 new IfStatement()
-                    .condition(includeInternalVar)
-                    .ifTrue(invokeVisitForTraverseChild(union(schemaFields, extensionsFields), fieldDefs, traverseChildMtd))
-                    .ifFalse(invokeVisitForTraverseChild(schemaFields, fieldDefs, traverseChildMtd))
+                    .condition(traverseChildMtd.getScope().getVariable("includeInternal"))
+                    .ifTrue(switchBuilderAll.build())
+                    .ifFalse(switchBuilderInternalOnly.build())
             );
+        }
+        else {
+            StringSwitchBuilder switchBuilder = new StringSwitchBuilder(traverseChildMtd.getScope())
+                .expression(keyVar)
+                .defaultCase(throwException(NoSuchElementException.class, keyVar));
+
+            for (Field schemaField : schemaFields) {
+                String fieldName = schemaField.getName();
+
+                switchBuilder.addCase(
+                    fieldName,
+                    invokeVisit(traverseChildMtd, schemaField, fieldDefs.get(fieldName)).retObject()
+                );
+            }
+
+            mtdBody.append(switchBuilder.build());
         }
     }
 
@@ -945,11 +1050,7 @@ public class ConfigurationAsmGenerator {
         else
             visitMethod = VISIT_NAMED;
 
-        return new BytecodeBlock().append(mtd.getScope().getVariable("visitor").invoke(
-            visitMethod,
-            constantString(schemaField.getName()),
-            mtd.getThis().getField(fieldDef)
-        ));
+        return invokeVisit(mtd, schemaField.getName(), visitMethod, fieldDef);
     }
 
     /**
@@ -1424,24 +1525,6 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Create bytecode block that invokes of {@link ConfigurationVisitor}'s methods for
-     * {@link InnerNode#traverseChildren(ConfigurationVisitor, boolean)}.
-     *
-     * @param schemaField Schema field.
-     * @param schemaFieldDef Schema field definition.
-     * @param traverseChildrenMtd Method definition {@link InnerNode#traverseChildren(ConfigurationVisitor, boolean)}
-     *      defined in {@code *Node} class.
-     * @return Created bytecode block that invokes of {@link ConfigurationVisitor}'s methods for fields.
-     */
-    private static BytecodeNode invokeVisitForTraverseChildren(
-        MethodDefinition traverseChildrenMtd,
-        Field schemaField,
-        FieldDefinition schemaFieldDef
-    ) {
-        return invokeVisit(traverseChildrenMtd, schemaField, schemaFieldDef).pop();
-    }
-
-    /**
      * Created switch bytecode block that invokes of {@link ConfigurationVisitor}'s methods for
      *     {@link InnerNode#traverseChild(String, ConfigurationVisitor, boolean)}.
      *
@@ -1458,7 +1541,9 @@ public class ConfigurationAsmGenerator {
     ) {
         Variable keyVar = traverseChildMtd.getScope().getVariable("key");
 
-        StringSwitchBuilder switchBuilder = new StringSwitchBuilder(traverseChildMtd.getScope()).expression(keyVar);
+        StringSwitchBuilder switchBuilder = new StringSwitchBuilder(traverseChildMtd.getScope())
+            .expression(keyVar)
+            .defaultCase(throwException(NoSuchElementException.class, keyVar));
 
         for (Field schemaField : schemaFields) {
             String fieldName = schemaField.getName();
@@ -1468,9 +1553,6 @@ public class ConfigurationAsmGenerator {
             // Visit result should be immediately returned.
             switchBuilder.addCase(fieldName, invokeVisit(traverseChildMtd, schemaField, fieldDef).retObject());
         }
-
-        // Default option is to throw "NoSuchElementException(key)".
-        switchBuilder.defaultCase(throwException(NoSuchElementException.class, keyVar));
 
         return switchBuilder.build();
     }
@@ -1674,5 +1756,28 @@ public class ConfigurationAsmGenerator {
      */
     private static String polymorphicFieldName(Field polymorphicField, Map<Class<?>, FieldDefinition> specFields) {
         return polymorphicField.getName() + "#" + specFields.get(polymorphicField.getDeclaringClass()).getName();
+    }
+
+    /**
+     * Creates bytecode block that invokes one of {@link ConfigurationVisitor}'s methods.
+     *
+     * @param mtd Method definition, either {@link InnerNode#traverseChildren(ConfigurationVisitor, boolean)} or
+     *      {@link InnerNode#traverseChild(String, ConfigurationVisitor, boolean)} defined in {@code *Node} class.
+     * @param fieldName Field name.
+     * @param visitMethod Visit method.
+     * @param fieldDef Field definition from current class.
+     * @return Bytecode block that invokes "visit*" method.
+     */
+    private static BytecodeBlock invokeVisit(
+        MethodDefinition mtd,
+        String fieldName,
+        Method visitMethod,
+        FieldDefinition fieldDef
+    ) {
+        return new BytecodeBlock().append(mtd.getScope().getVariable("visitor").invoke(
+            visitMethod,
+            constantString(fieldName),
+            mtd.getThis().getField(fieldDef)
+        ));
     }
 }
