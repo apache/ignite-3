@@ -442,7 +442,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public void testInsert() throws TransactionException {
         assertNull(accounts.get(makeKey(1)));
 
-        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
+        Transaction tx = igniteTransactions.begin();
 
         Table table = tx.wrap(accounts);
 
@@ -457,7 +457,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertTrue(accounts.insert(makeValue(2, 200.)));
         assertEquals(200., accounts.get(makeKey(2)).doubleValue("balance"));
 
-        InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
+        Transaction tx2 = igniteTransactions.begin();
 
         table = tx2.wrap(accounts);
 
@@ -473,7 +473,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testRemoveCommit() throws TransactionException {
+    public void testDelete() throws TransactionException {
         Tuple key = makeKey(1);
 
         assertFalse(accounts.delete(key));
@@ -490,24 +490,21 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertNull(accounts.get(key));
         accounts.upsert(makeValue(1, 100.));
         assertNotNull(accounts.get(key));
-    }
 
-    @Test
-    public void testRemoveAbort() throws TransactionException {
-        Tuple key = makeKey(1);
+        Tuple key2 = makeKey(2);
 
-        accounts.upsert(makeValue(1, 100.));
+        accounts.upsert(makeValue(2, 100.));
 
         assertThrows(RuntimeException.class, () -> igniteTransactions.runInTransaction((Consumer<Transaction>) tx -> {
-            assertNotNull(accounts.get(key));
-            assertTrue(accounts.delete(key));
-            assertNull(accounts.get(key));
-            throw new RuntimeException();
+            assertNotNull(accounts.get(key2));
+            assertTrue(accounts.delete(key2));
+            assertNull(accounts.get(key2));
+            throw new RuntimeException(); // Triggers rollback.
         }));
 
-        assertNotNull(accounts.get(key));
-        assertTrue(accounts.delete(key));
-        assertNull(accounts.get(key));
+        assertNotNull(accounts.get(key2));
+        assertTrue(accounts.delete(key2));
+        assertNull(accounts.get(key2));
     }
 
     @Test
