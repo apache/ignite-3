@@ -32,6 +32,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -80,6 +81,7 @@ import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -106,6 +108,7 @@ import static java.lang.invoke.MethodType.methodType;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singleton;
 import static java.util.EnumSet.of;
+import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.changeClassName;
 import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.configurationClassName;
@@ -375,23 +378,21 @@ public class ConfigurationAsmGenerator {
      * Construct a {@link InnerNode} definition for a configuration schema.
      *
      * @param schemaClass Configuration schema class.
-     * @param internalSchemaExtensions Internal extensions of the configuration schema.
-     * @param polymorphicSchemaExtensions Polymorphic extensions of the configuration schema.
+     * @param internalExtensions Internal extensions of the configuration schema.
+     * @param polymorphicExtensions Polymorphic extensions of the configuration schema.
      * @param schemaFields Fields of the schema class.
-     * @param internalExtensionsFields Fields of internal extensions of the configuration schema.
-     * @param polymorphicExtensionsFields Fields of polymorphic extensions of the configuration schema.
+     * @param internalFields Fields of internal extensions of the configuration schema.
+     * @param polymorphicFields Fields of polymorphic extensions of the configuration schema.
      * @return Constructed {@link InnerNode} definition for the configuration schema.
      */
     private ClassDefinition createNodeClass(
         Class<?> schemaClass,
-        Set<Class<?>> internalSchemaExtensions,
-        Set<Class<?>> polymorphicSchemaExtensions,
+        Set<Class<?>> internalExtensions,
+        Set<Class<?>> polymorphicExtensions,
         Collection<Field> schemaFields,
-        Collection<Field> internalExtensionsFields,
-        Collection<Field> polymorphicExtensionsFields
+        Collection<Field> internalFields,
+        Collection<Field> polymorphicFields
     ) {
-        // TODO: 08.10.2021  
-        
         SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaClass);
 
         // Node class definition.
@@ -399,7 +400,7 @@ public class ConfigurationAsmGenerator {
             of(PUBLIC, FINAL),
             internalName(schemaClassInfo.nodeClassName),
             type(InnerNode.class),
-            nodeClassInterfaces(schemaClass, internalSchemaExtensions)
+            nodeClassInterfaces(schemaClass, internalExtensions)
         );
 
         // Spec fields.
@@ -407,26 +408,40 @@ public class ConfigurationAsmGenerator {
 
         int i = 0;
 
-        for (Class<?> clazz : concat(List.of(schemaClass), internalSchemaExtensions))
+        for (Class<?> clazz : concat(List.of(schemaClass), internalExtensions, polymorphicExtensions))
             specFields.put(clazz, classDef.declareField(of(PRIVATE, FINAL), "_spec" + i++, clazz));
 
+        // To store the id of the polymorphic configuration instance.
+        FieldDefinition polymorphicTypeIdFieldDef = null;
+
+        if (schemaClass.isAnnotationPresent(PolymorphicConfig.class)) {
+            polymorphicTypeIdFieldDef = classDef.declareField(
+                of(PRIVATE),
+                schemaClass.getAnnotation(PolymorphicConfig.class).fieldName(),
+                String.class
+            );
+        }
+
         // org.apache.ignite.internal.configuration.tree.InnerNode#schemaType
-        addNodeSchemaTypeMethod(classDef, specFields.get(schemaClass));
+        addNodeSchemaTypeMethod(classDef, schemaClass, polymorphicExtensions, specFields, polymorphicTypeIdFieldDef);
 
         // Define the rest of the fields.
         Map<String, FieldDefinition> fieldDefs = new HashMap<>();
 
-        for (Field schemaField : concat(schemaFields, internalExtensionsFields)) {
-            assert isValue(schemaField) || isConfigValue(schemaField) || isNamedConfigValue(schemaField) : schemaField;
+        for (Field schemaField : concat(schemaFields, internalFields))
+            fieldDefs.put(schemaField.getName(), addNodeField(classDef, schemaField, null));
 
-            fieldDefs.put(schemaField.getName(), addNodeField(classDef, schemaField));
+        for (Field polymorphicField : polymorphicFields) {
+            String fieldName = polymorphicFieldName(polymorphicField, specFields);
+
+            fieldDefs.put(fieldName, addNodeField(classDef, polymorphicField, fieldName));
         }
 
         // Constructor.
-        addNodeConstructor(classDef, specFields, fieldDefs, schemaFields, internalExtensionsFields);
+        addNodeConstructor(classDef, specFields, fieldDefs, schemaFields, internalFields, polymorphicFields);
 
         // VIEW and CHANGE methods.
-        for (Field schemaField : concat(schemaFields, internalExtensionsFields)) {
+        for (Field schemaField : concat(schemaFields, internalFields)) {
             String fieldName = schemaField.getName();
 
             FieldDefinition fieldDef = fieldDefs.get(fieldName);
@@ -436,20 +451,32 @@ public class ConfigurationAsmGenerator {
             // Add change methods.
             MethodDefinition changeMtd =
                 addNodeChangeMethod(classDef, schemaField, fieldDef, schemaClassInfo.nodeClassName);
+
             addNodeChangeBridgeMethod(classDef, changeClassName(schemaField.getDeclaringClass()), changeMtd);
         }
 
         // traverseChildren
-        addNodeTraverseChildrenMethod(classDef, fieldDefs, schemaFields, internalExtensionsFields);
+        addNodeTraverseChildrenMethod(
+            classDef,
+            schemaClass,
+            specFields,
+            fieldDefs,
+            schemaFields,
+            internalFields,
+            polymorphicFields,
+            polymorphicTypeIdFieldDef
+        );
+
+        // TODO: IGNITE-14645 continue.
 
         // traverseChild
-        addNodeTraverseChildMethod(classDef, fieldDefs, schemaFields, internalExtensionsFields);
+        addNodeTraverseChildMethod(classDef, fieldDefs, schemaFields, internalFields);
 
         // construct
-        addNodeConstructMethod(classDef, fieldDefs, schemaFields, internalExtensionsFields);
+        addNodeConstructMethod(classDef, fieldDefs, schemaFields, internalFields);
 
         // constructDefault
-        addNodeConstructDefaultMethod(classDef, specFields, fieldDefs, schemaFields, internalExtensionsFields);
+        addNodeConstructDefaultMethod(classDef, specFields, fieldDefs, schemaFields, internalFields);
 
         return classDef;
     }
@@ -461,15 +488,61 @@ public class ConfigurationAsmGenerator {
      *     return this._spec.getClass();
      * }
      * }</pre>
+     * Or for the case of polymorphic configuration:
+     * <pre>{@code
+     * public Class schemaType() {
+     *     switch(this.typeId): {
+     *         case "base":
+     *             return this._spec0.getClass();
+     *         case "hash":
+     *             return this._spec1.getClass();
+     *         default:
+     *             throw new NoSuchElementException(this.typeId);
+     *     }
+     * }
+     * }</pre>
+     *
      * @param classDef Class definition.
-     * @param specField Field definition of the {@code _spec} field.
+     * @param schemaClass Configuration schema class.
+     * @param polymorphicExtensions Polymorphic extensions of the configuration schema.
+     * @param specFields Field definitions for the schema and its extensions: {@code _spec#}.
+     * @param polymorphicTypeIdFieldDef Identification field for the polymorphic configuration instance.
      */
-    private static void addNodeSchemaTypeMethod(ClassDefinition classDef, FieldDefinition specField) {
+    private static void addNodeSchemaTypeMethod(
+        ClassDefinition classDef,
+        Class<?> schemaClass,
+        Set<Class<?>> polymorphicExtensions,
+        Map<Class<?>, FieldDefinition> specFields,
+        @Nullable FieldDefinition polymorphicTypeIdFieldDef
+    ) {
         MethodDefinition schemaTypeMtd = classDef.declareMethod(of(PUBLIC), "schemaType", type(Class.class));
 
-        schemaTypeMtd.getBody().append(
-            schemaTypeMtd.getThis().getField(specField).invoke("getClass", Class.class)
-        ).retObject();
+        BytecodeBlock mtdBody = schemaTypeMtd.getBody();
+        Variable thisVar = schemaTypeMtd.getThis();
+
+        if (polymorphicTypeIdFieldDef == null)
+            mtdBody.append(invokeGetClass(thisVar.getField(specFields.get(schemaClass))).ret());
+        else {
+            BytecodeExpression typeIdVar = thisVar.getField(polymorphicTypeIdFieldDef);
+
+            StringSwitchBuilder switchBuilder = new StringSwitchBuilder(schemaTypeMtd.getScope())
+                .expression(typeIdVar)
+                .defaultCase(throwException(NoSuchElementException.class, typeIdVar));
+
+            switchBuilder.addCase(
+                schemaClass.getAnnotation(PolymorphicConfig.class).id(),
+                invokeGetClass(thisVar.getField(specFields.get(schemaClass))).ret()
+            );
+
+            for (Class<?> extension : polymorphicExtensions) {
+                switchBuilder.addCase(
+                    extension.getAnnotation(PolymorphicConfigInstance.class).id(),
+                    invokeGetClass(thisVar.getField(specFields.get(schemaClass))).ret()
+                );
+            }
+
+            mtdBody.append(switchBuilder.build());
+        }
     }
 
     /**
@@ -488,11 +561,17 @@ public class ConfigurationAsmGenerator {
      *         {@code private NamedListNode fieldName}
      *     </li>
      * </ul>
+     *
      * @param classDef Node class definition.
      * @param schemaField Configuration Schema class field.
+     * @param fieldName Field name, if {@code null} then {@link Field#getName} will be used.
      * @return Declared field definition.
      */
-    private FieldDefinition addNodeField(ClassDefinition classDef, Field schemaField) {
+    private FieldDefinition addNodeField(
+        ClassDefinition classDef,
+        Field schemaField,
+        @Nullable String fieldName
+    ) {
         Class<?> schemaFieldClass = schemaField.getType();
 
         ParameterizedType nodeFieldType;
@@ -504,7 +583,10 @@ public class ConfigurationAsmGenerator {
         else
             nodeFieldType = type(NamedListNode.class);
 
-        return classDef.declareField(of(PRIVATE), schemaField.getName(), nodeFieldType);
+        if (fieldName == null)
+            fieldName = schemaField.getName();
+
+        return classDef.declareField(of(PRIVATE), fieldName, nodeFieldType);
     }
 
     /**
@@ -516,14 +598,16 @@ public class ConfigurationAsmGenerator {
      *      Mapping: configuration schema class -> {@code _spec#} field.
      * @param fieldDefs Field definitions for all fields of node class excluding {@code _spec}.
      * @param schemaFields Fields of the schema class.
-     * @param extensionsFields Fields of internal extensions of the configuration schema.
+     * @param internalFields Fields of internal extensions of the configuration schema.
+     * @param polymorphicFields Fields of polymorphic extensions of the configuration schema.
      */
     private void addNodeConstructor(
         ClassDefinition classDef,
         Map<Class<?>, FieldDefinition> specFields,
         Map<String, FieldDefinition> fieldDefs,
         Collection<Field> schemaFields,
-        Collection<Field> extensionsFields
+        Collection<Field> internalFields,
+        Collection<Field> polymorphicFields
     ) {
         MethodDefinition ctor = classDef.declareConstructor(of(PUBLIC));
 
@@ -534,24 +618,25 @@ public class ConfigurationAsmGenerator {
         for (Map.Entry<Class<?>, FieldDefinition> e : specFields.entrySet())
             ctor.getBody().append(ctor.getThis().setField(e.getValue(), newInstance(e.getKey())));
 
-        for (Field schemaField : concat(schemaFields, extensionsFields)) {
+        for (Field schemaField : concat(schemaFields, internalFields)) {
             if (!isNamedConfigValue(schemaField))
                 continue;
 
-            NamedConfigValue namedCfgAnnotation = schemaField.getAnnotation(NamedConfigValue.class);
-
-            SchemaClassesInfo fieldClassNames = schemasInfo.get(schemaField.getType());
-
-            // this.values = new NamedListNode<>(key, ValueNode::new);
-            ctor.getBody().append(ctor.getThis().setField(
-                fieldDefs.get(schemaField.getName()),
-                newInstance(
-                    NamedListNode.class,
-                    constantString(namedCfgAnnotation.syntheticKeyName()),
-                    newNamedListElementLambda(fieldClassNames.nodeClassName)
-                )
-            ));
+            initNodeNamedConfigValue(ctor, schemaField, fieldDefs.get(schemaField.getName()));
         }
+
+        for (Field polymorphicField : polymorphicFields) {
+            if (!isNamedConfigValue(polymorphicField))
+                continue;
+
+            String fieldName = polymorphicFieldName(polymorphicField, specFields);
+
+            initNodeNamedConfigValue(ctor, polymorphicField, fieldDefs.get(fieldName));
+        }
+
+        // TODO: IGNITE-14645 change.
+        if (!polymorphicFields.isEmpty())
+            ctor.getBody().append(ctor.getThis().setField("typeId", constantString("base")));
 
         // return;
         ctor.getBody().ret();
@@ -705,15 +790,23 @@ public class ConfigurationAsmGenerator {
      * Implements {@link InnerNode#traverseChildren(ConfigurationVisitor, boolean)} method.
      *
      * @param classDef Class definition.
+     * @param specFields Field definitions for the schema and its extensions: {@code _spec#}.
      * @param fieldDefs Definitions for all fields in {@code schemaFields}.
      * @param schemaFields Fields of the schema class.
-     * @param extensionsFields Fields of internal extensions of the configuration schema.
+     * @param schemaFields Fields of the schema class.
+     * @param internalFields Fields of internal extensions of the configuration schema.
+     * @param polymorphicFields Fields of polymorphic extensions of the configuration schema.
+     * @param polymorphicTypeIdFieldDef Identification field for the polymorphic configuration instance.
      */
     private static void addNodeTraverseChildrenMethod(
         ClassDefinition classDef,
+        Class<?> schemaClass,
+        Map<Class<?>, FieldDefinition> specFields,
         Map<String, FieldDefinition> fieldDefs,
         Collection<Field> schemaFields,
-        Collection<Field> extensionsFields
+        Collection<Field> internalFields,
+        Collection<Field> polymorphicFields,
+        @Nullable FieldDefinition polymorphicTypeIdFieldDef
     ) {
         MethodDefinition traverseChildrenMtd = classDef.declareMethod(
             of(PUBLIC),
@@ -724,19 +817,71 @@ public class ConfigurationAsmGenerator {
         ).addException(NoSuchElementException.class);
 
         BytecodeBlock mtdBody = traverseChildrenMtd.getBody();
+        Variable thisVar = traverseChildrenMtd.getThis();
 
-        invokeVisitForTraverseChildren(schemaFields, fieldDefs, traverseChildrenMtd)
-            .forEach(mtdBody::append);
+        if (polymorphicTypeIdFieldDef != null) {
+            // visitor.visitLeafNode("typeId", this.typeId);
+            BytecodeExpression invokeVisitLeaf = traverseChildrenMtd.getScope().getVariable("visitor").invoke(
+                VISIT_LEAF,
+                constantString(polymorphicTypeIdFieldDef.getName()),
+                thisVar.getField(polymorphicTypeIdFieldDef)
+            );
 
-        if (!extensionsFields.isEmpty()) {
+            mtdBody.append(new BytecodeBlock().append(invokeVisitLeaf).pop());
+        }
+
+        for (Field schemaField : schemaFields) {
+            String fieldName = schemaField.getName();
+
+            mtdBody.append(
+                invokeVisitForTraverseChildren(traverseChildrenMtd, schemaField, fieldDefs.get(fieldName))
+            );
+        }
+
+        if (!internalFields.isEmpty()) {
             Variable includeInternalVar = traverseChildrenMtd.getScope().getVariable("includeInternal");
 
             BytecodeBlock includeInternalBlock = new BytecodeBlock();
 
-            invokeVisitForTraverseChildren(extensionsFields, fieldDefs, traverseChildrenMtd)
-                .forEach(includeInternalBlock::append);
+            for (Field internalField : internalFields) {
+                String fieldName = internalField.getName();
+
+                includeInternalBlock.append(
+                    invokeVisitForTraverseChildren(traverseChildrenMtd, internalField, fieldDefs.get(fieldName))
+                );
+            }
 
             mtdBody.append(new IfStatement().condition(includeInternalVar).ifTrue(includeInternalBlock));
+        }
+        else if (polymorphicTypeIdFieldDef != null) {
+            BytecodeExpression typeIdVar = traverseChildrenMtd.getThis().getField(polymorphicTypeIdFieldDef);
+
+            StringSwitchBuilder switchBuilder = new StringSwitchBuilder(traverseChildrenMtd.getScope())
+                .expression(typeIdVar)
+                .addCase(schemaClass.getAnnotation(PolymorphicConfig.class).id(), new BytecodeBlock())
+                .defaultCase(throwException(NoSuchElementException.class, typeIdVar));
+
+            Map<Class<?>, List<Field>> groupedByClass = polymorphicFields.stream()
+                .collect(groupingBy(Field::getDeclaringClass, LinkedHashMap::new, toList()));
+
+            for (Map.Entry<Class<?>, List<Field>> e : groupedByClass.entrySet()) {
+                BytecodeBlock codeBlock = new BytecodeBlock();
+
+                for (Field polymorphicField : e.getValue()) {
+                    String fieldName = polymorphicFieldName(polymorphicField, specFields);
+
+                    codeBlock.append(
+                        invokeVisitForTraverseChildren(traverseChildrenMtd, polymorphicField, fieldDefs.get(fieldName))
+                    );
+                }
+
+                switchBuilder.addCase(
+                    e.getKey().getAnnotation(PolymorphicConfigInstance.class).id(),
+                    codeBlock
+                );
+            }
+
+            mtdBody.append(switchBuilder.build());
         }
 
         mtdBody.ret();
@@ -802,7 +947,7 @@ public class ConfigurationAsmGenerator {
 
         return new BytecodeBlock().append(mtd.getScope().getVariable("visitor").invoke(
             visitMethod,
-            constantString(fieldDef.getName()),
+            constantString(schemaField.getName()),
             mtd.getThis().getField(fieldDef)
         ));
     }
@@ -915,10 +1060,7 @@ public class ConfigurationAsmGenerator {
         }
 
         // Default option is to throw "NoSuchElementException(key)".
-        switchBuilder.defaultCase(new BytecodeBlock()
-            .append(newInstance(NoSuchElementException.class, keyVar))
-            .throwObject()
-        );
+        switchBuilder.defaultCase(throwException(NoSuchElementException.class, keyVar));
 
         constructDfltMtd.getBody().append(switchBuilder.build()).ret();
     }
@@ -978,7 +1120,7 @@ public class ConfigurationAsmGenerator {
         Collection<Field> internalExtensionsFields,
         Collection<Field> polymorphicExtensionsFields
     ) {
-        // TODO: 08.10.2021  
+        // TODO: 08.10.2021
         
         SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaClass);
 
@@ -1282,27 +1424,21 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Create bytecode blocks that invokes of {@link ConfigurationVisitor}'s methods for
+     * Create bytecode block that invokes of {@link ConfigurationVisitor}'s methods for
      * {@link InnerNode#traverseChildren(ConfigurationVisitor, boolean)}.
      *
-     * @param schemaFields Fields of the schema.
-     * @param fieldDefs Definitions for all fields in {@code schemaFields}.
+     * @param schemaField Schema field.
+     * @param schemaFieldDef Schema field definition.
      * @param traverseChildrenMtd Method definition {@link InnerNode#traverseChildren(ConfigurationVisitor, boolean)}
      *      defined in {@code *Node} class.
-     * @return Created bytecode blocks that invokes of {@link ConfigurationVisitor}'s methods for fields.
+     * @return Created bytecode block that invokes of {@link ConfigurationVisitor}'s methods for fields.
      */
-    private static Collection<BytecodeNode> invokeVisitForTraverseChildren(
-        Collection<Field> schemaFields,
-        Map<String, FieldDefinition> fieldDefs,
-        MethodDefinition traverseChildrenMtd
+    private static BytecodeNode invokeVisitForTraverseChildren(
+        MethodDefinition traverseChildrenMtd,
+        Field schemaField,
+        FieldDefinition schemaFieldDef
     ) {
-        if (schemaFields.isEmpty())
-            return List.of();
-        else {
-            return schemaFields.stream()
-                .map(field -> invokeVisit(traverseChildrenMtd, field, fieldDefs.get(field.getName())).pop())
-                .collect(toList());
-        }
+        return invokeVisit(traverseChildrenMtd, schemaField, schemaFieldDef).pop();
     }
 
     /**
@@ -1334,10 +1470,7 @@ public class ConfigurationAsmGenerator {
         }
 
         // Default option is to throw "NoSuchElementException(key)".
-        switchBuilder.defaultCase(new BytecodeBlock()
-            .append(newInstance(NoSuchElementException.class, keyVar))
-            .throwObject()
-        );
+        switchBuilder.defaultCase(throwException(NoSuchElementException.class, keyVar));
 
         return switchBuilder.build();
     }
@@ -1416,10 +1549,7 @@ public class ConfigurationAsmGenerator {
         }
 
         // Default option is to throw "NoSuchElementException(key)".
-        switchBuilder.defaultCase(new BytecodeBlock()
-            .append(newInstance(NoSuchElementException.class, keyVar))
-            .throwObject()
-        );
+        switchBuilder.defaultCase(throwException(NoSuchElementException.class, keyVar));
 
         return switchBuilder.build();
     }
@@ -1468,10 +1598,81 @@ public class ConfigurationAsmGenerator {
      * @param classDef Class definition.
      * @param clazz Definition of the configuration interface, for example {@code RootConfiguration}.
      */
-    private void addCfgImplConfigTypeMethod(ClassDefinition classDef, ParameterizedType clazz) {
+    private static void addCfgImplConfigTypeMethod(ClassDefinition classDef, ParameterizedType clazz) {
         classDef.declareMethod(of(PUBLIC), "configType", type(Class.class))
             .getBody()
             .append(constantClass(clazz))
             .retObject();
+    }
+
+    /**
+     * Adds field initialization with {@link NamedConfigValue} for the node constructor.
+     *
+     * @param ctor Node constructor definition.
+     * @param schemaField Schema field with {@link NamedConfigValue}.
+     * @param schemaFieldDef Schema field definition.
+     */
+    private void initNodeNamedConfigValue(
+        MethodDefinition ctor,
+        Field schemaField,
+        FieldDefinition schemaFieldDef
+    ) {
+        assert isNamedConfigValue(schemaField);
+
+        NamedConfigValue namedCfgAnnotation = schemaField.getAnnotation(NamedConfigValue.class);
+
+        SchemaClassesInfo fieldClassNames = schemasInfo.get(schemaField.getType());
+
+        // this.values = new NamedListNode<>(key, ValueNode::new);
+        ctor.getBody().append(ctor.getThis().setField(
+            schemaFieldDef,
+            newInstance(
+                NamedListNode.class,
+                constantString(namedCfgAnnotation.syntheticKeyName()),
+                newNamedListElementLambda(fieldClassNames.nodeClassName)
+            )
+        ));
+    }
+
+    /**
+     * Creates the bytecode:
+     * <pre><code>
+     * throw new Exception(msg);
+     * </code></pre>
+     *
+     * @param throwableClass Exception class.
+     * @param parameters Exception constructor parameters.
+     * @return Exception throwing bytecode.
+     */
+    private static BytecodeBlock throwException(
+        Class<? extends Throwable> throwableClass,
+        BytecodeExpression... parameters
+    ) {
+        return new BytecodeBlock().append(newInstance(throwableClass, parameters)).throwObject();
+    }
+
+    /**
+     * Creates the bytecode:
+     * <pre><code>
+     * Object.getClass();
+     * </code></pre>
+     *
+     * @param expression Bytecode for working with the {@link Class}.
+     * @return {@link Object#getClass} bytecode.
+     */
+    private static BytecodeExpression invokeGetClass(BytecodeExpression expression) {
+        return expression.invoke("getClass", Class.class);
+    }
+
+    /**
+     * Returns the field name of the polymorphic configuration schema instance.
+     * For example: {@code port#_spec1}.
+     *
+     * @param polymorphicField Polymorphic configuration schema instance field.
+     * @param specFields Field definitions for the schema and its extensions: {@code _spec#}.
+     * @return Field name.
+     */
+    private static String polymorphicFieldName(Field polymorphicField, Map<Class<?>, FieldDefinition> specFields) {
+        return polymorphicField.getName() + "#" + specFields.get(polymorphicField.getDeclaringClass()).getName();
     }
 }

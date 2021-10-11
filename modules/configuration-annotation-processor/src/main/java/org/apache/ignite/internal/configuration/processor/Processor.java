@@ -101,6 +101,9 @@ public class Processor extends AbstractProcessor {
     private static final String DUPLICATE_FIELD_NAMES_ERROR_FORMAT =
         "Duplicate field names are not allowed [class=%s, superClass=%s, fields=%s]";
 
+    /** Error format for an empty field. */
+    private static final String EMPTY_FIELD_ERROR_FORMAT = "Field %s cannot be empty: %s";
+
     /** {@inheritDoc} */
     @Override public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnvironment) {
         try {
@@ -606,11 +609,28 @@ public class Processor extends AbstractProcessor {
             else {
                 String fieldName = clazz.getAnnotation(PolymorphicConfig.class).fieldName();
 
-                if (fields.stream().anyMatch(f -> f.getSimpleName().contentEquals(fieldName))) {
+                if (fieldName == null || fieldName.isBlank()) {
+                    throw new ProcessorException(String.format(
+                        EMPTY_FIELD_ERROR_FORMAT,
+                        simpleName(PolymorphicConfig.class) + ".fieldName()",
+                        clazz.getQualifiedName()
+                    ));
+                }
+                else if (fields.stream().anyMatch(f -> f.getSimpleName().contentEquals(fieldName))) {
                     throw new ProcessorException(String.format(
                         "Field name '%s' is reserved for %s: %s",
                         fieldName,
                         simpleName(PolymorphicConfig.class),
+                        clazz.getQualifiedName()
+                    ));
+                }
+
+                String id = clazz.getAnnotation(PolymorphicConfig.class).id();
+
+                if (id == null || id.isBlank()) {
+                    throw new ProcessorException(String.format(
+                        EMPTY_FIELD_ERROR_FORMAT,
+                        simpleName(PolymorphicConfig.class) + ".id()",
                         clazz.getQualifiedName()
                     ));
                 }
@@ -642,6 +662,16 @@ public class Processor extends AbstractProcessor {
                 );
             }
             else {
+                String id = clazz.getAnnotation(PolymorphicConfigInstance.class).id();
+
+                if (id == null || id.isBlank()) {
+                    throw new ProcessorException(String.format(
+                        EMPTY_FIELD_ERROR_FORMAT,
+                        simpleName(PolymorphicConfigInstance.class) + ".id()",
+                        clazz.getQualifiedName()
+                    ));
+                }
+
                 TypeElement superClazz = superClass(clazz);
 
                 Collection<Name> duplicateFieldNames = duplicates(fields(superClazz), fields);
