@@ -121,12 +121,6 @@ public class IgniteImpl implements Ignite {
     /** Baseline manager. */
     private final BaselineManager baselineMgr;
 
-    /** Affinity manager. */
-    private final AffinityManager affinityMgr;
-
-    /** Schema manager. */
-    private final SchemaManager schemaMgr;
-
     /** Locks manager. */
     private final LockManager lockManager;
 
