@@ -18,11 +18,13 @@
 package org.apache.ignite.internal.runner.app;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import com.google.common.collect.Lists;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -44,6 +46,7 @@ import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.platform.commons.util.ReflectionUtils;
 import org.mockito.Mockito;
 
@@ -60,28 +63,20 @@ import static org.mockito.Mockito.doAnswer;
  * Integration tests to check consistent of java API on different nodes.
  */
 public class ITTablesApiTest extends IgniteAbstractTest {
-    /**
-     * Schema name.
-     */
+    /** Schema name. */
     public static final String SCHEMA = "PUBLIC";
 
-    /**
-     * Short table name.
-     */
+    /** Short table name. */
     public static final String SHORT_TABLE_NAME = "tbl1";
 
-    /**
-     * Table name.
-     */
+    /** Table name. */
     public static final String TABLE_NAME = SCHEMA + "." + SHORT_TABLE_NAME;
 
-    /**
-     * Nodes bootstrap configuration.
-     */
-    private final LinkedHashMap<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {{
-        put("node0", "{\n" +
+    /** Nodes bootstrap configuration. */
+    private final ArrayList<Function<String, String>> nodesBootstrapCfg = new ArrayList<>() {{
+        add((metostorNodeName) -> "{\n" +
             "  \"node\": {\n" +
-            "    \"metastorageNodes\":[ \"node0\" ]\n" +
+            "    \"metastorageNodes\":[ " + metostorNodeName + " ]\n" +
             "  },\n" +
             "  \"network\": {\n" +
             "    \"port\":3344,\n" +
@@ -89,9 +84,9 @@ public class ITTablesApiTest extends IgniteAbstractTest {
             "  }\n" +
             "}");
 
-        put("node1", "{\n" +
+        add((metostorNodeName) -> "{\n" +
             "  \"node\": {\n" +
-            "    \"metastorageNodes\":[ \"node0\" ]\n" +
+            "    \"metastorageNodes\":[ " + metostorNodeName + " ]\n" +
             "  },\n" +
             "  \"network\": {\n" +
             "    \"port\":3345,\n" +
@@ -99,9 +94,9 @@ public class ITTablesApiTest extends IgniteAbstractTest {
             "  }\n" +
             "}");
 
-        put("node2", "{\n" +
+        add((metostorNodeName) -> "{\n" +
             "  \"node\": {\n" +
-            "    \"metastorageNodes\":[ \"node0\" ]\n" +
+            "    \"metastorageNodes\":[ " + metostorNodeName + " ]\n" +
             "  },\n" +
             "  \"network\": {\n" +
             "    \"port\":3346,\n" +
@@ -110,19 +105,25 @@ public class ITTablesApiTest extends IgniteAbstractTest {
             "}");
     }};
 
-    /**
-     * Cluster nodes.
-     */
-    private final ArrayList<Ignite> clusterNodes = new ArrayList<>();
+    /** Cluster nodes. */
+    private List<Ignite> clusterNodes;
 
     /**
      * @throws Exception If failed.
      */
     @BeforeEach
-    void beforeEach() throws Exception {
-        nodesBootstrapCfg.forEach((nodeName, configStr) ->
-            clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
-        );
+    void beforeEach(TestInfo testInfo) throws Exception {
+        String metostorNodeName = IgniteTestUtils.testNodeName(testInfo, 0);
+
+        clusterNodes = IntStream.range(0, nodesBootstrapCfg.size()).mapToObj(value -> {
+                String nodeName = IgniteTestUtils.testNodeName(testInfo, value);
+
+                return IgnitionManager.start(
+                    nodeName,
+                    nodesBootstrapCfg.get(value).apply(metostorNodeName),
+                    workDir.resolve(nodeName));
+            }
+        ).collect(Collectors.toList());
     }
 
     /**
@@ -139,15 +140,14 @@ public class ITTablesApiTest extends IgniteAbstractTest {
      * @throws Exception If fialrd.
      */
     @Test
-    public void createDropTabletest() throws Exception {
+    public void testCreateDropTable() throws Exception {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
-        clusterNodes.forEach(ign -> assertNull(((IgniteTablesInternal)ign.tables()).table(new IgniteUuid(UUID.randomUUID(), 1L))));
 
         Ignite ignite1 = clusterNodes.get(1);
 
-        WatchListenerInhibitor inhibitor = metalstorageEventsInhibitor(ignite1);
+        WatchListenerInhibitor ignite1Inhibitor = metalstorageEventsInhibitor(ignite1);
 
-        inhibitor.startInhibit();
+        ignite1Inhibitor.startInhibit();
 
         Table table = createTable(clusterNodes.get(0), SCHEMA, SHORT_TABLE_NAME);
 
@@ -161,6 +161,8 @@ public class ITTablesApiTest extends IgniteAbstractTest {
             return ((IgniteTablesInternal)ignite1.tables()).table(tblId);
         });
 
+        // Because the event inhibitor was started, last Metastor updates do not reach to one node.
+        // Therefore the table still doens't exists locally, but API prevents getting null and waits events.
         for (Ignite ignite: clusterNodes) {
             if (ignite != ignite1) {
                 assertNotNull(ignite.tables().table(TABLE_NAME));
@@ -172,32 +174,35 @@ public class ITTablesApiTest extends IgniteAbstractTest {
         assertFalse(tableByNameFut.isDone());
         assertFalse(tableByIdFut.isDone());
 
-        inhibitor.stopInhibit();
+        ignite1Inhibitor.stopInhibit();
 
         assertNotNull(tableByNameFut.get(10, TimeUnit.SECONDS));
         assertNotNull(tableByIdFut.get(10, TimeUnit.SECONDS));
 
-        inhibitor.startInhibit();
+        ignite1Inhibitor.startInhibit();
 
         clusterNodes.get(0).tables().dropTable(TABLE_NAME);
 
+        // Because the event inhibitor was started, last Metastor updates do not reach to one node.
+        // Therefore the table still exists locally, but API prevents getting it.
         for (Ignite ignite : clusterNodes) {
             assertNull(ignite.tables().table(TABLE_NAME));
 
             assertNull(((IgniteTablesInternal)ignite.tables()).table(tblId));
         }
 
-        inhibitor.startInhibit();
+        ignite1Inhibitor.stopInhibit();
     }
 
     /**
-     * Creates the specific listener with can inhibit events for real Metastore listener.
+     * Creates the specific listener which can inhibit events for real Metastore listener.
      *
      * @param ignite Ignite.
      * @return Listener inhibitor.
      * @throws Exception If something wrong when creating the listener inhibitor.
      */
     private WatchListenerInhibitor metalstorageEventsInhibitor(Ignite ignite) throws Exception {
+        //TODO: IGNITE-15723 After a component factory will be implemented, need to got rid of reflection here.
         MetaStorageManager metaMngr = (MetaStorageManager)ReflectionUtils.tryToReadFieldValue(
             IgniteImpl.class,
             "metaStorageMgr",

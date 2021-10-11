@@ -33,7 +33,7 @@ public interface IgniteTablesInternal {
     TableImpl table(IgniteUuid id);
 
     /**
-     * Gets a table future by id, if it was created before or {@code null}.
+     * Gets a table future by id. If the table exists, the future will point to it, otherwise to {@code null}.
      *
      * @param id Table id.
      * @return Future representing pending completion of the operation.

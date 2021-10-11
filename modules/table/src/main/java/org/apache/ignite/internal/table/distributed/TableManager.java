@@ -874,6 +874,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
+     * Checks that the table is configured with specific id.
+     *
      * @param id Table id.
      * @return True when the table is configured into cluster, false otherwise.
      */
