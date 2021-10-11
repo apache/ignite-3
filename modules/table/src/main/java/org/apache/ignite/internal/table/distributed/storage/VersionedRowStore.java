@@ -2,6 +2,7 @@ package org.apache.ignite.internal.table.distributed.storage;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -63,14 +64,10 @@ public class VersionedRowStore {
     public List<BinaryRow> getAll(Collection<BinaryRow> keyRows, Timestamp ts) {
         assert keyRows != null && !keyRows.isEmpty();
 
-        List<SearchRow> keys = keyRows.stream().map(VersionedRowStore::extractAndWrapKey)
-            .collect(Collectors.toList());
+        List<BinaryRow> res = new ArrayList<>(keyRows.size());
 
-        List<BinaryRow> res = storage
-            .readAll(keys)
-            .stream()
-            .map(read -> new ByteBufferRow(read.valueBytes()))
-            .collect(Collectors.toList());
+        for (BinaryRow keyRow : keyRows)
+            res.add(get(keyRow, ts));
 
         return res;
     }

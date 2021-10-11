@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.table.impl;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -143,6 +146,57 @@ public class DummyInternalTableImpl implements InternalTable {
         }
     }
 
+    /**
+     * @param row The row.
+     * @param tx The transaction.
+     * @param op The operation.
+     * @return The future.
+     */
+    private CompletableFuture<Collection<BinaryRow>> wrapInTx(@NotNull Collection<BinaryRow> rows, InternalTransaction tx, Function<InternalTransaction, Collection<BinaryRow>> op) {
+        assert rows != null;
+
+        if (rows.isEmpty())
+            return CompletableFuture.completedFuture(Collections.emptyList());
+
+        if (tx == null) {
+            try {
+                tx = txManager.tx();
+            }
+            catch (TransactionException e) {
+                return CompletableFuture.failedFuture(e);
+            }
+        }
+
+        if (tx != null) {
+            InternalTransaction finalTx = tx;
+
+            // TODO asch copypaste.
+            CompletableFuture<Void>[] futs = new CompletableFuture[rows.size()];
+
+            int i = 0;
+
+            for (BinaryRow row : rows)
+                futs[i++] = txManager.writeLock(tableId, row.keySlice(), tx.timestamp());
+
+            // If some lock has failed to acquire, tx will be rolled back and will release acquired locks.
+            return CompletableFuture.allOf(futs).thenApply(ignore -> op.apply(finalTx));
+        }
+        else {
+            InternalTransaction tx0 = txManager.begin();
+
+            CompletableFuture<Void>[] futs = new CompletableFuture[rows.size()];
+
+            int i = 0;
+
+            for (BinaryRow row : rows)
+                futs[i++] = txManager.writeLock(tableId, row.keySlice(), tx0.timestamp());
+
+            return CompletableFuture.allOf(futs).
+                thenApply(ignore -> op.apply(tx0)).
+                thenCompose(r -> tx0.commitAsync().thenApply(ignore -> r));
+        }
+    }
+
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> upsert(@NotNull BinaryRow row, InternalTransaction tx) {
         return wrapInTx(row, tx, tx0 -> {
@@ -172,7 +226,7 @@ public class DummyInternalTableImpl implements InternalTable {
         InternalTransaction tx) {
         assert keyRows != null && !keyRows.isEmpty();
 
-        return completedFuture(store.getAll(keyRows, tx.timestamp()));
+        return wrapInTx(keyRows, tx, tx0 -> store.getAll(keyRows, tx0.timestamp()));
     }
 
     /** {@inheritDoc} */

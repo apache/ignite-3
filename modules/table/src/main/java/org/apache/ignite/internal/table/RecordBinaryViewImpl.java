@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
@@ -91,7 +92,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Collection<Tuple>> getAllAsync(@NotNull Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        HashSet<BinaryRow> keys = new HashSet<>(keyRecs.size());
+        var keys = new ArrayList<BinaryRow>(keyRecs.size());
 
         for (Tuple keyRec : keyRecs) {
             final Row keyRow = marshaller().marshalKey(keyRec);
@@ -372,6 +373,6 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         if (rows == null)
             return null;
 
-        return rows.stream().filter(Objects::nonNull).map(this::wrap).collect(Collectors.toSet());
+        return rows.stream().map(this::wrap).collect(Collectors.toList());
     }
 }

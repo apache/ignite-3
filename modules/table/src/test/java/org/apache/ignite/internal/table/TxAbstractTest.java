@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.table;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -33,6 +36,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteException;
@@ -506,6 +510,72 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
+    public void testGetAll() {
+        List<Tuple> keys = List.of(makeKey(1), makeKey(2));
+
+        Collection<Tuple> ret = accounts.recordView().getAll(keys);
+
+        assertEquals(2, ret.size());
+        for (Tuple tuple : ret)
+            assertNull(tuple);
+
+        accounts.recordView().upsert(makeValue(1, 100.));
+        accounts.recordView().upsert(makeValue(2, 200.));
+
+        ret = new ArrayList<>(accounts.recordView().getAll(keys));
+
+        validateBalance(ret, 100., 200.);
+    }
+
+    /** Tests if a transaction is rolled back if one of the batch keys can't be locked. */
+    @Test
+    public void testGetAllAbort() throws TransactionException {
+        List<Tuple> keys = List.of(makeKey(1), makeKey(2));
+
+        accounts.recordView().upsert(makeValue(1, 100.));
+        accounts.recordView().upsert(makeValue(2, 200.));
+
+        Transaction tx = igniteTransactions.begin();
+
+        RecordView<Tuple> txAcc = accounts.recordView().withTransaction(tx);
+
+        txAcc.upsert(makeValue(1, 300.));
+        validateBalance(txAcc.getAll(keys), 300., 200.);
+
+        tx.rollback();
+
+        validateBalance(accounts.recordView().getAll(keys), 100., 200.);
+    }
+
+    /** Tests if a transaction is rolled back if one of the batch keys can't be locked. */
+    @Test
+    public void testGetAllConflict() throws TransactionException {
+        accounts.recordView().upsert(makeValue(1, 100.));
+        accounts.recordView().upsert(makeValue(2, 200.));
+
+        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
+        InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
+
+        RecordView<Tuple> txAcc = accounts.recordView().withTransaction(tx);
+        RecordView<Tuple> txAcc2 = accounts.recordView().withTransaction(tx2);
+
+        txAcc2.upsert(makeValue(1, 300.));
+        txAcc.upsert(makeValue(2, 400.));
+
+        Exception err = assertThrows(Exception.class, () -> txAcc.getAll(List.of(makeKey(2), makeKey(1))));
+        assertTrue(err.getMessage().contains("LockException"), err.getMessage());
+
+        validateBalance(txAcc2.getAll(List.of(makeKey(2), makeKey(1))), 200., 300.);
+        validateBalance(txAcc2.getAll(List.of(makeKey(1), makeKey(2))), 300., 200.);
+
+        assertEquals(TxState.ABORTED, tx.state());
+
+        tx2.commit();
+
+        validateBalance(accounts.recordView().getAll(List.of(makeKey(2), makeKey(1))), 200., 300.);
+    }
+
+    @Test
     public void testReorder() throws Exception {
         accounts.recordView().upsert(makeValue(1, 100.));
 
@@ -961,4 +1031,19 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @return {@code True} if a replicas are the same.
      */
     protected abstract boolean assertPartitionsSame(Table t, int partId);
+
+    /**
+     * @param rows Rows.
+     * @param expected Expected values.
+     */
+    private void validateBalance(Collection<Tuple> rows, double... expected) {
+        List<Tuple> rows0 = new ArrayList<>(rows);
+
+        assertEquals(expected.length, rows.size());
+
+        for (int i = 0; i < expected.length; i++) {
+            double v = expected[i];
+            assertEquals(v, rows0.get(i).doubleValue("balance"));
+        }
+    }
 }
