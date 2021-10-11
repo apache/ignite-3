@@ -89,7 +89,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Tests for {@link InternalTable#scan(int, org.apache.ignite.tx.Transaction)}
+ * Tests for {@link InternalTable#scan(int, org.apache.ignite.internal.tx.InternalTransaction)}
  */
 @ExtendWith(MockitoExtension.class)
 public class ITInternalTableScanTest {

@@ -32,7 +32,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.schema.definition.SchemaManagementMode;
-import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -234,7 +233,7 @@ public class FakeInternalTable implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Publisher<BinaryRow> scan(int p, @Nullable Transaction tx) {
+    @Override public Publisher<BinaryRow> scan(int p, InternalTransaction tx) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 

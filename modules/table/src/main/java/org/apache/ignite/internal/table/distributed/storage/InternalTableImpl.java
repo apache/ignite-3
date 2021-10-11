@@ -68,10 +68,8 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.schema.definition.SchemaManagementMode;
-import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -210,9 +208,28 @@ public class InternalTableImpl implements InternalTable {
         }
     }
 
+    /**
+     * @param row The row.
+     * @param tx The transaction.
+     * @return The corresponding raft service.
+     */
     private RaftGroupService enlist(BinaryRow row, InternalTransaction tx) {
         int partId = partId(row);
 
+        RaftGroupService svc = partitionMap.get(partId);
+
+        // TODO asch fixme need to map to fixed topology.
+        tx.enlist(svc.leader().address(), svc.groupId()); // Enlist the leaseholder.
+
+        return svc;
+    }
+
+    /**
+     * @param partId Partition id.
+     * @param tx The transaction.
+     * @return The corresponding raft service.
+     */
+    private RaftGroupService enlist(int partId, InternalTransaction tx) {
         RaftGroupService svc = partitionMap.get(partId);
 
         // TODO asch fixme need to map to fixed topology.
@@ -372,7 +389,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Publisher<BinaryRow> scan(int p, @Nullable Transaction tx) {
+    @Override public Publisher<BinaryRow> scan(int p, InternalTransaction tx) {
         if (p < 0 || p >= partitions) {
             throw new IllegalArgumentException(
                 LoggerMessageHelper.format(

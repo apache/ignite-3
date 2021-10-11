@@ -92,6 +92,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Collection<Tuple>> getAllAsync(@NotNull Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
+        // TODO asch copypaste
         var keys = new ArrayList<BinaryRow>(keyRecs.size());
 
         for (Tuple keyRec : keyRecs) {
@@ -99,6 +100,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
             keys.add(keyRow);
         }
+        // TODO asch copypaste end
 
         return tbl.getAll(keys, tx).thenApply(this::wrap);
     }
@@ -126,7 +128,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Void> upsertAllAsync(@NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        HashSet<BinaryRow> keys = new HashSet<>(recs.size());
+        var keys = new ArrayList<BinaryRow>(recs.size());
 
         for (Tuple keyRec : recs) {
             final Row keyRow = marshaller().marshal(keyRec);
@@ -174,7 +176,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Collection<Tuple>> insertAllAsync(@NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        HashSet<BinaryRow> keys = new HashSet<>(recs.size());
+        var keys = new ArrayList<BinaryRow>(recs.size());
 
         for (Tuple keyRec : recs) {
             final Row keyRow = marshaller().marshal(keyRec);

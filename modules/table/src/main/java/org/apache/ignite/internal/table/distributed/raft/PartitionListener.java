@@ -77,9 +77,7 @@ public class PartitionListener implements RaftGroupListener {
     private final IgniteUuid tableId;
 
     /**
-     * Storage.
-     * This is a temporary solution, it will apply until persistence layer would not be implemented.
-     * TODO: IGNITE-14790.
+     * The versioned storage.
      */
     private final VersionedRowStore storage;
 

@@ -200,7 +200,7 @@ public interface InternalTable {
      * @param tx The transaction.
      * @return {@link Publisher<BinaryRow>} that reactively notifies about partition rows.
      */
-    @NotNull Publisher<BinaryRow> scan(int p, @Nullable Transaction tx);
+    Publisher<BinaryRow> scan(int p, InternalTransaction tx);
 
     /**
      * Gets a list of current table assignments.

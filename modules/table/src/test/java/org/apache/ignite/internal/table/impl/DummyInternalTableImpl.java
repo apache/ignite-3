@@ -17,10 +17,7 @@
 
 package org.apache.ignite.internal.table.impl;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -36,10 +33,8 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.schema.definition.SchemaManagementMode;
-import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -152,11 +147,12 @@ public class DummyInternalTableImpl implements InternalTable {
      * @param op The operation.
      * @return The future.
      */
-    private CompletableFuture<Collection<BinaryRow>> wrapInTx(@NotNull Collection<BinaryRow> rows, InternalTransaction tx, Function<InternalTransaction, Collection<BinaryRow>> op) {
+    private <T> CompletableFuture<T> wrapInTx(
+        @NotNull Collection<BinaryRow> rows,
+        InternalTransaction tx,
+        Function<InternalTransaction, T> op
+    ) {
         assert rows != null;
-
-        if (rows.isEmpty())
-            return CompletableFuture.completedFuture(Collections.emptyList());
 
         if (tx == null) {
             try {
@@ -233,9 +229,13 @@ public class DummyInternalTableImpl implements InternalTable {
     @Override public CompletableFuture<Void> upsertAll(Collection<BinaryRow> rows, InternalTransaction tx) {
         assert rows != null && !rows.isEmpty();
 
-        store.upsertAll(rows, tx.timestamp());
+        CompletableFuture<Void> fut = wrapInTx(rows, tx, tx0 -> {
+            store.upsertAll(rows, tx0.timestamp());
 
-        return completedFuture(null);
+            return null;
+        });
+
+        return fut;
     }
 
     /** {@inheritDoc} */
@@ -249,7 +249,7 @@ public class DummyInternalTableImpl implements InternalTable {
     @Override public CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> rows, InternalTransaction tx) {
         assert rows != null && !rows.isEmpty();
 
-        return completedFuture(store.insertAll(rows, tx.timestamp()));
+        return wrapInTx(rows, tx, tx0 -> store.insertAll(rows, tx0.timestamp()));
     }
 
     /** {@inheritDoc} */
@@ -269,7 +269,7 @@ public class DummyInternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<BinaryRow> getAndReplace(BinaryRow row, InternalTransaction tx) {
-        return null;
+        throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
     /** {@inheritDoc} */
@@ -288,17 +288,17 @@ public class DummyInternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override public CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows,
         InternalTransaction tx) {
-        return completedFuture(store.deleteAll(rows, tx.timestamp()));
+        return wrapInTx(rows, tx, tx0 -> store.deleteAll(rows, tx0.timestamp()));
     }
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows,
                                                                              InternalTransaction tx) {
-        return null;
+        throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Flow.Publisher<BinaryRow> scan(int p, @Nullable Transaction tx) {
+    @Override public Flow.Publisher<BinaryRow> scan(int p, InternalTransaction tx) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
