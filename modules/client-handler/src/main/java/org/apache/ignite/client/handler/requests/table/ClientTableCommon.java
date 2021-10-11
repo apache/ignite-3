@@ -38,6 +38,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
@@ -286,9 +287,9 @@ class ClientTableCommon {
             boolean keyOnly,
             SchemaDescriptor schema
     ) {
-        var tuple = Tuple.create();
-
         var cnt = keyOnly ? schema.keyColumns().length() : schema.length();
+
+        var tuple = Tuple.create(cnt);
 
         for (int i = 0; i < cnt; i++) {
             if (unpacker.getNextFormat() == MessageFormat.NIL) {
@@ -310,7 +311,7 @@ class ClientTableCommon {
      */
     public static Tuple readTupleSchemaless(ClientMessageUnpacker unpacker) {
         var cnt = unpacker.unpackMapHeader();
-        var tuple = Tuple.create();
+        var tuple = Tuple.create(cnt);
 
         for (int i = 0; i < cnt; i++) {
             var colName = unpacker.unpackString();
@@ -346,7 +347,7 @@ class ClientTableCommon {
      * @return Table.
      */
     public static TableImpl readTable(ClientMessageUnpacker unpacker, IgniteTables tables) {
-        var tableId = unpacker.unpackUuid();
+        IgniteUuid tableId = unpacker.unpackIgniteUuid();
 
         return ((IgniteTablesInternal)tables).table(tableId);
     }

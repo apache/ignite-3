@@ -24,35 +24,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.app.Ignite;
-import org.apache.ignite.app.Ignition;
-import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.configuration.schemas.network.NetworkView;
-import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
-import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
-import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableValidator;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.internal.affinity.AffinityManager;
-import org.apache.ignite.internal.baseline.BaselineManager;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.processors.query.calcite.SqlQueryProcessor;
-import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.schema.SchemaManager;
-import org.apache.ignite.internal.schema.configuration.SchemaTableValidatorImpl;
-import org.apache.ignite.internal.storage.DistributedConfigurationStorage;
-import org.apache.ignite.internal.storage.LocalConfigurationStorage;
-import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.VaultService;
-import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.Ignition;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.LoggerMessageHelper;
@@ -165,7 +138,14 @@ public class IgnitionImpl implements Ignition {
 
         ackBanner();
 
-        nodeToStart.start(cfgContent);
+        try {
+            nodeToStart.start(cfgContent);
+        }
+        catch (Exception e) {
+            nodes.remove(nodeName);
+
+            throw new IgniteException(e);
+        }
 
         ackSuccessStart();
 

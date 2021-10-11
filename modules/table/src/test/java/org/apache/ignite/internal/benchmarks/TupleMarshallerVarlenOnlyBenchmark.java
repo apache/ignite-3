@@ -19,7 +19,6 @@ package org.apache.ignite.internal.benchmarks;
 
 import java.io.Serializable;
 import java.util.Random;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -31,7 +30,6 @@ import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.TupleMarshallerImpl;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.TupleImpl;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -113,7 +111,6 @@ public class TupleMarshallerVarlenOnlyBenchmark {
         rnd = new Random(seed);
 
         schema = new SchemaDescriptor(
-            UUID.randomUUID(),
             42,
             new Column[] {new Column("key", INT64, false, (Supplier<Object> & Serializable)() -> 0L)},
             IntStream.range(0, fieldsCount).boxed()
@@ -156,12 +153,12 @@ public class TupleMarshallerVarlenOnlyBenchmark {
     public void measureTupleBuildAndMarshallerCost(Blackhole bh) {
         final Columns cols = schema.valueColumns();
 
-        final TupleImpl valBld = new TupleImpl();
+        final Tuple valBld = Tuple.create(cols.length());
 
         for (int i = 0; i < cols.length(); i++)
             valBld.set(cols.column(i).name(), val);
 
-        Tuple keyTuple = new TupleImpl().set("key", rnd.nextLong());
+        Tuple keyTuple = Tuple.create(1).set("key", rnd.nextLong());
 
         final Row row = marshaller.marshal(keyTuple, valBld);
 

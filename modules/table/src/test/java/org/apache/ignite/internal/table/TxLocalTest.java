@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
-import org.apache.ignite.internal.storage.basic.ConcurrentHashMapStorage;
+import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -55,13 +55,13 @@ public class TxLocalTest extends TxAbstractTest {
 
         igniteTransactions = new IgniteTransactionsImpl(txManager);
 
-        InternalTable table = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapStorage(), txManager), txManager);
+        InternalTable table = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);
 
-        accounts = new TableImpl(table, new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), null, null);
+        accounts = new TableImpl(table, new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), null);
 
-        InternalTable table2 = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapStorage(), txManager), txManager);
+        InternalTable table2 = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);
 
-        customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), null, null);
+        customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), null);
     }
 
     @Override protected TxManager txManager(Table t) {

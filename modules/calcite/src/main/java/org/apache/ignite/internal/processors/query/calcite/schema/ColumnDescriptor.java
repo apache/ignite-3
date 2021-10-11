@@ -18,6 +18,7 @@ package org.apache.ignite.internal.processors.query.calcite.schema;
 
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
+import org.apache.ignite.internal.schema.NativeType;
 
 /** */
 public interface ColumnDescriptor {
@@ -37,15 +38,8 @@ public interface ColumnDescriptor {
     RelDataType logicalType(IgniteTypeFactory f);
 
     /** */
-    Class<?> storageType();
-
-//    /** */
-//    Object value(ExecutionContext<?> ectx, GridCacheContext<?, ?> cctx, CacheDataRow src)
-//        throws IgniteCheckedException;
+    NativeType storageType();
 
     /** */
     Object defaultValue();
-
-    /** */
-    void set(Object dst, Object val);
 }

@@ -17,32 +17,43 @@
 
 package org.apache.ignite.table;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Test;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBitSet;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Tests server tuple builder implementation.
- *
+ * <p>
  * Should be in sync with org.apache.ignite.client.ClientTupleBuilderTest.
  */
 public class TupleImplTest {
     @Test
     public void testValueReturnsValueByName() {
-        assertEquals(3L, (Long) getTuple().value("id"));
+        assertEquals(3L, (Long)getTuple().value("id"));
         assertEquals("Shirt", getTuple().value("name"));
     }
 
@@ -54,7 +65,7 @@ public class TupleImplTest {
 
     @Test
     public void testValueReturnsValueByIndex() {
-        assertEquals(3L, (Long) getTuple().value(0));
+        assertEquals(3L, (Long)getTuple().value(0));
         assertEquals("Shirt", getTuple().value(1));
     }
 
@@ -169,13 +180,133 @@ public class TupleImplTest {
         }
     }
 
+    @Test
+    public void testBasicTupleEquality() {
+        assertEquals(new TupleImpl(), new TupleImpl());
+        assertEquals(new TupleImpl().hashCode(), new TupleImpl().hashCode());
+
+        assertEquals(new TupleImpl().set("foo", null), new TupleImpl().set("foo", null));
+        assertEquals(new TupleImpl().set("foo", null).hashCode(), new TupleImpl().set("foo", null).hashCode());
+
+        assertEquals(new TupleImpl().set("foo", "bar"), new TupleImpl().set("foo", "bar"));
+        assertEquals(new TupleImpl().set("foo", "bar").hashCode(), new TupleImpl().set("foo", "bar").hashCode());
+
+        assertNotEquals(new TupleImpl().set("foo", null), new TupleImpl().set("bar", null));
+        assertNotEquals(new TupleImpl().set("foo", "foo"), new TupleImpl().set("bar", "bar"));
+
+        TupleImpl tuple = new TupleImpl();
+        TupleImpl tuple2 = new TupleImpl();
+
+        assertEquals(tuple, tuple);
+
+        tuple.set("foo", "bar");
+
+        assertEquals(tuple, tuple);
+        assertNotEquals(tuple, tuple2);
+        assertNotEquals(tuple2, tuple);
+
+        tuple2.set("foo", "baz");
+
+        assertNotEquals(tuple, tuple2);
+        assertNotEquals(tuple2, tuple);
+
+        tuple2.set("foo", "bar");
+
+        assertEquals(tuple, tuple2);
+        assertEquals(tuple2, tuple);
+    }
+
+    @Test
+    public void testTupleEquality() {
+        Random rnd = new Random();
+
+        Tuple tuple = new TupleImpl()
+                          .set("valByteCol", (byte)1)
+                          .set("valShortCol", (short)2)
+                          .set("valIntCol", 3)
+                          .set("valLongCol", 4L)
+                          .set("valFloatCol", 0.055f)
+                          .set("valDoubleCol", 0.066d)
+                          .set("keyUuidCol", UUID.randomUUID())
+                          .set("valDateCol", LocalDate.now())
+                          .set("valDateTimeCol", LocalDateTime.now())
+                          .set("valTimeCol", LocalTime.now())
+                          .set("valTimeStampCol", Instant.now())
+                          .set("valBitmask1Col", randomBitSet(rnd, 12))
+                          .set("valBytesCol", IgniteTestUtils.randomBytes(rnd, 13))
+                          .set("valStringCol", IgniteTestUtils.randomString(rnd, 14))
+                          .set("valNumberCol", BigInteger.valueOf(rnd.nextLong()))
+                          .set("valDecimalCol", BigDecimal.valueOf(rnd.nextLong(), 5));
+
+        List<Integer> randomIdx = IntStream.range(0, tuple.columnCount()).boxed().collect(Collectors.toList());
+
+        Collections.shuffle(randomIdx, rnd);
+
+        Tuple shuffledTuple = new TupleImpl();
+
+        for (Integer i : randomIdx)
+            shuffledTuple.set(tuple.columnName(i), tuple.value(i));
+
+        assertEquals(tuple, shuffledTuple);
+        assertEquals(tuple.hashCode(), shuffledTuple.hashCode());
+    }
+
+    @Test
+    public void testSerialization() throws IOException, ClassNotFoundException {
+        Random rnd = new Random();
+
+        Tuple tup1 = new TupleImpl()
+                         .set("valByteCol", (byte)1)
+                         .set("valShortCol", (short)2)
+                         .set("valIntCol", 3)
+                         .set("valLongCol", 4L)
+                         .set("valFloatCol", 0.055f)
+                         .set("valDoubleCol", 0.066d)
+                         .set("keyUuidCol", UUID.randomUUID())
+                         .set("valDateCol", LocalDate.now())
+                         .set("valDateTimeCol", LocalDateTime.now())
+                         .set("valTimeCol", LocalTime.now())
+                         .set("valTimeStampCol", Instant.now())
+                         .set("valBitmask1Col", randomBitSet(rnd, 12))
+                         .set("valBytesCol", IgniteTestUtils.randomBytes(rnd, 13))
+                         .set("valStringCol", IgniteTestUtils.randomString(rnd, 14))
+                         .set("valNumberCol", BigInteger.valueOf(rnd.nextLong()))
+                         .set("valDecimalCol", BigDecimal.valueOf(rnd.nextLong(), 5));
+
+        Tuple tup2;
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+        try (ObjectOutputStream os = new ObjectOutputStream(baos)) {
+            os.writeObject(tup1);
+        }
+
+        try (ObjectInputStream is = new ObjectInputStream(new ByteArrayInputStream(baos.toByteArray()))) {
+            tup2 = (Tuple)is.readObject();
+        }
+
+        assertEquals(tup1, tup2);
+    }
+
+    @Test
+    void testTupleFactoryMethods() {
+        assertEquals(Tuple.create(), Tuple.create(10));
+        assertEquals(Tuple.create().set("id", 42L), Tuple.create(10).set("id", 42L));
+
+        assertEquals(Tuple.create().set("id", 42L).set("name", "universe"),
+            Tuple.create(Map.of("id", 42L, "name", "universe")));
+
+        assertEquals(Tuple.create().set("id", 42L).set("name", "universe"),
+            Tuple.create(Tuple.create().set("id", 42L).set("name", "universe")));
+    }
+
     private static TupleImpl createTuple() {
         return new TupleImpl();
     }
 
     private static Tuple getTuple() {
         return new TupleImpl()
-                .set("id", 3L)
-                .set("name", "Shirt");
+                   .set("id", 3L)
+                   .set("name", "Shirt");
     }
 }

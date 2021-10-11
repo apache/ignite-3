@@ -77,12 +77,13 @@ public class NodeManager {
      * @param out PrintWriter for user messages.
      * @return Information about successfully started node
      */
-    public RunningNode start(String nodeName, Path logDir, Path pidsDir, Path srvCfg, PrintWriter out) {
+    public RunningNode start(String nodeName, Path logDir, Path pidsDir, Path srvCfg, Path javaLogProps, PrintWriter out) {
         if (getRunningNodes(logDir, pidsDir).stream().anyMatch(n -> n.name.equals(nodeName)))
             throw new IgniteCLIException("Node with nodeName " + nodeName + " is already exist");
 
         try {
             Path logFile = logFile(logDir, nodeName);
+
             if (Files.exists(logFile))
                 Files.delete(logFile);
 
@@ -91,6 +92,10 @@ public class NodeManager {
             var cmdArgs = new ArrayList<String>();
 
             cmdArgs.add("java");
+
+            if (javaLogProps != null)
+                cmdArgs.add("-Djava.util.logging.config.file=" + javaLogProps.toAbsolutePath());
+
             cmdArgs.add("-cp");
             cmdArgs.add(classpath());
             cmdArgs.add(MAIN_CLASS);
@@ -111,12 +116,11 @@ public class NodeManager {
             Process p = pb.start();
 
             try (var spinner = new Spinner(out, "Starting a new Ignite node")) {
-
-                if (!waitForStart("Apache Ignite started successfully!", logFile, NODE_START_TIMEOUT, spinner)) {
+                if (!waitForStart("Apache Ignite started successfully!", logFile, p, NODE_START_TIMEOUT, spinner)) {
                     p.destroyForcibly();
 
                     throw new IgniteCLIException("Node wasn't started during timeout period "
-                        + NODE_START_TIMEOUT.toMillis() + "ms");
+                        + NODE_START_TIMEOUT.toMillis() + "ms. Read logs for details: " + logFile);
                 }
             }
             catch (InterruptedException | IOException e) {
@@ -137,6 +141,7 @@ public class NodeManager {
      *
      * @param started Mark string that node was started.
      * @param file Node's log file
+     * @param p External Ignite process.
      * @param timeout Timeout for waiting
      * @return true if node was successfully started, false otherwise.
      * @throws IOException If can't read the log file
@@ -145,12 +150,13 @@ public class NodeManager {
     private static boolean waitForStart(
         String started,
         Path file,
+        Process p,
         Duration timeout,
         Spinner spinner
     ) throws IOException, InterruptedException {
         var start = System.currentTimeMillis();
 
-        while ((System.currentTimeMillis() - start) < timeout.toMillis()) {
+        while ((System.currentTimeMillis() - start) < timeout.toMillis() && p.isAlive()) {
             spinner.spin();
             LockSupport.parkNanos(LOG_FILE_POLL_INTERVAL.toNanos());
 
@@ -158,9 +164,10 @@ public class NodeManager {
 
             if (content.contains(started))
                 return true;
-            else if (content.contains("Exception"))
-                throw new IgniteCLIException("Can't start the node. Read logs for details: " + file);
         }
+
+        if (!p.isAlive())
+            throw new IgniteCLIException("Can't start the node. Read logs for details: " + file);
 
         return false;
     }

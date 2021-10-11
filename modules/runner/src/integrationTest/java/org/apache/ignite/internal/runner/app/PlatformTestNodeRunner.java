@@ -25,31 +25,37 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.apache.ignite.app.Ignite;
-import org.apache.ignite.app.IgnitionManager;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.SchemaTable;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.TableDefinition;
 
 /**
  * Helper class for non-Java platform tests (.NET, C++, Python, ...).
  * Starts nodes, populates tables and data for tests.
  */
 public class PlatformTestNodeRunner {
+    /** Test node name. */
+    private static final String NODE_NAME = PlatformTestNodeRunner.class.getCanonicalName();
+
     /** */
     private static final String SCHEMA_NAME = "PUB";
 
     /** */
     private static final String TABLE_NAME = "tbl1";
 
+    /** Time to keep the node alive. */
+    private static final int RUN_TIME_MINUTES = 30;
+
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {{
-        put("node0", "{\n" +
+        put(NODE_NAME, "{\n" +
                 "  \"node\": {\n" +
-                "    \"metastorageNodes\":[ \"node0\" ]\n" +
+                "    \"metastorageNodes\":[ \"" + NODE_NAME + "\" ]\n" +
                 "  },\n" +
                 "  \"clientConnector\":{\"port\": 10942,\"portRange\":10}," +
                 "  \"network\": {\n" +
@@ -67,6 +73,18 @@ public class PlatformTestNodeRunner {
      * @param args Args.
      */
     public static void main(String[] args) throws Exception {
+        System.out.println("Starting test node runner...");
+
+        for (int i = 0; i < args.length; i++) {
+            System.out.println("Arg " + i + ": " + args[i]);
+        }
+
+        if (args.length > 0 && "dry-run".equals(args[0]))
+        {
+            System.out.println("Dry run succeeded.");
+            return;
+        }
+
         IgniteUtils.deleteIfExists(BASE_PATH);
         Files.createDirectories(BASE_PATH);
 
@@ -79,7 +97,7 @@ public class PlatformTestNodeRunner {
         var keyCol = "key";
         var valCol = "val";
 
-        SchemaTable schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
+        TableDefinition schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
                 SchemaBuilders.column(keyCol, ColumnType.INT32).asNonNull().build(),
                 SchemaBuilders.column(valCol, ColumnType.string()).asNullable().build()
         ).withPrimaryKey(keyCol).build();
@@ -96,7 +114,9 @@ public class PlatformTestNodeRunner {
 
         System.out.println("THIN_CLIENT_PORTS=" + ports);
 
-        Thread.sleep(Long.MAX_VALUE);
+        Thread.sleep(RUN_TIME_MINUTES * 60_000);
+
+        System.out.println("Exiting after " + RUN_TIME_MINUTES + " minutes.");
     }
 
     /**

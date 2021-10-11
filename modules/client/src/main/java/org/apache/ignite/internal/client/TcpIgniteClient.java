@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 
@@ -101,6 +102,13 @@ public class TcpIgniteClient implements IgniteClient {
         return null;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override public void setBaseline(Set<String> baselineNodes) {
+        throw new UnsupportedOperationException();
+    }
+
     /** {@inheritDoc} */
     @Override public void close() throws Exception {
         ch.close();
@@ -117,11 +125,11 @@ public class TcpIgniteClient implements IgniteClient {
     }
 
     /**
-     * Send JdbcClientMessage request to server size and reads JdbcClientMessage result.
+     * Send ClientMessage request to server size and reads ClientMessage result.
      *
      * @param opCode Operation code.
-     * @param req JdbcClientMessage request.
-     * @param res JdbcClientMessage result.
+     * @param req ClientMessage request.
+     * @param res ClientMessage result.
      */
     public void sendRequest(int opCode, ClientMessage req, ClientMessage res) {
         ch.serviceAsync(opCode, w -> req.writeBinary(w.out()), p -> {

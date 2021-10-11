@@ -20,13 +20,19 @@ package org.apache.ignite.client.fakes;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.UUID;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Flow.Publisher;
+
+import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.schema.SchemaMode;
+import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.schema.definition.SchemaManagementMode;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -39,7 +45,7 @@ public class FakeInternalTable implements InternalTable {
     private final String tableName;
 
     /** Table ID. */
-    private final UUID tableId;
+    private final IgniteUuid tableId;
 
     /** Table data. */
     private final ConcurrentHashMap<ByteBuffer, BinaryRow> data = new ConcurrentHashMap<>();
@@ -50,13 +56,13 @@ public class FakeInternalTable implements InternalTable {
      * @param tableName Name.
      * @param tableId Id.
      */
-    public FakeInternalTable(String tableName, UUID tableId) {
+    public FakeInternalTable(String tableName, IgniteUuid tableId) {
         this.tableName = tableName;
         this.tableId = tableId;
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull UUID tableId() {
+    @Override public @NotNull IgniteUuid tableId() {
         return tableId;
     }
 
@@ -66,12 +72,12 @@ public class FakeInternalTable implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull SchemaMode schemaMode() {
-        return SchemaMode.STRICT_SCHEMA;
+    @Override public @NotNull SchemaManagementMode schemaMode() {
+        return SchemaManagementMode.STRICT;
     }
 
     /** {@inheritDoc} */
-    @Override public void schema(SchemaMode schemaMode) {
+    @Override public void schema(SchemaManagementMode schemaMode) {
         // No-op.
     }
 
@@ -225,6 +231,16 @@ public class FakeInternalTable implements InternalTable {
         }
 
         return CompletableFuture.completedFuture(skipped);
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Publisher<BinaryRow> scan(int p, @Nullable Transaction tx) {
+        throw new IgniteInternalException(new OperationNotSupportedException());
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull List<String> assignments() {
+        throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
     /** {@inheritDoc} */

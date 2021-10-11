@@ -210,12 +210,13 @@ public class StripedDisruptor<T extends GroupAware> {
 
             assert handler != null : format("Group of the event is unsupported [group={}, event={}]", event.groupId(), event);
 
-            handler.onEvent(event, sequence, endOfBatch);
+            //TODO: IGNITE-15568 endOfBatch should be set to true to prevent caching tasks until IGNITE-15568 has fixed.
+            handler.onEvent(event, sequence, true);
         }
     }
 
     /**
-     * Striped disruptor exxception handler.
+     * Striped disruptor exception handler.
      * It prints into log when an exception has occurred and route it to the handler for group.
      */
     private class StripeExceptionHandler implements ExceptionHandler<T> {

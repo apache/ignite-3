@@ -37,7 +37,8 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.table.KeyValueBinaryView;
+import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -65,12 +66,8 @@ import static org.junit.jupiter.api.Assertions.fail;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 public abstract class TxAbstractTest extends IgniteAbstractTest {
-    /** Table ID test value. */
-    protected static final UUID tableId = java.util.UUID.randomUUID();
-
     /** */
     protected static SchemaDescriptor ACCOUNTS_SCHEMA = new SchemaDescriptor(
-        tableId,
         1,
         new Column[]{new Column("accountNumber", NativeTypes.INT64, false)},
         new Column[]{new Column("balance", NativeTypes.DOUBLE, false)}
@@ -81,7 +78,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     /** */
     protected static SchemaDescriptor CUSTOMERS_SCHEMA = new SchemaDescriptor(
-        tableId2,
         1,
         new Column[]{new Column("accountNumber", NativeTypes.INT64, false)},
         new Column[]{new Column("name", NativeTypes.STRING, false)}
@@ -117,16 +113,16 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     /** */
     @Test
     public void testMixedPutGet() throws TransactionException {
-        accounts.upsert(makeValue(1, BALANCE_1));
+        accounts.recordView().upsert(makeValue(1, BALANCE_1));
 
         igniteTransactions.runInTransaction(tx -> {
-            Table txAcc = tx.wrap(accounts);
+            var txAcc = accounts.recordView().withTransaction(tx);
 
             txAcc.getAsync(makeKey(1)).thenCompose(r ->
                 txAcc.upsertAsync(makeValue(1, r.doubleValue("balance") + DELTA))).join();
         });
 
-        assertEquals(BALANCE_1 + DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
+        assertEquals(BALANCE_1 + DELTA, accounts.recordView().get(makeKey(1)).doubleValue("balance"));
     }
 
     /**
@@ -134,19 +130,21 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      */
     @Test
     public void testTxClosure() throws TransactionException {
-        accounts.upsert(makeValue(1, BALANCE_1));
-        accounts.upsert(makeValue(2, BALANCE_2));
+        RecordView<Tuple> view = accounts.recordView();
+
+        view.upsert(makeValue(1, BALANCE_1));
+        view.upsert(makeValue(2, BALANCE_2));
 
         igniteTransactions.runInTransaction(tx -> {
-            CompletableFuture<Tuple> read1 = accounts.getAsync(makeKey(1));
-            CompletableFuture<Tuple> read2 = accounts.getAsync(makeKey(2));
+            CompletableFuture<Tuple> read1 = view.getAsync(makeKey(1));
+            CompletableFuture<Tuple> read2 = view.getAsync(makeKey(2));
 
-            accounts.upsertAsync(makeValue(1, read1.join().doubleValue("balance") - DELTA));
-            accounts.upsertAsync(makeValue(2, read2.join().doubleValue("balance") + DELTA));
+            view.upsertAsync(makeValue(1, read1.join().doubleValue("balance") - DELTA));
+            view.upsertAsync(makeValue(2, read2.join().doubleValue("balance") + DELTA));
         });
 
-        assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
-        assertEquals(BALANCE_2 + DELTA, accounts.get(makeKey(2)).doubleValue("balance"));
+        assertEquals(BALANCE_1 - DELTA, view.get(makeKey(1)).doubleValue("balance"));
+        assertEquals(BALANCE_2 + DELTA, view.get(makeKey(2)).doubleValue("balance"));
 
         assertEquals(5, txManager(accounts).finished());
     }
@@ -156,11 +154,11 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      */
     @Test
     public void testTxClosureKeyValueView() throws TransactionException {
-        accounts.upsert(makeValue(1, BALANCE_1));
-        accounts.upsert(makeValue(2, BALANCE_2));
+        accounts.recordView().upsert(makeValue(1, BALANCE_1));
+        accounts.recordView().upsert(makeValue(2, BALANCE_2));
 
         igniteTransactions.runInTransaction(tx -> {
-            KeyValueBinaryView view = accounts.kvView();
+            KeyValueView<Tuple, Tuple> view = accounts.keyValueView();
 
             CompletableFuture<Tuple> read1 = view.getAsync(makeKey(1));
             CompletableFuture<Tuple> read2 = view.getAsync(makeKey(2));
@@ -169,8 +167,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             view.putAsync(makeKey(2), makeValue(read2.join().doubleValue("balance") + DELTA)).join();
         });
 
-        assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
-        assertEquals(BALANCE_2 + DELTA, accounts.get(makeKey(2)).doubleValue("balance"));
+        assertEquals(BALANCE_1 - DELTA, accounts.recordView().get(makeKey(1)).doubleValue("balance"));
+        assertEquals(BALANCE_2 + DELTA, accounts.recordView().get(makeKey(2)).doubleValue("balance"));
 
         assertEquals(5, txManager(accounts).finished());
     }
@@ -180,10 +178,10 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      */
     @Test
     public void testTxAsync() {
-        accounts.upsert(makeValue(1, BALANCE_1));
-        accounts.upsert(makeValue(2, BALANCE_2));
+        accounts.recordView().upsert(makeValue(1, BALANCE_1));
+        accounts.recordView().upsert(makeValue(2, BALANCE_2));
 
-        igniteTransactions.beginAsync().thenCompose(tx -> tx.wrapAsync(accounts)).
+        igniteTransactions.beginAsync().thenApply(tx -> accounts.recordView().withTransaction(tx)).
             thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
                 .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
                 .thenCompose(pair -> allOf(
@@ -194,8 +192,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                 .thenApply(ignored -> txAcc.transaction())
             ).thenCompose(Transaction::commitAsync).join();
 
-        assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
-        assertEquals(BALANCE_2 + DELTA, accounts.get(makeKey(2)).doubleValue("balance"));
+        assertEquals(BALANCE_1 - DELTA, accounts.recordView().get(makeKey(1)).doubleValue("balance"));
+        assertEquals(BALANCE_2 + DELTA, accounts.recordView().get(makeKey(2)).doubleValue("balance"));
     }
 
     /**
@@ -203,10 +201,10 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      */
     @Test
     public void testTxAsyncKeyValueView() {
-        accounts.upsert(makeValue(1, BALANCE_1));
-        accounts.upsert(makeValue(2, BALANCE_2));
+        accounts.recordView().upsert(makeValue(1, BALANCE_1));
+        accounts.recordView().upsert(makeValue(2, BALANCE_2));
 
-        igniteTransactions.beginAsync().thenCompose(tx -> tx.wrapAsync(accounts).thenApply(t -> t.kvView())).
+        igniteTransactions.beginAsync().thenApply(tx -> accounts.keyValueView().withTransaction(tx)).
             thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
                 .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
                 .thenCompose(pair -> allOf(
@@ -217,20 +215,20 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                 .thenApply(ignored -> txAcc.transaction())
             ).thenCompose(Transaction::commitAsync).join();
 
-        assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
-        assertEquals(BALANCE_2 + DELTA, accounts.get(makeKey(2)).doubleValue("balance"));
+        assertEquals(BALANCE_1 - DELTA, accounts.recordView().get(makeKey(1)).doubleValue("balance"));
+        assertEquals(BALANCE_2 + DELTA, accounts.recordView().get(makeKey(2)).doubleValue("balance"));
     }
 
     /** */
     @Test
     public void testSimpleConflict() throws Exception {
-        accounts.upsert(makeValue(1, 100.));
+        accounts.recordView().upsert(makeValue(1, 100.));
 
         Transaction tx = igniteTransactions.begin();
         Transaction tx2 = igniteTransactions.begin();
 
-        Table table = tx.wrap(accounts);
-        Table table2 = tx2.wrap(accounts);
+        var table = accounts.recordView().withTransaction(tx);
+        var table2 = accounts.recordView().withTransaction(tx2);
 
         double val = table.get(makeKey(1)).doubleValue("balance");
         table2.get(makeKey(1)).doubleValue("balance");
@@ -257,7 +255,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             // Expected.
         }
 
-        assertEquals(101., accounts.get(makeKey(1)).doubleValue("balance"));
+        assertEquals(101., accounts.recordView().get(makeKey(1)).doubleValue("balance"));
     }
 
     /** */
@@ -267,7 +265,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         Tuple key = makeKey(1);
 
-        Table table = tx.wrap(accounts);
+        var table = accounts.recordView().withTransaction(tx);
 
         table.upsert(makeValue(1, 100.));
 
@@ -279,7 +277,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         tx.commit();
 
-        assertEquals(200., accounts.get(key).doubleValue("balance"));
+        assertEquals(200., accounts.recordView().get(key).doubleValue("balance"));
 
         assertEquals(COMMITED, txManager(accounts).state(tx.timestamp()));
     }
@@ -291,7 +289,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         Tuple key = makeKey(1);
 
-        Table table = tx.wrap(accounts);
+        var table = accounts.recordView().withTransaction(tx);
 
         table.upsert(makeValue(1, 100.));
 
@@ -303,7 +301,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         tx.rollback();
 
-        assertNull(accounts.get(key));
+        assertNull(accounts.recordView().get(key));
 
         assertEquals(ABORTED, txManager(accounts).state(tx.timestamp()));
     }
@@ -311,28 +309,28 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     /** */
     @Test
     public void testAbortNoUpdate() throws TransactionException {
-        accounts.upsert(makeValue(1, 100.));
+        accounts.recordView().upsert(makeValue(1, 100.));
 
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
 
         tx.rollback();
 
-        assertEquals(100., accounts.get(makeKey(1)).doubleValue("balance"));
+        assertEquals(100., accounts.recordView().get(makeKey(1)).doubleValue("balance"));
     }
 
     /** */
     @Test
     public void testConcurrent() throws TransactionException {
-        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
-        InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
+        Transaction tx = igniteTransactions.begin();
+        Transaction tx2 = igniteTransactions.begin();
 
         Tuple key = makeKey(1);
         Tuple val = makeValue(1, 100.);
 
-        accounts.upsert(val);
+        accounts.recordView().upsert(val);
 
-        Table table = tx.wrap(accounts);
-        Table table2 = tx2.wrap(accounts);
+        var table = accounts.recordView().withTransaction(tx);
+        var table2 = accounts.recordView().withTransaction(tx2);
 
         assertEquals(100., table.get(key).doubleValue("balance"));
         assertEquals(100., table2.get(key).doubleValue("balance"));
@@ -348,16 +346,16 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      */
     @Test
     public void testIncrement() throws TransactionException {
-        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
-        InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
+        Transaction tx = igniteTransactions.begin();
+        Transaction tx2 = igniteTransactions.begin();
 
         Tuple key = makeKey(1);
         Tuple val = makeValue(1, 100.);
 
-        accounts.upsert(val); // Creates implicit transaction.
+        accounts.recordView().upsert(val); // Creates implicit transaction.
 
-        Table table = tx.wrap(accounts);
-        Table table2 = tx2.wrap(accounts);
+        var table = accounts.recordView().withTransaction(tx);
+        var table2 = accounts.recordView().withTransaction(tx2);
 
         // Read in tx
         double val_tx = table.get(key).doubleValue("balance");
@@ -376,7 +374,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         tx2.commit();
 
-        assertEquals(101., accounts.get(key).doubleValue("balance"));
+        assertEquals(101., accounts.recordView().get(key).doubleValue("balance"));
     }
 
     /**
@@ -392,10 +390,10 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         Tuple key = makeKey(1);
         Tuple val = makeValue(1, 100.);
 
-        accounts.upsert(val); // Creates implicit transaction.
+        accounts.recordView().upsert(val); // Creates implicit transaction.
 
-        Table table = tx.wrap(accounts);
-        Table table2 = tx2.wrap(accounts);
+        var table = accounts.recordView().withTransaction(tx);
+        var table2 = accounts.recordView().withTransaction(tx2);
 
         // Read in tx
         double val_tx = table.get(key).doubleValue("balance");
@@ -418,33 +416,33 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         assertTrue(err.getMessage().contains("LockException"), err.getMessage());
 
-        assertEquals(101., accounts.get(key).doubleValue("balance"));
+        assertEquals(101., accounts.recordView().get(key).doubleValue("balance"));
     }
 
     /** */
     @Test
     public void testAbortWithValue() throws TransactionException {
-        accounts.upsert(makeValue(0, 100.));
+        accounts.recordView().upsert(makeValue(0, 100.));
 
-        assertEquals(100., accounts.get(makeKey(0)).doubleValue("balance"));
+        assertEquals(100., accounts.recordView().get(makeKey(0)).doubleValue("balance"));
 
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
-        Table table = tx.wrap(accounts);
+        var table = accounts.recordView().withTransaction(tx);
         table.upsert(makeValue(0, 200.));
         assertEquals(200., table.get(makeKey(0)).doubleValue("balance"));
         tx.rollback();
 
-        assertEquals(100., accounts.get(makeKey(0)).doubleValue("balance"));
+        assertEquals(100., accounts.recordView().get(makeKey(0)).doubleValue("balance"));
     }
 
     /** */
     @Test
     public void testInsert() throws TransactionException {
-        assertNull(accounts.get(makeKey(1)));
+        assertNull(accounts.recordView().get(makeKey(1)));
 
         Transaction tx = igniteTransactions.begin();
 
-        Table table = tx.wrap(accounts);
+        var table = accounts.recordView().withTransaction(tx);
 
         assertTrue(table.insert(makeValue(1, 100.)));
         assertFalse(table.insert(makeValue(1, 200.)));
@@ -452,14 +450,14 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         tx.commit();
 
-        assertEquals(100., accounts.get(makeKey(1)).doubleValue("balance"));
+        assertEquals(100., accounts.recordView().get(makeKey(1)).doubleValue("balance"));
 
-        assertTrue(accounts.insert(makeValue(2, 200.)));
-        assertEquals(200., accounts.get(makeKey(2)).doubleValue("balance"));
+        assertTrue(accounts.recordView().insert(makeValue(2, 200.)));
+        assertEquals(200., accounts.recordView().get(makeKey(2)).doubleValue("balance"));
 
         Transaction tx2 = igniteTransactions.begin();
 
-        table = tx2.wrap(accounts);
+        table = accounts.recordView().withTransaction(tx2);
 
         assertTrue(table.insert(makeValue(3, 100.)));
         assertFalse(table.insert(makeValue(3, 200.)));
@@ -467,57 +465,57 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         tx2.rollback();
 
-        assertEquals(100., accounts.get(makeKey(1)).doubleValue("balance"));
-        assertEquals(200., accounts.get(makeKey(2)).doubleValue("balance"));
-        assertNull(accounts.get(makeKey(3)));
+        assertEquals(100., accounts.recordView().get(makeKey(1)).doubleValue("balance"));
+        assertEquals(200., accounts.recordView().get(makeKey(2)).doubleValue("balance"));
+        assertNull(accounts.recordView().get(makeKey(3)));
     }
 
     @Test
     public void testDelete() throws TransactionException {
         Tuple key = makeKey(1);
 
-        assertFalse(accounts.delete(key));
-        assertNull(accounts.get(key));
+        assertFalse(accounts.recordView().delete(key));
+        assertNull(accounts.recordView().get(key));
 
-        accounts.upsert(makeValue(1, 100.));
+        accounts.recordView().upsert(makeValue(1, 100.));
 
         igniteTransactions.runInTransaction(tx -> {
-            assertNotNull(accounts.get(key));
-            assertTrue(accounts.delete(key));
-            assertNull(accounts.get(key));
+            assertNotNull(accounts.recordView().get(key));
+            assertTrue(accounts.recordView().delete(key));
+            assertNull(accounts.recordView().get(key));
         });
 
-        assertNull(accounts.get(key));
-        accounts.upsert(makeValue(1, 100.));
-        assertNotNull(accounts.get(key));
+        assertNull(accounts.recordView().get(key));
+        accounts.recordView().upsert(makeValue(1, 100.));
+        assertNotNull(accounts.recordView().get(key));
 
         Tuple key2 = makeKey(2);
 
-        accounts.upsert(makeValue(2, 100.));
+        accounts.recordView().upsert(makeValue(2, 100.));
 
         assertThrows(RuntimeException.class, () -> igniteTransactions.runInTransaction((Consumer<Transaction>) tx -> {
-            assertNotNull(accounts.get(key2));
-            assertTrue(accounts.delete(key2));
-            assertNull(accounts.get(key2));
+            assertNotNull(accounts.recordView().get(key2));
+            assertTrue(accounts.recordView().delete(key2));
+            assertNull(accounts.recordView().get(key2));
             throw new RuntimeException(); // Triggers rollback.
         }));
 
-        assertNotNull(accounts.get(key2));
-        assertTrue(accounts.delete(key2));
-        assertNull(accounts.get(key2));
+        assertNotNull(accounts.recordView().get(key2));
+        assertTrue(accounts.recordView().delete(key2));
+        assertNull(accounts.recordView().get(key2));
     }
 
     @Test
     public void testReorder() throws Exception {
-        accounts.upsert(makeValue(1, 100.));
+        accounts.recordView().upsert(makeValue(1, 100.));
 
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction tx3 = (InternalTransaction) igniteTransactions.begin();
 
-        Table table = tx.wrap(accounts);
-        Table table2 = tx2.wrap(accounts);
-        Table table3 = tx3.wrap(accounts);
+        var table = accounts.recordView().withTransaction(tx);
+        var table2 = accounts.recordView().withTransaction(tx2);
+        var table3 = accounts.recordView().withTransaction(tx3);
 
         double v0 = table.get(makeKey(1)).doubleValue("balance");
         double v1 = table3.get(makeKey(1)).doubleValue("balance");
@@ -545,15 +543,15 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     @Test
     public void testReorder2() throws Exception {
-        accounts.upsert(makeValue(1, 100.));
+        accounts.recordView().upsert(makeValue(1, 100.));
 
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction tx3 = (InternalTransaction) igniteTransactions.begin();
 
-        Table table = tx.wrap(accounts);
-        Table table2 = tx2.wrap(accounts);
-        Table table3 = tx3.wrap(accounts);
+        var table = accounts.recordView().withTransaction(tx);
+        var table2 = accounts.recordView().withTransaction(tx2);
+        var table3 = accounts.recordView().withTransaction(tx3);
 
         double v0 = table.get(makeKey(1)).doubleValue("balance");
 
@@ -569,16 +567,16 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     /** */
     @Test
     public void testCrossTable() throws TransactionException {
-        customers.upsert(makeValue(1, "test"));
-        accounts.upsert(makeValue(1, 100.));
+        customers.recordView().upsert(makeValue(1, "test"));
+        accounts.recordView().upsert(makeValue(1, 100.));
 
-        assertEquals("test", customers.get(makeKey(1)).stringValue("name"));
-        assertEquals(100., accounts.get(makeKey(1)).doubleValue("balance"));
+        assertEquals("test", customers.recordView().get(makeKey(1)).stringValue("name"));
+        assertEquals(100., accounts.recordView().get(makeKey(1)).doubleValue("balance"));
 
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
 
-        Table txCust = tx.wrap(customers);
-        Table txAcc = tx.wrap(accounts);
+        var txCust = customers.recordView().withTransaction(tx);
+        var txAcc = accounts.recordView().withTransaction(tx);
 
         txCust.upsert(makeValue(1, "test2"));
         txAcc.upsert(makeValue(1, 200.));
@@ -595,12 +593,10 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         txValAcc.set("accountNumber", 2L);
         txValAcc.set("balance", 300.);
 
-        log.info("DBG: before commit");
-
         tx.commit();
 
-        assertEquals("test2", customers.get(makeKey(1)).stringValue("name"));
-        assertEquals(200., accounts.get(makeKey(1)).doubleValue("balance"));
+        assertEquals("test2", customers.recordView().get(makeKey(1)).stringValue("name"));
+        assertEquals(200., accounts.recordView().get(makeKey(1)).doubleValue("balance"));
 
         assertTrue(lockManager(accounts).isEmpty());
         assertTrue(lockManager(customers).isEmpty());
@@ -609,17 +605,17 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     /** */
     @Test
     public void testTwoTables() throws TransactionException {
-        customers.upsert(makeValue(1, "test"));
-        accounts.upsert(makeValue(1, 100.));
+        customers.recordView().upsert(makeValue(1, "test"));
+        accounts.recordView().upsert(makeValue(1, 100.));
 
-        assertEquals("test", customers.get(makeKey(1)).stringValue("name"));
-        assertEquals(100., accounts.get(makeKey(1)).doubleValue("balance"));
+        assertEquals("test", customers.recordView().get(makeKey(1)).stringValue("name"));
+        assertEquals(100., accounts.recordView().get(makeKey(1)).doubleValue("balance"));
 
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
 
-        Table txCust = tx.wrap(customers);
-        Table txAcc = tx2.wrap(accounts);
+        var txCust = customers.recordView().withTransaction(tx);
+        var txAcc = accounts.recordView().withTransaction(tx);
 
         txCust.upsert(makeValue(1, "test2"));
         txAcc.upsert(makeValue(1, 200.));
@@ -639,8 +635,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         tx.commit();
         tx2.commit();
 
-        assertEquals("test2", customers.get(makeKey(1)).stringValue("name"));
-        assertEquals(200., accounts.get(makeKey(1)).doubleValue("balance"));
+        assertEquals("test2", customers.recordView().get(makeKey(1)).stringValue("name"));
+        assertEquals(200., accounts.recordView().get(makeKey(1)).doubleValue("balance"));
 
         assertTrue(lockManager(accounts).isEmpty());
     }
@@ -648,17 +644,17 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     /** */
     @Test
     public void testCrossTableKeyValueView() throws TransactionException {
-        customers.upsert(makeValue(1L, "test"));
-        accounts.upsert(makeValue(1L, 100.));
+        customers.recordView().upsert(makeValue(1L, "test"));
+        accounts.recordView().upsert(makeValue(1L, 100.));
 
-        assertEquals("test", customers.get(makeKey(1)).stringValue("name"));
-        assertEquals(100., accounts.get(makeKey(1)).doubleValue("balance"));
+        assertEquals("test", customers.recordView().get(makeKey(1)).stringValue("name"));
+        assertEquals(100., accounts.recordView().get(makeKey(1)).doubleValue("balance"));
 
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
 
-        KeyValueBinaryView txCust = tx.wrap(customers).kvView();
-        KeyValueBinaryView txAcc = tx2.wrap(accounts).kvView();
+        var txCust = customers.keyValueView().withTransaction(tx);
+        var txAcc = accounts.keyValueView().withTransaction(tx);
 
         txCust.put(makeKey(1), makeValue("test2"));
         txAcc.put(makeKey(1), makeValue(200.));
@@ -678,8 +674,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         tx.commit();
         tx2.commit();
 
-        assertEquals("test2", customers.get(makeKey(1)).stringValue("name"));
-        assertEquals(200., accounts.get(makeKey(1)).doubleValue("balance"));
+        assertEquals("test2", customers.recordView().get(makeKey(1)).stringValue("name"));
+        assertEquals(200., accounts.recordView().get(makeKey(1)).doubleValue("balance"));
 
         assertTrue(lockManager(accounts).isEmpty());
     }
@@ -687,21 +683,18 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     /** */
     @Test
     public void testCrossTableAsync() throws TransactionException {
-        customers.upsert(makeValue(1, "test"));
-        accounts.upsert(makeValue(1, 100.));
+        customers.recordView().upsert(makeValue(1, "test"));
+        accounts.recordView().upsert(makeValue(1, 100.));
 
         igniteTransactions.beginAsync()
-            .thenCompose(tx -> tx.wrapAsync(accounts).thenCompose(
-                txAcc -> tx.wrapAsync(customers).thenCompose(
-                    txCust -> txAcc.upsertAsync(makeValue(1, 200.))
-                        .thenCombine(txCust.upsertAsync(makeValue(1, "test2")), (v1, v2) -> null)
+            .thenCompose(
+                    tx -> accounts.recordView().withTransaction(tx).upsertAsync(makeValue(1, 200.))
+                        .thenCombine(customers.recordView().withTransaction(tx).upsertAsync(makeValue(1, "test2")), (v1, v2) -> tx)
                 )
-            )
-                .thenApply(ignored -> tx)
-                .thenCompose(Transaction::commitAsync)).join();
+                .thenCompose(Transaction::commitAsync).join();
 
-        assertEquals("test2", customers.get(makeKey(1)).stringValue("name"));
-        assertEquals(200., accounts.get(makeKey(1)).doubleValue("balance"));
+        assertEquals("test2", customers.recordView().get(makeKey(1)).stringValue("name"));
+        assertEquals(200., accounts.recordView().get(makeKey(1)).doubleValue("balance"));
 
         assertTrue(lockManager(accounts).isEmpty());
     }
@@ -709,25 +702,18 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     /** */
     @Test
     public void testCrossTableAsyncRollback() throws TransactionException {
-        customers.upsert(makeValue(1, "test"));
-        accounts.upsert(makeValue(1, 100.));
+        customers.recordView().upsert(makeValue(1, "test"));
+        accounts.recordView().upsert(makeValue(1, 100.));
 
         igniteTransactions.beginAsync()
-            .thenCompose(tx -> tx.wrapAsync(accounts).thenCompose(
-                txAcc -> tx.wrapAsync(customers).thenCompose(
-                    txCust -> tx.wrapAsync(accounts).thenCompose(
-                        txAcc2 -> tx.wrapAsync(customers).thenCompose(
-                            txCust2 -> txAcc.upsertAsync(makeValue(1, 200.))
-                                .thenCombine(txCust.upsertAsync(makeValue(1, "test2")), (v1, v2) -> null)
-                        )
-                    )
-                )
+            .thenCompose(
+                tx -> accounts.recordView().withTransaction(tx).upsertAsync(makeValue(1, 200.))
+                    .thenCombine(customers.recordView().withTransaction(tx).upsertAsync(makeValue(1, "test2")), (v1, v2) -> tx)
             )
-                .thenApply(ignored -> tx)
-                .thenCompose(Transaction::rollbackAsync)).join();
+            .thenCompose(Transaction::rollbackAsync).join();
 
-        assertEquals("test", customers.get(makeKey(1)).stringValue("name"));
-        assertEquals(100., accounts.get(makeKey(1)).doubleValue("balance"));
+        assertEquals("test", customers.recordView().get(makeKey(1)).stringValue("name"));
+        assertEquals(100., accounts.recordView().get(makeKey(1)).doubleValue("balance"));
 
         assertTrue(lockManager(accounts).isEmpty());
     }
@@ -735,21 +721,18 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     /** */
     @Test
     public void testCrossTableAsyncKeyValueView() throws TransactionException {
-        customers.upsert(makeValue(1, "test"));
-        accounts.upsert(makeValue(1, 100.));
+        customers.recordView().upsert(makeValue(1, "test"));
+        accounts.recordView().upsert(makeValue(1, 100.));
 
         igniteTransactions.beginAsync()
-            .thenCompose(tx -> tx.wrapAsync(accounts).thenApply(acc -> acc.kvView()).thenCompose(
-                txAcc -> tx.wrapAsync(customers).thenApply(cust -> cust.kvView()).thenCompose(
-                    txCust -> txAcc.putAsync(makeKey(1), makeValue(200.))
-                        .thenCombine(txCust.putAsync(makeKey(1), makeValue("test2")), (v1, v2) -> null)
-                )
+            .thenCompose(
+                tx -> accounts.keyValueView().withTransaction(tx).putAsync(makeKey(1), makeValue(200.))
+                    .thenCombine(customers.keyValueView().withTransaction(tx).putAsync(makeKey(1), makeValue("test2")), (v1, v2) -> tx)
             )
-                .thenApply(ignored -> tx)
-                .thenCompose(Transaction::commitAsync)).join();
+            .thenCompose(Transaction::commitAsync).join();
 
-        assertEquals("test2", customers.get(makeKey(1)).stringValue("name"));
-        assertEquals(200., accounts.get(makeKey(1)).doubleValue("balance"));
+        assertEquals("test2", customers.recordView().get(makeKey(1)).stringValue("name"));
+        assertEquals(200., accounts.recordView().get(makeKey(1)).doubleValue("balance"));
 
         assertTrue(lockManager(accounts).isEmpty());
     }
@@ -757,21 +740,18 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     /** */
     @Test
     public void testCrossTableAsyncKeyValueViewRollback() throws TransactionException {
-        customers.upsert(makeValue(1, "test"));
-        accounts.upsert(makeValue(1, 100.));
+        customers.recordView().upsert(makeValue(1, "test"));
+        accounts.recordView().upsert(makeValue(1, 100.));
 
         igniteTransactions.beginAsync()
-            .thenCompose(tx -> tx.wrapAsync(accounts).thenApply(acc -> acc.kvView()).thenCompose(
-                txAcc -> tx.wrapAsync(customers).thenApply(cust -> cust.kvView()).thenCompose(
-                    txCust -> txAcc.putAsync(makeKey(1), makeValue(200.))
-                        .thenCombine(txCust.putAsync(makeKey(1), makeValue("test2")), (v1, v2) -> null)
-                )
+            .thenCompose(
+                tx -> accounts.keyValueView().withTransaction(tx).putAsync(makeKey(1), makeValue(200.))
+                    .thenCombine(customers.keyValueView().withTransaction(tx).putAsync(makeKey(1), makeValue("test2")), (v1, v2) -> tx)
             )
-                .thenApply(ignored -> tx)
-                .thenCompose(Transaction::rollbackAsync)).join();
+            .thenCompose(Transaction::rollbackAsync).join();
 
-        assertEquals("test", customers.get(makeKey(1)).stringValue("name"));
-        assertEquals(100., accounts.get(makeKey(1)).doubleValue("balance"));
+        assertEquals("test", customers.recordView().get(makeKey(1)).stringValue("name"));
+        assertEquals(100., accounts.recordView().get(makeKey(1)).doubleValue("balance"));
 
         assertTrue(lockManager(accounts).isEmpty());
     }
@@ -796,12 +776,12 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         final double total = threads.length * initial;
 
         for (int i = 0; i < threads.length; i++)
-            accounts.upsert(makeValue(i, 1000));
+            accounts.recordView().upsert(makeValue(i, 1000));
 
         double total0 = 0;
 
         for (long i = 0; i < threads.length; i++) {
-            double balance = accounts.get(makeKey(i)).doubleValue("balance");
+            double balance = accounts.recordView().get(makeKey(i)).doubleValue("balance");
 
             total0 += balance;
         }
@@ -833,7 +813,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                     while (!stop.get() && firstErr.get() == null) {
                         InternalTransaction tx = txManager(accounts).begin();
 
-                        Table table = tx.wrap(accounts);
+                        var table = accounts.recordView().withTransaction(tx);
 
                         try {
                             long acc1 = finalI;
@@ -904,7 +884,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         total0 = 0;
 
         for (long i = 0; i < threads.length; i++) {
-            double balance = accounts.get(makeKey(i)).doubleValue("balance");
+            double balance = accounts.recordView().get(makeKey(i)).doubleValue("balance");
 
             total0 += balance;
         }

@@ -49,7 +49,6 @@ import org.apache.calcite.sql.fun.SqlLibrary;
 import org.apache.calcite.sql.fun.SqlLibraryOperatorTableFactory;
 import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.sql.util.SqlOperatorTables;
-import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.FrameworkConfig;
@@ -65,8 +64,13 @@ import org.apache.ignite.internal.processors.query.calcite.SqlCursor;
 import org.apache.ignite.internal.processors.query.calcite.SqlQueryType;
 import org.apache.ignite.internal.processors.query.calcite.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteCostFactory;
+import org.apache.ignite.internal.processors.query.calcite.prepare.AbstractMultiStepPlan;
+import org.apache.ignite.internal.processors.query.calcite.prepare.ExplainPlan;
+import org.apache.ignite.internal.processors.query.calcite.prepare.FieldsMetadata;
+import org.apache.ignite.internal.processors.query.calcite.prepare.MultiStepPlan;
 import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningContext;
 import org.apache.ignite.internal.processors.query.calcite.prepare.QueryPlan;
+import org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlConformance;
 import org.apache.ignite.internal.processors.query.calcite.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeSystem;
@@ -111,10 +115,10 @@ public final class Commons {
             SqlParser.config()
                 .withParserFactory(IgniteSqlParserImpl.FACTORY)
                 .withLex(Lex.ORACLE)
-                .withConformance(SqlConformanceEnum.DEFAULT))
+                .withConformance(IgniteSqlConformance.INSTANCE))
         .sqlValidatorConfig(SqlValidator.Config.DEFAULT
             .withIdentifierExpansion(true)
-            .withSqlConformance(SqlConformanceEnum.DEFAULT))
+            .withSqlConformance(IgniteSqlConformance.INSTANCE))
         // Dialects support.
         .operatorTable(SqlOperatorTables.chain(
             SqlLibraryOperatorTableFactory.INSTANCE
@@ -134,14 +138,19 @@ public final class Commons {
     /** */
     private Commons(){}
 
-    public static <T> SqlCursor<T> createCursor(Iterable<T> iterable, QueryPlan.Type plan) {
+    public static <T> SqlCursor<T> createCursor(Iterable<T> iterable, QueryPlan plan) {
         return createCursor(iterable.iterator(), plan);
     }
 
-    public static <T> SqlCursor<T> createCursor(Iterator<T> iter, QueryPlan.Type type) {
+    public static <T> SqlCursor<T> createCursor(Iterator<T> iter, QueryPlan plan) {
         return new SqlCursor<>() {
             @Override public SqlQueryType getQueryType() {
-                return SqlQueryType.mapPlanTypeToSqlType(type);
+                return SqlQueryType.mapPlanTypeToSqlType(plan.type());
+            }
+
+            @Override public FieldsMetadata getColumnMetadata() {
+                return plan instanceof AbstractMultiStepPlan ? ((MultiStepPlan)plan).fieldsMetadata()
+                    : ((ExplainPlan)plan).fieldsMeta();
             }
 
             @Override public void remove() {

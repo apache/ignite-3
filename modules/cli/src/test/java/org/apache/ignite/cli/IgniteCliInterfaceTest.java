@@ -316,7 +316,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             var node =
                 new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
 
-            when(nodeMgr.start(any(), any(), any(), any(), any()))
+            when(nodeMgr.start(any(), any(), any(), any(), any(), any()))
                 .thenReturn(node);
 
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
@@ -333,6 +333,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                 ignitePaths.logDir,
                 ignitePaths.cliPidsDir(),
                 Path.of("conf.json"),
+                ignitePaths.serverJavaUtilLoggingPros(),
                 cli.getOut());
 
             assertEquals("\nNode is successfully started. To stop, type ignite node stop " + nodeName + "\n\n" +
@@ -415,7 +416,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             Assertions.assertEquals(0, exitCode);
             verify(nodeMgr).getRunningNodes(ignitePaths.logDir, ignitePaths.cliPidsDir());
-            assertEquals(cmd.getColorScheme().text("Currently, there are @|bold 2|@ locally running nodes.\n\n") +
+            assertEquals(cmd.getColorScheme().text("Number of running nodes: @|bold 2|@\n\n") +
                 "+---------------+-----+----------+\n" +
                 cmd.getColorScheme().text("| @|bold Consistent ID|@ | @|bold PID|@ | @|bold Log File|@ |\n") +
                 "+---------------+-----+----------+\n" +

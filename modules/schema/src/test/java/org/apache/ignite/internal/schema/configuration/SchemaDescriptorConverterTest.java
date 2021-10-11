@@ -17,17 +17,17 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
-import java.util.UUID;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.SchemaTable;
-import org.apache.ignite.schema.builder.SchemaTableBuilder;
-import org.apache.ignite.schema.builder.TableColumnBuilder;
+import org.apache.ignite.schema.definition.ColumnDefinition;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.TableDefinition;
+import org.apache.ignite.schema.definition.builder.ColumnDefinitionBuilder;
+import org.apache.ignite.schema.definition.builder.TableSchemaBuilder;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -44,15 +44,15 @@ public class SchemaDescriptorConverterTest {
      * Convert table with complex primary key and check it.
      */
     @Test
-    public void testComplexPrimaryIndex() {
-        SchemaTableBuilder bldr = getBuilder(false, false);
-        SchemaTable tblSchm = bldr.withIndex(SchemaBuilders.pkIndex()
-            .addIndexColumn("INT8").done()
-            .addIndexColumn("ID").done()
-            .build()
+    public void testComplexPrimaryKey() {
+        TableSchemaBuilder bldr = getBuilder(false, false);
+        TableDefinition tblSchm = bldr.withPrimaryKey(
+            SchemaBuilders.primaryKey()
+                .withColumns("INT8", "ID")
+                .build()
         ).build();
 
-        SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(UUID.randomUUID(), 1, tblSchm);
+        SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(1, tblSchm);
 
         assertEquals(2, tblDscr.keyColumns().length());
         assertEquals(2, tblDscr.affinityColumns().length);
@@ -63,16 +63,16 @@ public class SchemaDescriptorConverterTest {
      * Convert table with complex primary key with affinity column configured and check it.
      */
     @Test
-    public void testComplexPrimaryIndexWithAffinity() {
-        SchemaTableBuilder bldr = getBuilder(false, false);
-        SchemaTable tblSchm = bldr.withIndex(SchemaBuilders.pkIndex()
-            .addIndexColumn("INT8").done()
-            .addIndexColumn("ID").done()
-            .withAffinityColumns("INT8")
-            .build()
+    public void testComplexPrimaryKeyWithAffinity() {
+        TableSchemaBuilder bldr = getBuilder(false, false);
+        TableDefinition tblSchm = bldr.withPrimaryKey(
+            SchemaBuilders.primaryKey()
+                .withColumns("INT8", "ID")
+                .withAffinityColumns("INT8")
+                .build()
         ).build();
 
-        SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(UUID.randomUUID(), 1, tblSchm);
+        SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(1, tblSchm);
 
         assertEquals(2, tblDscr.keyColumns().length());
         assertEquals(1, tblDscr.affinityColumns().length);
@@ -101,9 +101,9 @@ public class SchemaDescriptorConverterTest {
      * @param nullable Nullable flag.
      */
     private void testConvert(boolean nullable) {
-        SchemaTable tblSchm = getBuilder(nullable, true).build();
+        TableDefinition tblSchm = getBuilder(nullable, true).build();
 
-        SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(UUID.randomUUID(), 1, tblSchm);
+        SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(1, tblSchm);
 
         assertEquals(1, tblDscr.keyColumns().length());
         testCol(tblDscr.keyColumns(), "ID", NativeTypeSpec.UUID, nullable);
@@ -126,14 +126,14 @@ public class SchemaDescriptorConverterTest {
     }
 
     /**
-     * Get SchemaTableBuilder with default table.
+     * Get TableSchemaBuilder with default table.
      *
      * @param nullable If all columns should be nullable.
      * @param withPk If builder should contains primary key index.
-     * @return SchemaTableBuilder.
+     * @return TableSchemaBuilder.
      */
-    private SchemaTableBuilder getBuilder(boolean nullable, boolean withPk) {
-        Function<TableColumnBuilder, org.apache.ignite.schema.Column> postProcess = builder -> {
+    private TableSchemaBuilder getBuilder(boolean nullable, boolean withPk) {
+        Function<ColumnDefinitionBuilder, ColumnDefinition> postProcess = builder -> {
             if (nullable)
                 builder.asNullable();
             else
@@ -141,7 +141,7 @@ public class SchemaDescriptorConverterTest {
             return builder.build();
         };
 
-        SchemaTableBuilder res = SchemaBuilders.tableBuilder("SCHEMA", "TABLE")
+        TableSchemaBuilder res = SchemaBuilders.tableBuilder("SCHEMA", "TABLE")
             .columns(
                 postProcess.apply(SchemaBuilders.column("ID", ColumnType.UUID)),
                 postProcess.apply(SchemaBuilders.column("INT8", ColumnType.INT8)),

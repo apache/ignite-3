@@ -17,6 +17,8 @@
 
 package org.apache.ignite.table;
 
+import java.io.IOException;
+import java.io.Serializable;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -35,21 +37,28 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Simple tuple implementation.
  */
-public class TupleImpl implements Tuple {
-    /** Column name -&gt; index mapping. */
-    private final Map<String, Integer> colIdxMap;
+class TupleImpl implements Tuple, Serializable {
+    /** Version UID. */
+    private static final long serialVersionUID = 0L;
+
+    /**
+     * Column name -&gt; index mapping.
+     * <p>
+     * Note: Transient because it's recoverable from {@link #colNames}.
+     */
+    private transient Map<String, Integer> colMapping;
 
     /** Columns names. */
     private final List<String> colNames;
 
     /** Columns values. */
-    private final List<Object> vals;
+    private final List<Object> colValues;
 
     /**
      * Creates tuple.
      */
-    public TupleImpl() {
-        this(new HashMap<>(), new ArrayList(), new ArrayList());
+    TupleImpl() {
+        this(new HashMap<>(), new ArrayList<>(), new ArrayList<>());
     }
 
     /**
@@ -57,30 +66,8 @@ public class TupleImpl implements Tuple {
      *
      * @param capacity Initial capacity.
      */
-    public TupleImpl(int capacity) {
-        this(new HashMap<>(capacity), new ArrayList(capacity), new ArrayList(capacity));
-    }
-
-    /**
-     * Copying constructor.
-     *
-     * @param tuple Tuple to copy.
-     */
-    public TupleImpl(@NotNull TupleImpl tuple) {
-        this(new HashMap<>(tuple.colIdxMap), new ArrayList<>(tuple.colNames), new ArrayList<>(tuple.vals));
-    }
-
-    /**
-     * Private constructor.
-     *
-     * @param columnNameMapping Column name mapping.
-     * @param columnNames Column names.
-     * @param values Column values.
-     */
-    private TupleImpl(Map<String, Integer> columnNameMapping, List<String> columnNames, List<Object> values) {
-        this.colIdxMap = columnNameMapping;
-        this.colNames = columnNames;
-        this.vals = values;
+    TupleImpl(int capacity) {
+        this(new HashMap<>(capacity), new ArrayList<>(capacity), new ArrayList<>(capacity));
     }
 
     /**
@@ -88,25 +75,36 @@ public class TupleImpl implements Tuple {
      *
      * @param tuple Tuple.
      */
-    public TupleImpl(@NotNull Tuple tuple) {
+    TupleImpl(@NotNull Tuple tuple) {
         this(tuple.columnCount());
 
         for (int i = 0, len = tuple.columnCount(); i < len; i++)
             set(tuple.columnName(i), tuple.value(i));
     }
 
+    /**
+     * A private constructor.
+     *
+     * @param columnMapping Column name-to-idx mapping.
+     * @param columnNames List of columns names.
+     * @param columnValues List of columns values.
+     */
+    private TupleImpl(Map<String, Integer> columnMapping, List<String> columnNames, List<Object> columnValues) {
+        this.colMapping = columnMapping;
+        this.colNames = columnNames;
+        this.colValues = columnValues;
+    }
+
     /** {@inheritDoc} */
     @Override public Tuple set(@NotNull String columnName, Object val) {
-        Objects.nonNull(columnName);
-
-        int idx = colIdxMap.computeIfAbsent(columnName, name -> colIdxMap.size());
+        int idx = colMapping.computeIfAbsent(Objects.requireNonNull(columnName), name -> colMapping.size());
 
         if (idx == colNames.size()) {
             colNames.add(idx, columnName);
-            vals.add(idx, val);
+            colValues.add(idx, val);
         } else {
             colNames.set(idx, columnName);
-            vals.set(idx, val);
+            colValues.set(idx, val);
         }
 
         return this;
@@ -114,7 +112,7 @@ public class TupleImpl implements Tuple {
 
     /** {@inheritDoc} */
     @Override public String columnName(int columnIndex) {
-        Objects.checkIndex(columnIndex, vals.size());
+        Objects.checkIndex(columnIndex, colValues.size());
 
         return colNames.get(columnIndex);
     }
@@ -123,7 +121,7 @@ public class TupleImpl implements Tuple {
     @Override public int columnIndex(@NotNull String columnName) {
         Objects.requireNonNull(columnName);
 
-        Integer idx = colIdxMap.get(columnName);
+        Integer idx = colMapping.get(columnName);
 
         return idx == null ? -1 : idx;
     }
@@ -137,7 +135,7 @@ public class TupleImpl implements Tuple {
     @Override public <T> T valueOrDefault(@NotNull String columnName, T def) {
         int idx = columnIndex(columnName);
 
-        return (idx == -1) ? def : (T) vals.get(idx);
+        return (idx == -1) ? def : (T)colValues.get(idx);
     }
 
     /** {@inheritDoc} */
@@ -147,14 +145,14 @@ public class TupleImpl implements Tuple {
         if (idx == -1)
             throw new IllegalArgumentException("Column not found: columnName=" + columnName);
 
-        return (T) vals.get(idx);
+        return (T)colValues.get(idx);
     }
 
     /** {@inheritDoc} */
     @Override public <T> T value(int columnIndex) {
-        Objects.checkIndex(columnIndex, vals.size());
+        Objects.checkIndex(columnIndex, colValues.size());
 
-        return (T) vals.get(columnIndex);
+        return (T)colValues.get(columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -305,13 +303,46 @@ public class TupleImpl implements Tuple {
 
             /** {@inheritDoc} */
             @Override public boolean hasNext() {
-                return cur < vals.size();
+                return cur < colValues.size();
             }
 
             /** {@inheritDoc} */
             @Override public Object next() {
-                return hasNext() ? vals.get(cur++) : null;
+                return hasNext() ? colValues.get(cur++) : null;
             }
         };
+    }
+
+    /** {@inheritDoc} */
+    @Override public int hashCode() {
+        return Tuple.hashCode(this);
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+
+        if (obj instanceof Tuple)
+            return Tuple.equals(this, (Tuple)obj);
+
+        return false;
+    }
+
+    /**
+     * Deserializes object.
+     *
+     * @param in Input object stream.
+     * @throws IOException            If failed.
+     * @throws ClassNotFoundException If failed.
+     */
+    private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
+        in.defaultReadObject();
+
+        // Recover column name->index mapping.
+        colMapping = new HashMap<>(colNames.size());
+
+        for (int i = 0; i < colNames.size(); i++)
+            colMapping.put(colNames.get(i), i);
     }
 }

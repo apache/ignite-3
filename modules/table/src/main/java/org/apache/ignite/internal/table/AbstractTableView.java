@@ -24,7 +24,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Base class for Table views.
@@ -52,28 +51,6 @@ abstract class AbstractTableView {
     }
 
     /**
-     * @return Current transaction.
-     */
-    public @Nullable Transaction transaction() {
-        return tx;
-    }
-
-    /**
-     * @param tx The transaction.
-     * @return Transactional view.
-     */
-    public abstract AbstractTableView withTransaction(Transaction tx);
-
-    /**
-     * @return Internal table.
-     */
-    @TestOnly
-    public InternalTable internalTable() {
-        return tbl;
-    }
-
-
-    /**
      * Waits for operation completion.
      *
      * @param fut Future to wait to.
@@ -95,4 +72,17 @@ abstract class AbstractTableView {
             throw new IgniteInternalException(e);
         }
     }
+
+    /**
+     * @return Current transaction.
+     */
+    public @Nullable Transaction transaction() {
+        return tx;
+    }
+
+    /**
+     * @param tx The transaction.
+     * @return Transactional view.
+     */
+    public abstract AbstractTableView withTransaction(Transaction tx);
 }

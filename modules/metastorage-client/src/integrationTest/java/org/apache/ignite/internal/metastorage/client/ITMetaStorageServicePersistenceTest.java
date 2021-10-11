@@ -20,7 +20,6 @@ package org.apache.ignite.internal.metastorage.client;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -28,6 +27,7 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDBKeyValue
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.service.ITAbstractListenerSnapshotTest;
@@ -128,8 +128,8 @@ public class ITMetaStorageServicePersistenceTest extends ITAbstractListenerSnaps
     }
 
     /** {@inheritDoc} */
-    @Override public RaftGroupListener createListener(ClusterService service, Path workDir) {
-        storage = new RocksDBKeyValueStorage(workDir.resolve(UUID.randomUUID().toString()));
+    @Override public RaftGroupListener createListener(ClusterService service, TxManagerImpl txManager, Path listenerPersistencePath) {
+        storage = new RocksDBKeyValueStorage(listenerPersistencePath);
 
         storage.start();
 

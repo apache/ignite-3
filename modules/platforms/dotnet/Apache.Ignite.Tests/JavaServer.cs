@@ -33,11 +33,18 @@ namespace Apache.Ignite.Tests
     {
         private const int DefaultClientPort = 10942;
 
+        private const int ConnectTimeoutSeconds = 20;
+
         /** Maven command to execute the main class. */
         private const string MavenCommandExec = "exec:java@platform-test-node-runner";
 
+        /** Maven arg to perform a dry run to ensure that code is compiled and all artifacts are downloaded. */
+        private const string MavenCommandDryRunArg = " -Dexec.args=dry-run";
+
         /** Full path to Maven binary. */
         private static readonly string MavenPath = GetMaven();
+
+        private static volatile bool _dryRunComplete;
 
         private readonly Process? _process;
 
@@ -55,31 +62,18 @@ namespace Apache.Ignite.Tests
         /// <returns>Disposable object to stop the server.</returns>
         public static async Task<JavaServer> StartAsync()
         {
-            if (await TryConnect(DefaultClientPort))
+            if (await TryConnect(DefaultClientPort) == null)
             {
                 // Server started from outside.
+                Log(">>> Java server is already started.");
+
                 return new JavaServer(DefaultClientPort, null);
             }
 
-            var file = TestUtils.IsWindows ? "cmd.exe" : "/bin/bash";
+            Log(">>> Java server is not detected, starting...");
 
-            var process = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = file,
-                    ArgumentList =
-                    {
-                        TestUtils.IsWindows ? "/c" : "-c",
-                        $"{MavenPath} {MavenCommandExec}"
-                    },
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    WorkingDirectory = Path.Combine(TestUtils.RepoRootDir, "modules", "runner"),
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                }
-            };
+            EnsureBuild();
+            var process = CreateProcess();
 
             var evt = new ManualResetEventSlim(false);
             int[]? ports = null;
@@ -92,11 +86,7 @@ namespace Apache.Ignite.Tests
                     return;
                 }
 
-                // For IDE
-                Console.WriteLine(line);
-
-                // For `dotnet test`
-                TestContext.Progress.WriteLine(line);
+                Log(line);
 
                 if (line.StartsWith("THIN_CLIENT_PORTS", StringComparison.Ordinal))
                 {
@@ -113,14 +103,18 @@ namespace Apache.Ignite.Tests
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
 
-            if (!evt.Wait(TimeSpan.FromSeconds(15)) || !WaitForServer(ports?.FirstOrDefault() ?? DefaultClientPort))
+            var port = ports?.FirstOrDefault() ?? DefaultClientPort;
+
+            if (!evt.Wait(TimeSpan.FromSeconds(ConnectTimeoutSeconds)) || !WaitForServer(port))
             {
                 process.Kill(true);
 
-                throw new InvalidOperationException("Failed to wait for the server to start.");
+                throw new InvalidOperationException("Failed to wait for the server to start. Check logs for details.");
             }
 
-            return new JavaServer(ports?.FirstOrDefault() ?? DefaultClientPort, process);
+            Log($">>> Java server started on port {port}.");
+
+            return new JavaServer(port, process);
         }
 
         public void Dispose()
@@ -129,13 +123,93 @@ namespace Apache.Ignite.Tests
             _process?.Dispose();
         }
 
+        /// <summary>
+        /// Performs a dry run of the Maven executable to ensure that code is compiled and all artifacts are downloaded.
+        /// Does not start the actual node.
+        /// </summary>
+        private static void EnsureBuild()
+        {
+            if (_dryRunComplete)
+            {
+                return;
+            }
+
+            using var process = CreateProcess(dryRun: true);
+
+            DataReceivedEventHandler handler = (_, eventArgs) =>
+            {
+                var line = eventArgs.Data;
+                if (line == null)
+                {
+                    return;
+                }
+
+                Log(line);
+            };
+
+            process.OutputDataReceived += handler;
+            process.ErrorDataReceived += handler;
+
+            process.Start();
+
+            process.BeginErrorReadLine();
+            process.BeginOutputReadLine();
+
+            // 5 min timeout for the build process (may take time to download artifacts on slow networks).
+            if (!process.WaitForExit(5 * 60_000))
+            {
+                process.Kill();
+                throw new Exception("Failed to wait for Maven exec dry run.");
+            }
+
+            if (process.ExitCode != 0)
+            {
+                throw new Exception($"Maven exec failed with code {process.ExitCode}, check log for details.");
+            }
+
+            _dryRunComplete = true;
+        }
+
+        private static Process CreateProcess(bool dryRun = false)
+        {
+            var file = TestUtils.IsWindows ? "cmd.exe" : "/bin/bash";
+
+            var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = file,
+                    ArgumentList =
+                    {
+                        TestUtils.IsWindows ? "/c" : "-c",
+                        $"{MavenPath} {MavenCommandExec}" + (dryRun ? MavenCommandDryRunArg : string.Empty)
+                    },
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    WorkingDirectory = Path.Combine(TestUtils.RepoRootDir, "modules", "runner"),
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                }
+            };
+            return process;
+        }
+
+        private static void Log(string? line)
+        {
+            // For IDE.
+            Console.WriteLine(line);
+
+            // For `dotnet test`.
+            TestContext.Progress.WriteLine(line);
+        }
+
         private static bool WaitForServer(int port)
         {
             var cts = new CancellationTokenSource();
 
             try
             {
-                return TryConnectForever(port, cts.Token).Wait(TimeSpan.FromSeconds(15));
+                return TryConnectForever(port, cts.Token).Wait(TimeSpan.FromSeconds(ConnectTimeoutSeconds));
             }
             finally
             {
@@ -145,24 +219,27 @@ namespace Apache.Ignite.Tests
 
         private static async Task TryConnectForever(int port, CancellationToken ct)
         {
-            while (!await TryConnect(port))
+            while (await TryConnect(port) != null)
             {
                 ct.ThrowIfCancellationRequested();
             }
         }
 
-        private static async Task<bool> TryConnect(int port)
+        private static async Task<Exception?> TryConnect(int port)
         {
             try
             {
                 var cfg = new IgniteClientConfiguration("127.0.0.1:" + port);
                 using var client = await IgniteClient.StartAsync(cfg);
 
-                return (await client.Tables.GetTablesAsync()).Count > 0;
+                var tables = await client.Tables.GetTablesAsync();
+                return tables.Count > 0 ? null : new InvalidOperationException("No tables found on server");
             }
-            catch
+            catch (Exception e)
             {
-                return false;
+                Log(e.ToString());
+
+                return e;
             }
         }
 

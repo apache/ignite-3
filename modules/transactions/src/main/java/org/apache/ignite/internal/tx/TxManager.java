@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -75,15 +76,16 @@ public interface TxManager extends IgniteComponent {
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> writeLock(UUID tableId, ByteBuffer keyData, Timestamp ts);
+    public CompletableFuture<Void> writeLock(IgniteUuid tableId, ByteBuffer keyData, Timestamp ts);
 
     /**
      * @param key The key.
+     * @param tableId
      * @param ts The timestamp.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> readLock(UUID tableId, ByteBuffer keyData, Timestamp ts);
+    public CompletableFuture<Void> readLock(IgniteUuid tableId, ByteBuffer keyData, Timestamp ts);
 
     /**
      * @param timestamp The timestamp.

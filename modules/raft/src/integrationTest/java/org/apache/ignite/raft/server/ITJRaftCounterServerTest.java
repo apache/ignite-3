@@ -24,6 +24,8 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
@@ -31,10 +33,12 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -53,7 +57,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.apache.ignite.raft.jraft.core.State.STATE_ERROR;
@@ -126,15 +129,20 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
     @WorkDirectory
     private Path dataPath;
 
+    /** Executor for raft group services. */
+    private ScheduledExecutorService executor;
+
     /** */
     @BeforeEach
-    void before(TestInfo testInfo) {
+    void before() {
         LOG.info(">>>>>>>>>>>>>>> Start test method: {}", testInfo.getTestMethod().orElseThrow().getName());
+
+        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
     }
 
     /** */
     @AfterEach
-    @Override protected void after(TestInfo testInfo) throws Exception {
+    @Override protected void after() throws Exception {
         LOG.info("Start client shutdown");
 
         Iterator<RaftGroupService> iterClients = clients.iterator();
@@ -159,7 +167,9 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
             server.stop();
         }
 
-        super.after(testInfo);
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+
+        super.after();
 
         LOG.info(">>>>>>>>>>>>>>> End test method: {}", testInfo.getTestMethod().orElseThrow().getName());
     }
@@ -171,7 +181,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
     private JRaftServerImpl startServer(int idx, Consumer<RaftServer> clo) {
         var addr = new NetworkAddress(getLocalAddress(), PORT);
 
-        ClusterService service = clusterService("server" + idx, PORT + idx, List.of(addr), true);
+        ClusterService service = clusterService(PORT + idx, List.of(addr), true);
 
         JRaftServerImpl server = new JRaftServerImpl(service, null, dataPath) {
             @Override public void stop() {
@@ -202,11 +212,10 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
     private RaftGroupService startClient(String groupId) throws Exception {
         var addr = new NetworkAddress(getLocalAddress(), PORT);
 
-        ClusterService clientNode = clusterService(
-            "client_" + groupId + "_", CLIENT_PORT + clients.size(), List.of(addr), true);
+        ClusterService clientNode = clusterService(CLIENT_PORT + clients.size(), List.of(addr), true);
 
         RaftGroupService client = RaftGroupServiceImpl.start(groupId, clientNode, FACTORY, 10_000,
-            List.of(new Peer(addr)), false, 200).get(3, TimeUnit.SECONDS);
+            List.of(new Peer(addr)), false, 200, executor).get(3, TimeUnit.SECONDS);
 
         clients.add(client);
 

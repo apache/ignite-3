@@ -135,12 +135,12 @@ public final class ClientTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override public BinaryObject binaryObjectValue(@NotNull String columnName) {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public BinaryObject binaryObjectValue(int columnIndex) {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -292,8 +292,24 @@ public final class ClientTuple implements Tuple {
     }
 
     /** {@inheritDoc} */
+    @Override public int hashCode() {
+        return Tuple.hashCode(this);
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+
+        if (obj instanceof Tuple)
+            return Tuple.equals(this, (Tuple)obj);
+
+        return false;
+    }
+
+    /** {@inheritDoc} */
     @Override public String toString() {
-        var sb = new StringBuilder("ClientTupleBuilder [");
+        var sb = new StringBuilder("ClientTuple [");
 
         for (int i = 0; i < columnCount(); i++) {
             if (i > 0)

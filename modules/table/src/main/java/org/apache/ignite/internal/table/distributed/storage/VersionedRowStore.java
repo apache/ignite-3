@@ -10,13 +10,14 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.DataRow;
+import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.SearchRow;
-import org.apache.ignite.internal.storage.Storage;
 import org.apache.ignite.internal.storage.basic.DeleteExactInvokeClosure;
 import org.apache.ignite.internal.storage.basic.GetAndRemoveInvokeClosure;
 import org.apache.ignite.internal.storage.basic.GetAndReplaceInvokeClosure;
 import org.apache.ignite.internal.storage.basic.ReplaceExactInvokeClosure;
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
+import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -29,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class VersionedRowStore {
     /** Storage delegate. */
-    private final Storage storage;
+    private final PartitionStorage storage;
     
     /** */
     private TxManager txManager;
@@ -38,7 +39,7 @@ public class VersionedRowStore {
      * @param storage The storage.
      * @param txManager The TX manager.
      */
-    public VersionedRowStore(Storage storage, TxManager txManager) {
+    public VersionedRowStore(PartitionStorage storage, TxManager txManager) {
         this.storage = storage;
         this.txManager = txManager;
     }
@@ -59,7 +60,7 @@ public class VersionedRowStore {
     }
 
     /** {@inheritDoc} */
-    public Collection<BinaryRow> getAll(Collection<BinaryRow> keyRows, Timestamp ts) {
+    public List<BinaryRow> getAll(Collection<BinaryRow> keyRows, Timestamp ts) {
         assert keyRows != null && !keyRows.isEmpty();
 
         List<SearchRow> keys = keyRows.stream().map(VersionedRowStore::extractAndWrapKey)
@@ -161,7 +162,7 @@ public class VersionedRowStore {
     }
 
     /** {@inheritDoc} */
-    public Collection<BinaryRow> insertAll(Collection<BinaryRow> rows, Timestamp ts) {
+    public List<BinaryRow> insertAll(Collection<BinaryRow> rows, Timestamp ts) {
         assert rows != null && !rows.isEmpty();
 
         List<DataRow> keyValues = rows.stream().map(VersionedRowStore::extractAndWrapKeyValue)
@@ -238,13 +239,12 @@ public class VersionedRowStore {
         return getAndRemoveClosure.result() ? new ByteBufferRow(getAndRemoveClosure.oldRow().valueBytes()) : null;
     }
 
-    public Collection<BinaryRow> deleteAll(Collection<BinaryRow> rows, Timestamp ts) {
+    public List<BinaryRow> deleteAll(Collection<BinaryRow> rows, Timestamp ts) {
         List<SearchRow> keys = rows.stream().map(VersionedRowStore::extractAndWrapKey)
             .collect(Collectors.toList());
 
         List<BinaryRow> res = storage.removeAll(keys).stream()
-            .map(removed -> new ByteBufferRow(removed.valueBytes()))
-            .filter(BinaryRow::hasValue)
+            .map(skipped -> ((BinarySearchRow)skipped).sourceRow)
             .collect(Collectors.toList());
 
         return res;
@@ -490,7 +490,7 @@ public class VersionedRowStore {
     /**
      * Wrapper provides correct byte[] comparison.
      */
-    private static class KeyWrapper {
+    public static class KeyWrapper {
         /** Data. */
         private final byte[] data;
 
@@ -502,7 +502,7 @@ public class VersionedRowStore {
          *
          * @param data Wrapped data.
          */
-        KeyWrapper(byte[] data, int hash) {
+        public KeyWrapper(byte[] data, int hash) {
             assert data != null;
 
             this.data = data;
@@ -530,7 +530,7 @@ public class VersionedRowStore {
     /**
      * @return The delegate.
      */
-    public Storage delegate() {
+    public PartitionStorage delegate() {
         return storage;
     }
 
@@ -539,5 +539,38 @@ public class VersionedRowStore {
      */
     public TxManager txManager() {
         return txManager;
+    }
+
+    /**
+     * Adapter that converts a {@link BinaryRow} into a {@link SearchRow}.
+     */
+    private static class BinarySearchRow implements SearchRow {
+        /** Search key. */
+        private final byte[] keyBytes;
+
+        /** Source row. */
+        private final BinaryRow sourceRow;
+
+        /**
+         * Constructor.
+         *
+         * @param row Row to search for.
+         */
+        BinarySearchRow(BinaryRow row) {
+            sourceRow = row;
+            keyBytes = new byte[row.keySlice().capacity()];
+
+            row.keySlice().get(keyBytes);
+        }
+
+        /** {@inheritDoc} */
+        @Override public byte @NotNull [] keyBytes() {
+            return keyBytes;
+        }
+
+        /** {@inheritDoc} */
+        @Override public @NotNull ByteBuffer key() {
+            return ByteBuffer.wrap(keyBytes);
+        }
     }
 }

@@ -18,18 +18,25 @@
 package org.apache.ignite.internal.table.impl;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
 import java.util.function.Function;
+import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.schema.SchemaMode;
+import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.lang.IgniteUuidGenerator;
+import org.apache.ignite.schema.definition.SchemaManagementMode;
+import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -45,7 +52,7 @@ public class DummyInternalTableImpl implements InternalTable {
     private final TxManager txManager;
 
     /** */
-    private final UUID tableId = UUID.randomUUID();
+    private final IgniteUuid tableId = new IgniteUuidGenerator(UUID.randomUUID(), 0).randomUuid();
 
     /**
      * @param store The store.
@@ -57,8 +64,8 @@ public class DummyInternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull UUID tableId() {
-        return tableId;
+    @Override public @NotNull IgniteUuid tableId() {
+        return new IgniteUuid(UUID.randomUUID(), 0);
     }
 
     /** {@inheritDoc} */
@@ -67,12 +74,12 @@ public class DummyInternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull SchemaMode schemaMode() {
-        return SchemaMode.STRICT_SCHEMA;
+    @Override public @NotNull SchemaManagementMode schemaMode() {
+        return SchemaManagementMode.STRICT;
     }
 
     /** {@inheritDoc} */
-    @Override public void schema(SchemaMode schemaMode) {
+    @Override public void schema(SchemaManagementMode schemaMode) {
     }
 
     /** {@inheritDoc} */
@@ -145,21 +152,6 @@ public class DummyInternalTableImpl implements InternalTable {
         });
     }
 
-    /**
-     * TODO asch refactor to utility method.
-     * Extracts a key from the {@link BinaryRow} and wraps it in a {@link SearchRow}.
-     *
-     * @param row Binary row.
-     * @return Search row.
-     */
-    @NotNull private static byte[] extractAndWrapKey(@NotNull BinaryRow row) {
-        // TODO asch can reuse thread local byte buffer
-        byte[] key = new byte[row.keySlice().capacity()];
-        row.keySlice().get(key);
-
-        return key;
-    }
-
     /** {@inheritDoc} */
     @Override public CompletableFuture<BinaryRow> getAndUpsert(@NotNull BinaryRow row,
         InternalTransaction tx) {
@@ -221,6 +213,7 @@ public class DummyInternalTableImpl implements InternalTable {
         return completedFuture(store.replace(oldRow, newRow, tx.timestamp()));
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<BinaryRow> getAndReplace(BinaryRow row, InternalTransaction tx) {
         return null;
     }
@@ -246,8 +239,29 @@ public class DummyInternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows,
-        InternalTransaction tx) {
-        return completedFuture(store.deleteAllExact(rows, tx.timestamp()));
+                                                                             InternalTransaction tx) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Flow.Publisher<BinaryRow> scan(int p, @Nullable Transaction tx) {
+        throw new IgniteInternalException(new OperationNotSupportedException());
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull List<String> assignments() {
+        throw new IgniteInternalException(new OperationNotSupportedException());
+    }
+
+    /**
+     * @param row Row.
+     * @return Extracted key.
+     */
+    @NotNull private VersionedRowStore.KeyWrapper extractAndWrapKey(@NotNull BinaryRow row) {
+        final byte[] bytes = new byte[row.keySlice().capacity()];
+        row.keySlice().get(bytes);
+
+        return new VersionedRowStore.KeyWrapper(bytes, row.hash());
     }
 
     /** {@inheritDoc} */

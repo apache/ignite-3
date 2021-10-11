@@ -22,7 +22,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
@@ -35,6 +34,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.message.TxFinishRequest;
 import org.apache.ignite.internal.tx.message.TxFinishResponse;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
@@ -155,7 +155,7 @@ public class TxManagerImpl implements TxManager {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> writeLock(UUID tableId, ByteBuffer keyData, Timestamp ts) {
+    @Override public CompletableFuture<Void> writeLock(IgniteUuid tableId, ByteBuffer keyData, Timestamp ts) {
         if (state(ts) != TxState.PENDING)
             return failedFuture(new TransactionException("The operation is attempted for completed transaction"));
 
@@ -174,7 +174,7 @@ public class TxManagerImpl implements TxManager {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> readLock(UUID tableId, ByteBuffer keyData, Timestamp ts) {
+    @Override public CompletableFuture<Void> readLock(IgniteUuid tableId, ByteBuffer keyData, Timestamp ts) {
         if (state(ts) != TxState.PENDING)
             return failedFuture(new TransactionException("The operation is attempted for completed transaction"));
 
@@ -279,7 +279,7 @@ public class TxManagerImpl implements TxManager {
     /** */
     private static class TableLockKey {
         /** */
-        private final UUID tableId;
+        private final IgniteUuid tableId;
 
         /** */
         private final ByteBuffer key;
@@ -288,7 +288,7 @@ public class TxManagerImpl implements TxManager {
          * @param tableId Table ID.
          * @param key The key.
          */
-        TableLockKey(UUID tableId, ByteBuffer key) {
+        TableLockKey(IgniteUuid tableId, ByteBuffer key) {
             this.tableId = tableId;
             this.key = key;
         }

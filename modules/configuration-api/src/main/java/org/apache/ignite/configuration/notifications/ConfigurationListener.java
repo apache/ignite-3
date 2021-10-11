@@ -35,4 +35,3 @@ public interface ConfigurationListener<VIEW> {
      */
     @NotNull CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<VIEW> ctx);
 }
-

@@ -23,29 +23,36 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
+import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.storage.basic.ConcurrentHashMapStorage;
+import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.LocalPortRangeNodeFinder;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
@@ -57,6 +64,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -71,56 +79,39 @@ import static org.junit.jupiter.api.Assertions.fail;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class TxDistributedTest_1_1_1 extends TxAbstractTest {
-    /**
-     * Base network port.
-     */
+    /** Base network port. */
     public static final int NODE_PORT_BASE = 20_000;
 
-    /**
-     * Factory.
-     */
+    /** Factory. */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
-    /**
-     * Network factory.
-     */
+    /** Network factory. */
     private static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
-    /**
-     *
-     */
+    /** */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
 
-    /**
-     *
-     */
+    /** */
     private ClusterService client;
 
-    /**
-     *
-     */
+    /** */
     protected Map<ClusterNode, RaftServer> raftServers;
 
-    /**
-     *
-     */
+    /** */
     protected Map<Integer, RaftGroupService> accRaftClients;
 
-    /**
-     *
-     */
+    /** */
     protected Map<Integer, RaftGroupService> custRaftClients;
 
-    /**
-     * Cluster.
-     */
+    /** Cluster. */
     protected List<ClusterService> cluster = new CopyOnWriteArrayList<>();
 
-    /**
-     *
-     */
+    /** */
     @WorkDirectory
     protected Path dataPath;
+
+    /** */
+    private ScheduledThreadPoolExecutor executor;
 
     /**
      * @return Nodes.
@@ -143,6 +134,16 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
         return true;
     }
 
+    /** */
+    private final TestInfo testInfo;
+
+    /**
+     * @param testInfo Test info.
+     */
+    public TxDistributedTest_1_1_1(TestInfo testInfo) {
+        this.testInfo = testInfo;
+    }
+
     /**
      * Initialize the test state.
      */
@@ -157,7 +158,7 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
         var nodeFinder = new LocalPortRangeNodeFinder(NODE_PORT_BASE, NODE_PORT_BASE + nodes);
 
         nodeFinder.findNodes().parallelStream()
-            .map(addr -> startNode(addr.toString(), addr.port(), nodeFinder))
+            .map(addr -> startNode(testInfo, addr.toString(), addr.port(), nodeFinder))
             .forEach(cluster::add);
 
         for (ClusterService node : cluster)
@@ -166,7 +167,7 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
         log.info("The cluster has been started");
 
         if (startClient()) {
-            client = startNode("client", NODE_PORT_BASE - 1, nodeFinder);
+            client = startNode(testInfo, "client", NODE_PORT_BASE - 1, nodeFinder);
 
             assertTrue(waitForTopology(client, nodes + 1, 1000));
 
@@ -175,6 +176,8 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
 
         // Start raft servers. Each raft server can hold multiple groups.
         raftServers = new HashMap<>(nodes);
+
+        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
 
         for (int i = 0; i < nodes; i++) {
             TxManagerImpl txManager = new TxManagerImpl(cluster.get(i), new HeapLockManager());
@@ -191,8 +194,11 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
         final String accountsName = "accounts";
         final String customersName = "customers";
 
-        accRaftClients = startTable(accountsName);
-        custRaftClients = startTable(customersName);
+        IgniteUuid accTblId = new IgniteUuidGenerator(UUID.randomUUID(), 0).randomUuid();
+        IgniteUuid custTblId = new IgniteUuidGenerator(UUID.randomUUID(), 0).randomUuid();
+
+        accRaftClients = startTable(accountsName, accTblId);
+        custRaftClients = startTable(customersName, custTblId);
 
         log.info("Partition groups have been started");
 
@@ -210,9 +216,10 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
 
         this.accounts = new TableImpl(new InternalTableImpl(
             accountsName,
-            tableId,
+            accTblId,
             accRaftClients,
             1,
+            NetworkAddress::toString,
             nearTxManager
         ), new SchemaRegistry() {
             @Override public SchemaDescriptor schema() {
@@ -230,13 +237,14 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
             @Override public Row resolve(BinaryRow row) {
                 return new Row(ACCOUNTS_SCHEMA, row);
             }
-        }, null, null);
+        }, null);
 
         this.customers = new TableImpl(new InternalTableImpl(
             customersName,
-            tableId2,
+            custTblId,
             custRaftClients,
             1,
+            NetworkAddress::toString,
             nearTxManager
         ), new SchemaRegistry() {
             @Override public SchemaDescriptor schema() {
@@ -254,17 +262,18 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
             @Override public Row resolve(BinaryRow row) {
                 return new Row(CUSTOMERS_SCHEMA, row);
             }
-        }, null, null);
+        }, null);
 
         log.info("Tables have been started");
     }
 
     /**
      * @param name The name.
+     * @param tblId
      * @return Groups map.
      * @throws Exception
      */
-    protected Map<Integer, RaftGroupService> startTable(String name) throws Exception {
+    protected Map<Integer, RaftGroupService> startTable(String name, IgniteUuid tblId) throws Exception {
         List<List<ClusterNode>> assignment = RendezvousAffinityFunction.assignPartitions(
             cluster.stream().map(node -> node.topologyService().localMember()).collect(Collectors.toList()),
             1,
@@ -288,15 +297,14 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
 
                 rs.startRaftGroup(
                     grpId,
-                    new PartitionListener(UUID.randomUUID(), new VersionedRowStore(
-                        new ConcurrentHashMapStorage(),
-                        rs.transactionManager())),
+                    new PartitionListener(tblId,
+                        new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), rs.transactionManager())),
                     conf
                 );
             }
 
             if (startClient()) {
-                RaftGroupService service = RaftGroupServiceImpl.start(grpId, client, FACTORY, 10_000, conf, true, 200)
+                RaftGroupService service = RaftGroupServiceImpl.start(grpId, client, FACTORY, 10_000, conf, true, 200, executor)
                     .get(5, TimeUnit.SECONDS);
 
                 clients.put(p, service);
@@ -305,7 +313,7 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
                 // Create temporary client to find a leader address.
                 ClusterService tmpSvc = raftServers.values().stream().findFirst().get().clusterService();
 
-                RaftGroupService service = RaftGroupServiceImpl.start(grpId, tmpSvc, FACTORY, 10_000, conf, true, 200)
+                RaftGroupService service = RaftGroupServiceImpl.start(grpId, tmpSvc, FACTORY, 10_000, conf, true, 200, executor)
                     .get(5, TimeUnit.SECONDS);
 
                 Peer leader = service.leader();
@@ -315,7 +323,7 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
                 RaftServer leaderSrv = raftServers.get(tmpSvc.topologyService().getByAddress(leader.address()));
 
                 RaftGroupService leaderClusterSvc = RaftGroupServiceImpl.start(grpId, leaderSrv.clusterService(), FACTORY,
-                    10_000, conf, true, 200).get(5, TimeUnit.SECONDS);
+                    10_000, conf, true, 200, executor).get(5, TimeUnit.SECONDS);
 
                 clients.put(p, leaderClusterSvc);
             }
@@ -351,6 +359,8 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
         if (client != null)
             client.stop();
 
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+
         for (RaftServer rs : raftServers.values())
             rs.stop();
 
@@ -367,9 +377,9 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
      * @param nodeFinder Node finder.
      * @return The client cluster view.
      */
-    protected static ClusterService startNode(String name, int port, NodeFinder nodeFinder) {
+    protected static ClusterService startNode(TestInfo testInfo, String name, int port, NodeFinder nodeFinder) {
         var network = ClusterServiceTestUtils.clusterService(
-            name,
+            testInfo,
             port,
             nodeFinder,
             SERIALIZATION_REGISTRY,
