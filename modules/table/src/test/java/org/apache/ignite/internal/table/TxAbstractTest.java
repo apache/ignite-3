@@ -576,6 +576,124 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
+    public void testPutAll() throws TransactionException {
+        igniteTransactions.runInTransaction(tx -> {
+            accounts.recordView().upsertAll(List.of(makeValue(1, 100.), makeValue(2, 200.)));
+        });
+
+        validateBalance(accounts.recordView().getAll(List.of(makeKey(2), makeKey(1))), 200., 100.);
+
+        assertThrows(IgniteException.class, () -> igniteTransactions.runInTransaction(tx -> {
+            accounts.recordView().upsertAll(List.of(makeValue(3, 300.), makeValue(4, 400.)));
+            if (true)
+                throw new IgniteException();
+        }));
+
+        assertNull(accounts.recordView().get(makeKey(3)));
+        assertNull(accounts.recordView().get(makeKey(4)));
+    }
+
+    @Test
+    public void testInsertAll() throws TransactionException {
+        accounts.recordView().upsertAll(List.of(makeValue(1, 100.), makeValue(2, 200.)));
+
+        igniteTransactions.runInTransaction(tx -> {
+            Collection<Tuple> res = accounts.recordView().insertAll(List.of(makeValue(1, 200.), makeValue(3, 300.)));
+
+            assertEquals(1, res.size());
+        });
+
+        validateBalance(accounts.recordView().getAll(List.of(makeKey(1), makeKey(2), makeKey(3))), 100., 200., 300.);
+    }
+
+    @Test
+    public void testDeleteAll() throws TransactionException {
+        accounts.recordView().upsertAll(List.of(makeValue(1, 100.), makeValue(2, 200.)));
+
+        igniteTransactions.runInTransaction(tx -> {
+            Collection<Tuple> res = accounts.recordView().deleteAll(List.of(makeKey(1), makeKey(2), makeKey(3)));
+
+            assertEquals(2, res.size());
+        });
+
+        assertNull(accounts.recordView().get(makeKey(1)));
+        assertNull(accounts.recordView().get(makeKey(2)));
+    }
+
+    @Test
+    public void testReplace() throws TransactionException {
+        accounts.recordView().upsert(makeValue(1, 100.));
+
+        igniteTransactions.runInTransaction(tx -> {
+            assertFalse(accounts.recordView().replace(makeValue(2, 200.)));
+            assertTrue(accounts.recordView().replace(makeValue(1, 200.)));
+        });
+
+        validateBalance(accounts.recordView().getAll(List.of(makeKey(1))), 200.);
+    }
+
+    @Test
+    public void testGetAndReplace() throws TransactionException {
+        accounts.recordView().upsert(makeValue(1, 100.));
+
+        igniteTransactions.runInTransaction(tx -> {
+            assertNull(accounts.recordView().getAndReplace(makeValue(2, 200.)));
+            assertNotNull(accounts.recordView().getAndReplace(makeValue(1, 200.)));
+        });
+
+        validateBalance(accounts.recordView().getAll(List.of(makeKey(1))), 200.);
+    }
+
+    @Test
+    public void testDeleteExact() throws TransactionException {
+        accounts.recordView().upsert(makeValue(1, 100.));
+
+        igniteTransactions.runInTransaction(tx -> {
+            assertFalse(accounts.recordView().deleteExact(makeValue(1, 200.)));
+            assertTrue(accounts.recordView().deleteExact(makeValue(1, 100.)));
+        });
+
+        assertNull(accounts.recordView().get(makeKey(1)));
+    }
+
+    @Test
+    public void testDeleteAllExact() throws TransactionException {
+        accounts.recordView().upsertAll(List.of(makeValue(1, 100.), makeValue(2, 200.)));
+
+        igniteTransactions.runInTransaction(tx -> {
+            Collection<Tuple> res = accounts.recordView().deleteAllExact(List.of(makeValue(1, 200.), makeValue(2, 200.)));
+
+            assertEquals(1, res.size());
+        });
+
+        assertNotNull(accounts.recordView().get(makeKey(1)));
+        assertNull(accounts.recordView().get(makeKey(2)));
+    }
+
+    @Test
+    public void testGetAndPut() throws TransactionException {
+        accounts.recordView().upsert(makeValue(1, 100.));
+
+        igniteTransactions.runInTransaction(tx -> {
+            assertNotNull(accounts.recordView().getAndUpsert(makeValue(1, 200.)));
+            assertNull(accounts.recordView().getAndUpsert(makeValue(2, 200.)));
+        });
+
+        validateBalance(accounts.recordView().getAll(List.of(makeKey(1), makeKey(2))), 200., 200.);
+    }
+
+    @Test
+    public void testGetAndDelete() throws TransactionException {
+        accounts.recordView().upsert(makeValue(1, 100.));
+
+        igniteTransactions.runInTransaction(tx -> {
+            assertEquals(100., accounts.recordView().getAndDelete(makeKey(1)).doubleValue("balance"));
+        });
+
+        assertNull(accounts.recordView().get(makeKey(1)));
+    }
+
+    @Test
     public void testReorder() throws Exception {
         accounts.recordView().upsert(makeValue(1, 100.));
 

@@ -282,7 +282,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Collection<Tuple>> deleteAllAsync(@NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        HashSet<BinaryRow> keys = new HashSet<>(recs.size());
+        var keys = new ArrayList<BinaryRow>(recs.size());
 
         for (Tuple keyRec : recs) {
             final Row keyRow = marshaller().marshalKey(keyRec);

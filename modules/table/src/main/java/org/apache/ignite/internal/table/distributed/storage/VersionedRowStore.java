@@ -7,18 +7,13 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.SearchRow;
-import org.apache.ignite.internal.storage.basic.DeleteExactInvokeClosure;
-import org.apache.ignite.internal.storage.basic.GetAndRemoveInvokeClosure;
 import org.apache.ignite.internal.storage.basic.GetAndReplaceInvokeClosure;
-import org.apache.ignite.internal.storage.basic.ReplaceExactInvokeClosure;
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
-import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -91,15 +86,11 @@ public class VersionedRowStore {
     @Nullable public BinaryRow getAndUpsert(@NotNull BinaryRow row, Timestamp ts) {
         assert row != null;
 
-        DataRow keyValue = extractAndWrapKeyValue(row);
+        BinaryRow oldRow = get(row, ts);
 
-        var getAndReplace = new GetAndReplaceInvokeClosure(keyValue, false);
+        upsert(row, ts);
 
-        storage.invoke(keyValue, getAndReplace);
-
-        DataRow oldRow = getAndReplace.oldRow();
-
-        return oldRow == null ? null : new ByteBufferRow(oldRow.valueBytes());
+        return oldRow != null ? oldRow : null;
     }
 
     /** {@inheritDoc} */
@@ -127,7 +118,8 @@ public class VersionedRowStore {
     public void upsertAll(Collection<BinaryRow> rows, Timestamp ts) {
         assert rows != null && !rows.isEmpty();
 
-        storage.writeAll(rows.stream().map(VersionedRowStore::extractAndWrapKeyValue).collect(Collectors.toList()));
+        for (BinaryRow row : rows)
+            upsert(row, ts);
     }
 
     /** {@inheritDoc} */
@@ -162,103 +154,108 @@ public class VersionedRowStore {
     public List<BinaryRow> insertAll(Collection<BinaryRow> rows, Timestamp ts) {
         assert rows != null && !rows.isEmpty();
 
-        List<DataRow> keyValues = rows.stream().map(VersionedRowStore::extractAndWrapKeyValue)
-            .collect(Collectors.toList());
+        List<BinaryRow> inserted = new ArrayList<>(rows.size());
 
-        List<BinaryRow> res = storage.insertAll(keyValues).stream()
-            .map(inserted -> new ByteBufferRow(inserted.valueBytes()))
-            .filter(BinaryRow::hasValue)
-            .collect(Collectors.toList());
+        for (BinaryRow row : rows) {
+            if (insert(row, ts))
+                inserted.add(row);
+        }
 
-        return res;
+        return inserted;
     }
 
     /** {@inheritDoc} */
     public boolean replace(BinaryRow row, Timestamp ts) {
         assert row != null;
 
-        DataRow keyValue = extractAndWrapKeyValue(row);
+        BinaryRow oldRow = get(row, ts);
 
-        var replaceIfExists = new GetAndReplaceInvokeClosure(keyValue, true);
+        if (oldRow != null) {
+            upsert(row, ts);
 
-        storage.invoke(keyValue, replaceIfExists);
-
-        return replaceIfExists.result();
+            return true;
+        }
+        else
+            return false;
     }
 
     public boolean replace(BinaryRow oldRow, BinaryRow newRow, Timestamp ts) {
         assert oldRow != null;
         assert newRow != null;
 
-        DataRow expected = extractAndWrapKeyValue(oldRow);
-        DataRow newR = extractAndWrapKeyValue(newRow);
+        BinaryRow oldRow0 = get(oldRow, ts);
 
-        var replaceClosure = new ReplaceExactInvokeClosure(expected, newR);
+        if (oldRow0 != null && equalValues(oldRow0, newRow)) {
+            upsert(newRow, ts);
 
-        storage.invoke(expected, replaceClosure);
-
-        return replaceClosure.result();
+            return true;
+        }
+        else
+            return false;
     }
 
     public BinaryRow getAndReplace(BinaryRow row, Timestamp ts) {
-        DataRow keyValue = extractAndWrapKeyValue(row);
+        BinaryRow oldRow = get(row, ts);
 
-        var getAndReplace = new GetAndReplaceInvokeClosure(keyValue, true);
+        if (oldRow != null) {
+            upsert(row, ts);
 
-        storage.invoke(keyValue, getAndReplace);
-
-        DataRow oldRow = getAndReplace.oldRow();
-
-        return oldRow == null ? null : new ByteBufferRow(oldRow.valueBytes());
+            return oldRow;
+        }
+        else
+            return null;
     }
 
     /** {@inheritDoc} */
-    public boolean deleteExact(BinaryRow row, Timestamp tx) {
+    public boolean deleteExact(BinaryRow row, Timestamp ts) {
         assert row != null;
         assert row.hasValue();
 
-        DataRow keyValue = extractAndWrapKeyValue(row);
+        BinaryRow oldRow = get(row, ts);
 
-        var deleteExact = new DeleteExactInvokeClosure(keyValue);
+        if (oldRow != null && equalValues(oldRow, row)) {
+            delete(oldRow, ts);
 
-        storage.invoke(keyValue, deleteExact);
-
-        return deleteExact.result();
+            return true;
+        }
+        else
+            return false;
     }
 
     public BinaryRow getAndDelete(BinaryRow row, Timestamp ts) {
-        SearchRow keyRow = extractAndWrapKey(row);
+        BinaryRow oldRow = get(row, ts);
 
-        var getAndRemoveClosure = new GetAndRemoveInvokeClosure();
+        if (oldRow != null) {
+            delete(oldRow, ts);
 
-        storage.invoke(keyRow, getAndRemoveClosure);
-
-        return getAndRemoveClosure.result() ? new ByteBufferRow(getAndRemoveClosure.oldRow().valueBytes()) : null;
+            return oldRow;
+        }
+        else
+            return null;
     }
 
     public List<BinaryRow> deleteAll(Collection<BinaryRow> rows, Timestamp ts) {
-        List<SearchRow> keys = rows.stream().map(VersionedRowStore::extractAndWrapKey)
-            .collect(Collectors.toList());
+        var deleted = new ArrayList<BinaryRow>();
 
-        List<BinaryRow> res = storage.removeAll(keys).stream()
-            .map(skipped -> ((BinarySearchRow)skipped).sourceRow)
-            .collect(Collectors.toList());
+        for (BinaryRow row : rows) {
+            if (delete(row, ts))
+                deleted.add(row);
+        }
 
-        return res;
+        return deleted;
     }
 
     public Collection<BinaryRow> deleteAllExact(Collection<BinaryRow> rows, Timestamp ts) {
         assert rows != null && !rows.isEmpty();
 
-        List<DataRow> keyValues = rows.stream().map(VersionedRowStore::extractAndWrapKeyValue)
-            .collect(Collectors.toList());
+        var deleted = new ArrayList<BinaryRow>(rows.size());
 
-        List<BinaryRow> res = storage.removeAllExact(keyValues).stream()
-            .map(inserted -> new ByteBufferRow(inserted.valueBytes()))
-            .filter(BinaryRow::hasValue)
-            .collect(Collectors.toList());
+        for (BinaryRow row : rows) {
+            if (deleteExact(row, ts))
+                deleted.add(row);
+        }
 
-        return res;
+        return deleted;
     }
 
     /**
@@ -273,9 +270,9 @@ public class VersionedRowStore {
     }
 
     /**
-     * @param value
-     * @param tx
-     * @return
+     * @param value The value.
+     * @param ts The timestamp.
+     * @return Actual value visible to a user.
      */
     private BinaryRow resolve(@Nullable Value value, @Nullable Timestamp ts) {
         if (value == null)

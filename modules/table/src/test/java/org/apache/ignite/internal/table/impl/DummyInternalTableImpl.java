@@ -207,7 +207,7 @@ public class DummyInternalTableImpl implements InternalTable {
         InternalTransaction tx) {
         assert row != null;
 
-        return completedFuture(store.getAndUpsert(row, tx.timestamp()));
+        return wrapInTx(row, tx, tx0 -> store.getAndUpsert(row, tx0.timestamp()));
     }
 
     /** {@inheritDoc} */
@@ -256,7 +256,7 @@ public class DummyInternalTableImpl implements InternalTable {
     @Override public CompletableFuture<Boolean> replace(BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        return completedFuture(store.replace(row, tx.timestamp()));
+        return wrapInTx(row, tx, tx0 -> store.replace(row, tx0.timestamp()));
     }
 
     /** {@inheritDoc} */
@@ -264,12 +264,13 @@ public class DummyInternalTableImpl implements InternalTable {
         assert oldRow != null;
         assert newRow != null;
 
-        return completedFuture(store.replace(oldRow, newRow, tx.timestamp()));
+        // TODO asch rows must have same key
+        return wrapInTx(oldRow, tx, tx0 -> store.replace(oldRow, newRow, tx0.timestamp()));
     }
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<BinaryRow> getAndReplace(BinaryRow row, InternalTransaction tx) {
-        throw new IgniteInternalException(new OperationNotSupportedException());
+        return wrapInTx(row, tx, tx0 -> store.getAndReplace(row, tx0.timestamp()));
     }
 
     /** {@inheritDoc} */
@@ -277,12 +278,12 @@ public class DummyInternalTableImpl implements InternalTable {
         assert row != null;
         assert row.hasValue();
 
-        return completedFuture(store.deleteExact(row, tx.timestamp()));
+        return wrapInTx(row, tx, tx0 -> store.deleteExact(row, tx0.timestamp()));
     }
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<BinaryRow> getAndDelete(BinaryRow row, InternalTransaction tx) {
-        return completedFuture(store.getAndDelete(row, tx.timestamp()));
+        return wrapInTx(row, tx, tx0 -> store.getAndDelete(row, tx0.timestamp()));
     }
 
     /** {@inheritDoc} */
@@ -294,7 +295,7 @@ public class DummyInternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override public CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows,
                                                                              InternalTransaction tx) {
-        throw new IgniteInternalException(new OperationNotSupportedException());
+        return wrapInTx(rows, tx, tx0 -> store.deleteAllExact(rows, tx0.timestamp()));
     }
 
     /** {@inheritDoc} */
