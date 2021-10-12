@@ -40,7 +40,6 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -146,14 +145,14 @@ abstract class AbstractSchemaChangeTest {
         assertColumnChangeThrows(grid, "valInt", colChanger -> colChanger.changeType(c -> c.changeLength(1)));
 
 //        assertColumnChangeThrows(grid, "valBigInt", colChanger -> colChanger.changeType(c -> c.changePrecision(10)));
-//        assertColumnChageThrows(grid, "valBigInt", colChanger -> colChanger.changeType(c -> c.changePrecision(0)));
-//        assertColumnChageThrows(grid, "valBigInt", colChanger -> colChanger.changeType(c -> c.changePrecision(-1)));
+//        assertColumnChangeThrows(grid, "valBigInt", colChanger -> colChanger.changeType(c -> c.changePrecision(0)));
+//        assertColumnChangeThrows(grid, "valBigInt", colChanger -> colChanger.changeType(c -> c.changePrecision(-1)));
 //        assertColumnChangeThrows(grid, "valBigInt", colChanger -> colChanger.changeType(c -> c.changeScale(2)));
 //        assertColumnChangeThrows(grid, "valBigInt", colChanger -> colChanger.changeType(c -> c.changeLength(10)));
 
-//        assertColumnChageThrows(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(0)));
-//        assertColumnChageThrows(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(-1)));
-//        assertColumnChageThrows(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeScale(-2)));
+//        assertColumnChangeThrows(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(0)));
+//        assertColumnChangeThrows(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(-1)));
+//        assertColumnChangeThrows(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeScale(-2)));
 //        assertColumnChangeThrows(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeLength(10)));
     }
 
