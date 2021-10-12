@@ -51,7 +51,6 @@ public class ColumnTypeValidatorImpl implements Validator<ColumnTypeValidator, C
                 newType.precision() != oldType.precision() ||
                 newType.scale() != oldType.scale() ||
                 newType.length() != oldType.length())
-//        if (!Objects.deepEquals(newType, oldType))
             ctx.addIssue(new ValidationIssue("Unsupported column type change: " + ctx.currentKey()));
 
     }

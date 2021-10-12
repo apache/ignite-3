@@ -33,13 +33,16 @@ public class ColumnTypeConfigurationSchema {
 
     /** Length. */
     @Value(hasDefault = true)
+    @Immutable
     public int length = 0;
 
     /** Precision. */
     @Value(hasDefault = true)
+    @Immutable
     public int precision = 0;
 
     /** Scale. */
     @Value(hasDefault = true)
+    @Immutable
     public int scale = 0;
 }

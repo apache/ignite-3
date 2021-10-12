@@ -645,9 +645,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     schemasCh.createOrUpdate(
                                         String.valueOf(schemasCh.size() + 1),
                                         schemaCh -> {
+                                            SchemaDescriptor descriptor;
+
                                             ExtendedTableView currTableView = (ExtendedTableView)tablesCfg.tables().get(name).value();
 
-                                            SchemaDescriptor descriptor = SchemaUtils.prepareSchemaDescriptor(
+                                            descriptor = SchemaUtils.prepareSchemaDescriptor(
                                                 ((ExtendedTableView)tblCh).schemas().size(),
                                                 tblCh
                                             );
