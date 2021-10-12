@@ -54,7 +54,7 @@ public class KeyValueViewExample {
         //
         //--------------------------------------------------------------------------------------
 
-        System.out.println("Starting a server node... Logging to file: ignite.log");
+        System.out.println("Starting a server node... Logging to file: example-node.log");
 
         System.setProperty("java.util.logging.config.file", "config/java.util.logging.properties");
 
