@@ -643,10 +643,6 @@ public class ConfigurationAsmGenerator {
             initNodeNamedConfigValue(ctor, polymorphicField, fieldDefs.get(fieldName));
         }
 
-        // TODO: IGNITE-14645 change.
-        if (!polymorphicFields.isEmpty())
-            ctor.getBody().append(ctor.getThis().setField("typeId", constantString("base")));
-
         // return;
         ctor.getBody().ret();
     }
@@ -1223,7 +1219,7 @@ public class ConfigurationAsmGenerator {
             );
         }
 
-        if (!polymorphicFields.isEmpty()) {
+        if (polymorphicTypeIdFieldDef != null) {
             Map<String, List<Field>> groupByName = polymorphicFields.stream()
                 .filter(ConfigurationUtil::isValue)
                 .collect(groupingBy(Field::getName));
