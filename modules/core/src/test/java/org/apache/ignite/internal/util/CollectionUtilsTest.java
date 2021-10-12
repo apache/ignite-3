@@ -72,7 +72,7 @@ public class CollectionUtilsTest {
         assertTrue(viewReadOnly(null, null).isEmpty());
         assertTrue(viewReadOnly(List.of(), null).isEmpty());
 
-        assertEquals(List.of(1), viewReadOnly(List.of(1), null));
+        assertEquals(List.of(1), collect(viewReadOnly(List.of(1), null)));
         assertEquals(List.of(1), collect(viewReadOnly(List.of(1), identity())));
 
         assertEquals(List.of("1", "2", "3"), collect(viewReadOnly(List.of(1, 2, 3), String::valueOf)));
