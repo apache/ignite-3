@@ -28,17 +28,22 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.server.EntryEvent;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
+import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
@@ -58,6 +63,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -159,6 +165,9 @@ public class ITMetaStorageServiceTest {
     @WorkDirectory
     private Path dataPath;
 
+    /** Executor for raft group services. */
+    private ScheduledExecutorService executor;
+
     static {
         EXPECTED_RESULT_MAP = new TreeMap<>();
 
@@ -194,13 +203,13 @@ public class ITMetaStorageServiceTest {
      * Run {@code NODES} cluster nodes.
      */
     @BeforeEach
-    public void beforeTest() throws Exception {
+    public void beforeTest(TestInfo testInfo) throws Exception {
         var nodeFinder = new LocalPortRangeNodeFinder(NODE_PORT_BASE, NODE_PORT_BASE + NODES);
 
         nodeFinder.findNodes().stream()
             .map(
                 addr -> ClusterServiceTestUtils.clusterService(
-                    addr.toString(),
+                    testInfo,
                     addr.port(),
                     nodeFinder,
                     SERIALIZATION_REGISTRY,
@@ -217,6 +226,8 @@ public class ITMetaStorageServiceTest {
 
         LOG.info("Cluster started.");
 
+        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
+
         metaStorageSvc = prepareMetaStorage();
     }
 
@@ -229,6 +240,8 @@ public class ITMetaStorageServiceTest {
     public void afterTest() throws Exception {
         metaStorageRaftSrv.stop();
         metaStorageRaftGrpSvc.shutdown();
+
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
         for (ClusterService node : cluster)
             node.stop();
@@ -790,7 +803,8 @@ public class ITMetaStorageServiceTest {
             10_000,
             peers,
             true,
-            200
+            200,
+            executor
         ).get(3, TimeUnit.SECONDS);
 
         try {
@@ -862,7 +876,8 @@ public class ITMetaStorageServiceTest {
             10_000,
             peers,
             true,
-            200
+            200,
+            executor
         ).get(3, TimeUnit.SECONDS);
 
         return new MetaStorageServiceImpl(metaStorageRaftGrpSvc, NODE_ID_0);

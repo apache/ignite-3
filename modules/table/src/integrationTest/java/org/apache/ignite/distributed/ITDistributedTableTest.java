@@ -17,7 +17,6 @@
 
 package org.apache.ignite.distributed;
 
-import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -27,9 +26,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
+import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -40,7 +42,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbStorage;
+import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
@@ -49,6 +51,8 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.ClusterNode;
@@ -56,6 +60,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.LocalPortRangeNodeFinder;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
@@ -63,7 +68,8 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
-import org.apache.ignite.table.KeyValueBinaryView;
+import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
@@ -71,6 +77,7 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -107,6 +114,9 @@ public class ITDistributedTableTest {
     /** Client. */
     private ClusterService client;
 
+    /** Executor for raft group services. */
+    ScheduledExecutorService executor;
+
     /** Schema. */
     public static SchemaDescriptor SCHEMA = new SchemaDescriptor(
         1,
@@ -125,11 +135,11 @@ public class ITDistributedTableTest {
      * Start all cluster nodes before each test.
      */
     @BeforeEach
-    public void beforeTest() {
+    public void beforeTest(TestInfo testInfo) {
         var nodeFinder = new LocalPortRangeNodeFinder(NODE_PORT_BASE, NODE_PORT_BASE + NODES);
 
         nodeFinder.findNodes().stream()
-            .map(addr -> startClient(addr.toString(), addr.port(), nodeFinder))
+            .map(addr -> startClient(testInfo, addr.port(), nodeFinder))
             .forEach(cluster::add);
 
         for (ClusterService node : cluster)
@@ -137,11 +147,13 @@ public class ITDistributedTableTest {
 
         LOG.info("Cluster started.");
 
-        client = startClient("client", NODE_PORT_BASE + NODES, nodeFinder);
+        client = startClient(testInfo, NODE_PORT_BASE + NODES, nodeFinder);
 
         assertTrue(waitForTopology(client, NODES + 1, 1000));
 
         LOG.info("Client started.");
+
+        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
     }
 
     /**
@@ -154,6 +166,8 @@ public class ITDistributedTableTest {
         for (ClusterService node : cluster) {
             node.stop();
         }
+
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
         client.stop();
     }
@@ -175,13 +189,13 @@ public class ITDistributedTableTest {
 
         partSrv.startRaftGroup(
             grpId,
-            new PartitionListener(new RocksDbStorage(dataPath.resolve("db"), ByteBuffer::compareTo)),
+            new PartitionListener(new ConcurrentHashMapPartitionStorage()),
             conf
         );
 
         RaftGroupService partRaftGrp =
             RaftGroupServiceImpl
-                .start(grpId, client, FACTORY, 10_000, conf, true, 200)
+                .start(grpId, client, FACTORY, 10_000, conf, true, 200, executor)
                 .get(3, TimeUnit.SECONDS);
 
         Row testRow = getTestRow();
@@ -190,7 +204,6 @@ public class ITDistributedTableTest {
 
         assertTrue(insertFur.get());
 
-//        Row keyChunk = new Row(SCHEMA, new ByteBufferRow(testRow.keySlice()));
         Row keyChunk = getTestKey();
 
         CompletableFuture<SingleRowResponse> getFut = partRaftGrp.run(new GetCommand(keyChunk));
@@ -267,12 +280,19 @@ public class ITDistributedTableTest {
 
             rs.startRaftGroup(
                 grpId,
-                new PartitionListener(new RocksDbStorage(dataPath.resolve("part" + p), ByteBuffer::compareTo)),
+                new PartitionListener(new ConcurrentHashMapPartitionStorage()),
                 conf
             );
 
-            RaftGroupService service = RaftGroupServiceImpl.start(grpId, client, FACTORY, 10_000, conf, true, 200)
-                .get(3, TimeUnit.SECONDS);
+            RaftGroupService service = RaftGroupServiceImpl.start(grpId,
+                client,
+                FACTORY,
+                10_000,
+                conf,
+                true,
+                200,
+                executor
+            ).get(3, TimeUnit.SECONDS);
 
             partMap.put(p, service);
 
@@ -283,7 +303,8 @@ public class ITDistributedTableTest {
             "tbl",
             new IgniteUuid(UUID.randomUUID(), 0),
             partMap,
-            PARTS
+            PARTS,
+            NetworkAddress::toString
         ), new SchemaRegistry() {
             @Override public SchemaDescriptor schema() {
                 return SCHEMA;
@@ -300,11 +321,11 @@ public class ITDistributedTableTest {
             @Override public Row resolve(BinaryRow row) {
                 return new Row(SCHEMA, row);
             }
-        }, null, null);
+        }, null);
 
-        partitionedTableView(tbl, PARTS * 10);
+        partitionedTableRecordView(tbl.recordView(), PARTS * 10);
 
-        partitionedTableKVBinaryView(tbl.kvView(), PARTS * 10);
+        partitionedTableKeyValueView(tbl.keyValueView(), PARTS * 10);
     }
 
     /**
@@ -313,7 +334,7 @@ public class ITDistributedTableTest {
      * @param view Table view.
      * @param keysCnt Count of keys.
      */
-    public void partitionedTableView(Table view, int keysCnt) {
+    public void partitionedTableRecordView(RecordView<Tuple> view, int keysCnt) {
         LOG.info("Test for Table view [keys={}]", keysCnt);
 
         for (int i = 0; i < keysCnt; i++) {
@@ -404,7 +425,7 @@ public class ITDistributedTableTest {
      * @param view Table view.
      * @param keysCnt Count of keys.
      */
-    public void partitionedTableKVBinaryView(KeyValueBinaryView view, int keysCnt) {
+    public void partitionedTableKeyValueView(KeyValueView<Tuple, Tuple> view, int keysCnt) {
         LOG.info("Tes for Key-Value binary view [keys={}]", keysCnt);
 
         for (int i = 0; i < keysCnt; i++) {
@@ -490,14 +511,14 @@ public class ITDistributedTableTest {
     }
 
     /**
-     * @param name Node name.
+     * @param testInfo Test info.
      * @param port Local port.
      * @param nodeFinder Node finder.
      * @return The client cluster view.
      */
-    private static ClusterService startClient(String name, int port, NodeFinder nodeFinder) {
+    private static ClusterService startClient(TestInfo testInfo, int port, NodeFinder nodeFinder) {
         var network = ClusterServiceTestUtils.clusterService(
-            name,
+            testInfo,
             port,
             nodeFinder,
             SERIALIZATION_REGISTRY,

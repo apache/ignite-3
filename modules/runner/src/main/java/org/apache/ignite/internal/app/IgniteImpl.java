@@ -29,16 +29,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.app.Ignite;
-import org.apache.ignite.app.IgnitionManager;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
-import org.apache.ignite.configuration.schemas.table.ColumnTypeValidator;
-import org.apache.ignite.configuration.schemas.table.TableValidator;
+import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -184,7 +183,8 @@ public class IgniteImpl implements Ignite {
         clusterCfgMgr = new ConfigurationManager(
             List.of(
                 ClusterConfiguration.KEY,
-                TablesConfiguration.KEY
+                TablesConfiguration.KEY,
+                DataStorageConfiguration.KEY
             ),
             Map.of(
                 TableValidator.class, Set.of(TableValidatorImpl.INSTANCE),
@@ -202,8 +202,10 @@ public class IgniteImpl implements Ignite {
 
         distributedTblMgr = new TableManager(
             clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
+            clusterCfgMgr.configurationRegistry().getConfiguration(DataStorageConfiguration.KEY),
             raftMgr,
             baselineMgr,
+            clusterSvc.topologyService(),
             metaStorageMgr,
             getPartitionsStorePath(workDir)
         );
@@ -344,6 +346,11 @@ public class IgniteImpl implements Ignite {
     /** {@inheritDoc} */
     @Override public String name() {
         return name;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void setBaseline(Set<String> baselineNodes) {
+        distributedTblMgr.setBaseline(baselineNodes);
     }
 
     /**

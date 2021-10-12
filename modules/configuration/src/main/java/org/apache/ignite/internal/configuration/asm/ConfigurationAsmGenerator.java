@@ -27,6 +27,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -90,6 +91,7 @@ import static com.facebook.presto.bytecode.Access.SYNTHETIC;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.ParameterizedType.typeFromJavaClassName;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantBoolean;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantClass;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
@@ -146,7 +148,7 @@ public class ConfigurationAsmGenerator {
     /** {@link ConstructableTreeNode#copy()} */
     private static final Method COPY;
 
-    /** {@link DynamicConfiguration#DynamicConfiguration)} */
+    /** {@link DynamicConfiguration#DynamicConfiguration} */
     private static final Constructor<?> DYNAMIC_CONFIGURATION_CTOR;
 
     /** {@link DirectDynamicConfiguration#DirectDynamicConfiguration} */
@@ -191,14 +193,16 @@ public class ConfigurationAsmGenerator {
                 List.class,
                 String.class,
                 RootKey.class,
-                DynamicConfigurationChanger.class
+                DynamicConfigurationChanger.class,
+                boolean.class
             );
 
             DIRECT_DYNAMIC_CONFIGURATION_CTOR = DirectDynamicConfiguration.class.getDeclaredConstructor(
                 List.class,
                 String.class,
                 RootKey.class,
-                DynamicConfigurationChanger.class
+                DynamicConfigurationChanger.class,
+                boolean.class
             );
 
             DYNAMIC_CONFIGURATION_ADD = DynamicConfiguration.class.getDeclaredMethod(
@@ -260,12 +264,13 @@ public class ConfigurationAsmGenerator {
                 List.class,
                 String.class,
                 RootKey.class,
-                DynamicConfigurationChanger.class
+                DynamicConfigurationChanger.class,
+                boolean.class
             );
 
             assert constructor.canAccess(null);
 
-            return constructor.newInstance(Collections.emptyList(), rootKey.key(), rootKey, changer);
+            return constructor.newInstance(Collections.emptyList(), rootKey.key(), rootKey, changer, false);
         }
         catch (Exception e) {
             throw new IllegalStateException(e);
@@ -304,7 +309,9 @@ public class ConfigurationAsmGenerator {
 
             assert schemasInfo.containsKey(schemaClass) : schemaClass;
 
-            Field[] schemaFields = schemaClass.getDeclaredFields();
+            Field[] schemaFields = Arrays.stream(schemaClass.getDeclaredFields()).filter(
+                field -> isValue(field) || isConfigValue(field) || isNamedConfigValue(field)
+            ).toArray(Field[]::new);
 
             Set<Class<?>> schemaExtensions = internalSchemaExtensions.getOrDefault(schemaClass, Set.of());
             Set<Field> extensionsFields = extensionsFields(schemaExtensions);
@@ -959,6 +966,9 @@ public class ConfigurationAsmGenerator {
         for (Field schemaField : concat(asList(schemaFields), extensionsFields))
             addConfigurationImplGetMethod(classDef, schemaClass, fieldDefs, schemaField);
 
+        // org.apache.ignite.internal.configuration.DynamicConfiguration#configType
+        addCfgImplConfigTypeMethod(classDef, typeFromJavaClassName(schemaClassInfo.cfgClassName));
+
         return classDef;
     }
 
@@ -1016,8 +1026,13 @@ public class ConfigurationAsmGenerator {
             arg("prefix", List.class),
             arg("key", String.class),
             arg("rootKey", RootKey.class),
-            arg("changer", DynamicConfigurationChanger.class)
+            arg("changer", DynamicConfigurationChanger.class),
+            arg("listenOnly", boolean.class)
         );
+
+        Variable rootKeyVar = ctor.getScope().getVariable("rootKey");
+        Variable changerVar = ctor.getScope().getVariable("changer");
+        Variable listenOnlyVar = ctor.getScope().getVariable("listenOnly");
 
         Constructor<?> superCtor = schemaClassInfo.direct ?
             DIRECT_DYNAMIC_CONFIGURATION_CTOR : DYNAMIC_CONFIGURATION_CTOR;
@@ -1026,9 +1041,12 @@ public class ConfigurationAsmGenerator {
             .append(ctor.getThis())
             .append(ctor.getScope().getVariable("prefix"))
             .append(ctor.getScope().getVariable("key"))
-            .append(ctor.getScope().getVariable("rootKey"))
-            .append(ctor.getScope().getVariable("changer"))
+            .append(rootKeyVar)
+            .append(changerVar)
+            .append(listenOnlyVar)
             .invokeConstructor(superCtor);
+
+        BytecodeExpression thisKeysVar = ctor.getThis().getField("keys", List.class);
 
         int newIdx = 0;
         for (Field schemaField : concat(asList(schemaFields), extensionsFields)) {
@@ -1040,13 +1058,14 @@ public class ConfigurationAsmGenerator {
                 Class<?> fieldImplClass = schemaField.isAnnotationPresent(DirectAccess.class) ?
                     DirectDynamicProperty.class : DynamicProperty.class;
 
-                // newValue = new DynamicProperty(super.keys, fieldName, rootKey, changer);
+                // newValue = new DynamicProperty(super.keys, fieldName, rootKey, changer, listenOnly);
                 newValue = newInstance(
                     fieldImplClass,
-                    ctor.getThis().getField("keys", List.class),
+                    thisKeysVar,
                     constantString(schemaField.getName()),
-                    ctor.getScope().getVariable("rootKey"),
-                    ctor.getScope().getVariable("changer")
+                    rootKeyVar,
+                    changerVar,
+                    listenOnlyVar
                 );
             }
             else {
@@ -1055,24 +1074,26 @@ public class ConfigurationAsmGenerator {
                 ParameterizedType cfgImplParameterizedType = typeFromJavaClassName(fieldInfo.cfgImplClassName);
 
                 if (isConfigValue(schemaField)) {
-                    // newValue = new MyConfigurationImpl(super.keys, fieldName, rootKey, changer);
+                    // newValue = new MyConfigurationImpl(super.keys, fieldName, rootKey, changer, listenOnly);
                     newValue = newInstance(
                         cfgImplParameterizedType,
-                        ctor.getThis().getField("keys", List.class),
+                        thisKeysVar,
                         constantString(schemaField.getName()),
-                        ctor.getScope().getVariable("rootKey"),
-                        ctor.getScope().getVariable("changer")
+                        rootKeyVar,
+                        changerVar,
+                        listenOnlyVar
                     );
                 }
                 else {
                     // We have to create method "$new$<idx>" to reference it in lambda expression. That's the way it
-                    // works, it'll invoke constructor with all 4 arguments, not just 2 as in BiFunction.
+                    // works, it'll invoke constructor with all 5 arguments, not just 2 as in BiFunction.
                     MethodDefinition newMtd = classDef.declareMethod(
                         of(PRIVATE, STATIC, SYNTHETIC),
                         "$new$" + newIdx++,
                         typeFromJavaClassName(fieldInfo.cfgClassName),
                         arg("rootKey", RootKey.class),
                         arg("changer", DynamicConfigurationChanger.class),
+                        arg("listenOnly", boolean.class),
                         arg("prefix", List.class),
                         arg("key", String.class)
                     );
@@ -1080,15 +1101,17 @@ public class ConfigurationAsmGenerator {
                     Class<?> fieldImplClass = fieldInfo.direct ?
                         DirectNamedListConfiguration.class : NamedListConfiguration.class;
 
-                    // newValue = new NamedListConfiguration(super.keys, fieldName, rootKey, changer, (p, k) ->
-                    //     new ValueConfigurationImpl(p, k, rootKey, changer)
+                    // newValue = new NamedListConfiguration(this.keys, fieldName, rootKey, changer, listenOnly,
+                    //      (p, k) -> new ValueConfigurationImpl(p, k, rootKey, changer, listenOnly),
+                    //      new ValueConfigurationImpl(this.keys, "any", rootKey, changer, true)
                     // );
                     newValue = newInstance(
                         fieldImplClass,
-                        ctor.getThis().getField("keys", List.class),
+                        thisKeysVar,
                         constantString(schemaField.getName()),
-                        ctor.getScope().getVariable("rootKey"),
-                        ctor.getScope().getVariable("changer"),
+                        rootKeyVar,
+                        changerVar,
+                        listenOnlyVar,
                         invokeDynamic(
                             LAMBDA_METAFACTORY,
                             asList(
@@ -1108,9 +1131,18 @@ public class ConfigurationAsmGenerator {
                             ),
                             "apply",
                             BiFunction.class,
-                            ctor.getScope().getVariable("rootKey"),
-                            ctor.getScope().getVariable("changer")
-                        )
+                            rootKeyVar,
+                            changerVar,
+                            listenOnlyVar
+                        ),
+                        newInstance(
+                            cfgImplParameterizedType,
+                            thisKeysVar,
+                            constantString("any"),
+                            rootKeyVar,
+                            changerVar,
+                            constantBoolean(true)
+                        ).cast(ConfigurationProperty.class)
                     );
 
                     newMtd.getBody()
@@ -1119,7 +1151,8 @@ public class ConfigurationAsmGenerator {
                             newMtd.getScope().getVariable("prefix"),
                             newMtd.getScope().getVariable("key"),
                             newMtd.getScope().getVariable("rootKey"),
-                            newMtd.getScope().getVariable("changer")
+                            newMtd.getScope().getVariable("changer"),
+                            newMtd.getScope().getVariable("listenOnly")
                         ))
                         .retObject();
                 }
@@ -1385,5 +1418,22 @@ public class ConfigurationAsmGenerator {
             result.add(type(DirectConfigurationProperty.class));
 
         return result.toArray(new ParameterizedType[0]);
+    }
+
+    /**
+     * Add {@link DynamicConfiguration#configType} method implementation to the class. It looks like the following code:
+     * <pre><code>
+     * public Class configType() {
+     *     return RootConfiguration.class;
+     * }
+     * </code></pre>
+     * @param classDef Class definition.
+     * @param clazz Definition of the configuration interface, for example {@code RootConfiguration}.
+     */
+    private void addCfgImplConfigTypeMethod(ClassDefinition classDef, ParameterizedType clazz) {
+        classDef.declareMethod(of(PUBLIC), "configType", type(Class.class))
+            .getBody()
+            .append(constantClass(clazz))
+            .retObject();
     }
 }

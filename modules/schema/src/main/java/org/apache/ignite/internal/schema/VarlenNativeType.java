@@ -41,6 +41,13 @@ public class VarlenNativeType extends NativeType {
         return super.mismatch(type) || len < ((VarlenNativeType)type).len;
     }
 
+    /**
+     * @return Length of the type.
+     */
+    public int length() {
+        return len;
+    }
+
     /** {@inheritDoc} */
     @Override public String toString() {
         return S.toString(VarlenNativeType.class.getSimpleName(), "name", spec(), "len", len);

@@ -24,15 +24,18 @@ import java.net.ServerSocket;
 import java.nio.file.Path;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.env.Environment;
-import org.apache.ignite.app.IgnitionManager;
+import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.cli.spec.IgniteCliSpec;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Integration test for {@code ignite config} commands.
@@ -58,7 +61,7 @@ public class ITConfigCommandTest extends AbstractCliTest {
 
     /** */
     @BeforeEach
-    private void setup(@TempDir Path workDir) throws IOException {
+    void setup(@TempDir Path workDir, TestInfo testInfo) throws IOException {
         // TODO: IGNITE-15131 Must be replaced by receiving the actual port configs from the started node.
         // This approach still can produce the port, which will be unavailable at the moment of node start.
         restPort = getAvailablePort();
@@ -69,7 +72,7 @@ public class ITConfigCommandTest extends AbstractCliTest {
             "rest.port=" + restPort + "\n" + "rest.portRange=0" + "\n" +
             "clientConnector.port=" + clientPort + "\n" + "clientConnector.portRange=0";
 
-        IgnitionManager.start("node1", configStr, workDir);
+        IgnitionManager.start(testNodeName(testInfo, networkPort), configStr, workDir);
 
         ctx = ApplicationContext.run(Environment.TEST);
 
@@ -77,9 +80,10 @@ public class ITConfigCommandTest extends AbstractCliTest {
         out = new ByteArrayOutputStream();
     }
 
+    /** */
     @AfterEach
-    private void tearDown() {
-        IgnitionManager.stop("node1");
+    void tearDown(TestInfo testInfo) {
+        IgnitionManager.stop(testNodeName(testInfo, networkPort));
         ctx.stop();
     }
 
@@ -114,13 +118,16 @@ public class ITConfigCommandTest extends AbstractCliTest {
         );
 
         assertEquals(0, exitCode);
-        assertEquals(
-            "\"{\"clientConnector\":{\"connectTimeout\":5000,\"port\":" + clientPort + ",\"portRange\":0}," +
-                "\"network\":{\"netClusterNodes\":[],\"port\":" + networkPort + "}," +
-                "\"node\":{\"metastorageNodes\":[\"localhost1\"]}," +
-                "\"rest\":{\"port\":" + restPort + ",\"portRange\":0}}\"" + nl,
-            unescapeQuotes(out.toString())
-        );
+
+        String unescapedOut = unescapeQuotes(out.toString());
+
+        assertTrue(unescapedOut.contains(
+            "\"clientConnector\":{\"connectTimeout\":5000,\"port\":" + clientPort + ",\"portRange\":0}"
+        ), unescapedOut);
+
+        assertTrue(unescapedOut.contains(
+            "\"rest\":{\"port\":" + restPort + ",\"portRange\":0}}\""
+        ), unescapedOut);
     }
 
     @Test
