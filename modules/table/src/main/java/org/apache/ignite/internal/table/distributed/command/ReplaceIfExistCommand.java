@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.command;
 
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
@@ -41,8 +42,9 @@ public class ReplaceIfExistCommand implements WriteCommand {
      * The {@code row} should not be {@code null}.
      *
      * @param row Binary row.
+     * @param ts The timestamp.
      */
-    public ReplaceIfExistCommand(@NotNull BinaryRow row) {
+    public ReplaceIfExistCommand(@NotNull BinaryRow row, Timestamp ts) {
         assert row != null;
 
         this.row = row;

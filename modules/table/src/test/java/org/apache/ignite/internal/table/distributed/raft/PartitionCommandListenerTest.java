@@ -334,7 +334,7 @@ public class PartitionCommandListenerTest {
             for (int i = 0; i < KEY_COUNT; i++)
                 rows.add(getTestRow(i, i));
 
-            when(clo.command()).thenReturn(new InsertAllCommand(rows));
+            when(clo.command()).thenReturn(new InsertAllCommand(rows, Timestamp.nextVersion()));
         }));
     }
 
@@ -354,7 +354,7 @@ public class PartitionCommandListenerTest {
             for (int i = 0; i < KEY_COUNT; i++)
                 rows.add(getTestRow(i, i));
 
-            when(clo.command()).thenReturn(new UpsertAllCommand(rows));
+            when(clo.command()).thenReturn(new UpsertAllCommand(rows, Timestamp.nextVersion()));
         }));
     }
 
@@ -388,7 +388,7 @@ public class PartitionCommandListenerTest {
             for (int i = 0; i < KEY_COUNT; i++)
                 keyRows.add(getTestKey(i));
 
-            when(clo.command()).thenReturn(new DeleteAllCommand(keyRows));
+            when(clo.command()).thenReturn(new DeleteAllCommand(keyRows, Timestamp.nextVersion()));
         }));
     }
 
@@ -423,7 +423,7 @@ public class PartitionCommandListenerTest {
             for (int i = 0; i < KEY_COUNT; i++)
                 keyRows.add(getTestKey(i));
 
-            when(clo.command()).thenReturn(new GetAllCommand(keyRows));
+            when(clo.command()).thenReturn(new GetAllCommand(keyRows, Timestamp.nextVersion()));
         }));
     }
 
@@ -448,10 +448,8 @@ public class PartitionCommandListenerTest {
      * @param existed True if rows are existed, false otherwise.
      */
     private void delete(boolean existed) {
-        Timestamp ts = Timestamp.nextVersion();
-
         commandListener.onWrite(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new DeleteCommand(getTestKey(i), ts));
+            when(clo.command()).thenReturn(new DeleteCommand(getTestKey(i), Timestamp.nextVersion()));
 
             doAnswer(invocation -> {
                 assertEquals(existed, invocation.getArgument(0));
@@ -477,10 +475,8 @@ public class PartitionCommandListenerTest {
      * @param keyValueMapper Mapper a key to the value which will be expected.
      */
     private void readAndCheck(boolean existed, Function<Integer, Integer> keyValueMapper) {
-        Timestamp ts = Timestamp.nextVersion();
-
         commandListener.onRead(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new GetCommand(getTestKey(i), ts));
+            when(clo.command()).thenReturn(new GetCommand(getTestKey(i), Timestamp.nextVersion()));
 
             doAnswer(invocation -> {
                 SingleRowResponse resp = invocation.getArgument(0);
@@ -507,10 +503,8 @@ public class PartitionCommandListenerTest {
      * @param existed True if rows are existed, false otherwise.
      */
     private void insert(boolean existed) {
-        Timestamp ts = Timestamp.nextVersion();
-
         commandListener.onWrite(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new InsertCommand(getTestRow(i, i), ts));
+            when(clo.command()).thenReturn(new InsertCommand(getTestRow(i, i), Timestamp.nextVersion()));
 
             doAnswer(mock -> {
                 assertEquals(!existed, mock.getArgument(0));
@@ -530,7 +524,7 @@ public class PartitionCommandListenerTest {
             for (int i = 0; i < KEY_COUNT; i++)
                 rows.add(getTestRow(i, i));
 
-            when(clo.command()).thenReturn(new DeleteExactAllCommand(rows));
+            when(clo.command()).thenReturn(new DeleteExactAllCommand(rows, Timestamp.nextVersion()));
 
             doAnswer(invocation -> {
                 MultiRowsResponse resp = invocation.getArgument(0);
@@ -561,7 +555,7 @@ public class PartitionCommandListenerTest {
      */
     private void getAndReplaceValues(boolean existed) {
         commandListener.onWrite(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new GetAndReplaceCommand(getTestRow(i, i + 1)));
+            when(clo.command()).thenReturn(new GetAndReplaceCommand(getTestRow(i, i + 1), Timestamp.nextVersion()));
 
             doAnswer(invocation -> {
                 SingleRowResponse resp = invocation.getArgument(0);
@@ -585,7 +579,7 @@ public class PartitionCommandListenerTest {
      */
     private void getAndUpsertValues(boolean existed) {
         commandListener.onWrite(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new GetAndUpsertCommand(getTestRow(i, i)));
+            when(clo.command()).thenReturn(new GetAndUpsertCommand(getTestRow(i, i), Timestamp.nextVersion()));
 
             doAnswer(invocation -> {
                 SingleRowResponse resp = invocation.getArgument(0);
@@ -609,7 +603,7 @@ public class PartitionCommandListenerTest {
      */
     private void getAndDeleteValues(boolean existed) {
         commandListener.onWrite(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new GetAndDeleteCommand(getTestKey(i)));
+            when(clo.command()).thenReturn(new GetAndDeleteCommand(getTestKey(i), Timestamp.nextVersion()));
 
             doAnswer(invocation -> {
                 SingleRowResponse resp = invocation.getArgument(0);
@@ -634,7 +628,7 @@ public class PartitionCommandListenerTest {
      */
     private void putIfExistValues(boolean existed) {
         commandListener.onWrite(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new ReplaceIfExistCommand(getTestRow(i, i + 1)));
+            when(clo.command()).thenReturn(new ReplaceIfExistCommand(getTestRow(i, i + 1), Timestamp.nextVersion()));
 
             doAnswer(invocation -> {
                 boolean result = invocation.getArgument(0);
@@ -651,7 +645,7 @@ public class PartitionCommandListenerTest {
      */
     private void deleteExactValues(boolean existed) {
         commandListener.onWrite(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new DeleteExactCommand(getTestRow(i, i + 1)));
+            when(clo.command()).thenReturn(new DeleteExactCommand(getTestRow(i, i + 1), Timestamp.nextVersion()));
 
             doAnswer(invocation -> {
                 boolean result = invocation.getArgument(0);
@@ -670,7 +664,7 @@ public class PartitionCommandListenerTest {
      */
     private void replaceValues(boolean existed) {
         commandListener.onWrite(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new ReplaceCommand(getTestRow(i, i), getTestRow(i, i + 1)));
+            when(clo.command()).thenReturn(new ReplaceCommand(getTestRow(i, i), getTestRow(i, i + 1), Timestamp.nextVersion()));
 
             doAnswer(invocation -> {
                 assertTrue(invocation.getArgument(0) instanceof Boolean);

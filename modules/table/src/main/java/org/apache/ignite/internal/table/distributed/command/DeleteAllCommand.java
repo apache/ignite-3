@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
@@ -28,7 +30,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class DeleteAllCommand implements WriteCommand {
     /** Binary rows. */
-    private transient Set<BinaryRow> rows;
+    private transient Collection<BinaryRow> rows;
 
     /*
      * Row bytes.
@@ -42,8 +44,9 @@ public class DeleteAllCommand implements WriteCommand {
      * The {@code keyRows} should not be {@code null} or empty.
      *
      * @param keyRows Collection of binary row keys to be deleted.
+     * @param ts
      */
-    public DeleteAllCommand(@NotNull Set<BinaryRow> keyRows) {
+    public DeleteAllCommand(@NotNull Collection<BinaryRow> keyRows, Timestamp ts) {
         assert keyRows != null && !keyRows.isEmpty();
 
         this.rows = keyRows;
@@ -56,7 +59,7 @@ public class DeleteAllCommand implements WriteCommand {
      *
      * @return Binary keys.
      */
-    public Set<BinaryRow> getRows() {
+    public Collection<BinaryRow> getRows() {
         if (rows == null && rowsBytes != null) {
             rows = new HashSet<>();
 

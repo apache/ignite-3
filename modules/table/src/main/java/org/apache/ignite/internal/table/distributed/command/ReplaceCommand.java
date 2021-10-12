@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.command;
 
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
@@ -48,11 +49,11 @@ public class ReplaceCommand implements WriteCommand {
     /**
      * Creates a new instance of ReplaceCommand with the given two rows to be replaced each other.
      * Both rows should not be {@code null}.
-     *
-     * @param oldRow Old Binary row.
+     *  @param oldRow Old Binary row.
      * @param row Binary row.
+     * @param ts
      */
-    public ReplaceCommand(@NotNull BinaryRow oldRow, @NotNull BinaryRow row) {
+    public ReplaceCommand(@NotNull BinaryRow oldRow, @NotNull BinaryRow row, Timestamp ts) {
         assert oldRow != null;
         assert row != null;
 

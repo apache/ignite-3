@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.jetbrains.annotations.NotNull;
 
@@ -28,7 +30,10 @@ import org.jetbrains.annotations.NotNull;
  */
 public class GetAllCommand implements ReadCommand {
     /** Binary key rows. */
-    private transient Set<BinaryRow> keyRows;
+    private transient Collection<BinaryRow> keyRows;
+
+    /** The timestamp. */
+    private final Timestamp timestamp;
 
     /*
      * Row bytes.
@@ -42,11 +47,13 @@ public class GetAllCommand implements ReadCommand {
      * The {@code keyRows} should not be {@code null} or empty.
      *
      * @param keyRows Binary key rows.
+     * @param timestamp The timestamp.
      */
-    public GetAllCommand(@NotNull Set<BinaryRow> keyRows) {
+    public GetAllCommand(@NotNull Collection<BinaryRow> keyRows, Timestamp timestamp) {
         assert keyRows != null && !keyRows.isEmpty();
 
         this.keyRows = keyRows;
+        this.timestamp = timestamp;
 
         CommandUtils.rowsToBytes(keyRows, bytes -> keyRowsBytes = bytes);
     }
@@ -56,7 +63,7 @@ public class GetAllCommand implements ReadCommand {
      *
      * @return Binary keys.
      */
-    public Set<BinaryRow> getKeyRows() {
+    public Collection<BinaryRow> getKeyRows() {
         if (keyRows == null && keyRowsBytes != null) {
             keyRows = new HashSet<>();
 
@@ -64,5 +71,12 @@ public class GetAllCommand implements ReadCommand {
         }
 
         return keyRows;
+    }
+
+    /**
+     * @return The timestamp.
+     */
+    public Timestamp getTimestamp() {
+        return timestamp;
     }
 }

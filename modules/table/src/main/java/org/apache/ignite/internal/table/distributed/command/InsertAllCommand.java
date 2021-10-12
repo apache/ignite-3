@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
@@ -28,7 +30,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class InsertAllCommand implements WriteCommand {
     /** Binary rows. */
-    private transient Set<BinaryRow> rows;
+    private transient Collection<BinaryRow> rows;
 
     /*
      * Row bytes.
@@ -43,7 +45,7 @@ public class InsertAllCommand implements WriteCommand {
      *
      * @param rows Binary rows.
      */
-    public InsertAllCommand(@NotNull Set<BinaryRow> rows) {
+    public InsertAllCommand(@NotNull Collection<BinaryRow> rows, Timestamp ts) {
         assert rows != null && !rows.isEmpty();
 
         this.rows = rows;
@@ -56,7 +58,7 @@ public class InsertAllCommand implements WriteCommand {
      *
      * @return Binary rows.
      */
-    public Set<BinaryRow> getRows() {
+    public Collection<BinaryRow> getRows() {
         if (rows == null && rowsBytes != null) {
             rows = new HashSet<>();
 

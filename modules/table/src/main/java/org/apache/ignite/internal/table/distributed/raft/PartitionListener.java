@@ -19,11 +19,11 @@ package org.apache.ignite.internal.table.distributed.raft;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
@@ -171,7 +171,7 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleGetAllCommand(CommandClosure<GetAllCommand> clo) {
-        Set<BinaryRow> keyRows = ((GetAllCommand)clo.command()).getKeyRows();
+        Collection<BinaryRow> keyRows = ((GetAllCommand)clo.command()).getKeyRows();
 
         assert keyRows != null && !keyRows.isEmpty();
 
@@ -231,7 +231,7 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleInsertAllCommand(CommandClosure<InsertAllCommand> clo) {
-        Set<BinaryRow> rows = ((InsertAllCommand)clo.command()).getRows();
+        Collection<BinaryRow> rows = ((InsertAllCommand)clo.command()).getRows();
 
         assert rows != null && !rows.isEmpty();
 
@@ -244,7 +244,7 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleUpsertAllCommand(CommandClosure<UpsertAllCommand> clo) {
-        Set<BinaryRow> rows = ((UpsertAllCommand)clo.command()).getRows();
+        Collection<BinaryRow> rows = ((UpsertAllCommand)clo.command()).getRows();
 
         assert rows != null && !rows.isEmpty();
 
@@ -259,7 +259,7 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleDeleteAllCommand(CommandClosure<DeleteAllCommand> clo) {
-        Set<BinaryRow> rows = ((DeleteAllCommand)clo.command()).getRows();
+        Collection<BinaryRow> rows = ((DeleteAllCommand)clo.command()).getRows();
 
         assert rows != null && !rows.isEmpty();
 
@@ -286,7 +286,7 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleDeleteExactAllCommand(CommandClosure<DeleteExactAllCommand> clo) {
-        Set<BinaryRow> rows = ((DeleteExactAllCommand)clo.command()).getRows();
+        Collection<BinaryRow> rows = ((DeleteExactAllCommand)clo.command()).getRows();
 
         assert rows != null && !rows.isEmpty();
 

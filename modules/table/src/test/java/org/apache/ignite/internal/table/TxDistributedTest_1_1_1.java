@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +37,6 @@ import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorag
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
-import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -105,10 +103,6 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
 
     /** Cluster. */
     protected List<ClusterService> cluster = new CopyOnWriteArrayList<>();
-
-    /** */
-    @WorkDirectory
-    protected Path dataPath;
 
     /** */
     private ScheduledThreadPoolExecutor executor;
@@ -182,7 +176,7 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
         for (int i = 0; i < nodes; i++) {
             TxManagerImpl txManager = new TxManagerImpl(cluster.get(i), new HeapLockManager());
 
-            var raftSrv = new JRaftServerImpl(cluster.get(i), txManager, dataPath);
+            var raftSrv = new JRaftServerImpl(cluster.get(i), txManager, workDir);
 
             raftSrv.start();
 
