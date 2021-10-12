@@ -882,6 +882,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private boolean isTableConfigured(IgniteUuid id) {
         NamedListView<TableView> directTablesCfg = ((DirectConfigurationProperty<NamedListView<TableView>>)tablesCfg.tables()).directValue();
 
+        // TODO: IGNITE-15721 Need to review this approach after the ticket would be fixed.
+        // Probably, it won't be required getting configuration of all tables from Metastor.
         for (String name : directTablesCfg.namedListKeys()) {
             ExtendedTableView tView = (ExtendedTableView)directTablesCfg.get(name);
 

@@ -74,9 +74,9 @@ public class ITTablesApiTest extends IgniteAbstractTest {
 
     /** Nodes bootstrap configuration. */
     private final ArrayList<Function<String, String>> nodesBootstrapCfg = new ArrayList<>() {{
-        add((metostorNodeName) -> "{\n" +
+        add((metastorNodeName) -> "{\n" +
             "  \"node\": {\n" +
-            "    \"metastorageNodes\":[ " + metostorNodeName + " ]\n" +
+            "    \"metastorageNodes\":[ " + metastorNodeName + " ]\n" +
             "  },\n" +
             "  \"network\": {\n" +
             "    \"port\":3344,\n" +
@@ -84,9 +84,9 @@ public class ITTablesApiTest extends IgniteAbstractTest {
             "  }\n" +
             "}");
 
-        add((metostorNodeName) -> "{\n" +
+        add((metastorNodeName) -> "{\n" +
             "  \"node\": {\n" +
-            "    \"metastorageNodes\":[ " + metostorNodeName + " ]\n" +
+            "    \"metastorageNodes\":[ " + metastorNodeName + " ]\n" +
             "  },\n" +
             "  \"network\": {\n" +
             "    \"port\":3345,\n" +
@@ -94,9 +94,9 @@ public class ITTablesApiTest extends IgniteAbstractTest {
             "  }\n" +
             "}");
 
-        add((metostorNodeName) -> "{\n" +
+        add((metastorNodeName) -> "{\n" +
             "  \"node\": {\n" +
-            "    \"metastorageNodes\":[ " + metostorNodeName + " ]\n" +
+            "    \"metastorageNodes\":[ " + metastorNodeName + " ]\n" +
             "  },\n" +
             "  \"network\": {\n" +
             "    \"port\":3346,\n" +
@@ -113,14 +113,14 @@ public class ITTablesApiTest extends IgniteAbstractTest {
      */
     @BeforeEach
     void beforeEach(TestInfo testInfo) throws Exception {
-        String metostorNodeName = IgniteTestUtils.testNodeName(testInfo, 0);
+        String metastorNodeName = IgniteTestUtils.testNodeName(testInfo, 0);
 
         clusterNodes = IntStream.range(0, nodesBootstrapCfg.size()).mapToObj(value -> {
                 String nodeName = IgniteTestUtils.testNodeName(testInfo, value);
 
                 return IgnitionManager.start(
                     nodeName,
-                    nodesBootstrapCfg.get(value).apply(metostorNodeName),
+                    nodesBootstrapCfg.get(value).apply(metastorNodeName),
                     workDir.resolve(nodeName));
             }
         ).collect(Collectors.toList());
@@ -235,6 +235,7 @@ public class ITTablesApiTest extends IgniteAbstractTest {
 
         IgniteTestUtils.setFieldValue(metaMngr, "watchAggregator", aggregatorSpy);
 
+        //Redeploy Metastor watch. The Watch inhibitor will be used after.
         metaMngr.unregisterWatch(-1);
 
         return inhibitor;
