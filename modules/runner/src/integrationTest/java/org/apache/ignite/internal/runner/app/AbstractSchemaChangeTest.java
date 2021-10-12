@@ -124,7 +124,7 @@ abstract class AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        assertColumnChangeThrows(IllegalArgumentException.class, grid, "valStr", c -> c.changeType(t -> t.changeType("UNKNOWN_TYPE")));
+        assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valStr", c -> c.changeType(t -> t.changeType("UNKNOWN_TYPE")));
 
         assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valInt", colChanger -> colChanger.changeType(t -> t.changeType(ColumnType.blobOf().typeSpec().name())));
 
@@ -132,14 +132,14 @@ abstract class AbstractSchemaChangeTest {
         assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valInt", colChanger -> colChanger.changeType(t -> t.changeScale(10)));
         assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valInt", colChanger -> colChanger.changeType(t -> t.changeLength(1)));
 
-        assertColumnChangeThrows(IllegalArgumentException.class, grid, "valBigInt", colChanger -> colChanger.changeType(t -> t.changePrecision(-1)));
+        assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valBigInt", colChanger -> colChanger.changeType(t -> t.changePrecision(-1)));
         assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valBigInt", colChanger -> colChanger.changeType(t -> t.changePrecision(10)));
         assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valBigInt", colChanger -> colChanger.changeType(t -> t.changeScale(2)));
         assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valBigInt", colChanger -> colChanger.changeType(t -> t.changeLength(10)));
 
-        assertColumnChangeThrows(IllegalArgumentException.class, grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(-1)));
-        assertColumnChangeThrows(IllegalArgumentException.class, grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(0)));
-        assertColumnChangeThrows(IllegalArgumentException.class, grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeScale(-2)));
+        assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(-1)));
+        assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(0)));
+        assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeScale(-2)));
         assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(10)));
         assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeScale(2)));
         assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeLength(10)));

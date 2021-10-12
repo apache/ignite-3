@@ -43,6 +43,7 @@ import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableChange;
@@ -668,6 +669,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     })
                     .exceptionally(t -> {
                         LOG.error(LoggerMessageHelper.format("Table wasn't altered [name={}]", name), t);
+
+                        if (t instanceof CompletionException)
+                            t = t.getCause();
+
+                        if (t instanceof IllegalArgumentException)
+                            t = new ConfigurationValidationException(t.getMessage());
 
                         removeListener(TableEvent.ALTER, clo, new IgniteInternalCheckedException(t));
 
