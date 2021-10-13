@@ -646,21 +646,30 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     schemasCh.createOrUpdate(
                                         String.valueOf(schemasCh.size() + 1),
                                         schemaCh -> {
-                                            SchemaDescriptor descriptor;
-
                                             ExtendedTableView currTableView = (ExtendedTableView)tablesCfg.tables().get(name).value();
 
-                                            descriptor = SchemaUtils.prepareSchemaDescriptor(
-                                                ((ExtendedTableView)tblCh).schemas().size(),
-                                                tblCh
-                                            );
+                                            SchemaDescriptor descriptor;
 
-                                            descriptor.columnMapping(SchemaUtils.columnMapper(
-                                                tablesById.get(tblId).schemaView().schema(currTableView.schemas().size()),
-                                                currTableView,
-                                                descriptor,
-                                                tblCh
-                                            ));
+                                            try {
+                                                descriptor = SchemaUtils.prepareSchemaDescriptor(
+                                                    ((ExtendedTableView)tblCh).schemas().size(),
+                                                    tblCh
+                                                );
+
+                                                descriptor.columnMapping(SchemaUtils.columnMapper(
+                                                    tablesById.get(tblId).schemaView().schema(currTableView.schemas().size()),
+                                                    currTableView,
+                                                    descriptor,
+                                                    tblCh
+                                                ));
+                                            }
+                                            catch (IllegalArgumentException ex) {
+                                                ConfigurationValidationException e = new ConfigurationValidationException(ex.getMessage());
+
+                                                e.addSuppressed(ex);
+
+                                                throw e;
+                                            }
 
                                             schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(descriptor));
                                         }
@@ -669,12 +678,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     })
                     .exceptionally(t -> {
                         LOG.error(LoggerMessageHelper.format("Table wasn't altered [name={}]", name), t);
-
-                        if (t instanceof CompletionException)
-                            t = t.getCause();
-
-                        if (t instanceof IllegalArgumentException)
-                            t = new ConfigurationValidationException(t.getMessage());
 
                         removeListener(TableEvent.ALTER, clo, new IgniteInternalCheckedException(t));
 
