@@ -552,6 +552,8 @@ public class ConfigurationAsmGenerator {
                     polymorphicExtensionFields
                 ));
             }
+
+            addNodeSpecificViewMethod(classDef, schemaClass, polymorphicExtensions, polymorphicTypeIdFieldDef);
         }
 
         return classDefs;
@@ -711,9 +713,11 @@ public class ConfigurationAsmGenerator {
 
         ParameterizedType returnType;
 
+        SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaFieldType);
+
         // Return type is either corresponding VIEW type or the same type as declared in schema.
         if (isConfigValue(schemaField))
-            returnType = typeFromJavaClassName(schemasInfo.get(schemaFieldType).viewClassName);
+            returnType = typeFromJavaClassName(schemaClassInfo.viewClassName);
         else if (isNamedConfigValue(schemaField))
             returnType = type(NamedListView.class);
         else
@@ -730,18 +734,26 @@ public class ConfigurationAsmGenerator {
         // result = this.field;
         viewMtd.getBody().append(getThisFieldCode(viewMtd, fieldDefs));
 
-        // result = Box.boxValue(result); // Unboxing.
         if (schemaFieldType.isPrimitive()) {
+            // result = Box.boxValue(result); // Unboxing.
             viewMtd.getBody().invokeVirtual(
                 box(schemaFieldType),
                 schemaFieldType.getSimpleName() + "Value",
                 schemaFieldType
             );
         }
-
-        // result = result.clone();
-        if (schemaFieldType.isArray())
+        else if (schemaFieldType.isArray()) {
+            // result = result.clone();
             viewMtd.getBody().invokeVirtual(schemaFieldType, "clone", Object.class).checkCast(schemaFieldType);
+        }
+        else if (schemaFieldType.isAnnotationPresent(PolymorphicConfig.class)) {
+            // result = result.specificView();
+            viewMtd.getBody().invokeVirtual(
+                typeFromJavaClassName(schemaClassInfo.nodeClassName),
+                "specificView",
+                typeFromJavaClassName(schemaClassInfo.viewClassName)
+            );
+        }
 
         // return result;
         viewMtd.getBody().ret(schemaFieldType);
@@ -1305,18 +1317,18 @@ public class ConfigurationAsmGenerator {
      * Construct a {@link DynamicConfiguration} definition for a configuration schema.
      *
      * @param schemaClass              Configuration schema class.
-     * @param internalSchemaExtensions Internal extensions of the configuration schema.
+     * @param internalExtensions Internal extensions of the configuration schema.
      * @param schemaFields             Fields of the schema class.
-     * @param internalExtensionsFields Fields of internal extensions of the configuration schema.
+     * @param internalFields Fields of internal extensions of the configuration schema.
      * @return Constructed {@link DynamicConfiguration} definition for the configuration schema.
      */
     private ClassDefinition createCfgImplClass(
         Class<?> schemaClass,
-        Set<Class<?>> internalSchemaExtensions,
-        Set<Class<?>> polymorphicSchemaExtensions,
+        Set<Class<?>> internalExtensions,
+        Set<Class<?>> polymorphicExtensions,
         Collection<Field> schemaFields,
-        Collection<Field> internalExtensionsFields,
-        Collection<Field> polymorphicExtensionsFields
+        Collection<Field> internalFields,
+        Collection<Field> polymorphicFields
     ) {
         SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaClass);
 
@@ -1327,19 +1339,19 @@ public class ConfigurationAsmGenerator {
             of(PUBLIC, FINAL),
             internalName(schemaClassInfo.cfgImplClassName),
             type(superClass),
-            configClassInterfaces(schemaClass, internalSchemaExtensions)
+            configClassInterfaces(schemaClass, internalExtensions)
         );
 
         // Fields.
         Map<String, FieldDefinition> fieldDefs = new HashMap<>();
 
-        for (Field schemaField : concat(schemaFields, internalExtensionsFields))
+        for (Field schemaField : concat(schemaFields, internalFields))
             fieldDefs.put(schemaField.getName(), addConfigurationImplField(classDef, schemaField));
 
         // Constructor
-        addConfigurationImplConstructor(classDef, schemaClassInfo, fieldDefs, schemaFields, internalExtensionsFields);
+        addConfigurationImplConstructor(classDef, schemaClassInfo, fieldDefs, schemaFields, internalFields);
 
-        for (Field schemaField : concat(schemaFields, internalExtensionsFields))
+        for (Field schemaField : concat(schemaFields, internalFields))
             addConfigurationImplGetMethod(classDef, schemaClass, fieldDefs, schemaField);
 
         // org.apache.ignite.internal.configuration.DynamicConfiguration#configType
@@ -1767,6 +1779,50 @@ public class ConfigurationAsmGenerator {
         }
 
         return classDef;
+    }
+
+    /**
+     * Adds a {@link InnerNode#specificView} override for the polymorphic configuration case.
+     *
+     * @param classDef Definition of a polymorphic configuration class {@code schemaClass}.
+     * @param schemaClass Polymorphic configuration schema (parent).
+     * @param polymorphicExtensions Polymorphic configuration instance schemas (children).
+     * @param polymorphicTypeIdFieldDef Identification field for the polymorphic configuration instance.
+     */
+    private void addNodeSpecificViewMethod(
+        ClassDefinition classDef,
+        Class<?> schemaClass,
+        Set<Class<?>> polymorphicExtensions,
+        FieldDefinition polymorphicTypeIdFieldDef
+    ) {
+        SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaClass);
+
+        MethodDefinition specificViewMtd = classDef.declareMethod(
+            of(PUBLIC),
+            "specificView",
+            typeFromJavaClassName(schemaClassInfo.viewClassName)
+        );
+
+        StringSwitchBuilder switchBuilder = typeIdSwitchBuilder(specificViewMtd, polymorphicTypeIdFieldDef);
+
+        switchBuilder.addCase(
+            schemaClass.getAnnotation(PolymorphicConfig.class).id(),
+            specificViewMtd.getThis().ret()
+        );
+
+        for (Class<?> polymorphicExtension : polymorphicExtensions) {
+            SchemaClassesInfo polymorphicExtensionClassInfo = schemasInfo.get(polymorphicExtension);
+
+            switchBuilder.addCase(
+                polymorphicExtension.getAnnotation(PolymorphicConfigInstance.class).id(),
+                newInstance(
+                    typeFromJavaClassName(polymorphicExtensionClassInfo.viewClassName),
+                    specificViewMtd.getThis()
+                ).ret()
+            );
+        }
+
+        specificViewMtd.getBody().append(switchBuilder.build()).ret();
     }
 
     /**

@@ -30,6 +30,7 @@ import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
+import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationNotificationsUtil;
 
 /**
@@ -107,7 +108,10 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
 
     /** {@inheritDoc} */
     @Override public final VIEW value() {
-        return refreshValue();
+        InnerNode innerNode = (InnerNode)refreshValue();
+
+        // To work with polymorphic configuration.
+        return innerNode.specificView();
     }
 
     /**
