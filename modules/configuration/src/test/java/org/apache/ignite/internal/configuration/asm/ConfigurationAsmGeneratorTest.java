@@ -241,11 +241,36 @@ public class ConfigurationAsmGeneratorTest {
 
     /** */
     @Test
-    void test() {
+    void test() throws Exception {
+        // TODO: IGNITE-14645 implement.
         DynamicConfiguration<?, ?> config = generator.instantiateCfg(TestRootConfiguration.KEY, changer);
 
         TestRootConfiguration rootConfig = (TestRootConfiguration)config;
 
+        TestRootView value = rootConfig.value();
+        PolymorphicTestView view = value.polymorphicSubCfg();
+
+        PolymorphicTestConfiguration configuration = rootConfig.polymorphicSubCfg();
+        PolymorphicTestView value1 = configuration.value();
+
+        SchemaClassesInfo schemaClassesInfo0 = generator.schemasInfo.get(PolymorphicTestConfigurationSchema.class);
+        SchemaClassesInfo schemaClassesInfo1 = generator.schemasInfo.get(FirstPolymorphicInstanceTestConfigurationSchema.class);
+
+        Object node = schemaClassesInfo1.nodeClass.getConstructor(schemaClassesInfo0.nodeClass).newInstance(view);
+        FirstPolymorphicInstanceTestView view1 = (FirstPolymorphicInstanceTestView)node;
+        FirstPolymorphicInstanceTestChange change1 = (FirstPolymorphicInstanceTestChange)node;
+
+        change1.changeStrVal("FUCK");
+        change1.changeIntVal(1024);
+
+        System.out.println(view1.strVal());
+        System.out.println(view1.intVal());
+
+//        configuration.change(
+//            c -> c.convert(FirstPolymorphicInstanceTestChange.class).changeIntVal(10)
+//        ).get();
+
+        System.out.println(config);
         // TODO: 08.10.2021
     }
 
