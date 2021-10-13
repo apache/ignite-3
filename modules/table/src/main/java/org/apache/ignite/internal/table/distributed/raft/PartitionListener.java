@@ -302,7 +302,7 @@ public class PartitionListener implements RaftGroupListener {
 
         assert rows != null && !rows.isEmpty();
 
-        clo.result(new MultiRowsResponse(storage.deleteAll(rows, cmd.getTimestamp())));
+        clo.result(new MultiRowsResponse(storage.deleteAllExact(rows, cmd.getTimestamp())));
     }
 
     /**

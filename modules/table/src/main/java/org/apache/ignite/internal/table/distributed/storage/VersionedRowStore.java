@@ -125,15 +125,6 @@ public class VersionedRowStore {
     /** {@inheritDoc} */
     public boolean insert(BinaryRow row, Timestamp ts) {
         assert row != null && row.hasValue() : row;
-
-//        DataRow newRow = extractAndWrapKeyValue(row);
-//
-//        InsertInvokeClosure writeIfAbsent = new InsertInvokeClosure(newRow);
-//
-//        storage.invoke(newRow, writeIfAbsent);
-//
-//        return writeIfAbsent.result();
-
         txManager.getOrCreateTransaction(ts);
 
         SimpleDataRow key = new SimpleDataRow(extractAndWrapKey(row).keyBytes(), null);
@@ -245,7 +236,7 @@ public class VersionedRowStore {
         return deleted;
     }
 
-    public Collection<BinaryRow> deleteAllExact(Collection<BinaryRow> rows, Timestamp ts) {
+    public List<BinaryRow> deleteAllExact(Collection<BinaryRow> rows, Timestamp ts) {
         assert rows != null && !rows.isEmpty();
 
         var deleted = new ArrayList<BinaryRow>(rows.size());
