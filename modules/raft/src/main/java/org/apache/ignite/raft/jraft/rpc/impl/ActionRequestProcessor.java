@@ -85,7 +85,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                     else {
                         // TODO asch add support for transaction specific error codes
                         ErrorResponseBuilder resp =
-                            factory.errorResponse().errorCode(RaftError.EINTERNAL.getNumber()).errorMsg(err.getMessage());
+                            factory.errorResponse().errorCode(RaftError.ETX.getNumber()).errorMsg(err.getMessage());
 
                         rpcCtx.sendResponse(resp.build());
                     }

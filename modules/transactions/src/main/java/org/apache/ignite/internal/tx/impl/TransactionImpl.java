@@ -27,7 +27,6 @@ import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -123,9 +122,13 @@ public class TransactionImpl implements InternalTransaction {
 
         int i = 0;
 
-        for (Map.Entry<NetworkAddress, Set<String>> entry : map.entrySet())
-            futs[i++] = txManager.finishRemote(entry.getKey(), timestamp, commit, entry.getValue());
+        for (Map.Entry<NetworkAddress, Set<String>> entry : map.entrySet()) {
+            futs[i++] = map.containsKey(entry.getKey()) ?
+                commit ? txManager.commitAsync(timestamp) : txManager.rollbackAsync(timestamp) // Collocated.
+                : txManager.finishRemote(entry.getKey(), timestamp, commit, entry.getValue());
+        }
 
+        // Handle coordinator's tx.
         futs[i] = collocated() ? CompletableFuture.completedFuture(null) : commit ? txManager.commitAsync(timestamp) :
             txManager.rollbackAsync(timestamp);
 

@@ -116,6 +116,7 @@ public class TxManagerImpl implements TxManager {
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> rollbackAsync(Timestamp ts) {
         // TODO asch remove async
+        // TODO asch split to tx coordinator and tx manager ?
         if (changeState(ts, TxState.PENDING, TxState.ABORTED) || state(ts) == TxState.ABORTED) {
             unlockAll(ts);
 
@@ -156,21 +157,14 @@ public class TxManagerImpl implements TxManager {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> writeLock(IgniteUuid tableId, ByteBuffer keyData, Timestamp ts) {
+        // TODO asch process tx messages in striped fasion to avoid races. But locks can be acquired from any thread !
         if (state(ts) != TxState.PENDING)
             return failedFuture(new TransactionException("The operation is attempted for completed transaction"));
 
         // Should rollback tx on lock error.
         TableLockKey key = new TableLockKey(tableId, keyData);
 
-        return lockManager.tryAcquire(key, ts)
-            .handle(new BiFunction<Void, Throwable, CompletableFuture<Void>>() {
-                @Override public CompletableFuture<Void> apply(Void r, Throwable e) {
-                    if (e != null) // TODO asch add suppressed exception to rollback exception.
-                        return rollbackAsync(ts).thenCompose(ignored -> failedFuture(e)); // Preserve failed state or report rollback exception.
-                    else
-                        return completedFuture(null).thenAccept(ignored -> recordLock(key, ts, Boolean.FALSE));
-                }
-            }).thenCompose(x -> x);
+        return lockManager.tryAcquire(key, ts).thenAccept(ignored -> recordLock(key, ts, Boolean.FALSE));
     }
 
     /** {@inheritDoc} */
@@ -180,15 +174,7 @@ public class TxManagerImpl implements TxManager {
 
         TableLockKey key = new TableLockKey(tableId, keyData);
 
-        return lockManager.tryAcquireShared(key, ts)
-            .handle(new BiFunction<Void, Throwable, CompletableFuture<Void>>() {
-                @Override public CompletableFuture<Void> apply(Void r, Throwable e) {
-                    if (e != null)
-                        return rollbackAsync(ts).thenCompose(ignored -> failedFuture(e)); // Preserve failed state.
-                    else
-                        return completedFuture(null).thenAccept(ignored -> recordLock(key, ts, Boolean.TRUE));
-                }
-            }).thenCompose(x -> x);
+        return lockManager.tryAcquireShared(key, ts).thenAccept(ignored -> recordLock(key, ts, Boolean.TRUE));
     }
 
     /**

@@ -26,7 +26,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * This is a command to get a value before delete it.
  */
-public class GetAndDeleteCommand implements WriteCommand {
+public class GetAndDeleteCommand implements SingleKeyCommand, WriteCommand {
     /** Binary key row. */
     private transient BinaryRow keyRow;
 
@@ -37,17 +37,21 @@ public class GetAndDeleteCommand implements WriteCommand {
      */
     private byte[] keyRowBytes;
 
+    /** The timestamp. */
+    private final Timestamp timestamp;
+
     /**
      * Creates a new instance of GetAndDeleteCommand with the given key to be got and deleted.
      * The {@code keyRow} should not be {@code null}.
      *
      * @param keyRow Binary key row.
-     * @param ts
+     * @param ts The timestamp.
      */
     public GetAndDeleteCommand(@NotNull BinaryRow keyRow, Timestamp ts) {
         assert keyRow != null;
 
         this.keyRow = keyRow;
+        this.timestamp = ts;
 
         CommandUtils.rowToBytes(keyRow, bytes -> keyRowBytes = bytes);
     }
@@ -57,10 +61,22 @@ public class GetAndDeleteCommand implements WriteCommand {
      *
      * @return Binary key.
      */
-    public BinaryRow getKeyRow() {
+    @Override public BinaryRow getRow() {
         if (keyRow == null)
             keyRow = new ByteBufferRow(keyRowBytes);
 
         return keyRow;
+    }
+
+    /**
+     * @return The timestamp.
+     */
+    @Override public Timestamp getTimestamp() {
+        return timestamp;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean read() {
+        return false;
     }
 }

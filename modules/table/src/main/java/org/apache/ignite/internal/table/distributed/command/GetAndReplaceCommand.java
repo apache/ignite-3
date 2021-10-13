@@ -26,7 +26,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * This is a command to get a value before replace it.
  */
-public class GetAndReplaceCommand implements WriteCommand {
+public class GetAndReplaceCommand implements SingleKeyCommand, WriteCommand {
     /** Binary row. */
     private transient BinaryRow row;
 
@@ -37,17 +37,21 @@ public class GetAndReplaceCommand implements WriteCommand {
      */
     private byte[] rowBytes;
 
+    /** The timestamp. */
+    private final Timestamp timestamp;
+
     /**
      * Creates a new instance of GetAndReplaceCommand with the given row to be got and replaced.
      * The {@code row} should not be {@code null}.
      *
      * @param row Binary row.
-     * @param ts
+     * @param ts The timestamp.
      */
     public GetAndReplaceCommand(@NotNull BinaryRow row, Timestamp ts) {
         assert row != null;
 
         this.row = row;
+        this.timestamp = ts;
 
         CommandUtils.rowToBytes(row, bytes -> rowBytes = bytes);
     }
@@ -57,10 +61,22 @@ public class GetAndReplaceCommand implements WriteCommand {
      *
      * @return Binary row.
      */
-    public BinaryRow getRow() {
+    @Override public BinaryRow getRow() {
         if (row == null)
             row = new ByteBufferRow(rowBytes);
 
         return row;
+    }
+
+    /**
+     * @return The timestamp.
+     */
+    @Override public Timestamp getTimestamp() {
+        return timestamp;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean read() {
+        return false;
     }
 }

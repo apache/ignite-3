@@ -60,6 +60,7 @@ public class RecordBinaryViewOperationsTest {
      */
     private InternalTable createTable() {
         clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
         TxManagerImpl txManager = new TxManagerImpl(clusterService, new HeapLockManager());
 

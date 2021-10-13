@@ -26,7 +26,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * The command gets a value by key specified.
  */
-public class GetCommand implements ReadCommand {
+public class GetCommand implements SingleKeyCommand, ReadCommand {
     /** The timestamp or null for implicit read. */
     private final Timestamp timestamp;
 
@@ -61,7 +61,7 @@ public class GetCommand implements ReadCommand {
      *
      * @return Binary key.
      */
-    public BinaryRow getKeyRow() {
+    @Override public BinaryRow getRow() {
         if (keyRow == null)
             keyRow = new ByteBufferRow(keyRowBytes);
 
@@ -71,7 +71,12 @@ public class GetCommand implements ReadCommand {
     /**
      * @return The timestamp.
      */
-    public Timestamp getTimestamp() {
+    @Override public Timestamp getTimestamp() {
         return timestamp;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean read() {
+        return true;
     }
 }

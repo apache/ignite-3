@@ -47,7 +47,7 @@ public class TxLocalTest extends TxAbstractTest {
     @Override @BeforeEach
     public void before() {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(ADDR);
+        Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
         lockManager = new HeapLockManager();
 

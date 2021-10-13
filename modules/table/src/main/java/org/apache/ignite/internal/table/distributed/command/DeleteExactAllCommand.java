@@ -28,7 +28,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * The command deletes entries that exact the same as the rows passed.
  */
-public class DeleteExactAllCommand implements WriteCommand {
+public class DeleteExactAllCommand implements MultiKeyCommand, WriteCommand {
     /** Binary rows. */
     private transient Collection<BinaryRow> rows;
 
@@ -38,6 +38,9 @@ public class DeleteExactAllCommand implements WriteCommand {
      * TODO: Remove the field after (IGNITE-14793).
      */
     private byte[] rowsBytes;
+
+    /** The timestamp. */
+    private final Timestamp timestamp;
 
     /**
      * Creates a new instance of DeleteExactAllCommand with the given set of rows to be deleted.
@@ -50,6 +53,7 @@ public class DeleteExactAllCommand implements WriteCommand {
         assert rows != null && !rows.isEmpty();
 
         this.rows = rows;
+        this.timestamp = ts;
 
         CommandUtils.rowsToBytes(rows, bytes -> rowsBytes = bytes);
     }
@@ -59,7 +63,7 @@ public class DeleteExactAllCommand implements WriteCommand {
      *
      * @return Binary rows.
      */
-    public Collection<BinaryRow> getRows() {
+    @Override public Collection<BinaryRow> getRows() {
         if (rows == null && rowsBytes != null) {
             rows = new HashSet<>();
 
@@ -67,5 +71,17 @@ public class DeleteExactAllCommand implements WriteCommand {
         }
 
         return rows;
+    }
+
+    /**
+     * @return The timestamp.
+     */
+    @Override public Timestamp getTimestamp() {
+        return timestamp;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean read() {
+        return false;
     }
 }

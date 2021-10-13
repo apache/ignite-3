@@ -17,19 +17,16 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.tx.Timestamp;
-import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * The command inserts or updates a value for the key specified.
  */
-public class UpsertCommand implements WriteCommand {
+public class UpsertCommand implements SingleKeyCommand, WriteCommand {
     /** The timestamp. */
     private final Timestamp timestamp;
 
@@ -64,7 +61,7 @@ public class UpsertCommand implements WriteCommand {
      *
      * @return Binary row.
      */
-    public BinaryRow getRow() {
+    @Override public BinaryRow getRow() {
         if (row == null)
             row = new ByteBufferRow(rowBytes);
 
@@ -74,7 +71,12 @@ public class UpsertCommand implements WriteCommand {
     /**
      * @return The timestamp.
      */
-    public Timestamp getTimestamp() {
+    @Override public Timestamp getTimestamp() {
         return timestamp;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean read() {
+        return false;
     }
 }

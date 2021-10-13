@@ -74,6 +74,9 @@ import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.TestOnly;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+
 /**
  * Storage of table rows.
  */
@@ -86,7 +89,7 @@ public class InternalTableImpl implements InternalTable {
 
     //TODO: IGNITE-15443 Use IntMap structure instead of HashMap.
     /** Partition map. */
-    private final Map<Integer, RaftGroupService> partitionMap;
+    protected final Map<Integer, RaftGroupService> partitionMap;
 
     /** Partitions. */
     private final int partitions;
@@ -171,11 +174,13 @@ public class InternalTableImpl implements InternalTable {
                 tx = txManager.tx();
             }
             catch (TransactionException e) {
-                return CompletableFuture.failedFuture(e);
+                return failedFuture(e);
             }
         }
 
-        final InternalTransaction tx0 = tx == null ? txManager.begin() : tx;
+        final boolean implicit = tx == null;
+
+        final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
 
         Map<Integer, Set<BinaryRow>> keyRowsByPartition = mapRowsToPartitions(keyRows);
 
@@ -191,13 +196,36 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<T> fut = reducer.apply(futures);
 
-        return tx == null ? fut : fut.thenCompose(r -> tx0.commitAsync().thenApply(ignored -> r));
+        // TODO asch cleanup
+        return fut.handle(new BiFunction<T, Throwable, CompletableFuture<T>>() {
+            @Override public CompletableFuture<T> apply(T r, Throwable e) {
+                if (e != null)
+                    return tx0.rollbackAsync().thenCompose(ignored -> failedFuture(e)); // Preserve failed state.
+                else {
+                    CompletableFuture<T> f = completedFuture(r);
+
+                    if (implicit)
+                        f.thenCompose(r0 -> tx0.commitAsync().thenApply(ignored -> r0));
+
+                    return f;
+                }
+            }
+        }).thenCompose(x -> x);
     }
 
+    /**
+     * @param row The row.
+     * @param tx The transaction.
+     * @param op Command factory.
+     * @param trans Transform closure.
+     * @param <R> Transform input.
+     * @param <T> Transform output.
+     * @return
+     */
     private <R, T> CompletableFuture<T> wrapInTx(
-        BinaryRow keyRow,
+        BinaryRow row,
         InternalTransaction tx,
-        Function<InternalTransaction, Command> cmdFac,
+        Function<InternalTransaction, Command> op,
         Function<R, T> trans
     ) {
         if (tx == null) {
@@ -205,18 +233,30 @@ public class InternalTableImpl implements InternalTable {
                 tx = txManager.tx();
             }
             catch (TransactionException e) {
-                return CompletableFuture.failedFuture(e);
+                return failedFuture(e);
             }
         }
 
-        if (tx != null)
-            return enlist(partId(keyRow), tx).<R>run(cmdFac.apply(tx)).thenApply(trans::apply);
-        else {
-            InternalTransaction tx0 = txManager.begin();
+        final boolean implicit = tx == null;
 
-            return enlist(partId(keyRow), tx0).<R>run(cmdFac.apply(tx0)).
-                thenApply(trans::apply).thenCompose(r -> tx0.commitAsync().thenApply(ignored -> r));
-        }
+        final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
+
+        CompletableFuture<T> fut = enlist(partId(row), tx0).<R>run(op.apply(tx0)).thenApply(trans::apply);
+
+        return fut.handle(new BiFunction<T, Throwable, CompletableFuture<T>>() {
+            @Override public CompletableFuture<T> apply(T r, Throwable e) {
+                if (e != null)
+                    return tx0.rollbackAsync().thenCompose(ignored -> failedFuture(e)); // Preserve failed state.
+                else {
+                    CompletableFuture<T> f = completedFuture(r);
+
+                    if (implicit)
+                        f.thenCompose(r0 -> tx0.commitAsync().thenApply(ignored -> r0));
+
+                    return f;
+                }
+            }
+        }).thenCompose(x -> x);
     }
 
     /** {@inheritDoc} */
@@ -417,7 +457,7 @@ public class InternalTableImpl implements InternalTable {
      * @param tx The transaction.
      * @return The corresponding raft service.
      */
-    private RaftGroupService enlist(int partId, InternalTransaction tx) {
+    protected RaftGroupService enlist(int partId, InternalTransaction tx) {
         RaftGroupService svc = partitionMap.get(partId);
 
         // TODO asch fixme need to map to fixed topology.

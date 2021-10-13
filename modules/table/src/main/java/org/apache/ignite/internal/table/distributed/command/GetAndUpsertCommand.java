@@ -26,7 +26,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * This is a command to get a value before upsert it.
  */
-public class GetAndUpsertCommand implements WriteCommand {
+public class GetAndUpsertCommand implements SingleKeyCommand, WriteCommand {
     /** Binary key row. */
     private transient BinaryRow keyRow;
 
@@ -36,6 +36,9 @@ public class GetAndUpsertCommand implements WriteCommand {
      * TODO: Remove the field after (IGNITE-14793).
      */
     private byte[] keyRowBytes;
+
+    /** The timestamp. */
+    private final Timestamp timestamp;
 
     /**
      * Creates a new instance of GetAndUpsertCommand with the given row to be got and upserted.
@@ -48,6 +51,7 @@ public class GetAndUpsertCommand implements WriteCommand {
         assert row != null;
 
         this.keyRow = row;
+        this.timestamp = ts;
 
         CommandUtils.rowToBytes(row, bytes -> keyRowBytes = bytes);
     }
@@ -57,10 +61,19 @@ public class GetAndUpsertCommand implements WriteCommand {
      *
      * @return Binary key.
      */
-    public BinaryRow getKeyRow() {
+    @Override public BinaryRow getRow() {
         if (keyRow == null)
             keyRow = new ByteBufferRow(keyRowBytes);
 
         return keyRow;
+    }
+
+    @Override public Timestamp getTimestamp() {
+        return timestamp;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean read() {
+        return false;
     }
 }

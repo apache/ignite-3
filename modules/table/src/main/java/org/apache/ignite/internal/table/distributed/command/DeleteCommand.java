@@ -26,7 +26,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * The command deletes a entry by passed key.
  */
-public class DeleteCommand implements WriteCommand {
+public class DeleteCommand implements SingleKeyCommand, WriteCommand {
     /** Binary key row. */
     private transient BinaryRow keyRow;
 
@@ -61,7 +61,7 @@ public class DeleteCommand implements WriteCommand {
      *
      * @return Binary key.
      */
-    public BinaryRow getKeyRow() {
+    @Override public BinaryRow getRow() {
         if (keyRow == null)
             keyRow = new ByteBufferRow(keyRowBytes);
 
@@ -71,7 +71,11 @@ public class DeleteCommand implements WriteCommand {
     /**
      * @return The timestamp.
      */
-    public Timestamp getTimestamp() {
+    @Override public Timestamp getTimestamp() {
         return timestamp;
+    }
+
+    @Override public boolean read() {
+        return false;
     }
 }

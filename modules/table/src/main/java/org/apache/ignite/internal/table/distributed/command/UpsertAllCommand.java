@@ -28,7 +28,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * The command puts a batch rows.
  */
-public class UpsertAllCommand implements WriteCommand {
+public class UpsertAllCommand implements MultiKeyCommand, WriteCommand {
     /** Binary rows. */
     private transient Collection<BinaryRow> rows;
 
@@ -38,6 +38,9 @@ public class UpsertAllCommand implements WriteCommand {
      * TODO: Remove the field after (IGNITE-14793).
      */
     private byte[] rowsBytes;
+
+    /** The timestamp. */
+    private final Timestamp timestamp;
 
     /**
      * Creates a new instance of UpsertAllCommand with the given rows to be upserted.
@@ -49,6 +52,7 @@ public class UpsertAllCommand implements WriteCommand {
         assert rows != null && !rows.isEmpty();
 
         this.rows = rows;
+        this.timestamp = ts;
 
         CommandUtils.rowsToBytes(rows, bytes -> rowsBytes = bytes);
     }
@@ -58,7 +62,7 @@ public class UpsertAllCommand implements WriteCommand {
      *
      * @return Binary rows.
      */
-    public Collection<BinaryRow> getRows() {
+    @Override public Collection<BinaryRow> getRows() {
         if (rows == null && rowsBytes != null) {
             rows = new HashSet<>();
 
@@ -66,5 +70,17 @@ public class UpsertAllCommand implements WriteCommand {
         }
 
         return rows;
+    }
+
+    /**
+     * @return The timestamp.
+     */
+    @Override public Timestamp getTimestamp() {
+        return timestamp;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean read() {
+        return false;
     }
 }

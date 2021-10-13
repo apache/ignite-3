@@ -28,7 +28,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * The command inserts a batch rows.
  */
-public class InsertAllCommand implements WriteCommand {
+public class InsertAllCommand implements MultiKeyCommand, WriteCommand {
     /** Binary rows. */
     private transient Collection<BinaryRow> rows;
 
@@ -39,16 +39,21 @@ public class InsertAllCommand implements WriteCommand {
      */
     private byte[] rowsBytes;
 
+    /** The timestamp. */
+    private Timestamp timestamp;
+
     /**
      * Creates a new instance of InsertAllCommand with the given rows to be inserted.
      * The {@code rows} should not be {@code null} or empty.
      *
      * @param rows Binary rows.
+     * @param ts The timestamp.
      */
     public InsertAllCommand(@NotNull Collection<BinaryRow> rows, Timestamp ts) {
         assert rows != null && !rows.isEmpty();
 
         this.rows = rows;
+        this.timestamp = ts;
 
         CommandUtils.rowsToBytes(rows, bytes -> rowsBytes = bytes);
     }
@@ -58,7 +63,7 @@ public class InsertAllCommand implements WriteCommand {
      *
      * @return Binary rows.
      */
-    public Collection<BinaryRow> getRows() {
+    @Override public Collection<BinaryRow> getRows() {
         if (rows == null && rowsBytes != null) {
             rows = new HashSet<>();
 
@@ -66,5 +71,14 @@ public class InsertAllCommand implements WriteCommand {
         }
 
         return rows;
+    }
+
+    @Override public Timestamp getTimestamp() {
+        return timestamp;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean read() {
+        return false;
     }
 }

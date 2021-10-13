@@ -28,7 +28,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * The command deletes entries by the passed keys.
  */
-public class DeleteAllCommand implements WriteCommand {
+public class DeleteAllCommand implements MultiKeyCommand, WriteCommand {
     /** Binary rows. */
     private transient Collection<BinaryRow> rows;
 
@@ -38,6 +38,9 @@ public class DeleteAllCommand implements WriteCommand {
      * TODO: Remove the field after (IGNITE-14793).
      */
     private byte[] rowsBytes;
+
+    /** The timestamp. */
+    private final Timestamp timestamp;
 
     /**
      * Creates a new instance of DeleteAllCommand with the given set of keys to be deleted.
@@ -50,6 +53,7 @@ public class DeleteAllCommand implements WriteCommand {
         assert keyRows != null && !keyRows.isEmpty();
 
         this.rows = keyRows;
+        this.timestamp = ts;
 
         CommandUtils.rowsToBytes(keyRows, bytes -> rowsBytes = bytes);
     }
@@ -59,7 +63,7 @@ public class DeleteAllCommand implements WriteCommand {
      *
      * @return Binary keys.
      */
-    public Collection<BinaryRow> getRows() {
+    @Override public Collection<BinaryRow> getRows() {
         if (rows == null && rowsBytes != null) {
             rows = new HashSet<>();
 
@@ -67,5 +71,14 @@ public class DeleteAllCommand implements WriteCommand {
         }
 
         return rows;
+    }
+
+    @Override public Timestamp getTimestamp() {
+        return timestamp;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean read() {
+        return false;
     }
 }

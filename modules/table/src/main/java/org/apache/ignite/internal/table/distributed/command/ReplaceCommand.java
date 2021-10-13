@@ -26,7 +26,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * The command replaces an old entry to a new one.
  */
-public class ReplaceCommand implements WriteCommand {
+public class ReplaceCommand implements SingleKeyCommand, WriteCommand {
     /** Replacing binary row. */
     private transient BinaryRow row;
 
@@ -46,6 +46,9 @@ public class ReplaceCommand implements WriteCommand {
      */
     private byte[] oldRowBytes;
 
+    /** The timestamp. */
+    private final Timestamp timestamp;
+
     /**
      * Creates a new instance of ReplaceCommand with the given two rows to be replaced each other.
      * Both rows should not be {@code null}.
@@ -59,6 +62,7 @@ public class ReplaceCommand implements WriteCommand {
 
         this.oldRow = oldRow;
         this.row = row;
+        this.timestamp = ts;
 
         CommandUtils.rowToBytes(oldRow, bytes -> oldRowBytes = bytes);
         CommandUtils.rowToBytes(row, bytes -> rowBytes = bytes);
@@ -69,7 +73,7 @@ public class ReplaceCommand implements WriteCommand {
      *
      * @return Binary row.
      */
-    @NotNull
+    @Override @NotNull
     public BinaryRow getRow() {
         if (row == null)
             row = new ByteBufferRow(rowBytes);
@@ -88,5 +92,17 @@ public class ReplaceCommand implements WriteCommand {
             oldRow = new ByteBufferRow(oldRowBytes);
 
         return oldRow;
+    }
+
+    /**
+     * @return The timestamp.
+     */
+    @Override public Timestamp getTimestamp() {
+        return timestamp;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean read() {
+        return false;
     }
 }

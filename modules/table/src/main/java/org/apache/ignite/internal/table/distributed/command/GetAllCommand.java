@@ -28,7 +28,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * This is a command for the batch get operation.
  */
-public class GetAllCommand implements ReadCommand {
+public class GetAllCommand implements MultiKeyCommand, ReadCommand {
     /** Binary key rows. */
     private transient Collection<BinaryRow> keyRows;
 
@@ -63,7 +63,7 @@ public class GetAllCommand implements ReadCommand {
      *
      * @return Binary keys.
      */
-    public Collection<BinaryRow> getKeyRows() {
+    @Override public Collection<BinaryRow> getRows() {
         if (keyRows == null && keyRowsBytes != null) {
             keyRows = new HashSet<>();
 
@@ -76,7 +76,12 @@ public class GetAllCommand implements ReadCommand {
     /**
      * @return The timestamp.
      */
-    public Timestamp getTimestamp() {
+    @Override public Timestamp getTimestamp() {
         return timestamp;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean read() {
+        return true;
     }
 }

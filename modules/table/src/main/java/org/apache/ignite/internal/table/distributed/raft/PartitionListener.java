@@ -44,8 +44,10 @@ import org.apache.ignite.internal.table.distributed.command.GetAndUpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
+import org.apache.ignite.internal.table.distributed.command.MultiKeyCommand;
 import org.apache.ignite.internal.table.distributed.command.ReplaceCommand;
 import org.apache.ignite.internal.table.distributed.command.ReplaceIfExistCommand;
+import org.apache.ignite.internal.table.distributed.command.SingleKeyCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
@@ -162,7 +164,7 @@ public class PartitionListener implements RaftGroupListener {
     private void handleGetCommand(CommandClosure<GetCommand> clo) {
         GetCommand cmd = (GetCommand) clo.command();
 
-        clo.result(new SingleRowResponse(storage.get(cmd.getKeyRow(), cmd.getTimestamp())));
+        clo.result(new SingleRowResponse(storage.get(cmd.getRow(), cmd.getTimestamp())));
     }
 
     /**
@@ -171,7 +173,7 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleGetAllCommand(CommandClosure<GetAllCommand> clo) {
-        Collection<BinaryRow> keyRows = ((GetAllCommand)clo.command()).getKeyRows();
+        Collection<BinaryRow> keyRows = ((GetAllCommand)clo.command()).getRows();
 
         assert keyRows != null && !keyRows.isEmpty();
 
@@ -198,7 +200,7 @@ public class PartitionListener implements RaftGroupListener {
     private void handleDeleteCommand(CommandClosure<DeleteCommand> clo) {
         DeleteCommand cmd = clo.command();
 
-        clo.result(storage.delete(cmd.getKeyRow(), cmd.getTimestamp()));
+        clo.result(storage.delete(cmd.getRow(), cmd.getTimestamp()));
     }
 
     /**
@@ -209,7 +211,7 @@ public class PartitionListener implements RaftGroupListener {
     private void handleReplaceCommand(CommandClosure<ReplaceCommand> clo) {
         ReplaceCommand cmd = ((ReplaceCommand)clo.command());
 
-        clo.result(storage.replace(cmd.getOldRow(), cmd.getRow(), null));
+        clo.result(storage.replace(cmd.getOldRow(), cmd.getRow(), cmd.getTimestamp()));
     }
 
     /**
@@ -231,11 +233,13 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleInsertAllCommand(CommandClosure<InsertAllCommand> clo) {
-        Collection<BinaryRow> rows = ((InsertAllCommand)clo.command()).getRows();
+        InsertAllCommand cmd = clo.command();
+
+        Collection<BinaryRow> rows = cmd.getRows();
 
         assert rows != null && !rows.isEmpty();
 
-        clo.result(new MultiRowsResponse(storage.insertAll(rows, null)));
+        clo.result(new MultiRowsResponse(storage.insertAll(rows, cmd.getTimestamp())));
     }
 
     /**
@@ -244,11 +248,13 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleUpsertAllCommand(CommandClosure<UpsertAllCommand> clo) {
-        Collection<BinaryRow> rows = ((UpsertAllCommand)clo.command()).getRows();
+        UpsertAllCommand cmd = clo.command();
+
+        Collection<BinaryRow> rows = cmd.getRows();
 
         assert rows != null && !rows.isEmpty();
 
-        storage.upsertAll(rows, null);
+        storage.upsertAll(rows, cmd.getTimestamp());
 
         clo.result(null);
     }
@@ -259,11 +265,13 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleDeleteAllCommand(CommandClosure<DeleteAllCommand> clo) {
-        Collection<BinaryRow> rows = ((DeleteAllCommand)clo.command()).getRows();
+        DeleteAllCommand cmd = clo.command();
+
+        Collection<BinaryRow> rows = cmd.getRows();
 
         assert rows != null && !rows.isEmpty();
 
-        clo.result(new MultiRowsResponse(storage.deleteAll(rows, null)));
+        clo.result(new MultiRowsResponse(storage.deleteAll(rows, cmd.getTimestamp())));
     }
 
     /**
@@ -272,12 +280,14 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleDeleteExactCommand(CommandClosure<DeleteExactCommand> clo) {
-        BinaryRow row = ((DeleteExactCommand)clo.command()).getRow();
+        DeleteExactCommand cmd = clo.command();
+
+        BinaryRow row = cmd.getRow();
 
         assert row != null;
         assert row.hasValue();
 
-        clo.result(storage.deleteExact(row, null));
+        clo.result(storage.deleteExact(row, cmd.getTimestamp()));
     }
 
     /**
@@ -286,11 +296,13 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleDeleteExactAllCommand(CommandClosure<DeleteExactAllCommand> clo) {
-        Collection<BinaryRow> rows = ((DeleteExactAllCommand)clo.command()).getRows();
+        DeleteExactAllCommand cmd = clo.command();
+
+        Collection<BinaryRow> rows = cmd.getRows();
 
         assert rows != null && !rows.isEmpty();
 
-        clo.result(new MultiRowsResponse(storage.deleteAll(rows, null)));
+        clo.result(new MultiRowsResponse(storage.deleteAll(rows, cmd.getTimestamp())));
     }
 
     /**
@@ -299,11 +311,13 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleReplaceIfExistsCommand(CommandClosure<ReplaceIfExistCommand> clo) {
-        BinaryRow row = ((ReplaceIfExistCommand)clo.command()).getRow();
+        ReplaceIfExistCommand cmd = clo.command();
+
+        BinaryRow row = cmd.getRow();
 
         assert row != null;
 
-        clo.result(storage.replace(row, null));
+        clo.result(storage.replace(row, cmd.getTimestamp()));
     }
 
     /**
@@ -312,11 +326,13 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleGetAndDeleteCommand(CommandClosure<GetAndDeleteCommand> clo) {
-        BinaryRow row = ((GetAndDeleteCommand)clo.command()).getKeyRow();
+        GetAndDeleteCommand cmd = clo.command();
+
+        BinaryRow row = cmd.getRow();
 
         assert row != null;
 
-        clo.result(new SingleRowResponse(storage.getAndDelete(row, null)));
+        clo.result(new SingleRowResponse(storage.getAndDelete(row, cmd.getTimestamp())));
     }
 
     /**
@@ -325,11 +341,13 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleGetAndReplaceCommand(CommandClosure<GetAndReplaceCommand> clo) {
-        BinaryRow row = ((GetAndReplaceCommand)clo.command()).getRow();
+        GetAndReplaceCommand cmd = clo.command();
+
+        BinaryRow row = cmd.getRow();
 
         assert row != null && row.hasValue();
 
-        clo.result(new SingleRowResponse(storage.getAndReplace(row, null)));
+        clo.result(new SingleRowResponse(storage.getAndReplace(row, cmd.getTimestamp())));
     }
 
     /**
@@ -338,11 +356,13 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleGetAndUpsertCommand(CommandClosure<GetAndUpsertCommand> clo) {
-        BinaryRow row = ((GetAndUpsertCommand)clo.command()).getKeyRow();
+        GetAndUpsertCommand cmd = clo.command();
+
+        BinaryRow row = cmd.getRow();
 
         assert row != null && row.hasValue();
 
-        clo.result(new SingleRowResponse(storage.getAndUpsert(row, null)));
+        clo.result(new SingleRowResponse(storage.getAndUpsert(row, cmd.getTimestamp())));
     }
 
     /**
@@ -461,30 +481,34 @@ public class PartitionListener implements RaftGroupListener {
         }
     }
 
-    /** {@inheritDoc}
-     * @param cmd*/
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Void> onBeforeApply(Command cmd) {
-        // TODO asch refactor copypaste
-        if (cmd instanceof InsertCommand) {
-            InsertCommand cmd0 = (InsertCommand) cmd;
+        if (cmd instanceof SingleKeyCommand) {
+            SingleKeyCommand cmd0 = (SingleKeyCommand) cmd;
 
             txManager.getOrCreateTransaction(cmd0.getTimestamp()); // TODO asch handle race between rollback and lock.
 
-            return txManager.writeLock(tableId, cmd0.getRow().keySlice(), cmd0.getTimestamp());
+            return cmd0.read() ? txManager.readLock(tableId, cmd0.getRow().keySlice(), cmd0.getTimestamp()) :
+                txManager.writeLock(tableId, cmd0.getRow().keySlice(), cmd0.getTimestamp());
         }
-        else if (cmd instanceof UpsertCommand) {
-            UpsertCommand cmd0 = (UpsertCommand) cmd;
+        else if (cmd instanceof MultiKeyCommand) {
+            MultiKeyCommand cmd0 = (MultiKeyCommand) cmd;
 
             txManager.getOrCreateTransaction(cmd0.getTimestamp());
 
-            return txManager.writeLock(tableId, cmd0.getRow().keySlice(), cmd0.getTimestamp());
-        }
-        else if (cmd instanceof GetCommand) {
-            GetCommand cmd0 = (GetCommand) cmd;
+            Collection<BinaryRow> rows = cmd0.getRows();
 
-            txManager.getOrCreateTransaction(cmd0.getTimestamp());
+            CompletableFuture<Void>[] futs = new CompletableFuture[rows.size()];
 
-            return txManager.readLock(tableId, cmd0.getKeyRow().keySlice(), cmd0.getTimestamp());
+            int i = 0;
+            boolean read = cmd0.read();
+
+            for (BinaryRow row : rows) {
+                futs[i++] = read ? txManager.readLock(tableId, row.keySlice(), cmd0.getTimestamp()) :
+                    txManager.writeLock(tableId, row.keySlice(), cmd0.getTimestamp());
+            }
+
+            return CompletableFuture.allOf(futs);
         }
 
         return null;

@@ -26,7 +26,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * The command replaces an old entry to a new one.
  */
-public class ReplaceIfExistCommand implements WriteCommand {
+public class ReplaceIfExistCommand implements SingleKeyCommand, WriteCommand {
     /** Binary row. */
     private transient BinaryRow row;
 
@@ -36,6 +36,9 @@ public class ReplaceIfExistCommand implements WriteCommand {
      * TODO: Remove the field after (IGNITE-14793).
      */
     private byte[] rowBytes;
+
+    /** The timestamp. */
+    private final Timestamp timestamp;
 
     /**
      * Creates a new instance of ReplaceIfExistCommand with the given row to be replaced.
@@ -48,6 +51,7 @@ public class ReplaceIfExistCommand implements WriteCommand {
         assert row != null;
 
         this.row = row;
+        this.timestamp = ts;
 
         CommandUtils.rowToBytes(row, bytes -> rowBytes = bytes);
     }
@@ -57,10 +61,22 @@ public class ReplaceIfExistCommand implements WriteCommand {
      *
      * @return Binary row.
      */
-    public BinaryRow getRow() {
+    @Override public BinaryRow getRow() {
         if (row == null)
             row = new ByteBufferRow(rowBytes);
 
         return row;
+    }
+
+    /**
+     * @return The timestamp.
+     */
+    @Override public Timestamp getTimestamp() {
+        return timestamp;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean read() {
+        return false;
     }
 }

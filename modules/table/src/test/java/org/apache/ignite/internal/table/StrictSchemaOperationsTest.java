@@ -34,8 +34,10 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 /**
  * Check data by strict schema.
@@ -44,13 +46,16 @@ public class StrictSchemaOperationsTest {
     /** Table ID test value. */
     public final java.util.UUID tableId = java.util.UUID.randomUUID();
 
-    @Mock
+    /** */
     private ClusterService clusterService;
 
     /**
      * @return The test table.
      */
     private InternalTable createTable() {
+        clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
+
         TxManagerImpl txManager = new TxManagerImpl(clusterService, new HeapLockManager());
 
         return new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);

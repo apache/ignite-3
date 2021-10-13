@@ -29,7 +29,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * The command inserts a row.
  */
-public class InsertCommand implements WriteCommand {
+public class InsertCommand implements SingleKeyCommand, WriteCommand {
     /** Binary row. */
     private transient BinaryRow row;
 
@@ -64,7 +64,7 @@ public class InsertCommand implements WriteCommand {
      *
      * @return Binary row.
      */
-    public BinaryRow getRow() {
+    @Override public BinaryRow getRow() {
         if (row == null)
             row = new ByteBufferRow(rowBytes);
 
@@ -74,7 +74,12 @@ public class InsertCommand implements WriteCommand {
     /**
      * @return The timestamp.
      */
-    public Timestamp getTimestamp() {
+    @Override public Timestamp getTimestamp() {
         return timestamp;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean read() {
+        return false;
     }
 }
