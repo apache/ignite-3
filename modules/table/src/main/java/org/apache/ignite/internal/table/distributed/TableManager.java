@@ -663,7 +663,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                     tblCh
                                                 ));
                                             }
-                                            catch (IllegalArgumentException ex) {
+                                            catch (IllegalArgumentException | NullPointerException ex) {
+                                                // Convert unexpected exceptions here,
+                                                // because validation actually happens later,
+                                                // when bulk configuration update is applied.
                                                 ConfigurationValidationException e = new ConfigurationValidationException(ex.getMessage());
 
                                                 e.addSuppressed(ex);
