@@ -41,8 +41,8 @@ import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.ActionResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
@@ -546,6 +546,10 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                                 return null;
                             }, retryDelay, TimeUnit.MILLISECONDS);
                         }
+                    }
+                    else if (resp0.errorCode() == RaftError.ETX.getNumber()) {
+                        fut.completeExceptionally(
+                            new TransactionException(resp0.errorMsg()));
                     }
                     else {
                         fut.completeExceptionally(

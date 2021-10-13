@@ -21,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -65,11 +65,11 @@ abstract class AbstractTableView {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
             //TODO: IGNITE-14500 Replace with public exception with an error code.
-            throw new IgniteInternalException(e);
+            throw new IgniteException(e);
         }
         catch (ExecutionException e) {
             //TODO: IGNITE-14500 Replace with public exception with an error code (or unwrap?).
-            throw new IgniteInternalException(e);
+            throw new IgniteException(e.getCause());
         }
     }
 

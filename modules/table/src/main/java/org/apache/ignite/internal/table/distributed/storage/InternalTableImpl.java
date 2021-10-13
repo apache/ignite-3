@@ -21,11 +21,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -201,14 +199,8 @@ public class InternalTableImpl implements InternalTable {
             @Override public CompletableFuture<T> apply(T r, Throwable e) {
                 if (e != null)
                     return tx0.rollbackAsync().thenCompose(ignored -> failedFuture(e)); // Preserve failed state.
-                else {
-                    CompletableFuture<T> f = completedFuture(r);
-
-                    if (implicit)
-                        f.thenCompose(r0 -> tx0.commitAsync().thenApply(ignored -> r0));
-
-                    return f;
-                }
+                else
+                    return implicit ? tx0.commitAsync().thenApply(ignored -> r) : completedFuture(r);
             }
         }).thenCompose(x -> x);
     }
@@ -243,18 +235,13 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<T> fut = enlist(partId(row), tx0).<R>run(op.apply(tx0)).thenApply(trans::apply);
 
+        // TODO asch remove futures creation
         return fut.handle(new BiFunction<T, Throwable, CompletableFuture<T>>() {
             @Override public CompletableFuture<T> apply(T r, Throwable e) {
                 if (e != null)
                     return tx0.rollbackAsync().thenCompose(ignored -> failedFuture(e)); // Preserve failed state.
-                else {
-                    CompletableFuture<T> f = completedFuture(r);
-
-                    if (implicit)
-                        f.thenCompose(r0 -> tx0.commitAsync().thenApply(ignored -> r0));
-
-                    return f;
-                }
+                else
+                    return implicit ? tx0.commitAsync().thenApply(ignored -> r) : completedFuture(r);
             }
         }).thenCompose(x -> x);
     }

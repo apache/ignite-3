@@ -123,7 +123,7 @@ public class TransactionImpl implements InternalTransaction {
         int i = 0;
 
         for (Map.Entry<NetworkAddress, Set<String>> entry : map.entrySet()) {
-            futs[i++] = map.containsKey(entry.getKey()) ?
+            futs[i++] = map.containsKey(entry.getKey()) && collocated() ?
                 commit ? txManager.commitAsync(timestamp) : txManager.rollbackAsync(timestamp) // Collocated.
                 : txManager.finishRemote(entry.getKey(), timestamp, commit, entry.getValue());
         }

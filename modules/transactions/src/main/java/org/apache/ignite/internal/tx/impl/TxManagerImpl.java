@@ -35,6 +35,7 @@ import org.apache.ignite.internal.tx.message.TxFinishRequest;
 import org.apache.ignite.internal.tx.message.TxFinishResponse;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
@@ -110,7 +111,8 @@ public class TxManagerImpl implements TxManager {
             return completedFuture(null);
         }
 
-        return failedFuture(new TransactionException("Failed to commit a transaction"));
+        return failedFuture(new TransactionException(LoggerMessageHelper.format("Failed to commit a transaction [ts={}, " +
+            "state={}]", ts, state(ts))));
     }
 
     /** {@inheritDoc} */
@@ -123,7 +125,8 @@ public class TxManagerImpl implements TxManager {
             return completedFuture(null);
         }
 
-        return failedFuture(new TransactionException("Failed to rollback a transaction"));
+        return failedFuture(new TransactionException(LoggerMessageHelper.format("Failed to rollback a transaction [ts={}, " +
+            "state={}]", ts, state(ts))));
     }
 
     /**
