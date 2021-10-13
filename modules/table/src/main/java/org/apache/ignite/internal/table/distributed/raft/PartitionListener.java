@@ -173,12 +173,14 @@ public class PartitionListener implements RaftGroupListener {
      * @param clo Command closure.
      */
     private void handleGetAllCommand(CommandClosure<GetAllCommand> clo) {
-        Collection<BinaryRow> keyRows = ((GetAllCommand)clo.command()).getRows();
+        GetAllCommand cmd = clo.command();
+
+        Collection<BinaryRow> keyRows = cmd.getRows();
 
         assert keyRows != null && !keyRows.isEmpty();
 
         // TODO asch all reads are sequeti
-        clo.result(new MultiRowsResponse(storage.getAll(keyRows, null)));
+        clo.result(new MultiRowsResponse(storage.getAll(keyRows, cmd.getTimestamp())));
     }
 
     /**
