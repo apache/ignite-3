@@ -435,6 +435,8 @@ public class ConfigurationAsmGenerator {
         // To store the id of the polymorphic configuration instance.
         FieldDefinition polymorphicTypeIdFieldDef = null;
 
+        // TODO: IGNITE-14645 Maybe change.
+
         if (schemaClass.isAnnotationPresent(PolymorphicConfig.class)) {
             polymorphicTypeIdFieldDef = classDef.declareField(
                 of(PRIVATE),
@@ -522,27 +524,37 @@ public class ConfigurationAsmGenerator {
             polymorphicTypeIdFieldDef
         );
 
-        // TODO: IGNITE-14645 continue.
+        Collection<ClassDefinition> classDefs;
 
-        Collection<ClassDefinition> res = new ArrayList<>(List.of(classDef));
+        if (polymorphicExtensions.isEmpty())
+            classDefs = List.of(classDef);
+        else {
+            classDefs = new ArrayList<>(polymorphicExtensions.size() + 1);
+            classDefs.add(classDef);
 
-        for (Class<?> polymorphicExtension : polymorphicExtensions) {
-            // Only the fields of a specific instance of a polymorphic configuration.
-            Collection<Field> polymorphicExtensionFields = polymorphicFields.stream()
-                .filter(f -> f.getDeclaringClass() == polymorphicExtension)
-                .collect(toList());
+            for (Class<?> polymorphicExtension : polymorphicExtensions) {
+                if (schemasInfo.containsKey(polymorphicExtension))
+                    continue;
 
-            res.add(createPolymorphicExtensionNodeClass(
-                schemaClass,
-                polymorphicExtension,
-                specFields,
-                fieldDefs,
-                schemaFields,
-                polymorphicExtensionFields
-            ));
+                schemasInfo.put(polymorphicExtension, new SchemaClassesInfo(polymorphicExtension));
+
+                // Only the fields of a specific instance of a polymorphic configuration.
+                Collection<Field> polymorphicExtensionFields = polymorphicFields.stream()
+                    .filter(f -> f.getDeclaringClass() == polymorphicExtension)
+                    .collect(toList());
+
+                classDefs.add(createPolymorphicExtensionNodeClass(
+                    schemaClass,
+                    polymorphicExtension,
+                    specFields,
+                    fieldDefs,
+                    schemaFields,
+                    polymorphicExtensionFields
+                ));
+            }
         }
-        
-        return res;
+
+        return classDefs;
     }
 
     /**
@@ -1685,7 +1697,7 @@ public class ConfigurationAsmGenerator {
         Collection<Field> polymorphicFields
     ) {
         SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaClass);
-        SchemaClassesInfo polymorphicExtensionClassInfo = new SchemaClassesInfo(polymorphicExtension);
+        SchemaClassesInfo polymorphicExtensionClassInfo = schemasInfo.get(polymorphicExtension);
 
         // Node class definition.
         ClassDefinition classDef = new ClassDefinition(

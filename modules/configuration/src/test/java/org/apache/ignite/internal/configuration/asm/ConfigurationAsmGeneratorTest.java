@@ -247,31 +247,15 @@ public class ConfigurationAsmGeneratorTest {
 
         TestRootConfiguration rootConfig = (TestRootConfiguration)config;
 
-        TestRootView value = rootConfig.value();
-        PolymorphicTestView view = value.polymorphicSubCfg();
+        TestRootView rootView = rootConfig.value();
 
-        PolymorphicTestConfiguration configuration = rootConfig.polymorphicSubCfg();
-        PolymorphicTestView value1 = configuration.value();
+        PolymorphicTestView rootPolymorphicView = rootView.polymorphicSubCfg();
 
-        SchemaClassesInfo schemaClassesInfo0 = generator.schemasInfo.get(PolymorphicTestConfigurationSchema.class);
-        SchemaClassesInfo schemaClassesInfo1 = generator.schemasInfo.get(FirstPolymorphicInstanceTestConfigurationSchema.class);
+        PolymorphicTestConfiguration polymorphicCfg = rootConfig.polymorphicSubCfg();
 
-        Object node = schemaClassesInfo1.nodeClass.getConstructor(schemaClassesInfo0.nodeClass).newInstance(view);
-        FirstPolymorphicInstanceTestView view1 = (FirstPolymorphicInstanceTestView)node;
-        FirstPolymorphicInstanceTestChange change1 = (FirstPolymorphicInstanceTestChange)node;
+        PolymorphicTestView polymorphicView = polymorphicCfg.value();
 
-        change1.changeStrVal("FUCK");
-        change1.changeIntVal(1024);
-
-        System.out.println(view1.strVal());
-        System.out.println(view1.intVal());
-
-//        configuration.change(
-//            c -> c.convert(FirstPolymorphicInstanceTestChange.class).changeIntVal(10)
-//        ).get();
-
-        System.out.println(config);
-        // TODO: 08.10.2021
+        assertTrue(rootPolymorphicView == polymorphicView);
     }
 
     /**
