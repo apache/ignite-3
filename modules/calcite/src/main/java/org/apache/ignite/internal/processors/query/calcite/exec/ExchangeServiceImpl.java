@@ -66,7 +66,10 @@ public class ExchangeServiceImpl implements ExchangeService {
         this.mailboxRegistry = mailboxRegistry;
         this.msgSrvc = msgSrvc;
 
-        init();
+        msgSrvc.register((n, m) -> onMessage(n, (InboxCloseMessage) m), SqlQueryMessageGroup.INBOX_CLOSE_MESSAGE);
+        msgSrvc.register((n, m) -> onMessage(n, (OutboxCloseMessage) m), SqlQueryMessageGroup.OUTBOX_CLOSE_MESSAGE);
+        msgSrvc.register((n, m) -> onMessage(n, (QueryBatchAcknowledgeMessage) m), SqlQueryMessageGroup.QUERY_BATCH_ACK);
+        msgSrvc.register((n, m) -> onMessage(n, (QueryBatchMessage) m), SqlQueryMessageGroup.QUERY_BATCH_MESSAGE);
     }
 
     /** {@inheritDoc} */
@@ -133,13 +136,6 @@ public class ExchangeServiceImpl implements ExchangeService {
                 .error(err)
                 .build()
         );
-    }
-
-    private void init() {
-        msgSrvc.register((n, m) -> onMessage(n, (InboxCloseMessage) m), SqlQueryMessageGroup.INBOX_CLOSE_MESSAGE);
-        msgSrvc.register((n, m) -> onMessage(n, (OutboxCloseMessage) m), SqlQueryMessageGroup.OUTBOX_CLOSE_MESSAGE);
-        msgSrvc.register((n, m) -> onMessage(n, (QueryBatchAcknowledgeMessage) m), SqlQueryMessageGroup.QUERY_BATCH_ACK);
-        msgSrvc.register((n, m) -> onMessage(n, (QueryBatchMessage) m), SqlQueryMessageGroup.QUERY_BATCH_MESSAGE);
     }
 
     /** {@inheritDoc} */
@@ -258,5 +254,10 @@ public class ExchangeServiceImpl implements ExchangeService {
                 null),
             null,
             ImmutableMap.of());
+    }
+
+    /** {@inheritDoc} */
+    @Override public void close() throws Exception {
+        // No-op.
     }
 }

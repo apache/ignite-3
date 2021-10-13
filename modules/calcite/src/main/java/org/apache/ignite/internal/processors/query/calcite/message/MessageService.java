@@ -23,7 +23,7 @@ import org.apache.ignite.network.NetworkMessage;
 /**
  *
  */
-public interface MessageService {
+public interface MessageService extends AutoCloseable {
     /**
      * Sends a message to given node.
      *

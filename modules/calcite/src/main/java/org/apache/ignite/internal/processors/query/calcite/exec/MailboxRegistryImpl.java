@@ -126,6 +126,12 @@ public class MailboxRegistryImpl implements MailboxRegistry {
         return S.toString(MailboxRegistryImpl.class, this);
     }
 
+    /** {@inheritDoc} */
+    @Override public void close() throws Exception {
+        locals.clear();
+        remotes.clear();
+    }
+
     /** */
     private static class MailboxKey {
         /** */

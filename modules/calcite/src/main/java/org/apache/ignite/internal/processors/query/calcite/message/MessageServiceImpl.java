@@ -148,4 +148,8 @@ public class MessageServiceImpl implements MessageService {
 
         lsnr.onMessage(nodeId, msg);
     }
+
+    @Override public void close() throws Exception {
+        lsnrs.clear();
+    }
 }

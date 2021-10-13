@@ -31,7 +31,7 @@ import org.apache.ignite.lang.IgniteLogger;
 /**
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
-public class ClosableIteratorsHolder {
+public class ClosableIteratorsHolder implements AutoCloseable {
     /** */
     private final ReferenceQueue refQueue;
 
@@ -66,27 +66,17 @@ public class ClosableIteratorsHolder {
     }
 
     /** */
-    public void init() {
-        cleanWorker = new Thread(null, () -> cleanUp(true), "calciteIteratorsCleanWorker");
+    public void init(String nodeName) {
+        cleanWorker = new Thread(null, () -> cleanUp(true), "%" + nodeName + "%calciteIteratorsCleanWorker");
         cleanWorker.setDaemon(true);
         cleanWorker.start();
     }
 
     /** */
-    public void tearDown() {
-        stopped = true;
-        refMap.clear();
-
-        Thread t = cleanWorker;
-
-        if (t != null)
-            t.interrupt();
-    }
-
-    /** */
     private void cleanUp(boolean blocking) {
-        for (Reference<?> ref = nextRef(blocking); !stopped && ref != null; ref = nextRef(blocking))
+        for (Reference<?> ref = nextRef(blocking); !stopped && ref != null; ref = nextRef(blocking)) {
             Commons.close(refMap.remove(ref), log);
+        }
     }
 
     /** */
@@ -105,6 +95,20 @@ public class ClosableIteratorsHolder {
             return null;
 
         return new CloseableReference(referent, resource);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void close() throws Exception {
+        stopped = true;
+
+        refMap.values().forEach(o -> Commons.close(o, log));
+
+        refMap.clear();
+
+        Thread t = cleanWorker;
+
+        if (t != null)
+            t.interrupt();
     }
 
     /** */

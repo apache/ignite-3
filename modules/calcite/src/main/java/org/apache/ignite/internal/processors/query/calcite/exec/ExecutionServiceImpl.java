@@ -181,15 +181,11 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
 
         topSrvc.addEventHandler(new NodeLeaveHandler(this::onNodeLeft));
 
-        init();
-    }
-
-    private void init() {
         msgSrvc.register((n, m) -> onMessage(n, (QueryStartRequest) m), SqlQueryMessageGroup.QUERY_START_REQUEST);
         msgSrvc.register((n, m) -> onMessage(n, (QueryStartResponse) m), SqlQueryMessageGroup.QUERY_START_RESPONSE);
         msgSrvc.register((n, m) -> onMessage(n, (ErrorMessage) m), SqlQueryMessageGroup.ERROR_MESSAGE);
 
-        iteratorsHolder.init();
+        iteratorsHolder.init(topSrvc.localMember().name());
     }
 
     /** {@inheritDoc} */
@@ -664,6 +660,26 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
         running.forEach((uuid, queryInfo) -> queryInfo.onNodeLeft(node.id()));
     }
 
+    /** {@inheritDoc} */
+    @Override public void close() throws Exception {
+        Exception exOut = null;
+
+        for (AutoCloseable service : new AutoCloseable[] {iteratorsHolder, mailboxRegistry, exchangeSrvc}) {
+            try {
+                service.close();
+            }
+            catch (Exception ex) {
+                if (exOut == null)
+                    exOut = ex;
+                else
+                    exOut.addSuppressed(ex);
+            }
+        }
+
+        if (exOut != null)
+            throw exOut;
+    }
+
     /** */
     private enum QueryState {
         /** */
@@ -785,7 +801,7 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
             }
 
             if (state0 == QueryState.CLOSED) {
-                // 2) unregister runing query
+                // 2) unregister running query
                 running.remove(ctx.queryId());
 
                 IgniteInternalException wrpEx = null;

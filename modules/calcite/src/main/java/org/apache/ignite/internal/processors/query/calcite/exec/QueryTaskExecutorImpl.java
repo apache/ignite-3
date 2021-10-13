@@ -19,6 +19,8 @@ package org.apache.ignite.internal.processors.query.calcite.exec;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.processors.query.calcite.SqlQueryProcessor;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
@@ -35,10 +37,16 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
     private Thread.UncaughtExceptionHandler eHnd;
 
     /**
-     * @param stripedThreadPoolExecutor Executor.
+     * @param nodeName Node name.
      */
-    public QueryTaskExecutorImpl(StripedThreadPoolExecutor stripedThreadPoolExecutor) {
-        this.stripedThreadPoolExecutor = stripedThreadPoolExecutor;
+    public QueryTaskExecutorImpl(String nodeName) {
+        this.stripedThreadPoolExecutor = new StripedThreadPoolExecutor(
+            4,
+            NamedThreadFactory.threadPrefix(nodeName, "calciteQry"),
+            null,
+            true,
+            SqlQueryProcessor.DFLT_THREAD_KEEP_ALIVE_TIME
+        );
     }
 
     /**
@@ -75,11 +83,6 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
         return stripedThreadPoolExecutor.submit(qryTask, hash(qryId, fragmentId));
     }
 
-    /** Releases resources. */
-    public void tearDown() {
-        stripedThreadPoolExecutor.shutdownNow();
-    }
-
     /** {@inheritDoc} */
     @Override public void uncaughtException(Thread t, Throwable e) {
         if (eHnd != null)
@@ -90,5 +93,10 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
     private static int hash(UUID qryId, long fragmentId) {
         // inlined Objects.hash(...)
         return IgniteUtils.safeAbs(31 * (31 + (qryId != null ? qryId.hashCode() : 0)) + Long.hashCode(fragmentId));
+    }
+
+    /** {@inheritDoc} */
+    @Override public void close() {
+        stripedThreadPoolExecutor.shutdownNow();
     }
 }
