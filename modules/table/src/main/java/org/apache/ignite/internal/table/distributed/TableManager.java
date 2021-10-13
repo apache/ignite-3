@@ -41,6 +41,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationNamedListListe
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableChange;
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -205,41 +206,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 final IgniteUuid tblId = IgniteUuid.fromString(((ExtendedTableView)ctx.newValue()).id());
 
                 // TODO: IGNITE-15409 Listener with any placeholder should be used instead.
-                ((ExtendedTableConfiguration)tablesCfg.tables().get(ctx.newValue().name())).schemas().
-                    listenElements(new ConfigurationNamedListListener<>() {
-                        @Override public @NotNull CompletableFuture<?> onCreate(
-                            @NotNull ConfigurationNotificationEvent<SchemaView> schemasCtx) {
-                            try {
-                                ((SchemaRegistryImpl)tables.get(ctx.newValue().name()).schemaView()).
-                                    onSchemaRegistered(
-                                        SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema()))
-                                    );
-
-                                fireEvent(TableEvent.ALTER, new TableEventParameters(tablesById.get(tblId)), null);
-                            }
-                            catch (Exception e) {
-                                fireEvent(TableEvent.ALTER, new TableEventParameters(tblId, ctx.newValue().name()), e);
-                            }
-
-                            return CompletableFuture.completedFuture(null);
-                        }
-
-                        @Override
-                        public @NotNull CompletableFuture<?> onRename(@NotNull String oldName, @NotNull String newName,
-                            @NotNull ConfigurationNotificationEvent<SchemaView> ctx) {
-                            return CompletableFuture.completedFuture(null);
-                        }
-
-                        @Override public @NotNull CompletableFuture<?> onDelete(
-                            @NotNull ConfigurationNotificationEvent<SchemaView> ctx) {
-                            return CompletableFuture.completedFuture(null);
-                        }
-
-                        @Override public @NotNull CompletableFuture<?> onUpdate(
-                            @NotNull ConfigurationNotificationEvent<SchemaView> ctx) {
-                            return CompletableFuture.completedFuture(null);
-                        }
-                    });
 
                 ((ExtendedTableConfiguration)tablesCfg.tables().get(ctx.newValue().name())).assignments().
                     listen(assignmentsCtx -> {
@@ -321,6 +287,60 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return CompletableFuture.completedFuture(null);
             }
         });
+
+        ((ExtendedTableConfiguration)tablesCfg.tables().any()).schemas()
+            .listenElements(new ConfigurationNamedListListener<>() {
+                @Override public @NotNull CompletableFuture<?> onCreate(
+                    @NotNull ConfigurationNotificationEvent<SchemaView> ctx) {
+                    TableConfiguration tblCfg = ctx.config(TableConfiguration.class);
+
+                    IgniteUuid tblId = IgniteUuid.fromString(((ExtendedTableConfiguration)tblCfg).id().value());
+                    try {
+                        TableImpl table = tablesById.get(tblId);
+
+                        ((SchemaRegistryImpl)table.schemaView()).
+                            onSchemaRegistered(SchemaSerializerImpl.INSTANCE.deserialize((ctx.newValue().schema())));
+
+                        fireEvent(TableEvent.ALTER, new TableEventParameters(table), null);
+                    } catch (Exception e) {
+                        fireEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblCfg.key()), e);
+                    }
+
+                    return CompletableFuture.completedFuture(null);
+                }
+
+                @Override
+                public @NotNull CompletableFuture<?> onRename(@NotNull String oldName, @NotNull String newName,
+                                                              @NotNull ConfigurationNotificationEvent<SchemaView> ctx) {
+                    return CompletableFuture.completedFuture(null);
+                }
+
+                @Override public @NotNull CompletableFuture<?> onDelete(
+                    @NotNull ConfigurationNotificationEvent<SchemaView> ctx) {
+                    TableConfiguration tblCfg = ctx.config(TableConfiguration.class);
+
+                    IgniteUuid tblId = IgniteUuid.fromString(((ExtendedTableConfiguration)tblCfg).id().value());
+
+                    try {
+                        ((SchemaRegistryImpl)tables.get(tblCfg.key()).schemaView()).
+                            onSchemaDropped(
+                                SchemaSerializerImpl.INSTANCE.deserialize((ctx.oldValue().schema())).version()
+                            );
+
+                        fireEvent(TableEvent.ALTER, new TableEventParameters(tablesById.get(tblId)), null);
+                    } catch (Exception e) {
+                        fireEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblCfg.key()), e);
+                    }
+
+                    return CompletableFuture.completedFuture(null);
+                }
+
+                @Override public @NotNull CompletableFuture<?> onUpdate(
+                    @NotNull ConfigurationNotificationEvent<SchemaView> ctx) {
+                    return CompletableFuture.completedFuture(null);
+                }
+            });
+
 
         this.defaultDataRegion = engine.createDataRegion(dataStorageCfg.defaultRegion());
 
@@ -418,9 +438,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 InternalTableImpl internalTable = new InternalTableImpl(name, tblId, partitionMap, partitions, netAddrResolver);
 
-                var schemaRegistry = new SchemaRegistryImpl(v -> schemaDesc);
+                var schemaRegistry = new SchemaRegistryImpl(s -> null);
 
-                schemaRegistry.onSchemaRegistered(schemaDesc);
+//                schemaRegistry.onSchemaRegistered(schemaDesc);
 
                 var table = new TableImpl(
                     internalTable,
