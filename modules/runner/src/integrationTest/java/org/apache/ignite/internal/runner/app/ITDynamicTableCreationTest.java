@@ -272,13 +272,16 @@ class ITDynamicTableCreationTest {
 
         assertTableCreationFailed(grid, colChanger -> colChanger.changeType(t -> t.changeType("INT32").changePrecision(-1)));
         assertTableCreationFailed(grid, colChanger -> colChanger.changeType(t -> t.changeType("INT32").changeScale(-1)));
+        assertTableCreationFailed(grid, colChanger -> colChanger.changeType(t -> t.changeType("BYTES").changeLength(-1)));
 
         assertTableCreationFailed(grid, colChanger -> colChanger.changeType(t -> t.changeType("NUMBER").changePrecision(-1)));
         assertTableCreationFailed(grid, colChanger -> colChanger.changeType(t -> t.changeType("NUMBER").changeScale(-2)));
+        assertTableCreationFailed(grid, colChanger -> colChanger.changeType(t -> t.changeType("BYTES").changeLength(-1)));
 
         assertTableCreationFailed(grid, colChanger -> colChanger.changeType(c -> c.changeType("DECIMAL").changePrecision(-1)));
         assertTableCreationFailed(grid, colChanger -> colChanger.changeType(c -> c.changeType("DECIMAL").changePrecision(0)));
         assertTableCreationFailed(grid, colChanger -> colChanger.changeType(c -> c.changeType("DECIMAL").changeScale(-2)));
+        assertTableCreationFailed(grid, colChanger -> colChanger.changeType(t -> t.changeType("BYTES").changeLength(-1)));
     }
 
     /**
