@@ -47,6 +47,7 @@ import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
@@ -762,21 +763,21 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Collects fields of configuration schema that contain {@link Value}, {@link ConfigValue} or
-     *      {@link NamedConfigValue}.
+     * Collects fields of configuration schema that contain {@link Value}, {@link ConfigValue},
+     *      {@link NamedConfigValue} or {@link PolymorphicId}.
      *
      * @param schemaClass Configuration schema class.
      * @return Schema fields.
      */
     public static Collection<Field> schemaFields(Class<?> schemaClass) {
         return Arrays.stream(schemaClass.getDeclaredFields())
-            .filter(f -> isValue(f) || isConfigValue(f) || isNamedConfigValue(f))
+            .filter(f -> isValue(f) || isConfigValue(f) || isNamedConfigValue(f) || isPolymorphicId(f))
             .collect(toList());
     }
 
     /**
-     * Collects fields of configuration schema extensions that contain {@link Value}, {@link ConfigValue} or
-     *      {@link NamedConfigValue}.
+     * Collects fields of configuration schema extensions that contain {@link Value}, {@link ConfigValue},
+     *      {@link NamedConfigValue} or {@link PolymorphicId}.
      *
      * @param extensions Configuration schema extensions.
      * @param uniqueByName Checking the uniqueness of fields by {@link Field#getName name}.
@@ -790,7 +791,7 @@ public class ConfigurationUtil {
         if (uniqueByName) {
             return extensions.stream()
                 .flatMap(cls -> Arrays.stream(cls.getDeclaredFields()))
-                .filter(f -> isValue(f) || isConfigValue(f) || isNamedConfigValue(f))
+                .filter(f -> isValue(f) || isConfigValue(f) || isNamedConfigValue(f) || isPolymorphicId(f))
                 .collect(toMap(
                     Field::getName,
                     identity(),
@@ -807,8 +808,18 @@ public class ConfigurationUtil {
         else {
             return extensions.stream()
                 .flatMap(cls -> Arrays.stream(cls.getDeclaredFields()))
-                .filter(f -> isValue(f) || isConfigValue(f) || isNamedConfigValue(f))
+                .filter(f -> isValue(f) || isConfigValue(f) || isNamedConfigValue(f) || isPolymorphicId(f))
                 .collect(toList());
         }
+    }
+
+    /**
+     * Checks whether configuration schema field contains {@link PolymorphicId}.
+     *
+     * @param schemaField Configuration schema class field.
+     * @return {@code true} if the field contains {@link PolymorphicId}.
+     */
+    public static boolean isPolymorphicId(Field schemaField) {
+        return schemaField.isAnnotationPresent(PolymorphicId.class);
     }
 }
