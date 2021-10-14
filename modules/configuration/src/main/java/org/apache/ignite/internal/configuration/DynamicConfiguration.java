@@ -108,10 +108,13 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
 
     /** {@inheritDoc} */
     @Override public final VIEW value() {
-        InnerNode innerNode = (InnerNode)refreshValue();
+        VIEW view = refreshValue();
 
         // To work with polymorphic configuration.
-        return innerNode.specificView();
+        if (view instanceof InnerNode)
+            return ((InnerNode)view).specificView();
+        else
+            return view;
     }
 
     /**
