@@ -1377,7 +1377,7 @@ public class ConfigurationAsmGenerator {
         ParameterizedType fieldType;
 
         if (isConfigValue(schemaField))
-            fieldType = typeFromJavaClassName(schemasInfo.get(schemaField.getType()).cfgClassName);
+            fieldType = typeFromJavaClassName(schemasInfo.get(schemaField.getType()).cfgImplClassName);
         else if (isNamedConfigValue(schemaField))
             fieldType = type(NamedListConfiguration.class);
         else
@@ -1590,9 +1590,20 @@ public class ConfigurationAsmGenerator {
             returnType
         );
 
-        viewMtd.getBody()
-            .append(getThisFieldCode(viewMtd, fieldDefs))
-            .retObject();
+        // result = this.field;
+        BytecodeBlock body = viewMtd.getBody().append(getThisFieldCode(viewMtd, fieldDefs));
+
+        if (schemaFieldType.isAnnotationPresent(PolymorphicConfig.class)) {
+            // result = this.field.specificConfig();
+            body.invokeVirtual(
+                typeFromJavaClassName(schemasInfo.get(schemaFieldType).cfgImplClassName),
+                SPECIFIC_CONFIG_MTD_NAME,
+                type(DynamicConfiguration.class)
+            );
+        }
+
+        // return result;
+        body.retObject();
     }
 
     /**
@@ -1901,16 +1912,13 @@ public class ConfigurationAsmGenerator {
         Set<Class<?>> polymorphicExtensions,
         FieldDefinition polymorphicTypeIdFieldDef
     ) {
-        // TODO: IGNITE-14645 Continue.
-
-        if (1 == 1)
-            return;
-
         MethodDefinition specificConfigMtd = classDef.declareMethod(
             of(PUBLIC),
             SPECIFIC_CONFIG_MTD_NAME,
             classDef.getType()
         );
+
+        // TODO: IGNITE-14645 Continue.
 
         specificConfigMtd.getBody()
             .append(specificConfigMtd.getThis())
