@@ -51,6 +51,7 @@ import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler;
 import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningContext;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
+import org.apache.ignite.internal.processors.query.calcite.util.LocalCache;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 
@@ -60,8 +61,8 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 /** */
 public class AccumulatorsFactory<Row> implements Supplier<List<AccumulatorWrapper<Row>>> {
     /** */
-    private static final LoadingCache<Pair<RelDataType, RelDataType>, Function<Object, Object>> CACHE =
-        CacheBuilder.newBuilder().build(CacheLoader.from(AccumulatorsFactory::cast0));
+    private static final LocalCache<Pair<RelDataType, RelDataType>, Function<Object, Object>> CACHE =
+        new LocalCache<>(AccumulatorsFactory::cast0);
 
     /** */
     public static interface CastFunction extends Function<Object, Object> {
@@ -78,12 +79,7 @@ public class AccumulatorsFactory<Row> implements Supplier<List<AccumulatorWrappe
 
     /** */
     private static Function<Object, Object> cast(Pair<RelDataType, RelDataType> types) {
-        try {
-            return CACHE.get(types);
-        }
-        catch (ExecutionException e) {
-            throw new IgniteInternalException(e);
-        }
+        return CACHE.get(types);
     }
 
     /** */
