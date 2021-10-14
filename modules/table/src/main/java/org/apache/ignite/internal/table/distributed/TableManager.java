@@ -652,6 +652,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                             SchemaDescriptor descriptor;
 
+                                            //TODO IGNITE-15747 Remove try-catch and force configuration validation here
+                                            // to ensure a valid configuration passed to prepareSchemaDescriptor() method.
                                             try {
                                                 descriptor = SchemaUtils.prepareSchemaDescriptor(
                                                     ((ExtendedTableView)tblCh).schemas().size(),

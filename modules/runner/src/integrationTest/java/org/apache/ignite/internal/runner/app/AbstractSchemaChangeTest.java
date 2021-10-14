@@ -124,25 +124,25 @@ abstract class AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valStr", c -> c.changeType(t -> t.changeType("UNKNOWN_TYPE")));
+        assertColumnChangeFailed(grid, "valStr", c -> c.changeType(t -> t.changeType("UNKNOWN_TYPE")));
 
-        assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valInt", colChanger -> colChanger.changeType(t -> t.changeType(ColumnType.blobOf().typeSpec().name())));
+        assertColumnChangeFailed(grid, "valInt", colChanger -> colChanger.changeType(t -> t.changeType(ColumnType.blobOf().typeSpec().name())));
 
-        assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valInt", colChanger -> colChanger.changeType(t -> t.changePrecision(10)));
-        assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valInt", colChanger -> colChanger.changeType(t -> t.changeScale(10)));
-        assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valInt", colChanger -> colChanger.changeType(t -> t.changeLength(1)));
+        assertColumnChangeFailed(grid, "valInt", colChanger -> colChanger.changeType(t -> t.changePrecision(10)));
+        assertColumnChangeFailed(grid, "valInt", colChanger -> colChanger.changeType(t -> t.changeScale(10)));
+        assertColumnChangeFailed(grid, "valInt", colChanger -> colChanger.changeType(t -> t.changeLength(1)));
 
-        assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valBigInt", colChanger -> colChanger.changeType(t -> t.changePrecision(-1)));
-        assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valBigInt", colChanger -> colChanger.changeType(t -> t.changePrecision(10)));
-        assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valBigInt", colChanger -> colChanger.changeType(t -> t.changeScale(2)));
-        assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valBigInt", colChanger -> colChanger.changeType(t -> t.changeLength(10)));
+        assertColumnChangeFailed(grid, "valBigInt", colChanger -> colChanger.changeType(t -> t.changePrecision(-1)));
+        assertColumnChangeFailed(grid, "valBigInt", colChanger -> colChanger.changeType(t -> t.changePrecision(10)));
+        assertColumnChangeFailed(grid, "valBigInt", colChanger -> colChanger.changeType(t -> t.changeScale(2)));
+        assertColumnChangeFailed(grid, "valBigInt", colChanger -> colChanger.changeType(t -> t.changeLength(10)));
 
-        assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(-1)));
-        assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(0)));
-        assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeScale(-2)));
-        assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(10)));
-        assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeScale(2)));
-        assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeLength(10)));
+        assertColumnChangeFailed(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(-1)));
+        assertColumnChangeFailed(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(0)));
+        assertColumnChangeFailed(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeScale(-2)));
+        assertColumnChangeFailed(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(10)));
+        assertColumnChangeFailed(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeScale(2)));
+        assertColumnChangeFailed(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeLength(10)));
     }
 
     /**
@@ -154,8 +154,8 @@ abstract class AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valStr", colChanger -> colChanger.changeNullable(true));
-        assertColumnChangeThrows(ConfigurationValidationException.class, grid, "valInt", colChanger -> colChanger.changeNullable(false));
+        assertColumnChangeFailed(grid, "valStr", colChanger -> colChanger.changeNullable(true));
+        assertColumnChangeFailed(grid, "valInt", colChanger -> colChanger.changeNullable(false));
     }
 
     /**
@@ -265,8 +265,15 @@ abstract class AbstractSchemaChangeTest {
         );
     }
 
-    private <T extends Throwable> void assertColumnChangeThrows(Class<T> errType, List<Ignite> grid, String colName, Consumer<ColumnChange> colChanger) {
-        Assertions.assertThrows(errType, () -> {
+    /**
+     * Ensure configuration validation failed.
+     *
+     * @param grid Grid.
+     * @param colName Column to change.
+     * @param colChanger Column configuration changer.
+     */
+    private void assertColumnChangeFailed(List<Ignite> grid, String colName, Consumer<ColumnChange> colChanger) {
+        Assertions.assertThrows(ConfigurationValidationException.class, () -> {
             grid.get(0).tables().alterTable(TABLE,
                 tblChanger -> tblChanger.changeColumns(cols -> {
                     final String colKey = tblChanger.columns().namedListKeys().stream()
