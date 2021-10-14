@@ -20,7 +20,6 @@ package org.apache.ignite.network;
 import java.util.Arrays;
 import org.apache.ignite.configuration.schemas.network.NodeFinderType;
 import org.apache.ignite.configuration.schemas.network.NodeFinderView;
-import org.apache.ignite.lang.IgniteInternalException;
 
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toUnmodifiableList;
@@ -44,7 +43,7 @@ public class NodeFinderFactory {
             type = NodeFinderType.valueOf(typeString);
         }
         catch (IllegalArgumentException e) {
-            throw new IgniteInternalException("Failed to create NodeFinder " + typeString, e);
+            throw new IllegalArgumentException("Failed to create NodeFinder " + typeString, e);
         }
 
         switch (type) {

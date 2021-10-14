@@ -259,7 +259,7 @@ public class NettyServer {
     }
 
     /**
-     * Try bind this server to the port.
+     * Try bind this server to a port.
      *
      * @param port Target port.
      * @param endPort Last port that server can be bound to.

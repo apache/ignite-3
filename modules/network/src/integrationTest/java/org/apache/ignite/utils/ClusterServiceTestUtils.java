@@ -20,11 +20,9 @@ package org.apache.ignite.utils;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.configuration.schemas.network.NodeFinderChange;
 import org.apache.ignite.configuration.schemas.network.NodeFinderType;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -127,24 +125,10 @@ public class ClusterServiceTestUtils {
     }
 
     /**
-     * Creates a closure that configures {@link StaticNodeFinder}.
+     * Creates a list of {@link NetworkAddress}es within a given port range.
      *
-     * @param addresses List of nodes' addresses.
-     * @return Configuration closure.
-     */
-    public static Consumer<NodeFinderChange> createStaticNodeFinderConfiguration(List<NetworkAddress> addresses) {
-        String[] addrs = addresses.stream().map(NetworkAddress::toString).toArray(String[]::new);
-
-        return change ->
-            change.changeType(NodeFinderType.STATIC.name())
-                .changeNetClusterNodes(addrs);
-    }
-
-    /**
-     *
-     *
-     * @param startPort Start port.
-     * @param endPort End port.
+     * @param startPort Start port (inclusive).
+     * @param endPort End port (exclusive).
      * @return Configuration closure.
      */
     public static List<NetworkAddress> findLocalAddresses(int startPort, int endPort) {

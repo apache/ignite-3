@@ -23,6 +23,7 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
@@ -69,7 +70,7 @@ class ITNodeRestartsTest {
         var nodeFinder = new StaticNodeFinder(addresses);
 
         services = addresses.stream()
-            .map(addr -> startNetwork(testInfo, addr, initPort, initPort + 5))
+            .map(addr -> startNetwork(testInfo, addr, nodeFinder))
             .collect(Collectors.toCollection(ArrayList::new)); // ensure mutability
 
         for (ClusterService service : services) {
@@ -87,11 +88,11 @@ class ITNodeRestartsTest {
         services.get(idx1).stop();
 
         LOG.info("Starting {}", addresses.get(idx0));
-        ClusterService svc0 = startNetwork(testInfo, addresses.get(idx0), initPort, initPort + 5);
+        ClusterService svc0 = startNetwork(testInfo, addresses.get(idx0), nodeFinder);
         services.set(idx0, svc0);
 
         LOG.info("Starting {}", addresses.get(idx1));
-        ClusterService svc2 = startNetwork(testInfo, addresses.get(idx1), initPort, initPort + 5);
+        ClusterService svc2 = startNetwork(testInfo, addresses.get(idx1), nodeFinder);
         services.set(idx1, svc2);
 
         for (ClusterService service : services) {
@@ -107,16 +108,14 @@ class ITNodeRestartsTest {
      *
      * @param testInfo Test info.
      * @param addr Node address.
-     * @param portStart Localhost node finder start port.
-     * @param portEnd Localhost node finder end port.
+     * @param nodeFinder Node finder.
      * @return Created Cluster Service.
      */
-    private ClusterService startNetwork(TestInfo testInfo, NetworkAddress addr, int portStart, int portEnd) {
-        List<NetworkAddress> addresses = findLocalAddresses(portStart, portEnd);
+    private ClusterService startNetwork(TestInfo testInfo, NetworkAddress addr, NodeFinder nodeFinder) {
         ClusterService clusterService = ClusterServiceTestUtils.clusterService(
             testInfo,
             addr.port(),
-            new StaticNodeFinder(addresses),
+            nodeFinder,
             serializationRegistry,
             networkFactory
         );
