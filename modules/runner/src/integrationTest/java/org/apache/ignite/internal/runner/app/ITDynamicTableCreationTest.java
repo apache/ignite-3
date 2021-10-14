@@ -45,6 +45,7 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -282,6 +283,68 @@ class ITDynamicTableCreationTest {
         assertTableCreationFailed(grid, colChanger -> colChanger.changeType(c -> c.changeType("DECIMAL").changePrecision(0)));
         assertTableCreationFailed(grid, colChanger -> colChanger.changeType(c -> c.changeType("DECIMAL").changeScale(-2)));
         assertTableCreationFailed(grid, colChanger -> colChanger.changeType(t -> t.changeType("BYTES").changeLength(-1)));
+    }
+
+    @Disabled("IGNITE-15747")
+    @Test
+    void testMissedPK() {
+        List<Ignite> grid = startGrid();
+
+        // Missed PK.
+        Assertions.assertThrows(ConfigurationValidationException.class, () -> {
+            try {
+                grid.get(0).tables().createTable(
+                    "PUBLIC.tbl1",
+                    tblChanger -> tblChanger.changeName("PUBLIC.tbl1")
+                        .changeColumns(cols -> {
+                            cols.create("0", col -> col.changeName("key").changeType(t -> t.changeType("INT64")).changeNullable(false));
+                            cols.create("1", col -> col.changeName("val").changeNullable(true).changeType(t -> t.changeType("INT32")));
+                        })
+                        .changeReplicas(1)
+                        .changePartitions(10)
+                );
+            } catch (CompletionException ex) {
+                throw ex.getCause();
+            }
+        });
+
+        //Missed affinity cols.
+        Assertions.assertThrows(ConfigurationValidationException.class, () -> {
+            try {
+                grid.get(0).tables().createTable(
+                    "PUBLIC.tbl1",
+                    tblChanger -> tblChanger.changeName("PUBLIC.tbl1")
+                        .changeColumns(cols -> {
+                            cols.create("0", col -> col.changeName("key").changeType(t -> t.changeType("INT64")).changeNullable(false));
+                            cols.create("1", col -> col.changeName("val").changeNullable(true).changeType(t -> t.changeType("INT32")));
+                        })
+                        .changePrimaryKey(pk -> pk.changeColumns("key"))
+                        .changeReplicas(1)
+                        .changePartitions(10)
+                );
+            } catch (CompletionException ex) {
+                throw ex.getCause();
+            }
+        });
+
+        //Missed key cols.
+        Assertions.assertThrows(ConfigurationValidationException.class, () -> {
+            try {
+                grid.get(0).tables().createTable(
+                    "PUBLIC.tbl1",
+                    tblChanger -> tblChanger.changeName("PUBLIC.tbl1")
+                        .changeColumns(cols -> {
+                            cols.create("0", col -> col.changeName("key").changeType(t -> t.changeType("INT64")).changeNullable(false));
+                            cols.create("1", col -> col.changeName("val").changeNullable(true).changeType(t -> t.changeType("INT32")));
+                        })
+                        .changePrimaryKey(pk -> pk.changeAffinityColumns("key"))
+                        .changeReplicas(1)
+                        .changePartitions(10)
+                );
+            } catch (CompletionException ex) {
+                throw ex.getCause();
+            }
+        });
     }
 
     /**
