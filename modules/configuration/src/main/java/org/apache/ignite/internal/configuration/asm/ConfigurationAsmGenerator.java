@@ -108,8 +108,10 @@ import static java.lang.invoke.MethodType.methodType;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singleton;
 import static java.util.EnumSet.of;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.changeClassName;
 import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.configurationClassName;
 import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.viewClassName;
@@ -171,6 +173,12 @@ public class ConfigurationAsmGenerator {
     /** {@link Object#Object()}. */
     private static final Constructor<?> OBJECT_CTOR;
 
+    /** {@link InnerNode#specificView} method name. */
+    private static final String SPECIFIC_VIEW_MTD_NAME = "specificView";
+
+    /** {@link DynamicConfiguration#specificConfig} method name. */
+    private static final String SPECIFIC_CONFIG_MTD_NAME = "specificConfig";
+
     static {
         try {
             LAMBDA_METAFACTORY = LambdaMetafactory.class.getDeclaredMethod(
@@ -231,8 +239,7 @@ public class ConfigurationAsmGenerator {
     }
 
     /** Information about schema classes - bunch of names and dynamically compiled internal classes. */
-    public final Map<Class<?>, SchemaClassesInfo> schemasInfo = new HashMap<>();
-    // TODO: IGNITE-14645 ^^^
+    private final Map<Class<?>, SchemaClassesInfo> schemasInfo = new HashMap<>();
 
     /** Class generator instance. */
     private final ClassGenerator generator = ClassGenerator.classGenerator(getClass().getClassLoader())
@@ -320,7 +327,7 @@ public class ConfigurationAsmGenerator {
         schemasInfo.put(rootSchemaClass, new SchemaClassesInfo(rootSchemaClass));
 
         Set<Class<?>> schemas = new HashSet<>();
-        List<ClassDefinition> definitions = new ArrayList<>();
+        List<ClassDefinition> classDefs = new ArrayList<>();
 
         while (!compileQueue.isEmpty()) {
             Class<?> schemaClass = compileQueue.poll();
@@ -354,50 +361,69 @@ public class ConfigurationAsmGenerator {
                 }
             }
 
+            for (Class<?> polymorphicExtension : polymorphicExtensions)
+                schemasInfo.put(polymorphicExtension, new SchemaClassesInfo(polymorphicExtension));
+
             schemas.add(schemaClass);
 
-            definitions.addAll(createNodeClass(
+            ClassDefinition innerNodeClassDef = createNodeClass(
                 schemaClass,
                 internalExtensions,
                 polymorphicExtensions,
                 schemaFields,
                 internalExtensionsFields,
                 polymorphicExtensionsFields
-            ));
+            );
 
-            definitions.addAll(createCfgImplClass(
+            classDefs.add(innerNodeClassDef);
+
+            ClassDefinition cfgImplClassDef = createCfgImplClass(
                 schemaClass,
                 internalExtensions,
                 polymorphicExtensions,
                 schemaFields,
                 internalExtensionsFields,
                 polymorphicExtensionsFields
-            ));
+            );
+
+            classDefs.add(cfgImplClassDef);
+
+            for (Class<?> polymorphicExtension : polymorphicExtensions) {
+                // Only the fields of a specific instance of a polymorphic configuration.
+                Collection<Field> polymorphicFields = polymorphicExtensionsFields.stream()
+                    .filter(f -> f.getDeclaringClass() == polymorphicExtension)
+                    .collect(toList());
+
+                classDefs.add(createPolymorphicExtensionNodeClass(
+                    schemaClass,
+                    polymorphicExtension,
+                    innerNodeClassDef,
+                    schemaFields,
+                    polymorphicFields
+                ));
+
+                classDefs.add(createPolymorphicExtensionCfgImplClass(
+                    schemaClass,
+                    polymorphicExtension,
+                    cfgImplClassDef,
+                    schemaFields,
+                    polymorphicFields
+                ));
+            }
         }
 
-        Map<String, Class<?>> definedClasses = generator.defineClasses(definitions);
+        Map<String, Class<?>> definedClasses = generator.defineClasses(classDefs);
 
         for (Class<?> schemaClass : schemas) {
             SchemaClassesInfo info = schemasInfo.get(schemaClass);
 
             info.nodeClass = (Class<? extends InnerNode>)definedClasses.get(info.nodeClassName);
             info.cfgImplClass = (Class<? extends DynamicConfiguration<?, ?>>)definedClasses.get(info.cfgImplClassName);
-
-            for (Class<?> aClass : polymorphicSchemaExtensions.getOrDefault(schemaClass, Set.of())) {
-                SchemaClassesInfo schemaClassesInfo = new SchemaClassesInfo(aClass);
-
-                schemaClassesInfo.nodeClass = (Class<? extends InnerNode>)definedClasses.get(schemaClassesInfo.nodeClassName);
-                schemaClassesInfo.cfgImplClass = (Class<? extends DynamicConfiguration<?, ?>>)definedClasses.get(schemaClassesInfo.cfgImplClassName);
-
-                schemasInfo.put(aClass, schemaClassesInfo);
-            }
-            // TODO: IGNITE-14645 ^^^
         }
     }
 
     /**
-     * Construct a {@code *Node} definitions for a configuration schema.
-     * Creates {@link InnerNode} for {@code schemaClass} and {@code *Node}'s for {@code polymorphicExtensions}.
+     * Construct a {@link InnerNode} definition for a configuration schema.
      *
      * @param schemaClass           Configuration schema class.
      * @param internalExtensions    Internal extensions of the configuration schema.
@@ -405,9 +431,9 @@ public class ConfigurationAsmGenerator {
      * @param schemaFields          Fields of the schema class.
      * @param internalFields        Fields of internal extensions of the configuration schema.
      * @param polymorphicFields     Fields of polymorphic extensions of the configuration schema.
-     * @return Constructed {@code *Node} definitions for the configuration schema.
+     * @return Constructed {@link InnerNode} definition for the configuration schema.
      */
-    private Collection<ClassDefinition> createNodeClass(
+    private ClassDefinition createNodeClass(
         Class<?> schemaClass,
         Set<Class<?>> internalExtensions,
         Set<Class<?>> polymorphicExtensions,
@@ -518,34 +544,10 @@ public class ConfigurationAsmGenerator {
             polymorphicTypeIdFieldDef
         );
 
-        Collection<ClassDefinition> classDefs = new ArrayList<>(List.of(classDef));
-
-        if (!polymorphicExtensions.isEmpty()) {
-            for (Class<?> polymorphicExtension : polymorphicExtensions) {
-                if (schemasInfo.containsKey(polymorphicExtension))
-                    continue;
-
-                schemasInfo.put(polymorphicExtension, new SchemaClassesInfo(polymorphicExtension));
-
-                // Only the fields of a specific instance of a polymorphic configuration.
-                Collection<Field> polymorphicExtensionFields = polymorphicFields.stream()
-                    .filter(f -> f.getDeclaringClass() == polymorphicExtension)
-                    .collect(toList());
-
-                classDefs.add(createPolymorphicExtensionNodeClass(
-                    schemaClass,
-                    polymorphicExtension,
-                    specFields,
-                    fieldDefs,
-                    schemaFields,
-                    polymorphicExtensionFields
-                ));
-            }
-
+        if (!polymorphicExtensions.isEmpty())
             addNodeSpecificViewMethod(classDef, schemaClass, polymorphicExtensions, polymorphicTypeIdFieldDef);
-        }
 
-        return classDefs;
+        return classDef;
     }
 
     /**
@@ -729,7 +731,7 @@ public class ConfigurationAsmGenerator {
             // result = result.specificView();
             viewMtd.getBody().invokeVirtual(
                 typeFromJavaClassName(schemaClassInfo.nodeClassName),
-                "specificView",
+                SPECIFIC_VIEW_MTD_NAME,
                 typeFromJavaClassName(schemaClassInfo.viewClassName)
             );
         }
@@ -1262,17 +1264,16 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Construct a {@code *Config} definitions for a configuration schema.
-     * Creates {@link DynamicConfiguration} for {@code schemaClass} and {@code *Config}'s for {@code polymorphicExtensions}.
+     * Construct a {@link DynamicConfiguration} definition for a configuration schema.
      *
      * @param schemaClass        Configuration schema class.
      * @param internalExtensions Internal extensions of the configuration schema.
      * @param schemaFields       Fields of the schema class.
      * @param internalFields     Fields of internal extensions of the configuration schema.
      * @param polymorphicFields  Fields of polymorphic extensions of the configuration schema.
-     * @return Constructed {@code *Config} definitions for the configuration schema.
+     * @return Constructed {@link DynamicConfiguration} definition for the configuration schema.
      */
-    private Collection<ClassDefinition> createCfgImplClass(
+    private ClassDefinition createCfgImplClass(
         Class<?> schemaClass,
         Set<Class<?>> internalExtensions,
         Set<Class<?>> polymorphicExtensions,
@@ -1324,21 +1325,16 @@ public class ConfigurationAsmGenerator {
             if (isPolymorphicId(schemaField))
                 continue;
 
-            addConfigurationImplGetMethod(classDef, schemaClass, fieldDefs, schemaField);
+            addConfigurationImplGetMethod(classDef, schemaField, fieldDefs.get(fieldName(schemaField)));
         }
 
         // org.apache.ignite.internal.configuration.DynamicConfiguration#configType
         addCfgImplConfigTypeMethod(classDef, typeFromJavaClassName(schemaClassInfo.cfgClassName));
 
-        // TODO: IGNITE-14645 Continue.
+        if (!polymorphicExtensions.isEmpty())
+            addNodeSpecificConfigMethod(classDef, schemaClass, polymorphicExtensions, polymorphicTypeIdFieldDef);
 
-        Collection<ClassDefinition> classDefs = new ArrayList<>(List.of(classDef));
-
-        if (!polymorphicExtensions.isEmpty()) {
-            // TODO: 14.10.2021
-        }
-
-        return classDefs;
+        return classDef;
     }
 
     /**
@@ -1555,20 +1551,19 @@ public class ConfigurationAsmGenerator {
      * Implements accessor method in configuration impl class.
      *
      * @param classDef    Configuration impl class definition.
-     * @param schemaClass Configuration Schema class.
-     * @param fieldDefs   Field definitions for all fields of configuration impl class.
      * @param schemaField Configuration Schema class field.
+     * @param fieldDefs Field definitions.
      */
     private void addConfigurationImplGetMethod(
         ClassDefinition classDef,
-        Class<?> schemaClass,
-        Map<String, FieldDefinition> fieldDefs,
-        Field schemaField
+        Field schemaField,
+        FieldDefinition... fieldDefs
     ) {
+        assert !nullOrEmpty(fieldDefs);
+
         Class<?> schemaFieldType = schemaField.getType();
 
         String fieldName = schemaField.getName();
-        FieldDefinition fieldDef = fieldDefs.get(fieldName);
 
         ParameterizedType returnType;
 
@@ -1577,22 +1572,20 @@ public class ConfigurationAsmGenerator {
         else if (isNamedConfigValue(schemaField))
             returnType = type(NamedConfigurationTree.class);
         else {
-            assert isValue(schemaField) : schemaClass;
+            assert isValue(schemaField) : schemaField.getDeclaringClass();
 
             returnType = type(ConfigurationValue.class);
         }
 
+        // public ConfigurationProperty fieldName()
         MethodDefinition viewMtd = classDef.declareMethod(
             of(PUBLIC),
             fieldName,
             returnType
         );
 
-        BytecodeBlock viewBody = viewMtd.getBody();
-
-        viewBody
-            .append(viewMtd.getThis())
-            .getField(fieldDef)
+        viewMtd.getBody()
+            .append(getThisFieldCode(viewMtd, fieldDefs))
             .retObject();
     }
 
@@ -1686,18 +1679,14 @@ public class ConfigurationAsmGenerator {
      *
      * @param schemaClass Polymorphic configuration schema (parent).
      * @param polymorphicExtension Polymorphic configuration instance schema (child).
-     * @param specFields Field definitions {@code _spec#} in a {@link InnerNode} of polymorphic configuration
-     *      (union {@code schemaClass} and {@code polymorphicExtension}).
-     * @param fieldDefs Field definitions in a {@link InnerNode} of polymorphic configuration
-     *      (union {@code schemaFields} and {@code polymorphicFields}).
+     * @param schemaInnerNodeClassDef {@link InnerNode} definition for the polymorphic configuration schema {@code schemaClass}.
      * @param schemaFields Schema fields of polymorphic configuration {@code schemaClass}.
      * @param polymorphicFields Schema fields of a polymorphic configuration instance {@code polymorphicExtension}.
      */
     private ClassDefinition createPolymorphicExtensionNodeClass(
         Class<?> schemaClass,
         Class<?> polymorphicExtension,
-        Map<Class<?>, FieldDefinition> specFields,
-        Map<String, FieldDefinition> fieldDefs,
+        ClassDefinition schemaInnerNodeClassDef,
         Collection<Field> schemaFields,
         Collection<Field> polymorphicFields
     ) {
@@ -1735,13 +1724,16 @@ public class ConfigurationAsmGenerator {
             .invokeConstructor(OBJECT_CTOR)
             .ret();
 
+        Map<String, FieldDefinition> fieldDefs = schemaInnerNodeClassDef.getFields().stream()
+            .collect(toMap(FieldDefinition::getName, identity()));
+
         // Creates view and change methods for parent schema.
         for (Field schemaField : schemaFields) {
             // Must be skipped, this is an internal special field.
             if (isPolymorphicId(schemaField))
                 continue;
 
-            FieldDefinition schemaFieldDef = fieldDefs.get(schemaField.getName());
+            FieldDefinition schemaFieldDef = fieldDefs.get(fieldName(schemaField));
 
             addNodeViewMethod(classDef, schemaField, parentInnerNodeFieldDef, schemaFieldDef);
 
@@ -1758,9 +1750,7 @@ public class ConfigurationAsmGenerator {
 
         // Creates view and change methods for specific polymorphic instance schema.
         for (Field polymorphicField : polymorphicFields) {
-            String fieldName = fieldName(polymorphicField);
-
-            FieldDefinition polymorphicFieldDef = fieldDefs.get(fieldName);
+            FieldDefinition polymorphicFieldDef = fieldDefs.get(fieldName(polymorphicField));
 
             addNodeViewMethod(classDef, polymorphicField, parentInnerNodeFieldDef, polymorphicFieldDef);
 
@@ -1773,6 +1763,75 @@ public class ConfigurationAsmGenerator {
             );
 
             addNodeChangeBridgeMethod(classDef, polymorphicExtensionClassInfo.changeClassName, changeMtd);
+        }
+
+        return classDef;
+    }
+
+    /**
+     * Create a {@code *CfgImpl} for the polymorphic configuration instance schema.
+     *
+     * @param schemaClass Polymorphic configuration schema (parent).
+     * @param polymorphicExtension Polymorphic configuration instance schema (child).
+     * @param schemaCfgImplClassDef {@link DynamicConfiguration} definition for the polymorphic configuration schema {@code schemaClass}.
+     * @param schemaFields Schema fields of polymorphic configuration {@code schemaClass}.
+     * @param polymorphicFields Schema fields of a polymorphic configuration instance {@code polymorphicExtension}.
+     */
+    private ClassDefinition createPolymorphicExtensionCfgImplClass(
+        Class<?> schemaClass,
+        Class<?> polymorphicExtension,
+        ClassDefinition schemaCfgImplClassDef,
+        Collection<Field> schemaFields,
+        Collection<Field> polymorphicFields
+    ) {
+        SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaClass);
+        SchemaClassesInfo polymorphicExtensionClassInfo = schemasInfo.get(polymorphicExtension);
+
+        // Configuration impl class definition.
+        ClassDefinition classDef = new ClassDefinition(
+            of(PUBLIC, FINAL),
+            internalName(polymorphicExtensionClassInfo.cfgImplClassName),
+            type(Object.class),
+            configClassInterfaces(polymorphicExtension, Set.of())
+        );
+
+        // private final ParentCfgImpl parent#cfgImpl;
+        FieldDefinition parentCfgImplFieldDef = classDef.declareField(
+            of(PRIVATE, FINAL),
+            "parent#cfgImpl",
+            typeFromJavaClassName(schemaClassInfo.cfgImplClassName)
+        );
+
+        // Constructor.
+        MethodDefinition constructorMtd = classDef.declareConstructor(
+            of(PUBLIC),
+            arg("parent", typeFromJavaClassName(schemaClassInfo.cfgImplClassName))
+        );
+
+        // Constructor body.
+        constructorMtd.getBody()
+            .append(constructorMtd.getThis())
+            .append(constructorMtd.getThis().setField(
+                parentCfgImplFieldDef,
+                constructorMtd.getScope().getVariable("parent")
+            ))
+            .invokeConstructor(OBJECT_CTOR)
+            .ret();
+
+        Map<String, FieldDefinition> fieldDefs = schemaCfgImplClassDef.getFields().stream()
+            .collect(toMap(FieldDefinition::getName, identity()));
+
+        for (Field schemaField : concat(schemaFields, polymorphicFields)) {
+            // Must be skipped, this is an internal special field.
+            if (isPolymorphicId(schemaField))
+                continue;
+
+            addConfigurationImplGetMethod(
+                classDef,
+                schemaField,
+                parentCfgImplFieldDef,
+                fieldDefs.get(fieldName(schemaField))
+            );
         }
 
         return classDef;
@@ -1796,7 +1855,7 @@ public class ConfigurationAsmGenerator {
 
         MethodDefinition specificViewMtd = classDef.declareMethod(
             of(PUBLIC),
-            "specificView",
+            SPECIFIC_VIEW_MTD_NAME,
             typeFromJavaClassName(schemaClassInfo.viewClassName)
         );
 
@@ -1820,6 +1879,36 @@ public class ConfigurationAsmGenerator {
         }
 
         specificViewMtd.getBody().append(switchBuilder.build()).ret();
+    }
+
+    /**
+     * Adds a {@link DynamicConfiguration#specificConfig} override for the polymorphic configuration case.
+     *
+     * @param classDef Definition of a polymorphic configuration class {@code schemaClass}.
+     * @param schemaClass Polymorphic configuration schema (parent).
+     * @param polymorphicExtensions Polymorphic configuration instance schemas (children).
+     * @param polymorphicTypeIdFieldDef Identification field for the polymorphic configuration instance.
+     */
+    private void addNodeSpecificConfigMethod(
+        ClassDefinition classDef,
+        Class<?> schemaClass,
+        Set<Class<?>> polymorphicExtensions,
+        FieldDefinition polymorphicTypeIdFieldDef
+    ) {
+        // TODO: IGNITE-14645 Continue.
+
+        if (1 == 1)
+            return;
+
+        MethodDefinition specificConfigMtd = classDef.declareMethod(
+            of(PUBLIC),
+            SPECIFIC_CONFIG_MTD_NAME,
+            classDef.getType()
+        );
+
+        specificConfigMtd.getBody()
+            .append(specificConfigMtd.getThis())
+            .retObject();
     }
 
     /**

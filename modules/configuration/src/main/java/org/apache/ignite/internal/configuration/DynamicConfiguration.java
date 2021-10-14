@@ -151,8 +151,20 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
     }
 
     /**
+     * Returns configuration interface.
+     *
      * @return Configuration interface, for example {@code RootConfiguration}.
      * @throws UnsupportedOperationException In the case of a named list.
      */
     public abstract Class<? extends ConfigurationProperty<VIEW>> configType();
+
+    /**
+     * Returns specific configuration.
+     *
+     * @return Specific configuration.
+     */
+    public DynamicConfiguration<VIEW, CHANGE> specificConfig() {
+        // To work with polymorphic configuration.
+        return this;
+    }
 }
