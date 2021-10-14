@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.WriteCommand;
@@ -65,7 +64,7 @@ public class DeleteAllCommand implements MultiKeyCommand, WriteCommand {
      */
     @Override public Collection<BinaryRow> getRows() {
         if (rows == null && rowsBytes != null) {
-            rows = new HashSet<>();
+            rows = new ArrayList<>();
 
             CommandUtils.readRows(rowsBytes, rows::add);
         }

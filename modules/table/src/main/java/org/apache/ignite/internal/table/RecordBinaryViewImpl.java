@@ -18,13 +18,10 @@
 package org.apache.ignite.internal.table;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
@@ -36,6 +33,8 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import static java.util.stream.Collectors.toList;
 
 /**
  * Table view implementation for binary objects.
@@ -92,17 +91,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Collection<Tuple>> getAllAsync(@NotNull Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        // TODO asch copypaste
-        var keys = new ArrayList<BinaryRow>(keyRecs.size());
-
-        for (Tuple keyRec : keyRecs) {
-            final Row keyRow = marshaller().marshalKey(keyRec);
-
-            keys.add(keyRow);
-        }
-        // TODO asch copypaste end
-
-        return tbl.getAll(keys, tx).thenApply(this::wrap);
+        return tbl.getAll(keyRecs.stream().map(marsh::marshalKey).collect(toList()), tx).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -128,15 +117,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Void> upsertAllAsync(@NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        var keys = new ArrayList<BinaryRow>(recs.size());
-
-        for (Tuple keyRec : recs) {
-            final Row keyRow = marshaller().marshal(keyRec);
-
-            keys.add(keyRow);
-        }
-
-        return tbl.upsertAll(keys, tx);
+        return tbl.upsertAll(mapToBinary(recs), tx);
     }
 
     /** {@inheritDoc} */
@@ -176,15 +157,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Collection<Tuple>> insertAllAsync(@NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        var keys = new ArrayList<BinaryRow>(recs.size());
-
-        for (Tuple keyRec : recs) {
-            final Row keyRow = marshaller().marshal(keyRec);
-
-            keys.add(keyRow);
-        }
-
-        return tbl.insertAll(keys, tx).thenApply(this::wrap);
+        return tbl.insertAll(mapToBinary(recs), tx).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -282,15 +255,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Collection<Tuple>> deleteAllAsync(@NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        var keys = new ArrayList<BinaryRow>(recs.size());
-
-        for (Tuple keyRec : recs) {
-            final Row keyRow = marshaller().marshalKey(keyRec);
-
-            keys.add(keyRow);
-        }
-
-        return tbl.deleteAll(keys, tx).thenApply(this::wrap);
+        return tbl.deleteAll(recs.stream().map(marsh::marshalKey).collect(toList()), tx).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -299,20 +264,10 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Collection<Tuple>> deleteAllExactAsync(
-        @NotNull Collection<Tuple> recs
-    ) {
+    @Override public @NotNull CompletableFuture<Collection<Tuple>> deleteAllExactAsync(@NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        HashSet<BinaryRow> keys = new HashSet<>(recs.size());
-
-        for (Tuple keyRec : recs) {
-            final Row keyRow = marshaller().marshal(keyRec);
-
-            keys.add(keyRow);
-        }
-
-        return tbl.deleteAllExact(keys, tx).thenApply(this::wrap);
+        return tbl.deleteAllExact(mapToBinary(recs), tx).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -375,6 +330,14 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         if (rows == null)
             return null;
 
-        return rows.stream().map(this::wrap).collect(Collectors.toList());
+        return rows.stream().map(this::wrap).collect(toList());
+    }
+
+    /**
+     * @param rows Tuples.
+     * @return List of binary rows.
+     */
+    private Collection<BinaryRow> mapToBinary(Collection<Tuple> rows) {
+        return rows.stream().map(marshaller()::marshal).collect(toList());
     }
 }

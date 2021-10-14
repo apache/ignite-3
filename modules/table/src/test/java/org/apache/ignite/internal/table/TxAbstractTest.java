@@ -513,6 +513,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         Collection<Tuple> ret = accounts.recordView().getAll(keys);
 
         assertEquals(2, ret.size());
+
         for (Tuple tuple : ret)
             assertNull(tuple);
 
@@ -529,8 +530,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public void testGetAllAbort() throws TransactionException {
         List<Tuple> keys = List.of(makeKey(1), makeKey(2));
 
-        accounts.recordView().upsert(makeValue(1, 100.));
-        accounts.recordView().upsert(makeValue(2, 200.));
+        accounts.recordView().upsertAll(List.of(makeValue(1, 100.), makeValue(2, 200.)));
 
         Transaction tx = igniteTransactions.begin();
 
@@ -547,8 +547,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     /** Tests if a transaction is rolled back if one of the batch keys can't be locked. */
     @Test
     public void testGetAllConflict() throws Exception {
-        accounts.recordView().upsert(makeValue(1, 100.));
-        accounts.recordView().upsert(makeValue(2, 200.));
+        accounts.recordView().upsertAll(List.of(makeValue(1, 100.), makeValue(2, 200.)));
 
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
@@ -562,8 +561,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         Exception err = assertThrows(Exception.class, () -> txAcc.getAll(List.of(makeKey(2), makeKey(1))));
         assertTrue(err.getMessage().contains("LockException"), err.getMessage());
 
-//        validateBalance(txAcc2.getAll(List.of(makeKey(2), makeKey(1))), 200., 300.);
-//        validateBalance(txAcc2.getAll(List.of(makeKey(1), makeKey(2))), 300., 200.);
+        validateBalance(txAcc2.getAll(List.of(makeKey(2), makeKey(1))), 200., 300.);
+        validateBalance(txAcc2.getAll(List.of(makeKey(1), makeKey(2))), 300., 200.);
 
         assertTrue(IgniteTestUtils.waitForCondition(() -> TxState.ABORTED == tx.state(), 5_000), tx.state().toString());
 
@@ -610,7 +609,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         igniteTransactions.runInTransaction(tx -> {
             Collection<Tuple> res = accounts.recordView().deleteAll(List.of(makeKey(1), makeKey(2), makeKey(3)));
 
-            assertEquals(2, res.size());
+            assertEquals(1, res.size());
         });
 
         assertNull(accounts.recordView().get(makeKey(1)));
@@ -658,9 +657,10 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         accounts.recordView().upsertAll(List.of(makeValue(1, 100.), makeValue(2, 200.)));
 
         igniteTransactions.runInTransaction(tx -> {
-            Collection<Tuple> res = accounts.recordView().deleteAllExact(List.of(makeValue(1, 200.), makeValue(2, 200.)));
+            Collection<Tuple> res =
+                accounts.recordView().deleteAllExact(List.of(makeValue(1, 200.), makeValue(2, 200.), makeValue(3, 300.)));
 
-            assertEquals(1, res.size());
+            assertEquals(2, res.size());
         });
 
         assertNotNull(accounts.recordView().get(makeKey(1)));

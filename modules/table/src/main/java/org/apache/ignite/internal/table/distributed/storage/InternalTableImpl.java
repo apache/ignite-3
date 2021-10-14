@@ -420,7 +420,7 @@ public class InternalTableImpl implements InternalTable {
                 for (CompletableFuture<?> future : futs) {
                     MultiRowsResponse ret = (MultiRowsResponse) future.join();
 
-                    Collection<BinaryRow> values = ret.getValues();
+                    List<BinaryRow> values = ret.getValues();
 
                     if (values != null)
                         list.addAll(values);

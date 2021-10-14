@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.ReadCommand;
@@ -65,7 +64,7 @@ public class GetAllCommand implements MultiKeyCommand, ReadCommand {
      */
     @Override public Collection<BinaryRow> getRows() {
         if (keyRows == null && keyRowsBytes != null) {
-            keyRows = new HashSet<>();
+            keyRows = new ArrayList<>();
 
             CommandUtils.readRows(keyRowsBytes, keyRows::add);
         }

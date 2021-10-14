@@ -225,28 +225,28 @@ public class VersionedRowStore {
             return null;
     }
 
-    public List<BinaryRow> deleteAll(Collection<BinaryRow> rows, Timestamp ts) {
-        var deleted = new ArrayList<BinaryRow>();
+    public List<BinaryRow> deleteAll(Collection<BinaryRow> keyRows, Timestamp ts) {
+        var notDeleted = new ArrayList<BinaryRow>();
 
-        for (BinaryRow row : rows) {
-            if (delete(row, ts))
-                deleted.add(row);
+        for (BinaryRow keyRow : keyRows) {
+            if (!delete(keyRow, ts))
+                notDeleted.add(keyRow);
         }
 
-        return deleted;
+        return notDeleted;
     }
 
     public List<BinaryRow> deleteAllExact(Collection<BinaryRow> rows, Timestamp ts) {
         assert rows != null && !rows.isEmpty();
 
-        var deleted = new ArrayList<BinaryRow>(rows.size());
+        var notDeleted = new ArrayList<BinaryRow>(rows.size());
 
         for (BinaryRow row : rows) {
-            if (deleteExact(row, ts))
-                deleted.add(row);
+            if (!deleteExact(row, ts))
+                notDeleted.add(row);
         }
 
-        return deleted;
+        return notDeleted;
     }
 
     /**
