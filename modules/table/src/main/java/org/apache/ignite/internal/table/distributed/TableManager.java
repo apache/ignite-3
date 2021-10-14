@@ -667,7 +667,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                     tblCh
                                                 ));
                                             }
-                                            catch (IllegalArgumentException | NullPointerException ex) {
+                                            catch (IllegalArgumentException ex) {
                                                 // Convert unexpected exceptions here,
                                                 // because validation actually happens later,
                                                 // when bulk configuration update is applied.
