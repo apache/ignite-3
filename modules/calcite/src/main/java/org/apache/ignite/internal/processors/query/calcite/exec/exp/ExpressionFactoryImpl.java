@@ -29,7 +29,6 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.common.primitives.Primitives;
 import org.apache.calcite.DataContext;
@@ -291,7 +290,7 @@ public class ExpressionFactoryImpl<Row> implements ExpressionFactory<Row> {
 
         MethodDeclaration decl = Expressions.methodDecl(
             Modifier.PUBLIC, void.class, IgniteMethod.SCALAR_EXECUTE.method().getName(),
-            ImmutableList.of(ctx_, in_, out_), builder.toBlock());
+            List.of(ctx_, in_, out_), builder.toBlock());
 
         return Commons.compile(Scalar.class, Expressions.toString(List.of(decl), "\n", false));
     }

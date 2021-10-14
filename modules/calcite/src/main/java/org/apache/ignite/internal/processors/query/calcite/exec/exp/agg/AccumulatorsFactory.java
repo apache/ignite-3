@@ -26,7 +26,6 @@ import java.util.function.Supplier;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.enumerable.EnumUtils;
@@ -114,7 +113,7 @@ public class AccumulatorsFactory<Row> implements Supplier<List<AccumulatorWrappe
 
         RexToLixTranslator.InputGetter getter =
             new RexToLixTranslator.InputGetterImpl(
-                ImmutableList.of(
+                List.of(
                     Pair.of(EnumUtils.convert(in_, Object.class, typeFactory.getJavaClass(from)),
                         PhysTypeImpl.of(typeFactory, rowType,
                             JavaRowFormat.SCALAR, false))));
@@ -130,7 +129,7 @@ public class AccumulatorsFactory<Row> implements Supplier<List<AccumulatorWrappe
         list.add(projects.get(0));
 
         MethodDeclaration decl = Expressions.methodDecl(
-            Modifier.PUBLIC, Object.class, "apply", ImmutableList.of(in_), list.toBlock());
+            Modifier.PUBLIC, Object.class, "apply", List.of(in_), list.toBlock());
 
         return Commons.compile(CastFunction.class, Expressions.toString(List.of(decl), "\n", false));
     }
