@@ -17,9 +17,11 @@
 
 package org.apache.ignite.example.table;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.example.ExampleTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -40,8 +42,8 @@ public class TableExamplesTest {
      */
     @Test
     public void testRecordViewExample() throws Exception {
-        ExampleTestUtils.assertConsoleOutput(RecordViewExample::main, EMPTY_ARGS,
-            "Retrieved using Tuple API\n" +
+        ExampleTestUtils.assertConsoleOutputContains(RecordViewExample::main, EMPTY_ARGS,
+            "\nRetrieved record:\n" +
             "    Account Number: 123456\n" +
             "    Owner: Val Kulichenko\n" +
             "    Balance: $100.0\n");
@@ -54,11 +56,35 @@ public class TableExamplesTest {
      */
     @Test
     public void testKeyValueViewExample() throws Exception {
-        ExampleTestUtils.assertConsoleOutput(KeyValueViewExample::main, EMPTY_ARGS,
-            "Retrieved using Key-Value API\n" +
+        ExampleTestUtils.assertConsoleOutputContains(KeyValueViewExample::main, EMPTY_ARGS,
+            "\nRetrieved value:\n" +
             "    Account Number: 123456\n" +
             "    Owner: Val Kulichenko\n" +
             "    Balance: $100.0\n");
+    }
+
+    @BeforeEach
+    private void startNode() throws IOException {
+        Path workDir = Path.of("my-first-node-work");
+
+        if (Files.exists(workDir))
+            IgniteUtils.deleteIfExists(workDir);
+
+        IgnitionManager.start(
+            "my-first-node",
+            Files.readString(Path.of("config", "ignite-config.json")),
+            workDir
+        );
+    }
+
+    @AfterEach
+    private void stopNode() {
+        IgnitionManager.stop("my-first-node");
+
+        Path workDir = Path.of("my-first-node-work");
+
+        if (Files.exists(workDir))
+            IgniteUtils.deleteIfExists(workDir);
     }
 
     /**

@@ -17,9 +17,11 @@
 
 package org.apache.ignite.example.sql.jdbc;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.example.ExampleTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -41,21 +43,45 @@ public class SqlExamplesTest {
     @Test
     public void testSqlJdbcExample() throws Exception {
         ExampleTestUtils.assertConsoleOutputContains(SqlJdbcExample::main, EMPTY_ARGS,
-            ">>> Query results:\n" +
-            ">>>    John, Doe, Forest Hill\n" +
-            ">>>    Jane, Roe, Forest Hill\n" +
-            ">>>    Mary, Major, Denver\n" +
-            ">>>    Richard, Miles, St. Petersburg\n",
+            "\nAll accounts:\n" +
+            "    John, Doe, Forest Hill\n" +
+            "    Jane, Roe, Forest Hill\n" +
+            "    Mary, Major, Denver\n" +
+            "    Richard, Miles, St. Petersburg\n",
 
-            ">>> Query results:\n" +
-            ">>>    John, Doe, 1000.0\n" +
-            ">>>    Richard, Miles, 1450.0\n",
+            "\nAccounts with balance lower than 1,500:\n" +
+            "    John, Doe, 1000.0\n" +
+            "    Richard, Miles, 1450.0\n",
 
-            ">>> Query results:\n" +
-            ">>>    Jane, Roe, Forest Hill\n" +
-            ">>>    Mary, Major, Denver\n" +
-            ">>>    Richard, Miles, St. Petersburg\n"
+            "\nAll accounts:\n" +
+            "    Jane, Roe, Forest Hill\n" +
+            "    Mary, Major, Denver\n" +
+            "    Richard, Miles, St. Petersburg\n"
         );
+    }
+
+    @BeforeEach
+    private void startNode() throws IOException {
+        Path workDir = Path.of("my-first-node-work");
+
+        if (Files.exists(workDir))
+            IgniteUtils.deleteIfExists(workDir);
+
+        IgnitionManager.start(
+            "my-first-node",
+            Files.readString(Path.of("config", "ignite-config.json")),
+            workDir
+        );
+    }
+
+    @AfterEach
+    private void stopNode() {
+        IgnitionManager.stop("my-first-node");
+
+        Path workDir = Path.of("my-first-node-work");
+
+        if (Files.exists(workDir))
+            IgniteUtils.deleteIfExists(workDir);
     }
 
     /**
