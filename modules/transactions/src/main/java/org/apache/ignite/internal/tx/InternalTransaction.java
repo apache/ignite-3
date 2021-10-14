@@ -30,11 +30,6 @@ public interface InternalTransaction extends Transaction {
     Timestamp timestamp();
 
     /**
-     * @return {@code True} if an originator and a data nodes are collocated.
-     */
-    boolean collocated();
-
-    /**
      * Returns a transaction map on topology.
      *
      * @return A map of enlisted nodes mapped to a partitions set.

@@ -66,7 +66,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-/** */
+/** TODO asch validate zero locks after test finish. */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 public abstract class TxAbstractTest extends IgniteAbstractTest {
@@ -140,8 +140,9 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             CompletableFuture<Tuple> read1 = view.getAsync(makeKey(1));
             CompletableFuture<Tuple> read2 = view.getAsync(makeKey(2));
 
-            view.upsertAsync(makeValue(1, read1.join().doubleValue("balance") - DELTA));
-            view.upsertAsync(makeValue(2, read2.join().doubleValue("balance") + DELTA));
+            // TODO asch must ensure a commit happens after all pending tx async ops.
+            view.upsertAsync(makeValue(1, read1.join().doubleValue("balance") - DELTA)).join();
+            view.upsertAsync(makeValue(2, read2.join().doubleValue("balance") + DELTA)).join();
         });
 
         assertEquals(BALANCE_1 - DELTA, view.get(makeKey(1)).doubleValue("balance"));
@@ -368,7 +369,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         // TODO asch fix exception model.
         Exception err = assertThrows(Exception.class, () -> table.upsert(makeValue(1, val_tx + 1)));
 
-        assertTrue(err.getMessage().contains("LockException"), err.getMessage());
+        assertTrue(err.getMessage().contains("Failed to acquire a lock"), err.getMessage());
 
         // Write in tx2
         table2.upsert(makeValue(1, val_tx2 + 1));
@@ -415,7 +416,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         Exception err = assertThrows(Exception.class, () -> fut2.get(5, TimeUnit.SECONDS));
 
-        assertTrue(err.getMessage().contains("LockException"), err.getMessage());
+        assertTrue(err.getMessage().contains("Failed to acquire a lock"), err.getMessage());
 
         assertEquals(101., accounts.recordView().get(key).doubleValue("balance"));
     }
@@ -559,7 +560,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         txAcc.upsert(makeValue(2, 400.));
 
         Exception err = assertThrows(Exception.class, () -> txAcc.getAll(List.of(makeKey(2), makeKey(1))));
-        assertTrue(err.getMessage().contains("LockException"), err.getMessage());
+        assertTrue(err.getMessage().contains("Failed to acquire a lock"), err.getMessage());
 
         validateBalance(txAcc2.getAll(List.of(makeKey(2), makeKey(1))), 200., 300.);
         validateBalance(txAcc2.getAll(List.of(makeKey(1), makeKey(2))), 300., 200.);
@@ -723,7 +724,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         Exception err = assertThrows(Exception.class, () -> fut.get(5, TimeUnit.SECONDS));
 
-        assertTrue(err.getMessage().contains("LockException"), err.getMessage());
+        assertTrue(err.getMessage().contains("Failed to acquire a lock"), err.getMessage());
     }
 
     @Test
@@ -947,6 +948,12 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         doTestSingleKeyMultithreaded(5_000, false);
     }
 
+    /** */
+    @Test
+    public void testLockedTooLong() {
+        // TODO asch if lock can't be acquired until timeout tx should be rolled back.
+    }
+
     /**
      * @param duration The duration.
      * @param verbose Verbose mode.
@@ -1037,7 +1044,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                             ops.increment();
                         }
                         catch (Exception e) {
-                            assertTrue(e.getMessage().contains("LockException"), e.getMessage());
+                            assertTrue(e.getMessage().contains("Failed to acquire a lock"), e.getMessage());
 
                             fails.increment();
                         }

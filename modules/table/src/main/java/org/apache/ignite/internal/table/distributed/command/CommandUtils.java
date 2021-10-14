@@ -49,17 +49,22 @@ public class CommandUtils {
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             for (BinaryRow row : rows) {
-                rowToBytes(row, bytes -> {
-                    try {
-                        baos.write(intToBytes(bytes.length));
+                if (row == null) {
+                    baos.write(intToBytes(0));
+                }
+                else {
+                    rowToBytes(row, bytes -> {
+                        try {
+                            baos.write(intToBytes(bytes.length));
 
-                        baos.write(bytes);
-                    }
-                    catch (IOException e) {
-                        LOG.error("Could not write row to stream [row=" + row + ']', e);
-                    }
+                            baos.write(bytes);
+                        }
+                        catch (IOException e) {
+                            LOG.error("Could not write row to stream [row=" + row + ']', e);
+                        }
 
-                });
+                    });
+                }
             }
 
             baos.flush();
@@ -119,7 +124,11 @@ public class CommandUtils {
 
                 int len = bytesToInt(lenBytes);
 
-                assert len > 0;
+                if (len == 0) {
+                    consumer.accept(null);
+
+                    continue;
+                }
 
                 rowBytes = new byte[len];
 

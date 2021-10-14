@@ -26,12 +26,16 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /** */
 public class TransactionImpl implements InternalTransaction {
+    /** The logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(TransactionImpl.class);
+
     /** The timestamp. */
     private final Timestamp timestamp;
 
@@ -61,11 +65,6 @@ public class TransactionImpl implements InternalTransaction {
     /** {@inheritDoc} */
     @Override public Timestamp timestamp() {
         return timestamp;
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean collocated() {
-        return map.containsKey(address);
     }
 
     @Override public Map<NetworkAddress, Set<String>> map() {
@@ -123,14 +122,19 @@ public class TransactionImpl implements InternalTransaction {
         int i = 0;
 
         for (Map.Entry<NetworkAddress, Set<String>> entry : map.entrySet()) {
-            futs[i++] = map.containsKey(entry.getKey()) && collocated() ?
+            boolean local = address.equals(entry.getKey());
+
+            futs[i++] = local ?
                 commit ? txManager.commitAsync(timestamp) : txManager.rollbackAsync(timestamp) // Collocated.
                 : txManager.finishRemote(entry.getKey(), timestamp, commit, entry.getValue());
+
+            LOG.debug("finish [addr={}, commit={}, ts={}, local={}, groupIds={}",
+                address, commit, timestamp, local, entry.getValue());
         }
 
         // Handle coordinator's tx.
-        futs[i] = collocated() ? CompletableFuture.completedFuture(null) : commit ? txManager.commitAsync(timestamp) :
-            txManager.rollbackAsync(timestamp);
+        futs[i] = map.containsKey(address) ? CompletableFuture.completedFuture(null) :
+            commit ? txManager.commitAsync(timestamp) : txManager.rollbackAsync(timestamp);
 
         return CompletableFuture.allOf(futs);
     }
