@@ -574,14 +574,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         changeSchemas(
                                         schemasCh -> schemasCh.create(
                                             String.valueOf(INITIAL_SCHEMA_VERSION),
-                                            schemaCh -> schemaCh.changeSchema(
-                                                SchemaSerializerImpl.INSTANCE.serialize(
-                                                    SchemaUtils.prepareSchemaDescriptor(
+                                            schemaCh -> {
+                                                SchemaDescriptor schemaDesc;
+
+                                                //TODO IGNITE-15747 Remove try-catch and force configuration validation here
+                                                // to ensure a valid configuration passed to prepareSchemaDescriptor() method.
+                                                try {
+                                                    schemaDesc = SchemaUtils.prepareSchemaDescriptor(
                                                         ((ExtendedTableView)ch).schemas().size(),
                                                         ch
-                                                    )
-                                                )
-                                            )
+                                                    );
+                                                } catch (IllegalArgumentException ex) {
+                                                    throw new ConfigurationValidationException(ex.getMessage());
+                                                }
+
+                                                schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(schemaDesc));
+                                            }
                                         )
                                     );
                             }
