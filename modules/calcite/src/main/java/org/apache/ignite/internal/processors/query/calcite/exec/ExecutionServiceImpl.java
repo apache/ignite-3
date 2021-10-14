@@ -662,22 +662,7 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
 
     /** {@inheritDoc} */
     @Override public void close() throws Exception {
-        Exception exOut = null;
-
-        for (AutoCloseable service : new AutoCloseable[] {iteratorsHolder, mailboxRegistry, exchangeSrvc}) {
-            try {
-                service.close();
-            }
-            catch (Exception ex) {
-                if (exOut == null)
-                    exOut = ex;
-                else
-                    exOut.addSuppressed(ex);
-            }
-        }
-
-        if (exOut != null)
-            throw exOut;
+        IgniteUtils.closeAll(iteratorsHolder, mailboxRegistry, exchangeSrvc);
     }
 
     /** */

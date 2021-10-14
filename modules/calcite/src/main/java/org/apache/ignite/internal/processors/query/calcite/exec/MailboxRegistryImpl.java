@@ -127,7 +127,7 @@ public class MailboxRegistryImpl implements MailboxRegistry {
     }
 
     /** {@inheritDoc} */
-    @Override public void close() throws Exception {
+    @Override public void close() {
         locals.clear();
         remotes.clear();
     }

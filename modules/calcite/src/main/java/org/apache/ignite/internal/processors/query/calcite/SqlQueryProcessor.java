@@ -32,6 +32,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
@@ -93,28 +94,13 @@ public class SqlQueryProcessor implements QueryProcessor {
     @Override public void stop() throws Exception {
         busyLock.block();
 
-        Exception exOut = null;
-
-        for (AutoCloseable service : new AutoCloseable[] {executionSrvc, msgSrvc, taskExecutor}) {
-            try {
-                service.close();
-            }
-            catch (Exception ex) {
-                if (exOut == null)
-                    exOut = ex;
-                else
-                    exOut.addSuppressed(ex);
-            }
-        }
-
-        if (exOut != null)
-            throw exOut;
+        IgniteUtils.closeAll(executionSrvc, msgSrvc, taskExecutor);
     }
 
     /** {@inheritDoc} */
     @Override public List<SqlCursor<List<?>>> query(String schemaName, String qry, Object... params) {
         if (!busyLock.enterBusy())
-            throw new IgniteException(new NodeStoppingException("Operation has been cancelled (node is stopping)."));
+            throw new IgniteException(new NodeStoppingException());
 
         try {
             return executionSrvc.executeQuery(schemaName, qry, params);
