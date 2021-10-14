@@ -18,8 +18,11 @@
 package org.apache.ignite.internal.processors.query.calcite.metadata;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -30,7 +33,6 @@ import java.util.stream.Collectors;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Ordering;
 import org.apache.calcite.adapter.enumerable.EnumerableCorrelate;
 import org.apache.calcite.adapter.enumerable.EnumerableHashJoin;
 import org.apache.calcite.adapter.enumerable.EnumerableMergeJoin;
@@ -405,22 +407,26 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
         Util.discard(mq); // for future use
         final List<RelCollation> list = new ArrayList<>();
         final int n = rowType.getFieldCount();
-        final List<Pair<RelFieldCollation, Ordering<List<RexLiteral>>>> pairs =
+        final List<Pair<RelFieldCollation, Comparator<List<RexLiteral>>>> pairs =
             new ArrayList<>();
         boolean skip = false;
+
         for (int i = 0; i < n; i++) {
             pairs.clear();
             for (int j = i; j < n; j++) {
                 final RelFieldCollation fieldCollation = new RelFieldCollation(j);
-                Ordering<List<RexLiteral>> comparator = comparator(fieldCollation);
-                Ordering<List<RexLiteral>> ordering;
+
+                Comparator<List<RexLiteral>> comparator = comparator(fieldCollation);
+                Comparator<List<RexLiteral>> ordering;
+
                 if (pairs.isEmpty())
                     ordering = comparator;
                 else
-                    ordering = Util.last(pairs).right.compound(comparator);
+                    ordering = Commons.compoundComparator(Arrays.asList(Util.last(pairs).right, comparator));
 
                 pairs.add(Pair.of(fieldCollation, ordering));
-                if (!ordering.isOrdered(tuples)) {
+
+                if (!isOrdered(tuples, ordering)) {
                     if (j == i) {
                         skip = true;
 
@@ -435,31 +441,55 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
             if (!pairs.isEmpty())
                 list.add(RelCollations.of(Pair.left(pairs)));
         }
+
         return list;
     }
 
-    private static Ordering<List<RexLiteral>> comparator(
+    /** */
+    private static Comparator<List<RexLiteral>> comparator(
         RelFieldCollation fieldCollation) {
         final int nullComparison = fieldCollation.nullDirection.nullComparison;
         final int x = fieldCollation.getFieldIndex();
+
         switch (fieldCollation.direction) {
-            case ASCENDING:
-                return new Ordering<List<RexLiteral>>() {
-                    @Override public int compare(List<RexLiteral> o1, List<RexLiteral> o2) {
-                        final Comparable c1 = o1.get(x).getValueAs(Comparable.class);
-                        final Comparable c2 = o2.get(x).getValueAs(Comparable.class);
-                        return RelFieldCollation.compare(c1, c2, nullComparison);
-                    }
+            case ASCENDING: {
+                return (o1, o2) -> {
+                    final Comparable c1 = o1.get(x).getValueAs(Comparable.class);
+                    final Comparable c2 = o2.get(x).getValueAs(Comparable.class);
+
+                    return RelFieldCollation.compare(c1, c2, nullComparison);
                 };
-            default:
-                return new Ordering<List<RexLiteral>>() {
-                    @Override public int compare(List<RexLiteral> o1, List<RexLiteral> o2) {
-                        final Comparable c1 = o1.get(x).getValueAs(Comparable.class);
-                        final Comparable c2 = o2.get(x).getValueAs(Comparable.class);
-                        return RelFieldCollation.compare(c2, c1, -nullComparison);
-                    }
+            }
+            default: {
+                return (o1, o2) -> {
+                    final Comparable c1 = o1.get(x).getValueAs(Comparable.class);
+                    final Comparable c2 = o2.get(x).getValueAs(Comparable.class);
+
+                    return RelFieldCollation.compare(c2, c1, nullComparison);
                 };
+            }
         }
+    }
+
+    /** */
+    public static <T> boolean isOrdered(Iterable<? extends T> iterable, Comparator<T> cmp) {
+        Iterator<? extends T> it = iterable.iterator();
+
+        if (it.hasNext()) {
+            T prev = it.next();
+
+            while (it.hasNext()) {
+                T next = it.next();
+
+                if (cmp.compare(prev, next) > 0) {
+                    return false;
+                }
+
+                prev = next;
+            }
+        }
+
+        return true;
     }
 
     /** Helper method to determine a {@link Join}'s collation assuming that it

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;

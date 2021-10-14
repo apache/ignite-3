@@ -29,7 +29,6 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-import com.google.common.collect.Ordering;
 import com.google.common.primitives.Primitives;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.enumerable.EnumUtils;
@@ -118,7 +117,8 @@ public class ExpressionFactoryImpl<Row> implements ExpressionFactory<Row> {
             return null;
         else if (collation.getFieldCollations().size() == 1)
             return comparator(collation.getFieldCollations().get(0));
-        return Ordering.compound(collation.getFieldCollations()
+
+        return Commons.compoundComparator(collation.getFieldCollations()
             .stream()
             .map(this::comparator)
             .collect(Collectors.toList()));
@@ -135,7 +135,7 @@ public class ExpressionFactoryImpl<Row> implements ExpressionFactory<Row> {
         for (int i = 0; i < left.size(); i++)
             comparators.add(comparator(left.get(i), right.get(i)));
 
-        return Ordering.compound(comparators);
+        return Commons.compoundComparator(comparators);
     }
 
     /** */
