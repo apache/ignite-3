@@ -163,7 +163,7 @@ public class ITInternalTableScanTest {
 
         raftSrv.startRaftGroup(
             grpName,
-            new PartitionListener(tblId, new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager)),
+            new PartitionListener(tblId, new VersionedRowStore(mockStorage, txManager)),
             conf
         );
 
