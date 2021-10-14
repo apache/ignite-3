@@ -440,7 +440,8 @@ public class ConfigurationAsmGenerator {
         if (schemaClass.isAnnotationPresent(PolymorphicConfig.class)) {
             polymorphicTypeIdFieldDef = classDef.declareField(
                 of(PRIVATE),
-                schemaClass.getAnnotation(PolymorphicConfig.class).fieldName(),
+                "",
+//                schemaClass.getAnnotation(PolymorphicConfig.class).fieldName(),
                 String.class
             );
         }

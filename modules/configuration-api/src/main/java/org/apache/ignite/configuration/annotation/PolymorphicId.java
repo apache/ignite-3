@@ -15,15 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.processor.polymorphic;
+package org.apache.ignite.configuration.annotation;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfig;
-import org.apache.ignite.configuration.annotation.PolymorphicId;
-import org.apache.ignite.configuration.annotation.Value;
+// TODO: IGNITE-14645 Add javadoc
 
-/**
- * Class with {@link PolymorphicConfig} should contain only one string field with {@link PolymorphicId}.
- */
-@PolymorphicConfig
-public class ErrorPolymorphic5ConfigurationSchema {
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+/** */
+@Target(FIELD)
+@Retention(RUNTIME)
+@Documented
+public @interface PolymorphicId {
 }

@@ -24,6 +24,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.junit.jupiter.api.Test;
@@ -166,6 +167,9 @@ public class ConfigurationRegistryTest {
      */
     @PolymorphicConfig(id = "first")
     public static class FirstPolymorphicConfigurationSchema {
+        /** Polymorphic type id field. */
+        @PolymorphicId
+        public String typeId;
     }
 
     /**
@@ -187,6 +191,9 @@ public class ConfigurationRegistryTest {
      */
     @PolymorphicConfig(id = "second")
     public static class SecondPolymorphicConfigurationSchema {
+        /** Polymorphic type id field. */
+        @PolymorphicId
+        public String typeId;
     }
 
     /**

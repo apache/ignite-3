@@ -19,11 +19,17 @@ package org.apache.ignite.internal.configuration.processor.polymorphic;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
-import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Class with {@link PolymorphicConfig} should contain only one string field with {@link PolymorphicId}.
+ * Class with {@link PolymorphicConfig} must contain field {@link PolymorphicId}, which must be the first in the schema.
  */
 @PolymorphicConfig
-public class ErrorPolymorphic5ConfigurationSchema {
+public class ErrorPolymorphic7ConfigurationSchema {
+	/** String value. */
+    @PolymorphicId
+    public String strVal;
+	
+    /** Polymorphic type id field. */
+    @PolymorphicId
+    public String typeId;
 }

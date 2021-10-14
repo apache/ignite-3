@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.configuration.processor.polymorphic;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
-import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Class with {@link PolymorphicConfig} should contain only one string field with {@link PolymorphicId}.
+ * Class with {@link PolymorphicConfigInstance} should not contain field with {@link PolymorphicId}.
  */
-@PolymorphicConfig
-public class ErrorPolymorphic5ConfigurationSchema {
+@PolymorphicConfigInstance(id = "error")
+public class ErrorPolymorphicInstance6ConfigurationSchema extends SimplePolymorphicConfigurationSchema {
+    /** Polymorphic type id field. */
+    @PolymorphicId
+    public String typeId2;
 }

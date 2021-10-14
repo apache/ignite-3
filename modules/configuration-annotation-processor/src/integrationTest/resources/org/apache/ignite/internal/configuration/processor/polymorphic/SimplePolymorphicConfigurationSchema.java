@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.processor.polymorphic;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
@@ -25,6 +26,10 @@ import org.apache.ignite.configuration.annotation.Value;
  */
 @PolymorphicConfig
 public class SimplePolymorphicConfigurationSchema {
+    /** Polymorphic type id field. */
+    @PolymorphicId
+    public String typeId;
+
     /** String value. */
     @Value
     public String str;

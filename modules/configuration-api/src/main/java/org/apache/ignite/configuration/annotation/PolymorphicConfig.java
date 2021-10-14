@@ -33,8 +33,4 @@ public @interface PolymorphicConfig {
     // TODO: IGNITE-14645 Add javadoc
     /** */
     String id() default "base";
-
-    // TODO: IGNITE-14645 Add javadoc
-    /** */
-    String fieldName() default "typeId";
 }

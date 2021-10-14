@@ -29,6 +29,7 @@ import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.ConfigurationChanger;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
@@ -343,6 +344,10 @@ public class ConfigurationAsmGeneratorTest {
      */
     @PolymorphicConfig
     public static class PolymorphicTestConfigurationSchema {
+        /** Polymorphic type id field. */
+        @PolymorphicId
+        public String typeId;
+
         /** String value. */
         @Value(hasDefault = true)
         public String strVal = "strVal";
