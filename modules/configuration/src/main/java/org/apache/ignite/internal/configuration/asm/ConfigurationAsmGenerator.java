@@ -451,13 +451,10 @@ public class ConfigurationAsmGenerator {
         // Define the rest of the fields.
         Map<String, FieldDefinition> fieldDefs = new HashMap<>();
 
-        for (Field schemaField : concat(schemaFields, internalFields))
-            fieldDefs.put(schemaField.getName(), addNodeField(classDef, schemaField, null));
+        for (Field schemaField : concat(schemaFields, internalFields, polymorphicFields)) {
+            String fieldName = fieldName(schemaField);
 
-        for (Field polymorphicField : polymorphicFields) {
-            String fieldName = polymorphicFieldName(polymorphicField, specFields);
-
-            fieldDefs.put(fieldName, addNodeField(classDef, polymorphicField, fieldName));
+            fieldDefs.put(fieldName, addNodeField(classDef, schemaField, fieldName));
         }
 
         // Constructor.
@@ -524,14 +521,9 @@ public class ConfigurationAsmGenerator {
             polymorphicTypeIdFieldDef
         );
 
-        Collection<ClassDefinition> classDefs;
+        Collection<ClassDefinition> classDefs = new ArrayList<>(List.of(classDef));
 
-        if (polymorphicExtensions.isEmpty())
-            classDefs = List.of(classDef);
-        else {
-            classDefs = new ArrayList<>(polymorphicExtensions.size() + 1);
-            classDefs.add(classDef);
-
+        if (!polymorphicExtensions.isEmpty()) {
             for (Class<?> polymorphicExtension : polymorphicExtensions) {
                 if (schemasInfo.containsKey(polymorphicExtension))
                     continue;
@@ -620,14 +612,10 @@ public class ConfigurationAsmGenerator {
      *
      * @param classDef    Node class definition.
      * @param schemaField Configuration Schema class field.
-     * @param fieldName   Field name, if {@code null} then {@link Field#getName} will be used.
+     * @param fieldName   Field name.
      * @return Declared field definition.
      */
-    private FieldDefinition addNodeField(
-        ClassDefinition classDef,
-        Field schemaField,
-        @Nullable String fieldName
-    ) {
+    private FieldDefinition addNodeField(ClassDefinition classDef, Field schemaField, String fieldName) {
         Class<?> schemaFieldClass = schemaField.getType();
 
         ParameterizedType nodeFieldType;
@@ -638,9 +626,6 @@ public class ConfigurationAsmGenerator {
             nodeFieldType = typeFromJavaClassName(schemasInfo.get(schemaFieldClass).nodeClassName);
         else
             nodeFieldType = type(NamedListNode.class);
-
-        if (fieldName == null)
-            fieldName = schemaField.getName();
 
         return classDef.declareField(of(PUBLIC), fieldName, nodeFieldType);
     }
@@ -674,20 +659,13 @@ public class ConfigurationAsmGenerator {
         for (Map.Entry<Class<?>, FieldDefinition> e : specFields.entrySet())
             ctor.getBody().append(ctor.getThis().setField(e.getValue(), newInstance(e.getKey())));
 
-        for (Field schemaField : concat(schemaFields, internalFields)) {
+        for (Field schemaField : concat(schemaFields, internalFields, polymorphicFields)) {
             if (!isNamedConfigValue(schemaField))
                 continue;
 
-            initNodeNamedConfigValue(ctor, schemaField, fieldDefs.get(schemaField.getName()));
-        }
+            String fieldName = fieldName(schemaField);
 
-        for (Field polymorphicField : polymorphicFields) {
-            if (!isNamedConfigValue(polymorphicField))
-                continue;
-
-            String fieldName = polymorphicFieldName(polymorphicField, specFields);
-
-            initNodeNamedConfigValue(ctor, polymorphicField, fieldDefs.get(fieldName));
+            initNodeNamedConfigValue(ctor, schemaField, fieldDefs.get(fieldName));
         }
 
         // return;
@@ -901,10 +879,8 @@ public class ConfigurationAsmGenerator {
         }
 
         for (Field schemaField : schemaFields) {
-            String fieldName = schemaField.getName();
-
             mtdBody.append(
-                invokeVisit(traverseChildrenMtd, schemaField, fieldDefs.get(fieldName)).pop()
+                invokeVisit(traverseChildrenMtd, schemaField, fieldDefs.get(schemaField.getName())).pop()
             );
         }
 
@@ -912,10 +888,8 @@ public class ConfigurationAsmGenerator {
             BytecodeBlock includeInternalBlock = new BytecodeBlock();
 
             for (Field internalField : internalFields) {
-                String fieldName = internalField.getName();
-
                 includeInternalBlock.append(
-                    invokeVisit(traverseChildrenMtd, internalField, fieldDefs.get(fieldName)).pop()
+                    invokeVisit(traverseChildrenMtd, internalField, fieldDefs.get(internalField.getName())).pop()
                 );
             }
 
@@ -936,7 +910,7 @@ public class ConfigurationAsmGenerator {
                 BytecodeBlock codeBlock = new BytecodeBlock();
 
                 for (Field polymorphicField : e.getValue()) {
-                    String fieldName = polymorphicFieldName(polymorphicField, specFields);
+                    String fieldName = fieldName(polymorphicField);
 
                     codeBlock.append(
                         invokeVisit(traverseChildrenMtd, polymorphicField, fieldDefs.get(fieldName)).pop()
@@ -1019,7 +993,7 @@ public class ConfigurationAsmGenerator {
                 StringSwitchBuilder switchBuilderTypeId = typeIdSwitchBuilder(traverseChildMtd, polymorphicTypeIdFieldDef);
 
                 for (Field polymorphicField : e.getValue()) {
-                    String fieldName = polymorphicFieldName(polymorphicField, specFields);
+                    String fieldName = fieldName(polymorphicField);
 
                     switchBuilderTypeId.addCase(
                         polymorphicField.getDeclaringClass().getAnnotation(PolymorphicConfigInstance.class).id(),
@@ -1130,7 +1104,7 @@ public class ConfigurationAsmGenerator {
                 StringSwitchBuilder switchBuilderTypeId = typeIdSwitchBuilder(constructMtd, polymorphicTypeIdFieldDef);
 
                 for (Field polymorphicField : e.getValue()) {
-                    String fieldName = polymorphicFieldName(polymorphicField, specFields);
+                    String fieldName = fieldName(polymorphicField);
 
                     switchBuilderTypeId.addCase(
                         polymorphicField.getDeclaringClass().getAnnotation(PolymorphicConfigInstance.class).id(),
@@ -1233,7 +1207,7 @@ public class ConfigurationAsmGenerator {
                     .defaultCase(throwException(NoSuchElementException.class, typeIdVar));
 
                 for (Field polymorphicField : e.getValue()) {
-                    String fieldName = polymorphicFieldName(polymorphicField, specFields);
+                    String fieldName = fieldName(polymorphicField);
                     FieldDefinition fieldDef = fieldDefs.get(fieldName);
 
                     Class<?> polymorphicClass = polymorphicField.getDeclaringClass();
@@ -1316,10 +1290,11 @@ public class ConfigurationAsmGenerator {
     /**
      * Construct a {@link DynamicConfiguration} definition for a configuration schema.
      *
-     * @param schemaClass              Configuration schema class.
+     * @param schemaClass        Configuration schema class.
      * @param internalExtensions Internal extensions of the configuration schema.
-     * @param schemaFields             Fields of the schema class.
-     * @param internalFields Fields of internal extensions of the configuration schema.
+     * @param schemaFields       Fields of the schema class.
+     * @param internalFields     Fields of internal extensions of the configuration schema.
+     * @param polymorphicFields  Fields of polymorphic extensions of the configuration schema.
      * @return Constructed {@link DynamicConfiguration} definition for the configuration schema.
      */
     private ClassDefinition createCfgImplClass(
@@ -1345,14 +1320,28 @@ public class ConfigurationAsmGenerator {
         // Fields.
         Map<String, FieldDefinition> fieldDefs = new HashMap<>();
 
-        for (Field schemaField : concat(schemaFields, internalFields))
-            fieldDefs.put(schemaField.getName(), addConfigurationImplField(classDef, schemaField));
+        for (Field schemaField : concat(schemaFields, internalFields, polymorphicFields)) {
+            String fieldName = fieldName(schemaField);
+
+            fieldDefs.put(fieldName, addConfigurationImplField(classDef, schemaField, fieldName));
+        }
+
+        // TODO: IGNITE-14645 ^^^ polymorphic typeId field maybe ???
 
         // Constructor
-        addConfigurationImplConstructor(classDef, schemaClassInfo, fieldDefs, schemaFields, internalFields);
+        addConfigurationImplConstructor(
+            classDef,
+            schemaClassInfo,
+            fieldDefs,
+            schemaFields,
+            internalFields,
+            polymorphicFields
+        );
 
         for (Field schemaField : concat(schemaFields, internalFields))
             addConfigurationImplGetMethod(classDef, schemaClass, fieldDefs, schemaField);
+
+        // TODO: IGNITE-14645 Continue.
 
         // org.apache.ignite.internal.configuration.DynamicConfiguration#configType
         addCfgImplConfigTypeMethod(classDef, typeFromJavaClassName(schemaClassInfo.cfgClassName));
@@ -1379,9 +1368,14 @@ public class ConfigurationAsmGenerator {
      *
      * @param classDef    Configuration impl class definition.
      * @param schemaField Configuration Schema class field.
+     * @param fieldName Field name, if {@code null} will be used {@link Field#getName}.
      * @return Declared field definition.
      */
-    private FieldDefinition addConfigurationImplField(ClassDefinition classDef, Field schemaField) {
+    private FieldDefinition addConfigurationImplField(
+        ClassDefinition classDef,
+        Field schemaField,
+        @Nullable String fieldName
+    ) {
         ParameterizedType fieldType;
 
         if (isConfigValue(schemaField))
@@ -1391,7 +1385,10 @@ public class ConfigurationAsmGenerator {
         else
             fieldType = type(DynamicProperty.class);
 
-        return classDef.declareField(of(PRIVATE), schemaField.getName(), fieldType);
+        if (fieldName == null)
+            fieldName = schemaField.getName();
+
+        return classDef.declareField(of(PUBLIC), fieldName, fieldType);
     }
 
     /**
@@ -1402,14 +1399,15 @@ public class ConfigurationAsmGenerator {
      * @param schemaClassInfo  Configuration Schema class info.
      * @param fieldDefs        Field definitions for all fields of configuration impl class.
      * @param schemaFields     Fields of the schema class.
-     * @param extensionsFields Fields of internal extensions of the configuration schema.
+     * @param internalFields Fields of internal extensions of the configuration schema.
      */
     private void addConfigurationImplConstructor(
         ClassDefinition classDef,
         SchemaClassesInfo schemaClassInfo,
         Map<String, FieldDefinition> fieldDefs,
         Collection<Field> schemaFields,
-        Collection<Field> extensionsFields
+        Collection<Field> internalFields,
+        Collection<Field> polymorphicFields
     ) {
         MethodDefinition ctor = classDef.declareConstructor(
             of(PUBLIC),
@@ -1439,8 +1437,8 @@ public class ConfigurationAsmGenerator {
         BytecodeExpression thisKeysVar = ctor.getThis().getField("keys", List.class);
 
         int newIdx = 0;
-        for (Field schemaField : concat(schemaFields, extensionsFields)) {
-            FieldDefinition fieldDef = fieldDefs.get(schemaField.getName());
+        for (Field schemaField : concat(schemaFields, internalFields, polymorphicFields)) {
+            String fieldName = fieldName(schemaField);
 
             BytecodeExpression newValue;
 
@@ -1452,7 +1450,7 @@ public class ConfigurationAsmGenerator {
                 newValue = newInstance(
                     fieldImplClass,
                     thisKeysVar,
-                    constantString(schemaField.getName()),
+                    constantString(fieldName),
                     rootKeyVar,
                     changerVar,
                     listenOnlyVar
@@ -1468,7 +1466,7 @@ public class ConfigurationAsmGenerator {
                     newValue = newInstance(
                         cfgImplParameterizedType,
                         thisKeysVar,
-                        constantString(schemaField.getName()),
+                        constantString(fieldName),
                         rootKeyVar,
                         changerVar,
                         listenOnlyVar
@@ -1498,7 +1496,7 @@ public class ConfigurationAsmGenerator {
                     newValue = newInstance(
                         fieldImplClass,
                         thisKeysVar,
-                        constantString(schemaField.getName()),
+                        constantString(fieldName),
                         rootKeyVar,
                         changerVar,
                         listenOnlyVar,
@@ -1547,6 +1545,8 @@ public class ConfigurationAsmGenerator {
                         .retObject();
                 }
             }
+
+            FieldDefinition fieldDef = fieldDefs.get(fieldName);
 
             // this.field = newValue;
             ctorBody.append(ctor.getThis().setField(fieldDef, newValue));
@@ -1761,7 +1761,7 @@ public class ConfigurationAsmGenerator {
 
         // Creates view and change methods for specific polymorphic instance schema.
         for (Field polymorphicField : polymorphicFields) {
-            String fieldName = polymorphicFieldName(polymorphicField, specFields);
+            String fieldName = fieldName(polymorphicField);
 
             FieldDefinition polymorphicFieldDef = fieldDefs.get(fieldName);
 
@@ -2000,15 +2000,19 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Returns the field name of the polymorphic configuration schema instance.
-     * For example: {@code port#_spec1}.
+     * Returns the name of the configuration schema field.
+     * If the schema contains {@link PolymorphicConfigInstance},
+     * it will return "{@link Field#getName()} + {@code "#"} + {@link PolymorphicConfigInstance#id()}"
+     * otherwise "{@link Field#getName}".
      *
-     * @param polymorphicField Polymorphic configuration schema instance field.
-     * @param specFields Field definitions for the schema and its extensions: {@code _spec#}.
+     * @param f Configuration schema field.
      * @return Field name.
      */
-    private static String polymorphicFieldName(Field polymorphicField, Map<Class<?>, FieldDefinition> specFields) {
-        return polymorphicField.getName() + "#" + specFields.get(polymorphicField.getDeclaringClass()).getName();
+    private static String fieldName(Field f) {
+        if (f.getDeclaringClass().isAnnotationPresent(PolymorphicConfigInstance.class))
+            return f.getName() + "#" + f.getDeclaringClass().getAnnotation(PolymorphicConfigInstance.class).id();
+        else
+            return f.getName();
     }
 
     /**
