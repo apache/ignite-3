@@ -81,7 +81,9 @@ public class ITTablesApiTest extends IgniteAbstractTest {
             "  },\n" +
             "  \"network\": {\n" +
             "    \"port\":3344,\n" +
-            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+            "    \"nodeFinder\": {\n" +
+            "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+            "    }\n" +
             "  }\n" +
             "}");
 
@@ -91,7 +93,9 @@ public class ITTablesApiTest extends IgniteAbstractTest {
             "  },\n" +
             "  \"network\": {\n" +
             "    \"port\":3345,\n" +
-            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+            "    \"nodeFinder\": {\n" +
+            "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+            "    }\n" +
             "  }\n" +
             "}");
 
@@ -101,7 +105,9 @@ public class ITTablesApiTest extends IgniteAbstractTest {
             "  },\n" +
             "  \"network\": {\n" +
             "    \"port\":3346,\n" +
-            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+            "    \"nodeFinder\": {\n" +
+            "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+            "    }\n" +
             "  }\n" +
             "}");
     }};
