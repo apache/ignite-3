@@ -16,8 +16,10 @@
  */
 package org.apache.ignite.internal.processors.query.calcite;
 
+import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.processors.query.calcite.exec.ArrayRowHandler;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionService;
@@ -56,6 +58,9 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
+    /** Event listeners to close. */
+    private final List<Pair<TableEvent, EventListener>> evtLsnrs = new ArrayList<>();
+
     public SqlQueryProcessor(
         ClusterService clusterSrvc,
         TableManager tableManager
@@ -85,14 +90,24 @@ public class SqlQueryProcessor implements QueryProcessor {
             ArrayRowHandler.INSTANCE
         );
 
-        tableManager.listen(TableEvent.CREATE, new TableCreatedListener(schemaHolder));
-        tableManager.listen(TableEvent.ALTER, new TableUpdatedListener(schemaHolder));
-        tableManager.listen(TableEvent.DROP, new TableDroppedListener(schemaHolder));
+        registerTableListener(TableEvent.CREATE, new TableCreatedListener(schemaHolder));
+        registerTableListener(TableEvent.ALTER, new TableUpdatedListener(schemaHolder));
+        registerTableListener(TableEvent.DROP, new TableDroppedListener(schemaHolder));
+    }
+
+    /** */
+    private void registerTableListener(TableEvent evt, AbstractTableEventListener lsnr) {
+        evtLsnrs.add(Pair.of(evt, lsnr));
+
+        tableManager.listen(evt, lsnr);
     }
 
     /** {@inheritDoc} */
+    @SuppressWarnings("unchecked")
     @Override public void stop() throws Exception {
         busyLock.block();
+
+        evtLsnrs.forEach(l -> tableManager.removeListener(l.left, l.right));
 
         IgniteUtils.closeAll(executionSrvc, msgSrvc, taskExecutor);
     }
