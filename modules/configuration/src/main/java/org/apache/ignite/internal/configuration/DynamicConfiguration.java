@@ -85,8 +85,14 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
 
             /** {@inheritDoc} */
             @Override public void descend(ConstructableTreeNode node) {
-                if (level == keys.size())
-                    change.accept((CHANGE)node);
+                if (level == keys.size()) {
+                    if (node instanceof InnerNode)
+                        change.accept(((InnerNode)node).specificChange());
+                    else
+                        change.accept((CHANGE)node);
+
+                    // TODO: IGNITE-14645 ^^^ maybe change for avoid instanceof and etc.
+                }
                 else
                     node.construct(keys.get(level++), this, true);
             }

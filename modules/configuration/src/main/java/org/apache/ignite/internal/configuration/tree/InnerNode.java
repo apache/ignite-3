@@ -183,4 +183,14 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
     public <VIEW> VIEW specificView() {
         return (VIEW)this;
     }
+
+    /**
+     * Returns specific changer of the value.
+     *
+     * @param <CHANGE> Type of the object that changes this node's value.
+     * @return Specific changer of the value.
+     */
+    public <CHANGE> CHANGE specificChange() {
+        return (CHANGE)this;
+    }
 }
