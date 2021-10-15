@@ -257,6 +257,12 @@ public class ConfigurationAsmGeneratorTest {
         PolymorphicTestView polymorphicView = polymorphicCfg.value();
 
         assertTrue(rootPolymorphicView == polymorphicView);
+
+        polymorphicCfg.change(c ->
+            c.convert(FirstPolymorphicInstanceTestChange.class)
+                .convert(SecondPolymorphicInstanceTestChange.class)
+                .convert(PolymorphicTestChange.class)
+        ).get();
     }
 
     /**

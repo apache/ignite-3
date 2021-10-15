@@ -179,6 +179,9 @@ public class ConfigurationAsmGenerator {
     /** {@link DynamicProperty#value} method. */
     private static final Method DYNAMIC_PROPERTY_VALUE_MTD;
 
+    /** {@link Class#getName} method. */
+    private static final Method CLASS_GET_NAME_MTD;
+
     /** {@link InnerNode#specificView} method name. */
     private static final String SPECIFIC_VIEW_MTD_NAME = "specificView";
 
@@ -187,6 +190,9 @@ public class ConfigurationAsmGenerator {
 
     /** {@link DynamicConfiguration#specificConfigTree} method name. */
     private static final String SPECIFIC_CONFIG_TREE_MTD_NAME = "specificConfigTree";
+
+    /** {@code Node#convert} method name. */
+    private static final String CONVERT_MTD_NAME = "convert";
 
     static {
         try {
@@ -243,6 +249,8 @@ public class ConfigurationAsmGenerator {
             OBJECT_CTOR = Object.class.getConstructor();
 
             DYNAMIC_PROPERTY_VALUE_MTD = DynamicProperty.class.getMethod("value");
+
+            CLASS_GET_NAME_MTD = Class.class.getMethod("getName");
         }
         catch (NoSuchMethodException nsme) {
             throw new ExceptionInInitializerError(nsme);
@@ -559,6 +567,8 @@ public class ConfigurationAsmGenerator {
             addNodeSpecificViewMethod(classDef, schemaClass, polymorphicExtensions, polymorphicTypeIdFieldDef);
 
             addNodeSpecificChangeMethod(classDef, schemaClass, polymorphicExtensions, polymorphicTypeIdFieldDef);
+
+            addNodeConvertMethod(classDef, schemaClass, polymorphicExtensions, polymorphicTypeIdFieldDef);
         }
 
         return classDef;
@@ -1798,6 +1808,26 @@ public class ConfigurationAsmGenerator {
             addNodeChangeBridgeMethod(classDef, polymorphicExtensionClassInfo.changeClassName, changeMtd);
         }
 
+        MethodDefinition convertMtd = classDef.declareMethod(
+            of(PUBLIC),
+            CONVERT_MTD_NAME,
+            typeFromJavaClassName(schemaClassInfo.changeClassName),
+            arg("changeClass", Class.class)
+        );
+
+        MethodDefinition parentConvertMtd = schemaInnerNodeClassDef.getMethods().stream()
+            .filter(mtd -> CONVERT_MTD_NAME.equals(mtd.getName()))
+            .findAny()
+            .orElse(null);
+
+        assert parentConvertMtd != null : schemaInnerNodeClassDef.getName();
+
+        convertMtd.getBody()
+            .append(getThisFieldCode(convertMtd, parentInnerNodeFieldDef))
+            .append(convertMtd.getScope().getVariable("changeClass"))
+            .invokeVirtual(parentConvertMtd)
+            .retObject();
+
         return classDef;
     }
 
@@ -1958,6 +1988,81 @@ public class ConfigurationAsmGenerator {
         }
 
         specificChangeMtd.getBody().append(switchBuilder.build()).ret();
+    }
+
+    /**
+     * Adds a {@code *Node#convert} for the polymorphic configuration case.
+     *
+     * @param classDef Definition of a polymorphic configuration class {@code schemaClass}.
+     * @param schemaClass Polymorphic configuration schema (parent).
+     * @param polymorphicExtensions Polymorphic configuration instance schemas (children).
+     * @param polymorphicTypeIdFieldDef Identification field for the polymorphic configuration instance.
+     */
+    private void addNodeConvertMethod(
+        ClassDefinition classDef,
+        Class<?> schemaClass,
+        Set<Class<?>> polymorphicExtensions,
+        FieldDefinition polymorphicTypeIdFieldDef
+    ) {
+        SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaClass);
+
+        MethodDefinition convertMtd = classDef.declareMethod(
+            of(PUBLIC),
+            CONVERT_MTD_NAME,
+            typeFromJavaClassName(schemaClassInfo.changeClassName),
+            arg("changeClass", Class.class)
+        );
+
+        // changeClass.getName();
+        BytecodeExpression changeClassName = convertMtd.getScope()
+            .getVariable("changeClass")
+            .invoke(CLASS_GET_NAME_MTD);
+
+        StringSwitchBuilder switchBuilder = new StringSwitchBuilder(convertMtd.getScope())
+            .expression(changeClassName)
+            .defaultCase(throwException(NoSuchElementException.class, changeClassName));
+
+        // TODO: IGNITE-14645 Continue.
+
+        // this.typeId = "base"; -- deleted for now.
+        // return this;
+        switchBuilder.addCase(
+            schemasInfo.get(schemaClass).changeClassName,
+            new BytecodeBlock()
+//                .append(setThisFieldCode(
+//                    convertMtd,
+//                    constantString(schemaClass.getAnnotation(PolymorphicConfig.class).id()),
+//                    polymorphicTypeIdFieldDef
+//                ))
+                .append(convertMtd.getThis())
+                .retObject()
+        );
+
+        for (Class<?> polymorphicExtension : polymorphicExtensions) {
+            SchemaClassesInfo polymorphicExtensionClassInfo = schemasInfo.get(polymorphicExtension);
+
+            // this.typeId = "some_name"; -- deleted for now.
+            // return new ChildNode(this);
+            switchBuilder.addCase(
+                polymorphicExtensionClassInfo.changeClassName,
+                new BytecodeBlock()
+//                    .append(setThisFieldCode(
+//                        convertMtd,
+//                        constantString(polymorphicExtension.getAnnotation(PolymorphicConfigInstance.class).id()),
+//                        polymorphicTypeIdFieldDef
+//                    ))
+                    .append(newInstance(
+                        typeFromJavaClassName(polymorphicExtensionClassInfo.nodeClassName),
+                        convertMtd.getThis()
+                    ))
+                    .retObject()
+            );
+        }
+
+        convertMtd.getBody()
+            .append(convertMtd.getThis())
+            .append(switchBuilder.build())
+            .ret();
     }
 
     /**
