@@ -47,7 +47,7 @@ public class TableValidatorImplTest {
         "}")
     private TablesConfiguration tableCfg;
 
-    /** Tests that validater catches nonexistent data regions. */
+    /** Tests that the validator catches nonexistent data regions. */
     @Test
     public void testMissingDataRegion(@InjectConfiguration DataStorageConfiguration dbCfg) throws Exception {
         tableCfg.tables().get("table").dataRegion().update("r0").get(1, TimeUnit.SECONDS);
@@ -104,7 +104,7 @@ public class TableValidatorImplTest {
      * @return Mocked validation context.
      */
     private static ValidationContext<NamedListView<TableView>> mockContext(
-        NamedListView<TableView> oldValue,
+        @Nullable NamedListView<TableView> oldValue,
         NamedListView<TableView> newValue,
         DataStorageView dbCfgView
     ) {

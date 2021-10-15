@@ -79,7 +79,7 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
      * @param ctx Validation context.
      */
     // TODO Rename isn't supported right now.
-    private void validateDataRegion(TableView oldTable, TableView newTable, ValidationContext<?> ctx) {
+    private void validateDataRegion(@Nullable TableView oldTable, TableView newTable, ValidationContext<?> ctx) {
         DataStorageView oldDbCfg = ctx.getOldRoot(DataStorageConfiguration.KEY);
         DataStorageView newDbCfg = ctx.getNewRoot(DataStorageConfiguration.KEY);
 
@@ -121,7 +121,7 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
      * @param regionName Data region name.
      * @return Data region configuration.
      */
-    private DataRegionView dataRegion(DataStorageView dbCfg, String regionName) {
+    private static DataRegionView dataRegion(DataStorageView dbCfg, String regionName) {
         if (regionName.equals(DEFAULT_DATA_REGION_NAME))
             return dbCfg.defaultRegion();
 

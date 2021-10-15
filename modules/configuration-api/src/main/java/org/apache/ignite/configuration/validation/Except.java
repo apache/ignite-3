@@ -25,7 +25,7 @@ import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 /**
- * Signifies that current {@link NamedConfigValue} can't have element with provided names.
+ * Signifies that a {@link NamedConfigValue} can't have elements with provided names.
  */
 @Target(FIELD)
 @Retention(RUNTIME)

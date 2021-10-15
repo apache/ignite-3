@@ -36,7 +36,7 @@ public class ExceptValidator implements Validator<Except, NamedListView<?>> {
 
         for (String exceptedName : annotation.value()) {
             if (actualNames.contains(exceptedName)) {
-                String message = "'" + ctx.currentKey() + "' configuration must not contain element named '" +
+                String message = "'" + ctx.currentKey() + "' configuration must not contain elements named '" +
                     exceptedName + "'";
 
                 ctx.addIssue(new ValidationIssue(message));

@@ -152,7 +152,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final Function<NetworkAddress, String> netAddrResolver;
 
     /** Data region instances. */
-    private Map<String, DataRegion> dataRegions = new ConcurrentHashMap<>();
+    private final Map<String, DataRegion> dataRegions = new ConcurrentHashMap<>();
 
     //TODO: IGNITE-15161 These should go into TableImpl instances.
     /** Instances of table storages that need to be stopped on component stop. */
