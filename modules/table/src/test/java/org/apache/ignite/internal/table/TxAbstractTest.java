@@ -19,19 +19,27 @@ package org.apache.ignite.internal.table;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -952,6 +960,297 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     @Test
     public void testLockedTooLong() {
         // TODO asch if lock can't be acquired until timeout tx should be rolled back.
+    }
+
+    /** */
+    @Test
+    public void testScan() throws InterruptedException {
+        accounts.recordView().upsertAll(List.of(makeValue(1, 100.), makeValue(2, 200.)));
+
+        Flow.Publisher<BinaryRow> pub = ((TableImpl) accounts).internalTable().scan(0, null);
+
+        List<Tuple> rows = new ArrayList<>();
+
+        CountDownLatch l = new CountDownLatch(1);
+
+        pub.subscribe(new Flow.Subscriber<BinaryRow>() {
+            @Override public void onSubscribe(Flow.Subscription subscription) {
+                subscription.request(3);
+            }
+
+            @Override public void onNext(BinaryRow item) {
+                Row row = ((TableImpl) accounts).schemaView().resolve(item);
+
+                rows.add(TableRow.tuple(row));
+            }
+
+            @Override public void onError(Throwable throwable) {
+                // No-op.
+            }
+
+            @Override public void onComplete() {
+                l.countDown();
+            }
+        });
+
+        assertTrue(l.await(5_000, TimeUnit.MILLISECONDS));
+
+        Map<Long, Tuple> map = new HashMap<>();
+
+        for (Tuple row : rows)
+            map.put(row.longValue("accountNumber"), row);
+
+        assertEquals(100., map.get(1L).doubleValue("balance"));
+        assertEquals(200., map.get(2L).doubleValue("balance"));
+    }
+
+    /**
+     * Checks operation over tuple record view.
+     * The scenario was moved from ITDistributedTableTest.
+     *
+     * @param view Table view.
+     * @param keysCnt Count of keys.
+     */
+    @Test
+    public void testImplicit() {
+        RecordView<Tuple> view = accounts.recordView();
+        final int keysCnt = 1000;
+
+        for (long i = 0; i < keysCnt; i++)
+            view.insert(makeValue(i, i + 2.));
+
+        for (long i = 0; i < keysCnt; i++) {
+            Tuple entry = view.get(makeKey(i));
+
+            assertEquals(i + 2., entry.doubleValue("balance"));
+        }
+
+        for (int i = 0; i < keysCnt; i++) {
+            view.upsert(makeValue(i, i + 5.));
+
+            Tuple entry = view.get(makeKey(i));
+
+            assertEquals(i + 5., entry.doubleValue("balance"));
+        }
+
+        HashSet<Tuple> keys = new HashSet<>();
+
+        for (long i = 0; i < keysCnt; i++)
+            keys.add(makeKey(i));
+
+        Collection<Tuple> entries = view.getAll(keys);
+
+        assertEquals(keysCnt, entries.size());
+
+        for (long i = 0; i < keysCnt; i++) {
+            boolean res = view.replace(makeValue(i, i + 5.), makeValue(i, i + 2.));
+
+            assertTrue(res, "Failed to replace for idx=" + i);
+        }
+
+        for (long i = 0; i < keysCnt; i++) {
+            boolean res = view.delete(makeKey(i));
+
+            assertTrue(res);
+
+            Tuple entry = view.get(makeKey(i));
+
+            assertNull(entry);
+        }
+
+        ArrayList<Tuple> batch = new ArrayList<>(keysCnt);
+
+        for (long i = 0; i < keysCnt; i++) {
+            batch.add(makeValue(i, i + 2.));
+        }
+
+        view.upsertAll(batch);
+
+        for (long i = 0; i < keysCnt; i++) {
+            Tuple entry = view.get(makeKey(i));
+
+            assertEquals(i + 2., entry.doubleValue("balance"));
+        }
+
+        view.deleteAll(keys);
+
+        for (Tuple key : keys) {
+            Tuple entry = view.get(key);
+
+            assertNull(entry);
+        }
+    }
+
+    /** */
+    @Test
+    public void testComplexImplicit() {
+        doTestComplex(accounts.recordView());
+    }
+
+    /** */
+    @Test
+    public void testComplexExplicit() throws TransactionException {
+        doTestComplex(accounts.recordView().withTransaction(igniteTransactions.begin()));
+    }
+
+    /** */
+    @Test
+    public void testComplexImplicitKeyValueView() {
+        doTestComplexKeyValue(accounts.keyValueView());
+    }
+
+    /** */
+    @Test
+    public void testComplexExplicitKeyValueView() throws TransactionException {
+        doTestComplexKeyValue(accounts.keyValueView().withTransaction(igniteTransactions.begin()));
+    }
+
+    /**
+     * Checks operation over tuple record view.
+     * The scenario was moved from ITDistributedTableTest.
+     *
+     * @param view Record view.
+     */
+    private void doTestComplex(RecordView<Tuple> view) {
+        final int keysCnt = 1000;
+
+        for (long i = 0; i < keysCnt; i++)
+            view.insert(makeValue(i, i + 2.));
+
+        for (long i = 0; i < keysCnt; i++) {
+            Tuple entry = view.get(makeKey(i));
+
+            assertEquals(i + 2., entry.doubleValue("balance"));
+        }
+
+        for (int i = 0; i < keysCnt; i++) {
+            view.upsert(makeValue(i, i + 5.));
+
+            Tuple entry = view.get(makeKey(i));
+
+            assertEquals(i + 5., entry.doubleValue("balance"));
+        }
+
+        HashSet<Tuple> keys = new HashSet<>();
+
+        for (long i = 0; i < keysCnt; i++)
+            keys.add(makeKey(i));
+
+        Collection<Tuple> entries = view.getAll(keys);
+
+        assertEquals(keysCnt, entries.size());
+
+        for (long i = 0; i < keysCnt; i++) {
+            boolean res = view.replace(makeValue(i, i + 5.), makeValue(i, i + 2.));
+
+            assertTrue(res, "Failed to replace for idx=" + i);
+        }
+
+        for (long i = 0; i < keysCnt; i++) {
+            boolean res = view.delete(makeKey(i));
+
+            assertTrue(res);
+
+            Tuple entry = view.get(makeKey(i));
+
+            assertNull(entry);
+        }
+
+        ArrayList<Tuple> batch = new ArrayList<>(keysCnt);
+
+        for (long i = 0; i < keysCnt; i++) {
+            batch.add(makeValue(i, i + 2.));
+        }
+
+        view.upsertAll(batch);
+
+        for (long i = 0; i < keysCnt; i++) {
+            Tuple entry = view.get(makeKey(i));
+
+            assertEquals(i + 2., entry.doubleValue("balance"));
+        }
+
+        view.deleteAll(keys);
+
+        for (Tuple key : keys) {
+            Tuple entry = view.get(key);
+
+            assertNull(entry);
+        }
+    }
+
+    /**
+     * Checks operation over tuple key value view.
+     * The scenario was moved from ITDistributedTableTest.
+     *
+     * @param view Table view.
+     */
+    public void doTestComplexKeyValue(KeyValueView<Tuple, Tuple> view) {
+        final int keysCnt = 1000;
+
+        for (long i = 0; i < keysCnt; i++)
+            view.put(makeKey(i), makeValue(i + 2.));
+
+        for (long i = 0; i < keysCnt; i++) {
+            Tuple entry = view.get(makeKey(i));
+
+            assertEquals(i + 2., entry.doubleValue("balance"));
+        }
+
+        for (int i = 0; i < keysCnt; i++) {
+            view.put(makeKey(i), makeValue(i + 5.));
+
+            Tuple entry = view.get(makeKey(i));
+
+            assertEquals(i + 5., entry.doubleValue("balance"));
+        }
+
+        HashSet<Tuple> keys = new HashSet<>();
+
+        for (long i = 0; i < keysCnt; i++)
+            keys.add(makeKey(i));
+
+        Map<Tuple, Tuple> entries = view.getAll(keys);
+
+        assertEquals(keysCnt, entries.size());
+
+        for (long i = 0; i < keysCnt; i++) {
+            boolean res = view.replace(makeKey(i), makeValue(i + 5.), makeValue(i + 2.));
+
+            assertTrue(res, "Failed to replace for idx=" + i);
+        }
+
+        for (long i = 0; i < keysCnt; i++) {
+            boolean res = view.remove(makeKey(i));
+
+            assertTrue(res);
+
+            Tuple entry = view.get(makeKey(i));
+
+            assertNull(entry);
+        }
+
+        Map<Tuple, Tuple> batch = new LinkedHashMap<>(keysCnt);
+
+        for (long i = 0; i < keysCnt; i++) {
+            batch.put(makeKey(i), makeValue(i + 2.));
+        }
+
+        view.putAll(batch);
+
+        for (long i = 0; i < keysCnt; i++) {
+            Tuple entry = view.get(makeKey(i));
+
+            assertEquals(i + 2., entry.doubleValue("balance"));
+        }
+
+        view.removeAll(keys);
+
+        for (Tuple key : keys) {
+            Tuple entry = view.get(key);
+
+            assertNull(entry);
+        }
     }
 
     /**

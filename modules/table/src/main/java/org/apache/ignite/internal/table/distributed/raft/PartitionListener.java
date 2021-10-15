@@ -29,7 +29,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.raft.server.FinishTxCommand;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
@@ -392,7 +391,7 @@ public class PartitionListener implements RaftGroupListener {
         IgniteUuid cursorId = rangeCmd.scanId();
 
         try {
-            Cursor<DataRow> cursor = storage.delegate().scan(key -> true);
+            Cursor<BinaryRow> cursor = storage.scan(key -> true);
 
             cursors.put(
                 cursorId,
@@ -426,7 +425,7 @@ public class PartitionListener implements RaftGroupListener {
 
         try {
             for (int i = 0; i < clo.command().itemsToRetrieveCount() && cursorDesc.cursor().hasNext(); i++)
-                res.add(new ByteBufferRow(cursorDesc.cursor().next().valueBytes()));
+                res.add(cursorDesc.cursor().next());
         }
         catch (Exception e) {
             clo.result(e);
@@ -543,7 +542,7 @@ public class PartitionListener implements RaftGroupListener {
      */
     private class CursorMeta {
         /** Cursor. */
-        private final Cursor<DataRow> cursor;
+        private final Cursor<BinaryRow> cursor;
 
         /** Id of the node that creates cursor. */
         private final String requesterNodeId;
@@ -555,7 +554,7 @@ public class PartitionListener implements RaftGroupListener {
          * @param requesterNodeId Id of the node that creates cursor.
          */
         CursorMeta(
-            Cursor<DataRow> cursor,
+            Cursor<BinaryRow> cursor,
             String requesterNodeId
         ) {
             this.cursor = cursor;
@@ -565,7 +564,7 @@ public class PartitionListener implements RaftGroupListener {
         /**
          * @return Cursor.
          */
-        public Cursor<DataRow> cursor() {
+        public Cursor<BinaryRow> cursor() {
             return cursor;
         }
 
