@@ -20,6 +20,7 @@ package org.apache.ignite.internal.processors.query.calcite.metadata;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -31,8 +32,6 @@ import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.LinkedListMultimap;
-import com.google.common.collect.Multimap;
 import org.apache.calcite.adapter.enumerable.EnumerableCorrelate;
 import org.apache.calcite.adapter.enumerable.EnumerableHashJoin;
 import org.apache.calcite.adapter.enumerable.EnumerableMergeJoin;
@@ -296,14 +295,24 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
         final SortedSet<RelCollation> collations = new TreeSet<>();
         final List<RelCollation> inputCollations = mq.collations(input);
         if (inputCollations == null || inputCollations.isEmpty()) {
-            return ImmutableList.of();
+            return List.of();
         }
-        final Multimap<Integer, Integer> targets = LinkedListMultimap.create();
+        final Map<Integer, List<Integer>> targets = new HashMap<>();
         final Map<Integer, SqlMonotonicity> targetsWithMonotonicity =
             new HashMap<>();
         for (Ord<RexNode> project : Ord.<RexNode>zip(projects)) {
-            if (project.e instanceof RexInputRef)
-                targets.put(((RexSlot) project.e).getIndex(), project.i);
+            if (project.e instanceof RexInputRef) {
+                targets.compute(((RexSlot)project.e).getIndex(), (k, v) -> {
+                        if (v == null)
+                            return new ArrayList<>(Collections.singleton(project.i));
+                        else {
+                            v.add(project.i);
+
+                            return v;
+                        }
+                    }
+                );
+            }
             else if (project.e instanceof RexCall) {
                 final RexCall call = (RexCall) project.e;
                 final RexCallBinding binding =
@@ -357,7 +366,7 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
             collations.add(RelCollations.of(fieldCollationsForRexCalls));
         }
 
-        return ImmutableList.copyOf(collations);
+        return List.copyOf(collations);
     }
 
     /** Helper method to determine a
@@ -368,7 +377,7 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
      * implementation does not re-order its input rows, then any collations of its
      * input are preserved. */
     public static List<RelCollation> window(RelMetadataQuery mq, RelNode input,
-        ImmutableList<Window.Group> groups) {
+        List<Window.Group> groups) {
         return mq.collations(input);
     }
 
@@ -516,24 +525,24 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
         assert EnumerableMergeJoin.isMergeJoinSupported(joinType)
             : "EnumerableMergeJoin unsupported for join type " + joinType;
 
-        final ImmutableList<RelCollation> leftCollations = mq.collations(left);
+        final List<RelCollation> leftCollations = mq.collations(left);
         assert RelCollations.contains(leftCollations, leftKeys)
             : "cannot merge join: left input is not sorted on left keys";
         if (!joinType.projectsRight()) {
             return leftCollations;
         }
 
-        final ImmutableList.Builder<RelCollation> builder = ImmutableList.builder();
-        builder.addAll(leftCollations);
+        final List<RelCollation> collations = new ArrayList<>();
+        collations.addAll(leftCollations);
 
-        final ImmutableList<RelCollation> rightCollations = mq.collations(right);
+        final List<RelCollation> rightCollations = mq.collations(right);
         assert RelCollations.contains(rightCollations, rightKeys)
             : "cannot merge join: right input is not sorted on right keys";
         final int leftFieldCount = left.getRowType().getFieldCount();
         for (RelCollation collation : rightCollations) {
-            builder.add(RelCollations.shift(collation, leftFieldCount));
+            collations.add(RelCollations.shift(collation, leftFieldCount));
         }
-        return builder.build();
+        return List.copyOf(collations);
     }
 
     /**
@@ -581,7 +590,7 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
         // following conditions hold:
         // (i) join type is INNER or LEFT;
         // (ii) RelCollation always orders nulls last.
-        final ImmutableList<RelCollation> leftCollations = mq.collations(left);
+        final List<RelCollation> leftCollations = mq.collations(left);
         switch (joinType) {
             case SEMI:
             case ANTI:
@@ -593,12 +602,12 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
                 for (RelCollation collation : leftCollations) {
                     for (RelFieldCollation field : collation.getFieldCollations()) {
                         if (!(RelFieldCollation.NullDirection.LAST == field.nullDirection)) {
-                            return ImmutableList.of();
+                            return List.of();
                         }
                     }
                 }
                 return leftCollations;
         }
-        return ImmutableList.of();
+        return List.of();
     }
 }
