@@ -27,10 +27,14 @@ import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.hamcrest.MatcherAssert;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
@@ -46,6 +50,20 @@ public class TableValidatorImplTest {
         "    primaryKey {columns = [id], affinityColumns = [id]}\n" +
         "}")
     private TablesConfiguration tableCfg;
+
+    /** Tests that validator finds no issues in a simple valid configuration. */
+    @Test
+    public void testNoIssues(@InjectConfiguration DataStorageConfiguration dbCfg) {
+        ValidationContext<NamedListView<TableView>> ctx = mockContext(null, tableCfg.tables().value(), dbCfg.value());
+
+        ArgumentCaptor<ValidationIssue> issuesCaptor = ArgumentCaptor.forClass(ValidationIssue.class);
+
+        doNothing().when(ctx).addIssue(issuesCaptor.capture());
+
+        TableValidatorImpl.INSTANCE.validate(null, ctx);
+
+        MatcherAssert.assertThat(issuesCaptor.getAllValues(), is(empty()));
+    }
 
     /** Tests that the validator catches nonexistent data regions. */
     @Test
@@ -90,7 +108,8 @@ public class TableValidatorImplTest {
         assertEquals(1, issuesCaptor.getAllValues().size());
 
         assertEquals(
-            "Unable to move table 'schema.table' from region 'default' to region 'r0' because it has different type (foo)",
+            "Unable to move table 'schema.table' from region 'default' to region 'r0' because it has" +
+                " different type (old=rocksdb, new=foo)",
             issuesCaptor.getValue().message()
         );
     }

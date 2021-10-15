@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema.configuration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.store.DataRegionView;
@@ -33,6 +34,7 @@ import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
 import org.apache.ignite.internal.schema.definition.builder.TableSchemaBuilderImpl;
 import org.apache.ignite.schema.definition.ColumnDefinition;
+import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 
@@ -60,7 +62,11 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
                 Collection<ColumnDefinition> allColumns = new ArrayList<>(tbl.keyColumns());
                 allColumns.addAll(tbl.valueColumns());
 
-                TableSchemaBuilderImpl.validateIndices(tbl.indices(), allColumns, tbl.affinityColumns().stream().map(ColumnDefinition::name).collect(Collectors.toSet()));
+                Set<String> affinityColumnNames = tbl.affinityColumns().stream()
+                    .map(ColumnDefinition::name)
+                    .collect(Collectors.toSet());
+
+                TableSchemaBuilderImpl.validateIndices(tbl.indices(), allColumns, affinityColumnNames);
             }
             catch (IllegalArgumentException e) {
                 ctx.addIssue(new ValidationIssue("Validator works success by key " + ctx.currentKey() + ". Found "
@@ -72,13 +78,13 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
     }
 
     /**
-     * Validate data region validity.
+     * Checks that data region configuration is valid. Check involves data region existence and region type preservation
+     * if it's updated.
      *
      * @param oldTable Previous configuration, maybe {@code null}.
      * @param newTable New configuration.
      * @param ctx Validation context.
      */
-    // TODO Rename isn't supported right now.
     private void validateDataRegion(@Nullable TableView oldTable, TableView newTable, ValidationContext<?> ctx) {
         DataStorageView oldDbCfg = ctx.getOldRoot(DataStorageConfiguration.KEY);
         DataStorageView newDbCfg = ctx.getNewRoot(DataStorageConfiguration.KEY);
@@ -105,10 +111,11 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
 
         if (!oldRegion.type().equalsIgnoreCase(newRegion.type())) {
             ctx.addIssue(new ValidationIssue(String.format(
-                "Unable to move table '%s' from region '%s' to region '%s' because it has different type (%s)",
+                "Unable to move table '%s' from region '%s' to region '%s' because it has different type (old=%s, new=%s)",
                 newTable.name(),
                 oldTable.dataRegion(),
                 newTable.dataRegion(),
+                oldRegion.type(),
                 newRegion.type()
             )));
         }
