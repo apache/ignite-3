@@ -78,10 +78,10 @@ public final class Primitives {
    *     wrap(String.class) == String.class
    * </pre>
    */
+  @SuppressWarnings("unchecked")
   public static <T> Class<T> wrap(Class<T> type) {
     Objects.requireNonNull(type);
 
-    @SuppressWarnings("unchecked")
     Class<T> wrapped = (Class<T>) PRIMITIVE_TO_WRAPPER_TYPE.get(type);
     return (wrapped == null) ? type : wrapped;
   }
@@ -96,10 +96,10 @@ public final class Primitives {
    *     unwrap(String.class) == String.class
    * </pre>
    */
+  @SuppressWarnings("unchecked")
   public static <T> Class<T> unwrap(Class<T> type) {
     Objects.requireNonNull(type);
 
-    @SuppressWarnings("unchecked")
     Class<T> unwrapped = (Class<T>) WRAPPER_TO_PRIMITIVE_TYPE.get(type);
 
     return (unwrapped == null) ? type : unwrapped;
