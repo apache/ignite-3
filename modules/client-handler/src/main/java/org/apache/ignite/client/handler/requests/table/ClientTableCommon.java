@@ -39,6 +39,7 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
@@ -349,7 +350,12 @@ class ClientTableCommon {
     public static TableImpl readTable(ClientMessageUnpacker unpacker, IgniteTables tables) {
         IgniteUuid tableId = unpacker.unpackIgniteUuid();
 
-        return ((IgniteTablesInternal)tables).table(tableId);
+        try {
+            return ((IgniteTablesInternal)tables).table(tableId);
+        }
+        catch (NodeStoppingException e) {
+            throw new IgniteException(e);
+        }
     }
 
     private static void readAndSetColumnValue(ClientMessageUnpacker unpacker, Tuple tuple, Column col) {

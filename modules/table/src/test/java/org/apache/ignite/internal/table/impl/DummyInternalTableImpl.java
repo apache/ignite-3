@@ -27,12 +27,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.stream.Collectors;
-
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.schema.definition.SchemaManagementMode;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -44,6 +45,10 @@ import org.jetbrains.annotations.Nullable;
 public class DummyInternalTableImpl implements InternalTable {
     /** In-memory dummy store. */
     private final Map<KeyWrapper, BinaryRow> store = new ConcurrentHashMap<>();
+
+    @Override public void close() throws Exception {
+
+    }
 
     /**
      * Wrapper provides correct byte[] comparison.
@@ -83,6 +88,21 @@ public class DummyInternalTableImpl implements InternalTable {
         @Override public int hashCode() {
             return hash;
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull TableStorage storage() {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public int partitions() {
+        return 1;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void updateInternalTableRaftGroupService(int p, RaftGroupService raftGrpSvc) {
+
     }
 
     /** {@inheritDoc} */

@@ -21,9 +21,10 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
-
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.schema.definition.SchemaManagementMode;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -33,7 +34,22 @@ import org.jetbrains.annotations.Nullable;
  * Internal table facade provides low-level methods for table operations.
  * The facade hides TX/replication protocol over table storage abstractions.
  */
-public interface InternalTable {
+public interface InternalTable extends AutoCloseable {
+    /**
+     * Gets a storage for the table.
+     *
+     * @return Table storage.
+     */
+    @NotNull TableStorage storage();
+
+    /**
+     * Updates internal table raft group service for given partition.
+     *
+     * @param p Partition.
+     * @param raftGrpSvc Raft group service.
+     */
+    void updateInternalTableRaftGroupService(int p, RaftGroupService raftGrpSvc);
+
     /**
      * Gets a table id.
      *
@@ -206,6 +222,13 @@ public interface InternalTable {
      * @return {@link Publisher<BinaryRow>} that reactively notifies about partition rows.
      */
     @NotNull Publisher<BinaryRow> scan(int p, @Nullable Transaction tx);
+
+    /**
+     * Gets a count of partitions of the table.
+     *
+     * @return Count of partitons.
+     */
+    int partitions();
 
     /**
      * Gets a list of current table assignments.

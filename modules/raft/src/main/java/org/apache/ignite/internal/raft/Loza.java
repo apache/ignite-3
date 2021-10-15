@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.raft;
 
 import java.nio.file.Path;
-import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
@@ -32,6 +31,7 @@ import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Peer;
@@ -40,6 +40,7 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.jraft.util.Utils;
+import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 
 /**
@@ -80,6 +81,9 @@ public class Loza implements IgniteComponent {
     /** Executor for raft group services. */
     private final ScheduledExecutorService executor;
 
+    /** Raft group IDs which was started locally. */
+    private final ConcurrentHashSet<String> localGroups = new ConcurrentHashSet<>();
+
     /**
      * Constructor.
      *
@@ -107,6 +111,8 @@ public class Loza implements IgniteComponent {
         // TODO: IGNITE-15161 Implement component's stop.
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
+        assert localGroups.isEmpty() : LoggerMessageHelper.format("Raft groups are still running {}", localGroups);
+
         raftServer.stop();
     }
 
@@ -120,89 +126,12 @@ public class Loza implements IgniteComponent {
      * @param groupId Raft group id.
      * @param nodes Raft group nodes.
      * @param lsnrSupplier Raft group listener supplier.
-     * @param clientTimeout Client retry timeout.
-     * @param networkTimeout Client network timeout.
      * @return Future representing pending completion of the operation.
      */
     @Experimental
     public CompletableFuture<RaftGroupService> prepareRaftGroup(
         String groupId,
         List<ClusterNode> nodes,
-        Supplier<RaftGroupListener> lsnrSupplier,
-        int clientTimeout,
-        int networkTimeout) {
-        assert !nodes.isEmpty();
-
-        List<Peer> peers = nodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
-
-        String locNodeName = clusterNetSvc.topologyService().localMember().name();
-
-        if (nodes.stream().anyMatch(n -> locNodeName.equals(n.name())))
-            raftServer.startRaftGroup(groupId, lsnrSupplier.get(), peers);
-
-        return RaftGroupServiceImpl.start(
-            groupId,
-            clusterNetSvc,
-            FACTORY,
-            clientTimeout,
-            networkTimeout,
-            peers,
-            true,
-            DELAY,
-            executor
-        );
-    }
-
-    /**
-     * Creates a raft group service providing operations on a raft group.
-     * If {@code nodes} contains the current node, then raft group starts on the current node.
-     *
-     * @param groupId Raft group id.
-     * @param nodes Raft group nodes.
-     * @param lsnrSupplier Raft group listener supplier.
-     * @return Future representing pending completion of the operation.
-     */
-    public CompletableFuture<RaftGroupService> prepareRaftGroup(
-        String groupId,
-        List<ClusterNode> nodes,
-        Supplier<RaftGroupListener> lsnrSupplier) {
-
-        return prepareRaftGroup(groupId, nodes, lsnrSupplier, TIMEOUT, NETWORK_TIMEOUT);
-    }
-
-    /**
-     * Stops a raft group on the current node if {@code nodes} contains the current node.
-     *
-     * @param groupId Raft group id.
-     * @param nodes Raft group nodes.
-     * @return {@code true} if group has been stopped.
-     */
-    public boolean stopRaftGroup(String groupId, List<ClusterNode> nodes) {
-        String locNodeName = clusterNetSvc.topologyService().localMember().name();
-
-        if (nodes.stream().anyMatch(n -> locNodeName.equals(n.name()))) {
-            raftServer.stopRaftGroup(groupId);
-
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * Creates a raft group service providing operations on a raft group.
-     * If {@code deltaNodes} contains the current node, then raft group starts on the current node.
-     * @param groupId Raft group id.
-     * @param nodes Full set of raft group nodes.
-     * @param deltaNodes New raft group nodes.
-     * @param lsnrSupplier Raft group listener supplier.
-     * @return Future representing pending completion of the operation.
-     * @return
-     */
-    public CompletableFuture<RaftGroupService> updateRaftGroup(
-        String groupId,
-        Collection<ClusterNode> nodes,
-        Collection<ClusterNode> deltaNodes,
         Supplier<RaftGroupListener> lsnrSupplier
     ) {
         assert !nodes.isEmpty();
@@ -211,9 +140,13 @@ public class Loza implements IgniteComponent {
 
         String locNodeName = clusterNetSvc.topologyService().localMember().name();
 
-        if (deltaNodes.stream().anyMatch(n -> locNodeName.equals(n.name()))) {
-            if (!raftServer.startRaftGroup(groupId, lsnrSupplier.get(), peers))
-                LOG.error("Failed to start raft group on node " + locNodeName);
+        boolean hasLocalRaft = nodes.stream().anyMatch(n -> locNodeName.equals(n.name()));
+
+        if (hasLocalRaft && !localGroups.contains(groupId)) {
+            if (raftServer.startRaftGroup(groupId, lsnrSupplier.get(), peers))
+                localGroups.add(groupId);
+            else
+                LOG.error("Failed to start raft group on the node [node={}, raftGrp={}]", locNodeName, groupId);
         }
 
         return RaftGroupServiceImpl.start(
@@ -221,10 +154,47 @@ public class Loza implements IgniteComponent {
             clusterNetSvc,
             FACTORY,
             TIMEOUT,
+            NETWORK_TIMEOUT,
             peers,
             true,
             DELAY,
             executor
         );
+    }
+
+    /**
+     * Changes peers for a group.
+     *
+     * @param groupId Raft group id.
+     * @param expectedNodes Nodes before.
+     * @param changedNodes Nodes to change.
+     * @return Future which will complete when peers change.
+     */
+    public CompletableFuture<Void> chagePeers(String groupId, List<ClusterNode> expectedNodes, List<ClusterNode> changedNodes) {
+        List<Peer> expectedPeers = expectedNodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
+        List<Peer> changedPeers = changedNodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
+
+        return RaftGroupServiceImpl.start(
+            groupId,
+            clusterNetSvc,
+            FACTORY,
+            10 * TIMEOUT,
+            10 * NETWORK_TIMEOUT,
+            expectedPeers,
+            true,
+            DELAY,
+            executor
+        ).thenCompose(srvc -> srvc.changePeers(changedPeers)
+            .thenRun(() -> srvc.shutdown()));
+    }
+
+    /**
+     * Stops a raft group on the current node.
+     *
+     * @param groupId Raft group id.
+     */
+    public void stopRaftGroup(String groupId) {
+        if (localGroups.remove(groupId))
+            raftServer.stopRaftGroup(groupId);
     }
 }

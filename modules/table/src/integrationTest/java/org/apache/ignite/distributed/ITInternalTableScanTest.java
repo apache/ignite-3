@@ -43,6 +43,7 @@ import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
+import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -176,7 +177,8 @@ public class ITInternalTableScanTest {
             new IgniteUuidGenerator(UUID.randomUUID(), 0).randomUuid(),
             Map.of(0, raftGrpSvc),
             1,
-            NetworkAddress::toString
+            NetworkAddress::toString,
+            mock(TableStorage.class)
         );
     }
 

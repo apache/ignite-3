@@ -256,7 +256,7 @@ public class MetaStorageManager implements IgniteComponent {
             if (raftGroupServiceFut != null) {
                 raftGroupServiceFut.get().shutdown();
 
-                raftMgr.stopRaftGroup(METASTORAGE_RAFT_GROUP_NAME, metastorageNodes());
+                raftMgr.stopRaftGroup(METASTORAGE_RAFT_GROUP_NAME);
             }
         }
         catch (InterruptedException | ExecutionException e) {

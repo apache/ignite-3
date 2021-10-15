@@ -179,9 +179,10 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
      * @return Raft server instance.
      */
     private JRaftServerImpl startServer(int idx, Consumer<RaftServer> clo) {
-        var addr = new NetworkAddress(getLocalAddress(), PORT);
+        List<NetworkAddress> addrs = IntStream.range(0, idx).mapToObj(id -> new NetworkAddress(getLocalAddress(), PORT + id))
+            .collect(Collectors.toList());
 
-        ClusterService service = clusterService(PORT + idx, List.of(addr), true);
+        ClusterService service = clusterService(PORT + idx, addrs, true);
 
         JRaftServerImpl server = new JRaftServerImpl(service, dataPath) {
             @Override public void stop() {
