@@ -15,48 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.table;
+package org.apache.ignite.configuration.schemas.network;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.DirectAccess;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Immutable;
-import org.apache.ignite.configuration.validation.Max;
-import org.apache.ignite.configuration.validation.Min;
 
 /**
- * Table configuration schema class.
+ * Cluster membership configuration.
  */
 @Config
-@DirectAccess
-public class TableConfigurationSchema {
-    /** Table name. */
-    @Value
-    @Immutable
-    public String name;
-
-    /** Table partitions. */
-    @Min(0)
-    @Max(65000)
+public class ClusterMembershipConfigurationSchema {
+    /** Periodic membership data sync interval. */
     @Value(hasDefault = true)
-    public int partitions = 1024;
+    public final int membershipSyncInterval = 1000;
 
-    /** Count of table partition replicas. */
-    @Min(1)
+    /** Failure detector ping interval. */
     @Value(hasDefault = true)
-    public int replicas = 1;
+    public final int failurePingInterval = 500;
 
-    /** Columns configuration. */
-    @NamedConfigValue
-    public ColumnConfigurationSchema columns;
-
-    /** Primary key configuration. */
+    /** ScaleCube-specific configuration. */
     @ConfigValue
-    public PrimaryKeyConfigurationSchema primaryKey;
-
-    /** Indices configuration. */
-    @NamedConfigValue
-    public TableIndexConfigurationSchema indices;
+    public ScaleCubeConfigurationSchema scaleCube;
 }

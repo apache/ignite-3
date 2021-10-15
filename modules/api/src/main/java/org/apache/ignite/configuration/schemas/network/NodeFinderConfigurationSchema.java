@@ -15,28 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.configuration.schemas.network;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
 
-/**
- * Internal tables facade provides low-level methods for table operations.
- */
-public interface IgniteTablesInternal {
-    /**
-     * Gets a table by id.
-     *
-     * @param id Table ID.
-     * @return Table or {@code null} when not exists.
-     */
-    TableImpl table(IgniteUuid id);
+/** Node finder configuration. */
+@Config
+public class NodeFinderConfigurationSchema {
+    /** Node finder type. */
+    @Value(hasDefault = true)
+    public final String type = NodeFinderType.STATIC.name();
 
-    /**
-     * Gets a table future by id. If the table exists, the future will point to it, otherwise to {@code null}.
-     *
-     * @param id Table id.
-     * @return Future representing pending completion of the operation.
-     */
-    CompletableFuture<TableImpl> tableAsync(IgniteUuid id);
+    /** Addresses of nodes in the cluster in a host:port format. This is a part of StaticNodeFinder configuration. */
+    @Value(hasDefault = true)
+    public final String[] netClusterNodes = new String[0];
 }

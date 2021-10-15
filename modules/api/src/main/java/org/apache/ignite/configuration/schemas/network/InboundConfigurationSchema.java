@@ -15,48 +15,39 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.table;
+package org.apache.ignite.configuration.schemas.network;
 
 import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.DirectAccess;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Max;
 import org.apache.ignite.configuration.validation.Min;
 
 /**
- * Table configuration schema class.
+ * Server socket configuration. See <a href="https://man7.org/linux/man-pages/man7/tcp.7.html">TCP docs</a> and
+ * <a href="https://man7.org/linux/man-pages/man7/socket.7.html">socket docs</a>.
  */
 @Config
-@DirectAccess
-public class TableConfigurationSchema {
-    /** Table name. */
-    @Value
-    @Immutable
-    public String name;
-
-    /** Table partitions. */
+public class InboundConfigurationSchema {
+    /** Backlog value */
     @Min(0)
-    @Max(65000)
     @Value(hasDefault = true)
-    public int partitions = 1024;
+    public final int soBacklog = 128;
 
-    /** Count of table partition replicas. */
-    @Min(1)
+    /** Reuse address flag. */
     @Value(hasDefault = true)
-    public int replicas = 1;
+    public final boolean soReuseAddr = true;
 
-    /** Columns configuration. */
-    @NamedConfigValue
-    public ColumnConfigurationSchema columns;
+    /** Keep-alive flag. */
+    @Value(hasDefault = true)
+    public final boolean soKeepAlive = true;
 
-    /** Primary key configuration. */
-    @ConfigValue
-    public PrimaryKeyConfigurationSchema primaryKey;
+    /** Socket close linger value. */
+    @Min(0)
+    @Max(0xFFFF)
+    @Value(hasDefault = true)
+    public final int soLinger = 0;
 
-    /** Indices configuration. */
-    @NamedConfigValue
-    public TableIndexConfigurationSchema indices;
+    /** TCP no delay flag. */
+    @Value(hasDefault = true)
+    public final boolean tcpNoDelay = true;
 }

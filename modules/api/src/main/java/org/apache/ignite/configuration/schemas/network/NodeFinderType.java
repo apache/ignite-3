@@ -15,28 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.configuration.schemas.network;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.lang.IgniteUuid;
-
-/**
- * Internal tables facade provides low-level methods for table operations.
- */
-public interface IgniteTablesInternal {
-    /**
-     * Gets a table by id.
-     *
-     * @param id Table ID.
-     * @return Table or {@code null} when not exists.
-     */
-    TableImpl table(IgniteUuid id);
-
-    /**
-     * Gets a table future by id. If the table exists, the future will point to it, otherwise to {@code null}.
-     *
-     * @param id Table id.
-     * @return Future representing pending completion of the operation.
-     */
-    CompletableFuture<TableImpl> tableAsync(IgniteUuid id);
+/** NodeFinder type. */
+public enum NodeFinderType {
+    /** Node finder with a preconfigured list of ip addresses. */
+    STATIC;
 }
