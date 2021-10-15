@@ -22,6 +22,7 @@ import java.util.List;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.processors.query.calcite.exec.ArrayRowHandler;
+import org.apache.ignite.internal.processors.query.calcite.exec.ClosableIteratorsHolder;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionService;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionServiceImpl;
 import org.apache.ignite.internal.processors.query.calcite.exec.QueryTaskExecutor;
@@ -107,9 +108,12 @@ public class SqlQueryProcessor implements QueryProcessor {
     @Override public void stop() throws Exception {
         busyLock.block();
 
-        evtLsnrs.forEach(l -> tableManager.removeListener(l.left, l.right));
-
-        IgniteUtils.closeAll(executionSrvc, msgSrvc, taskExecutor);
+        IgniteUtils.closeAll(
+            () -> evtLsnrs.forEach(l -> tableManager.removeListener(l.left, l.right)),
+            executionSrvc,
+            msgSrvc,
+            taskExecutor
+        );
     }
 
     /** {@inheritDoc} */
@@ -136,7 +140,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         /** {@inheritDoc} */
         @Override public void remove(@NotNull Throwable exception) {
-            throw new IllegalStateException();
+            // No-op.
         }
     }
 

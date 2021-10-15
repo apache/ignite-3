@@ -22,7 +22,7 @@ import java.util.List;
 /**
  *
  */
-public interface QueryPlanCache {
+public interface QueryPlanCache extends AutoCloseable {
     /**
      * @param ctx Context.
      * @param key Cache key.

@@ -28,4 +28,9 @@ public class DummyPlanCache implements QueryPlanCache {
     @Override public void clear() {
 
     }
+
+    /** {@inheritDoc} */
+    @Override public void close() throws Exception {
+        clear();
+    }
 }

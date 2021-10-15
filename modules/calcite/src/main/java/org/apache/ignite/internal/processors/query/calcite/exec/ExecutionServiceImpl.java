@@ -662,7 +662,7 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
 
     /** {@inheritDoc} */
     @Override public void close() throws Exception {
-        IgniteUtils.closeAll(iteratorsHolder, mailboxRegistry, exchangeSrvc);
+        IgniteUtils.closeAll(qryPlanCache, iteratorsHolder, mailboxRegistry, exchangeSrvc);
     }
 
     /** */
