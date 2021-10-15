@@ -302,20 +302,12 @@ public class KeyValueBinaryViewOperationsTest {
         assertTrue(tbl.replace(key, val2));
         assertEqualsValues(schema, val2, tbl.get(key));
 
-        // Remove existed KV pair.
-        assertTrue(tbl.replace(key, null));
-        assertNull(tbl.get(key));
-
         // Ignore replace operation for non-existed KV pair.
-        assertFalse(tbl.replace(key, val3));
-        assertNull(tbl.get(key));
+        assertFalse(tbl.replace(key2, val3));
+        assertNull(tbl.get(key2));
 
         tbl.put(key, val3);
         assertEqualsValues(schema, val3, tbl.get(key));
-
-        // Remove non-existed KV pair.
-        assertFalse(tbl.replace(key2, null));
-        assertNull(tbl.get(key2));
     }
 
     /**
@@ -336,31 +328,16 @@ public class KeyValueBinaryViewOperationsTest {
         final Tuple key2 = Tuple.create().set("id", 2L);
         final Tuple val = Tuple.create().set("val", 11L);
         final Tuple val2 = Tuple.create().set("val", 22L);
-        final Tuple val3 = Tuple.create().set("val", 33L);
-
-        // Insert KV pair.
-        assertTrue(tbl.replace(key, null, val));
-        assertEqualsValues(schema, val, tbl.get(key));
-        assertNull(tbl.get(key2));
 
         // Ignore replace operation for non-existed KV pair.
         assertFalse(tbl.replace(key2, val, val2));
         assertNull(tbl.get(key2));
 
+        tbl.put(key, val);
+
         // Replace existed KV pair.
         assertTrue(tbl.replace(key, val, val2));
         assertEqualsValues(schema, val2, tbl.get(key));
-
-        // Remove existed KV pair.
-        assertTrue(tbl.replace(key, val2, null));
-        assertNull(tbl.get(key));
-
-        // Insert KV pair.
-        assertTrue(tbl.replace(key, null, val3));
-        assertEqualsValues(schema, val3, tbl.get(key));
-
-        // Remove non-existed KV pair.
-        assertTrue(tbl.replace(key2, null, null));
     }
 
     /**

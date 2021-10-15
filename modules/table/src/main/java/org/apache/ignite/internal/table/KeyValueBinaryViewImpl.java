@@ -219,12 +219,12 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
-    @Override public boolean replace(@NotNull Tuple key, Tuple val) {
+    @Override public boolean replace(@NotNull Tuple key, @NotNull Tuple val) {
         return sync(replaceAsync(key, val));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple key, Tuple val) {
+    @Override public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple key, @NotNull Tuple val) {
         Objects.requireNonNull(key);
 
         Row row = marshaller().marshal(key, val); // Convert to portable format to pass TX/storage layer.
@@ -238,8 +238,10 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple key, Tuple oldVal, Tuple newVal) {
+    @Override public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple key, @NotNull Tuple oldVal, @NotNull Tuple newVal) {
         Objects.requireNonNull(key);
+        Objects.requireNonNull(oldVal);
+        Objects.requireNonNull(newVal);
 
         Row oldRow = marshaller().marshal(key, oldVal); // Convert to portable format to pass TX/storage layer.
         Row newRow = marshaller().marshal(key, newVal); // Convert to portable format to pass TX/storage layer.
@@ -248,13 +250,14 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
-    @Override public Tuple getAndReplace(@NotNull Tuple key, Tuple val) {
+    @Override public Tuple getAndReplace(@NotNull Tuple key, @NotNull Tuple val) {
         return sync(getAndReplaceAsync(key, val));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(@NotNull Tuple key, Tuple val) {
+    @Override public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(@NotNull Tuple key, @NotNull Tuple val) {
         Objects.requireNonNull(key);
+        Objects.requireNonNull(val);
 
         return tbl.getAndReplace(marsh.marshal(key, val), tx)
             .thenApply(this::wrap)

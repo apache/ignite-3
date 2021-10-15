@@ -163,7 +163,7 @@ public interface KeyValueView<K, V> {
      * @param val Value to be associated with the specified key.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Boolean> putIfAbsentAsync(@NotNull K key, V val);
+    @NotNull CompletableFuture<Boolean> putIfAbsentAsync(@NotNull K key, @NotNull V val);
 
     /**
      * Removes value associated with given key from the table.
@@ -255,7 +255,7 @@ public interface KeyValueView<K, V> {
      * @param val Value to be associated with the specified key.
      * @return {@code True} if an old value was replaced, {@code false} otherwise.
      */
-    boolean replace(@NotNull K key, V val);
+    boolean replace(@NotNull K key, @NotNull V val);
 
     /**
      * Asynchronously replaces the value for a key only if exists.
@@ -285,7 +285,7 @@ public interface KeyValueView<K, V> {
      * @param newVal Value to be associated with the specified key.
      * @return {@code True} if an old value was replaced, {@code false} otherwise.
      */
-    boolean replace(@NotNull K key, V oldVal, V newVal);
+    boolean replace(@NotNull K key, @NotNull V oldVal, @NotNull V newVal);
 
     /**
      * Asynchronously replaces the expected value for a key.
@@ -297,7 +297,7 @@ public interface KeyValueView<K, V> {
      * @param newVal Value to be associated with the specified key.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, V oldVal, V newVal);
+    @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull K key, @NotNull V oldVal, @NotNull V newVal);
 
     /**
      * Replaces the value for a given key only if exists. This is equivalent to
@@ -317,7 +317,7 @@ public interface KeyValueView<K, V> {
      * @param val Value to be associated with the specified key.
      * @return Replaced value, or {@code null} if not existed.
      */
-    V getAndReplace(@NotNull K key, V val);
+    V getAndReplace(@NotNull K key, @NotNull V val);
 
     /**
      * Asynchronously replaces the value for a given key only if exists.
@@ -328,7 +328,7 @@ public interface KeyValueView<K, V> {
      * @param val Value to be associated with the specified key.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<V> getAndReplaceAsync(@NotNull K key, V val);
+    @NotNull CompletableFuture<V> getAndReplaceAsync(@NotNull K key, @NotNull V val);
 
     /**
      * Executes invoke processor code against the value associated with the provided key.
