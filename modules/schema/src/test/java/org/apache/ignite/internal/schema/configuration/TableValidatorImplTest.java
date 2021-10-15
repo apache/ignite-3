@@ -27,12 +27,12 @@ import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.hamcrest.MatcherAssert;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -62,7 +62,7 @@ public class TableValidatorImplTest {
 
         TableValidatorImpl.INSTANCE.validate(null, ctx);
 
-        MatcherAssert.assertThat(issuesCaptor.getAllValues(), is(empty()));
+        assertThat(issuesCaptor.getAllValues(), is(empty()));
     }
 
     /** Tests that the validator catches nonexistent data regions. */
