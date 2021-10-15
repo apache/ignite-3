@@ -1808,6 +1808,7 @@ public class ConfigurationAsmGenerator {
             addNodeChangeBridgeMethod(classDef, polymorphicExtensionClassInfo.changeClassName, changeMtd);
         }
 
+        // Creates {@code Node#convert}.
         MethodDefinition convertMtd = classDef.declareMethod(
             of(PUBLIC),
             CONVERT_MTD_NAME,
@@ -1815,6 +1816,7 @@ public class ConfigurationAsmGenerator {
             arg("changeClass", Class.class)
         );
 
+        // Find parent {@code Node#convert}.
         MethodDefinition parentConvertMtd = schemaInnerNodeClassDef.getMethods().stream()
             .filter(mtd -> CONVERT_MTD_NAME.equals(mtd.getName()))
             .findAny()
@@ -1822,6 +1824,7 @@ public class ConfigurationAsmGenerator {
 
         assert parentConvertMtd != null : schemaInnerNodeClassDef.getName();
 
+        // return this.parent#innerNode.convert(changeClass);
         convertMtd.getBody()
             .append(getThisFieldCode(convertMtd, parentInnerNodeFieldDef))
             .append(convertMtd.getScope().getVariable("changeClass"))
