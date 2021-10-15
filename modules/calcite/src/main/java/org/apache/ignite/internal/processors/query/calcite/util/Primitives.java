@@ -78,7 +78,6 @@ public final class Primitives {
    *     wrap(String.class) == String.class
    * </pre>
    */
-  @SuppressWarnings("unchecked")
   public static <T> Class<T> wrap(Class<T> type) {
     Objects.requireNonNull(type);
 
@@ -96,7 +95,6 @@ public final class Primitives {
    *     unwrap(String.class) == String.class
    * </pre>
    */
-  @SuppressWarnings("unchecked")
   public static <T> Class<T> unwrap(Class<T> type) {
     Objects.requireNonNull(type);
 
