@@ -53,6 +53,7 @@ import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import org.apache.ignite.configuration.ConfigurationProperty;
+import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.DirectConfigurationProperty;
 import org.apache.ignite.configuration.NamedConfigurationTree;
@@ -66,6 +67,8 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.configuration.ConfigurationTreeWrapper;
+import org.apache.ignite.internal.configuration.DirectConfigurationTreeWrapper;
 import org.apache.ignite.internal.configuration.DirectDynamicConfiguration;
 import org.apache.ignite.internal.configuration.DirectDynamicProperty;
 import org.apache.ignite.internal.configuration.DirectNamedListConfiguration;
@@ -173,11 +176,14 @@ public class ConfigurationAsmGenerator {
     /** {@link Object#Object()}. */
     private static final Constructor<?> OBJECT_CTOR;
 
+    /** {@link DynamicProperty#value} method. */
+    private static final Method DYNAMIC_PROPERTY_VALUE_MTD;
+
     /** {@link InnerNode#specificView} method name. */
     private static final String SPECIFIC_VIEW_MTD_NAME = "specificView";
 
-    /** {@link DynamicConfiguration#specificConfig} method name. */
-    private static final String SPECIFIC_CONFIG_MTD_NAME = "specificConfig";
+    /** {@link DynamicConfiguration#specificConfigTree} method name. */
+    private static final String SPECIFIC_CONFIG_TREE_MTD_NAME = "specificConfigTree";
 
     static {
         try {
@@ -232,6 +238,8 @@ public class ConfigurationAsmGenerator {
             REQUIRE_NON_NULL = Objects.class.getDeclaredMethod("requireNonNull", Object.class, String.class);
 
             OBJECT_CTOR = Object.class.getConstructor();
+
+            DYNAMIC_PROPERTY_VALUE_MTD = DynamicProperty.class.getMethod("value");
         }
         catch (NoSuchMethodException nsme) {
             throw new ExceptionInInitializerError(nsme);
@@ -1573,8 +1581,10 @@ public class ConfigurationAsmGenerator {
 
         ParameterizedType returnType;
 
+        SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaFieldType);
+
         if (isConfigValue(schemaField))
-            returnType = typeFromJavaClassName(schemasInfo.get(schemaFieldType).cfgClassName);
+            returnType = typeFromJavaClassName(schemaClassInfo.cfgClassName);
         else if (isNamedConfigValue(schemaField))
             returnType = type(NamedConfigurationTree.class);
         else {
@@ -1594,11 +1604,11 @@ public class ConfigurationAsmGenerator {
         BytecodeBlock body = viewMtd.getBody().append(getThisFieldCode(viewMtd, fieldDefs));
 
         if (schemaFieldType.isAnnotationPresent(PolymorphicConfig.class)) {
-            // result = this.field.specificConfig();
+            // result = this.field.specificConfigTree();
             body.invokeVirtual(
-                typeFromJavaClassName(schemasInfo.get(schemaFieldType).cfgImplClassName),
-                SPECIFIC_CONFIG_MTD_NAME,
-                type(DynamicConfiguration.class)
+                type(DynamicConfiguration.class),
+                SPECIFIC_CONFIG_TREE_MTD_NAME,
+                type(ConfigurationTree.class)
             );
         }
 
@@ -1804,11 +1814,14 @@ public class ConfigurationAsmGenerator {
         SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaClass);
         SchemaClassesInfo polymorphicExtensionClassInfo = schemasInfo.get(polymorphicExtension);
 
+        Class<?> superClass = schemaClassInfo.direct || polymorphicExtensionClassInfo.direct
+            ? DirectConfigurationTreeWrapper.class : ConfigurationTreeWrapper.class;
+
         // Configuration impl class definition.
         ClassDefinition classDef = new ClassDefinition(
             of(PUBLIC, FINAL),
             internalName(polymorphicExtensionClassInfo.cfgImplClassName),
-            type(Object.class),
+            type(superClass),
             configClassInterfaces(polymorphicExtension, Set.of())
         );
 
@@ -1826,13 +1839,16 @@ public class ConfigurationAsmGenerator {
         );
 
         // Constructor body.
+        // super(parent);
+        // this.parent#cfgImpl = parent;
         constructorMtd.getBody()
             .append(constructorMtd.getThis())
+            .append(constructorMtd.getScope().getVariable("parent"))
+            .invokeConstructor(superClass, ConfigurationTree.class)
             .append(constructorMtd.getThis().setField(
                 parentCfgImplFieldDef,
                 constructorMtd.getScope().getVariable("parent")
             ))
-            .invokeConstructor(OBJECT_CTOR)
             .ret();
 
         Map<String, FieldDefinition> fieldDefs = schemaCfgImplClassDef.getFields().stream()
@@ -1899,7 +1915,7 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Adds a {@link DynamicConfiguration#specificConfig} override for the polymorphic configuration case.
+     * Adds a {@link DynamicConfiguration#specificConfigTree} override for the polymorphic configuration case.
      *
      * @param classDef Definition of a polymorphic configuration class {@code schemaClass}.
      * @param schemaClass Polymorphic configuration schema (parent).
@@ -1912,17 +1928,49 @@ public class ConfigurationAsmGenerator {
         Set<Class<?>> polymorphicExtensions,
         FieldDefinition polymorphicTypeIdFieldDef
     ) {
+        SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaClass);
+
         MethodDefinition specificConfigMtd = classDef.declareMethod(
             of(PUBLIC),
-            SPECIFIC_CONFIG_MTD_NAME,
-            classDef.getType()
+            SPECIFIC_CONFIG_TREE_MTD_NAME,
+            typeFromJavaClassName(schemaClassInfo.cfgClassName)
         );
 
-        // TODO: IGNITE-14645 Continue.
+        // String tmpStr;
+        Variable tmpStrVar = specificConfigMtd.getScope().createTempVariable(String.class);
+
+        // tmpStr = (String)this.typeId.value();
+        BytecodeExpression setTmpVar = tmpStrVar.set(
+            getThisFieldCode(specificConfigMtd, polymorphicTypeIdFieldDef)
+                .invoke(DYNAMIC_PROPERTY_VALUE_MTD)
+                .cast(String.class)
+        );
+
+        StringSwitchBuilder switchBuilder = new StringSwitchBuilder(specificConfigMtd.getScope())
+            .expression(tmpStrVar)
+            .defaultCase(throwException(NoSuchElementException.class, tmpStrVar));
+
+        // return this;
+        switchBuilder.addCase(
+            schemaClass.getAnnotation(PolymorphicConfig.class).id(),
+            specificConfigMtd.getThis().ret()
+        );
+
+        for (Class<?> polymorphicExtension : polymorphicExtensions) {
+            // return new SpecialCfgImpl(this);
+            switchBuilder.addCase(
+                polymorphicExtension.getAnnotation(PolymorphicConfigInstance.class).id(),
+                newInstance(
+                    typeFromJavaClassName(schemasInfo.get(polymorphicExtension).cfgImplClassName),
+                    specificConfigMtd.getThis()
+                ).ret()
+            );
+        }
 
         specificConfigMtd.getBody()
-            .append(specificConfigMtd.getThis())
-            .retObject();
+            .append(setTmpVar)
+            .append(switchBuilder.build())
+            .ret();
     }
 
     /**

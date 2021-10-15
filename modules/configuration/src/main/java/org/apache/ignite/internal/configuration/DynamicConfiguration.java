@@ -159,11 +159,11 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
     public abstract Class<? extends ConfigurationProperty<VIEW>> configType();
 
     /**
-     * Returns specific configuration.
+     * Returns specific configuration tree.
      *
-     * @return Specific configuration.
+     * @return Specific configuration tree.
      */
-    public DynamicConfiguration<VIEW, CHANGE> specificConfig() {
+    public ConfigurationTree<VIEW, CHANGE> specificConfigTree() {
         // To work with polymorphic configuration.
         return this;
     }
