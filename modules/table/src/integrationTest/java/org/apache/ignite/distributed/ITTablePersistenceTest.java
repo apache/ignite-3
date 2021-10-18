@@ -17,24 +17,21 @@
 
 package org.apache.ignite.distributed;
 
-import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.storage.DataRow;
-import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
-import org.apache.ignite.internal.storage.basic.SimpleDataRow;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.lang.IgniteUuid;
@@ -48,6 +45,8 @@ import org.apache.ignite.raft.client.service.ITAbstractListenerSnapshotTest;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.junit.jupiter.api.Disabled;
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * Persistent partitions raft group snapshots tests.
@@ -127,25 +126,24 @@ public class ITTablePersistenceTest extends ITAbstractListenerSnapshotTest<Parti
         );
 
         table.upsert(SECOND_VALUE, null).get();
+
+        assertNotNull(table.get(SECOND_KEY, null).join());
     }
 
     /** {@inheritDoc} */
     @Override public BooleanSupplier snapshotCheckClosure(JRaftServerImpl restarted, boolean interactedAfterSnapshot) {
-        PartitionStorage storage = getListener(restarted, raftGroupId()).getStorage().delegate();
+        VersionedRowStore storage = getListener(restarted, raftGroupId()).getStorage();
 
         Row key = interactedAfterSnapshot ? SECOND_KEY : FIRST_KEY;
         Row value = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
 
-        ByteBuffer buffer = key.keySlice();
-        byte[] keyBytes = new byte[buffer.capacity()];
-        buffer.get(keyBytes);
-
-        SimpleDataRow finalRow = new SimpleDataRow(keyBytes, null);
-        SimpleDataRow finalValue = new SimpleDataRow(keyBytes, value.bytes());
-
         return () -> {
-            DataRow read = storage.read(finalRow);
-            return Objects.equals(finalValue, read);
+            BinaryRow read = storage.get(key, null);
+
+            if (read == null)
+                return false;
+
+            return Arrays.equals(value.bytes(), read.bytes());
         };
     }
 

@@ -70,6 +70,7 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.schema.definition.SchemaManagementMode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -187,14 +188,18 @@ public class InternalTableImpl implements InternalTable {
         int batchNum = 0;
 
         for (Map.Entry<Integer, List<BinaryRow>> partToRows : keyRowsByPartition.entrySet()) {
-            enlist(partToRows.getKey(), tx0);
+            RaftGroupService svc = enlist(partToRows.getKey(), tx0);
 
-            futures[batchNum++] = partitionMap.get(partToRows.getKey()).run(op.apply(partToRows.getValue(), tx0));
+            if (svc == null) {
+                return failedFuture(new TransactionException("Failed to map a key for the partition [id=" +
+                    partToRows.getKey() + ']'));
+            }
+
+            futures[batchNum++] = svc.run(op.apply(partToRows.getValue(), tx0));
         }
 
         CompletableFuture<T> fut = reducer.apply(futures);
 
-        // TODO asch cleanup
         return fut.handle(new BiFunction<T, Throwable, CompletableFuture<T>>() {
             @Override public CompletableFuture<T> apply(T r, Throwable e) {
                 if (e != null)
@@ -233,7 +238,14 @@ public class InternalTableImpl implements InternalTable {
 
         final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
 
-        CompletableFuture<T> fut = enlist(partId(row), tx0).<R>run(op.apply(tx0)).thenApply(trans::apply);
+        int partId = partId(row);
+
+        RaftGroupService svc = enlist(partId, tx0);
+
+        if (svc == null)
+            return failedFuture(new TransactionException("Failed to map a key for the partition [id=" + partId + ']'));
+
+        CompletableFuture<T> fut = svc.<R>run(op.apply(tx0)).thenApply(trans::apply);
 
         // TODO asch remove futures creation
         return fut.handle(new BiFunction<T, Throwable, CompletableFuture<T>>() {
@@ -445,11 +457,16 @@ public class InternalTableImpl implements InternalTable {
      * @param tx The transaction.
      * @return The corresponding raft service.
      */
-    protected RaftGroupService enlist(int partId, InternalTransaction tx) {
+    protected @Nullable RaftGroupService enlist(int partId, InternalTransaction tx) {
         RaftGroupService svc = partitionMap.get(partId);
 
+        Peer leader = svc.leader();
+
+        if (leader == null)
+            return null; // A mapping is unknown.
+
         // TODO asch fixme need to map to fixed topology.
-        tx.enlist(svc.leader().address(), svc.groupId()); // Enlist the leaseholder.
+        tx.enlist(leader.address(), svc.groupId()); // Enlist the leaseholder.
 
         return svc;
     }

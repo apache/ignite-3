@@ -282,11 +282,15 @@ public abstract class ITAbstractListenerSnapshotTest<T extends RaftGroupListener
      * Creates raft group listener.
      *
      * @param service The cluster service.
-     * @param txManager
+     * @param txManager The transaction manager.
      * @param listenerPersistencePath Path to storage persistent data.
      * @return Raft group listener.
      */
-    public abstract RaftGroupListener createListener(ClusterService service, TxManagerImpl txManager, Path listenerPersistencePath);
+    public abstract RaftGroupListener createListener(
+        ClusterService service,
+        TxManagerImpl txManager,
+        Path listenerPersistencePath
+    );
 
     /**
      * @return Raft group id for tests.
@@ -420,6 +424,9 @@ public abstract class ITAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         RaftGroupService client = RaftGroupServiceImpl.start(groupId, clientNode, FACTORY, 10_000,
             List.of(new Peer(addr)), false, 200, executor).get(3, TimeUnit.SECONDS);
+
+        // Transactios by now require a leader to build a mapping.
+        client.refreshLeader().join();
 
         clients.add(client);
 
