@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
@@ -87,6 +88,12 @@ public class TransactionImpl implements InternalTransaction {
         try {
             commitAsync().get();
         }
+        catch (ExecutionException e) {
+            if (e.getCause() instanceof TransactionException)
+                throw (TransactionException) e.getCause();
+            else
+                throw new TransactionException(e.getCause());
+        }
         catch (Exception e) {
             throw new TransactionException(e);
         }
@@ -101,6 +108,12 @@ public class TransactionImpl implements InternalTransaction {
     @Override public void rollback() throws TransactionException {
         try {
             rollbackAsync().get();
+        }
+        catch (ExecutionException e) {
+            if (e.getCause() instanceof TransactionException)
+                throw (TransactionException) e.getCause();
+            else
+                throw new TransactionException(e.getCause());
         }
         catch (Exception e) {
             throw new TransactionException(e);

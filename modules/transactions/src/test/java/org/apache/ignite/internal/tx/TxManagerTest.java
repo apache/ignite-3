@@ -16,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
@@ -57,7 +58,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertEquals(TxState.COMMITED, tx.state());
         assertEquals(TxState.COMMITED, txMgr.state(tx.timestamp()));
 
-        tx.rollback();
+        assertThrows(TransactionException.class, () -> tx.rollback());
 
         assertEquals(TxState.COMMITED, tx.state());
         assertEquals(TxState.COMMITED, txMgr.state(tx.timestamp()));
@@ -71,7 +72,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertEquals(TxState.ABORTED, tx.state());
         assertEquals(TxState.ABORTED, txMgr.state(tx.timestamp()));
 
-        tx.commit();
+        assertThrows(TransactionException.class, () -> tx.commit());
 
         assertEquals(TxState.ABORTED, tx.state());
         assertEquals(TxState.ABORTED, txMgr.state(tx.timestamp()));
