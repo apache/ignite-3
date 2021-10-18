@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.schema.definition;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.internal.schema.modification.TableModificationBuilderImpl;
@@ -92,8 +94,8 @@ public class TableDefinitionImpl extends AbstractSchemaObject implements TableDe
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<ColumnDefinition> columns() {
-        return colMap.values();
+    @Override public List<ColumnDefinition> columns() {
+        return new ArrayList<>(colMap.values());
     }
 
     /** {@inheritDoc} */
