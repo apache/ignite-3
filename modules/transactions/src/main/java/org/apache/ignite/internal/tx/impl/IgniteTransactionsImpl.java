@@ -24,10 +24,9 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
-import org.apache.ignite.tx.TransactionException;
 
 /**
- *
+ * Transaction's facade implementation.
  */
 public class IgniteTransactionsImpl implements IgniteTransactions {
     /**
@@ -48,7 +47,7 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
     }
 
     /** {@inheritDoc} */
-    @Override public Transaction begin() throws TransactionException {
+    @Override public Transaction begin() {
         return txManager.begin();
     }
 
@@ -58,7 +57,7 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
     }
 
     /** {@inheritDoc} */
-    @Override public void runInTransaction(Consumer<Transaction> clo) throws TransactionException {
+    @Override public void runInTransaction(Consumer<Transaction> clo) {
         runInTransaction(tx -> {
             clo.accept(tx);
             return null;
@@ -66,7 +65,7 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T runInTransaction(Function<Transaction, T> clo) throws TransactionException {
+    @Override public <T> T runInTransaction(Function<Transaction, T> clo) {
         InternalTransaction tx = txManager.begin();
 
         Thread th = Thread.currentThread();
@@ -86,7 +85,7 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
             try {
                 tx.rollback(); // Try rolling back on user exception.
             }
-            catch (TransactionException e) {
+            catch (Exception e) {
                 t.addSuppressed(e);
             }
 

@@ -41,7 +41,7 @@ public interface IgniteTransactions {
      * @return The future with a new transaction as a result.
      * @throws TransactionException If a transaction can't be started for a some reason.
      */
-    Transaction begin() throws TransactionException;
+    Transaction begin();
 
     /**
      * Begins an async transaction.
@@ -64,7 +64,7 @@ public interface IgniteTransactions {
      * @param clo The closure.
      * @throws TransactionException If a transaction has failed to finish normally.
      */
-    void runInTransaction(Consumer<Transaction> clo) throws TransactionException;
+    void runInTransaction(Consumer<Transaction> clo);
 
     /**
      * Executes a closure within a transaction and returns a result.
@@ -76,5 +76,5 @@ public interface IgniteTransactions {
      * @param clo The closure.
      * @throws TransactionException If a transaction has failed to finish normally.
      */
-    <T> T runInTransaction(Function<Transaction, T> clo) throws TransactionException;
+    <T> T runInTransaction(Function<Transaction, T> clo);
 }

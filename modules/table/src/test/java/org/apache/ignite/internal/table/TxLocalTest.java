@@ -29,6 +29,7 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.mockito.Mockito;
 
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
@@ -62,6 +63,11 @@ public class TxLocalTest extends TxAbstractTest {
         InternalTable table2 = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);
 
         customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), null);
+    }
+
+    @Disabled
+    @Override public void testScan() throws InterruptedException {
+        // Not applicable in this mode.
     }
 
     @Override protected TxManager txManager(Table t) {
