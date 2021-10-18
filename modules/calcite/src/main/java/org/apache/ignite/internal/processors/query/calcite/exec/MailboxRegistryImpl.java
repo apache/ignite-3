@@ -42,15 +42,23 @@ public class MailboxRegistryImpl implements MailboxRegistry {
     private static final Predicate<Mailbox<?>> ALWAYS_TRUE = o -> true;
 
     /** */
+    private final TopologyService topSrvc;
+
+    /** */
     private final Map<MailboxKey, Outbox<?>> locals;
 
     /** */
     private final Map<MailboxKey, Inbox<?>> remotes;
 
     public MailboxRegistryImpl(TopologyService topSrvc) {
+        this.topSrvc = topSrvc;
+
         locals = new ConcurrentHashMap<>();
         remotes = new ConcurrentHashMap<>();
+    }
 
+    /** {@inheritDoc} */
+    @Override public void start() {
         topSrvc.addEventHandler(new NodeLeaveHandler(this::onNodeLeft));
     }
 
@@ -127,7 +135,7 @@ public class MailboxRegistryImpl implements MailboxRegistry {
     }
 
     /** {@inheritDoc} */
-    @Override public void close() {
+    @Override public void stop() {
         locals.clear();
         remotes.clear();
     }

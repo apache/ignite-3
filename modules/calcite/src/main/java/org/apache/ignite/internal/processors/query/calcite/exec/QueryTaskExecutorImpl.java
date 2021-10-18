@@ -19,7 +19,7 @@ package org.apache.ignite.internal.processors.query.calcite.exec;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.processors.query.calcite.SqlQueryProcessor;
+
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -27,6 +27,9 @@ import org.apache.ignite.lang.IgniteLogger;
 
 /** */
 public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.UncaughtExceptionHandler {
+    /** Default Ignite thread keep alive time. */
+    public static final long DFLT_THREAD_KEEP_ALIVE_TIME = 60_000L;
+
     /** */
     private static final IgniteLogger LOG = IgniteLogger.forClass(QueryTaskExecutorImpl.class);
 
@@ -45,8 +48,13 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
             NamedThreadFactory.threadPrefix(nodeName, "calciteQry"),
             null,
             true,
-            SqlQueryProcessor.DFLT_THREAD_KEEP_ALIVE_TIME
+            DFLT_THREAD_KEEP_ALIVE_TIME
         );
+    }
+
+    /** {@inheritDoc} */
+    @Override public void start() {
+        // No-op.
     }
 
     /**
@@ -96,7 +104,7 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
     }
 
     /** {@inheritDoc} */
-    @Override public void close() {
+    @Override public void stop() {
         stripedThreadPoolExecutor.shutdownNow();
     }
 }

@@ -17,7 +17,9 @@
 package org.apache.ignite.internal.processors.query.calcite;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.manager.EventListener;
@@ -42,9 +44,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public class SqlQueryProcessor implements QueryProcessor {
-    /** Default Ignite thread keep alive time. */
-    public static final long DFLT_THREAD_KEEP_ALIVE_TIME = 60_000L;
-
     private volatile ExecutionService executionSrvc;
 
     private volatile MessageService msgSrvc;
@@ -93,6 +92,10 @@ public class SqlQueryProcessor implements QueryProcessor {
         registerTableListener(TableEvent.CREATE, new TableCreatedListener(schemaHolder));
         registerTableListener(TableEvent.ALTER, new TableUpdatedListener(schemaHolder));
         registerTableListener(TableEvent.DROP, new TableDroppedListener(schemaHolder));
+
+        taskExecutor.start();
+        msgSrvc.start();
+        executionSrvc.start();
     }
 
     /** */
@@ -107,12 +110,17 @@ public class SqlQueryProcessor implements QueryProcessor {
     @Override public void stop() throws Exception {
         busyLock.block();
 
-        IgniteUtils.closeAll(
-            () -> evtLsnrs.forEach(l -> tableManager.removeListener(l.left, l.right)),
-            executionSrvc,
-            msgSrvc,
-            taskExecutor
-        );
+        List<AutoCloseable> toClose = new ArrayList<AutoCloseable>(Arrays.asList(
+            executionSrvc::stop,
+            msgSrvc::stop,
+            taskExecutor::stop
+        ));
+
+        toClose.addAll(evtLsnrs.stream()
+            .map((p) -> (AutoCloseable)() -> tableManager.removeListener(p.left, p.right))
+            .collect(Collectors.toList()));
+
+        IgniteUtils.closeAll(toClose);
     }
 
     /** {@inheritDoc} */

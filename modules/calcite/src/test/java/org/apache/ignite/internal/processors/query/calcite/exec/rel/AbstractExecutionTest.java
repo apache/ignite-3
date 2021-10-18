@@ -56,7 +56,7 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
     /** */
     @AfterEach
     public void afterTest() {
-        taskExecutor.close();
+        taskExecutor.stop();
 
         if (lastE != null)
             throw new AssertionError(lastE);

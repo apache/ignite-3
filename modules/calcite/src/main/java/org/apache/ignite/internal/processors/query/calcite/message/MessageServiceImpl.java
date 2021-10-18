@@ -68,6 +68,10 @@ public class MessageServiceImpl implements MessageService {
 
         locNodeId = topSrvc.localMember().id();
 
+    }
+
+    /** {@inheritDoc} */
+    @Override public void start() {
         messagingSrvc.addMessageHandler(SqlQueryMessageGroup.class, this::onMessage);
     }
 
@@ -149,7 +153,8 @@ public class MessageServiceImpl implements MessageService {
         lsnr.onMessage(nodeId, msg);
     }
 
-    @Override public void close() {
+    /** {@inheritDoc} */
+    @Override public void stop() {
         lsnrs.clear();
     }
 }

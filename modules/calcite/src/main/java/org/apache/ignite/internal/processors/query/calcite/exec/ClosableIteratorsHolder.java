@@ -26,12 +26,16 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
+import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.lang.IgniteLogger;
 
 /**
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
-public class ClosableIteratorsHolder implements AutoCloseable {
+public class ClosableIteratorsHolder implements LifecycleAware {
+    /** */
+    private final String nodeName;
+
     /** */
     private final ReferenceQueue refQueue;
 
@@ -45,14 +49,22 @@ public class ClosableIteratorsHolder implements AutoCloseable {
     private volatile boolean stopped;
 
     /** */
-    private Thread cleanWorker;
+    private volatile IgniteThread cleanWorker;
 
     /** */
-    public ClosableIteratorsHolder(IgniteLogger log) {
+    public ClosableIteratorsHolder(String nodeName, IgniteLogger log) {
+        this.nodeName = nodeName;
         this.log = log;
 
         refQueue = new ReferenceQueue<>();
         refMap = new ConcurrentHashMap<>();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void start() {
+        cleanWorker = new IgniteThread(nodeName, "calciteIteratorsCleanWorker", () -> cleanUp(true));
+        cleanWorker.setDaemon(true);
+        cleanWorker.start();
     }
 
     /**
@@ -66,17 +78,9 @@ public class ClosableIteratorsHolder implements AutoCloseable {
     }
 
     /** */
-    public void init(String nodeName) {
-        cleanWorker = new Thread(null, () -> cleanUp(true), "%" + nodeName + "%calciteIteratorsCleanWorker");
-        cleanWorker.setDaemon(true);
-        cleanWorker.start();
-    }
-
-    /** */
     private void cleanUp(boolean blocking) {
-        for (Reference<?> ref = nextRef(blocking); !stopped && ref != null; ref = nextRef(blocking)) {
+        for (Reference<?> ref = nextRef(blocking); !stopped && ref != null; ref = nextRef(blocking))
             Commons.close(refMap.remove(ref), log);
-        }
     }
 
     /** */
@@ -98,14 +102,14 @@ public class ClosableIteratorsHolder implements AutoCloseable {
     }
 
     /** {@inheritDoc} */
-    @Override public void close() throws Exception {
+    @Override public void stop() {
         stopped = true;
 
         refMap.values().forEach(o -> Commons.close(o, log));
 
         refMap.clear();
 
-        Thread t = cleanWorker;
+        IgniteThread t = cleanWorker;
 
         if (t != null)
             t.interrupt();

@@ -25,7 +25,7 @@ import org.apache.ignite.internal.processors.query.calcite.SqlCursor;
 /**
  *
  */
-public interface ExecutionService extends AutoCloseable {
+public interface ExecutionService extends LifecycleAware {
     /**
      * Executes a query.
      *
