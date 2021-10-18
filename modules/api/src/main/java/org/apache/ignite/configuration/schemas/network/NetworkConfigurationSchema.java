@@ -38,7 +38,7 @@ public class NetworkConfigurationSchema {
     /** Network port range. */
     @Min(0)
     @Value(hasDefault = true)
-    public final int portRange = 0;
+    public final int portRange = 10;
 
     /** Server configuration. */
     @ConfigValue

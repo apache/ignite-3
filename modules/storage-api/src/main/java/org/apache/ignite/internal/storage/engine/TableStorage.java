@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.engine;
 
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 
@@ -25,12 +26,47 @@ import org.apache.ignite.internal.storage.StorageException;
  */
 public interface TableStorage {
     /**
-     * Gets or creates a partition for current table.
+     * Retrieves or creates a partition for current table. Not expected to be called concurrently with the same
+     * partition id.
      *
      * @param partId Partition id.
      * @return Partition storage.
+     * @throws IllegalArgumentException If partition id is invalid.
+     * @throws StorageException If error occurred during partition creation.
      */
-    PartitionStorage getOrCreatePartition(int partId);
+    PartitionStorage getOrCreatePartition(int partId) throws StorageException;
+
+    /**
+     * Returns partition storage or {@code null} if required storage doesn't exist.
+     *
+     * @param partId Partition id.
+     * @return Partition storage or {@code null}.
+     * @throws IllegalArgumentException If partition id is invalid.
+     */
+    PartitionStorage getPartition(int partId);
+
+    /**
+     * Destroys partition if it exists.
+     *
+     * @param partId Partition id.
+     * @throws IllegalArgumentException If partition id is invalid.
+     * @throws StorageException If error occurred during partition destruction.
+     */
+    void dropPartition(int partId) throws StorageException;
+
+    /**
+     * Returns table configuration.
+     *
+     * @return Table configuration.
+     */
+    TableConfiguration configuration();
+
+    /**
+     * Returns data region containing tables data.
+     *
+     * @return Data region containing tables data.
+     */
+    DataRegion dataRegion();
 
     /**
      * Starts the storage.
@@ -45,4 +81,11 @@ public interface TableStorage {
      * @throws StorageException If something went wrong.
      */
     void stop() throws StorageException;
+
+    /**
+     * Stops and destroys the storage and cleans all allocated resources.
+     *
+     * @throws StorageException If something went wrong.
+     */
+    void destroy() throws StorageException;
 }

@@ -23,15 +23,20 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.Spliterator;
 import java.util.function.Function;
+import java.util.stream.Stream;
 import org.jetbrains.annotations.Nullable;
 
 import static java.util.Collections.addAll;
 import static java.util.Collections.emptyIterator;
 import static java.util.Collections.unmodifiableSet;
+import static java.util.Spliterators.spliteratorUnknownSize;
+import static java.util.stream.StreamSupport.stream;
 
 /**
  * Utility class provides various method to work with collections.
@@ -191,6 +196,45 @@ public final class CollectionUtils {
                 }
             };
         }
+    }
+
+    /**
+     * Converts iterator to stream.
+     *
+     * @param iterator Iterator.
+     * @param <T> Type of elements in iterator.
+     * @return Stream.
+     */
+    public static <T> Stream<T> iteratorToStream(Iterator<T> iterator) {
+        return stream(spliteratorUnknownSize(iterator, Spliterator.ORDERED), false);
+    }
+
+    /**
+     * Returns iterator that iterates list in reverse order.
+     *
+     * @param list List.
+     * @param <T> Type of elements in list.
+     * @return Reverse iterator.
+     */
+    public static <T> Iterator<T> reverseIterator(List<? extends T> list) {
+        return new Iterator<T>() {
+            private final ListIterator<? extends T> iter = list.listIterator(list.size());
+
+            /** {@inheritDoc} */
+            @Override public boolean hasNext() {
+                return iter.hasPrevious();
+            }
+
+            /** {@inheritDoc} */
+            @Override public T next() {
+                return iter.previous();
+            }
+
+            /** {@inheritDoc} */
+            @Override public void remove() {
+                iter.remove();
+            }
+        };
     }
 
     /** Stub. */

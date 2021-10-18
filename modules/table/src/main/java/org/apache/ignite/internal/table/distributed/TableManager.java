@@ -280,8 +280,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             )
                                 .thenAccept(
                                     updatedRaftGroupService -> tables.get(ctx.newValue().name()).updateInternalTableRaftGroupService(p, updatedRaftGroupService)
-                                ).thenRun(() -> raftMgr.stopRaftGroup(raftGroupName(tblId, p), new ArrayList<>(toRemove))
-                                ).exceptionally(th -> {
+                                ).thenRun(() -> {
+                                    raftMgr.stopRaftGroup(raftGroupName(tblId, p), new ArrayList<>(toRemove));
+
+                                    tableStorages.get(tblId).dropPartition(p);
+                                }).exceptionally(th -> {
                                         LOG.error("Failed to update raft groups one the node", th);
                                         return null;
                                     }
@@ -488,7 +491,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             assert table != null : "There is no table with the name specified [name=" + name + ']';
 
             tables.remove(name);
-            tablesById.remove(table.tableId());
+            tablesById.remove(tblId);
+
+            TableStorage tableStorage = tableStorages.get(tblId);
+
+            tableStorage.destroy();
+
+            tableStorages.remove(tblId);
 
             fireEvent(TableEvent.DROP, new TableEventParameters(table), null);
         }

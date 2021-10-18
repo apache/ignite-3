@@ -83,6 +83,15 @@ public class RocksDbPartitionStorage implements PartitionStorage {
         this.data = columnFamily;
     }
 
+    /**
+     * Returns ColumnFamily instance associated with the partition.
+     *
+     * @return ColumnFamily instance associated with the partition.
+     */
+    public ColumnFamily columnFamily() {
+        return data;
+    }
+
     /** {@inheritDoc} */
     @Override @Nullable public DataRow read(SearchRow key) throws StorageException {
         try {
