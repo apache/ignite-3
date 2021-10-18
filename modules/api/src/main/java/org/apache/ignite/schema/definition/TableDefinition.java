@@ -49,7 +49,7 @@ public interface TableDefinition extends SchemaObject {
     Set<String> affinityColumns();
 
     /**
-     * Returns table columns.
+     * Returns table columns in user-defined order.
      *
      * @return List of columns.
      */
