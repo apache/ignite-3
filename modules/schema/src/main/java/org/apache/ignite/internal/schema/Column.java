@@ -24,14 +24,19 @@ import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Column description for a type schema. Column contains a column name, a column type and a nullability flag.
+ * Column descriptor which contains a column name, a type and a nullability flag.
  * <p>
  * Column instances are comparable in lexicographic order, native type first and then column name. Nullability
  * flag is not taken into account when columns are compared.
+ * <p>
+ * Because of columns must be written to a row in specific order, column write order may differs from the user order
  */
 public class Column implements Comparable<Column>, Serializable {
     /** Absolute index in schema descriptor. */
     private final int schemaIndex;
+
+    /** User column order as defined in table definition. */
+    private final int columnOrder;
 
     /**
      * Column name.
@@ -64,7 +69,7 @@ public class Column implements Comparable<Column>, Serializable {
         NativeType type,
         boolean nullable
     ) {
-        this(-1, name, type, nullable, (Supplier<Object> & Serializable)() -> null);
+        this(-1, -1, name, type, nullable, (Supplier<Object> & Serializable)() -> null);
     }
 
     /**
@@ -79,11 +84,29 @@ public class Column implements Comparable<Column>, Serializable {
         boolean nullable,
         @NotNull Supplier<Object> defValSup
     ) {
-        this(-1, name, type, nullable, defValSup);
+        this(-1, -1, name, type, nullable, defValSup);
+    }
+
+    /**
+     * @param columnOrder Column order in table definition.
+     * @param name Column name.
+     * @param type An instance of column data type.
+     * @param nullable If {@code false}, null values will not be allowed for this column.
+     * @param defValSup Default value supplier.
+     */
+    public Column(
+        int columnOrder,
+        String name,
+        NativeType type,
+        boolean nullable,
+        @NotNull Supplier<Object> defValSup
+    ) {
+        this(-1, columnOrder, name, type, nullable, defValSup);
     }
 
     /**
      * @param schemaIndex Absolute index of this column in its schema descriptor.
+     * @param columnOrder Column order defined in table definition.
      * @param name Column name.
      * @param type An instance of column data type.
      * @param nullable If {@code false}, null values will not be allowed for this column.
@@ -91,12 +114,14 @@ public class Column implements Comparable<Column>, Serializable {
      */
     private Column(
         int schemaIndex,
+        int columnOrder,
         String name,
         NativeType type,
         boolean nullable,
         @NotNull Supplier<Object> defValSup
     ) {
         this.schemaIndex = schemaIndex;
+        this.columnOrder = columnOrder;
         this.name = name;
         this.type = type;
         this.nullable = nullable;
@@ -108,6 +133,13 @@ public class Column implements Comparable<Column>, Serializable {
      */
     public int schemaIndex() {
         return schemaIndex;
+    }
+
+    /**
+     * @return User column order as defined in table definition.
+     */
+    public int columnOrder() {
+        return columnOrder;
     }
 
     /**
@@ -198,7 +230,7 @@ public class Column implements Comparable<Column>, Serializable {
      * @return Column.
      */
     public Column copy(int schemaIndex) {
-        return new Column(schemaIndex, name, type, nullable, defValSup);
+        return new Column(schemaIndex, columnOrder, name, type, nullable, defValSup);
     }
 
     /** {@inheritDoc} */

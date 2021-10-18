@@ -98,6 +98,8 @@ public class SchemaDescriptor implements Serializable {
      * @return {@code true} if the column belongs to the key chunk, {@code false} otherwise.
      */
     public boolean isKeyColumn(int idx) {
+        validateColumnIndex(idx);
+
         return idx < keyCols.length();
     }
 
