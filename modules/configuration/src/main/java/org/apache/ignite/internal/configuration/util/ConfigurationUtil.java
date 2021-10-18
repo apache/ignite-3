@@ -708,7 +708,7 @@ public class ConfigurationUtil {
      * Get configuration schemas and their validated internal extensions.
      *
      * @param extensions Schema extensions with {@link InternalConfiguration}.
-     * @return Mapping: original of the scheme -> schema extensions.
+     * @return Mapping: original of the scheme -> internal schema extensions.
      * @throws IllegalArgumentException If the schema extension is invalid.
      * @see InternalConfiguration
      */
@@ -821,5 +821,42 @@ public class ConfigurationUtil {
      */
     public static boolean isPolymorphicId(Field schemaField) {
         return schemaField.isAnnotationPresent(PolymorphicId.class);
+    }
+
+    /**
+     * Checks whether configuration schema contains {@link PolymorphicConfig}.
+     *
+     * @param schemaClass Configuration schema class.
+     * @return {@code true} if the schema contains {@link PolymorphicConfig}.
+     */
+    public static boolean isPolymorphicConfig(Class<?> schemaClass) {
+        return schemaClass.isAnnotationPresent(PolymorphicConfig.class);
+    }
+
+    /**
+     * Checks whether configuration schema contains {@link PolymorphicConfigInstance}.
+     *
+     * @param schemaClass Configuration schema class.
+     * @return {@code true} if the schema contains {@link PolymorphicConfigInstance}.
+     */
+    public static boolean isPolymorphicConfigInstance(Class<?> schemaClass) {
+        return schemaClass.isAnnotationPresent(PolymorphicConfigInstance.class);
+    }
+
+    /**
+     * Returns the identifier of the polymorphic configuration.
+     *
+     * @param schemaClass Configuration schema class.
+     * @return Identifier of the polymorphic configuration.
+     * @see PolymorphicConfig#id
+     * @see PolymorphicConfigInstance#id
+     */
+    public static String polymorphicId(Class<?> schemaClass) {
+        assert isPolymorphicConfig(schemaClass) || isPolymorphicConfigInstance(schemaClass) : schemaClass.getName();
+
+        if (isPolymorphicConfig(schemaClass))
+            return schemaClass.getAnnotation(PolymorphicConfig.class).id();
+        else
+            return schemaClass.getAnnotation(PolymorphicConfigInstance.class).id();
     }
 }

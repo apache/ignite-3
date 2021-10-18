@@ -263,6 +263,10 @@ public class ConfigurationAsmGeneratorTest {
                 .convert(SecondPolymorphicInstanceTestChange.class)
                 .convert(PolymorphicTestChange.class)
         ).get();
+
+        polymorphicCfg.change(
+            c -> c.convert(FirstPolymorphicInstanceTestChange.class)
+        ).get();
     }
 
     /**

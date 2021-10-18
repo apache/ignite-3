@@ -121,8 +121,11 @@ import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.vie
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.extensionsFields;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isConfigValue;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isNamedConfigValue;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isPolymorphicConfig;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isPolymorphicConfigInstance;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isPolymorphicId;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isValue;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicId;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaFields;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
@@ -353,7 +356,7 @@ public class ConfigurationAsmGenerator {
 
             assert schemaClass.isAnnotationPresent(ConfigurationRoot.class)
                 || schemaClass.isAnnotationPresent(Config.class)
-                || schemaClass.isAnnotationPresent(PolymorphicConfig.class)
+                || isPolymorphicConfig(schemaClass)
                 : schemaClass + " is not properly annotated";
 
             assert schemasInfo.containsKey(schemaClass) : schemaClass;
@@ -590,25 +593,29 @@ public class ConfigurationAsmGenerator {
         Map<Class<?>, FieldDefinition> specFields,
         @Nullable FieldDefinition polymorphicTypeIdFieldDef
     ) {
-        MethodDefinition schemaTypeMtd = classDef.declareMethod(of(PUBLIC), "schemaType", type(Class.class));
+        MethodDefinition schemaTypeMtd = classDef.declareMethod(
+            of(PUBLIC),
+            "schemaType",
+            type(Class.class)
+        );
 
         BytecodeBlock mtdBody = schemaTypeMtd.getBody();
         Variable thisVar = schemaTypeMtd.getThis();
 
-        if (polymorphicTypeIdFieldDef == null)
+        if (polymorphicExtensions.isEmpty())
             mtdBody.append(invokeGetClass(thisVar.getField(specFields.get(schemaClass))).ret());
         else {
             StringSwitchBuilder switchBuilderTypeId = typeIdSwitchBuilder(schemaTypeMtd, polymorphicTypeIdFieldDef);
 
             switchBuilderTypeId.addCase(
-                schemaClass.getAnnotation(PolymorphicConfig.class).id(),
+                polymorphicId(schemaClass),
                 invokeGetClass(thisVar.getField(specFields.get(schemaClass))).ret()
             );
 
-            for (Class<?> extension : polymorphicExtensions) {
+            for (Class<?> polymorphicExtension : polymorphicExtensions) {
                 switchBuilderTypeId.addCase(
-                    extension.getAnnotation(PolymorphicConfigInstance.class).id(),
-                    invokeGetClass(thisVar.getField(specFields.get(extension))).ret()
+                    polymorphicId(polymorphicExtension),
+                    invokeGetClass(thisVar.getField(specFields.get(polymorphicExtension))).ret()
                 );
             }
 
@@ -751,7 +758,7 @@ public class ConfigurationAsmGenerator {
             // result = result.clone();
             viewMtd.getBody().invokeVirtual(schemaFieldType, "clone", Object.class).checkCast(schemaFieldType);
         }
-        else if (schemaFieldType.isAnnotationPresent(PolymorphicConfig.class)) {
+        else if (isPolymorphicConfig(schemaFieldType)) {
             // result = result.specificView();
             viewMtd.getBody().invokeVirtual(
                 typeFromJavaClassName(schemaClassInfo.nodeClassName),
@@ -912,9 +919,9 @@ public class ConfigurationAsmGenerator {
                     .ifTrue(includeInternalBlock)
             );
         }
-        else if (polymorphicTypeIdFieldDef != null) {
+        else if (!polymorphicFields.isEmpty()) {
             StringSwitchBuilder switchBuilderTypeId = typeIdSwitchBuilder(traverseChildrenMtd, polymorphicTypeIdFieldDef)
-                .addCase(schemaClass.getAnnotation(PolymorphicConfig.class).id(), new BytecodeBlock());
+                .addCase(polymorphicId(schemaClass), new BytecodeBlock());
 
             Map<Class<?>, List<Field>> groupedByClass = polymorphicFields.stream()
                 .collect(groupingBy(Field::getDeclaringClass, LinkedHashMap::new, toList()));
@@ -930,10 +937,7 @@ public class ConfigurationAsmGenerator {
                     );
                 }
 
-                switchBuilderTypeId.addCase(
-                    e.getKey().getAnnotation(PolymorphicConfigInstance.class).id(),
-                    codeBlock
-                );
+                switchBuilderTypeId.addCase(polymorphicId(e.getKey()), codeBlock);
             }
 
             mtdBody.append(switchBuilderTypeId.build());
@@ -994,7 +998,7 @@ public class ConfigurationAsmGenerator {
                     String fieldName = fieldName(polymorphicField);
 
                     switchBuilderTypeId.addCase(
-                        polymorphicField.getDeclaringClass().getAnnotation(PolymorphicConfigInstance.class).id(),
+                        polymorphicId(polymorphicField.getDeclaringClass()),
                         invokeVisit(traverseChildMtd, polymorphicField, fieldDefs.get(fieldName)).retObject()
                     );
                 }
@@ -1107,7 +1111,7 @@ public class ConfigurationAsmGenerator {
                     String fieldName = fieldName(polymorphicField);
 
                     switchBuilderTypeId.addCase(
-                        polymorphicField.getDeclaringClass().getAnnotation(PolymorphicConfigInstance.class).id(),
+                        polymorphicId(polymorphicField.getDeclaringClass()),
                         treatSourceForConstruct(constructMtd, polymorphicField, fieldDefs.get(fieldName))
                     );
                 }
@@ -1220,7 +1224,7 @@ public class ConfigurationAsmGenerator {
                     FieldDefinition specFieldDef = specFields.get(polymorphicClass);
 
                     switchBuilder1.addCase(
-                        polymorphicClass.getAnnotation(PolymorphicConfigInstance.class).id(),
+                        polymorphicId(polymorphicClass),
                         addNodeConstructDefault(constructDfltMtd, polymorphicField, fieldDef, specFieldDef)
                     );
                 }
@@ -1234,7 +1238,7 @@ public class ConfigurationAsmGenerator {
                 polymorphicTypeIdFieldDef.getName(),
                 thisVar.setField(
                     polymorphicTypeIdFieldDef,
-                    constantString(schemaClass.getAnnotation(PolymorphicConfig.class).id())
+                    constantString(polymorphicId(schemaClass))
                 )
             );
         }
@@ -1619,7 +1623,7 @@ public class ConfigurationAsmGenerator {
         // result = this.field;
         BytecodeBlock body = viewMtd.getBody().append(getThisFieldCode(viewMtd, fieldDefs));
 
-        if (schemaFieldType.isAnnotationPresent(PolymorphicConfig.class)) {
+        if (isPolymorphicConfig(schemaFieldType)) {
             // result = this.field.specificConfigTree();
             body.invokeVirtual(
                 type(DynamicConfiguration.class),
@@ -1931,16 +1935,13 @@ public class ConfigurationAsmGenerator {
 
         StringSwitchBuilder switchBuilder = typeIdSwitchBuilder(specificViewMtd, polymorphicTypeIdFieldDef);
 
-        switchBuilder.addCase(
-            schemaClass.getAnnotation(PolymorphicConfig.class).id(),
-            specificViewMtd.getThis().ret()
-        );
+        switchBuilder.addCase(polymorphicId(schemaClass), specificViewMtd.getThis().ret());
 
         for (Class<?> polymorphicExtension : polymorphicExtensions) {
             SchemaClassesInfo polymorphicExtensionClassInfo = schemasInfo.get(polymorphicExtension);
 
             switchBuilder.addCase(
-                polymorphicExtension.getAnnotation(PolymorphicConfigInstance.class).id(),
+                polymorphicId(polymorphicExtension),
                 newInstance(
                     typeFromJavaClassName(polymorphicExtensionClassInfo.nodeClassName),
                     specificViewMtd.getThis()
@@ -1973,16 +1974,13 @@ public class ConfigurationAsmGenerator {
 
         StringSwitchBuilder switchBuilder = typeIdSwitchBuilder(specificChangeMtd, polymorphicTypeIdFieldDef);
 
-        switchBuilder.addCase(
-            schemaClass.getAnnotation(PolymorphicConfig.class).id(),
-            specificChangeMtd.getThis().ret()
-        );
+        switchBuilder.addCase(polymorphicId(schemaClass), specificChangeMtd.getThis().ret());
 
         for (Class<?> polymorphicExtension : polymorphicExtensions) {
             SchemaClassesInfo polymorphicExtensionClassInfo = schemasInfo.get(polymorphicExtension);
 
             switchBuilder.addCase(
-                polymorphicExtension.getAnnotation(PolymorphicConfigInstance.class).id(),
+                polymorphicId(polymorphicExtension),
                 newInstance(
                     typeFromJavaClassName(polymorphicExtensionClassInfo.nodeClassName),
                     specificChangeMtd.getThis()
@@ -2105,15 +2103,12 @@ public class ConfigurationAsmGenerator {
             .defaultCase(throwException(NoSuchElementException.class, tmpStrVar));
 
         // return this;
-        switchBuilder.addCase(
-            schemaClass.getAnnotation(PolymorphicConfig.class).id(),
-            specificConfigMtd.getThis().ret()
-        );
+        switchBuilder.addCase(polymorphicId(schemaClass), specificConfigMtd.getThis().ret());
 
         for (Class<?> polymorphicExtension : polymorphicExtensions) {
             // return new SpecialCfgImpl(this);
             switchBuilder.addCase(
-                polymorphicExtension.getAnnotation(PolymorphicConfigInstance.class).id(),
+                polymorphicId(polymorphicExtension),
                 newInstance(
                     typeFromJavaClassName(schemasInfo.get(polymorphicExtension).cfgImplClassName),
                     specificConfigMtd.getThis()
@@ -2308,10 +2303,8 @@ public class ConfigurationAsmGenerator {
      * @return Field name.
      */
     private static String fieldName(Field f) {
-        if (f.getDeclaringClass().isAnnotationPresent(PolymorphicConfigInstance.class))
-            return f.getName() + "#" + f.getDeclaringClass().getAnnotation(PolymorphicConfigInstance.class).id();
-        else
-            return f.getName();
+        return isPolymorphicConfigInstance(f.getDeclaringClass())
+            ? f.getName() + "#" + polymorphicId(f.getDeclaringClass()) : f.getName();
     }
 
     /**

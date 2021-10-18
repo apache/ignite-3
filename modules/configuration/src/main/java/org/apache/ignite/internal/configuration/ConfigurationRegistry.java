@@ -56,6 +56,8 @@ import org.apache.ignite.internal.configuration.validation.OneOfValidator;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.lang.IgniteLogger;
 
+import static java.util.function.Predicate.not;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.configuration.util.ConfigurationNotificationsUtil.notifyListeners;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectSchemas;
@@ -106,27 +108,9 @@ public class ConfigurationRegistry implements IgniteComponent {
 
         Set<Class<?>> allSchemas = collectSchemas(viewReadOnly(rootKeys, RootKey::schemaClass));
 
-        Map<Class<?>, Set<Class<?>>> internalExtensions = internalSchemaExtensions(internalSchemaExtensions);
+        Map<Class<?>, Set<Class<?>>> internalExtensions = internalExtensionsWithCheck(allSchemas, internalSchemaExtensions);
 
-        Set<Class<?>> notInAllSchemas = difference(internalExtensions.keySet(), allSchemas);
-
-        if (!notInAllSchemas.isEmpty()) {
-            throw new IllegalArgumentException(
-                "Internal extensions for which no parent configuration schemes were found: " + notInAllSchemas
-            );
-        }
-
-        Map<Class<?>, Set<Class<?>>> polymorphicExtensions = polymorphicSchemaExtensions(polymorphicSchemaExtensions);
-
-        notInAllSchemas = difference(polymorphicExtensions.keySet(), allSchemas);
-
-        if (!notInAllSchemas.isEmpty()) {
-            throw new IllegalArgumentException(
-                "Polymorphic extensions for which no polymorphic configuration schemes were found: " + notInAllSchemas
-            );
-        }
-        else
-            checkPolymorphicConfigIds(polymorphicExtensions);
+        Map<Class<?>, Set<Class<?>>> polymorphicExtensions = polymorphicExtensionsWithCheck(allSchemas, polymorphicSchemaExtensions);
 
         this.rootKeys = rootKeys;
 
@@ -263,6 +247,71 @@ public class ConfigurationRegistry implements IgniteComponent {
         CompletableFuture<?>[] resultFutures = futures.stream().map(mapping).toArray(CompletableFuture[]::new);
 
         return CompletableFuture.allOf(resultFutures);
+    }
+
+    /**
+     * Get configuration schemas and their validated internal extensions with checks.
+     *
+     * @param allSchemas All configuration schemes.
+     * @param internalSchemaExtensions Internal extensions ({@link InternalConfiguration})
+     *      of configuration schemas ({@link ConfigurationRoot} and {@link Config}).
+     * @return Mapping: original of the scheme -> internal schema extensions.
+     * @throws IllegalArgumentException If the schema extension is invalid.
+     */
+    private Map<Class<?>, Set<Class<?>>> internalExtensionsWithCheck(
+        Set<Class<?>> allSchemas,
+        Collection<Class<?>> internalSchemaExtensions
+    ) {
+        Map<Class<?>, Set<Class<?>>> internalExtensions = internalSchemaExtensions(internalSchemaExtensions);
+
+        Set<Class<?>> notInAllSchemas = difference(internalExtensions.keySet(), allSchemas);
+
+        if (!notInAllSchemas.isEmpty()) {
+            throw new IllegalArgumentException(
+                "Internal extensions for which no parent configuration schemes were found: " + notInAllSchemas
+            );
+        }
+
+        return internalExtensions;
+    }
+
+    /**
+     * Get polymorphic extensions of configuration schemas with checks.
+     *
+     * @param allSchemas All configuration schemes.
+     * @param polymorphicSchemaExtensions Polymorphic extensions ({@link PolymorphicConfigInstance})
+     *      of configuration schemes.
+     * @return Mapping: polymorphic scheme -> extensions (instances) of polymorphic configuration.
+     * @throws IllegalArgumentException If the schema extension is invalid.
+     */
+    private Map<Class<?>, Set<Class<?>>> polymorphicExtensionsWithCheck(
+        Set<Class<?>> allSchemas,
+        Collection<Class<?>> polymorphicSchemaExtensions
+    ) {
+        Map<Class<?>, Set<Class<?>>> polymorphicExtensions = polymorphicSchemaExtensions(polymorphicSchemaExtensions);
+
+        Set<Class<?>> notInAllSchemas = difference(polymorphicExtensions.keySet(), allSchemas);
+
+        if (!notInAllSchemas.isEmpty()) {
+            throw new IllegalArgumentException(
+                "Polymorphic extensions for which no polymorphic configuration schemes were found: " + notInAllSchemas
+            );
+        }
+
+        Collection<Class<?>> noPolymorphicExtensionsSchemas = allSchemas.stream()
+            .filter(ConfigurationUtil::isPolymorphicConfig)
+            .filter(not(polymorphicExtensions::containsKey))
+            .collect(toList());
+
+        if (!noPolymorphicExtensionsSchemas.isEmpty()) {
+            throw new IllegalArgumentException(
+                "Polymorphic configuration schemes for which no extensions were found: " + noPolymorphicExtensionsSchemas
+            );
+        }
+
+        checkPolymorphicConfigIds(polymorphicExtensions);
+
+        return polymorphicExtensions;
     }
 
     /**
