@@ -21,7 +21,7 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
-import org.apache.ignite.configuration.validation.Except;
+import org.apache.ignite.configuration.validation.ExceptKeys;
 
 /**
  * Root configuration for data storages.
@@ -36,7 +36,7 @@ public class DataStorageConfigurationSchema {
     public DataRegionConfigurationSchema defaultRegion;
 
     /** Other data regions. */
-    @Except(DEFAULT_DATA_REGION_NAME)
+    @ExceptKeys(DEFAULT_DATA_REGION_NAME)
     @NamedConfigValue
     public DataRegionConfigurationSchema regions;
 }

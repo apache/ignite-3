@@ -19,17 +19,17 @@ package org.apache.ignite.internal.configuration.validation;
 
 import java.util.List;
 import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.validation.Except;
+import org.apache.ignite.configuration.validation.ExceptKeys;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 
 /**
- * {@link Validator} implementation for the {@link Except} annotation.
+ * {@link Validator} implementation for the {@link ExceptKeys} annotation.
  */
-public class ExceptValidator implements Validator<Except, NamedListView<?>> {
+public class ExceptKeysValidator implements Validator<ExceptKeys, NamedListView<?>> {
     /** {@inheritDoc} */
-    @Override public void validate(Except annotation, ValidationContext<NamedListView<?>> ctx) {
+    @Override public void validate(ExceptKeys annotation, ValidationContext<NamedListView<?>> ctx) {
         NamedListView<?> nameList = ctx.getNewValue();
 
         List<String> actualNames = nameList.namedListKeys();

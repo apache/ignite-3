@@ -33,7 +33,7 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
-import org.apache.ignite.configuration.validation.Except;
+import org.apache.ignite.configuration.validation.ExceptKeys;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Max;
 import org.apache.ignite.configuration.validation.Min;
@@ -48,7 +48,7 @@ import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationNotificationsUtil;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.configuration.util.KeyNotFoundException;
-import org.apache.ignite.internal.configuration.validation.ExceptValidator;
+import org.apache.ignite.internal.configuration.validation.ExceptKeysValidator;
 import org.apache.ignite.internal.configuration.validation.ImmutableValidator;
 import org.apache.ignite.internal.configuration.validation.MaxValidator;
 import org.apache.ignite.internal.configuration.validation.MinValidator;
@@ -122,7 +122,7 @@ public class ConfigurationRegistry implements IgniteComponent {
         addDefaultValidator(validators0, Max.class, new MaxValidator());
         addDefaultValidator(validators0, Immutable.class, new ImmutableValidator());
         addDefaultValidator(validators0, OneOf.class, new OneOfValidator());
-        addDefaultValidator(validators0, Except.class, new ExceptValidator());
+        addDefaultValidator(validators0, ExceptKeys.class, new ExceptKeysValidator());
 
         changer = new ConfigurationChanger(this::notificator, rootKeys, validators0, storage) {
             /** {@inheritDoc} */
