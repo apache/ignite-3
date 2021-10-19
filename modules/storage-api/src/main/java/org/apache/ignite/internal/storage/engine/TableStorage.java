@@ -57,7 +57,7 @@ public interface TableStorage {
     void dropPartition(int partId) throws StorageException;
 
     /**
-     * Returns table configuration.
+     * Returns the table configuration.
      *
      * @return Table configuration.
      */

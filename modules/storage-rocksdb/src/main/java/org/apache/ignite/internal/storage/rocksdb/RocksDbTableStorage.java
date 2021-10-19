@@ -39,6 +39,7 @@ import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.AbstractComparator;
 import org.rocksdb.ColumnFamilyDescriptor;
@@ -100,6 +101,9 @@ public class RocksDbTableStorage implements TableStorage {
     /** Column families for indexes by their names. */
     private final Map<String, ColumnFamilyHandle> indicesCfHandles = new ConcurrentHashMap<>();
 
+    /** */
+    private boolean stopped = false;
+
     /** Utility enum to describe a type of the column family - meta, partition or index. */
     private enum ColumnFamilyType {
         META, PARTITION, INDEX
@@ -136,7 +140,7 @@ public class RocksDbTableStorage implements TableStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public void start() throws StorageException {
+    @Override public synchronized void start() throws StorageException {
         Map<ColumnFamilyType, List<String>> cfNamesGrouped = getColumnFamiliesNames();
 
         List<ColumnFamilyDescriptor> cfDescriptors = convertToColumnFamiliesDescriptors(cfNamesGrouped);
@@ -188,8 +192,10 @@ public class RocksDbTableStorage implements TableStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public void stop() throws StorageException {
+    @Override public synchronized void stop() throws StorageException {
         try {
+            stopped = true;
+
             List<AutoCloseable> resources = new ArrayList<>();
 
             resources.addAll(autoCloseables);
@@ -212,14 +218,17 @@ public class RocksDbTableStorage implements TableStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public void destroy() throws StorageException {
+    @Override public synchronized void destroy() throws StorageException {
         stop();
 
         IgniteUtils.deleteIfExists(tablePath);
     }
 
     /** {@inheritDoc} */
-    @Override public PartitionStorage getOrCreatePartition(int partId) throws StorageException {
+    @Override public synchronized PartitionStorage getOrCreatePartition(int partId) throws StorageException {
+        if (stopped)
+            throw new StorageException(new NodeStoppingException());
+
         checkPartitionId(partId);
 
         RocksDbPartitionStorage partition = partitions.get(partId);
@@ -252,14 +261,20 @@ public class RocksDbTableStorage implements TableStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public PartitionStorage getPartition(int partId) {
+    @Override public synchronized PartitionStorage getPartition(int partId) {
+        if (stopped)
+            throw new StorageException(new NodeStoppingException());
+
         checkPartitionId(partId);
 
         return partitions.get(partId);
     }
 
     /** {@inheritDoc} */
-    @Override public void dropPartition(int partId) throws StorageException {
+    @Override public synchronized void dropPartition(int partId) throws StorageException {
+        if (stopped)
+            throw new StorageException(new NodeStoppingException());
+
         checkPartitionId(partId);
 
         RocksDbPartitionStorage partition = partitions.get(partId);
