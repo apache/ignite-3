@@ -30,7 +30,4 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Retention(RUNTIME)
 @Documented
 public @interface PolymorphicConfig {
-    // TODO: IGNITE-14645 Add javadoc
-    /** */
-    String id() default "base";
 }

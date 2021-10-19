@@ -615,23 +615,26 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Get the default value of a {@link Value}.
+     * Returns the default value for the configuration schema field
+     * by instantiating the schema and retrieving the field value.
      *
-     * @param field Configuration Schema class field.
+     * @param schemaField Configuration schema field for which we want to get the default value.
+     * @param <T> Default value type.
      * @return Default value.
+     * @throws IllegalStateException If there were problems creating schema instances.
+     * @see Value#hasDefault
+     * @see PolymorphicId#hasDefault
      */
-    public static Object defaultValue(Field field) {
-        assert hasDefault(field) : field;
-
+    public static <T> T defaultValue(Field schemaField) {
         try {
-            Object o = field.getDeclaringClass().getDeclaredConstructor().newInstance();
+            Object o = schemaField.getDeclaringClass().getDeclaredConstructor().newInstance();
 
-            field.setAccessible(true);
+            schemaField.setAccessible(true);
 
-            return field.get(o);
+            return (T)schemaField.get(o);
         }
         catch (ReflectiveOperationException e) {
-            throw new RuntimeException(e);
+            throw new IllegalStateException(e);
         }
     }
 
@@ -769,7 +772,7 @@ public class ConfigurationUtil {
      * @param schemaClass Configuration schema class.
      * @return Schema fields.
      */
-    public static Collection<Field> schemaFields(Class<?> schemaClass) {
+    public static List<Field> schemaFields(Class<?> schemaClass) {
         return Arrays.stream(schemaClass.getDeclaredFields())
             .filter(f -> isValue(f) || isConfigValue(f) || isNamedConfigValue(f) || isPolymorphicId(f))
             .collect(toList());
@@ -848,15 +851,11 @@ public class ConfigurationUtil {
      *
      * @param schemaClass Configuration schema class.
      * @return Identifier of the polymorphic configuration.
-     * @see PolymorphicConfig#id
      * @see PolymorphicConfigInstance#id
      */
-    public static String polymorphicId(Class<?> schemaClass) {
-        assert isPolymorphicConfig(schemaClass) || isPolymorphicConfigInstance(schemaClass) : schemaClass.getName();
+    public static String polymorphicInstanceId(Class<?> schemaClass) {
+        assert isPolymorphicConfigInstance(schemaClass) : schemaClass.getName();
 
-        if (isPolymorphicConfig(schemaClass))
-            return schemaClass.getAnnotation(PolymorphicConfig.class).id();
-        else
-            return schemaClass.getAnnotation(PolymorphicConfigInstance.class).id();
+        return schemaClass.getAnnotation(PolymorphicConfigInstance.class).id();
     }
 }

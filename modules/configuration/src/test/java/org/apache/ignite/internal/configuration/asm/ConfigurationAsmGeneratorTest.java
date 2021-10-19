@@ -256,16 +256,16 @@ public class ConfigurationAsmGeneratorTest {
 
         PolymorphicTestView polymorphicView = polymorphicCfg.value();
 
-        assertTrue(rootPolymorphicView == polymorphicView);
+        assertTrue(rootPolymorphicView.getClass() == polymorphicView.getClass());
 
         polymorphicCfg.change(c ->
             c.convert(FirstPolymorphicInstanceTestChange.class)
                 .convert(SecondPolymorphicInstanceTestChange.class)
-                .convert(PolymorphicTestChange.class)
+                .convert(FirstPolymorphicInstanceTestChange.class)
         ).get();
 
         polymorphicCfg.change(
-            c -> c.convert(FirstPolymorphicInstanceTestChange.class)
+            c -> c.convert(SecondPolymorphicInstanceTestChange.class)
         ).get();
     }
 
@@ -355,8 +355,8 @@ public class ConfigurationAsmGeneratorTest {
     @PolymorphicConfig
     public static class PolymorphicTestConfigurationSchema {
         /** Polymorphic type id field. */
-        @PolymorphicId
-        public String typeId;
+        @PolymorphicId(hasDefault = true)
+        public String typeId = "first";
 
         /** String value. */
         @Value(hasDefault = true)

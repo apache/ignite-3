@@ -158,38 +158,14 @@ public class Processor extends AbstractProcessor {
             TypeSpec.Builder configurationInterfaceBuilder = TypeSpec.interfaceBuilder(configInterface)
                 .addModifiers(PUBLIC);
 
-            for (int i = 0; i < fields.size(); i++) {
-                VariableElement field = fields.get(i);
-
-                if (field.getModifiers().contains(STATIC))
+            for (VariableElement field : fields) {
+                if (field.getModifiers().contains(STATIC) || field.getAnnotation(PolymorphicId.class) != null)
                     continue;
 
                 if (!field.getModifiers().contains(PUBLIC))
                     throw new ProcessorException("Field " + clazz.getQualifiedName() + "." + field + " must be public");
 
                 String fieldName = field.getSimpleName().toString();
-
-                if (field.getAnnotation(PolymorphicId.class) != null) {
-                    if (!isStringClass(field.asType())) {
-                        throw new ProcessorException(String.format(
-                            "%s %s.%s field must be String.",
-                            simpleName(PolymorphicId.class),
-                            fieldName,
-                            clazz.getQualifiedName()
-                        ));
-                    }
-                    else if (i != 0) {
-                        throw new ProcessorException(String.format(
-                            "%s %s.%s field must be the first in the schema.",
-                            simpleName(PolymorphicId.class),
-                            fieldName,
-                            clazz.getQualifiedName()
-                        ));
-                    }
-
-                    // Must be skipped, this is an internal special field.
-                    continue;
-                }
 
                 // Get configuration types (VIEW, CHANGE and so on)
                 TypeName interfaceGetMethodType = getInterfaceGetMethodType(field);
@@ -559,7 +535,7 @@ public class Processor extends AbstractProcessor {
      * @param fields Class fields.
      * @throws ProcessorException If the class validation fails.
      */
-    private void validate(TypeElement clazz, Collection<VariableElement> fields) {
+    private void validate(TypeElement clazz, List<VariableElement> fields) {
         if (clazz.getAnnotation(InternalConfiguration.class) != null) {
             Annotation incompatible =
                 findFirst(clazz, Config.class, PolymorphicConfig.class, PolymorphicConfigInstance.class);
@@ -646,21 +622,33 @@ public class Processor extends AbstractProcessor {
                     clazz.getQualifiedName()
                 ));
             }
-            else if (collectFields(fields, PolymorphicId.class).size() != 1) {
-                throw new ProcessorException(String.format(
-                    "Class with %s must have one string field with %s: %s",
-                    simpleName(PolymorphicConfig.class),
-                    simpleName(PolymorphicId.class),
-                    clazz.getQualifiedName()
-                ));
-            }
             else {
-                String id = clazz.getAnnotation(PolymorphicConfig.class).id();
+                List<VariableElement> typeIdFields = collectFields(fields, PolymorphicId.class);
 
-                if (id == null || id.isBlank()) {
+                if (typeIdFields.size() != 1) {
                     throw new ProcessorException(String.format(
-                        EMPTY_FIELD_ERROR_FORMAT,
-                        simpleName(PolymorphicConfig.class) + ".id()",
+                        "Class with %s must have one field with %s: %s",
+                        simpleName(PolymorphicConfig.class),
+                        simpleName(PolymorphicId.class),
+                        clazz.getQualifiedName()
+                    ));
+                }
+
+                VariableElement typeIdField = typeIdFields.get(0);
+
+                if (fields.indexOf(typeIdField) != 0) {
+                    throw new ProcessorException(String.format(
+                        "%s %s field must be the first in the schema: %s",
+                        simpleName(PolymorphicId.class),
+                        typeIdField.getSimpleName(),
+                        clazz.getQualifiedName()
+                    ));
+                }
+                else if (!isStringClass(typeIdField.asType())) {
+                    throw new ProcessorException(String.format(
+                        "%s %s field must be String: %s",
+                        simpleName(PolymorphicId.class),
+                        typeIdField.getSimpleName(),
                         clazz.getQualifiedName()
                     ));
                 }

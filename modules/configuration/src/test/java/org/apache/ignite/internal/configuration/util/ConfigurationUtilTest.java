@@ -489,15 +489,20 @@ public class ConfigurationUtilTest {
     /** */
     @Test
     void testFindInternalConfigs() {
-        Map<Class<?>, Set<Class<?>>> extensions = internalSchemaExtensions(List.of(
+        Map<Class<?>, Set<Class<?>>> internalExtensions = internalSchemaExtensions(List.of(
             InternalFirstSimpleRootConfigurationSchema.class,
             InternalSecondSimpleRootConfigurationSchema.class,
             InternalFirstSimpleConfigurationSchema.class,
             InternalSecondSimpleConfigurationSchema.class
         ));
 
+        Map<Class<?>, Set<Class<?>>> polymorphicExtensions = polymorphicSchemaExtensions(List.of(
+            FirstPolymorphicInstanceConfigurationSchema.class,
+            SecondPolymorphicInstanceConfigurationSchema.class
+        ));
+
         ConfigurationAsmGenerator generator = new ConfigurationAsmGenerator();
-        generator.compileRootSchema(SimpleRootConfigurationSchema.class, extensions, Map.of());
+        generator.compileRootSchema(SimpleRootConfigurationSchema.class, internalExtensions, polymorphicExtensions);
 
         InnerNode innerNode = generator.instantiateNode(SimpleRootConfigurationSchema.class);
 
@@ -525,15 +530,20 @@ public class ConfigurationUtilTest {
     /** */
     @Test
     void testGetInternalConfigs() {
-        Map<Class<?>, Set<Class<?>>> extensions = internalSchemaExtensions(List.of(
+        Map<Class<?>, Set<Class<?>>> internalExtensions = internalSchemaExtensions(List.of(
             InternalFirstSimpleRootConfigurationSchema.class,
             InternalSecondSimpleRootConfigurationSchema.class,
             InternalFirstSimpleConfigurationSchema.class,
             InternalSecondSimpleConfigurationSchema.class
         ));
 
+        Map<Class<?>, Set<Class<?>>> polymorphicExtensions = polymorphicSchemaExtensions(List.of(
+            FirstPolymorphicInstanceConfigurationSchema.class,
+            SecondPolymorphicInstanceConfigurationSchema.class
+        ));
+
         ConfigurationAsmGenerator generator = new ConfigurationAsmGenerator();
-        generator.compileRootSchema(SimpleRootConfigurationSchema.class, extensions, Map.of());
+        generator.compileRootSchema(SimpleRootConfigurationSchema.class, internalExtensions, polymorphicExtensions);
 
         InnerNode innerNode = generator.instantiateNode(SimpleRootConfigurationSchema.class);
 
@@ -853,8 +863,8 @@ public class ConfigurationUtilTest {
     @PolymorphicConfig
     public static class SimplePolymorphicConfigurationSchema {
         /** Polymorphic type id field. */
-        @PolymorphicId
-        public String typeId;
+        @PolymorphicId(hasDefault = true)
+        public String typeId = "first";
     }
 
     /**

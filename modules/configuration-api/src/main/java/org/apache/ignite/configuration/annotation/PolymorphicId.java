@@ -31,4 +31,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Retention(RUNTIME)
 @Documented
 public @interface PolymorphicId {
+    /** */
+    boolean hasDefault() default false;
 }

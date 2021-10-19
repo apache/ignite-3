@@ -63,6 +63,7 @@ public class ConfigurationRegistryTest {
     /** */
     @Test
     void testValidationPolymorphicConfigurationExtensions() {
+        // There is a polymorphic extension that is missing from the schema.
         assertThrows(
             IllegalArgumentException.class,
             () -> new ConfigurationRegistry(
@@ -74,6 +75,7 @@ public class ConfigurationRegistryTest {
             )
         );
 
+        // There are two polymorphic extensions with the same id.
         assertThrows(
             IllegalArgumentException.class,
             () -> new ConfigurationRegistry(
@@ -81,35 +83,36 @@ public class ConfigurationRegistryTest {
                 Map.of(),
                 new TestConfigurationStorage(LOCAL),
                 List.of(),
-                List.of(ErrorFirst0PolymorphicConfigurationSchema.class)
+                List.of(First0PolymorphicConfigurationSchema.class, ErrorFirst0PolymorphicConfigurationSchema.class)
             )
         );
 
+        // There is no default polymorphic extension.
         assertThrows(
             IllegalArgumentException.class,
             () -> new ConfigurationRegistry(
-                List.of(ThirdRootConfiguration.KEY),
+                List.of(FifthRootConfiguration.KEY),
                 Map.of(),
                 new TestConfigurationStorage(LOCAL),
                 List.of(),
-                List.of(First0PolymorphicConfigurationSchema.class, ErrorFirst1PolymorphicConfigurationSchema.class)
+                List.of(Third1PolymorphicConfigurationSchema.class)
             )
         );
 
         // Check that everything is fine.
         new ConfigurationRegistry(
-            List.of(ThirdRootConfiguration.KEY, FourthRootConfiguration.KEY),
+            List.of(ThirdRootConfiguration.KEY, FourthRootConfiguration.KEY, FifthRootConfiguration.KEY),
             Map.of(),
             new TestConfigurationStorage(LOCAL),
             List.of(),
             List.of(
                 First0PolymorphicConfigurationSchema.class,
                 First1PolymorphicConfigurationSchema.class,
-                Second0PolymorphicConfigurationSchema.class
+                Second0PolymorphicConfigurationSchema.class,
+                Third0PolymorphicConfigurationSchema.class,
+                Third1PolymorphicConfigurationSchema.class
             )
         );
-
-        ThirdRootConfiguration a = null;
     }
 
     /**
@@ -157,15 +160,25 @@ public class ConfigurationRegistryTest {
      */
     @ConfigurationRoot(rootName = "fourth")
     public static class FourthRootConfigurationSchema {
-        /** First polymorphic configuration scheme */
+        /** Second polymorphic configuration scheme */
         @ConfigValue
         public SecondPolymorphicConfigurationSchema polymorphicConfig;
     }
 
     /**
+     * Fifth root configuration.
+     */
+    @ConfigurationRoot(rootName = "fifth")
+    public static class FifthRootConfigurationSchema {
+        /** Third polymorphic configuration scheme */
+        @ConfigValue
+        public ThirdPolymorphicConfigurationSchema polymorphicConfig;
+    }
+
+    /**
      * Simple first polymorphic configuration scheme.
      */
-    @PolymorphicConfig(id = "first")
+    @PolymorphicConfig
     public static class FirstPolymorphicConfigurationSchema {
         /** Polymorphic type id field. */
         @PolymorphicId
@@ -187,9 +200,16 @@ public class ConfigurationRegistryTest {
     }
 
     /**
-     * Second first polymorphic configuration scheme.
+     * First error {@link FirstPolymorphicConfigurationSchema} extension.
      */
-    @PolymorphicConfig(id = "second")
+    @PolymorphicConfigInstance(id = "first0")
+    public static class ErrorFirst0PolymorphicConfigurationSchema extends FirstPolymorphicConfigurationSchema {
+    }
+
+    /**
+     * Second polymorphic configuration scheme.
+     */
+    @PolymorphicConfig
     public static class SecondPolymorphicConfigurationSchema {
         /** Polymorphic type id field. */
         @PolymorphicId
@@ -199,21 +219,31 @@ public class ConfigurationRegistryTest {
     /**
      * First {@link SecondPolymorphicConfigurationSchema} extension.
      */
-    @PolymorphicConfigInstance(id = "first0")
+    @PolymorphicConfigInstance(id = "second0")
     public static class Second0PolymorphicConfigurationSchema extends SecondPolymorphicConfigurationSchema {
     }
 
     /**
-     * First error {@link FirstPolymorphicConfigurationSchema} extension.
+     * Third polymorphic configuration scheme.
      */
-    @PolymorphicConfigInstance(id = "first")
-    public static class ErrorFirst0PolymorphicConfigurationSchema extends FirstPolymorphicConfigurationSchema {
+    @PolymorphicConfig
+    public static class ThirdPolymorphicConfigurationSchema {
+        /** Polymorphic type id field. */
+        @PolymorphicId(hasDefault = true)
+        public String typeId = "third0";
     }
 
     /**
-     * Second error {@link FirstPolymorphicConfigurationSchema} extension.
+     * First {@link ThirdPolymorphicConfigurationSchema} extension.
      */
-    @PolymorphicConfigInstance(id = "first0")
-    public static class ErrorFirst1PolymorphicConfigurationSchema extends FirstPolymorphicConfigurationSchema {
+    @PolymorphicConfigInstance(id = "third0")
+    public static class Third0PolymorphicConfigurationSchema extends ThirdPolymorphicConfigurationSchema {
+    }
+
+    /**
+     * First {@link ThirdPolymorphicConfigurationSchema} extension.
+     */
+    @PolymorphicConfigInstance(id = "third1")
+    public static class Third1PolymorphicConfigurationSchema extends ThirdPolymorphicConfigurationSchema {
     }
 }

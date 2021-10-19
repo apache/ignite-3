@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration;
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -33,8 +34,8 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
-import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Max;
 import org.apache.ignite.configuration.validation.Min;
@@ -61,9 +62,13 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.configuration.util.ConfigurationNotificationsUtil.notifyListeners;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectSchemas;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.defaultValue;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isPolymorphicId;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicInstanceId;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicSchemaExtensions;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaFields;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 
@@ -262,6 +267,9 @@ public class ConfigurationRegistry implements IgniteComponent {
         Set<Class<?>> allSchemas,
         Collection<Class<?>> internalSchemaExtensions
     ) {
+        if (internalSchemaExtensions.isEmpty())
+            return Map.of();
+
         Map<Class<?>, Set<Class<?>>> internalExtensions = internalSchemaExtensions(internalSchemaExtensions);
 
         Set<Class<?>> notInAllSchemas = difference(internalExtensions.keySet(), allSchemas);
@@ -288,6 +296,9 @@ public class ConfigurationRegistry implements IgniteComponent {
         Set<Class<?>> allSchemas,
         Collection<Class<?>> polymorphicSchemaExtensions
     ) {
+        if (polymorphicSchemaExtensions.isEmpty())
+            return Map.of();
+
         Map<Class<?>, Set<Class<?>>> polymorphicExtensions = polymorphicSchemaExtensions(polymorphicSchemaExtensions);
 
         Set<Class<?>> notInAllSchemas = difference(polymorphicExtensions.keySet(), allSchemas);
@@ -311,6 +322,32 @@ public class ConfigurationRegistry implements IgniteComponent {
 
         checkPolymorphicConfigIds(polymorphicExtensions);
 
+        for (Map.Entry<Class<?>, Set<Class<?>>> e : polymorphicExtensions.entrySet()) {
+            Class<?> schemaClass = e.getKey();
+
+            Field typeIdField = schemaFields(schemaClass).get(0);
+
+            if (!isPolymorphicId(typeIdField)) {
+                throw new IllegalArgumentException(String.format(
+                    "First field in a polymorphic configuration schema must contain @%s: %s",
+                    PolymorphicId.class,
+                    schemaClass.getName()
+                ));
+            }
+
+            if (typeIdField.getAnnotation(PolymorphicId.class).hasDefault()) {
+                String defId = defaultValue(typeIdField);
+
+                if (!viewReadOnly(e.getValue(), ConfigurationUtil::polymorphicInstanceId).contains(defId)) {
+                    throw new IllegalArgumentException(String.format(
+                        "No default value for %s was found among polymorphic config extensions: %s",
+                        typeIdField.getDeclaringClass().getName() + "." + typeIdField.getName(),
+                        e.getValue()
+                    ));
+                }
+            }
+        }
+
         return polymorphicExtensions;
     }
 
@@ -319,21 +356,15 @@ public class ConfigurationRegistry implements IgniteComponent {
      *
      * @param polymorphicExtensions Mapping: polymorphic scheme -> extensions (instances) of polymorphic configuration.
      * @throws IllegalArgumentException If a polymorphic configuration id conflict is found.
-     * @see PolymorphicConfig#id
      * @see PolymorphicConfigInstance#id
      */
     private void checkPolymorphicConfigIds(Map<Class<?>, Set<Class<?>>> polymorphicExtensions) {
-        if (polymorphicExtensions.isEmpty())
-            return;
-
         // Mapping: id -> configuration schema.
         Map<String, Class<?>> ids = new HashMap<>();
 
         for (Map.Entry<Class<?>, Set<Class<?>>> e : polymorphicExtensions.entrySet()) {
-            ids.put(e.getKey().getAnnotation(PolymorphicConfig.class).id(), e.getKey());
-
             for (Class<?> schemaClass : e.getValue()) {
-                String id = schemaClass.getAnnotation(PolymorphicConfigInstance.class).id();
+                String id = polymorphicInstanceId(schemaClass);
                 Class<?> prev = ids.put(id, schemaClass);
 
                 if (prev != null) {
