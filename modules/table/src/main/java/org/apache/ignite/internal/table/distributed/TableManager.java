@@ -1016,11 +1016,21 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             future.join();
         }
         catch (CompletionException ex) {
-            if (ex.getCause() instanceof RuntimeException)
-                throw (RuntimeException)ex.getCause();
-
-            throw ex;
+            throw convertThrowable(ex.getCause());
         }
+    }
+
+    /**
+     * Convert to public throwable.
+     *
+     * @param th Throwable.
+     * @return Public throwable.
+     */
+    private RuntimeException convertThrowable(Throwable th) {
+        if (th instanceof RuntimeException)
+            return (RuntimeException)th;
+
+        return new IgniteException(th);
     }
 
     /**
