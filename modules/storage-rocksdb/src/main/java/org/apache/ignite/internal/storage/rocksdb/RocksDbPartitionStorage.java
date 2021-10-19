@@ -84,7 +84,7 @@ public class RocksDbPartitionStorage implements PartitionStorage {
     }
 
     /**
-     * Returns ColumnFamily instance associated with the partition.
+     * Returns the ColumnFamily instance associated with the partition.
      *
      * @return ColumnFamily instance associated with the partition.
      */

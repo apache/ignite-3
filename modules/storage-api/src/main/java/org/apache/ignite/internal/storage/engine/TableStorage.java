@@ -20,37 +20,39 @@ package org.apache.ignite.internal.storage.engine;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Table storage that contains meta, partitions and SQL indexes.
  */
 public interface TableStorage {
     /**
-     * Retrieves or creates a partition for current table. Not expected to be called concurrently with the same
+     * Retrieves or creates a partition for the current table. Not expected to be called concurrently with the same
      * partition id.
      *
      * @param partId Partition id.
      * @return Partition storage.
-     * @throws IllegalArgumentException If partition id is invalid.
-     * @throws StorageException If error occurred during partition creation.
+     * @throws IllegalArgumentException If partition id is out of bounds.
+     * @throws StorageException If an error has occurred during the partition creation.
      */
     PartitionStorage getOrCreatePartition(int partId) throws StorageException;
 
     /**
-     * Returns partition storage or {@code null} if required storage doesn't exist.
+     * Returns the partition storage or {@code null} if the requested storage doesn't exist.
      *
      * @param partId Partition id.
      * @return Partition storage or {@code null}.
-     * @throws IllegalArgumentException If partition id is invalid.
+     * @throws IllegalArgumentException If partition id is out of bounds.
      */
+    @Nullable
     PartitionStorage getPartition(int partId);
 
     /**
-     * Destroys partition if it exists.
+     * Destroys a partition if it exists.
      *
      * @param partId Partition id.
-     * @throws IllegalArgumentException If partition id is invalid.
-     * @throws StorageException If error occurred during partition destruction.
+     * @throws IllegalArgumentException If partition id is out of bounds.
+     * @throws StorageException If an error has occurred during the partition destruction.
      */
     void dropPartition(int partId) throws StorageException;
 
@@ -62,30 +64,30 @@ public interface TableStorage {
     TableConfiguration configuration();
 
     /**
-     * Returns data region containing tables data.
+     * Returns the data region containing table's data.
      *
-     * @return Data region containing tables data.
+     * @return Data region containing table's data.
      */
     DataRegion dataRegion();
 
     /**
      * Starts the storage.
      *
-     * @throws StorageException If something went wrong.
+     * @throws StorageException If error has occurred during the start of the storage.
      */
     public void start() throws StorageException;
 
     /**
      * Stops the storage.
      *
-     * @throws StorageException If something went wrong.
+     * @throws StorageException If error has occurred during the stop of the storage.
      */
     void stop() throws StorageException;
 
     /**
      * Stops and destroys the storage and cleans all allocated resources.
      *
-     * @throws StorageException If something went wrong.
+     * @throws StorageException If error has occurred during the destruction of the storage.
      */
     void destroy() throws StorageException;
 }

@@ -199,18 +199,18 @@ public final class CollectionUtils {
     }
 
     /**
-     * Converts iterator to stream.
+     * Converts an iterator to a stream.
      *
      * @param iterator Iterator.
      * @param <T> Type of elements in iterator.
      * @return Stream.
      */
-    public static <T> Stream<T> iteratorToStream(Iterator<T> iterator) {
+    public static <T> Stream<T> toStream(Iterator<T> iterator) {
         return stream(spliteratorUnknownSize(iterator, Spliterator.ORDERED), false);
     }
 
     /**
-     * Returns iterator that iterates list in reverse order.
+     * Returns an iterator that iterates a list in reverse order.
      *
      * @param list List.
      * @param <T> Type of elements in list.

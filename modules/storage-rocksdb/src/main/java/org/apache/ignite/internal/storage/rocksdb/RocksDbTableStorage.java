@@ -21,13 +21,13 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.BiFunction;
-import java.util.stream.IntStream;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
@@ -52,9 +52,6 @@ import org.rocksdb.RocksDBException;
 
 import static java.lang.Integer.parseInt;
 import static java.util.stream.Collectors.groupingBy;
-import static java.util.stream.Stream.concat;
-import static org.apache.ignite.internal.util.CollectionUtils.iteratorToStream;
-import static org.apache.ignite.internal.util.CollectionUtils.reverseIterator;
 
 /**
  * Table storage implementation based on {@link RocksDB} instance.
@@ -100,11 +97,8 @@ public class RocksDbTableStorage implements TableStorage {
     /** Column families for partitions. Stored as an array for the quick access by an index. */
     private AtomicReferenceArray<RocksDbPartitionStorage> partitions;
 
-    /** Max number of partitions in the table. */
-    private int maxPartitions;
-
     /** Column families for indexes by their names. */
-    private Map<String, ColumnFamilyHandle> indicesCfHandles = new ConcurrentHashMap<>();
+    private final Map<String, ColumnFamilyHandle> indicesCfHandles = new ConcurrentHashMap<>();
 
     /** Utility enum to describe a type of the column family - meta, partition or index. */
     private enum ColumnFamilyType {
@@ -154,15 +148,13 @@ public class RocksDbTableStorage implements TableStorage {
             .setWriteBufferManager(dataRegion.writeBufferManager())
         );
 
-        maxPartitions = tableCfg.value().partitions();
-
-        partitions = new AtomicReferenceArray<>(maxPartitions);
+        partitions = new AtomicReferenceArray<>(tableCfg.value().partitions());
 
         try {
             db = addToCloseableResources(RocksDB.open(dbOptions, tablePath.toAbsolutePath().toString(), cfDescriptors, cfHandles));
         }
         catch (RocksDBException e) {
-            throw new StorageException("Failed to initialize RocksDB instance. " + System.currentTimeMillis(), e);
+            throw new StorageException("Failed to initialize RocksDB instance.", e);
         }
 
         for (int cfListIndex = 0; cfListIndex < cfHandles.size(); cfListIndex++) {
@@ -198,10 +190,21 @@ public class RocksDbTableStorage implements TableStorage {
     /** {@inheritDoc} */
     @Override public void stop() throws StorageException {
         try {
-            IgniteUtils.closeAll(concat(
-                concat(IntStream.range(0, maxPartitions).mapToObj(partitions::get), indicesCfHandles.values().stream()),
-                iteratorToStream(reverseIterator(autoCloseables))
-            ));
+            List<AutoCloseable> resources = new ArrayList<>();
+
+            resources.addAll(autoCloseables);
+            resources.addAll(indicesCfHandles.values());
+
+            for (int i = 0; i < partitions.length(); i++) {
+                RocksDbPartitionStorage partition = partitions.get(i);
+
+                if (partition != null)
+                    resources.add(partition);
+            }
+
+            Collections.reverse(resources);
+
+            IgniteUtils.closeAll(resources);
         }
         catch (Exception e) {
             throw new StorageException("Failed to stop RocksDB table storage.", e);
@@ -270,25 +273,27 @@ public class RocksDbTableStorage implements TableStorage {
 
             try {
                 db.dropColumnFamily(cfHandle);
+
+                db.destroyColumnFamilyHandle(cfHandle);
             }
             catch (RocksDBException e) {
-                throw new StorageException("Failed to srop partition", e);
+                throw new StorageException("Failed to stop partition", e);
             }
         }
     }
 
     /**
-     * Checks that passed partition id is within proper bounds.
+     * Checks that a passed partition id is within the proper bounds.
      *
      * @param partId Partition id.
      */
     private void checkPartitionId(int partId) {
-        if (partId < 0 || partId >= maxPartitions) {
+        if (partId < 0 || partId >= partitions.length()) {
             throw new IllegalArgumentException(S.toString(
                 "Unable to access partition with id outside of configured range",
                 "table", tableCfg.name().value(), false,
                 "partitionId", partId, false,
-                "partitions", maxPartitions, false
+                "partitions", partitions.length(), false
             ));
         }
     }

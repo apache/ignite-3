@@ -67,7 +67,7 @@ public class TableExamplesTest {
     }
 
     @BeforeEach
-    private void startNode(@WorkDirectory Path workDir) throws IOException {
+    public void startNode(@WorkDirectory Path workDir) throws IOException {
         IgnitionManager.start(
             "my-first-node",
             Files.readString(Path.of("config", "ignite-config.json")),
@@ -76,7 +76,7 @@ public class TableExamplesTest {
     }
 
     @AfterEach
-    private void stopNode() {
+    public void stopNode() {
         IgnitionManager.stop("my-first-node");
     }
 
@@ -85,7 +85,7 @@ public class TableExamplesTest {
      */
     @BeforeEach
     @AfterEach
-    private void removeWorkDir() {
+    public void removeWorkDir() {
         Path workDir = Path.of("work");
 
         if (Files.exists(workDir))
