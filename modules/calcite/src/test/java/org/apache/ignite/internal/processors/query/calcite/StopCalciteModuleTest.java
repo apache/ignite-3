@@ -68,7 +68,7 @@ import static org.mockito.Mockito.when;
  * Stop Calcite module test.
  */
 @ExtendWith(MockitoExtension.class)
-public class StopCalciteModuleTest  {
+public class StopCalciteModuleTest {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(StopCalciteModuleTest.class);
 
@@ -106,7 +106,7 @@ public class StopCalciteModuleTest  {
         when(topologySrvc.localMember()).thenReturn(node);
         when(topologySrvc.allMembers()).thenReturn(Collections.singleton(node));
 
-        SchemaDescriptor schemaDesc =  new SchemaDescriptor(
+        SchemaDescriptor schemaDesc = new SchemaDescriptor(
             0,
             new Column[]{new Column("ID", NativeTypes.INT32, false)},
             new Column[]{new Column("VAL", NativeTypes.INT32, false)}
