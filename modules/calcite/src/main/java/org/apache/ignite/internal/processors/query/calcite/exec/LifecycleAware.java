@@ -18,14 +18,18 @@
 package org.apache.ignite.internal.processors.query.calcite.exec;
 
 /**
- *
+ * SQL query engine service life cycle mark interface.
  */
 public interface LifecycleAware {
     /**
+     * Initialize the service.
      */
     void start();
 
     /**
+     * Stop the service.
+     *
+     * @throws Exception on eny error during the stopping.
      */
     void stop() throws Exception;
 }
