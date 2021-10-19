@@ -38,7 +38,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.configuration.DirectConfigurationProperty;
-import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
@@ -340,13 +339,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override public void stop() {
-        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tablesView = tablesCfg.tables();
+        NamedListView<TableView> tablesView = tablesCfg.tables().value();
 
         for (Map.Entry<String, TableImpl> entry : tables.entrySet()) {
             String tblName = entry.getKey();
             TableImpl table = entry.getValue();
 
-            byte[] assignmentsBytes = ((ExtendedTableConfiguration)tablesView.get(tblName)).assignments().value();
+            byte[] assignmentsBytes = ((ExtendedTableView)tablesView.get(tblName)).assignments();
 
             var assignment = (List<List<ClusterNode>>)ByteUtils.fromBytes(assignmentsBytes);
 
