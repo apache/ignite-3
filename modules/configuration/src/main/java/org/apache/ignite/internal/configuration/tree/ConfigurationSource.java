@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.configuration.tree;
 
+import org.jetbrains.annotations.Nullable;
+
 /** */
 public interface ConfigurationSource {
     /**
@@ -44,5 +46,15 @@ public interface ConfigurationSource {
      * Reset internal state, preparing this configuration source for reuse.
      */
     default void reset() {
+    }
+
+    /**
+     * Returns the identifier of the polymorphic configuration instance.
+     *
+     * @param fieldName Name of the field in the configuration schema that should store the identifier of the polymorphic configuration instance.
+     * @return Identifier of the polymorphic configuration instance.
+     */
+    @Nullable default String polymorphicTypeId(String fieldName) {
+        return null;
     }
 }

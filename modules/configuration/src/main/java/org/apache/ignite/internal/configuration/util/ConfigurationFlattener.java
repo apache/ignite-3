@@ -47,7 +47,7 @@ public class ConfigurationFlattener {
 
         oldInnerNodesStack.push(curRoot);
 
-        // Explicit access to the children of super root guarantees that "oldInnerNodesStack" is never empty and thus
+        // Explicit access to the children of super root guarantees that "oldInnerNodesStack" is never empty, and thus
         // we don't need null-checks when calling Deque#peek().
         updates.traverseChildren(new FlattenerVisitor(oldInnerNodesStack, resMap), true);
 
@@ -92,6 +92,12 @@ public class ConfigurationFlattener {
          */
         private boolean deletion;
 
+        /**
+         * Constructor.
+         *
+         * @param oldInnerNodesStack Old nodes stack for recursion.
+         * @param resMap Map with the result.
+         */
         FlattenerVisitor(Deque<InnerNode> oldInnerNodesStack, Map<String, Serializable> resMap) {
             this.oldInnerNodesStack = oldInnerNodesStack;
             this.resMap = resMap;
@@ -120,6 +126,11 @@ public class ConfigurationFlattener {
 
             if (oldNode == null)
                 visitAsymmetricInnerNode(newNode, false);
+            else if (oldNode.schemaType() != newNode.schemaType()) {
+                visitAsymmetricInnerNode(oldNode, true);
+
+                visitAsymmetricInnerNode(newNode, false);
+            }
             else {
                 oldInnerNodesStack.push(oldNode);
 

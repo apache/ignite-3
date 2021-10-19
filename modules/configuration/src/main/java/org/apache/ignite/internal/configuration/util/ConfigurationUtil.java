@@ -56,6 +56,7 @@ import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
+import org.jetbrains.annotations.Nullable;
 
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
@@ -242,9 +243,7 @@ public class ConfigurationUtil {
      * @throws UnsupportedOperationException if prefix map structure doesn't correspond to actual tree structure.
      *      This will be fixed when method is actually used in configuration storage intergration.
      */
-    public static void fillFromPrefixMap(ConstructableTreeNode node, Map<String, ?> prefixMap) {
-        assert node instanceof InnerNode;
-
+    public static void fillFromPrefixMap(InnerNode node, Map<String, ?> prefixMap) {
         /** */
         class LeafConfigurationSource implements ConfigurationSource {
             /** */
@@ -309,12 +308,14 @@ public class ConfigurationUtil {
                         node.construct(key, null, true);
                     else if (val instanceof Map)
                         node.construct(key, new InnerConfigurationSource((Map<String, ?>)val), true);
-                    else {
-                        assert val instanceof Serializable;
-
+                    else
                         node.construct(key, new LeafConfigurationSource((Serializable)val), true);
-                    }
                 }
+            }
+
+            /** {@inheritDoc} */
+            @Override public @Nullable String polymorphicTypeId(String fieldName) {
+                return (String)map.get(fieldName);
             }
 
             /**
@@ -397,11 +398,8 @@ public class ConfigurationUtil {
                                 orderedKeys.set(idx, newKey);
                         }
                     }
-                    else {
-                        assert val instanceof Serializable;
-
+                    else
                         node.construct(oldKey, new LeafConfigurationSource((Serializable)val), true);
-                    }
                 }
 
                 node.reorderKeys(orderedKeys.size() > node.size()
@@ -411,9 +409,7 @@ public class ConfigurationUtil {
             }
         }
 
-        var src = new InnerConfigurationSource(prefixMap);
-
-        src.descend(node);
+        new InnerConfigurationSource(prefixMap).descend(node);
     }
 
     /**

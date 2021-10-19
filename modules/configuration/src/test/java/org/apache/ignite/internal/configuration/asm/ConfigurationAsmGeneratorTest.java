@@ -43,6 +43,7 @@ import org.junit.jupiter.api.Test;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -267,6 +268,14 @@ public class ConfigurationAsmGeneratorTest {
         polymorphicCfg.change(
             c -> c.convert(SecondPolymorphicInstanceTestChange.class)
         ).get();
+
+        polymorphicCfg.change(c -> c.convert(SecondPolymorphicInstanceTestChange.class));
+
+        SecondPolymorphicInstanceTestView newVal = (SecondPolymorphicInstanceTestView)polymorphicCfg.value();
+
+        assertEquals("strVal", newVal.strVal());
+        assertEquals(0, newVal.intVal());
+        assertEquals(0L, newVal.longVal());
     }
 
     /**
