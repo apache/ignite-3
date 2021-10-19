@@ -26,12 +26,10 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Column descriptor which contains a column name, a type and a nullability flag.
  * <p>
- * Column instances are comparable in lexicographic order, native type first and then column name. Nullability
- * flag is not taken into account when columns are compared.
- * <p>
- * Because of columns must be written to a row in specific order, column write order may differs from the user order
+ * Because of columns must be written to a row in a specific order,
+ * column write order ({@link #schemaIndex}) may differ from the user-defined order ({@link #columnOrder}).
  */
-public class Column implements Comparable<Column>, Serializable {
+public class Column implements  Serializable {
     /** Absolute index in schema descriptor. */
     private final int schemaIndex;
 
@@ -189,16 +187,6 @@ public class Column implements Comparable<Column>, Serializable {
     /** {@inheritDoc} */
     @Override public int hashCode() {
         return name.hashCode() + 31 * type.hashCode();
-    }
-
-    /** {@inheritDoc} */
-    @Override public int compareTo(Column o) {
-        int cmp = type.compareTo(o.type);
-
-        if (cmp != 0)
-            return cmp;
-
-        return name.compareTo(o.name);
     }
 
     /**
