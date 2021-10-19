@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -54,10 +55,10 @@ public class SchemaDescriptorTest {
     }
 
     /**
-     *
+     * Check column order.
      */
     @Test
-    public void columnOrderedAccess() {
+    public void columnOrder() {
         Column[] keyColumns = {
             new Column(0, "columnA", NativeTypes.INT8, false, () -> null),
             new Column(1, "columnB", NativeTypes.UUID, false, () -> null),
@@ -83,5 +84,7 @@ public class SchemaDescriptorTest {
 
             assertEquals(columns.get(col.columnOrder()), col);
         }
+
+        assertArrayEquals(columns.stream().map(Column::name).toArray(String[]::new), desc.columnNames().toArray(String[]::new));
     }
 }
