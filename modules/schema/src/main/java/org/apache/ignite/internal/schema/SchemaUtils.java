@@ -95,7 +95,7 @@ public class SchemaUtils {
             .filter(c -> oldDesc.isKeyColumn(c.schemaIndex()))
             .findAny();
 
-        // TODO: IGNITE-15414 Assertion just in case, proper validation should be implemented with the help of
+        // TODO: IGNITE-15774 Assertion just in case, proper validation should be implemented with the help of
         // TODO: configuration validators.
         assert !droppedKeyCol.isPresent() :
             LoggerMessageHelper.format(
