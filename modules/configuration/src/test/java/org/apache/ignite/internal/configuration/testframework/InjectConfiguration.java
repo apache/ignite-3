@@ -26,6 +26,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.internal.configuration.ConfigurationChanger;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.intellij.lang.annotations.Language;
 
 /**
  * Annotation for injecting configuration instances into tests.
@@ -56,6 +57,7 @@ public @interface InjectConfiguration {
      *
      * @return Initial configuration values in HOCON format.
      */
+    @Language("HOCON")
     String value() default "mock : {}";
 
     /**
