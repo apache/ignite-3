@@ -291,7 +291,7 @@ class ITDynamicTableCreationTest {
         assertTableCreationFailed(grid, colChanger -> colChanger.changeType(t -> t.changeType("BYTES").changeLength(-1)));
     }
 
-    @Disabled("IGNITE-15747")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15747")
     @Test
     void testMissedPK() {
         List<Ignite> grid = startGrid();
