@@ -29,7 +29,7 @@ import org.jetbrains.annotations.NotNull;
  * Because of columns must be written to a row in a specific order,
  * column write order ({@link #schemaIndex}) may differ from the user-defined order ({@link #columnOrder}).
  */
-public class Column implements  Serializable {
+public class Column implements Serializable {
     /** Absolute index in schema descriptor. */
     private final int schemaIndex;
 
