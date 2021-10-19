@@ -67,7 +67,6 @@ public class MessageServiceImpl implements MessageService {
         this.taskExecutor = taskExecutor;
 
         locNodeId = topSrvc.localMember().id();
-
     }
 
     /** {@inheritDoc} */
