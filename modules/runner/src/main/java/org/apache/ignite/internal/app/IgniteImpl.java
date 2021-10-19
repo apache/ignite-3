@@ -178,7 +178,6 @@ public class IgniteImpl implements Ignite {
             new RocksDBKeyValueStorage(workDir.resolve(METASTORAGE_DB_PATH))
         );
 
-        // TODO: IGNITE-15414 Schema validation refactoring with configuration validators.
         clusterCfgMgr = new ConfigurationManager(
             List.of(
                 ClusterConfiguration.KEY,
