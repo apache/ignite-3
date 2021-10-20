@@ -73,7 +73,7 @@ public interface TableStorage {
     /**
      * Starts the storage.
      *
-     * @throws StorageException If error has occurred during the start of the storage.
+     * @throws StorageException If an error has occurred during the start of the storage.
      */
     public void start() throws StorageException;
 
@@ -87,7 +87,7 @@ public interface TableStorage {
     /**
      * Stops and destroys the storage and cleans all allocated resources.
      *
-     * @throws StorageException If error has occurred during the destruction of the storage.
+     * @throws StorageException If an error has occurred during the destruction of the storage.
      */
     void destroy() throws StorageException;
 }

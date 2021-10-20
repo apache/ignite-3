@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -140,7 +142,14 @@ public class RocksDbTableStorage implements TableStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized void start() throws StorageException {
+    @Override public void start() throws StorageException {
+        try {
+            Files.createDirectories(tablePath);
+        }
+        catch (IOException e) {
+            throw new StorageException("Failed to create directory for table storage.", e);
+        }
+
         Map<ColumnFamilyType, List<String>> cfNamesGrouped = getColumnFamiliesNames();
 
         List<ColumnFamilyDescriptor> cfDescriptors = convertToColumnFamiliesDescriptors(cfNamesGrouped);
@@ -192,7 +201,7 @@ public class RocksDbTableStorage implements TableStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized void stop() throws StorageException {
+    @Override public void stop() throws StorageException {
         try {
             stopped = true;
 
@@ -218,14 +227,14 @@ public class RocksDbTableStorage implements TableStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized void destroy() throws StorageException {
+    @Override public void destroy() throws StorageException {
         stop();
 
         IgniteUtils.deleteIfExists(tablePath);
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized PartitionStorage getOrCreatePartition(int partId) throws StorageException {
+    @Override public PartitionStorage getOrCreatePartition(int partId) throws StorageException {
         if (stopped)
             throw new StorageException(new NodeStoppingException());
 
@@ -261,7 +270,7 @@ public class RocksDbTableStorage implements TableStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized PartitionStorage getPartition(int partId) {
+    @Override public PartitionStorage getPartition(int partId) {
         if (stopped)
             throw new StorageException(new NodeStoppingException());
 
@@ -271,7 +280,7 @@ public class RocksDbTableStorage implements TableStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized void dropPartition(int partId) throws StorageException {
+    @Override public void dropPartition(int partId) throws StorageException {
         if (stopped)
             throw new StorageException(new NodeStoppingException());
 

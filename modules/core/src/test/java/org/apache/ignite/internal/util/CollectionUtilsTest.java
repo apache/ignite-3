@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.util;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.StreamSupport;
@@ -26,11 +25,9 @@ import org.junit.jupiter.api.Test;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
-import static org.apache.ignite.internal.util.CollectionUtils.reverseIterator;
 import static org.apache.ignite.internal.util.CollectionUtils.union;
 import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -89,29 +86,6 @@ public class CollectionUtilsTest {
         assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null).retainAll(List.of()));
 
         assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null).iterator().remove());
-    }
-
-    /** */
-    @Test
-    void testReverseIterator() {
-        assertFalse(reverseIterator(List.of()).hasNext());
-
-        Iterator<String> fooIter = reverseIterator(List.of("foo"));
-
-        assertTrue(fooIter.hasNext());
-        assertEquals("foo", fooIter.next());
-
-        assertFalse(fooIter.hasNext());
-
-        Iterator<String> fooBarIter = reverseIterator(List.of("foo", "bar"));
-
-        assertTrue(fooBarIter.hasNext());
-        assertEquals("bar", fooBarIter.next());
-
-        assertTrue(fooBarIter.hasNext());
-        assertEquals("foo", fooBarIter.next());
-
-        assertFalse(fooBarIter.hasNext());
     }
 
     /**
