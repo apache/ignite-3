@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.processors.query.calcite.schema;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
@@ -73,17 +73,26 @@ public class SchemaHolderImpl implements SchemaHolder {
 
         SchemaDescriptor descriptor = table.schemaView().schema();
 
-        List<ColumnDescriptor> colDescriptors = descriptor.columnNames().stream()
-            .map(descriptor::column)
-            .sorted(Comparator.comparingInt(Column::schemaIndex))
-            .map(col -> new ColumnDescriptorImpl(
-                col.name(),
-                descriptor.isKeyColumn(col.schemaIndex()),
-                col.schemaIndex(),
-                col.type(),
-                col::defaultValue
-            ))
-            .collect(Collectors.toList());
+        List<Column> columns = new ArrayList<>(descriptor.length());
+
+        for (int i = 0; i < descriptor.length(); i++)
+            columns.add(descriptor.column(i));
+
+        columns.sort(Comparator.comparingLong(Column::columnOrder));
+
+        List<ColumnDescriptor> colDescriptors = new ArrayList<>(columns.size());
+
+        for (Column col : columns) {
+            colDescriptors.add(
+                new ColumnDescriptorImpl(
+                    col.name(),
+                    descriptor.isKeyColumn(col.schemaIndex()),
+                    col.schemaIndex(),
+                    col.type(),
+                    col::defaultValue
+                )
+            );
+        }
 
         TableDescriptorImpl desc = new TableDescriptorImpl(table, colDescriptors);
 

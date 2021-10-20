@@ -29,7 +29,6 @@ import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -41,7 +40,6 @@ import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
 /**
  * Index spool test.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ITIndexSpoolTest extends AbstractBasicIntegrationTest {
     /** */
     private static final IgniteLogger LOG = IgniteLogger.forClass(AbstractBasicIntegrationTest.class);
