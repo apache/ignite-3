@@ -100,7 +100,7 @@ public class ConfigurationAsmGeneratorTest {
 
     /** */
     @Test
-    void testExtendedRootConfiguration() throws Exception {
+    void testInternalRootConfiguration() throws Exception {
         DynamicConfiguration<?, ?> config = generator.instantiateCfg(TestRootConfiguration.KEY, changer);
 
         TestRootConfiguration baseRootConfig = (TestRootConfiguration)config;
@@ -144,7 +144,7 @@ public class ConfigurationAsmGeneratorTest {
 
     /** */
     @Test
-    void testExtendedSubConfiguration() throws Exception {
+    void testInternalSubConfiguration() throws Exception {
         DynamicConfiguration<?, ?> config = generator.instantiateCfg(TestRootConfiguration.KEY, changer);
 
         TestRootConfiguration rootConfig = (TestRootConfiguration)config;
@@ -185,7 +185,7 @@ public class ConfigurationAsmGeneratorTest {
 
     /** */
     @Test
-    void testExtendedNamedConfiguration() throws Exception {
+    void testInternalNamedConfiguration() throws Exception {
         DynamicConfiguration<?, ?> config = generator.instantiateCfg(TestRootConfiguration.KEY, changer);
 
         TestRootConfiguration rootConfig = (TestRootConfiguration)config;
@@ -283,6 +283,20 @@ public class ConfigurationAsmGeneratorTest {
 
         assertEquals("strVal", newVal1.strVal());
         assertEquals(0, newVal1.intVal());
+    }
+
+    /** */
+    @Test
+    void testPolymorphicSubConfiguration() throws Exception {
+        TestRootConfiguration rootConfig = (TestRootConfiguration)generator.instantiateCfg(TestRootConfiguration.KEY, changer);
+
+        FirstPolymorphicInstanceTestConfiguration firstCfg = (FirstPolymorphicInstanceTestConfiguration)rootConfig.polymorphicSubCfg();
+        assertEquals("strVal", firstCfg.strVal().value());
+        assertEquals(0, firstCfg.intVal().value());
+
+        FirstPolymorphicInstanceTestView firstVal = (FirstPolymorphicInstanceTestView)firstCfg.value();
+        assertEquals("strVal", firstVal.strVal());
+        assertEquals(0, firstVal.intVal());
     }
 
     /**

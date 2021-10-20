@@ -1447,7 +1447,7 @@ public class ConfigurationAsmGenerator {
         addCfgImplConfigTypeMethod(classDef, typeFromJavaClassName(schemaClassInfo.cfgClassName));
 
         if (!polymorphicExtensions.isEmpty())
-            addNodeSpecificConfigTreeMethod(classDef, schemaClass, polymorphicExtensions, polymorphicTypeIdFieldDef);
+            addNodeSpecificConfigTreeMethod(classDef, polymorphicExtensions, polymorphicTypeIdFieldDef);
 
         return classDef;
     }
@@ -2220,23 +2220,19 @@ public class ConfigurationAsmGenerator {
     /**
      * Adds a {@link DynamicConfiguration#specificConfigTree} override for the polymorphic configuration case.
      *
-     * @param classDef Definition of a polymorphic configuration class {@code schemaClass}.
-     * @param schemaClass Polymorphic configuration schema (parent).
+     * @param classDef Definition of a polymorphic configuration class (parent).
      * @param polymorphicExtensions Polymorphic configuration instance schemas (children).
      * @param polymorphicTypeIdFieldDef Identification field for the polymorphic configuration instance.
      */
     private void addNodeSpecificConfigTreeMethod(
         ClassDefinition classDef,
-        Class<?> schemaClass,
         Set<Class<?>> polymorphicExtensions,
         FieldDefinition polymorphicTypeIdFieldDef
     ) {
-        SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaClass);
-
         MethodDefinition specificConfigMtd = classDef.declareMethod(
             of(PUBLIC),
             SPECIFIC_CONFIG_TREE_MTD_NAME,
-            typeFromJavaClassName(schemaClassInfo.cfgClassName)
+            type(ConfigurationTree.class)
         );
 
         // String tmpStr;
