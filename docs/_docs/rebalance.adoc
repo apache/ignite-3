@@ -22,6 +22,9 @@ WARNING:
 Data rebalancing is triggered by changes in the Baseline Topology. In pure in-memory clusters, the default behavior is to start rebalancing immediately when a node leaves or joins the cluster (the baseline topology changes automatically). In clusters with persistence, the baseline topology has to be changed manually (default behavior), or can be changed automatically when automatic baseline adjustment is enabled.
 ----
 
-Rebalancing is configured per cache.
+== Running an Example
 
-In this Alpha release, data rebalancing can be applied to the already created tables.
+Examples are shipped as a separate Maven project, which is located in the `examples` folder. `RebalanceExample` demonstrates the data rebalancing process.
+
+To start running `RebalanceExample`, please refer to its JavaDoc for instructions.
+

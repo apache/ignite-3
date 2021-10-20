@@ -29,19 +29,20 @@ Replacing H2 SQL engine with Apache Calcite incorporates the following general i
 
 This section walks you through all data manipulation language (DML) commands supported by Apache Ignite Alpha 3.
 
+WARNING: Currently, `WITH` and `MERGE` commands are not supported.
+
 === SELECT
 
-Retrieve data from a table or multiple tables.
+Retrieves data from a table or multiple tables.
 
 [source,sql]
 ----
-select:
-      SELECT [ hintComment ] [ STREAM ] [ ALL | DISTINCT ]
-          { * | projectItem [, projectItem ]* }
-      FROM tableExpression
-      [ WHERE booleanExpression ]
-      [ GROUP BY { groupItem [, groupItem ]* } ]
-      [ HAVING booleanExpression ]
+SELECT [ hintComment ] [ STREAM ] [ ALL | DISTINCT ]
+    { * | projectItem [, projectItem ]* }
+FROM tableExpression
+[ WHERE booleanExpression ]
+[ GROUP BY { groupItem [, groupItem ]* } ]
+[ HAVING booleanExpression ]
 ----
 
 === INSERT
@@ -50,21 +51,31 @@ Inserts data into a table.
 
 [source,sql]
 ----
-insert:
-      { INSERT | UPSERT } INTO tablePrimary
-      [ '(' column [, column ]* ')' ]
-      query
+{ INSERT | UPSERT } INTO tablePrimary
+[ '(' column [, column ]* ')' ]
+query
 ----
 
 === UPDATE
 
-WARNING: Need info.
+Updates data in a table.
+
+[source,sql]
+----
+UPDATE tablePrimary
+SET assign [, assign ]*
+[ WHERE booleanExpression ]
+----
 
 === DELETE
 
-WARNING: Need info.
+Deletes data from a table.
 
-WARNING: `WITH` and `MERGE` commands support is to be checked with SQL team.
+[source,sql]
+----
+DELETE FROM tablePrimary [ [ AS ] alias ]
+[ WHERE booleanExpression ]
+----
 
 == Supported Operators and Functions
 
@@ -126,7 +137,12 @@ Concatenates the values of string expressions and places separator values betwee
 
 ==== STRING_CONCAT
 
-WARNING: Need info.
+[source,sql]
+----
+STRING_CONCAT(string1, string2, ... stringN)
+----
+
+Concatenates the text values in the specified data ranges.
 
 
 === Functions
@@ -167,7 +183,7 @@ WARNING: Need info.
 * RIGHT
 * REPEAT
 * SOUNDEX
-
+* For more information on functions supported by Apache Calcite, see the link:https://calcite.apache.org/docs/reference.html#operators-and-functions[product documentation,window=_blank].
 
 ==== NUMERIC
 
@@ -200,7 +216,7 @@ WARNING: Need info.
 * COSH
 * SINH
 * TANH
-
+* For more information on functions supported by Apache Calcite, see the link:https://calcite.apache.org/docs/reference.html#operators-and-functions[product documentation,window=_blank].
 
 ==== GENERAL
 
@@ -209,6 +225,8 @@ WARNING: Need info.
 * CAST
 * NVL
 * GREATEST
+* For more information on functions supported by Apache Calcite, see the link:https://calcite.apache.org/docs/reference.html#operators-and-functions[product documentation,window=_blank].
+
 
 ==== TIMESTAMP
 
@@ -216,5 +234,4 @@ WARNING: Need info.
 * TIMESTAMP_DIFF
 * EXTRACT
 * LAST_DAY
-
-For more information on functions supported by Apache Calcite, see the link:https://calcite.apache.org/docs/reference.html#operators-and-functions[product documentation,window=_blank].
+* For more information on functions supported by Apache Calcite, see the link:https://calcite.apache.org/docs/reference.html#operators-and-functions[product documentation,window=_blank].

@@ -64,19 +64,19 @@ include::../includes/ignite-cli-download-windows.adoc[tag=command,indent=0]
 tab:Unix[]
 [source,shell]
 ----
-unzip apache-ignite-3.0.0-alpha2.zip && cd apache-ignite-3.0.0-alpha2
+unzip apache-ignite-3.0.0-alpha3.zip && cd apache-ignite-3.0.0-alpha3
 ----
 
 tab:Windows (PowerShell)[]
 [source,shell]
 ----
-Expand-Archive apache-ignite-3.0.0-alpha2.zip -DestinationPath . ; cd apache-ignite-3.0.0-alpha2
+Expand-Archive apache-ignite-3.0.0-alpha3.zip -DestinationPath . ; cd apache-ignite-3.0.0-alpha3
 ----
 
 tab:Windows (CMD)[]
 [source,shell]
 ----
-tar -xf apache-ignite-3.0.0-alpha2.zip & cd apache-ignite-3.0.0-alpha2
+tar -xf apache-ignite-3.0.0-alpha3.zip & cd apache-ignite-3.0.0-alpha3
 ----
 --
 
@@ -136,7 +136,7 @@ ignite init --help
 
 Ignite CLI allows to install Ignite modules and 3rd party Maven dependencies.
 
-. To start an Ignite 3.0 alpha 2 cluster, you need to install Ignite core artifacts first:
+. To start an Ignite 3.0 alpha 3 cluster, you need to install Ignite core artifacts first:
 +
 [source, shell]
 ----
@@ -182,7 +182,7 @@ For example, use the `cat` command on a Unix operating system.
 
 == Built-in Examples
 
-Ignite 3.0 alpha 2 comes with examples that are configured as a separate Maven project located in the `examples` folder.
+Ignite 3.0 alpha 3 comes with examples that are configured as a separate Maven project located in the `examples` folder.
 
 The project includes the following examples:
 
