@@ -59,6 +59,7 @@ import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.DirectConfigurationProperty;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.configuration.PolymorphicInstance;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -1258,8 +1259,6 @@ public class ConfigurationAsmGenerator {
 
         StringSwitchBuilder switchBuilder = new StringSwitchBuilder(constructDfltMtd.getScope()).expression(keyVar);
 
-        // TODO: IGNITE-14645 может надо будет изменить порядок, в по типам а потом по полям или по другому вообще
-
         for (Field schemaField : concat(schemaFields, internalFields)) {
             if (isValue(schemaField) || isPolymorphicId(schemaField)) {
                 String fieldName = schemaField.getName();
@@ -1760,10 +1759,17 @@ public class ConfigurationAsmGenerator {
      * @return Interfaces for {@link InnerNode} definition for a configuration schema.
      */
     private static ParameterizedType[] nodeClassInterfaces(Class<?> schemaClass, Set<Class<?>> schemaExtensions) {
-        return Stream.concat(Stream.of(schemaClass), schemaExtensions.stream())
-            .flatMap(cls -> Stream.of(viewClassName(cls), changeClassName(cls)))
-            .map(ParameterizedType::typeFromJavaClassName)
-            .toArray(ParameterizedType[]::new);
+        Collection<ParameterizedType> res = new ArrayList<>();
+
+        for (Class<?> cls : concat(List.of(schemaClass), schemaExtensions)) {
+            res.add(typeFromJavaClassName(viewClassName(cls)));
+            res.add(typeFromJavaClassName(changeClassName(cls)));
+        }
+
+        if (isPolymorphicConfigInstance(schemaClass))
+            res.add(type(PolymorphicInstance.class));
+
+        return res.toArray(ParameterizedType[]::new);
     }
 
     /**

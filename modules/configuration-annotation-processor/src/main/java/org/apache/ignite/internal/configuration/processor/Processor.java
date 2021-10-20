@@ -52,6 +52,7 @@ import com.squareup.javapoet.WildcardTypeName;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.configuration.PolymorphicInstance;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -84,6 +85,9 @@ public class Processor extends AbstractProcessor {
 
     /** {@link RootKey} class name. */
     private static final ClassName ROOT_KEY_CLASSNAME = ClassName.get("org.apache.ignite.configuration", "RootKey");
+
+    /** {@link PolymorphicInstance} class name. */
+    private static final ClassName POLYMORPHIC_INSTANCE_CLASSNAME = ClassName.get(PolymorphicInstance.class);
 
     /** Error format for the superclass missing annotation. */
     private static final String SUPERCLASS_MISSING_ANNOTATION_ERROR_FORMAT = "Superclass must have %s: %s";
@@ -210,7 +214,8 @@ public class Processor extends AbstractProcessor {
                 configurationInterfaceBuilder,
                 (isInternalConfig && !isRootConfig) || isPolymorphicInstance,
                 clazz,
-                isPolymorphicConfig
+                isPolymorphicConfig,
+                isPolymorphicInstance
             );
 
             if (isRootConfig)
@@ -316,6 +321,7 @@ public class Processor extends AbstractProcessor {
      * @param extendBaseSchema {@code true} if extending base schema interfaces.
      * @param realSchemaClass Class descriptor.
      * @param isPolymorphicConfig Is a polymorphic configuration.
+     * @param isPolymorphicInstanceConfig Is an instance of polymorphic configuration.
      */
     private void createPojoBindings(
         Collection<VariableElement> fields,
@@ -323,7 +329,8 @@ public class Processor extends AbstractProcessor {
         TypeSpec.Builder configurationInterfaceBuilder,
         boolean extendBaseSchema,
         TypeElement realSchemaClass,
-        boolean isPolymorphicConfig
+        boolean isPolymorphicConfig,
+        boolean isPolymorphicInstanceConfig
     ) {
         ClassName viewClsName = Utils.getViewName(schemaClassName);
         ClassName changeClsName = Utils.getChangeName(schemaClassName);
@@ -366,6 +373,9 @@ public class Processor extends AbstractProcessor {
 
         if (changeBaseSchemaInterfaceType != null)
             changeClsBuilder.addSuperinterface(changeBaseSchemaInterfaceType);
+
+        if (isPolymorphicInstanceConfig)
+            changeClsBuilder.addSuperinterface(POLYMORPHIC_INSTANCE_CLASSNAME);
 
         ClassName consumerClsName = ClassName.get(Consumer.class);
 
@@ -441,8 +451,8 @@ public class Processor extends AbstractProcessor {
                 TypeVariableName.get("T")
             );
 
-            // Variable type, for example: <T extends SimpleChange>.
-            TypeVariableName typeVariable = TypeVariableName.get("T", changeClsName);
+            // Variable type, for example: <T extends SimpleChange & PolymorphicInstance>.
+            TypeVariableName typeVariable = TypeVariableName.get("T", changeClsName, POLYMORPHIC_INSTANCE_CLASSNAME);
 
             // Method like: <T extends SimpleChange> T convert(Class<T> changeClass);
             MethodSpec.Builder convertMtdBuilder = MethodSpec.methodBuilder("convert")

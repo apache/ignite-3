@@ -17,8 +17,6 @@
 
 package org.apache.ignite.configuration.annotation;
 
-// TODO: IGNITE-14645 Add javadoc
-
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -26,11 +24,20 @@ import java.lang.annotation.Target;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-/** */
+/**
+ * This annotation marks the {@link PolymorphicConfig polymorphic configuration schema} field as a special
+ * (hidden from the user) leaf that will store the current {@link PolymorphicConfigInstance#id polymorphic configuration type}.
+ *
+ * <p>NOTE: Field must be the first in the schema, and the type must be {@link String}.
+ */
 @Target(FIELD)
 @Retention(RUNTIME)
 @Documented
 public @interface PolymorphicId {
-    /** */
+    /**
+     * Indicates that the field contains a default value that should be equal to one of the {@link PolymorphicConfigInstance#id}.
+     *
+     * @return {@code hasDefault} flag value.
+     */
     boolean hasDefault() default false;
 }

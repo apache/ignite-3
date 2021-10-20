@@ -271,11 +271,18 @@ public class ConfigurationAsmGeneratorTest {
 
         polymorphicCfg.change(c -> c.convert(SecondPolymorphicInstanceTestChange.class));
 
-        SecondPolymorphicInstanceTestView newVal = (SecondPolymorphicInstanceTestView)polymorphicCfg.value();
+        SecondPolymorphicInstanceTestView newVal0 = (SecondPolymorphicInstanceTestView)polymorphicCfg.value();
 
-        assertEquals("strVal", newVal.strVal());
-        assertEquals(0, newVal.intVal());
-        assertEquals(0L, newVal.longVal());
+        assertEquals("strVal", newVal0.strVal());
+        assertEquals(0, newVal0.intVal());
+        assertEquals(0L, newVal0.longVal());
+
+        polymorphicCfg.change(c -> c.convert(FirstPolymorphicInstanceTestChange.class)).get();
+
+        FirstPolymorphicInstanceTestView newVal1 = (FirstPolymorphicInstanceTestView)polymorphicCfg.value();
+
+        assertEquals("strVal", newVal1.strVal());
+        assertEquals(0, newVal1.intVal());
     }
 
     /**

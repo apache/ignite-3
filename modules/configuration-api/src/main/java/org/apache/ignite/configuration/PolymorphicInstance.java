@@ -15,25 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.annotation;
+package org.apache.ignite.configuration;
 
-import java.lang.annotation.Documented;
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
-
-import static java.lang.annotation.ElementType.TYPE;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 
 /**
- * This annotation marks the class as a polymorphic configuration schema.
- * Has basically the same properties as a {@link Config}, but it should be treated like an abstract class in java.
- *
- * <p>To change the type of polymorphic configuration, you must use the {@code PolymorphicConfigChange#convert}.
- *
- * <p>NOTE: Must contain a {@link PolymorphicId} and at least one {@link PolymorphicConfigInstance}.
+ * Marker interface for methods {@code PolymorphicConfigurationChange#convert},
+ * so that it is not possible to convert a {@link PolymorphicConfigInstance} to a {@link PolymorphicConfig} at compile time.
  */
-@Target(TYPE)
-@Retention(RUNTIME)
-@Documented
-public @interface PolymorphicConfig {
+public interface PolymorphicInstance {
 }

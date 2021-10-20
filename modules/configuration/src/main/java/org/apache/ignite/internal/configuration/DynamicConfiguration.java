@@ -90,8 +90,6 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
                         change.accept(((InnerNode)node).specificChange());
                     else
                         change.accept((CHANGE)node);
-
-                    // TODO: IGNITE-14645 ^^^ maybe change for avoid instanceof and etc.
                 }
                 else
                     node.construct(keys.get(level++), this, true);
@@ -121,8 +119,6 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
             return ((InnerNode)view).specificView();
         else
             return view;
-
-        // TODO: IGNITE-14645 ^^^ maybe change for avoid instanceof and etc.
     }
 
     /**

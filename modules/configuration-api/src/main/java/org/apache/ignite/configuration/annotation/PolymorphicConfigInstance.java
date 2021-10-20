@@ -24,13 +24,21 @@ import java.lang.annotation.Target;
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-// TODO: IGNITE-14645 Add javadoc
-/** */
+/**
+ * This annotation marks the class as an instance of polymorphic configuration schema.
+ * Has basically the same properties as {@link Config}, but must inherit from the {@link PolymorphicConfig}.
+ *
+ * <p>NOTE: Conflict of field names is not allowed between the {@link PolymorphicConfig},
+ * between other {@link PolymorphicConfigInstance} it can.
+ */
 @Target(TYPE)
 @Retention(RUNTIME)
 @Documented
 public @interface PolymorphicConfigInstance {
-    // TODO: IGNITE-14645 Add javadoc
-    /** */
+    /**
+     * Unique identifier for an extension within a single {@link PolymorphicConfig polymorphic configuration}.
+     *
+     * @return Unique identifier for the extension of the polymorphic configuration instance.
+     */
     String id();
 }

@@ -179,6 +179,11 @@ public class ConfigurationFlattener {
                             visitAsymmetricInnerNode(oldNamedElement, true);
                         else if (oldNamedElement == null)
                             visitAsymmetricInnerNode(newNamedElement, false);
+                        else if (newNamedElement.schemaType() != oldNamedElement.schemaType()) {
+                            visitAsymmetricInnerNode(oldNamedElement, true);
+
+                            visitAsymmetricInnerNode(newNamedElement, false);
+                        }
                         else {
                             oldInnerNodesStack.push(oldNamedElement);
 
