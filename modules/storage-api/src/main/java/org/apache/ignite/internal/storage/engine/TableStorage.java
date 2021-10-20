@@ -75,7 +75,7 @@ public interface TableStorage {
      *
      * @throws StorageException If an error has occurred during the start of the storage.
      */
-    public void start() throws StorageException;
+    void start() throws StorageException;
 
     /**
      * Stops the storage.
