@@ -37,9 +37,14 @@ public class SchemaHolderImpl implements SchemaHolder {
     private final Map<String, IgniteSchema> igniteSchemas = new HashMap<>();
 
     /** */
+    private final Runnable onSchemaUpdatedCallback;
+
+    /** */
     private volatile SchemaPlus calciteSchema;
 
-    public SchemaHolderImpl() {
+    public SchemaHolderImpl(Runnable onSchemaUpdatedCallback) {
+        this.onSchemaUpdatedCallback = onSchemaUpdatedCallback;
+
         SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
         newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
         calciteSchema = newCalciteSchema;
@@ -110,6 +115,8 @@ public class SchemaHolderImpl implements SchemaHolder {
         newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
         igniteSchemas.forEach(newCalciteSchema::add);
         calciteSchema = newCalciteSchema;
+
+        onSchemaUpdatedCallback.run();
     }
 
     private static String removeSchema(String schemaName, String canonicalName) {

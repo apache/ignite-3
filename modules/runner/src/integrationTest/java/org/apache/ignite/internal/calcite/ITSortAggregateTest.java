@@ -26,7 +26,6 @@ import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,7 +33,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Sort aggregate integration test.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ITSortAggregateTest extends AbstractBasicIntegrationTest {
     /** */
     public static final int ROWS = 103;

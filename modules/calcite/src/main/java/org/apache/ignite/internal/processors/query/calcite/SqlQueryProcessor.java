@@ -26,7 +26,8 @@ import org.apache.ignite.internal.processors.query.calcite.exec.QueryTaskExecuto
 import org.apache.ignite.internal.processors.query.calcite.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.processors.query.calcite.message.MessageService;
 import org.apache.ignite.internal.processors.query.calcite.message.MessageServiceImpl;
-import org.apache.ignite.internal.processors.query.calcite.prepare.DummyPlanCache;
+import org.apache.ignite.internal.processors.query.calcite.prepare.QueryPlanCacheImpl;
+import org.apache.ignite.internal.processors.query.calcite.prepare.QueryPlanCache;
 import org.apache.ignite.internal.processors.query.calcite.schema.SchemaHolderImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -41,6 +42,9 @@ import org.jetbrains.annotations.Nullable;
 public class SqlQueryProcessor implements QueryProcessor {
     /** Default Ignite thread keep alive time. */
     public static final long DFLT_THREAD_KEEP_ALIVE_TIME = 60_000L;
+
+    /** Size of the cache for query plans. */
+    public static final int PLAN_CACHE_SIZE = 1024;
 
     private volatile ExecutionService executionSrvc;
 
@@ -80,12 +84,14 @@ public class SqlQueryProcessor implements QueryProcessor {
             taskExecutor
         );
 
-        SchemaHolderImpl schemaHolder = new SchemaHolderImpl();
+        QueryPlanCache cache = new QueryPlanCacheImpl(PLAN_CACHE_SIZE);
+
+        SchemaHolderImpl schemaHolder = new SchemaHolderImpl(cache::clear);
 
         executionSrvc = new ExecutionServiceImpl<>(
             clusterSrvc.topologyService(),
             msgSrvc,
-            new DummyPlanCache(),
+            cache,
             schemaHolder,
             taskExecutor,
             ArrayRowHandler.INSTANCE

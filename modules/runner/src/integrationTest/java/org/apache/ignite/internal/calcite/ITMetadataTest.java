@@ -18,14 +18,12 @@
 
 package org.apache.ignite.internal.calcite;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Stream.generate;
 
 /** */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ITMetadataTest extends AbstractBasicIntegrationTest {
     /** {@inheritDoc} */
     @Override protected void initTestData() {

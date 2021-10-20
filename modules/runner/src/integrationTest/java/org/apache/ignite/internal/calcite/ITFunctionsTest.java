@@ -30,7 +30,6 @@ import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,7 +39,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Test Ignite SQL functions.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ITFunctionsTest extends AbstractBasicIntegrationTest {
     /** */
     @Test

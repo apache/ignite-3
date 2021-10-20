@@ -36,7 +36,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Integration test for set op (EXCEPT, INTERSECT).
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ITSetOpTest extends AbstractBasicIntegrationTest {
     /** {@inheritDoc} */
     @Override protected void initTestData() {
