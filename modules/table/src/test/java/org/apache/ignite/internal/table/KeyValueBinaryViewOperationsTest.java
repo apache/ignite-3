@@ -151,7 +151,7 @@ public class KeyValueBinaryViewOperationsTest {
             new Column[] {new Column("val", NativeTypes.INT64, false)}
         );
 
-        KeyValueView<Tuple, Tuple>  tbl =
+        KeyValueView<Tuple, Tuple> tbl =
             new KeyValueBinaryViewImpl(createTable(), new DummySchemaManagerImpl(schema), null, null);
 
         final Tuple key = Tuple.create().set("id", 1L);

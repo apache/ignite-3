@@ -17,12 +17,9 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.tx.Timestamp;
-import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 

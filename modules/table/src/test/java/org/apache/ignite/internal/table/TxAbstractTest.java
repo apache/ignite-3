@@ -1247,7 +1247,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
                             long acc2 = acc1;
 
-                            while(acc1 == acc2)
+                            while (acc1 == acc2)
                                 acc2 = r.nextInt(threads.length);
 
                             if (verbose)
@@ -1373,7 +1373,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     protected LockManager lockManager(Table t) {
         return ((TxManagerImpl)txManager(t)).getLockManager();
     }
-
 
     /**
      * @param t The table.

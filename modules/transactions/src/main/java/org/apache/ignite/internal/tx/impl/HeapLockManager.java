@@ -134,7 +134,7 @@ public class HeapLockManager implements LockManager {
          * @param timestamp The timestamp.
          * @return The future or null if state is marked for removal.
          */
-        public @Nullable CompletableFuture<Void> tryAcquire(Timestamp timestamp)  {
+        public @Nullable CompletableFuture<Void> tryAcquire(Timestamp timestamp) {
             WaiterImpl waiter = new WaiterImpl(timestamp, false);
 
             boolean locked;

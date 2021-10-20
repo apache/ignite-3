@@ -21,13 +21,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
-
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.schema.definition.SchemaManagementMode;
-import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.schema.definition.SchemaManagementMode;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

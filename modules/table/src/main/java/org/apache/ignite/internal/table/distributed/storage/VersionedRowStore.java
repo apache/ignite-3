@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.internal.table.distributed.storage;
 
 import java.nio.ByteBuffer;
@@ -54,7 +71,11 @@ public class VersionedRowStore {
         return result(unpack(row), ts);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * @param row The search row.
+     * @param ts The timestamp.
+     * @return The result row.
+     */
     public BinaryRow get(@NotNull BinaryRow row, Timestamp ts) {
         assert row != null;
 
@@ -65,7 +86,11 @@ public class VersionedRowStore {
         return versionedRow(readValue, ts).getFirst();
     }
 
-    /** {@inheritDoc} */
+    /**
+     * @param keyRows Search rows.
+     * @param ts The timestamp.
+     * @return The result rows.
+     */
     public List<BinaryRow> getAll(Collection<BinaryRow> keyRows, Timestamp ts) {
         assert keyRows != null && !keyRows.isEmpty();
 
@@ -77,7 +102,10 @@ public class VersionedRowStore {
         return res;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * @param row The row.
+     * @param ts The timestamp.
+     */
     public void upsert(@NotNull BinaryRow row, Timestamp ts) {
         assert row != null;
 
@@ -90,7 +118,11 @@ public class VersionedRowStore {
         storage.write(pack(key, new Value(row, pair.getSecond(), ts)));
     }
 
-    /** {@inheritDoc} */
+    /**
+     * @param row The row.
+     * @param ts The timestamp.
+     * @return Previous row.
+     */
     @Nullable public BinaryRow getAndUpsert(@NotNull BinaryRow row, Timestamp ts) {
         assert row != null;
 
@@ -101,7 +133,11 @@ public class VersionedRowStore {
         return oldRow != null ? oldRow : null;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * @param row The row.
+     * @param ts The timestamp.
+     * @return {@code True} if was deleted.
+     */
     public boolean delete(BinaryRow row, Timestamp ts) {
         assert row != null;
 
@@ -120,7 +156,10 @@ public class VersionedRowStore {
         return true;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * @param rows Search rows.
+     * @param ts The timestamp.
+     */
     public void upsertAll(Collection<BinaryRow> rows, Timestamp ts) {
         assert rows != null && !rows.isEmpty();
 
@@ -128,7 +167,11 @@ public class VersionedRowStore {
             upsert(row, ts);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * @param row The row.
+     * @param ts The timestamp.
+     * @return {@code True} if was inserted.
+     */
     public boolean insert(BinaryRow row, Timestamp ts) {
         assert row != null && row.hasValue() : row;
         txManager.getOrCreateTransaction(ts);
@@ -145,7 +188,11 @@ public class VersionedRowStore {
         return true;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * @param rows Rows.
+     * @param ts The timestamp.
+     * @return List of not inserted rows.
+     */
     public List<BinaryRow> insertAll(Collection<BinaryRow> rows, Timestamp ts) {
         assert rows != null && !rows.isEmpty();
 
@@ -159,7 +206,11 @@ public class VersionedRowStore {
         return inserted;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * @param row The row.
+     * @param ts The timestamp.
+     * @return {@code True} if was replaced.
+     */
     public boolean replace(BinaryRow row, Timestamp ts) {
         assert row != null;
 
@@ -174,6 +225,12 @@ public class VersionedRowStore {
             return false;
     }
 
+    /**
+     * @param oldRow Old row.
+     * @param newRow New row.
+     * @param ts The timestamp.
+     * @return {@code True} if was replaced.
+     */
     public boolean replace(BinaryRow oldRow, BinaryRow newRow, Timestamp ts) {
         assert oldRow != null;
         assert newRow != null;
@@ -189,6 +246,11 @@ public class VersionedRowStore {
             return false;
     }
 
+    /**
+     * @param row The row.
+     * @param ts The timestamp.
+     * @return Replaced row.
+     */
     public BinaryRow getAndReplace(BinaryRow row, Timestamp ts) {
         BinaryRow oldRow = get(row, ts);
 
@@ -201,7 +263,11 @@ public class VersionedRowStore {
             return null;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * @param row The row.
+     * @param ts The timestamp.
+     * @return {@code True} if was deleted.
+     */
     public boolean deleteExact(BinaryRow row, Timestamp ts) {
         assert row != null;
         assert row.hasValue();
@@ -217,6 +283,11 @@ public class VersionedRowStore {
             return false;
     }
 
+    /**
+     * @param row The row.
+     * @param ts The timestamp.
+     * @return Deleted row.
+     */
     public BinaryRow getAndDelete(BinaryRow row, Timestamp ts) {
         BinaryRow oldRow = get(row, ts);
 
@@ -229,6 +300,11 @@ public class VersionedRowStore {
             return null;
     }
 
+    /**
+     * @param keyRows Search rows.
+     * @param ts The timestamp.
+     * @return Not deleted rows.
+     */
     public List<BinaryRow> deleteAll(Collection<BinaryRow> keyRows, Timestamp ts) {
         var notDeleted = new ArrayList<BinaryRow>();
 
@@ -240,6 +316,11 @@ public class VersionedRowStore {
         return notDeleted;
     }
 
+    /**
+     * @param rows Search rows.
+     * @param ts The timestamp.
+     * @return Not deleted rows.
+     */
     public List<BinaryRow> deleteAllExact(Collection<BinaryRow> rows, Timestamp ts) {
         assert rows != null && !rows.isEmpty();
 
@@ -257,7 +338,7 @@ public class VersionedRowStore {
      * @param row Row.
      * @return Extracted key.
      */
-    @NotNull private boolean equalValues(@NotNull BinaryRow row, @NotNull BinaryRow row2) {
+    private boolean equalValues(@NotNull BinaryRow row, @NotNull BinaryRow row2) {
         if (row.hasValue() ^ row2.hasValue())
             return false;
 
@@ -293,7 +374,10 @@ public class VersionedRowStore {
         }
     }
 
-    /** {@inheritDoc} */
+
+    /**
+     * @throws Exception If failed.
+     */
     public void close() throws Exception {
         storage.close();
     }
@@ -349,7 +433,6 @@ public class VersionedRowStore {
         if (l1 != 0) {
             // TODO asch get rid of copying
             byte[] tmp = new byte[l1];
-            //ByteBuffer tmp = buf.duplicate().limit(pos + l1).slice().order(ByteOrder.LITTLE_ENDIAN);
 
             buf.get(tmp);
 
@@ -371,7 +454,6 @@ public class VersionedRowStore {
             byte[] tmp = new byte[l2];
 
             buf.get(tmp);
-            //ByteBuffer tmp = buf.duplicate().limit(pos + l2).slice().limit(pos + l2).order(ByteOrder.LITTLE_ENDIAN);
 
             oldVal = new ByteBufferRow(tmp);
 

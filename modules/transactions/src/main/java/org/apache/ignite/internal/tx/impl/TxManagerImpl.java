@@ -265,6 +265,7 @@ public class TxManagerImpl implements TxManager {
     @Override public void stop() throws Exception {
         // No-op.
     }
+
     /** */
     private static class TableLockKey {
         /** */
