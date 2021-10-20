@@ -222,6 +222,9 @@ class ClientTableCommon {
 
         SchemaDescriptor schema = schemaRegistry.schema();
 
+        packer.packInt(schema.version());
+        packer.packInt(tuples.size());
+
         for (Tuple tuple : tuples) {
             if (tuple != null)
                 assert schema.version() == ((SchemaAware) tuple).schema().version();

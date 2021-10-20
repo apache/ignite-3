@@ -4,12 +4,12 @@ executed in atomic way (either all changes all applied, or nothing at all) with 
 
 Transactions support is supposed to be icremental. In the first approach, we are trying to put existing ideas from
 ignite 2 to the new replication infrastructure. In the next phases, MVCC support should be added to avoid blocking reads
-and some other optimization, like parallel commits from <sup id="a1">[1](#f1)</sup>
+and possibly some other optimization, like parallel commits from <sup id="a1">[1](#f1)</sup>
 
-# Transaction protocol design
-In high level, we utilize 2 phase locking (2PL) for a concurrency control, 2 phase commit (2PC) as an atomic commitment 
+# Transaction protocol design (first iteration)
+At a high level, we utilize 2 phase locking (2PL) for a concurrency control, 2 phase commit (2PC) as an atomic commitment 
 protocol, in conjunction with WAIT_DIE deadlock prevention, described in <sup id="a2">[2](#f2)</sup>. 
-This implementation is very close to Ignite 2 optimistic serializable mode. 
+This implementation is similar to Ignite 2 optimistic serializable mode. 
 Additional goals are: 
 1) retain only strong isolation 
 2) support for SQL 
@@ -38,7 +38,7 @@ All reads and writes go through the **leaseholder**. Only raft leader for some t
 It's important what no two different leaseholder intervals can overlap for the same group.
 Current leasholder map can be loaded from metastore (watches can be used for a fast notification about leaseholder change).
 
-The lockmanager should keep locks in the offheap to reduce GC pressure, but can be heap based in the first approach.
+The lockmanager should keep locks in the offheap to reduce GC pressure, but can be heap based in the first iteration.
 
 # Locking precausion
 LockManager has a volatile state, so some precausions must be taken before locking the keys due to possible node restarts.
@@ -46,7 +46,7 @@ Before taking a lock, LockManager should consult a tx state for the key (by read
 If a key is enlisted in transaction and wait is possible according to tx priority, lock cannot be taken immediately.
 
 # Tx coordinator
-Tx coordinator is assigned in a random fashion from a list of allowed nodes. They can be dedicated nodes or same as data nodes.
+Tx coordination can be done from any grid node. They can be dedicated nodes or same as data nodes.
 They are responsible for id assignment and failover handling if some nodes from tx topology have failed. 
 Knows full tx topology.
 
@@ -55,7 +55,7 @@ The drawback of this is a additional hop for each tx op.
 But from the architecure point of view having the dedicated coordinators is definetely more robust.
 
 # Deadlock prevention
-Deadlock prevention in WAIT_DIE mode - uses priorities to decide which tx should be restarted.
+Deadlock prevention in WAIT_DIE mode (described in details in <sup id="a2">[2](#f2)</sup>)- uses priorities to decide which tx should be restarted.
 Each transaction is assigned a unique globally comparable timestamp (for example UUID), which defines tx priority.
 If T1 has lower priority when T2 (T1 is younger) it can wait for lock, otherwise it's restarted keeping it's timestamp.
 committing transaction can't be restarted.
@@ -70,6 +70,9 @@ This map is used for a failover. Oldest entries in txid map must be cleaned to a
 
 # Data format
 A row is stored in key-value database with additional attached metadata for referencing associated tx.
+The record format is:
+key -> current value (as seen from the transaction), old value (used for rolling back), timestamp of a transaction modifiyng the value
+Such format allows O(1) commit time by changing tx state.
 
 # Write tx example.
 Assume the current row is: key -> oldvalue

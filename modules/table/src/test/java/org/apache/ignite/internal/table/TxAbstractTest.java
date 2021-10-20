@@ -1035,7 +1035,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param view Record view.
      */
     private void doTestComplex(RecordView<Tuple> view) {
-        final int keysCnt = 1000;
+        final int keysCnt = 10;
 
         long start = System.nanoTime();
 
@@ -1044,7 +1044,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         long dur = (long) ((System.nanoTime() - start) / 1000 / 1000.);
 
-        log.info("Inserted={}, time={}ms  avg={} tps={}", keysCnt, dur, dur / keysCnt, 1000 / (dur / keysCnt));
+        log.info("Inserted={}, time={}ms  avg={} tps={}", keysCnt, dur, dur / keysCnt, 1000 / (dur / (float) keysCnt));
 
         for (long i = 0; i < keysCnt; i++) {
             Tuple entry = view.get(makeKey(i));
