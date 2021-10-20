@@ -351,6 +351,7 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
+        [Ignore("TODO asch read null tuples")]
         public async Task TestGetAllReturnsRecordsForExistingKeys()
         {
             var records = Enumerable
@@ -372,6 +373,7 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
+        [Ignore("TODO asch read null tuples")]
         public async Task TestGetAllNonExistentKeysReturnsEmptyList()
         {
             var res = await Table.GetAllAsync(new[] { GetTuple(-100) });

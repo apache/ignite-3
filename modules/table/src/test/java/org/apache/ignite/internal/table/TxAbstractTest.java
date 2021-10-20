@@ -1115,7 +1115,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param view Table view.
      */
     public void doTestComplexKeyValue(KeyValueView<Tuple, Tuple> view) {
-        final int keysCnt = 1000;
+        final int keysCnt = 10;
 
         for (long i = 0; i < keysCnt; i++)
             view.put(makeKey(i), makeValue(i + 2.));

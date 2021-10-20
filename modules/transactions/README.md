@@ -35,8 +35,14 @@ Exclusive lock is obtained on DN-prewrite operation.
 Locking functionality is implemented by LockManager.
 Each **leaseholder** for a partition replication group deploys an instance of LockManager. 
 All reads and writes go through the **leaseholder**. Only raft leader for some term can become a **leaseholder**.
-It's important what no two different leaseholder intervals can overlap for the same group.
-Current leasholder map can be loaded from metastore (watches can be used for a fast notification about leaseholder change).
+It's important what no two different leaseholder intervals can overlap for the same group, so a lock for the same key
+can't be held on different leaseholders in the same time.
+
+Current leasholder map can be loaded from metastore (watches can be used for a fast notification about leaseholder change)
+or discovered on demand by asking raft group nodes.
+
+The simplest implementation of a leaseholder is a raft leases for a leader. In this approach a leaseholder is a same 
+node as a raft leader.
 
 The lockmanager should keep locks in the offheap to reduce GC pressure, but can be heap based in the first iteration.
 
@@ -46,16 +52,12 @@ Before taking a lock, LockManager should consult a tx state for the key (by read
 If a key is enlisted in transaction and wait is possible according to tx priority, lock cannot be taken immediately.
 
 # Tx coordinator
-Tx coordination can be done from any grid node. They can be dedicated nodes or same as data nodes.
-They are responsible for id assignment and failover handling if some nodes from tx topology have failed. 
-Knows full tx topology.
-
-It's possible to live without dedicated coordinators, but it will make client tx logic more complex and prone to coordinator failures.
-The drawback of this is a additional hop for each tx op.
-But from the architecure point of view having the dedicated coordinators is definetely more robust.
+Tx coordination can be done from any grid node. Coordinators can be dedicated nodes or collocated with data.
+Coordinators are responsible for id assignment, tx mapping and failover handling if some nodes from tx topology have failed. 
+Knows full tx topology just before committing.
 
 # Deadlock prevention
-Deadlock prevention in WAIT_DIE mode (described in details in <sup id="a2">[2](#f2)</sup>)- uses priorities to decide which tx should be restarted.
+Deadlock prevention in WAIT_DIE mode (described in details in <sup id="a2">[2](#f2)</sup>)- uses tx priorities to decide which tx should be restarted.
 Each transaction is assigned a unique globally comparable timestamp (for example UUID), which defines tx priority.
 If T1 has lower priority when T2 (T1 is younger) it can wait for lock, otherwise it's restarted keeping it's timestamp.
 committing transaction can't be restarted.
@@ -71,7 +73,7 @@ This map is used for a failover. Oldest entries in txid map must be cleaned to a
 # Data format
 A row is stored in key-value database with additional attached metadata for referencing associated tx.
 The record format is:
-key -> current value (as seen from the transaction), old value (used for rolling back), timestamp of a transaction modifiyng the value
+key -> current value (as seen from the transaction's perspective), old value (used for rolling back), timestamp of a last transaction modifiyng the value
 Such format allows O(1) commit time by changing tx state.
 
 # Write tx example.
@@ -88,14 +90,15 @@ The steps to update a row:
 3. on commit:<br/>
    set txid -> commited<br/>
    release exclusive lock<br/>
-   async clear garbage
+   
 
 4. on abort:<br/>
    set txid -> aborted<br/>
    remove key -> newvalue<br/>
    set key -> oldvalue<br/>
    release exclusive lock<br/>
-   async clear garbage
+   
+5. async clear garbage
 
 # SQL and indexes.
 
