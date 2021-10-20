@@ -338,8 +338,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override public void stop() {
+        // Get view for table configurations to get assignments from.
         NamedListView<TableView> tablesView = tablesCfg.tables().value();
 
+        // Iterate through all existing tables.
         for (Map.Entry<String, TableImpl> entry : tables.entrySet()) {
             String tblName = entry.getKey();
             TableImpl table = entry.getValue();
@@ -348,10 +350,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             var assignment = (List<List<ClusterNode>>)ByteUtils.fromBytes(assignmentsBytes);
 
+            // Stop all currently running RAFT groups.
             for (int p = 0; p < assignment.size(); p++)
                 raftMgr.stopRaftGroup(raftGroupName(table.tableId(), p), assignment.get(p));
         }
 
+        // Stop all table storages when all RAFT groups are already stopped.
         for (TableStorage tableStorage : tableStorages.values()) {
             try {
                 tableStorage.stop();
@@ -361,6 +365,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
         }
 
+        // Stop all data regions when all table storages are stopped.
         for (Map.Entry<String, DataRegion> entry : dataRegions.entrySet()) {
             try {
                 entry.getValue().stop();
