@@ -15,24 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.distributed;
 
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 /** */
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
-public class TxDistributedTest_3_1_3 extends TxDistributedTest_1_1_1 {
+public class ITTxDistributedTest_3_1_3 extends ITTxDistributedTest_1_1_1 {
     /**
      * @param testInfo Test info.
      */
-    public TxDistributedTest_3_1_3(TestInfo testInfo) {
+    public ITTxDistributedTest_3_1_3(TestInfo testInfo) {
         super(testInfo);
     }
 

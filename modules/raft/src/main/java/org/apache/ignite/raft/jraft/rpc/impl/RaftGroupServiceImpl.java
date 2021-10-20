@@ -168,7 +168,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         return service.refreshLeader().handle((unused, throwable) -> {
             if (throwable != null)
-                LOG.error("Failed to refresh a leader", throwable);
+                LOG.error("Failed to refresh a leader [groupId={}]", throwable, groupId);
 
             return service;
         });
@@ -519,7 +519,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                         fut.complete(null); // Void response.
                     }
                     else if (resp0.errorCode() == RaftError.EBUSY.getNumber() ||
-                        resp0.errorCode() == (RaftError.EAGAIN.getNumber())) {
+                        resp0.errorCode() == (RaftError.EAGAIN.getNumber()) ||
+                        resp0.errorCode() == (RaftError.ENOENT.getNumber())) {
                         executor.schedule(() -> {
                             sendWithRetry(peer, req, stopTime, fut);
 

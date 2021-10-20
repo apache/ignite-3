@@ -152,7 +152,7 @@ public class VersionedRowStore {
         List<BinaryRow> inserted = new ArrayList<>(rows.size());
 
         for (BinaryRow row : rows) {
-            if (insert(row, ts))
+            if (!insert(row, ts))
                 inserted.add(row);
         }
 

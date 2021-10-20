@@ -214,14 +214,16 @@ class ClientTableCommon {
         SchemaDescriptor schema = null;
 
         for (Tuple tuple : tuples) {
-            if (schema == null) {
-                schema = ((SchemaAware)tuple).schema();
+            if (tuple != null) {
+                if (schema == null) {
+                    schema = ((SchemaAware) tuple).schema();
 
-                packer.packInt(schema.version());
-                packer.packInt(tuples.size());
+                    packer.packInt(schema.version());
+                    packer.packInt(tuples.size());
+                }
+                else
+                    assert schema.version() == ((SchemaAware) tuple).schema().version();
             }
-            else
-                assert schema.version() == ((SchemaAware)tuple).schema().version();
 
             writeTuple(packer, tuple, schema, true, part);
         }

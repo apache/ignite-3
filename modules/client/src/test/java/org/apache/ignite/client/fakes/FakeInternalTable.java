@@ -37,7 +37,6 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Fake internal table.
- * TODO asch remove it, use DummyTable.
  */
 public class FakeInternalTable implements InternalTable {
     /** Table name. */

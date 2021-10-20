@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.distributed;
 
 import java.util.HashMap;
 import java.util.List;
@@ -34,6 +34,8 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
+import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TxAbstractTest;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
@@ -63,10 +65,6 @@ import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -74,9 +72,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /** */
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
-public class TxDistributedTest_1_1_1 extends TxAbstractTest {
+public class ITTxDistributedTest_1_1_1 extends TxAbstractTest {
     /** Base network port. */
     public static final int NODE_PORT_BASE = 20_000;
 
@@ -134,7 +130,7 @@ public class TxDistributedTest_1_1_1 extends TxAbstractTest {
     /**
      * @param testInfo Test info.
      */
-    public TxDistributedTest_1_1_1(TestInfo testInfo) {
+    public ITTxDistributedTest_1_1_1(TestInfo testInfo) {
         this.testInfo = testInfo;
     }
 

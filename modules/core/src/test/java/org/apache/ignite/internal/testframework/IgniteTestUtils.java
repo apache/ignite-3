@@ -264,12 +264,12 @@ public final class IgniteTestUtils {
      */
     public static String testNodeName(TestInfo testInfo, int port) {
         return testInfo.getTestClass()
-            .map(Class::getCanonicalName)
+            .map(Class::getSimpleName) // Uses shorter path to make a test work on Windows.
             .map(name -> testInfo.getTestMethod()
                 .map(method -> name + '#' + method.getName())
                 .orElse(name)
             )
-            .map(name -> name + ':' + port)
+            .map(name -> name + '_' + port)
             .orElseThrow();
     }
 }

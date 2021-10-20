@@ -413,7 +413,7 @@ public class PartitionCommandListenerTest {
                     }
                 }
                 else
-                    assertTrue(resp.getValues().isEmpty());
+                    assertTrue(resp.getValues().isEmpty() || resp.getValues().stream().allMatch(r -> r == null));
 
                 return null;
             }).when(clo).result(any(MultiRowsResponse.class));

@@ -15,25 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.distributed;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 /** Tests a tx suite on a cluster node collocated to accounts leader. */
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
-public class TxDistributedTest_Collocated_3_1_3 extends TxDistributedTest_3_1_3 {
+public class ITTxDistributedTest_Collocated_3_1_3 extends ITTxDistributedTest_3_1_3 {
     /**
      * @param testInfo Test info.
      */
-    public TxDistributedTest_Collocated_3_1_3(TestInfo testInfo) {
+    public ITTxDistributedTest_Collocated_3_1_3(TestInfo testInfo) {
         super(testInfo);
     }
 
