@@ -34,7 +34,10 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
     private static final IgniteLogger LOG = IgniteLogger.forClass(QueryTaskExecutorImpl.class);
 
     /** */
-    private final StripedThreadPoolExecutor stripedThreadPoolExecutor;
+    private final String nodeName;
+
+    /** */
+    private volatile StripedThreadPoolExecutor stripedThreadPoolExecutor;
 
     /** */
     private Thread.UncaughtExceptionHandler eHnd;
@@ -43,6 +46,11 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
      * @param nodeName Node name.
      */
     public QueryTaskExecutorImpl(String nodeName) {
+        this.nodeName = nodeName;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void start() {
         this.stripedThreadPoolExecutor = new StripedThreadPoolExecutor(
             4,
             NamedThreadFactory.threadPrefix(nodeName, "calciteQry"),
@@ -50,11 +58,6 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
             true,
             DFLT_THREAD_KEEP_ALIVE_TIME
         );
-    }
-
-    /** {@inheritDoc} */
-    @Override public void start() {
-        // No-op.
     }
 
     /**

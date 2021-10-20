@@ -117,7 +117,7 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
 
     /** */
-    TopologyService topSrvc;
+    private final TopologyService topSrvc;
 
     /** */
     private final MessageService msgSrvc;
