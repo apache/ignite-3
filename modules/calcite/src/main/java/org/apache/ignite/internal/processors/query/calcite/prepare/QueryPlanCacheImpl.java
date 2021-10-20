@@ -49,4 +49,14 @@ public class QueryPlanCacheImpl implements QueryPlanCache {
     @Override public void clear() {
         cache.clear();
     }
+
+    /** {@inheritDoc} */
+    @Override public void start() {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
+    @Override public void stop() {
+        clear();
+    }
 }
