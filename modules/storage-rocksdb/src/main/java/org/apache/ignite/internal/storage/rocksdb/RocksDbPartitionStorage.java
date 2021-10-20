@@ -63,6 +63,9 @@ public class RocksDbPartitionStorage implements PartitionStorage {
     /** Suffix for the temporary snapshot folder */
     private static final String TMP_SUFFIX = ".tmp";
 
+    /** Partition id. */
+    private final int partId;
+
     /** RocksDb instance. */
     private final RocksDB db;
 
@@ -72,14 +75,19 @@ public class RocksDbPartitionStorage implements PartitionStorage {
     /** Thread-pool for snapshot operations execution. */
     private final ExecutorService snapshotExecutor = Executors.newSingleThreadExecutor();
 
+
     /**
+     * Constructor.
+     *
+     * @param partId Partition id.
      * @param db Rocks DB instance.
      * @param columnFamily Column family to be used for all storage operations.
+     * @param storage
      * @throws StorageException If failed to create RocksDB instance.
      */
-    public RocksDbPartitionStorage(RocksDB db, ColumnFamily columnFamily) throws StorageException {
+    public RocksDbPartitionStorage(int partId, RocksDB db, ColumnFamily columnFamily) throws StorageException {
+        this.partId = partId;
         this.db = db;
-
         this.data = columnFamily;
     }
 
@@ -90,6 +98,11 @@ public class RocksDbPartitionStorage implements PartitionStorage {
      */
     public ColumnFamily columnFamily() {
         return data;
+    }
+
+    /** {@inheritDoc} */
+    @Override public int partitionId() {
+        return partId;
     }
 
     /** {@inheritDoc} */

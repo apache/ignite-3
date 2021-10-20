@@ -281,9 +281,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 .thenAccept(
                                     updatedRaftGroupService -> tables.get(ctx.newValue().name()).updateInternalTableRaftGroupService(p, updatedRaftGroupService)
                                 ).thenRun(() -> {
-                                    raftMgr.stopRaftGroup(raftGroupName(tblId, p), new ArrayList<>(toRemove));
-
-                                    tableStorages.get(tblId).dropPartition(p);
+                                    if (raftMgr.stopRaftGroup(raftGroupName(tblId, p), new ArrayList<>(toRemove)))
+                                        tableStorages.get(tblId).dropPartition(p);
                                 }).exceptionally(th -> {
                                         LOG.error("Failed to update raft groups one the node", th);
                                         return null;

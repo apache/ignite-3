@@ -181,7 +181,7 @@ public class RocksDbTableStorage implements TableStorage {
 
                 ColumnFamily cf = new ColumnFamily(db, cfHandle, handleName, cfDescriptor.getOptions(), null);
 
-                partitions.set(partId, new RocksDbPartitionStorage(db, cf));
+                partitions.set(partId, new RocksDbPartitionStorage(partId, db, cf));
             }
             else {
                 String indexName = handleName.substring(CF_INDEX_PREFIX.length());
@@ -246,7 +246,7 @@ public class RocksDbTableStorage implements TableStorage {
 
                 ColumnFamily cf = new ColumnFamily(db, cfHandle, handleName, cfDescriptor.getOptions(), null);
 
-                partition = new RocksDbPartitionStorage(db, cf);
+                partition = new RocksDbPartitionStorage(partId, db, cf);
             }
             catch (RocksDBException e) {
                 cfDescriptor.getOptions().close();
