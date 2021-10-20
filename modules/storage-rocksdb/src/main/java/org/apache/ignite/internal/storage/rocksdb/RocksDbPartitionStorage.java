@@ -75,7 +75,6 @@ public class RocksDbPartitionStorage implements PartitionStorage {
     /** Thread-pool for snapshot operations execution. */
     private final ExecutorService snapshotExecutor = Executors.newSingleThreadExecutor();
 
-
     /**
      * Constructor.
      *
