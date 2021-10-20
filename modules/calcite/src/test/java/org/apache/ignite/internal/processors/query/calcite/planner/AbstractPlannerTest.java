@@ -18,12 +18,11 @@
 package org.apache.ignite.internal.processors.query.calcite.planner;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
@@ -211,7 +210,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         try (IgnitePlanner planner = ctx.planner()) {
             assertNotNull(planner);
 
-            planner.setDisabledRules(new HashSet<>(Arrays.asList(disabledRules)));
+            planner.setDisabledRules(Set.of(disabledRules));
 
             String qry = ctx.query();
 

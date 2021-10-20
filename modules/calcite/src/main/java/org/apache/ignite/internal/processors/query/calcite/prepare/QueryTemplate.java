@@ -51,7 +51,7 @@ public class QueryTemplate {
     public QueryTemplate(MappingService mappingService, List<Fragment> fragments) {
         this.mappingService = mappingService;
 
-        List<Fragment> frgs = new ArrayList<>();
+        List<Fragment> frgs = new ArrayList<>(fragments.size());
         for (Fragment fragment : fragments)
             frgs.add(fragment.detach());
 
