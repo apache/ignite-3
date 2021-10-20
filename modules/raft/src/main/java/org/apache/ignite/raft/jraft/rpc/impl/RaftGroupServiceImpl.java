@@ -520,7 +520,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     }
                     else if (resp0.errorCode() == RaftError.EBUSY.getNumber() ||
                         resp0.errorCode() == (RaftError.EAGAIN.getNumber()) ||
-                        resp0.errorCode() == (RaftError.ENOENT.getNumber())) {
+                        resp0.errorCode() == (RaftError.ENOENT.getNumber())) { // Possibly a node has not been started.
                         executor.schedule(() -> {
                             sendWithRetry(peer, req, stopTime, fut);
 

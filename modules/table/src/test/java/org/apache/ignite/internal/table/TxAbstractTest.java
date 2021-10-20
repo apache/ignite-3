@@ -1004,83 +1004,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(200., map.get(2L).doubleValue("balance"));
     }
 
-    /**
-     * Checks operation over tuple record view.
-     * The scenario was moved from ITDistributedTableTest.
-     *
-     * @param view Table view.
-     * @param keysCnt Count of keys.
-     */
-    @Test
-    public void testImplicit() {
-        RecordView<Tuple> view = accounts.recordView();
-        final int keysCnt = 1000;
-
-        for (long i = 0; i < keysCnt; i++)
-            view.insert(makeValue(i, i + 2.));
-
-        for (long i = 0; i < keysCnt; i++) {
-            Tuple entry = view.get(makeKey(i));
-
-            assertEquals(i + 2., entry.doubleValue("balance"));
-        }
-
-        for (int i = 0; i < keysCnt; i++) {
-            view.upsert(makeValue(i, i + 5.));
-
-            Tuple entry = view.get(makeKey(i));
-
-            assertEquals(i + 5., entry.doubleValue("balance"));
-        }
-
-        HashSet<Tuple> keys = new HashSet<>();
-
-        for (long i = 0; i < keysCnt; i++)
-            keys.add(makeKey(i));
-
-        Collection<Tuple> entries = view.getAll(keys);
-
-        assertEquals(keysCnt, entries.size());
-
-        for (long i = 0; i < keysCnt; i++) {
-            boolean res = view.replace(makeValue(i, i + 5.), makeValue(i, i + 2.));
-
-            assertTrue(res, "Failed to replace for idx=" + i);
-        }
-
-        for (long i = 0; i < keysCnt; i++) {
-            boolean res = view.delete(makeKey(i));
-
-            assertTrue(res);
-
-            Tuple entry = view.get(makeKey(i));
-
-            assertNull(entry);
-        }
-
-        ArrayList<Tuple> batch = new ArrayList<>(keysCnt);
-
-        for (long i = 0; i < keysCnt; i++) {
-            batch.add(makeValue(i, i + 2.));
-        }
-
-        view.upsertAll(batch);
-
-        for (long i = 0; i < keysCnt; i++) {
-            Tuple entry = view.get(makeKey(i));
-
-            assertEquals(i + 2., entry.doubleValue("balance"));
-        }
-
-        view.deleteAll(keys);
-
-        for (Tuple key : keys) {
-            Tuple entry = view.get(key);
-
-            assertNull(entry);
-        }
-    }
-
     /** */
     @Test
     public void testComplexImplicit() {
@@ -1114,8 +1037,14 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     private void doTestComplex(RecordView<Tuple> view) {
         final int keysCnt = 1000;
 
+        long start = System.nanoTime();
+
         for (long i = 0; i < keysCnt; i++)
             view.insert(makeValue(i, i + 2.));
+
+        long dur = (long) ((System.nanoTime() - start) / 1000 / 1000.);
+
+        log.info("Inserted={}, time={}ms  avg={} tps={}", keysCnt, dur, dur / keysCnt, 1000 / (dur / keysCnt));
 
         for (long i = 0; i < keysCnt; i++) {
             Tuple entry = view.get(makeKey(i));

@@ -70,7 +70,6 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.schema.definition.SchemaManagementMode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -188,14 +187,9 @@ public class InternalTableImpl implements InternalTable {
         int batchNum = 0;
 
         for (Map.Entry<Integer, List<BinaryRow>> partToRows : keyRowsByPartition.entrySet()) {
-            RaftGroupService svc = enlist(partToRows.getKey(), tx0);
+            CompletableFuture<RaftGroupService> fut = enlist(partToRows.getKey(), tx0);
 
-            if (svc == null) {
-                return failedFuture(new TransactionException("Failed to map a key for the partition [id=" +
-                    partToRows.getKey() + ']'));
-            }
-
-            futures[batchNum++] = svc.run(op.apply(partToRows.getValue(), tx0));
+            futures[batchNum++] = fut.thenCompose(svc -> svc.run(op.apply(partToRows.getValue(), tx0)));
         }
 
         CompletableFuture<T> fut = reducer.apply(futures);
@@ -240,12 +234,9 @@ public class InternalTableImpl implements InternalTable {
 
         int partId = partId(row);
 
-        RaftGroupService svc = enlist(partId, tx0);
+        CompletableFuture<RaftGroupService> enlistFut = enlist(partId, tx0);
 
-        if (svc == null)
-            return failedFuture(new TransactionException("Failed to map a key for the partition [id=" + partId + ']'));
-
-        CompletableFuture<T> fut = svc.<R>run(op.apply(tx0)).thenApply(trans::apply);
+        CompletableFuture<T> fut = enlistFut.thenCompose(svc -> svc.<R>run(op.apply(tx0)).thenApply(trans::apply));
 
         // TODO asch remove futures creation
         return fut.handle(new BiFunction<T, Throwable, CompletableFuture<T>>() {
@@ -455,24 +446,20 @@ public class InternalTableImpl implements InternalTable {
     /**
      * @param partId Partition id.
      * @param tx The transaction.
-     * @return The corresponding raft service.
+     * @return The enlist future (then will a leader become known).
      */
-    protected @Nullable RaftGroupService enlist(int partId, InternalTransaction tx) {
+    protected CompletableFuture<RaftGroupService> enlist(int partId, InternalTransaction tx) {
         RaftGroupService svc = partitionMap.get(partId);
 
-        Peer leader = svc.leader();
-
-        if (leader == null)
-            return null; // A mapping is unknown.
+        CompletableFuture<Void> fut0 = svc.leader() == null ? svc.refreshLeader() : completedFuture(null);
 
         // TODO asch fixme need to map to fixed topology.
-        tx.enlist(leader.address(), svc.groupId()); // Enlist the leaseholder.
-
-        return svc;
+        return fut0.thenAccept(ignored -> tx.enlist(svc.leader().address(), svc.groupId())).
+            thenApply(ignored -> svc); // Enlist the leaseholder.
     }
 
     /** Partition scan publisher. */
-    private class PartitionScanPublisher implements Publisher<BinaryRow> {
+    private static class PartitionScanPublisher implements Publisher<BinaryRow> {
         /** {@link Publisher<BinaryRow>} that relatively notifies about partition rows.  */
         private final RaftGroupService raftGrpSvc;
 
