@@ -14,7 +14,7 @@
 // limitations under the License.
 = Getting Started Guide
 
-This guide provides essential details on how to start working with Ignite 3.0 alpha 2 by using the Ignite CLI tool, including the following information:
+This guide provides essential details on how to start working with Ignite 3.0 alpha 3 by using the Ignite CLI tool, including the following information:
 
 * How to download and install the tool.
 * How to use the Ignite CLI tool to manage nodes.
@@ -24,7 +24,7 @@ This guide provides essential details on how to start working with Ignite 3.0 al
 == Prerequisites
 
 
-Ignite 3.0 alpha 2 was officially tested on:
+Ignite 3.0 alpha 3 was officially tested on:
 
 include::../includes/prereqs.adoc[]
 
@@ -41,7 +41,7 @@ To download and install the Ignite CLI Tool, follow the steps below:
 tab:Unix[]
 [source,shell]
 ----
-curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-alpha2/apache-ignite-3.0.0-alpha2.zip" -o apache-ignite-3.0.0-alpha2.zip
+curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-alpha3/apache-ignite-3.0.0-alpha3.zip" -o apache-ignite-3.0.0-alpha3.zip
 ----
 
 tab:Windows (PowerShell)[]
