@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ITAggregatesTest extends AbstractBasicIntegrationTest {
     /** {@inheritDoc} */
     @Override protected void initTestData() {

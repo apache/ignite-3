@@ -61,6 +61,9 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
+    /** Keeps queries plans to avoid expensive planning of the same queries. */
+    private final QueryPlanCache planCache = new QueryPlanCacheImpl(PLAN_CACHE_SIZE);
+
     /** Event listeners to close. */
     private final List<Pair<TableEvent, EventListener>> evtLsnrs = new ArrayList<>();
 
@@ -82,14 +85,12 @@ public class SqlQueryProcessor implements QueryProcessor {
             taskExecutor
         );
 
-        QueryPlanCache cache = new QueryPlanCacheImpl(PLAN_CACHE_SIZE);
-
-        SchemaHolderImpl schemaHolder = new SchemaHolderImpl(cache::clear);
+        SchemaHolderImpl schemaHolder = new SchemaHolderImpl(planCache::clear);
 
         executionSrvc = new ExecutionServiceImpl<>(
             clusterSrvc.topologyService(),
             msgSrvc,
-            cache,
+            planCache,
             schemaHolder,
             taskExecutor,
             ArrayRowHandler.INSTANCE
@@ -102,6 +103,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         taskExecutor.start();
         msgSrvc.start();
         executionSrvc.start();
+        planCache.start();
     }
 
     /** */
@@ -116,10 +118,11 @@ public class SqlQueryProcessor implements QueryProcessor {
     @Override public void stop() throws Exception {
         busyLock.block();
 
-        List<AutoCloseable> toClose = new ArrayList<AutoCloseable>(Arrays.asList(
+        List<AutoCloseable> toClose = new ArrayList<>(Arrays.asList(
             executionSrvc::stop,
             msgSrvc::stop,
-            taskExecutor::stop
+            taskExecutor::stop,
+            planCache::stop
         ));
 
         toClose.addAll(evtLsnrs.stream()
