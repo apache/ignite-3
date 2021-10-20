@@ -26,7 +26,7 @@ import java.util.Map;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.collect.Lists;
+import org.apache.ignite.internal.ITUtils;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -101,7 +101,7 @@ public class ITThinClientConnectionTest extends IgniteAbstractTest {
     /** */
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(Lists.reverse(startedNodes));
+        IgniteUtils.closeAll(ITUtils.reverse(startedNodes));
     }
 
     /**
