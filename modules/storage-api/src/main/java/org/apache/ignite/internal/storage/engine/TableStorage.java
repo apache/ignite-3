@@ -80,7 +80,7 @@ public interface TableStorage {
     /**
      * Stops the storage.
      *
-     * @throws StorageException If error has occurred during the stop of the storage.
+     * @throws StorageException If an error has occurred during the stop of the storage.
      */
     void stop() throws StorageException;
 
