@@ -51,6 +51,7 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
     @BeforeEach
     public void beforeTest() {
         taskExecutor = new QueryTaskExecutorImpl("no_node");
+        taskExecutor.start();
     }
 
     /** */
