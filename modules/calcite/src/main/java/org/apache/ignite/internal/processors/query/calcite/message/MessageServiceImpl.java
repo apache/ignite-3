@@ -54,7 +54,7 @@ public class MessageServiceImpl implements MessageService {
     private final QueryTaskExecutor taskExecutor;
 
     /** */
-    private Map<Short, MessageListener> lsnrs;
+    private volatile Map<Short, MessageListener> lsnrs;
 
     /** */
     public MessageServiceImpl(
@@ -154,6 +154,7 @@ public class MessageServiceImpl implements MessageService {
 
     /** {@inheritDoc} */
     @Override public void stop() {
-        lsnrs.clear();
+        if (lsnrs != null)
+            lsnrs.clear();
     }
 }

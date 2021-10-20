@@ -108,6 +108,7 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
 
     /** {@inheritDoc} */
     @Override public void stop() {
-        stripedThreadPoolExecutor.shutdownNow();
+        if (stripedThreadPoolExecutor != null)
+            stripedThreadPoolExecutor.shutdownNow();
     }
 }
