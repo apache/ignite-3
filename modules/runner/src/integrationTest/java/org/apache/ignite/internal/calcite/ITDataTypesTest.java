@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.calcite;
 
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
-import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Test SQL data types.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ITDataTypesTest extends AbstractBasicIntegrationTest {
     /** */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15107")
@@ -47,7 +46,7 @@ public class ITDataTypesTest extends AbstractBasicIntegrationTest {
 
         List<List<?>> rows = sql("SELECT val FROM string_table");
 
-        assertEquals(ImmutableSet.copyOf(values), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
+        assertEquals(Set.of(values), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
 
         sql("DELETE FROM string_table");
 
@@ -57,11 +56,11 @@ public class ITDataTypesTest extends AbstractBasicIntegrationTest {
 
         rows = sql("SELECT val FROM string_table");
 
-        assertEquals(ImmutableSet.copyOf(values), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
+        assertEquals(Set.of(values), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
 
         rows = sql("SELECT substring(val, 1, 2) FROM string_table");
 
-        assertEquals(ImmutableSet.of("Ки", "Mü", "我是", "AS"),
+        assertEquals(Set.of("Ки", "Mü", "我是", "AS"),
             rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
 
         for (String val : values) {
