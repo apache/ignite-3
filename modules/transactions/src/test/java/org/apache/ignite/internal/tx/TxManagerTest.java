@@ -120,4 +120,14 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertTrue(tx.map().containsKey(addr));
         assertTrue(tx.map().get(addr).contains("test"));
     }
+
+    @Test
+    public void testTimestamp() {
+        Timestamp ts1 = Timestamp.nextVersion();
+        Timestamp ts2 = Timestamp.nextVersion();
+        Timestamp ts3 = Timestamp.nextVersion();
+
+        assertTrue(ts2.compareTo(ts1) > 0);
+        assertTrue(ts3.compareTo(ts2) > 0);
+    }
 }

@@ -43,6 +43,7 @@ import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.schema.definition.SchemaManagementMode;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.mockito.Mockito;
@@ -95,7 +96,13 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                                         res.complete(r);
                                     }
                                 };
-                                partitionListener.onRead(List.of(clo).iterator());
+
+                                try {
+                                    partitionListener.onRead(List.of(clo).iterator());
+                                }
+                                catch (Exception e) {
+                                    res.completeExceptionally(new TransactionException(e));
+                                }
                             }
                             else {
                                 CommandClosure<WriteCommand> clo = new CommandClosure<>() {
@@ -108,7 +115,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                                     }
                                 };
 
-                                partitionListener.onWrite(List.of(clo).iterator());
+                                try {
+                                    partitionListener.onWrite(List.of(clo).iterator());
+                                }
+                                catch (Exception e) {
+                                    res.completeExceptionally(new TransactionException(e));
+                                }
                             }
                         }
                         else {

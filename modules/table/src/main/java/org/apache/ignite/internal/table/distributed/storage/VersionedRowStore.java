@@ -455,9 +455,10 @@ public class VersionedRowStore {
 
         buf.position(pos);
 
-        long ts = buf.asLongBuffer().get();
+        long ts = buf.getLong();
+        long nodeId = buf.getLong();
 
-        return new Value(newVal, oldVal, new Timestamp(ts));
+        return new Value(newVal, oldVal, new Timestamp(ts, nodeId));
     }
 
     /**
@@ -472,7 +473,8 @@ public class VersionedRowStore {
         int l1 = value.newRow == null ? 0 : (b1 = value.newRow.bytes()).length;
         int l2 = value.oldRow == null ? 0 : (b2 = value.oldRow.bytes()).length;
 
-        ByteBuffer buf = ByteBuffer.allocate(4 + l1 + 4 + l2 + 8);
+        // TODO asch write only values.
+        ByteBuffer buf = ByteBuffer.allocate(4 + l1 + 4 + l2 + 16 /** Timestamp's length */);
 
         buf.asIntBuffer().put(l1);
 
@@ -488,7 +490,8 @@ public class VersionedRowStore {
         if (l2 > 0)
             buf.put(b2);
 
-        buf.asLongBuffer().put(value.timestamp.get());
+        buf.putLong(value.timestamp.getTimestamp());
+        buf.putLong(value.timestamp.getNodeId());
 
         return new SimpleDataRow(key.keyBytes(), buf.array());
     }
