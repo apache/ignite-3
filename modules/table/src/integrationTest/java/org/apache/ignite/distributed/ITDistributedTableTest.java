@@ -216,6 +216,10 @@ public class ITDistributedTableTest {
 
         assertEquals(testRow.longValue(1), new Row(SCHEMA, getFut.get().getValue()).longValue(1));
 
+        partSrv.stopRaftGroup(grpId);
+
+        partRaftGrp.shutdown();
+
         partSrv.stop();
     }
 
@@ -276,17 +280,19 @@ public class ITDistributedTableTest {
         Map<Integer, RaftGroupService> partMap = new HashMap<>();
 
         for (List<ClusterNode> partNodes : assignment) {
-            RaftServer rs = raftServers.get(partNodes.get(0));
-
             String grpId = "part-" + p;
 
             List<Peer> conf = List.of(new Peer(partNodes.get(0).address()));
 
-            rs.startRaftGroup(
-                grpId,
-                new PartitionListener(new ConcurrentHashMapPartitionStorage()),
-                conf
-            );
+            for (ClusterNode node : partNodes) {
+                RaftServer rs = raftServers.get(node);
+
+                rs.startRaftGroup(
+                    grpId,
+                    new PartitionListener(new ConcurrentHashMapPartitionStorage()),
+                    conf
+                );
+            }
 
             RaftGroupService service = RaftGroupServiceImpl.start(grpId,
                 client,
@@ -331,6 +337,23 @@ public class ITDistributedTableTest {
         partitionedTableRecordView(tbl.recordView(), PARTS * 10);
 
         partitionedTableKeyValueView(tbl.keyValueView(), PARTS * 10);
+
+        p = 0;
+
+        for (List<ClusterNode> partNodes : assignment) {
+            String grpId = "part-" + p;
+
+            for (ClusterNode node : partNodes)
+                raftServers.get(node).stopRaftGroup(grpId);
+
+            p++;
+        }
+
+        for (RaftGroupService srvc : partMap.values())
+            srvc.shutdown();
+
+        for (RaftServer rs : raftServers.values())
+            rs.stop();
     }
 
     /**

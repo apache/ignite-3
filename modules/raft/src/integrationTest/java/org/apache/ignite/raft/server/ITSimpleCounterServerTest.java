@@ -131,7 +131,11 @@ class ITSimpleCounterServerTest extends RaftServerAbstractTest {
      */
     @AfterEach
     @Override public void after() throws Exception {
+        server.stopRaftGroup(COUNTER_GROUP_ID_0);
+        server.stopRaftGroup(COUNTER_GROUP_ID_1);
+
         server.stop();
+
         client1.shutdown();
         client2.shutdown();
 

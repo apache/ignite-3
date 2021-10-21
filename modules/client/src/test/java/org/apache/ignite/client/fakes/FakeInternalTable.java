@@ -62,7 +62,7 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public @NotNull TableStorage storage() {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /** {@inheritDoc} */
@@ -72,7 +72,7 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public void updateInternalTableRaftGroupService(int p, RaftGroupService raftGrpSvc) {
-
+        // No-op.
     }
 
     /** {@inheritDoc} */
@@ -256,7 +256,8 @@ public class FakeInternalTable implements InternalTable {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
+    /** {@inheritDoc} */
     @Override public void close() throws Exception {
-
+        // No-op.
     }
 }

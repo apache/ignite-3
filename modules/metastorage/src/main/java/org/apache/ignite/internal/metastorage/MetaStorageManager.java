@@ -136,7 +136,7 @@ public class MetaStorageManager implements IgniteComponent {
     /** Actual storage for the Metastorage. */
     private final KeyValueStorage storage;
 
-    /** Busy lock for stop synchronisation. */
+    /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /**
@@ -224,6 +224,11 @@ public class MetaStorageManager implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override public void stop() {
+        if (!busyLock.enterBusy())
+            return;
+
+        busyLock.leaveBusy();
+
         busyLock.block();
 
         Optional<IgniteUuid> watchId;

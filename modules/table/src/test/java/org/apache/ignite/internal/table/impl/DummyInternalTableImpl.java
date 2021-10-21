@@ -46,8 +46,9 @@ public class DummyInternalTableImpl implements InternalTable {
     /** In-memory dummy store. */
     private final Map<KeyWrapper, BinaryRow> store = new ConcurrentHashMap<>();
 
+    /** {@inheritDoc} */
     @Override public void close() throws Exception {
-
+        // No-op.
     }
 
     /**
@@ -92,7 +93,7 @@ public class DummyInternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public @NotNull TableStorage storage() {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /** {@inheritDoc} */
@@ -102,7 +103,7 @@ public class DummyInternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public void updateInternalTableRaftGroupService(int p, RaftGroupService raftGrpSvc) {
-
+        // No-op.
     }
 
     /** {@inheritDoc} */

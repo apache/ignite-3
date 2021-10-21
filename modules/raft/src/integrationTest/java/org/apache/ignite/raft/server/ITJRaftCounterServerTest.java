@@ -164,6 +164,11 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
             iterSrv.remove();
 
+            server.stopRaftGroup(COUNTER_GROUP_0);
+            server.stopRaftGroup(COUNTER_GROUP_1);
+
+            server.beforeNodeStop();
+
             server.stop();
         }
 
@@ -179,10 +184,9 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
      * @return Raft server instance.
      */
     private JRaftServerImpl startServer(int idx, Consumer<RaftServer> clo) {
-        List<NetworkAddress> addrs = IntStream.range(0, idx).mapToObj(id -> new NetworkAddress(getLocalAddress(), PORT + id))
-            .collect(Collectors.toList());
+        var addr = new NetworkAddress(getLocalAddress(), PORT);
 
-        ClusterService service = clusterService(PORT + idx, addrs, true);
+        ClusterService service = clusterService(PORT + idx, List.of(addr), true);
 
         JRaftServerImpl server = new JRaftServerImpl(service, dataPath) {
             @Override public void stop() {
@@ -271,6 +275,13 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         threadNamesAfter.removeAll(threadNamesBefore);
 
         assertEquals(threadsBefore, threadsAfter, "Difference: " + threadNamesAfter);
+
+        servers.forEach(srv -> {
+            srv.stopRaftGroup("test_raft_group");
+
+            for (int i = 0; i < 10; i++)
+                srv.stopRaftGroup("test_raft_group_" + i);
+        });
     }
 
     /**
@@ -596,6 +607,11 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
         int stopIdx = servers.indexOf(toStop);
 
+        toStop.stopRaftGroup(COUNTER_GROUP_0);
+        toStop.stopRaftGroup(COUNTER_GROUP_1);
+
+        toStop.beforeNodeStop();
+
         toStop.stop();
 
         applyIncrements(client1, 11, 20);
@@ -618,6 +634,11 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
         waitForCondition(() -> validateStateMachine(sum(20), svc2, COUNTER_GROUP_0), 5_000);
         waitForCondition(() -> validateStateMachine(sum(30), svc2, COUNTER_GROUP_1), 5_000);
+
+        svc2.stopRaftGroup(COUNTER_GROUP_0);
+        svc2.stopRaftGroup(COUNTER_GROUP_1);
+
+        svc2.beforeNodeStop();
 
         svc2.stop();
 

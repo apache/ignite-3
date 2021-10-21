@@ -61,7 +61,7 @@ public interface Ignite extends AutoCloseable {
      * TODO: IGNITE-14209 issues above must be fixed.
      *
      * @param baselineNodes Names of baseline nodes.
-     * @throws IgniteException if nodes empty/null or any node is not alive.
+     * @throws IgniteException If an unspecified platform exception has happened internally.
      */
     @Experimental
     void setBaseline(Set<String> baselineNodes);

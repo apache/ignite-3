@@ -31,7 +31,6 @@ import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Peer;
@@ -40,7 +39,6 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 
 /**
@@ -81,9 +79,6 @@ public class Loza implements IgniteComponent {
     /** Executor for raft group services. */
     private final ScheduledExecutorService executor;
 
-    /** Raft group IDs which was started locally. */
-    private final ConcurrentHashSet<String> localGroups = new ConcurrentHashSet<>();
-
     /**
      * Constructor.
      *
@@ -110,8 +105,6 @@ public class Loza implements IgniteComponent {
     @Override public void stop() throws Exception {
         // TODO: IGNITE-15161 Implement component's stop.
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
-
-        assert localGroups.isEmpty() : LoggerMessageHelper.format("Raft groups are still running {}", localGroups);
 
         raftServer.stop();
     }
@@ -142,11 +135,9 @@ public class Loza implements IgniteComponent {
 
         boolean hasLocalRaft = nodes.stream().anyMatch(n -> locNodeName.equals(n.name()));
 
-        if (hasLocalRaft && !localGroups.contains(groupId)) {
-            if (raftServer.startRaftGroup(groupId, lsnrSupplier.get(), peers))
-                localGroups.add(groupId);
-            else
-                LOG.error("Failed to start raft group on the node [node={}, raftGrp={}]", locNodeName, groupId);
+        if (hasLocalRaft) {
+            if (!raftServer.startRaftGroup(groupId, lsnrSupplier.get(), peers))
+                LOG.info("Raft group on the node is already started [node={}, raftGrp={}]", locNodeName, groupId);
         }
 
         return RaftGroupServiceImpl.start(
@@ -163,11 +154,11 @@ public class Loza implements IgniteComponent {
     }
 
     /**
-     * Changes peers for a group.
+     * Changes peers for a group from {@code expectedNodes} to {@code changedNodes}.
      *
      * @param groupId Raft group id.
-     * @param expectedNodes Nodes before.
-     * @param changedNodes Nodes to change.
+     * @param expectedNodes List of nodes that contains the raft group peers.
+     * @param changedNodes List of nodes that will contain the raft group peers after.
      * @return Future which will complete when peers change.
      */
     public CompletableFuture<Void> chagePeers(String groupId, List<ClusterNode> expectedNodes, List<ClusterNode> changedNodes) {
@@ -194,7 +185,6 @@ public class Loza implements IgniteComponent {
      * @param groupId Raft group id.
      */
     public void stopRaftGroup(String groupId) {
-        if (localGroups.remove(groupId))
-            raftServer.stopRaftGroup(groupId);
+        raftServer.stopRaftGroup(groupId);
     }
 }

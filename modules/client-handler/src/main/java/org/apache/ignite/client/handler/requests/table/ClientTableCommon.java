@@ -346,6 +346,7 @@ class ClientTableCommon {
      * @param unpacker Unpacker.
      * @param tables Ignite tables.
      * @return Table.
+     * @throws IgniteException If an unspecified platform exception has happened internally.
      */
     public static TableImpl readTable(ClientMessageUnpacker unpacker, IgniteTables tables) {
         IgniteUuid tableId = unpacker.unpackIgniteUuid();

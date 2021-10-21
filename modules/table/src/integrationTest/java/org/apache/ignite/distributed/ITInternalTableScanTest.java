@@ -101,6 +101,9 @@ public class ITInternalTableScanTest {
     /** */
     private static final String TEST_TABLE_NAME = "testTbl";
 
+    /** Id for the test RAFT group. */
+    public static final String RAFT_GRP_ID = "test_part_grp";
+
     /** Mock partition storage. */
     @Mock
     private PartitionStorage mockStorage;
@@ -147,14 +150,12 @@ public class ITInternalTableScanTest {
 
         raftSrv.start();
 
-        String grpName = "test_part_grp";
-
         List<Peer> conf = List.of(new Peer(nodeNetworkAddress));
 
         mockStorage = mock(PartitionStorage.class);
 
         raftSrv.startRaftGroup(
-            grpName,
+            RAFT_GRP_ID,
             new PartitionListener(mockStorage),
             conf
         );
@@ -162,7 +163,7 @@ public class ITInternalTableScanTest {
         executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
 
         RaftGroupService raftGrpSvc = RaftGroupServiceImpl.start(
-            grpName,
+            RAFT_GRP_ID,
             network,
             FACTORY,
             10_000,
@@ -189,6 +190,8 @@ public class ITInternalTableScanTest {
      */
     @AfterEach
     public void tearDown() throws Exception {
+        raftSrv.stopRaftGroup(RAFT_GRP_ID);
+
         if (raftSrv != null)
             raftSrv.beforeNodeStop();
 
