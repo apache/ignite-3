@@ -14,18 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.internal.processors.query.calcite.prepare;
 
-import java.util.List;
+package org.apache.ignite.internal.processors.query.calcite.exec;
 
-public class DummyPlanCache implements QueryPlanCache {
-    /** {@inheritDoc} */
-    @Override public List<QueryPlan> queryPlan(PlanningContext ctx, CacheKey key, QueryPlanFactory factory) {
-        return factory.create(ctx);
-    }
+/**
+ * SQL query engine service life cycle mark interface.
+ */
+public interface LifecycleAware {
+    /**
+     * Initialize the service.
+     */
+    void start();
 
-    /** {@inheritDoc} */
-    @Override public void clear() {
-
-    }
+    /**
+     * Stop the service.
+     *
+     * @throws Exception on eny error during the stopping.
+     */
+    void stop() throws Exception;
 }

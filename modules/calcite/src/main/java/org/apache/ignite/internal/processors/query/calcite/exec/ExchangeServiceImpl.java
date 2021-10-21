@@ -19,9 +19,9 @@ package org.apache.ignite.internal.processors.query.calcite.exec;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
-import com.google.common.collect.ImmutableMap;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.Inbox;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.Outbox;
 import org.apache.ignite.internal.processors.query.calcite.message.InboxCloseMessage;
@@ -57,6 +57,7 @@ public class ExchangeServiceImpl implements ExchangeService {
     /** */
     private final MessageService msgSrvc;
 
+    /** */
     public ExchangeServiceImpl(
         QueryTaskExecutor taskExecutor,
         MailboxRegistry mailboxRegistry,
@@ -65,8 +66,14 @@ public class ExchangeServiceImpl implements ExchangeService {
         this.taskExecutor = taskExecutor;
         this.mailboxRegistry = mailboxRegistry;
         this.msgSrvc = msgSrvc;
+    }
 
-        init();
+    /** {@inheritDoc} */
+    @Override public void start() {
+        msgSrvc.register((n, m) -> onMessage(n, (InboxCloseMessage) m), SqlQueryMessageGroup.INBOX_CLOSE_MESSAGE);
+        msgSrvc.register((n, m) -> onMessage(n, (OutboxCloseMessage) m), SqlQueryMessageGroup.OUTBOX_CLOSE_MESSAGE);
+        msgSrvc.register((n, m) -> onMessage(n, (QueryBatchAcknowledgeMessage) m), SqlQueryMessageGroup.QUERY_BATCH_ACK);
+        msgSrvc.register((n, m) -> onMessage(n, (QueryBatchMessage) m), SqlQueryMessageGroup.QUERY_BATCH_MESSAGE);
     }
 
     /** {@inheritDoc} */
@@ -133,13 +140,6 @@ public class ExchangeServiceImpl implements ExchangeService {
                 .error(err)
                 .build()
         );
-    }
-
-    private void init() {
-        msgSrvc.register((n, m) -> onMessage(n, (InboxCloseMessage) m), SqlQueryMessageGroup.INBOX_CLOSE_MESSAGE);
-        msgSrvc.register((n, m) -> onMessage(n, (OutboxCloseMessage) m), SqlQueryMessageGroup.OUTBOX_CLOSE_MESSAGE);
-        msgSrvc.register((n, m) -> onMessage(n, (QueryBatchAcknowledgeMessage) m), SqlQueryMessageGroup.QUERY_BATCH_ACK);
-        msgSrvc.register((n, m) -> onMessage(n, (QueryBatchMessage) m), SqlQueryMessageGroup.QUERY_BATCH_MESSAGE);
     }
 
     /** {@inheritDoc} */
@@ -257,6 +257,11 @@ public class ExchangeServiceImpl implements ExchangeService {
                 null,
                 null),
             null,
-            ImmutableMap.of());
+            Map.of());
+    }
+
+    /** {@inheritDoc} */
+    @Override public void stop() {
+        // No-op.
     }
 }

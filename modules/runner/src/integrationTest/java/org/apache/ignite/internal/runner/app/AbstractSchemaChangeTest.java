@@ -24,9 +24,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import com.google.common.collect.Lists;
+
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.internal.ITUtils;
 import org.apache.ignite.configuration.schemas.table.ColumnChange;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -118,7 +119,7 @@ abstract class AbstractSchemaChangeTest {
     /** */
     @AfterEach
     void afterEach() throws Exception {
-        IgniteUtils.closeAll(Lists.reverse(clusterNodes));
+        IgniteUtils.closeAll(ITUtils.reverse(clusterNodes));
     }
 
     /**

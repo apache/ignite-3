@@ -15,26 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.query.calcite.prepare;
+package org.apache.ignite.internal;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
-import org.apache.ignite.internal.processors.query.calcite.exec.LifecycleAware;
-
 /**
- *
+ * Utilities methods for integration tests.
  */
-public interface QueryPlanCache extends LifecycleAware {
-    /**
-     * @param ctx Context.
-     * @param key Cache key.
-     * @param factory Factory method to generate a plan on cache miss.
-     * @return Query plan.
-     */
-    List<QueryPlan> queryPlan(PlanningContext ctx, CacheKey key, QueryPlanFactory factory);
+public class ITUtils {
+    private ITUtils() {
+        // No-op;
+    }
 
     /**
-     * Clear cache.
+     * Returns a reversed list of the specified list.
      */
-    void clear();
+    public static <T> List<T> reverse(List<T> lst) {
+        List<T> res = new ArrayList<>(lst);
+
+        Collections.reverse(res);
+
+        return res;
+    }
 }
