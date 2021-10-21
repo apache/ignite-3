@@ -66,6 +66,8 @@ public interface IgniteTransactions {
      * This method will automatically enlist all tables into the transaction, but the execution of
      * the transaction shouldn't leave starting thread or an exception will be thrown.
      * @param clo The closure.
+     * @return The result.
+     * <T> Closure result type.
      */
     <T> T runInTransaction(Function<Transaction, T> clo);
 }

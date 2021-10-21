@@ -191,7 +191,6 @@ class ClientTableCommon {
      *
      * @param packer Packer.
      * @param tuples Tuples.
-     * @param keyAndVal Tuple part.
      * @param schemaRegistry The registry.
      * @throws IgniteException on failed serialization.
      */

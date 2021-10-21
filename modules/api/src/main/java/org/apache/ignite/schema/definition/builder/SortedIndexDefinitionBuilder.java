@@ -37,7 +37,7 @@ public interface SortedIndexDefinitionBuilder extends SchemaObjectBuilder {
 
     /**
      * Unique index flag.
-     * @param The unique flag.
+     * @param b {@code True} if a unique index.
      *
      * @return {@code This} for chaining.
      */
