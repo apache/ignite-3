@@ -78,54 +78,108 @@ This map is used for a failover and for reading. Oldest entries in txid map must
 # Data format
 A row is stored in key-value database with additional attached metadata for referencing associated tx.
 The record format is:
-key -> tuple (
-           current value (as seen from the current transaction perspective), 
+Key -> Tuple (
+           new value (as seen from the current transaction's perspective), 
            old value (used for rolling back), 
-           timestamp of a last transaction modifiyng the value (or null for new or after reset)
+           timestamp of a last transaction modifiyng the value (or null for new record or after reset)
        )
        
-Such format allows O(1) commit time simply by changing tx state, see next paragraph for details.
+Such format allows O(1) commit (or rollback) time simply by changing tx state, see next paragraph for details.
 
 # Read rules
+TX state and timestamp are used for reading with required isolation using the following rules:
 
-TX state and timestamp are used for reading with required isolation in the following manner:
+```
+    BinaryRow read(BinaryRow key, Timestamp myTs) {
+        DataRow val = storage.read(key);
+        
+        Tuple tuple = asTuple(val);
 
+        if (tuple.timestamp == null) { // New or after reset.
+            assert tuple.oldRow == null : tuple;
 
+            return tuple.newRow;
+        }
+
+        // Checks "read in tx" condition. Will be false if this is a first transactional op.
+        if (tuple.timestamp.equals(myTs))
+            return tuple.newRow;
+
+        TxState state = txState(tuple.timestamp);
+
+        if (state == ABORTED) // Was aborted and had written a temporary value.
+            return tuple.oldRow;
+        else
+            return tuple.newRow;        
+    }           
+```
 
 # Write tx example.
-Assume the current row is: key -> oldvalue
+Assume the current row is: key -> (value, null, null)
+A transaction with timestamp = "ts" tries to update a value to newValue.
 
 The steps to update a row:
 
-1. acquire exclusive(write) lock for a key on prewrite
+1. acquire write lock for "ts" for a key on prewrite
 
-2. remove key -> oldvalue<br/>
-   set key -> newvalue [txid] // Inserted row has a special metadata containing transaction id it's enlisted in.<br/>
-   set txid + key -> oldvalue (for aborting purposes)
+2. prewrite new row: key -> (newValue, oldValue, ts); 
 
-3. on commit:<br/>
-   set txid -> commited<br/>
-   release exclusive lock<br/>
+3. on commit:
+   txState(ts) = COMMITTED
+   release exclusive lock
+
+4. on abort:
+   txState(ts) = ABORTED
+   release exclusive lock
    
+5. clean up garbage asynchronously
 
-4. on abort:<br/>
-   set txid -> aborted<br/>
-   remove key -> newvalue<br/>
-   set key -> oldvalue<br/>
-   release exclusive lock<br/>
-   
-5. async clear garbage
+The corresponding diagram:
+
+```
+Tx client               TxCoordinator                                               Partition leaseholder.    
+tx.start
+            --------->  
+                        assign timestamp = ts
+                        txstate = PENDING
+            <---------		   	               
+table.put(k,v)   
+            --------->   
+                        enlist(partition(k));
+                        lh = getLeaseholder(partition(k))
+                        send UpsertCommand(k,ts) to lh
+				                                                      ------------>
+                                                                                     replicate txstate = PENDING
+                                                                                     lockManager.tryAcquire(k,ts);
+                                                                                     wait for completion async
+                                                                                     prewrite(k,v,oldV,ts) -- replicate to all replicas
+repeat for each enlisted key...                        
+            <---------
+tx.finish - commit or rollback
+            --------->  
+                        send finish request to all remote enlisted nodes
+                                                                      ------------>
+                                                                                     replicate txstate = COMMITTED/ABORTED
+                        txState = COMMITTED/ABORTED                                  lockManager.tryRelease(k,ts)
+                                                                      <------------ 
+                        		
+                        when all leasholders are replied,
+                        reply to initiator
+            <--------
+```
+
+# Garbage cleaning
+
+It makes sense to remove obsolete values and timestamps from record by running async "vacuum" procedure:
+
+Key -> Tuple (newVal, oldVal, ts) will change after resetting to Key -> Tuple (newVal, null, null) and can be compacted.
 
 # SQL and indexes.
 
 We assume only row level locking in the first approach, which gives us a repeatable_read isolation.
-
 When the SQL query is executed, it acquires locks while the the data is collected on data nodes.
-
 Locks are acquired lazily as result set is consumed.
-
 The locking rules are same as for get/put operations.
-
 Then values are removed from indexes on step 2, they are written as tombstones to avoid read inconsistency and should be 
 cleaned up after tx finish.
 
@@ -135,7 +189,6 @@ TODO: tx example flow with enabled index(es)
 Failover protocol is similar to Ignite 2 with a main difference: until tx is sure it can commit or rollback, it holds
 its locks. This means in the case of split-brain, some keys will be locked until split-brain situation is resolved and
 tx recovery protocol will converge. Consult a 2PC paper for details when it's possible, for example <sup id="a3">[3](#f3)</sup>
-A failover handling is work in progress.
 
 ## Leaserholder fail
 If a tx is not started to COMMIT, the coordinator reverts a transaction on remaining leaseholders.
@@ -145,6 +198,8 @@ Then a new leasholder is elected, it check for its pending transactions and asks
 Broadcast recovery (various strategies are possible: via gossip or dedicated node) is necessary (because we don't have 
 full tx topology on each enlisted node - because it's unknown until commit). All nodes are requested about local txs state. 
 If at least one is commiting, it's safe to commit.
+
+**Note: a failover handling is still work in progress.**
 
 <em id="f1">[1]</em> CockroachDB: The Resilient Geo-Distributed SQL Database, 2020 [↩](#a1)<br/>
 <em id="f2">[2]</em> Concurrency Control in Distributed Database Systems, 1981 [↩](#a2)<br/>

@@ -241,7 +241,7 @@ public enum RaftError {
     EACCES(1016),
 
     /**
-     * Transaction failed TODO asch temporary solution, should be replaced with tx error codes.
+     * Transaction failed TODO asch A temporary solution, should be replaced with tx error codes.
      */
     ETX(1017);
 

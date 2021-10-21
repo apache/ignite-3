@@ -83,6 +83,7 @@ abstract class AbstractTableView {
     /**
      * @param tx The transaction.
      * @return Transactional view.
+     * @deprecated TODO asch remove and replace with expicit TX argument in table API calls.
      */
     public abstract AbstractTableView withTransaction(Transaction tx);
 }

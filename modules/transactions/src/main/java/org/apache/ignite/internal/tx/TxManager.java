@@ -87,6 +87,7 @@ public interface TxManager extends IgniteComponent {
     public CompletableFuture<Void> readLock(IgniteUuid tableId, ByteBuffer keyData, Timestamp ts);
 
     /**
+     * TODO asch Should be replicated using raft.
      * @param timestamp The timestamp.
      * @return {@code True} if a transaction was created in PENDING state.
      */

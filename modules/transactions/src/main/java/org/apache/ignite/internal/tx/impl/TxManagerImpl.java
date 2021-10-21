@@ -62,16 +62,16 @@ public class TxManagerImpl implements TxManager {
     /** */
     private final LockManager lockManager;
 
-    /** The storage for tx states. TODO asch use Storage for states, implement max size */
+    /** The storage for tx states. TODO asch use Storage for states, implement max size, implement replication. */
     private final ConcurrentHashMap<Timestamp, TxState> states = new ConcurrentHashMap<>();
 
     /**
      * The storage for locks acquired by transactions. Each key is mapped to lock type where true is for read.
-     * TODO asch use Storage for locks
+     * TODO asch use Storage for locks. Introduce limits, deny lock operation if the limit is exceeded.
      */
     private final ConcurrentHashMap<Timestamp, Map<TableLockKey, Boolean>> locks = new ConcurrentHashMap<>();
 
-    /** */
+    /** TODO asch remove and replace with expicit TX argument in table API calls. */
     private ThreadLocal<InternalTransaction> threadCtx = new ThreadLocal<>();
 
     /**

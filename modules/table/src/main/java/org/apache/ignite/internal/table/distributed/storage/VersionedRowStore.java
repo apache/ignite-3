@@ -42,6 +42,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * TODO asch use read only buffers ? replace Pair from ignite-schema
+ * TODO asch can use some sort of a cache on tx coordinator to avoid network IO.
  */
 public class VersionedRowStore {
     /** Storage delegate. */
@@ -66,9 +67,11 @@ public class VersionedRowStore {
      * @param row The row.
      * @param ts Timestamp ts.
      * @return Actual value.
+     *
+     * TODO asch refactor to use this method in this class when possible.
      */
     protected Pair<BinaryRow, BinaryRow> versionedRow(@Nullable DataRow row, Timestamp ts) {
-        return result(unpack(row), ts);
+        return resolve(unpack(row), ts);
     }
 
     /**
@@ -111,7 +114,7 @@ public class VersionedRowStore {
 
         SimpleDataRow key = new SimpleDataRow(extractAndWrapKey(row).keyBytes(), null);
 
-        Pair<BinaryRow, BinaryRow> pair = result(unpack(storage.read(key)), ts);
+        Pair<BinaryRow, BinaryRow> pair = resolve(unpack(storage.read(key)), ts);
 
         storage.write(pack(key, new Value(row, pair.getSecond(), ts)));
     }
@@ -141,7 +144,7 @@ public class VersionedRowStore {
 
         SimpleDataRow key = new SimpleDataRow(extractAndWrapKey(row).keyBytes(), null);
 
-        Pair<BinaryRow, BinaryRow> pair = result(unpack(storage.read(key)), ts);
+        Pair<BinaryRow, BinaryRow> pair = resolve(unpack(storage.read(key)), ts);
 
         if (pair.getFirst() == null)
             return false;
@@ -172,7 +175,7 @@ public class VersionedRowStore {
         assert row != null && row.hasValue() : row;
         SimpleDataRow key = new SimpleDataRow(extractAndWrapKey(row).keyBytes(), null);
 
-        Pair<BinaryRow, BinaryRow> pair = result(unpack(storage.read(key)), ts);
+        Pair<BinaryRow, BinaryRow> pair = resolve(unpack(storage.read(key)), ts);
 
         if (pair.getFirst() != null)
             return false;
@@ -340,35 +343,6 @@ public class VersionedRowStore {
     }
 
     /**
-     * @param value The value.
-     * @param ts The timestamp.
-     * @return Actual value visible to a user.
-     */
-    private BinaryRow resolve(@Nullable Value value, @Nullable Timestamp ts) {
-        if (value == null)
-            return null;
-
-        if (ts != null) {
-            if (!ts.equals(value.timestamp))
-                assert value.oldRow == null : value + " " + ts;
-
-            return value.newRow;
-        }
-        else {
-            if (value.timestamp != null) {
-                TxState state = txManager.state(value.timestamp);
-
-                if (state == TxState.COMMITED)
-                    return value.newRow;
-                else
-                    return value.oldRow;
-            }
-            else
-                return value.newRow;
-        }
-    }
-
-    /**
      * @throws Exception If failed.
      */
     public void close() throws Exception {
@@ -502,7 +476,7 @@ public class VersionedRowStore {
      * @param ts The transaction
      * @return New and old rows pair.
      */
-    private Pair<BinaryRow, BinaryRow> result(Value val, Timestamp ts) {
+    private Pair<BinaryRow, BinaryRow> resolve(Value val, Timestamp ts) {
         if (val.timestamp == null) { // New or after reset.
             assert val.oldRow == null : val;
 
