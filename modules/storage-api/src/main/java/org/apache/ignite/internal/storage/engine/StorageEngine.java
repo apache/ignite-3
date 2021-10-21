@@ -24,11 +24,24 @@ import java.util.function.BiFunction;
 import org.apache.ignite.configuration.schemas.store.DataRegionConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.internal.storage.StorageException;
 
 /**
  * General storageengine interface.
  */
 public interface StorageEngine {
+    /**
+     * Starts the engine.
+     */
+    void start();
+
+    /**
+     * Stops the engine.
+     *
+     * @throws StorageException If an error has occurred during the engine stop.
+     */
+    void stop() throws StorageException;
+
     /**
      * Creates new data resion.
      *

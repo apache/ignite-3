@@ -29,9 +29,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.DataRow;
@@ -63,6 +60,9 @@ public class RocksDbPartitionStorage implements PartitionStorage {
     /** Suffix for the temporary snapshot folder */
     private static final String TMP_SUFFIX = ".tmp";
 
+    /** Storage engine. */
+    private final RocksDbStorageEngine engine;
+
     /** Partition id. */
     private final int partId;
 
@@ -72,19 +72,22 @@ public class RocksDbPartitionStorage implements PartitionStorage {
     /** Data column family. */
     private final ColumnFamily data;
 
-    /** Thread-pool for snapshot operations execution. */
-    private final ExecutorService snapshotExecutor = Executors.newSingleThreadExecutor();
-
     /**
      * Constructor.
      *
+     * @param engine Storage engine.
      * @param partId Partition id.
      * @param db Rocks DB instance.
      * @param columnFamily Column family to be used for all storage operations.
-     * @param storage
      * @throws StorageException If failed to create RocksDB instance.
      */
-    public RocksDbPartitionStorage(int partId, RocksDB db, ColumnFamily columnFamily) throws StorageException {
+    public RocksDbPartitionStorage(
+        RocksDbStorageEngine engine,
+        int partId,
+        RocksDB db,
+        ColumnFamily columnFamily
+    ) throws StorageException {
+        this.engine = engine;
         this.partId = partId;
         this.db = db;
         this.data = columnFamily;
@@ -336,8 +339,8 @@ public class RocksDbPartitionStorage implements PartitionStorage {
             catch (IOException e) {
                 throw new IgniteInternalException("Failed to create directory: " + tempPath, e);
             }
-        }, snapshotExecutor)
-            .thenRunAsync(() -> createSstFile(data, snapshot, tempPath), snapshotExecutor)
+        }, engine.threadPool())
+            .thenRunAsync(() -> createSstFile(data, snapshot, tempPath), engine.threadPool())
             .whenComplete((aVoid, throwable) -> {
                 // Release a snapshot
                 db.releaseSnapshot(snapshot);
@@ -378,8 +381,7 @@ public class RocksDbPartitionStorage implements PartitionStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public void close() throws Exception {
-        IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
+    @Override public void close() {
     }
 
     /** Cursor wrapper over the RocksIterator object with custom filter. */

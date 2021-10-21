@@ -81,6 +81,9 @@ public class RocksDbTableStorage implements TableStorage {
     /** Table configuration. */
     private final TableConfiguration tableCfg;
 
+    /** Storage engine for the table. */
+    private final RocksDbStorageEngine engine;
+
     /** Data region for the table. */
     private final RocksDbDataRegion dataRegion;
 
@@ -116,17 +119,20 @@ public class RocksDbTableStorage implements TableStorage {
      *
      * @param tablePath Path for the directory that stores table data.
      * @param tableCfg Table configuration.
+     * @param engine Storage engine.
      * @param dataRegion Data region for the table.
      * @param indexComparatorFactory Comparators factory for indexes.
      */
     public RocksDbTableStorage(
         Path tablePath,
         TableConfiguration tableCfg,
+        RocksDbStorageEngine engine,
         RocksDbDataRegion dataRegion,
         BiFunction<TableView, String, Comparator<ByteBuffer>> indexComparatorFactory
     ) {
         this.tablePath = tablePath;
         this.tableCfg = tableCfg;
+        this.engine = engine;
         this.dataRegion = dataRegion;
         this.indexComparatorFactory = indexComparatorFactory;
     }
@@ -190,7 +196,7 @@ public class RocksDbTableStorage implements TableStorage {
 
                 ColumnFamily cf = new ColumnFamily(db, cfHandle, handleName, cfDescriptor.getOptions(), null);
 
-                partitions.set(partId, new RocksDbPartitionStorage(partId, db, cf));
+                partitions.set(partId, new RocksDbPartitionStorage(engine, partId, db, cf));
             }
             else {
                 String indexName = handleName.substring(CF_INDEX_PREFIX.length());
@@ -255,7 +261,7 @@ public class RocksDbTableStorage implements TableStorage {
 
                 ColumnFamily cf = new ColumnFamily(db, cfHandle, handleName, cfDescriptor.getOptions(), null);
 
-                partition = new RocksDbPartitionStorage(partId, db, cf);
+                partition = new RocksDbPartitionStorage(engine, partId, db, cf);
             }
             catch (RocksDBException e) {
                 cfDescriptor.getOptions().close();

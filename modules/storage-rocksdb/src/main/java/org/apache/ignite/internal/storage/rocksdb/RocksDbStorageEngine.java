@@ -20,13 +20,19 @@ package org.apache.ignite.internal.storage.rocksdb;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import org.apache.ignite.configuration.schemas.store.DataRegionConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.RocksDB;
 
 /**
@@ -35,6 +41,19 @@ import org.rocksdb.RocksDB;
 public class RocksDbStorageEngine implements StorageEngine {
     static {
         RocksDB.loadLibrary();
+    }
+
+    /** */
+    private final ExecutorService threadPool = Executors.newFixedThreadPool(
+        Runtime.getRuntime().availableProcessors(), new NamedThreadFactory("rocksdb-pool"));
+
+    /** {@inheritDoc} */
+    @Override public void start() {
+    }
+
+    /** {@inheritDoc} */
+    @Override public void stop() throws StorageException {
+        IgniteUtils.shutdownAndAwaitTermination(threadPool, 10, TimeUnit.SECONDS);
     }
 
     /** {@inheritDoc} */
@@ -54,8 +73,14 @@ public class RocksDbStorageEngine implements StorageEngine {
         return new RocksDbTableStorage(
             tablePath,
             tableCfg,
+            this,
             (RocksDbDataRegion)dataRegion,
             indexComparatorFactory
         );
+    }
+
+    /** */
+    public ExecutorService threadPool() {
+        return threadPool;
     }
 }
