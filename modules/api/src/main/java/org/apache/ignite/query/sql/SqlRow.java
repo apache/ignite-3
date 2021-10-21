@@ -26,5 +26,10 @@ import org.apache.ignite.table.Tuple;
  * @see ColumnMetadata
  */
 public interface SqlRow extends Tuple {
-//TODO: We extends Tuple here just for short. Do we need smth else?
+    /**
+     * Result set columns metadata.
+     *
+     * @return Result set columns metadata.
+     */
+    ResultSetMetadata metadata();
 }

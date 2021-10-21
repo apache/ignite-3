@@ -25,6 +25,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
+import org.apache.ignite.query.sql.ResultSetMetadata;
 import org.apache.ignite.query.sql.SqlRow;
 import org.jetbrains.annotations.NotNull;
 
@@ -221,6 +222,11 @@ public class TestRow implements SqlRow {
 
     /** {@inheritDoc} */
     @NotNull @Override public Iterator<Object> iterator() {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override public ResultSetMetadata metadata() {
         throw new UnsupportedOperationException();
     }
 }
