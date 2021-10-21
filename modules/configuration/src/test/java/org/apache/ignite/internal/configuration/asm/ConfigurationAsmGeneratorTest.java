@@ -243,52 +243,10 @@ public class ConfigurationAsmGeneratorTest {
 
     /** */
     @Test
-    void test() throws Exception {
-        // TODO: IGNITE-14645 implement.
-        DynamicConfiguration<?, ?> config = generator.instantiateCfg(TestRootConfiguration.KEY, changer);
-
-        TestRootConfiguration rootConfig = (TestRootConfiguration)config;
-
-        TestRootView rootView = rootConfig.value();
-
-        PolymorphicTestView rootPolymorphicView = rootView.polymorphicSubCfg();
-
-        PolymorphicTestConfiguration polymorphicCfg = rootConfig.polymorphicSubCfg();
-
-        PolymorphicTestView polymorphicView = polymorphicCfg.value();
-
-        assertTrue(rootPolymorphicView.getClass() == polymorphicView.getClass());
-
-        polymorphicCfg.change(c ->
-            c.convert(FirstPolymorphicInstanceTestChange.class)
-                .convert(SecondPolymorphicInstanceTestChange.class)
-                .convert(FirstPolymorphicInstanceTestChange.class)
-        ).get();
-
-        polymorphicCfg.change(
-            c -> c.convert(SecondPolymorphicInstanceTestChange.class)
-        ).get();
-
-        polymorphicCfg.change(c -> c.convert(SecondPolymorphicInstanceTestChange.class));
-
-        SecondPolymorphicInstanceTestView newVal0 = (SecondPolymorphicInstanceTestView)polymorphicCfg.value();
-
-        assertEquals("strVal", newVal0.strVal());
-        assertEquals(0, newVal0.intVal());
-        assertEquals(0L, newVal0.longVal());
-
-        polymorphicCfg.change(c -> c.convert(FirstPolymorphicInstanceTestChange.class)).get();
-
-        FirstPolymorphicInstanceTestView newVal1 = (FirstPolymorphicInstanceTestView)polymorphicCfg.value();
-
-        assertEquals("strVal", newVal1.strVal());
-        assertEquals(0, newVal1.intVal());
-    }
-
-    /** */
-    @Test
     void testPolymorphicSubConfiguration() throws Exception {
         TestRootConfiguration rootConfig = (TestRootConfiguration)generator.instantiateCfg(TestRootConfiguration.KEY, changer);
+
+        // Check defaults.
 
         FirstPolymorphicInstanceTestConfiguration firstCfg = (FirstPolymorphicInstanceTestConfiguration)rootConfig.polymorphicSubCfg();
         assertEquals("strVal", firstCfg.strVal().value());
@@ -297,6 +255,50 @@ public class ConfigurationAsmGeneratorTest {
         FirstPolymorphicInstanceTestView firstVal = (FirstPolymorphicInstanceTestView)firstCfg.value();
         assertEquals("strVal", firstVal.strVal());
         assertEquals(0, firstVal.intVal());
+
+        firstVal = (FirstPolymorphicInstanceTestView)rootConfig.value().polymorphicSubCfg();
+        assertEquals("strVal", firstVal.strVal());
+        assertEquals(0, firstVal.intVal());
+
+        // Check simple changes.
+
+        firstCfg.strVal().update("strVal1").get(1, SECONDS);
+        firstCfg.intVal().update(1).get(1, SECONDS);
+
+        assertEquals("strVal1", firstCfg.strVal().value());
+        assertEquals(1, firstCfg.intVal().value());
+
+        firstCfg.change(c -> ((FirstPolymorphicInstanceTestChange)c).changeIntVal(2).changeStrVal("strVal2")).get(1, SECONDS);
+
+        assertEquals("strVal2", firstCfg.strVal().value());
+        assertEquals(2, firstCfg.intVal().value());
+
+        rootConfig.change(c -> c.changePolymorphicSubCfg(
+            c1 -> ((FirstPolymorphicInstanceTestChange)c1).changeIntVal(3).changeStrVal("strVal3")
+        )).get(1, SECONDS);
+
+        assertEquals("strVal3", firstCfg.strVal().value());
+        assertEquals(3, firstCfg.intVal().value());
+
+        // Check convert.
+
+        rootConfig.polymorphicSubCfg().change(c -> c.convert(SecondPolymorphicInstanceTestChange.class)).get(1, SECONDS);
+
+        SecondPolymorphicInstanceTestConfiguration secondCfg = (SecondPolymorphicInstanceTestConfiguration)rootConfig.polymorphicSubCfg();
+        assertEquals("strVal3", secondCfg.strVal().value());
+        assertEquals(0, secondCfg.intVal().value());
+        assertEquals(0L, secondCfg.longVal().value());
+
+        SecondPolymorphicInstanceTestView secondView = (SecondPolymorphicInstanceTestView)secondCfg.value();
+        assertEquals("strVal3", secondView.strVal());
+        assertEquals(0, secondView.intVal());
+        assertEquals(0L, secondView.longVal());
+
+        rootConfig.polymorphicSubCfg().change(c -> c.convert(FirstPolymorphicInstanceTestChange.class)).get(1, SECONDS);
+
+        firstCfg = (FirstPolymorphicInstanceTestConfiguration)rootConfig.polymorphicSubCfg();
+        assertEquals("strVal3", firstCfg.strVal().value());
+        assertEquals(0, firstCfg.intVal().value());
     }
 
     /**

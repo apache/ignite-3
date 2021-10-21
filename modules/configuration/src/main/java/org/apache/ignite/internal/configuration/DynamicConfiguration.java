@@ -63,6 +63,7 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
 
     /**
      * Add new configuration member.
+     *
      * @param member Configuration member (leaf or node).
      * @param <P> Type of member.
      */
@@ -159,14 +160,4 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
      * @throws UnsupportedOperationException In the case of a named list.
      */
     public abstract Class<? extends ConfigurationProperty<VIEW>> configType();
-
-    /**
-     * Returns specific configuration tree.
-     *
-     * @return Specific configuration tree.
-     */
-    public ConfigurationTree<VIEW, CHANGE> specificConfigTree() {
-        // To work with polymorphic configuration.
-        return this;
-    }
 }

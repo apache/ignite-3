@@ -29,6 +29,7 @@ import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Named configuration wrapper.
@@ -83,7 +84,10 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEW>, VIEW,
     }
 
     /** {@inheritDoc} */
-    @Override protected synchronized void beforeRefreshValue(NamedListView<VIEW> newValue) {
+    @Override protected synchronized void beforeRefreshValue(
+        NamedListView<VIEW> newValue,
+        @Nullable NamedListView<VIEW> oldValue
+    ) {
         Map<String, ConfigurationProperty<?>> oldValues = this.members;
         Map<String, ConfigurationProperty<?>> newValues = new LinkedHashMap<>();
 
