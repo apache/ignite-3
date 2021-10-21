@@ -218,8 +218,7 @@ public class IgniteImpl implements Ignite {
             clusterSvc.topologyService(),
             metaStorageMgr,
             getPartitionsStorePath(workDir),
-            txManager,
-            lockManager
+            txManager
         );
 
         qryEngine = new SqlQueryProcessor(

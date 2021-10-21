@@ -57,9 +57,6 @@ public class TxManagerImpl implements TxManager {
     private static final int TIMEOUT = 5_000;
 
     /** */
-    private static final CompletableFuture<Void> DONE_FUT = completedFuture(null);
-
-    /** */
     private final ClusterService clusterService;
 
     /** */
@@ -68,7 +65,10 @@ public class TxManagerImpl implements TxManager {
     /** The storage for tx states. TODO asch use Storage for states, implement max size */
     private final ConcurrentHashMap<Timestamp, TxState> states = new ConcurrentHashMap<>();
 
-    /** The storage for tx locks. Each key is mapped to lock type where true is for read. TODO asch use Storage for locks */
+    /**
+     * The storage for locks acquired by transactions. Each key is mapped to lock type where true is for read.
+     * TODO asch use Storage for locks
+     */
     private final ConcurrentHashMap<Timestamp, Map<TableLockKey, Boolean>> locks = new ConcurrentHashMap<>();
 
     /** */

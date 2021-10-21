@@ -111,8 +111,6 @@ public class VersionedRowStore {
 
         SimpleDataRow key = new SimpleDataRow(extractAndWrapKey(row).keyBytes(), null);
 
-        txManager.getOrCreateTransaction(ts);
-
         Pair<BinaryRow, BinaryRow> pair = result(unpack(storage.read(key)), ts);
 
         storage.write(pack(key, new Value(row, pair.getSecond(), ts)));
@@ -140,8 +138,6 @@ public class VersionedRowStore {
      */
     public boolean delete(BinaryRow row, Timestamp ts) {
         assert row != null;
-
-        txManager.getOrCreateTransaction(ts);
 
         SimpleDataRow key = new SimpleDataRow(extractAndWrapKey(row).keyBytes(), null);
 
@@ -174,8 +170,6 @@ public class VersionedRowStore {
      */
     public boolean insert(BinaryRow row, Timestamp ts) {
         assert row != null && row.hasValue() : row;
-        txManager.getOrCreateTransaction(ts);
-
         SimpleDataRow key = new SimpleDataRow(extractAndWrapKey(row).keyBytes(), null);
 
         Pair<BinaryRow, BinaryRow> pair = result(unpack(storage.read(key)), ts);
@@ -373,7 +367,6 @@ public class VersionedRowStore {
                 return value.newRow;
         }
     }
-
 
     /**
      * @throws Exception If failed.
@@ -657,9 +650,7 @@ public class VersionedRowStore {
         private final BinaryRow sourceRow;
 
         /**
-         * Constructor.
-         *
-         * @param row Row to search for.
+         * @param row The search row.
          */
         BinarySearchRow(BinaryRow row) {
             sourceRow = row;

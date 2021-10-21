@@ -27,30 +27,23 @@ import java.util.function.Function;
 public interface IgniteTransactions {
     /**
      * @param timeout The timeout.
-     * @return A facade with changed timeout.
+     * @return A facade using a new timeout.
      */
     IgniteTransactions withTimeout(long timeout);
 
     /**
      * Begins a transaction.
      * <p>
-     * Tables must be enlisted into transaction using
-     * {@link org.apache.ignite.table.Table#withTransaction(org.apache.ignite.tx.Transaction)}
-     * <p>
      * Transaction logic is allowed for execute in any thread of control.
-     * @return The future with a new transaction as a result.
-     * @throws TransactionException If a transaction can't be started for a some reason.
+     * @return The started transaction.
      */
     Transaction begin();
 
     /**
      * Begins an async transaction.
      * <p>
-     * Tables must be enlisted into transaction using
-     * {@link org.apache.ignite.table.Table#withTransaction(org.apache.ignite.tx.Transaction)}
-     * <p>
      * Transaction logic is allowed for execute in any thread of control.
-     * @return The future with a new transaction as a result.
+     * @return The future holding the started transaction.
      */
     CompletableFuture<Transaction> beginAsync();
 
@@ -62,7 +55,6 @@ public interface IgniteTransactions {
      * This method will automatically enlist tables into the transaction, but the execution of
      * the transaction shouldn't leave starting thread or an exception will be thrown.
      * @param clo The closure.
-     * @throws TransactionException If a transaction has failed to finish normally.
      */
     void runInTransaction(Consumer<Transaction> clo);
 
@@ -74,7 +66,6 @@ public interface IgniteTransactions {
      * This method will automatically enlist all tables into the transaction, but the execution of
      * the transaction shouldn't leave starting thread or an exception will be thrown.
      * @param clo The closure.
-     * @throws TransactionException If a transaction has failed to finish normally.
      */
     <T> T runInTransaction(Function<Transaction, T> clo);
 }

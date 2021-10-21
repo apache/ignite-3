@@ -209,8 +209,7 @@ public class TableManagerTest {
             ts,
             mm,
             workDir,
-            tm,
-            lm
+            tm
         );
 
         assertEquals(1, tableManager.tables().size());
@@ -382,8 +381,7 @@ public class TableManagerTest {
             ts,
             mm,
             workDir,
-            tm,
-            lm
+            tm
         );
 
         TableImpl tbl2 = null;

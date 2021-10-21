@@ -25,6 +25,7 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  *
@@ -114,5 +115,6 @@ public interface TxManager extends IgniteComponent {
     /**
      * @return A number of finished transactions.
      */
+    @TestOnly
     int finished();
 }

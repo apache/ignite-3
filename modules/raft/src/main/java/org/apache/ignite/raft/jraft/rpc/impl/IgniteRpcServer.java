@@ -22,7 +22,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -52,7 +51,6 @@ import org.apache.ignite.raft.jraft.rpc.impl.core.InstallSnapshotRequestProcesso
 import org.apache.ignite.raft.jraft.rpc.impl.core.ReadIndexRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.RequestVoteRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.TimeoutNowRequestProcessor;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * TODO https://issues.apache.org/jira/browse/IGNITE-14519 Unsubscribe on shutdown
@@ -62,8 +60,6 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
     private final NodeManager nodeManager;
 
-    private final TxManager txManager;
-
     private final Executor rpcExecutor;
 
     private final List<ConnectionClosedEventListener> listeners = new CopyOnWriteArrayList<>();
@@ -71,23 +67,20 @@ public class IgniteRpcServer implements RpcServer<Void> {
     private final Map<String, RpcProcessor> processors = new ConcurrentHashMap<>();
 
     /**
+     * @param lockManager The lock manager.
      * @param service The cluster service.
      * @param nodeManager The node manager.
-     * @param lockManager The lock manager.
-     * @param raftMessagesFactory Message factory.
      * @param raftMessagesFactory Message factory.
      * @param rpcExecutor The executor for RPC requests.
      */
     public IgniteRpcServer(
         ClusterService service,
         NodeManager nodeManager,
-        @Nullable TxManager txManager,
         RaftMessagesFactory raftMessagesFactory,
         Executor rpcExecutor
     ) {
         this.service = service;
         this.nodeManager = nodeManager;
-        this.txManager = txManager;
         this.rpcExecutor = rpcExecutor;
 
         // raft server RPC

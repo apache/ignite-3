@@ -33,7 +33,6 @@ public class DeleteCommand implements SingleKeyCommand, WriteCommand {
     /** The timestamp. */
     private final Timestamp timestamp;
 
-
     /*
      * Row bytes.
      * It is a temporary solution, before network have not implement correct serialization BinaryRow.

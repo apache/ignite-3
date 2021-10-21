@@ -38,7 +38,6 @@ public class TestIgniteRpcServer extends IgniteRpcServer {
         super(
             clusterService,
             nodeManager,
-            null,
             nodeOptions.getRaftMessagesFactory(),
             requestExecutor
         );

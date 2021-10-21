@@ -72,7 +72,6 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
-import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
@@ -141,9 +140,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** TX manager. */
     private final TxManager txManager;
 
-    /** Lock manager. */
-    private final LockManager lockManager;
-
     /** Partitions store directory. */
     private final Path partitionsStoreDir;
 
@@ -165,15 +161,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /**
      * Creates a new table manager.
-     *
-     * @param tablesCfg Tables configuration.
+     *  @param tablesCfg Tables configuration.
      * @param dataStorageCfg Data storage configuration.
      * @param raftMgr Raft manager.
      * @param baselineMgr Baseline manager.
      * @param metaStorageMgr Meta storage manager.
      * @param partitionsStoreDir Partitions store directory.
      * @param txManager TX manager.
-     * @param lockManager Lock manager.
      */
     public TableManager(
         TablesConfiguration tablesCfg,
@@ -183,8 +177,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         TopologyService topologyService,
         MetaStorageManager metaStorageMgr,
         Path partitionsStoreDir,
-        TxManager txManager,
-        LockManager lockManager
+        TxManager txManager
     ) {
         this.tablesCfg = tablesCfg;
         this.dataStorageCfg = dataStorageCfg;
@@ -193,7 +186,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.metaStorageMgr = metaStorageMgr;
         this.partitionsStoreDir = partitionsStoreDir;
         this.txManager = txManager;
-        this.lockManager = lockManager;
 
         netAddrResolver = addr -> {
             ClusterNode node = topologyService.getByAddress(addr);
