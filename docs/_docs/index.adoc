@@ -44,9 +44,3 @@ Apache Ignite Alpha 3 comes with the following new features:
 * New binary client protocol with an implementation in Java;
 * Data rebalancing.
 
-== Known Issues
-
-Due to changes between alpha 1 and alpha 2, Ignite cluster configuration commands no longer work. This will be fixed in alpha 3.
-
-Affected commands: `config`, `config get`, `config set`.
-

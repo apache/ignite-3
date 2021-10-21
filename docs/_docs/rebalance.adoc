@@ -26,5 +26,5 @@ Data rebalancing is triggered by changes in the Baseline Topology. In pure in-me
 
 Examples are shipped as a separate Maven project, which is located in the `examples` folder. `RebalanceExample` demonstrates the data rebalancing process.
 
-To start running `RebalanceExample`, please refer to its JavaDoc for instructions.
+To start running `RebalanceExample`, please refer to its link:https://github.com/apache/ignite-3/blob/3.0.0-alpha3/examples/src/main/java/org/apache/ignite/example/rebalance/RebalanceExample.java[JavaDoc,window=_blank] for instructions.
 
