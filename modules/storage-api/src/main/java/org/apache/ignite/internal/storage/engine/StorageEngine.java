@@ -27,7 +27,7 @@ import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.storage.StorageException;
 
 /**
- * General storageengine interface.
+ * General storage engine interface.
  */
 public interface StorageEngine {
     /**
