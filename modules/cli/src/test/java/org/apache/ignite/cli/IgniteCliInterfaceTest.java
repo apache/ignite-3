@@ -316,7 +316,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             var node =
                 new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
 
-            when(nodeMgr.start(any(), any(), any(), any(), any(), any()))
+            when(nodeMgr.start(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(node);
 
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())

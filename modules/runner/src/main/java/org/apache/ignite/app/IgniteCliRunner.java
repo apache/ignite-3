@@ -17,44 +17,33 @@
 
 package org.apache.ignite.app;
 
-import java.io.IOException;
-import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgnitionImpl;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import picocli.CommandLine;
 
-import static picocli.CommandLine.Model.*;
+import static picocli.CommandLine.Model.CommandSpec;
+import static picocli.CommandLine.Model.OptionSpec;
+import static picocli.CommandLine.Model.PositionalParamSpec;
 
 /**
  * The main entry point for run new Ignite node from CLI toolchain.
  */
 public class IgniteCliRunner {
-    /** CLI usage message. */
-    private static final String USAGE = "IgniteCliRunner [--config conf] nodeName";
-
     /**
      * Main method for run new Ignite node.
-     *
-     * For CLI args info see {@link IgniteCliRunner#USAGE}
      *
      * Usage:
      * IgniteCliRunner [--config=configPath] --work-dir=workDir nodeName
      *
      * @param args CLI args to start new node.
-     * @throws IOException if any issues with reading config file.
      */
-    public static void main(String[] args) throws IOException {
-        Args parsedArgs = null;
-
+    public static void main(String[] args) {
         try {
-            parsedArgs = Args.parseArgs(args);
-
             start(args);
-        }
-        catch (Args.ParseException || CommandLine.ParameterException e) {
-            if (e.getMessage() != null)
-                System.out.println(e.getMessage() + "\n");
+        } catch (CommandLine.ParameterException e) {
+            System.out.println(e.getMessage());
 
             e.getCommandLine().usage(System.out);
 
@@ -107,10 +96,10 @@ public class IgniteCliRunner {
         var ignition = new IgnitionImpl();
 
         // TODO use the work dir provided as a parameter: https://issues.apache.org/jira/browse/IGNITE-15060
-        ignition.start(
+        return ignition.start(
             parsedArgs.nodeName,
             parsedArgs.config != null ? parsedArgs.config.toAbsolutePath() : null,
-            Path.of("work", parsedArgs.nodeName));
+            parsedArgs.nodeWorkDir);
     }
 
     /**
@@ -136,52 +125,6 @@ public class IgniteCliRunner {
             this.nodeName = nodeName;
             this.config = config;
             this.nodeWorkDir = nodeWorkDir;
-        }
-
-        /**
-         * Simple CLI arguments parser.
-         *
-         * @param args CLI arguments.
-         * @return Parsed arguments.
-         * @throws ParseException if required args are absent.
-         */
-        private static Args parseArgs(String[] args) throws ParseException {
-            if (args.length == 1)
-                return new Args(args[0], null);
-            else if (args.length == 3) {
-                if ("--config".equals(args[0])) {
-                    try {
-                        return new Args(args[2], Path.of(args[1]));
-                    }
-                    catch (InvalidPathException e) {
-                        throw new ParseException("Couldn't parse configuration path.");
-                    }
-                }
-                else
-                    throw new ParseException();
-            }
-            else
-                throw new ParseException();
-        }
-
-        /**
-         * Exception for indicate any problems with parsing CLI args.
-         */
-        private static class ParseException extends IgniteInternalCheckedException {
-            /**
-             * Creates new exception of parsing.
-             *
-             * @param msg Message.
-             */
-            private ParseException(String msg) {
-                super(msg);
-            }
-
-            /**
-             * Creates new exception of parsing.
-             */
-            private ParseException() {
-            }
         }
     }
 }
