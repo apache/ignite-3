@@ -71,7 +71,7 @@ abstract class AbstractSchemaChangeTest {
     @WorkDirectory
     private Path workDir;
 
-    public static  <T extends Throwable> void assertThrowsWithCause(Class<T> expectedType, Executable executable) {
+    public static <T extends Throwable> void assertThrowsWithCause(Class<T> expectedType, Executable executable) {
         Throwable ex = assertThrows(IgniteException.class, executable);
 
         while (ex.getCause() != null) {
