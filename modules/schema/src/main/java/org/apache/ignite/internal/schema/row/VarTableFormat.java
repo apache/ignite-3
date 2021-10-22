@@ -95,13 +95,12 @@ abstract class VarTableFormat {
     private final byte flags;
 
     /**
-     * @param vartblSizeFieldSize Size of vartalble size field (in bytes).
      * @param vartblEntrySize Size of vartable entry (in bytes).
      * @param flags Format specific flags.
      */
-    VarTableFormat(int vartblSizeFieldSize, int vartblEntrySize, byte flags) {
+    VarTableFormat(int vartblEntrySize, byte flags) {
         this.vartblEntrySize = vartblEntrySize;
-        this.vartblSizeFieldSize = vartblSizeFieldSize;
+        this.vartblSizeFieldSize = Short.BYTES;
         this.flags = flags;
     }
 
@@ -149,7 +148,9 @@ abstract class VarTableFormat {
      * @param vartblOff Vartable offset.
      * @return Number of entries in the vartable.
      */
-    abstract int readVartableSize(BinaryRow row, int vartblOff);
+    int readVartableSize(BinaryRow row, int vartblOff) {
+        return Short.toUnsignedInt(row.readShort(vartblOff));
+    }
 
     /**
      * Convert vartable inplace to the current format.
@@ -169,7 +170,7 @@ abstract class VarTableFormat {
          * Creates chunk format.
          */
         TinyFormat() {
-            super(Byte.BYTES, Byte.BYTES, (byte)1);
+            super(Byte.BYTES, (byte)1);
         }
 
         /** {@inheritDoc} */
@@ -178,17 +179,12 @@ abstract class VarTableFormat {
         }
 
         /** {@inheritDoc} */
-        @Override int readVartableSize(BinaryRow row, int vartblOff) {
-            return Byte.toUnsignedInt(row.readByte(vartblOff));
-        }
-
-        /** {@inheritDoc} */
         @Override public int compactVarTable(ExpandableByteBuf buf, int vartblOff, int entres) {
-            assert entres > 0;
+            assert entres > 0 && entres < 0xFFFF;
 
-            buf.put(vartblOff, (byte)entres);
+            buf.putShort(vartblOff, (short)entres);
 
-            int dstOff = vartblOff + 1;
+            int dstOff = vartblOff + 2;
             int srcOff = vartblOff + 2;
 
             for (int i = 0; i < entres; i++, srcOff += Integer.BYTES, dstOff++)
@@ -208,7 +204,7 @@ abstract class VarTableFormat {
          * Creates chunk format.
          */
         MediumFormat() {
-            super(Short.BYTES, Short.BYTES, (byte)2);
+            super(Short.BYTES, (byte)2);
         }
 
         /** {@inheritDoc} */
@@ -245,7 +241,7 @@ abstract class VarTableFormat {
          * Creates chunk format.
          */
         LargeFormat() {
-            super(Short.BYTES, Integer.BYTES, (byte)0);
+            super(Integer.BYTES, (byte)0);
         }
 
         /** {@inheritDoc} */
