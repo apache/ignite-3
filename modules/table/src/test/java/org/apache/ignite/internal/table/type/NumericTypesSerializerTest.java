@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.type;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -30,9 +29,10 @@ import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.TupleMarshallerImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.schema.definition.SchemaManagementMode;
@@ -115,7 +115,7 @@ public class NumericTypesSerializerTest {
      */
     @ParameterizedTest
     @MethodSource("numbers")
-    public void testNumber(Pair<BigInteger, BigInteger> pair) {
+    public void testNumber(Pair<BigInteger, BigInteger> pair) throws TupleMarshallerException {
         schema = new SchemaDescriptor(
             42,
             new Column[] {new Column("key", NativeTypes.INT64, false)},
@@ -194,7 +194,7 @@ public class NumericTypesSerializerTest {
      *
      */
     @Test
-    public void testStringDecimalSpecialCase() {
+    public void testStringDecimalSpecialCase() throws TupleMarshallerException {
         schema = new SchemaDescriptor(
             42,
             new Column[] {new Column("key", NativeTypes.INT64, false)},
@@ -218,7 +218,7 @@ public class NumericTypesSerializerTest {
      */
     @ParameterizedTest
     @MethodSource("stringDecimalRepresentation")
-    public void testUpscaleForDecimal(String decimalStr) {
+    public void testUpscaleForDecimal(String decimalStr) throws TupleMarshallerException {
         schema = new SchemaDescriptor(
             42,
             new Column[] {new Column("key", NativeTypes.INT64, false)},
@@ -242,7 +242,7 @@ public class NumericTypesSerializerTest {
      *
      */
     @Test
-    public void testDecimalMaxScale() {
+    public void testDecimalMaxScale() throws TupleMarshallerException {
         schema = new SchemaDescriptor(
             42,
             new Column[] {new Column("key", NativeTypes.INT64, false)},
@@ -267,7 +267,7 @@ public class NumericTypesSerializerTest {
      */
     @ParameterizedTest
     @MethodSource("sameDecimals")
-    public void testSameBinaryRepresentation(Pair<BigInteger, BigInteger> pair) throws IOException {
+    public void testSameBinaryRepresentation(Pair<BigInteger, BigInteger> pair) throws Exception {
         schema = new SchemaDescriptor(
             42,
             new Column[] {new Column("key", NativeTypes.INT64, false)},

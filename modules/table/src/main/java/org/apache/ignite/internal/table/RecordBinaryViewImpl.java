@@ -26,9 +26,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -62,7 +64,6 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         this.tblMgr = tblMgr;
     }
 
-
     /** {@inheritDoc} */
     @Override public RecordBinaryViewImpl withTransaction(Transaction tx) {
         return new RecordBinaryViewImpl(tbl, schemaReg, tblMgr, tx);
@@ -77,7 +78,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Tuple> getAsync(@NotNull Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
-        final Row keyRow = marshaller().marshalKey(keyRec); // Convert to portable format to pass TX/storage layer.
+        final Row keyRow = marshal(keyRec, true); // Convert to portable format to pass TX/storage layer.
 
         return tbl.get(keyRow, tx).thenApply(this::wrap);
     }
@@ -94,7 +95,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         HashSet<BinaryRow> keys = new HashSet<>(keyRecs.size());
 
         for (Tuple keyRec : keyRecs) {
-            final Row keyRow = marshaller().marshalKey(keyRec);
+            final Row keyRow = marshal(keyRec, true);
 
             keys.add(keyRow);
         }
@@ -111,7 +112,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Void> upsertAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
-        final Row keyRow = marshaller().marshal(rec);
+        final Row keyRow = marshal(rec, false);
 
         return tbl.upsert(keyRow, tx);
     }
@@ -128,7 +129,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         HashSet<BinaryRow> keys = new HashSet<>(recs.size());
 
         for (Tuple keyRec : recs) {
-            final Row keyRow = marshaller().marshal(keyRec);
+            final Row keyRow = marshal(keyRec, false);
 
             keys.add(keyRow);
         }
@@ -145,7 +146,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Tuple> getAndUpsertAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
-        final Row keyRow = marshaller().marshal(rec);
+        final Row keyRow = marshal(rec, false);
 
         return tbl.getAndUpsert(keyRow, tx).thenApply(this::wrap);
     }
@@ -159,7 +160,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Boolean> insertAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
-        final Row keyRow = marshaller().marshal(rec);
+        final Row keyRow = marshal(rec, false);
 
         return tbl.insert(keyRow, tx);
     }
@@ -176,7 +177,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         HashSet<BinaryRow> keys = new HashSet<>(recs.size());
 
         for (Tuple keyRec : recs) {
-            final Row keyRow = marshaller().marshal(keyRec);
+            final Row keyRow = marshal(keyRec, false);
 
             keys.add(keyRow);
         }
@@ -193,7 +194,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
-        final Row keyRow = marshaller().marshal(rec);
+        final Row keyRow = marshal(rec, false);
 
         return tbl.replace(keyRow, tx);
     }
@@ -208,8 +209,8 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         Objects.requireNonNull(oldRec);
         Objects.requireNonNull(newRec);
 
-        final Row oldRow = marshaller().marshal(oldRec);
-        final Row newRow = marshaller().marshal(newRec);
+        final Row oldRow = marshal(oldRec, false);
+        final Row newRow = marshal(newRec, false);
 
         return tbl.replace(oldRow, newRow, tx);
     }
@@ -223,7 +224,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
-        final Row keyRow = marshaller().marshal(rec);
+        final Row keyRow = marshal(rec, false);
 
         return tbl.getAndReplace(keyRow, tx).thenApply(this::wrap);
     }
@@ -237,7 +238,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Boolean> deleteAsync(@NotNull Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
-        final Row keyRow = marshaller().marshalKey(keyRec);
+        final Row keyRow = marshal(keyRec, true);
 
         return tbl.delete(keyRow, tx);
     }
@@ -251,7 +252,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Boolean> deleteExactAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
-        final Row row = marshaller().marshal(rec);
+        final Row row = marshal(rec, false);
 
         return tbl.deleteExact(row, tx);
     }
@@ -265,7 +266,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     @Override public @NotNull CompletableFuture<Tuple> getAndDeleteAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
-        final Row row = marshaller().marshalKey(rec);
+        final Row row = marshal(rec, true);
 
         return tbl.getAndDelete(row, tx).thenApply(this::wrap);
     }
@@ -282,7 +283,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         HashSet<BinaryRow> keys = new HashSet<>(recs.size());
 
         for (Tuple keyRec : recs) {
-            final Row keyRow = marshaller().marshalKey(keyRec);
+            final Row keyRow = marshal(keyRec, true);
 
             keys.add(keyRow);
         }
@@ -304,7 +305,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         HashSet<BinaryRow> keys = new HashSet<>(recs.size());
 
         for (Tuple keyRec : recs) {
-            final Row keyRow = marshaller().marshal(keyRec);
+            final Row keyRow = marshal(keyRec, false);
 
             keys.add(keyRow);
         }
@@ -345,10 +346,22 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     }
 
     /**
-     * @return Marshaller.
+     * Marshal a tuple to a row.
+     *
+     * @param tuple Tuple.
+     * @param keyOnly Marshal key part only if {@code true}, otherwise marshal both, key and value parts.
+     * @return Row.
+     * @throws IgniteException If failed to marshal tuple.
      */
-    private TupleMarshaller marshaller() {
-        return marsh;
+    private Row marshal(@NotNull Tuple tuple, boolean keyOnly) throws IgniteException {
+        try {
+            if (keyOnly)
+                return marsh.marshalKey(tuple);
+            else
+                return marsh.marshal(tuple);
+        } catch (TupleMarshallerException ex) {
+            throw new IgniteException(ex);
+        }
     }
 
     /**
