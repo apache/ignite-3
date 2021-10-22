@@ -22,6 +22,8 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.nio.ByteBuffer;
 import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.NotNull;
@@ -34,6 +36,12 @@ import org.jetbrains.annotations.NotNull;
 public class Timestamp implements Comparable<Timestamp>, Serializable {
     /** */
     private static final long serialVersionUID = 1L;
+
+    /** Epoch start for the generation purposes. */
+    private static final long EPOCH = LocalDateTime.of(2021, 1, 1, 0, 0, 0).toInstant(ZoneOffset.UTC).toEpochMilli();
+
+    /** */
+    public static final short MAX_CNT = Short.MAX_VALUE;
 
     /** */
     private static long localTime;
@@ -65,15 +73,11 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
      */
     /** {@inheritDoc} */
     @Override public int compareTo(@NotNull Timestamp other) {
-        int res = Long.compare(timestamp >> 16 << 16, other.timestamp >> 16 << 16);
-
-        if (res == 0) {
-            res = Long.compare(timestamp << 48 >> 48, other.timestamp << 48 >> 48);
-
-            return res == 0 ? Long.compare(nodeId, other.nodeId) : res;
-        }
-        else
-            return res;
+        return (this.timestamp < other.timestamp ? -1 :
+            (this.timestamp > other.timestamp ? 1 :
+                (this.nodeId < other.nodeId ? -1 :
+                    (this.nodeId > other.nodeId ? 1 :
+                        0))));
     }
 
     /**
@@ -108,17 +112,38 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
      * @return Next timestamp (monotonically increasing).
      */
     public static synchronized Timestamp nextVersion() {
-        long localTimeCpy = localTime;
+        long timestamp = Clock.systemUTC().instant().toEpochMilli() - EPOCH;
 
-        // Truncate nanotime to 48 bits.
-        localTime = Math.max(localTimeCpy, Clock.systemUTC().instant().toEpochMilli() >> 16 << 16);
+        long newTime = Math.max(localTime, timestamp);
 
-        if (localTimeCpy == localTime)
-            cntr++;
+        if (newTime == localTime) {
+            cntr = (cntr + 1) & 0xFFFF;
+
+            if (cntr == 0)
+                newTime = waitForNextMillisecond(newTime);
+        }
         else
             cntr = 0;
 
-        return new Timestamp(localTime | cntr, localNodeId);
+        localTime = newTime;
+
+        // Will overflow in a late future.
+        return new Timestamp(newTime << 16 | cntr, localNodeId);
+    }
+
+    /**
+     * @param lastTimestamp Wait until this timestamp will pass.
+     * @return New timestamp.
+     */
+    private static long waitForNextMillisecond(long lastTimestamp) {
+        long timestamp;
+
+        do {
+            timestamp = Clock.systemUTC().instant().toEpochMilli() - EPOCH;
+        }
+        while(timestamp <= lastTimestamp); // Wall clock can go backward.
+
+        return timestamp;
     }
 
     /** {@inheritDoc} */

@@ -122,12 +122,17 @@ public class TxManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testTimestamp() {
+    public void testTimestamp() throws InterruptedException {
         Timestamp ts1 = Timestamp.nextVersion();
         Timestamp ts2 = Timestamp.nextVersion();
         Timestamp ts3 = Timestamp.nextVersion();
 
+        Thread.sleep(1);
+
+        Timestamp ts4 = Timestamp.nextVersion();
+
         assertTrue(ts2.compareTo(ts1) > 0);
         assertTrue(ts3.compareTo(ts2) > 0);
+        assertTrue(ts4.compareTo(ts3) > 0);
     }
 }
