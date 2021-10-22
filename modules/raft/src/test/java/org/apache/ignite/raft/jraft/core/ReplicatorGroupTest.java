@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.core;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
@@ -43,8 +44,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.mockito.stubbing.Answer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -57,7 +56,7 @@ import static org.mockito.ArgumentMatchers.eq;
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class ReplicatorGroupTest {
 
-    static final Logger LOG = LoggerFactory.getLogger(ReplicatorGroupTest.class);
+    static final IgniteLogger LOG = IgniteLogger.forClass(ReplicatorGroupTest.class);
 
     private TimerManager timerManager;
     private ReplicatorGroupImpl replicatorGroup;
@@ -279,15 +278,16 @@ public class ReplicatorGroupTest {
     }
 
     private RpcRequests.AppendEntriesRequest createEmptyEntriesRequestToPeer(final PeerId peerId) {
-        return RpcRequests.AppendEntriesRequest.newBuilder() //
-            .setGroupId("test") //
-            .setServerId(new PeerId("localhost", 8081).toString()) //
-            .setPeerId(peerId.toString()) //
-            .setTerm(1) //
-            .setPrevLogIndex(10) //
-            .setPrevLogTerm(1) //
-            .setCommittedIndex(0) //
-            .setData(ByteString.EMPTY) //
+        return raftOptions.getRaftMessagesFactory()
+            .appendEntriesRequest()
+            .groupId("test")
+            .serverId(new PeerId("localhost", 8081).toString())
+            .peerId(peerId.toString())
+            .term(1)
+            .prevLogIndex(10)
+            .prevLogTerm(1)
+            .committedIndex(0)
+            .data(ByteString.EMPTY)
             .build();
     }
 }

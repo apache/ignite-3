@@ -18,11 +18,9 @@
 package org.apache.ignite.internal.processors.query.calcite.prepare;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 
-import com.google.common.collect.ImmutableList;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
@@ -61,7 +59,7 @@ public class Fragment {
     private final FragmentMapping mapping;
 
     /** */
-    private final ImmutableList<IgniteReceiver> remotes;
+    private final List<IgniteReceiver> remotes;
 
     /**
      * @param id Fragment id.
@@ -76,7 +74,7 @@ public class Fragment {
     Fragment(long id, IgniteRel root, List<IgniteReceiver> remotes, @Nullable String rootSer, @Nullable FragmentMapping mapping) {
         this.id = id;
         this.root = root;
-        this.remotes = ImmutableList.copyOf(remotes);
+        this.remotes = List.copyOf(remotes);
         this.rootSer = rootSer != null ? rootSer : toJson(root);
         this.mapping = mapping;
     }
@@ -150,7 +148,7 @@ public class Fragment {
     }
 
     /** */
-    private FragmentMapping mapping(PlanningContext ctx, RelMetadataQuery mq, Supplier<List<UUID>> nodesSource) {
+    private FragmentMapping mapping(PlanningContext ctx, RelMetadataQuery mq, Supplier<List<String>> nodesSource) {
         try {
             FragmentMapping mapping = IgniteMdFragmentMapping._fragmentMapping(root, mq);
 
@@ -176,7 +174,7 @@ public class Fragment {
     }
 
     /** */
-    @NotNull private Supplier<List<UUID>> nodesSource(MappingService mappingSrvc, PlanningContext ctx) {
+    @NotNull private Supplier<List<String>> nodesSource(MappingService mappingSrvc, PlanningContext ctx) {
         return () -> mappingSrvc.executionNodes(ctx.topologyVersion(), single(), null);
     }
 

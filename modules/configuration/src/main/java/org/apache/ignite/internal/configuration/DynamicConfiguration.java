@@ -18,42 +18,46 @@
 package org.apache.ignite.internal.configuration;
 
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.RandomAccess;
-import java.util.concurrent.Future;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
+import org.apache.ignite.internal.configuration.util.ConfigurationNotificationsUtil;
 
 /**
  * This class represents configuration root or node.
  */
-public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNode<VIEW, CHANGE>
+public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNode<VIEW>
     implements ConfigurationTree<VIEW, CHANGE>
 {
     /** Configuration members (leaves and nodes). */
-    private final Map<String, ConfigurationProperty<?, ?>> members = new HashMap<>();
+    protected volatile Map<String, ConfigurationProperty<?>> members = new LinkedHashMap<>();
 
     /**
      * Constructor.
+     *
      * @param prefix Configuration prefix.
      * @param key Configuration key.
      * @param rootKey Root key.
      * @param changer Configuration changer.
+     * @param listenOnly Only adding listeners mode, without the ability to get or update the property value.
      */
-    protected DynamicConfiguration(
+    public DynamicConfiguration(
         List<String> prefix,
         String key,
         RootKey<?, ?> rootKey,
-        ConfigurationChanger changer
+        DynamicConfigurationChanger changer,
+        boolean listenOnly
     ) {
-        super(prefix, key, rootKey, changer);
+        super(prefix, key, rootKey, changer, listenOnly);
     }
 
     /**
@@ -61,33 +65,39 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
      * @param member Configuration member (leaf or node).
      * @param <P> Type of member.
      */
-    protected final <P extends ConfigurationProperty<?, ?>> void add(P member) {
+    protected final <P extends ConfigurationProperty<?>> void add(P member) {
         members.put(member.key(), member);
     }
 
     /** {@inheritDoc} */
-    @Override public final Future<Void> change(Consumer<CHANGE> change) {
+    @Override public final CompletableFuture<Void> change(Consumer<CHANGE> change) {
         Objects.requireNonNull(change, "Configuration consumer cannot be null.");
+
+        if (listenOnly)
+            throw listenOnlyException();
 
         assert keys instanceof RandomAccess;
 
         ConfigurationSource src = new ConfigurationSource() {
+            /** Current index in the {@code keys}. */
             private int level = 0;
 
+            /** {@inheritDoc} */
             @Override public void descend(ConstructableTreeNode node) {
                 if (level == keys.size())
                     change.accept((CHANGE)node);
                 else
-                    node.construct(keys.get(level++), this);
+                    node.construct(keys.get(level++), this, true);
             }
 
+            /** {@inheritDoc} */
             @Override public void reset() {
                 level = 0;
             }
         };
 
         // Use resulting tree as update request for the storage.
-        return changer.change(src, null);
+        return changer.change(src);
     }
 
     /** {@inheritDoc} */
@@ -100,8 +110,40 @@ public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNo
         return refreshValue();
     }
 
-    /** {@inheritDoc} */
-    @Override public Map<String, ConfigurationProperty<?, ?>> members() {
+    /**
+     * Returns all child nodes of the current configuration tree node.
+     *
+     * @return Map from child keys to a corresponding {@link ConfigurationProperty}.
+     */
+    public Map<String, ConfigurationProperty<?>> members() {
+        if (!listenOnly)
+            refreshValue();
+
         return Collections.unmodifiableMap(members);
     }
+
+    /**
+     * Touches current Dynamic Configuration node. Currently this method makes sense for {@link NamedListConfiguration}
+     * class only, but this will be changed in <a href="https://issues.apache.org/jira/browse/IGNITE-14645">IGNITE-14645
+     * </a>.
+     * Method is invoked on configuration initialization and on every configuration update, even those that don't affect
+     * current node. Its goal is to have a fine control over sub-nodes of the configuration. Accessor methods on the
+     * Dynamic Configuration nodes can be called at any time and have to return up-to-date value. This means that one
+     * can read updated configuration value before notification listeners have been invoked on it. At that point, for
+     * example, deleted named list elements disappear from the object and cannot be accessed with a regular API. The
+     * only way to access them is to have a cached copy of all elements (members). This method does exactly that. It
+     * returns cached copy of members and then sets it to a new, maybe different, set of members. No one except for
+     * {@link ConfigurationNotificationsUtil} should ever call this method.
+     *
+     * @return Members map associated with "previous" node state.
+     */
+    public Map<String, ConfigurationProperty<?>> touchMembers() {
+        return members();
+    }
+
+    /**
+     * @return Configuration interface, for example {@code RootConfiguration}.
+     * @throws UnsupportedOperationException In the case of a named list.
+     */
+    public abstract Class<? extends ConfigurationProperty<VIEW>> configType();
 }

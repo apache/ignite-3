@@ -17,7 +17,7 @@
 
 package org.apache.ignite.schema.modification;
 
-import org.apache.ignite.schema.ColumnType;
+import org.apache.ignite.schema.definition.ColumnType;
 
 /**
  * Alter column builder.
@@ -70,6 +70,8 @@ public interface AlterColumnBuilder {
     AlterColumnBuilder asNonNullable(Object replacement);
 
     /**
+     * Builds alter column descriptor and pass it to parent table modification builder.
+     *
      * @return Parent builder.
      */
     TableModificationBuilder done();

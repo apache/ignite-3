@@ -17,15 +17,23 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Defines key/value storage interface.
  */
-public interface KeyValueStorage {
+public interface KeyValueStorage extends AutoCloseable {
+    /**
+     * Starts the given storage, allocating the necessary resources.
+     */
+    void start();
+
     /**
      * Returns storage revision.
      *
@@ -80,7 +88,7 @@ public interface KeyValueStorage {
      * @param key The key.
      * @param value The value.
      */
-    void put(@NotNull byte[] key, @NotNull byte[] value);
+    void put(byte[] key, byte[] value);
 
     /**
      * Inserts an entry with the given key and given value and returns previous entry.
@@ -156,7 +164,7 @@ public interface KeyValueStorage {
      * @param keyTo Last key of range (exclusive).
      * @return Cursor by entries which correspond to the given keys range.
      */
-    Cursor<Entry> range(byte[] keyFrom, byte[] keyTo);
+    Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo);
 
     /**
      * Returns cursor by entries which correspond to the given keys range and bounded by revision number..
@@ -177,7 +185,7 @@ public interface KeyValueStorage {
      * @param rev Start revision number.
      * @return Cursor by update events.
      */
-    Cursor<WatchEvent> watch(byte[] keyFrom, byte[] keyTo, long rev);
+    Cursor<WatchEvent> watch(byte[] keyFrom, byte @Nullable [] keyTo, long rev);
 
     /**
      * Creates subscription on updates of entries corresponding to the given keys range (where upper bound is unlimited)
@@ -203,4 +211,20 @@ public interface KeyValueStorage {
      * Compacts storage (removes tombstones).
      */
     void compact();
+
+    /**
+     * Creates a snapshot of the storage's current state in the specified directory.
+     *
+     * @param snapshotPath Directory to store a snapshot.
+     * @return Future representing pending completion of the operation. Could not be {@code null}.
+     */
+    @NotNull
+    CompletableFuture<Void> snapshot(Path snapshotPath);
+
+    /**
+     * Restores a state of the storage which was previously captured with a {@link #snapshot(Path)}.
+     *
+     * @param snapshotPath Path to the snapshot's directory.
+     */
+    void restoreSnapshot(Path snapshotPath);
 }

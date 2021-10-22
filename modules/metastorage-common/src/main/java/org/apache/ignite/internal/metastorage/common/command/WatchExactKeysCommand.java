@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
@@ -34,17 +35,34 @@ public final class WatchExactKeysCommand implements WriteCommand {
     /** Start revision inclusive. {@code 0} - all revisions. */
     private final long revision;
 
+    /** Id of the node that requests watch. */
+    @NotNull private final String requesterNodeId;
+
+    /** Id of cursor that is associated with the current command. */
+    @NotNull private final IgniteUuid cursorId;
+
     /**
      * @param keys The keys collection. Couldn't be {@code null}.
      * @param revision Start revision inclusive. {@code 0} - all revisions.
+     * @param requesterNodeId Id of the node that requests watch.
+     * @param cursorId Id of cursor that is associated with the current command.
      */
-    public WatchExactKeysCommand(@NotNull Set<ByteArray> keys, long revision) {
+    public WatchExactKeysCommand(
+        @NotNull Set<ByteArray> keys,
+        long revision,
+        @NotNull String requesterNodeId,
+        @NotNull IgniteUuid cursorId
+    ) {
         this.keys = new ArrayList<>(keys.size());
 
         for (ByteArray key : keys)
             this.keys.add(key.bytes());
 
         this.revision = revision;
+
+        this.requesterNodeId = requesterNodeId;
+
+        this.cursorId = cursorId;
     }
 
     /**
@@ -59,5 +77,19 @@ public final class WatchExactKeysCommand implements WriteCommand {
      */
     public @NotNull Long revision() {
         return revision;
+    }
+
+    /**
+     * @return Id of the node that requests range.
+     */
+    public @NotNull String requesterNodeId() {
+        return requesterNodeId;
+    }
+
+    /**
+     * @return Id of cursor that is associated with the current command.
+     */
+    @NotNull public IgniteUuid getCursorId() {
+        return cursorId;
     }
 }

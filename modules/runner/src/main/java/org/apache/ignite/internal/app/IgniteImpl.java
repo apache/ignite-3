@@ -17,36 +17,467 @@
 
 package org.apache.ignite.internal.app;
 
-import org.apache.ignite.app.Ignite;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.client.handler.ClientHandlerModule;
+import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
+import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
+import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
+import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
+import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
+import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableValidator;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
+import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
+import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
+import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.server.persistence.RocksDBKeyValueStorage;
+import org.apache.ignite.internal.processors.query.calcite.QueryProcessor;
+import org.apache.ignite.internal.processors.query.calcite.SqlQueryProcessor;
+import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.schema.configuration.TableValidatorImpl;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.vault.VaultService;
+import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.network.ClusterLocalConfiguration;
+import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.MessageSerializationRegistryImpl;
+import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
+import org.apache.ignite.rest.RestModule;
 import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.tx.IgniteTransactions;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite internal implementation.
  */
 public class IgniteImpl implements Ignite {
-    /** Distributed table manager. */
-    private final IgniteTables distributedTableManager;
-
-    /** Vault manager */
-    private final VaultManager vaultManager;
+    /** The logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteImpl.class);
 
     /**
-     * @param tableManager Table manager.
-     * @param vaultManager Vault manager.
+     * Path to the persistent storage used by the {@link VaultService} component.
      */
-    IgniteImpl(IgniteTables tableManager, VaultManager vaultManager) {
-        this.distributedTableManager = tableManager;
-        this.vaultManager = vaultManager;
+    private static final Path VAULT_DB_PATH = Paths.get("vault");
+
+    /**
+     * Path to the persistent storage used by the {@link MetaStorageManager} component.
+     */
+    private static final Path METASTORAGE_DB_PATH = Paths.get("metastorage");
+
+    /**
+     * Path for the partitions persistent storage.
+     */
+    private static final Path PARTITIONS_STORE_PATH = Paths.get("db");
+
+    /** Ignite node name. */
+    private final String name;
+
+    /** Vault manager. */
+    private final VaultManager vaultMgr;
+
+    /** Configuration manager that handles node (local) configuration. */
+    private final ConfigurationManager nodeCfgMgr;
+
+    /** Cluster service (cluster network manager). */
+    private final ClusterService clusterSvc;
+
+    /** Raft manager. */
+    private final Loza raftMgr;
+
+    /** Meta storage manager. */
+    private final MetaStorageManager metaStorageMgr;
+
+    /** Configuration manager that handles cluster (distributed) configuration. */
+    private final ConfigurationManager clusterCfgMgr;
+
+    /** Baseline manager. */
+    private final BaselineManager baselineMgr;
+
+    /** Distributed table manager. */
+    private final TableManager distributedTblMgr;
+
+    /** Query engine. */
+    private final SqlQueryProcessor qryEngine;
+
+    /** Rest module. */
+    private final RestModule restModule;
+
+    /** Client handler module. */
+    private final ClientHandlerModule clientHandlerModule;
+
+    /** Node status. Adds ability to stop currently starting node. */
+    private final AtomicReference<Status> status = new AtomicReference<>(Status.STARTING);
+
+    /**
+     * The Constructor.
+     *
+     * @param name Ignite node name.
+     * @param workDir Work directory for the started node. Must not be {@code null}.
+     */
+    IgniteImpl(
+        String name,
+        Path workDir
+    ) {
+        this.name = name;
+
+        vaultMgr = createVault(workDir);
+
+        nodeCfgMgr = new ConfigurationManager(
+            Arrays.asList(
+                NetworkConfiguration.KEY,
+                NodeConfiguration.KEY,
+                RestConfiguration.KEY,
+                ClientConnectorConfiguration.KEY
+            ),
+            Map.of(),
+            new LocalConfigurationStorage(vaultMgr),
+            List.of()
+        );
+
+        clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(
+            new ClusterLocalConfiguration(
+                name,
+                new MessageSerializationRegistryImpl()
+            ),
+            nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY)
+        );
+
+        raftMgr = new Loza(clusterSvc, workDir);
+
+        metaStorageMgr = new MetaStorageManager(
+            vaultMgr,
+            nodeCfgMgr,
+            clusterSvc,
+            raftMgr,
+            new RocksDBKeyValueStorage(workDir.resolve(METASTORAGE_DB_PATH))
+        );
+
+        // TODO: IGNITE-15414 Schema validation refactoring with configuration validators.
+        clusterCfgMgr = new ConfigurationManager(
+            Arrays.asList(
+                ClusterConfiguration.KEY,
+                TablesConfiguration.KEY,
+                DataStorageConfiguration.KEY
+            ),
+            Map.of(TableValidator.class, Set.of(TableValidatorImpl.INSTANCE)),
+            new DistributedConfigurationStorage(metaStorageMgr, vaultMgr),
+            Collections.singletonList(ExtendedTableConfigurationSchema.class)
+        );
+
+        baselineMgr = new BaselineManager(
+            clusterCfgMgr,
+            metaStorageMgr,
+            clusterSvc
+        );
+
+        distributedTblMgr = new TableManager(
+            clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
+            clusterCfgMgr.configurationRegistry().getConfiguration(DataStorageConfiguration.KEY),
+            raftMgr,
+            baselineMgr,
+            clusterSvc.topologyService(),
+            metaStorageMgr,
+            getPartitionsStorePath(workDir)
+        );
+
+        qryEngine = new SqlQueryProcessor(
+            clusterSvc,
+            distributedTblMgr
+        );
+
+        restModule = new RestModule(nodeCfgMgr, clusterCfgMgr);
+
+        clientHandlerModule = new ClientHandlerModule(qryEngine, distributedTblMgr, nodeCfgMgr.configurationRegistry());
+    }
+
+    /**
+     * Starts ignite node.
+     *
+     * @param cfg Optional node configuration based on {@link org.apache.ignite.configuration.schemas.runner.NodeConfigurationSchema}
+     * and {@link org.apache.ignite.configuration.schemas.network.NetworkConfigurationSchema}. Following rules are used
+     * for applying the configuration properties:
+     * <ol>
+     * <li>Specified property overrides existing one or just applies itself if it wasn't
+     * previously specified.</li>
+     * <li>All non-specified properties either use previous value or use default one from
+     * corresponding configuration schema.</li>
+     * </ol>
+     * So that, in case of initial node start (first start ever) specified configuration, supplemented with defaults, is
+     * used. If no configuration was provided defaults are used for all configuration properties. In case of node
+     * restart, specified properties override existing ones, non specified properties that also weren't specified
+     * previously use default values. Please pay attention that previously specified properties are searched in the
+     * {@code workDir} specified by the user.
+     */
+    public void start(@Nullable String cfg) {
+        List<IgniteComponent> startedComponents = new ArrayList<>();
+
+        try {
+            // Vault startup.
+            doStartComponent(
+                name,
+                startedComponents,
+                vaultMgr
+            );
+
+            vaultMgr.putName(name).join();
+
+            // Node configuration manager startup.
+            doStartComponent(
+                name,
+                startedComponents,
+                nodeCfgMgr);
+
+            // Node configuration manager bootstrap.
+            if (cfg != null) {
+                try {
+                    nodeCfgMgr.bootstrap(cfg);
+                }
+                catch (Exception e) {
+                    LOG.warn("Unable to parse user-specific configuration, default configuration will be used: {}",
+                        e.getMessage());
+                }
+            }
+            else
+                nodeCfgMgr.configurationRegistry().initializeDefaults();
+
+            // Start the remaining components.
+            List<IgniteComponent> otherComponents = List.of(
+                clusterSvc,
+                raftMgr,
+                metaStorageMgr,
+                clusterCfgMgr,
+                baselineMgr,
+                distributedTblMgr,
+                qryEngine,
+                restModule,
+                clientHandlerModule
+            );
+
+            for (IgniteComponent component : otherComponents)
+                doStartComponent(name, startedComponents, component);
+
+            // Deploy all registered watches because all components are ready and have registered their listeners.
+            metaStorageMgr.deployWatches();
+
+            if (!status.compareAndSet(Status.STARTING, Status.STARTED))
+                throw new NodeStoppingException();
+        }
+        catch (Exception e) {
+            String errMsg = "Unable to start node=[" + name + "].";
+
+            LOG.error(errMsg, e);
+
+            doStopNode(startedComponents);
+
+            throw new IgniteException(errMsg, e);
+        }
+    }
+
+    /**
+     * Stops ignite node.
+     */
+    public void stop() {
+        AtomicBoolean explicitStop = new AtomicBoolean();
+
+        status.getAndUpdate(status -> {
+            if (status == Status.STARTED)
+                explicitStop.set(true);
+            else
+                explicitStop.set(false);
+
+            return Status.STOPPING;
+        });
+
+        if (explicitStop.get()) {
+            doStopNode(List.of(vaultMgr, nodeCfgMgr, clusterSvc, raftMgr, metaStorageMgr, clusterCfgMgr, baselineMgr,
+                distributedTblMgr, qryEngine, restModule, clientHandlerModule));
+        }
     }
 
     /** {@inheritDoc} */
     @Override public IgniteTables tables() {
-        return distributedTableManager;
+        return distributedTblMgr;
+    }
+
+    public QueryProcessor queryEngine() {
+        return qryEngine;
     }
 
     /** {@inheritDoc} */
-    @Override public void close() throws Exception {
-        vaultManager.close();
+    @Override public IgniteTransactions transactions() {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void close() {
+        IgnitionManager.stop(name);
+    }
+
+    /** {@inheritDoc} */
+    @Override public String name() {
+        return name;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void setBaseline(Set<String> baselineNodes) {
+        distributedTblMgr.setBaseline(baselineNodes);
+    }
+
+    /**
+     * @return Node configuration.
+     */
+    public ConfigurationRegistry nodeConfiguration() {
+        return nodeCfgMgr.configurationRegistry();
+    }
+
+    /**
+     * @return Cluster configuration.
+     */
+    public ConfigurationRegistry clusterConfiguration() {
+        return clusterCfgMgr.configurationRegistry();
+    }
+
+    /**
+     * @return Client handler module.
+     */
+    public ClientHandlerModule clientHandlerModule() {
+        return clientHandlerModule;
+    }
+
+    /**
+     * Checks node status. If it's {@link Status#STOPPING} then prevents further starting and throws NodeStoppingException that will
+     * lead to stopping already started components later on, otherwise starts component and add it to started components
+     * list.
+     *
+     * @param nodeName Node name.
+     * @param startedComponents List of already started components for given node.
+     * @param component Ignite component to start.
+     * @param <T> Ignite component type.
+     * @throws NodeStoppingException If node stopping intention was detected.
+     */
+    private <T extends IgniteComponent> void doStartComponent(
+        @NotNull String nodeName,
+        @NotNull List<IgniteComponent> startedComponents,
+        @NotNull T component
+    ) throws NodeStoppingException {
+        if (status.get() == Status.STOPPING)
+            throw new NodeStoppingException("Node=[" + nodeName + "] was stopped.");
+        else {
+            startedComponents.add(component);
+
+            component.start();
+        }
+    }
+
+    /**
+     * Calls {@link IgniteComponent#beforeNodeStop()} and then {@link IgniteComponent#stop()} for all components in
+     * start-reverse-order. Cleanups node started components map and node status map.
+     *
+     * @param startedComponents List of already started components for given node.
+     */
+    private void doStopNode(@NotNull List<IgniteComponent> startedComponents) {
+        ListIterator<IgniteComponent> beforeStopIter =
+            startedComponents.listIterator(startedComponents.size());
+
+        while (beforeStopIter.hasPrevious()) {
+            IgniteComponent componentToExecBeforeNodeStop = beforeStopIter.previous();
+
+            try {
+                componentToExecBeforeNodeStop.beforeNodeStop();
+            }
+            catch (Exception e) {
+                LOG.error("Unable to execute before node stop on the component=[" +
+                    componentToExecBeforeNodeStop + "] within node=[" + name + ']', e);
+            }
+        }
+
+        ListIterator<IgniteComponent> stopIter =
+            startedComponents.listIterator(startedComponents.size());
+
+        while (stopIter.hasPrevious()) {
+            IgniteComponent componentToStop = stopIter.previous();
+
+            try {
+                componentToStop.stop();
+            }
+            catch (Exception e) {
+                LOG.error("Unable to stop component=[" + componentToStop + "] within node=[" + name + ']', e);
+            }
+        }
+    }
+
+    /**
+     * Starts the Vault component.
+     */
+    private static VaultManager createVault(Path workDir) {
+        Path vaultPath = workDir.resolve(VAULT_DB_PATH);
+
+        try {
+            Files.createDirectories(vaultPath);
+        }
+        catch (IOException e) {
+            throw new IgniteInternalException(e);
+        }
+
+        return new VaultManager(new PersistentVaultService(vaultPath));
+    }
+
+    /**
+     * Returns a path to the partitions store directory. Creates a directory if it doesn't exist.
+     *
+     * @param workDir Ignite work directory.
+     * @return Partitions store path.
+     */
+    @NotNull
+    private static Path getPartitionsStorePath(Path workDir) {
+        Path partitionsStore = workDir.resolve(PARTITIONS_STORE_PATH);
+
+        try {
+            Files.createDirectories(partitionsStore);
+        }
+        catch (IOException e) {
+            throw new IgniteInternalException("Failed to create directory for partitions storage: " + e.getMessage(), e);
+        }
+
+        return partitionsStore;
+    }
+
+    /**
+     * Node state.
+     */
+    private enum Status {
+        /** */
+        STARTING,
+
+        /** */
+        STARTED,
+
+        /** */
+        STOPPING
     }
 }

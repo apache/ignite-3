@@ -33,9 +33,8 @@ import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.rest.routes.Router;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static io.netty.handler.codec.http.HttpHeaderNames.CONNECTION;
 import static io.netty.handler.codec.http.HttpHeaderNames.CONTENT_LENGTH;
@@ -48,13 +47,15 @@ import static io.netty.handler.codec.http.HttpResponseStatus.OK;
  * It receives http request, process it by {@link Router} and produce http response.
  */
 public class RestApiHandler extends SimpleChannelInboundHandler<HttpObject> {
-    /** */
-    private final Logger log = LoggerFactory.getLogger(getClass());
+    /** Ignite logger. */
+    private final IgniteLogger log = IgniteLogger.forClass(getClass());
 
     /** Requests' router. */
     private final Router router;
 
     /**
+     * Creates a new instance of API handler.
+     *
      * @param router Router.
      */
     public RestApiHandler(Router router) {

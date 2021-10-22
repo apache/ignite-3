@@ -16,12 +16,20 @@
  */
 package org.apache.ignite.raft.jraft.option;
 
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.util.Copiable;
 
 /**
  * Raft options.
  */
 public class RaftOptions implements Copiable<RaftOptions> {
+    /**
+     * Raft message factory.
+     * <p>
+     * Has a default value for easier testing. Should always be set externally in the production code.
+     */
+    private RaftMessagesFactory raftMessagesFactory = new RaftMessagesFactory();
+
     /**
      * Maximum of block size per RPC
      */
@@ -102,7 +110,7 @@ public class RaftOptions implements Copiable<RaftOptions> {
      * true, it would hurt the performance of JRAft but gain the data safety.
      *
      */
-    private boolean enableLogEntryChecksum = false; // TODO asch https://issues.apache.org/jira/browse/IGNITE-14833.
+    private boolean enableLogEntryChecksum = false;
 
     /**
      * ReadOnlyOption specifies how the read only request is processed. * {@link ReadOnlyOption#ReadOnlySafe} guarantees
@@ -263,6 +271,21 @@ public class RaftOptions implements Copiable<RaftOptions> {
         this.openStatistics = openStatistics;
     }
 
+    /**
+     * @return Raft message factory.
+     */
+    public RaftMessagesFactory getRaftMessagesFactory() {
+        return raftMessagesFactory;
+    }
+
+    /**
+     * Sets the Raft message factory.
+     */
+    public void setRaftMessagesFactory(RaftMessagesFactory raftMessagesFactory) {
+        this.raftMessagesFactory = raftMessagesFactory;
+    }
+
+    /** {@inheritDoc} */
     @Override
     public RaftOptions copy() {
         final RaftOptions raftOptions = new RaftOptions();
@@ -283,9 +306,11 @@ public class RaftOptions implements Copiable<RaftOptions> {
         raftOptions.setDisruptorPublishEventWaitTimeoutSecs(this.disruptorPublishEventWaitTimeoutSecs);
         raftOptions.setEnableLogEntryChecksum(this.enableLogEntryChecksum);
         raftOptions.setReadOnlyOptions(this.readOnlyOptions);
+        raftOptions.setRaftMessagesFactory(this.raftMessagesFactory);
         return raftOptions;
     }
 
+    /** {@inheritDoc} */
     @Override
     public String toString() {
         return "RaftOptions{" + "maxByteCountPerRpc=" + this.maxByteCountPerRpc + ", fileCheckHole="

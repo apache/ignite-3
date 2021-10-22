@@ -24,8 +24,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.RejectedExecutionException;
 import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.common.command.ConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.GetAllCommand;
@@ -45,11 +47,14 @@ import org.apache.ignite.internal.metastorage.common.command.RemoveCommand;
 import org.apache.ignite.internal.metastorage.common.command.SingleEntryResponse;
 import org.apache.ignite.internal.metastorage.common.command.WatchExactKeysCommand;
 import org.apache.ignite.internal.metastorage.common.command.WatchRangeKeysCommand;
+import org.apache.ignite.internal.metastorage.common.command.cursor.CursorsCloseCommand;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.lang.IgniteUuidGenerator;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -61,6 +66,9 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(MetaStorageServiceImpl.class);
 
+    /** IgniteUuid generator. */
+    private static final IgniteUuidGenerator uuidGenerator = new IgniteUuidGenerator(UUID.randomUUID(), 0);
+
     /** Meta storage raft group service. */
     private final RaftGroupService metaStorageRaftGrpSvc;
 
@@ -68,12 +76,17 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** Watch processor, that uses pulling logic in order to retrieve watch notifications from server. */
     private final WatchProcessor watchProcessor;
 
+    /** Local node id. */
+    private final String localNodeId;
+
     /**
      * @param metaStorageRaftGrpSvc Meta storage raft group service.
+     * @param localNodeId Local node id.
      */
-    public MetaStorageServiceImpl(RaftGroupService metaStorageRaftGrpSvc) {
+    public MetaStorageServiceImpl(RaftGroupService metaStorageRaftGrpSvc, String localNodeId) {
         this.metaStorageRaftGrpSvc = metaStorageRaftGrpSvc;
         this.watchProcessor = new WatchProcessor();
+        this.localNodeId = localNodeId;
     }
 
     /** {@inheritDoc} */
@@ -170,7 +183,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     @Override public @NotNull Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound) {
         return new CursorImpl<>(
                 metaStorageRaftGrpSvc,
-                metaStorageRaftGrpSvc.run(new RangeCommand(keyFrom, keyTo, revUpperBound)),
+                metaStorageRaftGrpSvc.run(
+                    new RangeCommand(keyFrom, keyTo, revUpperBound, localNodeId, uuidGenerator.randomUuid())),
                 MetaStorageServiceImpl::singleEntryResult
         );
     }
@@ -179,7 +193,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     @Override public @NotNull Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo) {
         return new CursorImpl<>(
                 metaStorageRaftGrpSvc,
-                metaStorageRaftGrpSvc.run(new RangeCommand(keyFrom, keyTo)),
+                metaStorageRaftGrpSvc.run(
+                    new RangeCommand(keyFrom, keyTo, localNodeId, uuidGenerator.randomUuid())),
                 MetaStorageServiceImpl::singleEntryResult
         );
     }
@@ -192,7 +207,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         @NotNull WatchListener lsnr
     ) {
         CompletableFuture<IgniteUuid> watchRes =
-            metaStorageRaftGrpSvc.run(new WatchRangeKeysCommand(keyFrom, keyTo, revision));
+            metaStorageRaftGrpSvc.run(new WatchRangeKeysCommand(keyFrom, keyTo, revision, localNodeId, uuidGenerator.randomUuid()));
 
         watchRes.thenAccept(
             watchId -> watchProcessor.addWatch(
@@ -221,7 +236,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         @NotNull WatchListener lsnr
     ) {
         CompletableFuture<IgniteUuid> watchRes =
-            metaStorageRaftGrpSvc.run(new WatchExactKeysCommand(keys, revision));
+            metaStorageRaftGrpSvc.run(new WatchExactKeysCommand(keys, revision, localNodeId, uuidGenerator.randomUuid()));
 
         watchRes.thenAccept(
             watchId -> watchProcessor.addWatch(
@@ -243,6 +258,11 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> compact() {
         return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull CompletableFuture<Void> closeCursors(@NotNull String nodeId) {
+        return metaStorageRaftGrpSvc.run(new CursorsCloseCommand(nodeId));
     }
 
     /** */
@@ -278,6 +298,11 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
         if (obj instanceof Condition.ExistenceCondition) {
             Condition.ExistenceCondition inner = (Condition.ExistenceCondition)obj;
+
+            cnd = new ConditionInfo(inner.key(), inner.type(), null, 0);
+        }
+        else if (obj instanceof Condition.TombstoneCondition) {
+            Condition.TombstoneCondition inner = (Condition.TombstoneCondition)obj;
 
             cnd = new ConditionInfo(inner.key(), inner.type(), null, 0);
         }
@@ -376,10 +401,12 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             watchers.computeIfPresent(
                 watchId,
                 (k, v) -> {
-                    CompletableFuture.runAsync(v::interrupt).thenRun(() -> {
-                        try {
-                            v.stop = true;
+                    CompletableFuture.runAsync(() -> {
+                        v.stop = true;
 
+                        v.interrupt();
+                    }).thenRun(() -> {
+                        try {
                             Thread.sleep(100);
 
                             v.cursor.close();
@@ -388,6 +415,11 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                             throw new IgniteInternalException(e);
                         }
                         catch (Exception e) {
+                            if (e instanceof IgniteInternalException && e.getCause().getCause() instanceof RejectedExecutionException) {
+                                LOG.warn("Cursor close command was rejected because raft executor has been already stopped.");
+                                return;
+                            }
+
                             // TODO: IGNITE-14693 Implement Meta storage exception handling logic.
                             LOG.error("Unexpected exception", e);
                         }
@@ -444,9 +476,13 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                             Thread.sleep(10);
                     }
                     catch (Throwable e) {
-                        if (e instanceof InterruptedException || e.getCause() instanceof InterruptedException)
+                        if (e instanceof NodeStoppingException || e.getCause() instanceof NodeStoppingException)
                             break;
-                        else {
+                        else if ((e instanceof InterruptedException || e.getCause() instanceof InterruptedException) && stop) {
+                            LOG.debug("Watcher has been stopped during node's stop");
+
+                            break;
+                        } else {
                             // TODO: IGNITE-14693 Implement Meta storage exception handling logic.
                             LOG.error("Unexpected exception", e);
                         }

@@ -20,9 +20,11 @@ package org.apache.ignite.internal.schema;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.UUID;
+import java.util.Objects;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 import org.apache.ignite.internal.tostring.S;
@@ -34,9 +36,6 @@ import org.jetbrains.annotations.Nullable;
  * Full schema descriptor containing key columns chunk, value columns chunk, and schema version.
  */
 public class SchemaDescriptor implements Serializable {
-    /** Table identifier. */
-    private final UUID tableId;
-
     /** Schema version. Incremented on each schema modification. */
     private final int ver;
 
@@ -56,47 +55,38 @@ public class SchemaDescriptor implements Serializable {
     private ColumnMapper colMapper = ColumnMapping.identityMapping();
 
     /**
-     * @param tableId Table id.
      * @param ver Schema version.
      * @param keyCols Key columns.
      * @param valCols Value columns.
      */
-    public SchemaDescriptor(UUID tableId, int ver, Column[] keyCols, Column[] valCols) {
-        this(tableId, ver, keyCols, null, valCols);
+    public SchemaDescriptor(int ver, Column[] keyCols, Column[] valCols) {
+        this(ver, keyCols, null, valCols);
     }
 
     /**
-     * @param tableId Table id.
      * @param ver Schema version.
      * @param keyCols Key columns.
      * @param affCols Affinity column names.
      * @param valCols Value columns.
      */
-    public SchemaDescriptor(UUID tableId, int ver, Column[] keyCols, @Nullable String[] affCols, Column[] valCols) {
-        assert keyCols.length > 0 : "No key columns are conigured.";
-        assert valCols.length > 0 : "No value columns are conigured.";
+    public SchemaDescriptor(int ver, Column[] keyCols, @Nullable String[] affCols, Column[] valCols) {
+        assert keyCols.length > 0 : "No key columns are configured.";
+        assert valCols.length > 0 : "No value columns are configured.";
 
-        this.tableId = tableId;
         this.ver = ver;
         this.keyCols = new Columns(0, keyCols);
         this.valCols = new Columns(keyCols.length, valCols);
 
-        colMap = new HashMap<>(keyCols.length + valCols.length);
+        colMap = new LinkedHashMap<>(keyCols.length + valCols.length);
 
-        Arrays.stream(this.keyCols.columns()).forEach(c -> colMap.put(c.name(), c));
-        Arrays.stream(this.valCols.columns()).forEach(c -> colMap.put(c.name(), c));
+        Stream.concat(Arrays.stream(this.keyCols.columns()), Arrays.stream(this.valCols.columns()))
+            .sorted(Comparator.comparingInt(Column::columnOrder))
+            .forEach(c -> colMap.put(c.name(), c));
 
         // Preserving key chunk column order is not actually required.
         // It is sufficient to has same column order for all nodes.
         this.affCols = (ArrayUtils.nullOrEmpty(affCols)) ? keyCols :
             Arrays.stream(affCols).map(colMap::get).toArray(Column[]::new);
-    }
-
-    /**
-     * @return Table identifier.
-     */
-    public UUID tableId() {
-        return tableId;
     }
 
     /**
@@ -111,6 +101,8 @@ public class SchemaDescriptor implements Serializable {
      * @return {@code true} if the column belongs to the key chunk, {@code false} otherwise.
      */
     public boolean isKeyColumn(int idx) {
+        validateColumnIndex(idx);
+
         return idx < keyCols.length();
     }
 
@@ -119,7 +111,18 @@ public class SchemaDescriptor implements Serializable {
      * @return Column instance.
      */
     public Column column(int colIdx) {
+        validateColumnIndex(colIdx);
+
         return colIdx < keyCols.length() ? keyCols.column(colIdx) : valCols.column(colIdx - keyCols.length());
+    }
+
+    /**
+     * Validates the column index.
+     *
+     * @param colIdx Column index.
+     */
+    public void validateColumnIndex(int colIdx) {
+        Objects.checkIndex(colIdx, length());
     }
 
     /**

@@ -18,6 +18,7 @@ package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Status;
@@ -30,6 +31,8 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.PingRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.AbstractClientService;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Endpoint;
+import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -59,15 +62,22 @@ public class AbstractClientServiceTest {
     private RpcClient rpcClient;
     private RpcResponseFactory rpcResponseFactory = RaftRpcFactory.DEFAULT;
     private final Endpoint endpoint = new Endpoint("localhost", 8081);
+    private ExecutorService clientExecutor;
 
     @BeforeEach
     public void setup() throws Exception {
         this.rpcOptions = new RpcOptions();
-        this.rpcOptions.setClientExecutor(JRaftUtils.createClientExecutor(this.rpcOptions, "unittest"));
+        clientExecutor = JRaftUtils.createClientExecutor(this.rpcOptions, "unittest");
+        this.rpcOptions.setClientExecutor(clientExecutor);
         this.clientService = new MockClientService();
         when(this.rpcClient.invokeAsync(any(), any(), any(), any(), anyLong())).thenReturn(new CompletableFuture<>());
         this.rpcOptions.setRpcClient(this.rpcClient);
         assertTrue(this.clientService.init(this.rpcOptions));
+    }
+
+    @AfterEach
+    public void teardown() {
+        ExecutorServiceHelper.shutdownAndAwaitTermination(clientExecutor);
     }
 
     static class MockRpcResponseClosure<T extends Message> extends RpcResponseClosureAdapter<T> {
@@ -99,7 +109,7 @@ public class AbstractClientServiceTest {
         assertNull(done.status);
         assertFalse(future.isDone());
 
-        ErrorResponse response = (ErrorResponse) this.rpcResponseFactory.newResponse(null, Status.OK());
+        ErrorResponse response = (ErrorResponse) this.rpcResponseFactory.newResponse(rpcOptions.getRaftMessagesFactory(), Status.OK());
         cb.complete(response, null);
 
         done.latch.await();
@@ -161,9 +171,10 @@ public class AbstractClientServiceTest {
     public void testInvokeWithDoneOnErrorResponse() throws Exception {
         final InvokeContext invokeCtx = new InvokeContext();
         final ArgumentCaptor<InvokeCallback> callbackArg = ArgumentCaptor.forClass(InvokeCallback.class);
-        final CliRequests.GetPeersRequest request = CliRequests.GetPeersRequest.newBuilder() //
-            .setGroupId("id") //
-            .setLeaderId("127.0.0.1:8001") //
+        final CliRequests.GetPeersRequest request = rpcOptions.getRaftMessagesFactory()
+            .getPeersRequest()
+            .groupId("id")
+            .leaderId("127.0.0.1:8001")
             .build();
 
         MockRpcResponseClosure<ErrorResponse> done = new MockRpcResponseClosure<>();
@@ -178,7 +189,7 @@ public class AbstractClientServiceTest {
         assertNull(done.status);
         assertFalse(future.isDone());
 
-        final Message resp = this.rpcResponseFactory.newResponse(CliRequests.GetPeersResponse.getDefaultInstance(),
+        final Message resp = this.rpcResponseFactory.newResponse(rpcOptions.getRaftMessagesFactory(),
             new Status(-1, "failed"));
         cb.complete(resp, null);
 

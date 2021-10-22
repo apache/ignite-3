@@ -19,90 +19,82 @@ package org.apache.ignite.internal.configuration;
 
 import java.lang.annotation.Annotation;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigRenderOptions;
+import com.typesafe.config.ConfigObject;
 import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.configuration.json.JsonConverter;
+import org.apache.ignite.internal.configuration.hocon.HoconConverter;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
+import org.apache.ignite.internal.manager.IgniteComponent;
+import org.intellij.lang.annotations.Language;
+
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
 
 /**
  * Configuration manager is responsible for handling configuration lifecycle and provides configuration API.
  */
-// TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
-@SuppressWarnings("WeakerAccess") public class ConfigurationManager {
+public class ConfigurationManager implements IgniteComponent {
     /** Configuration registry. */
-    private final ConfigurationRegistry confRegistry;
-
-    /** Type mapped to configuration storage. */
-    private final Map<ConfigurationType, ConfigurationStorage> configurationStorages;
-
-    /**
-     * The constructor.
-     *
-     * @param rootKeys Configuration root keys.
-     * @param validators Validators.
-     * @param configurationStorages Configuration storages.
-     */
-    public ConfigurationManager(
-        Collection<RootKey<?, ?>> rootKeys,
-        Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators,
-        Collection<ConfigurationStorage> configurationStorages
-    ) {
-        HashMap<ConfigurationType, ConfigurationStorage> storageByType = new HashMap<>();
-
-        for (ConfigurationStorage storage : configurationStorages) {
-            assert !storageByType.containsKey(storage.type()) : "Two or more storage have the same configuration type [type=" + storage.type() + ']';
-
-            storageByType.put(storage.type(), storage);
-        }
-
-        this.configurationStorages = Map.copyOf(storageByType);
-
-        confRegistry = new ConfigurationRegistry(rootKeys, validators, configurationStorages);
-    }
+    private final ConfigurationRegistry registry;
 
     /**
      * Constructor.
      *
      * @param rootKeys Configuration root keys.
-     * @param configurationStorages Configuration storages.
+     * @param validators Validators.
+     * @param storage Configuration storage.
+     * @param internalSchemaExtensions Internal extensions ({@link InternalConfiguration})
+     *      of configuration schemas ({@link ConfigurationRoot} and {@link Config}).
+     * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type,
+     *      or if the schema or its extensions are not valid.
      */
     public ConfigurationManager(
         Collection<RootKey<?, ?>> rootKeys,
-        Collection<ConfigurationStorage> configurationStorages
+        Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators,
+        ConfigurationStorage storage,
+        Collection<Class<?>> internalSchemaExtensions
     ) {
-        this(rootKeys, Collections.emptyMap(), configurationStorages);
+        checkConfigurationType(rootKeys, storage);
+
+        registry = new ConfigurationRegistry(rootKeys, validators, storage, internalSchemaExtensions);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void start() {
+        registry.start();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void stop() {
+        // TODO: IGNITE-15161 Implement component's stop.
+        registry.stop();
     }
 
     /**
      * Bootstrap configuration manager with customer user cfg.
+     *
      * @param hoconStr Customer configuration in hocon format.
-     * @param type Configuration type.
      * @throws InterruptedException If thread is interrupted during bootstrap.
      * @throws ExecutionException If configuration update failed for some reason.
      */
-    public void bootstrap(String hoconStr, ConfigurationType type) throws InterruptedException, ExecutionException {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-14924 Implement HoconConfigurationSource
-        String jsonStr = ConfigFactory.parseString(hoconStr).root().render(ConfigRenderOptions.concise());
+    public void bootstrap(@Language("HOCON") String hoconStr) throws InterruptedException, ExecutionException {
+        ConfigObject hoconCfg = ConfigFactory.parseString(hoconStr).root();
 
-        JsonObject jsonCfg = JsonParser.parseString(jsonStr).getAsJsonObject();
-
-        confRegistry.change(JsonConverter.jsonSource(jsonCfg), configurationStorages.get(type)).get();
+        registry.change(HoconConverter.hoconSource(hoconCfg)).get();
     }
 
     /**
+     * Get configuration registry.
+     *
      * @return Configuration registry.
      */
     public ConfigurationRegistry configurationRegistry() {
-        return confRegistry;
+        return registry;
     }
 }

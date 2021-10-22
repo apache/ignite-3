@@ -24,21 +24,15 @@ import org.apache.ignite.table.mapper.ValueMapper;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Table view of table provides methods to access table records regarding binary object concept.
+ * Table provides different views (key-value vs record) and approaches (mapped-object vs binary) to reach the data.
  * <p>
- * Provided different views (key-value vs record) and approaches (mapped-object vs binary) to reach the data.
- * <p>
- * Binary table views might be useful in cases (but not limited) if user key-value classes are not in classpath
- * or serialization/deserialization is unwanted due to performance reasons.
+ * Binary table views might be useful in cases (but not limited) when user key-value classes are not in classpath
+ * and/or when deserialization of whole table record is unwanted due to performance reasons.
  *
- * @apiNote Some methods require a record with the only key columns set. This is not mandatory requirement
- * and value columns will be just ignored.
  * @see RecordView
- * @see Table
  * @see KeyValueView
- * @see KeyValueBinaryView
  */
-public interface Table extends TableView<Tuple> {
+public interface Table {
     /**
      * Gets a name of the table.
      *
@@ -56,6 +50,13 @@ public interface Table extends TableView<Tuple> {
     <R> RecordView<R> recordView(RecordMapper<R> recMapper);
 
     /**
+     * Creates record view of table regarding the binary object concept.
+     *
+     * @return Table record view.
+     */
+    RecordView<Tuple> recordView();
+
+    /**
      * Creates key-value view of table for key-value class mappers provided.
      *
      * @param keyMapper Key class mapper.
@@ -64,14 +65,14 @@ public interface Table extends TableView<Tuple> {
      * @param <V> Value type.
      * @return Table key-value view.
      */
-    <K, V> KeyValueView<K, V> kvView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper);
+    <K, V> KeyValueView<K, V> keyValueView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper);
 
     /**
      * Creates key-value view of table regarding the binary object concept.
      *
      * @return Table key-value view.
      */
-    KeyValueBinaryView kvView();
+    KeyValueView<Tuple, Tuple> keyValueView();
 
     /**
      * Creates record view of table for record class provided.
@@ -81,7 +82,7 @@ public interface Table extends TableView<Tuple> {
      * @return Table record view.
      */
     default <R> RecordView<R> recordView(Class<R> recCls) {
-        return recordView(Mappers.ofRowClass(recCls));
+        return recordView(Mappers.ofRecordClass(recCls));
     }
 
     /**
@@ -93,14 +94,7 @@ public interface Table extends TableView<Tuple> {
      * @param <V> Value type.
      * @return Table key-value view.
      */
-    default <K, V> KeyValueView<K, V> kvView(Class<K> keyCls, Class<V> valCls) {
-        return kvView(Mappers.ofKeyClass(keyCls), Mappers.ofValueClass(valCls));
+    default <K, V> KeyValueView<K, V> keyValueView(Class<K> keyCls, Class<V> valCls) {
+        return keyValueView(Mappers.ofKeyClass(keyCls), Mappers.ofValueClass(valCls));
     }
-
-    /**
-     * Factory method shortcut.
-     *
-     * @return Tuple builder.
-     */
-    TupleBuilder tupleBuilder();
 }

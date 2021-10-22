@@ -22,7 +22,6 @@ import java.util.Deque;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -100,7 +99,7 @@ public class RootNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
 
         lock.lock();
         try {
-            if (waiting != -1)
+            if (waiting != -1 || !outBuff.isEmpty())
                 ex.compareAndSet(null, new IgniteException("Query was cancelled"));
 
             closed = true; // an exception has to be set first to get right check order
@@ -121,20 +120,7 @@ public class RootNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
 
     /** {@inheritDoc} */
     @Override public void closeInternal() {
-        closeInternal0(ex.get() == null);
-    }
-
-    /** */
-    private void closeInternal0(boolean sync) {
-        try {
-            if (sync)
-                context().submit(() -> sources().forEach(Commons::closeQuiet), this::onError).get();
-            else
-                context().execute(() -> sources().forEach(Commons::closeQuiet), this::onError);
-        }
-        catch (InterruptedException | ExecutionException e) {
-            log.warn("Execution is cancelled.", e);
-        }
+        context().execute(() -> sources().forEach(Commons::closeQuiet), this::onError);
     }
 
     /** {@inheritDoc} */
@@ -243,7 +229,7 @@ public class RootNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
                     outBuff = tmp;
                 }
 
-                if (waiting == -1)
+                if (waiting == -1 && outBuff.isEmpty())
                     close();
                 else if (inBuff.isEmpty() && waiting == 0) {
                     int req = waiting = inBufSize;
@@ -273,7 +259,10 @@ public class RootNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
         if (e == null)
             return;
 
-        throw new IgniteInternalException(e);
+        if (e instanceof IgniteException)
+            throw (IgniteException)e;
+        else
+            throw new IgniteException("An error occurred while query executing.", e);
 // TODO: rework with SQL error code
 //        if (e instanceof IgniteSQLException)
 //            throw (IgniteSQLException)e;

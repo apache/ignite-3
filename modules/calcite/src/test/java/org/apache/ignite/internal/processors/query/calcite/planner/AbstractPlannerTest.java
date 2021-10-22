@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.processors.query.calcite.planner;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -28,7 +30,6 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-import com.google.common.collect.ImmutableSet;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.plan.Contexts;
 import org.apache.calcite.plan.Convention;
@@ -45,6 +46,7 @@ import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelReferentialConstraint;
 import org.apache.calcite.rel.RelVisitor;
+import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
@@ -61,6 +63,8 @@ import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
+import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler;
 import org.apache.ignite.internal.processors.query.calcite.externalize.RelJsonReader;
 import org.apache.ignite.internal.processors.query.calcite.metadata.ColocationGroup;
 import org.apache.ignite.internal.processors.query.calcite.prepare.Cloner;
@@ -85,9 +89,13 @@ import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTr
 import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTraitDef;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeSystem;
+import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.table.Tuple;
+import org.jetbrains.annotations.Nullable;
 
 import static org.apache.calcite.tools.Frameworks.createRootSchema;
 import static org.apache.calcite.tools.Frameworks.newConfigBuilder;
@@ -203,7 +211,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         try (IgnitePlanner planner = ctx.planner()) {
             assertNotNull(planner);
 
-            planner.setDisabledRules(ImmutableSet.copyOf(disabledRules));
+            planner.setDisabledRules(new HashSet<>(Arrays.asList(disabledRules)));
 
             String qry = ctx.query();
 
@@ -435,10 +443,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             CorrelationTraitDef.INSTANCE
         };
 
-        List<UUID> nodes = new ArrayList<>(4);
+        List<String> nodes = new ArrayList<>(4);
 
         for (int i = 0; i < 4; i++)
-            nodes.add(UUID.randomUUID());
+            nodes.add(UUID.randomUUID().toString());
 
         PlanningContext ctx = PlanningContext.builder()
             .localNodeId(first(nodes))
@@ -689,6 +697,11 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
 
         /** {@inheritDoc} */
+        @Override public TableImpl table() {
+            throw new AssertionError();
+        }
+
+        /** {@inheritDoc} */
         @Override public RelDataType rowType(IgniteTypeFactory factory, ImmutableBitSet usedColumns) {
             return rowType;
         }
@@ -699,6 +712,18 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
 
         /** {@inheritDoc} */
+        @Override public <Row> Row toRow(ExecutionContext<Row> ectx, Tuple row, RowHandler.RowFactory<Row> factory,
+            @Nullable ImmutableBitSet requiredColumns) {
+            throw new AssertionError();
+        }
+
+        /** {@inheritDoc} */
+        @Override public <Row> Tuple toTuple(ExecutionContext<Row> ectx, Row row, TableModify.Operation op,
+            @Nullable Object arg) {
+            throw new AssertionError();
+        }
+
+        /** {@inheritDoc} */
         @Override public ColumnDescriptor columnDescriptor(String fieldName) {
             RelDataTypeField field = rowType.getField(fieldName, false, false);
             return new TestColumnDescriptor(field.getIndex(), fieldName);
@@ -706,6 +731,11 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override public boolean isGeneratedAlways(RelOptTable table, int iColumn) {
+            throw new AssertionError();
+        }
+
+        /** {@inheritDoc} */
+        @Override public ColocationGroup colocationGroup(PlanningContext ctx) {
             throw new AssertionError();
         }
 
@@ -746,11 +776,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
 
         /** {@inheritDoc} */
-        @Override public boolean field() {
-            return true;
-        }
-
-        /** {@inheritDoc} */
         @Override public boolean key() {
             return false;
         }
@@ -776,17 +801,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
 
         /** {@inheritDoc} */
-        @Override public Class<?> storageType() {
+        @Override public NativeType storageType() {
             throw new AssertionError();
         }
 
         /** {@inheritDoc} */
         @Override public Object defaultValue() {
-            throw new AssertionError();
-        }
-
-        /** {@inheritDoc} */
-        @Override public void set(Object dst, Object val) {
             throw new AssertionError();
         }
     }

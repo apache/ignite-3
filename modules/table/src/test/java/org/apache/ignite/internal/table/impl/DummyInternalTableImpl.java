@@ -25,10 +25,18 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Flow.Publisher;
 import java.util.stream.Collectors;
+
+import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.schema.definition.SchemaManagementMode;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Dummy table storage implementation.
@@ -78,8 +86,8 @@ public class DummyInternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull UUID tableId() {
-        return UUID.randomUUID();
+    @Override public @NotNull IgniteUuid tableId() {
+        return new IgniteUuid(UUID.randomUUID(), 0);
     }
 
     /** {@inheritDoc} */
@@ -88,14 +96,23 @@ public class DummyInternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<BinaryRow> get(@NotNull BinaryRow row) {
+    @Override public @NotNull SchemaManagementMode schemaMode() {
+        return SchemaManagementMode.STRICT;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void schema(SchemaManagementMode schemaMode) {
+    }
+
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<BinaryRow> get(@NotNull BinaryRow row, Transaction tx) {
         assert row != null;
 
         return CompletableFuture.completedFuture(store.get(extractAndWrapKey(row)));
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> upsert(@NotNull BinaryRow row) {
+    @Override public CompletableFuture<Void> upsert(@NotNull BinaryRow row, Transaction tx) {
         assert row != null;
 
         store.put(extractAndWrapKey(row), row);
@@ -104,7 +121,8 @@ public class DummyInternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<BinaryRow> getAndUpsert(@NotNull BinaryRow row) {
+    @Override public CompletableFuture<BinaryRow> getAndUpsert(@NotNull BinaryRow row,
+        Transaction tx) {
         assert row != null;
 
         final BinaryRow old = store.put(extractAndWrapKey(row), row);
@@ -113,7 +131,7 @@ public class DummyInternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Boolean> delete(BinaryRow row) {
+    @Override public CompletableFuture<Boolean> delete(BinaryRow row, Transaction tx) {
         assert row != null;
 
         final KeyWrapper key = extractAndWrapKey(row);
@@ -123,7 +141,8 @@ public class DummyInternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows) {
+    @Override public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows,
+        Transaction tx) {
         assert keyRows != null && !keyRows.isEmpty();
 
         final List<BinaryRow> res = keyRows.stream()
@@ -135,7 +154,7 @@ public class DummyInternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Void> upsertAll(Collection<BinaryRow> rows) {
+    @Override public CompletableFuture<Void> upsertAll(Collection<BinaryRow> rows, Transaction tx) {
         assert rows != null && !rows.isEmpty();
 
         rows.stream()
@@ -145,14 +164,14 @@ public class DummyInternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Boolean> insert(BinaryRow row) {
+    @Override public CompletableFuture<Boolean> insert(BinaryRow row, Transaction tx) {
         assert row != null;
 
         return CompletableFuture.completedFuture(store.putIfAbsent(extractAndWrapKey(row), row) == null);
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> rows) {
+    @Override public CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> rows, Transaction tx) {
         assert rows != null && !rows.isEmpty();
 
         final List<BinaryRow> res = rows.stream()
@@ -164,7 +183,7 @@ public class DummyInternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Boolean> replace(BinaryRow row) {
+    @Override public CompletableFuture<Boolean> replace(BinaryRow row, Transaction tx) {
         assert row != null;
 
         final KeyWrapper key = extractAndWrapKey(row);
@@ -177,7 +196,7 @@ public class DummyInternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Boolean> replace(BinaryRow oldRow, BinaryRow newRow) {
+    @Override public CompletableFuture<Boolean> replace(BinaryRow oldRow, BinaryRow newRow, Transaction tx) {
         assert oldRow != null;
         assert newRow != null;
 
@@ -190,12 +209,13 @@ public class DummyInternalTableImpl implements InternalTable {
         return CompletableFuture.completedFuture(equalValues(row, oldRow) && store.put(key, newRow) != null);
     }
 
-    @Override public @NotNull CompletableFuture<BinaryRow> getAndReplace(BinaryRow row) {
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<BinaryRow> getAndReplace(BinaryRow row, Transaction tx) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Boolean> deleteExact(BinaryRow row) {
+    @Override public CompletableFuture<Boolean> deleteExact(BinaryRow row, Transaction tx) {
         assert row != null;
         assert row.hasValue();
 
@@ -208,16 +228,30 @@ public class DummyInternalTableImpl implements InternalTable {
         return CompletableFuture.completedFuture(equalValues(row, old) && store.remove(key) != null);
     }
 
-    @Override public @NotNull CompletableFuture<BinaryRow> getAndDelete(BinaryRow row) {
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<BinaryRow> getAndDelete(BinaryRow row, Transaction tx) {
         return null;
     }
 
-    @Override public @NotNull CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows) {
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows, Transaction tx) {
         return null;
     }
 
-    @Override public @NotNull CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows) {
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows,
+        Transaction tx) {
         return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Publisher<BinaryRow> scan(int p, @Nullable Transaction tx) {
+        throw new IgniteInternalException(new OperationNotSupportedException());
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull List<String> assignments() {
+        throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
     /**

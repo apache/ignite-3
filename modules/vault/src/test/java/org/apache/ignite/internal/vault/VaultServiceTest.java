@@ -35,7 +35,7 @@ import org.junit.jupiter.api.Test;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.vault.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
@@ -55,12 +55,14 @@ public abstract class VaultServiceTest {
     @BeforeEach
     public void setUp() throws IOException {
         vaultService = getVaultService();
+
+        vaultService.start();
     }
 
     /** */
     @AfterEach
-    public void tearDown() throws Exception {
-        vaultService.close();
+    void tearDown() throws Exception {
+        vaultService.stop();
     }
 
     /**

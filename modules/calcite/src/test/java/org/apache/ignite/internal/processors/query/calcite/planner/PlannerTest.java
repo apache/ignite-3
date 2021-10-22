@@ -20,12 +20,12 @@ package org.apache.ignite.internal.processors.query.calcite.planner;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 
-import com.google.common.collect.ImmutableSet;
 import org.apache.calcite.plan.Contexts;
 import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptUtil;
@@ -87,14 +87,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class PlannerTest extends AbstractPlannerTest {
     /** */
-    private static List<UUID> NODES;
+    private static List<String> NODES;
     
     @BeforeAll
     public static void init() {
         NODES = new ArrayList<>(4);
 
         for (int i = 0; i < 4; i++)
-            NODES.add(UUID.randomUUID());
+            NODES.add(UUID.randomUUID().toString());
     }
 
     /**
@@ -1230,7 +1230,7 @@ public class PlannerTest extends AbstractPlannerTest {
         RelRoot relRoot;
 
         try (IgnitePlanner planner = ctx.planner()) {
-            planner.setDisabledRules(ImmutableSet.of("CorrelatedNestedLoopJoin"));
+            planner.setDisabledRules(Set.of("CorrelatedNestedLoopJoin"));
 
             assertNotNull(planner);
 
@@ -1840,7 +1840,7 @@ public class PlannerTest extends AbstractPlannerTest {
     }
 
     /** */
-    private List<UUID> intermediateMapping(long topVer, boolean single,
+    private List<String> intermediateMapping(long topVer, boolean single,
         @Nullable Predicate<ClusterNode> filter) {
         return single ? select(NODES, 0) : select(NODES, 0, 1, 2, 3);
     }

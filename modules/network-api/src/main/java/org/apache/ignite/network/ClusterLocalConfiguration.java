@@ -17,7 +17,6 @@
 
 package org.apache.ignite.network;
 
-import java.util.List;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**
@@ -30,31 +29,23 @@ public class ClusterLocalConfiguration {
     /** The network alias of a node. */
     private final String name;
 
-    /** The port. */
-    private final int port;
-
-    /** Addresses of other nodes. */
-    private final List<NetworkAddress> memberAddresses;
-
     /** Message mapper providers. */
     private final MessageSerializationRegistry serializationRegistry;
 
     /**
+     * Constructor.
+     *
      * @param name Local name.
-     * @param port Local port.
-     * @param memberAddresses Other cluster member addresses.
      * @param serializationRegistry Message serialization registry.
      */
-    public ClusterLocalConfiguration(
-        String name, int port, List<NetworkAddress> memberAddresses, MessageSerializationRegistry serializationRegistry
-    ) {
+    public ClusterLocalConfiguration(String name, MessageSerializationRegistry serializationRegistry) {
         this.name = name;
-        this.port = port;
-        this.memberAddresses = List.copyOf(memberAddresses);
         this.serializationRegistry = serializationRegistry;
     }
 
     /**
+     * Returns the network alias of the node.
+     *
      * @return Network alias of a node.
      */
     public String getName() {
@@ -62,20 +53,8 @@ public class ClusterLocalConfiguration {
     }
 
     /**
-     * @return Port.
-     */
-    public int getPort() {
-        return port;
-    }
-
-    /**
-     * @return Addresses of other nodes.
-     */
-    public List<NetworkAddress> getMemberAddresses() {
-        return memberAddresses;
-    }
-
-    /**
+     * Returns the message serialization registry.
+     *
      * @return Message serialization registry.
      */
     public MessageSerializationRegistry getSerializationRegistry() {

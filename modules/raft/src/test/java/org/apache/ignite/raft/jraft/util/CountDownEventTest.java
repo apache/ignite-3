@@ -17,18 +17,25 @@
 package org.apache.ignite.raft.jraft.util;
 
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.lang.IgniteLogger;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class CountDownEventTest {
-    private static final Logger LOG = LoggerFactory.getLogger(CountDownEventTest.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(CountDownEventTest.class);
+
+    private ExecutorService executor;
+
+    @AfterEach
+    public void teardown() {
+        ExecutorServiceHelper.shutdownAndAwaitTermination(executor);
+    }
 
     @Test
     public void testAwait() throws Exception {
@@ -37,7 +44,7 @@ public class CountDownEventTest {
         e.incrementAndGet();
         AtomicLong cost = new AtomicLong(0);
         CountDownLatch latch = new CountDownLatch(1);
-        Executor executor = Executors.newSingleThreadExecutor();
+        executor = Executors.newSingleThreadExecutor();
         Utils.runInThread(executor, new Runnable() {
             @Override
             public void run() {
@@ -66,7 +73,7 @@ public class CountDownEventTest {
         e.incrementAndGet();
         e.incrementAndGet();
         Thread thread = Thread.currentThread();
-        Executor executor = Executors.newSingleThreadExecutor();
+        executor = Executors.newSingleThreadExecutor();
         Utils.runInThread(executor, new Runnable() {
             @Override
             public void run() {

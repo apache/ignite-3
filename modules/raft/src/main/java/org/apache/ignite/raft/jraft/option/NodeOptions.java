@@ -35,6 +35,9 @@ import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
  * Node options.
  */
 public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
+    /** This value is used by default to determine the count of stripes in the striped queue. */
+    public static final int DEFAULT_STRIPES = Utils.cpus() * 2;
+
     // A follower would become a candidate if it doesn't receive any message
     // from the leader in |election_timeout_ms| milliseconds
     // Default: 1000 (1s)
@@ -123,7 +126,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /**
      * Timer manager thread pool size
      */
-    private int timerPoolSize = Utils.cpus() * 3 > 20 ? 20 : Utils.cpus() * 3;
+    private int timerPoolSize = Math.min(Utils.cpus() * 3, 20);
 
     /**
      * CLI service request RPC executor pool size, use default executor if -1.
@@ -197,6 +200,27 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     /** Server name. */
     private String serverName;
+
+    /** Amount of Disruptors that will handle the RAFT server. */
+    private int stripes = DEFAULT_STRIPES;
+
+    public NodeOptions() {
+        raftOptions.setRaftMessagesFactory(getRaftMessagesFactory());
+    }
+
+    /**
+     * @return Stripe count.
+     */
+    public int getStripes() {
+        return stripes;
+    }
+
+    /**
+     * @param stripes Stripe count.
+     */
+    public void setStripes(int stripes) {
+        this.stripes = stripes;
+    }
 
     /**
      * The rpc client.
@@ -491,7 +515,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setRaftRpcThreadPoolSize(this.raftRpcThreadPoolSize);
         nodeOptions.setCommonThreadPollSize(this.commonThreadPollSize);
         nodeOptions.setEnableMetrics(this.enableMetrics);
-        nodeOptions.setRaftOptions(this.raftOptions == null ? new RaftOptions() : this.raftOptions.copy());
+        nodeOptions.setRaftOptions(this.raftOptions.copy());
         nodeOptions.setSharedElectionTimer(this.sharedElectionTimer);
         nodeOptions.setSharedVoteTimer(this.sharedVoteTimer);
         nodeOptions.setSharedStepDownTimer(this.sharedStepDownTimer);
@@ -502,6 +526,10 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setServerName(this.getServerName());
         nodeOptions.setScheduler(this.getScheduler());
         nodeOptions.setClientExecutor(this.getClientExecutor());
+        nodeOptions.setNodeApplyDisruptor(this.getNodeApplyDisruptor());
+        nodeOptions.setfSMCallerExecutorDisruptor(this.getfSMCallerExecutorDisruptor());
+        nodeOptions.setReadOnlyServiceDisruptor(this.getReadOnlyServiceDisruptor());
+        nodeOptions.setLogManagerDisruptor(this.getLogManagerDisruptor());
 
         return nodeOptions;
     }

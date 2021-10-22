@@ -22,13 +22,4 @@ public class Stubs {
     public static int intFoo(Object... args) {
         return args == null ? 0 : args.length;
     }
-
-    public static boolean boolFoo(Object... args) {
-        return args == null;
-    }
-
-    /** */
-    public static String stringFoo(Object... args) {
-        return args == null ? "null" : "not null";
-    }
 }

@@ -23,6 +23,8 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
@@ -34,8 +36,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -43,12 +43,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(WorkDirectoryExtension.class)
 public class FileServiceTest {
-    private static final Logger LOG = LoggerFactory.getLogger(FileServiceTest.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(FileServiceTest.class);
 
     @WorkDirectory
     private Path path;
 
     private LocalDirReader fileReader;
+
+    private final RaftMessagesFactory msgFactory = new RaftMessagesFactory();
 
     @BeforeEach
     public void setup() throws Exception {
@@ -69,27 +71,35 @@ public class FileServiceTest {
 
     @Test
     public void testGetFileNotFoundReader() {
-        RpcRequests.GetFileRequest request = RpcRequests.GetFileRequest.newBuilder().setCount(Integer.MAX_VALUE)
-            .setFilename("data").setOffset(0).setReaderId(1).build();
+        RpcRequests.GetFileRequest request = msgFactory.getFileRequest()
+            .count(Integer.MAX_VALUE)
+            .filename("data")
+            .offset(0)
+            .readerId(1)
+            .build();
         RpcContext asyncContext = Mockito.mock(RpcContext.class);
-        Message msg = FileService.getInstance().handleGetFile(request, new RpcRequestClosure(asyncContext));
+        Message msg = FileService.getInstance().handleGetFile(request, new RpcRequestClosure(asyncContext, msgFactory));
         assertTrue(msg instanceof RpcRequests.ErrorResponse);
         RpcRequests.ErrorResponse response = (RpcRequests.ErrorResponse) msg;
-        assertEquals(RaftError.ENOENT.getNumber(), response.getErrorCode());
-        assertEquals("Fail to find reader=1", response.getErrorMsg());
+        assertEquals(RaftError.ENOENT.getNumber(), response.errorCode());
+        assertEquals("Fail to find reader=1", response.errorMsg());
     }
 
     @Test
     public void testGetFileNotFound() {
         long readerId = FileService.getInstance().addReader(this.fileReader);
-        RpcRequests.GetFileRequest request = RpcRequests.GetFileRequest.newBuilder().setCount(Integer.MAX_VALUE)
-            .setFilename("data").setOffset(0).setReaderId(readerId).build();
+        RpcRequests.GetFileRequest request = msgFactory.getFileRequest()
+            .count(Integer.MAX_VALUE)
+            .filename("data")
+            .offset(0)
+            .readerId(readerId)
+            .build();
         RpcContext asyncContext = Mockito.mock(RpcContext.class);
-        Message msg = FileService.getInstance().handleGetFile(request, new RpcRequestClosure(asyncContext));
+        Message msg = FileService.getInstance().handleGetFile(request, new RpcRequestClosure(asyncContext, msgFactory));
         assertTrue(msg instanceof RpcRequests.ErrorResponse);
         RpcRequests.ErrorResponse response = (RpcRequests.ErrorResponse) msg;
-        assertEquals(RaftError.EIO.getNumber(), response.getErrorCode());
-        assertEquals(String.format("Fail to read from path=%s filename=data", this.path), response.getErrorMsg());
+        assertEquals(RaftError.EIO.getNumber(), response.errorCode());
+        assertEquals(String.format("Fail to read from path=%s filename=data", this.path), response.errorMsg());
     }
 
     private String writeData() throws IOException {
@@ -103,15 +113,19 @@ public class FileServiceTest {
     public void testGetFileData() throws IOException {
         writeData();
         long readerId = FileService.getInstance().addReader(this.fileReader);
-        RpcRequests.GetFileRequest request = RpcRequests.GetFileRequest.newBuilder().setCount(Integer.MAX_VALUE)
-            .setFilename("data").setOffset(0).setReaderId(readerId).build();
+        RpcRequests.GetFileRequest request = msgFactory.getFileRequest()
+            .count(Integer.MAX_VALUE)
+            .filename("data")
+            .offset(0)
+            .readerId(readerId)
+            .build();
         RpcContext asyncContext = Mockito.mock(RpcContext.class);
-        Message msg = FileService.getInstance().handleGetFile(request, new RpcRequestClosure(asyncContext));
+        Message msg = FileService.getInstance().handleGetFile(request, new RpcRequestClosure(asyncContext, msgFactory));
         assertTrue(msg instanceof RpcRequests.GetFileResponse);
         RpcRequests.GetFileResponse response = (RpcRequests.GetFileResponse) msg;
-        assertTrue(response.getEof());
-        assertEquals("jraft is great!", new String(response.getData().toByteArray()));
-        assertEquals(-1, response.getReadSize());
+        assertTrue(response.eof());
+        assertEquals("jraft is great!", new String(response.data().toByteArray()));
+        assertEquals(-1, response.readSize());
     }
 
     private String writeLargeData() throws IOException {
@@ -129,19 +143,20 @@ public class FileServiceTest {
         final long readerId = FileService.getInstance().addReader(this.fileReader);
         int fileOffset = 0;
         while (true) {
-            final RpcRequests.GetFileRequest request = RpcRequests.GetFileRequest.newBuilder() //
-                .setCount(4096).setFilename("data") //
-                .setOffset(fileOffset) //
-                .setReaderId(readerId) //
+            final RpcRequests.GetFileRequest request = msgFactory.getFileRequest()
+                .count(4096)
+                .filename("data")
+                .offset(fileOffset)
+                .readerId(readerId)
                 .build();
             final RpcContext asyncContext = Mockito.mock(RpcContext.class);
 
             final Message msg = FileService.getInstance() //
-                .handleGetFile(request, new RpcRequestClosure(asyncContext));
+                .handleGetFile(request, new RpcRequestClosure(asyncContext, msgFactory));
             assertTrue(msg instanceof RpcRequests.GetFileResponse);
             final RpcRequests.GetFileResponse response = (RpcRequests.GetFileResponse) msg;
             final byte[] sourceArray = data.getBytes();
-            final byte[] respData = response.getData().toByteArray();
+            final byte[] respData = response.data().toByteArray();
 
             final int length = sourceArray.length;
             int offset = 0;
@@ -157,7 +172,7 @@ public class FileServiceTest {
                 offset += length;
             }
             fileOffset += offset;
-            if (response.getEof()) {
+            if (response.eof()) {
                 break;
             }
         }

@@ -80,6 +80,7 @@ public class NodeCommandSpec extends CategorySpec {
                 ignitePaths.logDir,
                 ignitePaths.cliPidsDir(),
                 configPath,
+                ignitePaths.serverJavaUtilLoggingPros(),
                 out);
 
             out.println();
@@ -165,8 +166,7 @@ public class NodeCommandSpec extends CategorySpec {
                     + " command to start a new node.");
             }
             else {
-                out.println("Currently, there are " +
-                    cs.text("@|bold " + nodes.size() + "|@") + " locally running nodes.");
+                out.println("Number of running nodes: " + cs.text("@|bold " + nodes.size() + "|@"));
                 out.println();
 
                 Table tbl = new Table(0, cs);

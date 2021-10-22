@@ -78,12 +78,12 @@ public class ByteBufferRow implements BinaryRow {
 
     /** {@inheritDoc} */
     @Override public byte readByte(int off) {
-        return (byte)(buf.get(off) & 0xFF);
+        return buf.get(off);
     }
 
     /** {@inheritDoc} */
     @Override public short readShort(int off) {
-        return (short)(buf.getShort(off) & 0xFFFF);
+        return buf.getShort(off);
     }
 
     /** {@inheritDoc} */
@@ -153,5 +153,10 @@ public class ByteBufferRow implements BinaryRow {
             buf.position(0); // Reset bounds.
             buf.limit(buf.capacity());
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override public byte[] bytes() {
+        return buf.array();
     }
 }

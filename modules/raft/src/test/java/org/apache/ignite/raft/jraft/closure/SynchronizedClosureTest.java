@@ -18,18 +18,17 @@ package org.apache.ignite.raft.jraft.closure;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.Status;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class SynchronizedClosureTest {
-    private static final Logger LOG = LoggerFactory.getLogger(SynchronizedClosureTest.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(SynchronizedClosureTest.class);
 
     private SynchronizedClosure done;
 
@@ -42,27 +41,29 @@ public class SynchronizedClosureTest {
     public void testAwaitRun() throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicLong cost = new AtomicLong(0);
-        new Thread() {
-            @Override
-            public void run() {
-                try {
-                    long start = System.currentTimeMillis();
-                    done.await();
-                    cost.set(System.currentTimeMillis() - start);
-                }
-                catch (InterruptedException e) {
-                    LOG.error("Thread was interrupted", e);
-                }
-                latch.countDown();
+        Thread t = new Thread(() -> {
+            try {
+                long start = System.currentTimeMillis();
+                done.await();
+                cost.set(System.currentTimeMillis() - start);
             }
-        }.start();
+            catch (InterruptedException e) {
+                LOG.error("Thread was interrupted", e);
+            }
+            latch.countDown();
+        });
+        try {
+            t.start();
 
-        int n = 1000;
-        Thread.sleep(n);
-        this.done.run(Status.OK());
-        latch.await();
-        assertEquals(n, cost.get(), 50);
-        assertTrue(this.done.getStatus().isOk());
+            int n = 1000;
+            Thread.sleep(n);
+            this.done.run(Status.OK());
+            latch.await();
+            assertEquals(n, cost.get(), 50);
+            assertTrue(this.done.getStatus().isOk());
+        } finally {
+            t.join();
+        }
     }
 
     @Test

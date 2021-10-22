@@ -17,13 +17,13 @@
 
 package org.apache.ignite.rest.routes;
 
-import io.netty.handler.codec.http.HttpMethod;
-import io.netty.handler.codec.http.HttpRequest;
-import io.netty.util.AsciiString;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BiConsumer;
+import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.util.AsciiString;
 import org.apache.ignite.rest.netty.RestApiHttpRequest;
 import org.apache.ignite.rest.netty.RestApiHttpResponse;
 
@@ -42,7 +42,7 @@ import org.apache.ignite.rest.netty.RestApiHttpResponse;
  */
 public class Router {
     /** Routes. */
-    private/*public*/ final List<Route> routes;
+    private final List<Route> routes;
 
     /**
      * Creates a new router with the given list of {@code routes}.

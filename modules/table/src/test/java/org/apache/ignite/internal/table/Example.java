@@ -43,7 +43,7 @@ public class Example {
      * @return Table implementation.
      */
     private static List<Table> tableFactory() {
-        return Collections.singletonList(new TableImpl(new DummyInternalTableImpl(), null));
+        return Collections.singletonList(new TableImpl(new DummyInternalTableImpl(), null, null));
     }
 
     /**
@@ -59,7 +59,7 @@ public class Example {
     @MethodSource("tableFactory")
     public void useCase1(Table t) {
         // Search row will allow nulls even in non-null columns.
-        Tuple res = t.get(t.tupleBuilder().set("id", 1).set("orgId", 1).build());
+        Tuple res = t.recordView().get(Tuple.create().set("id", 1).set("orgId", 1));
 
         String name = res.value("name");
         String lastName = res.value("latName");
@@ -137,7 +137,7 @@ public class Example {
             int department;
         }
 
-        KeyValueView<EmployeeKey, Employee> employeeKv = t.kvView(EmployeeKey.class, Employee.class);
+        KeyValueView<EmployeeKey, Employee> employeeKv = t.keyValueView(EmployeeKey.class, Employee.class);
 
         employeeKv.get(new EmployeeKey(1, 1));
 
@@ -147,7 +147,7 @@ public class Example {
             String lastName;
         }
 
-        KeyValueView<EmployeeKey, TruncatedEmployee> truncatedEmployeeKv = t.kvView(EmployeeKey.class, TruncatedEmployee.class);
+        KeyValueView<EmployeeKey, TruncatedEmployee> truncatedEmployeeKv = t.keyValueView(EmployeeKey.class, TruncatedEmployee.class);
 
         TruncatedEmployee te = truncatedEmployeeKv.get(new EmployeeKey(1, 1));
     }
@@ -179,14 +179,14 @@ public class Example {
             String bankName;
         }
 
-        KeyValueView<Long, CreditCard> credCardKvView = t.kvView(Long.class, CreditCard.class);
+        KeyValueView<Long, CreditCard> credCardKvView = t.keyValueView(Long.class, CreditCard.class);
         CreditCard creditCard = credCardKvView.get(1L);
 
-        KeyValueView<Long, BankAccount> backAccKvView = t.kvView(Long.class, BankAccount.class);
+        KeyValueView<Long, BankAccount> backAccKvView = t.keyValueView(Long.class, BankAccount.class);
         BankAccount bankAccount = backAccKvView.get(2L);
 
         // Truncated view.
-        KeyValueView<Long, BillingDetails> billingDetailsKVView = t.kvView(Long.class, BillingDetails.class);
+        KeyValueView<Long, BillingDetails> billingDetailsKVView = t.keyValueView(Long.class, BillingDetails.class);
         BillingDetails billingDetails = billingDetailsKVView.get(2L);
 
         // Without discriminator it is impossible to deserialize to correct type automatically.
@@ -255,10 +255,10 @@ public class Example {
             String bankName;
         }
 
-        KeyValueView<OrderKey, OrderValue> orderKvView = t.kvView(Mappers.ofKeyClass(OrderKey.class),
+        KeyValueView<OrderKey, OrderValue> orderKvView = t.keyValueView(Mappers.ofKeyClass(OrderKey.class),
             Mappers.ofValueClassBuilder(OrderValue.class)
                 .map("billingDetails", (row) -> {
-                    BinaryObject bObj = row.binaryObjectField("conditionalDetails");
+                    BinaryObject bObj = row.binaryObjectValue("conditionalDetails");
                     int type = row.intValue("type");
 
                     return type == 0 ?
@@ -269,14 +269,14 @@ public class Example {
         OrderValue ov = orderKvView.get(new OrderKey(1, 1));
 
         // Same with direct Row access and BinaryObject wrapper.
-        Tuple res = t.get(t.tupleBuilder().set("id", 1).set("orgId", 1).build());
+        Tuple res = t.recordView().get(Tuple.create().set("id", 1).set("orgId", 1));
 
         byte[] objData = res.value("billingDetails");
         BinaryObject binObj = BinaryObjects.wrap(objData);
         // Work with the binary object as in Ignite 2.x
 
         // Additionally, we may have a shortcut similar to primitive methods.
-        binObj = res.binaryObjectField("billingDetails");
+        binObj = res.binaryObjectValue("billingDetails");
 
         // Same with RecordAPI.
         class OrderRecord {
@@ -318,14 +318,14 @@ public class Example {
     @ParameterizedTest
     @MethodSource("tableFactory")
     public void useCase5(Table t) {
-        Tuple res = t.get(t.tupleBuilder().set("id", 1).set("orgId", 1).build());
+        Tuple res = t.recordView().get(Tuple.create().set("id", 1).set("orgId", 1));
 
         byte[] objData = res.value("originalObject");
         BinaryObject binObj = BinaryObjects.wrap(objData);
         // Work with the binary object as in Ignite 2.x
 
         // Additionally, we may have a shortcut similar to primitive methods.
-        binObj = res.binaryObjectField("upgradedObject");
+        binObj = res.binaryObjectValue("upgradedObject");
 
         // Plain byte[] and BinaryObject fields in a class are straightforward.
         class Record {
@@ -373,14 +373,14 @@ public class Example {
         }
 
         RecordView<TruncatedRecord> truncatedView = t.recordView(
-            Mappers.ofRowClassBuilder(TruncatedRecord.class)
+            Mappers.ofRecordClassBuilder(TruncatedRecord.class)
                 .map("upgradedObject", JavaPersonV2.class).build());
 
         // Or we can have a custom conditional type selection.
         RecordView<TruncatedRecord> truncatedView2 = t.recordView(
-            Mappers.ofRowClassBuilder(TruncatedRecord.class)
+            Mappers.ofRecordClassBuilder(TruncatedRecord.class)
                 .map("upgradedObject", (row) -> {
-                    BinaryObject bObj = row.binaryObjectField("upgradedObject");
+                    BinaryObject bObj = row.binaryObjectValue("upgradedObject");
                     int dept = row.intValue("department");
 
                     return dept == 0 ?
@@ -402,7 +402,7 @@ public class Example {
     @MethodSource("tableFactory")
     public void useCase6(Table t) {
         // Search row will allow nulls even in non-null columns.
-        Tuple res = t.get(t.tupleBuilder().set("id", 1).build());
+        Tuple res = t.recordView().get(Tuple.create().set("id", 1));
 
         String name = res.value("name");
         String lastName = res.value("latName");
@@ -424,7 +424,7 @@ public class Example {
             long id;
         }
 
-        KeyValueView<Long, Employee> employeeView = t.kvView(Long.class, Employee.class);
+        KeyValueView<Long, Employee> employeeView = t.keyValueView(Long.class, Employee.class);
 
         Employee e = employeeView.get(1L);
     }
@@ -449,11 +449,11 @@ public class Example {
             int department;
         }
 
-        KeyValueView<Long, BinaryObject> employeeView = t.kvView(Long.class, BinaryObject.class);
+        KeyValueView<Long, BinaryObject> employeeView = t.keyValueView(Long.class, BinaryObject.class);
 
         employeeView.put(1L, BinaryObjects.wrap(new byte[0] /* serialized Employee */));
 
-        t.kvView(
+        t.keyValueView(
             Mappers.identity(),
             Mappers.ofValueClassBuilder(BinaryObject.class).deserializeTo(Employee.class).build());
     }

@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.Vector;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -37,14 +36,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import com.codahale.metrics.ConsoleReporter;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.network.ClusterLocalConfiguration;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NodeFinder;
+import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.Iterator;
@@ -59,6 +59,7 @@ import org.apache.ignite.raft.jraft.closure.ReadIndexClosure;
 import org.apache.ignite.raft.jraft.closure.SynchronizedClosure;
 import org.apache.ignite.raft.jraft.closure.TaskClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
+import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.Task;
@@ -78,12 +79,16 @@ import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.core.DefaultRaftClientService;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
+import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.ThroughputSnapshotThrottle;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Bits;
 import org.apache.ignite.raft.jraft.util.Endpoint;
+import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Utils;
+import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
+import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -92,9 +97,8 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -111,7 +115,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ITNodeTest {
-    private static final Logger LOG = LoggerFactory.getLogger(ITNodeTest.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ITNodeTest.class);
 
     private static DumpThread dumpThread;
 
@@ -148,6 +152,18 @@ public class ITNodeTest {
 
     private final List<RaftGroupService> services = new ArrayList<>();
 
+    private final List<ExecutorService> executors = new ArrayList<>();
+
+    private final List<FixedThreadsExecutorGroup> appendEntriesExecutors = new ArrayList<>();
+
+    /** Test info. */
+    private final TestInfo testInfo;
+
+    /** */
+    public ITNodeTest(TestInfo testInfo) {
+        this.testInfo = testInfo;
+    }
+
     @BeforeAll
     public static void setupNodeTest() {
         dumpThread = new DumpThread();
@@ -164,7 +180,7 @@ public class ITNodeTest {
     }
 
     @BeforeEach
-    public void setup(TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
+    public void setup(@WorkDirectory Path workDir) throws Exception {
         LOG.info(">>>>>>>>>>>>>>> Start test method: " + testInfo.getDisplayName());
 
         dataPath = workDir.toString();
@@ -174,7 +190,7 @@ public class ITNodeTest {
     }
 
     @AfterEach
-    public void teardown(TestInfo testInfo) throws Exception {
+    public void teardown() throws Exception {
         services.forEach(service -> {
             try {
                 service.shutdown();
@@ -183,6 +199,10 @@ public class ITNodeTest {
                 LOG.error("Error while closing a service", e);
             }
         });
+
+        executors.forEach(ExecutorServiceHelper::shutdownAndAwaitTermination);
+
+        appendEntriesExecutors.forEach(FixedThreadsExecutorGroup::shutdownGracefully);
 
         if (cluster != null)
             cluster.stopAll();
@@ -226,7 +246,7 @@ public class ITNodeTest {
 
         RaftGroupService service = createService("unittest", new PeerId(addr, 0), nodeOptions);
 
-        final Node node = service.start();
+        Node node = service.start();
 
         assertEquals(1, node.listPeers().size());
         assertTrue(node.listPeers().contains(peer));
@@ -258,7 +278,7 @@ public class ITNodeTest {
      * Test rollback stateMachine with readIndex for issue 317: https://github.com/sofastack/sofa-jraft/issues/317
      */
     @Test
-    public void testRollbackStateMachineWithReadIndex_Issue317(TestInfo testInfo) throws Exception {
+    public void testRollbackStateMachineWithReadIndex_Issue317() throws Exception {
         Endpoint addr = new Endpoint(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
         PeerId peer = new PeerId(addr, 0);
 
@@ -304,7 +324,7 @@ public class ITNodeTest {
 
         RaftGroupService service = createService("unittest", peer, nodeOptions);
 
-        final Node node = service.start();
+        Node node = service.start();
 
         assertEquals(1, node.listPeers().size());
         assertTrue(node.listPeers().contains(peer));
@@ -394,7 +414,7 @@ public class ITNodeTest {
     public void testNoLeader() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unittest", dataPath, peers);
+        cluster = new TestCluster("unittest", dataPath, peers, testInfo);
 
         assertTrue(cluster.start(peers.get(0).getEndpoint()));
 
@@ -426,7 +446,7 @@ public class ITNodeTest {
         UserReplicatorStateListener listener2 = new UserReplicatorStateListener();
 
         cluster = new TestCluster("unitest", dataPath, peers, new LinkedHashSet<>(), 300,
-            opts -> opts.setReplicationStateListeners(List.of(listener1, listener2)));
+            opts -> opts.setReplicationStateListeners(List.of(listener1, listener2)), testInfo);
 
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint()));
@@ -456,7 +476,7 @@ public class ITNodeTest {
     public void testVoteTimedoutStepDown() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unittest", dataPath, peers);
+        cluster = new TestCluster("unittest", dataPath, peers, testInfo);
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint()));
 
@@ -524,7 +544,7 @@ public class ITNodeTest {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
         cluster = new TestCluster("unitest", dataPath, peers, new LinkedHashSet<>(), 300,
-            opts -> opts.setReplicationStateListeners(List.of(new UserReplicatorStateListener())));
+            opts -> opts.setReplicationStateListeners(List.of(new UserReplicatorStateListener())), testInfo);
 
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint()));
@@ -558,7 +578,7 @@ public class ITNodeTest {
     public void testTripleNodes() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unittest", dataPath, peers);
+        cluster = new TestCluster("unittest", dataPath, peers, testInfo);
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint()));
 
@@ -681,7 +701,7 @@ public class ITNodeTest {
         for (int i = 0; i < 3; i++)
             learners.add(new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + 3 + i));
 
-        cluster = new TestCluster("unittest", dataPath, peers, learners, 300);
+        cluster = new TestCluster("unittest", dataPath, peers, learners, 300, testInfo);
 
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint()));
@@ -749,7 +769,7 @@ public class ITNodeTest {
     public void testTripleNodesWithStaticLearners() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unittest", dataPath, peers);
+        cluster = new TestCluster("unittest", dataPath, peers, testInfo);
         LinkedHashSet<PeerId> learners = new LinkedHashSet<>();
         PeerId learnerPeer = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + 3);
         learners.add(learnerPeer);
@@ -788,7 +808,7 @@ public class ITNodeTest {
     public void testTripleNodesWithLearners() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unittest", dataPath, peers);
+        cluster = new TestCluster("unittest", dataPath, peers, testInfo);
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint()));
 
@@ -893,7 +913,7 @@ public class ITNodeTest {
 
         List<PeerId> peers = TestUtils.generatePriorityPeers(3, priorities);
 
-        cluster = new TestCluster("unittest", dataPath, peers);
+        cluster = new TestCluster("unittest", dataPath, peers, testInfo);
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint(), peer.getPriority()));
 
@@ -920,7 +940,7 @@ public class ITNodeTest {
 
         List<PeerId> peers = TestUtils.generatePriorityPeers(3, priorities);
 
-        cluster = new TestCluster("unittest", dataPath, peers);
+        cluster = new TestCluster("unittest", dataPath, peers, testInfo);
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint(), peer.getPriority()));
 
@@ -946,7 +966,7 @@ public class ITNodeTest {
 
         List<PeerId> peers = TestUtils.generatePriorityPeers(3, priorities);
 
-        cluster = new TestCluster("unittest", dataPath, peers);
+        cluster = new TestCluster("unittest", dataPath, peers, testInfo);
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint(), peer.getPriority()));
 
@@ -972,7 +992,7 @@ public class ITNodeTest {
 
         List<PeerId> peers = TestUtils.generatePriorityPeers(3, priorities);
 
-        cluster = new TestCluster("unittest", dataPath, peers);
+        cluster = new TestCluster("unittest", dataPath, peers, testInfo);
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint(), peer.getPriority()));
 
@@ -999,7 +1019,7 @@ public class ITNodeTest {
 
         List<PeerId> peers = TestUtils.generatePriorityPeers(3, priorities);
 
-        cluster = new TestCluster("unittest", dataPath, peers);
+        cluster = new TestCluster("unittest", dataPath, peers, testInfo);
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint(), peer.getPriority()));
 
@@ -1021,7 +1041,7 @@ public class ITNodeTest {
 
         List<PeerId> peers = TestUtils.generatePriorityPeers(3, priorities);
 
-        cluster = new TestCluster("unittest", dataPath, peers);
+        cluster = new TestCluster("unittest", dataPath, peers, testInfo);
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint(), peer.getPriority()));
 
@@ -1036,6 +1056,9 @@ public class ITNodeTest {
         // apply tasks to leader
         sendTestTaskAndWait(leader);
 
+        // wait for all update received, before election of new leader
+        cluster.ensureSame();
+
         // stop leader
         assertTrue(cluster.stop(leader.getNodeId().getPeerId().getEndpoint()));
 
@@ -1045,22 +1068,9 @@ public class ITNodeTest {
 
         assertNotNull(leader);
 
-        // get current leader priority value
-        int leaderPriority = leader.getNodeId().getPeerId().getPriority();
-
-        // get current leader log size
-        int peer1LogSize = cluster.getFsmByPeer(peers.get(1)).getLogs().size();
-        int peer2LogSize = cluster.getFsmByPeer(peers.get(2)).getLogs().size();
-
-        // if the leader is lower priority value
-        if (leaderPriority == 10) {
-            // we just compare the two peers' log size value;
-            assertTrue(peer2LogSize > peer1LogSize);
-        }
-        else {
-            assertEquals(60, leader.getNodeId().getPeerId().getPriority());
-            assertEquals(100, leader.getNodeTargetPriority());
-        }
+        // nodes with the same log size will elect leader only by priority
+        assertEquals(60, leader.getNodeId().getPeerId().getPriority());
+        assertEquals(100, leader.getNodeTargetPriority());
     }
 
     @Test
@@ -1072,7 +1082,7 @@ public class ITNodeTest {
 
         List<PeerId> peers = TestUtils.generatePriorityPeers(3, priorities);
 
-        cluster = new TestCluster("unittest", dataPath, peers);
+        cluster = new TestCluster("unittest", dataPath, peers, testInfo);
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint(), peer.getPriority()));
 
@@ -1114,13 +1124,12 @@ public class ITNodeTest {
     }
 
     @Test
-    @Disabled // TODO asch https://issues.apache.org/jira/browse/IGNITE-14833
     public void testChecksum() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
         // start with checksum validation
         {
-            TestCluster cluster = new TestCluster("unittest", dataPath, peers);
+            TestCluster cluster = new TestCluster("unittest", dataPath, peers, testInfo);
             try {
                 RaftOptions raftOptions = new RaftOptions();
                 raftOptions.setEnableLogEntryChecksum(true);
@@ -1141,7 +1150,7 @@ public class ITNodeTest {
 
         // restart with peer3 enable checksum validation
         {
-            TestCluster cluster = new TestCluster("unittest", dataPath, peers);
+            TestCluster cluster = new TestCluster("unittest", dataPath, peers, testInfo);
             try {
                 RaftOptions raftOptions = new RaftOptions();
                 raftOptions.setEnableLogEntryChecksum(false);
@@ -1167,7 +1176,7 @@ public class ITNodeTest {
 
         // restart with no checksum validation
         {
-            TestCluster cluster = new TestCluster("unittest", dataPath, peers);
+            TestCluster cluster = new TestCluster("unittest", dataPath, peers, testInfo);
             try {
                 RaftOptions raftOptions = new RaftOptions();
                 raftOptions.setEnableLogEntryChecksum(false);
@@ -1188,7 +1197,7 @@ public class ITNodeTest {
 
         // restart with all peers enable checksum validation
         {
-            TestCluster cluster = new TestCluster("unittest", dataPath, peers);
+            TestCluster cluster = new TestCluster("unittest", dataPath, peers, testInfo);
             try {
                 RaftOptions raftOptions = new RaftOptions();
                 raftOptions.setEnableLogEntryChecksum(true);
@@ -1213,7 +1222,7 @@ public class ITNodeTest {
     public void testReadIndex() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unittest", dataPath, peers);
+        cluster = new TestCluster("unittest", dataPath, peers, testInfo);
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint(), false, 300, true));
 
@@ -1259,7 +1268,7 @@ public class ITNodeTest {
     public void testReadIndexTimeout() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unittest", dataPath, peers);
+        cluster = new TestCluster("unittest", dataPath, peers, testInfo);
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint(), false, 300, true));
 
@@ -1311,7 +1320,7 @@ public class ITNodeTest {
     public void testReadIndexFromLearner() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unittest", dataPath, peers);
+        cluster = new TestCluster("unittest", dataPath, peers, testInfo);
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint(), false, 300, true));
 
@@ -1349,7 +1358,7 @@ public class ITNodeTest {
     public void testReadIndexChaos() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unittest", dataPath, peers);
+        cluster = new TestCluster("unittest", dataPath, peers, testInfo);
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint(), false, 300, true));
 
@@ -1362,10 +1371,15 @@ public class ITNodeTest {
         assertEquals(3, leader.listPeers().size());
 
         CountDownLatch latch = new CountDownLatch(10);
+
+        ExecutorService executor = Executors.newFixedThreadPool(10);
+
+        executors.add(executor);
+
         for (int i = 0; i < 10; i++) {
-            new Thread() {
-                @Override
-                public void run() {
+            executor.submit(new Runnable() {
+                /** {@inheritDoc} */
+                @Override public void run() {
                     try {
                         for (int i = 0; i < 100; i++) {
                             try {
@@ -1405,7 +1419,7 @@ public class ITNodeTest {
                         Thread.currentThread().interrupt();
                     }
                 }
-            }.start();
+            });
         }
 
         latch.await();
@@ -1420,7 +1434,7 @@ public class ITNodeTest {
     public void testNodeMetrics() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unittest", dataPath, peers);
+        cluster = new TestCluster("unittest", dataPath, peers, testInfo);
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint(), false, 300, true));
 
@@ -1457,7 +1471,7 @@ public class ITNodeTest {
     public void testLeaderFail() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unittest", dataPath, peers);
+        cluster = new TestCluster("unittest", dataPath, peers, testInfo);
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint()));
 
@@ -1481,7 +1495,7 @@ public class ITNodeTest {
                 if (msg instanceof RpcRequests.RequestVoteRequest) {
                     RpcRequests.RequestVoteRequest msg0 = (RpcRequests.RequestVoteRequest)msg;
 
-                    return !msg0.getPreVote();
+                    return !msg0.preVote();
                 }
 
                 return false;
@@ -1554,7 +1568,7 @@ public class ITNodeTest {
         peers.add(peer0);
 
         // start single cluster
-        cluster = new TestCluster("unittest", dataPath, peers);
+        cluster = new TestCluster("unittest", dataPath, peers, testInfo);
         assertTrue(cluster.start(peer0.getEndpoint()));
 
         cluster.waitLeader();
@@ -1616,7 +1630,7 @@ public class ITNodeTest {
     public void testRemoveFollower() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unittest", dataPath, peers);
+        cluster = new TestCluster("unittest", dataPath, peers, testInfo);
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint()));
 
@@ -1678,7 +1692,7 @@ public class ITNodeTest {
     public void testRemoveLeader() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unittest", dataPath, peers);
+        cluster = new TestCluster("unittest", dataPath, peers, testInfo);
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint()));
 
@@ -1739,10 +1753,11 @@ public class ITNodeTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15312")
     public void testPreVote() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unitest", dataPath, peers);
+        cluster = new TestCluster("unitest", dataPath, peers, testInfo);
 
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint()));
@@ -1788,7 +1803,7 @@ public class ITNodeTest {
 
     @Test
     public void testSetPeer1() throws Exception {
-        cluster = new TestCluster("testSetPeer1", dataPath, new ArrayList<>());
+        cluster = new TestCluster("testSetPeer1", dataPath, new ArrayList<>(), testInfo);
 
         PeerId bootPeer = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
         assertTrue(cluster.start(bootPeer.getEndpoint()));
@@ -1807,7 +1822,7 @@ public class ITNodeTest {
     public void testSetPeer2() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unitest", dataPath, peers);
+        cluster = new TestCluster("unitest", dataPath, peers, testInfo);
 
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint()));
@@ -1892,7 +1907,7 @@ public class ITNodeTest {
     public void testRestoreSnapshot() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unitest", dataPath, peers);
+        cluster = new TestCluster("unitest", dataPath, peers, testInfo);
 
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint()));
@@ -1929,7 +1944,7 @@ public class ITNodeTest {
     public void testRestoreSnapshotWithDelta() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unitest", dataPath, peers);
+        cluster = new TestCluster("unitest", dataPath, peers, testInfo);
 
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint()));
@@ -1972,7 +1987,7 @@ public class ITNodeTest {
     public void testInstallSnapshotWithThrottle() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unitest", dataPath, peers);
+        cluster = new TestCluster("unitest", dataPath, peers, testInfo);
 
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint(), false, 200, false, new ThroughputSnapshotThrottle(1024, 1)));
@@ -2025,10 +2040,9 @@ public class ITNodeTest {
     }
 
     @Test // TODO add test for timeout on snapshot install https://issues.apache.org/jira/browse/IGNITE-14832
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-14943")
     public void testInstallLargeSnapshotWithThrottle() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(4);
-        cluster = new TestCluster("unitest", dataPath, peers.subList(0, 3));
+        cluster = new TestCluster("unitest", dataPath, peers.subList(0, 3), testInfo);
         for (int i = 0; i < peers.size() - 1; i++) {
             PeerId peer = peers.get(i);
             boolean started = cluster.start(peer.getEndpoint(), false, 200, false);
@@ -2086,7 +2100,7 @@ public class ITNodeTest {
     @Test
     public void testInstallLargeSnapshot() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(4);
-        cluster = new TestCluster("unitest", dataPath, peers.subList(0, 3));
+        cluster = new TestCluster("unitest", dataPath, peers.subList(0, 3), testInfo);
         for (int i = 0; i < peers.size() - 1; i++) {
             PeerId peer = peers.get(i);
             boolean started = cluster.start(peer.getEndpoint(), false, 200, false);
@@ -2146,7 +2160,7 @@ public class ITNodeTest {
     public void testInstallSnapshot() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unitest", dataPath, peers);
+        cluster = new TestCluster("unitest", dataPath, peers, testInfo);
 
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint()));
@@ -2249,7 +2263,7 @@ public class ITNodeTest {
     public void testLeaderShouldNotChange() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unitest", dataPath, peers);
+        cluster = new TestCluster("unitest", dataPath, peers, testInfo);
 
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint()));
@@ -2272,7 +2286,7 @@ public class ITNodeTest {
     public void testRecoverFollower() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unitest", dataPath, peers);
+        cluster = new TestCluster("unitest", dataPath, peers, testInfo);
 
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint()));
@@ -2310,7 +2324,7 @@ public class ITNodeTest {
     public void testLeaderTransfer() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unitest", dataPath, peers, 300);
+        cluster = new TestCluster("unitest", dataPath, peers, 300, testInfo);
 
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint()));
@@ -2338,7 +2352,7 @@ public class ITNodeTest {
     public void testLeaderTransferBeforeLogIsCompleted() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unitest", dataPath, peers, 300);
+        cluster = new TestCluster("unitest", dataPath, peers, 300, testInfo);
 
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint(), false, 1));
@@ -2378,7 +2392,7 @@ public class ITNodeTest {
     public void testLeaderTransferResumeOnFailure() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unitest", dataPath, peers, 300);
+        cluster = new TestCluster("unitest", dataPath, peers, 300, testInfo);
 
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint(), false, 1));
@@ -2498,7 +2512,7 @@ public class ITNodeTest {
     public void testShuttingDownLeaderTriggerTimeoutNow() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unitest", dataPath, peers, 300);
+        cluster = new TestCluster("unitest", dataPath, peers, 300, testInfo);
 
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint()));
@@ -2524,7 +2538,7 @@ public class ITNodeTest {
     public void testRemovingLeaderTriggerTimeoutNow() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unitest", dataPath, peers, 300);
+        cluster = new TestCluster("unitest", dataPath, peers, 300, testInfo);
 
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint()));
@@ -2553,7 +2567,7 @@ public class ITNodeTest {
     public void testTransferShouldWorkAfterInstallSnapshot() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unitest", dataPath, peers, 1000);
+        cluster = new TestCluster("unitest", dataPath, peers, 1000, testInfo);
 
         for (int i = 0; i < peers.size() - 1; i++)
             assertTrue(cluster.start(peers.get(i).getEndpoint()));
@@ -2599,7 +2613,7 @@ public class ITNodeTest {
         // start five nodes
         List<PeerId> peers = TestUtils.generatePeers(5);
 
-        cluster = new TestCluster("unitest", dataPath, peers, 1000);
+        cluster = new TestCluster("unitest", dataPath, peers, 1000, testInfo);
 
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint()));
@@ -2650,7 +2664,7 @@ public class ITNodeTest {
         // start five nodes
         List<PeerId> peers = TestUtils.generatePeers(5);
 
-        cluster = new TestCluster("unitest", dataPath, peers, 1000);
+        cluster = new TestCluster("unitest", dataPath, peers, 1000, testInfo);
 
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint()));
@@ -2666,7 +2680,8 @@ public class ITNodeTest {
         List<Node> firstFollowers = cluster.getFollowers();
         assertEquals(4, firstFollowers.size());
         for (Node node : firstFollowers) {
-            assertTrue(waitForCondition(() -> ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes() == 1, 5_000));
+            assertTrue(
+                waitForCondition(() -> ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes() == 1, 5_000));
             assertEquals(0, ((MockStateMachine) node.getOptions().getFsm()).getOnStopFollowingTimes());
         }
 
@@ -2682,7 +2697,8 @@ public class ITNodeTest {
         List<Node> secondFollowers = cluster.getFollowers();
         assertEquals(3, secondFollowers.size());
         for (Node node : secondFollowers) {
-            assertEquals(2, ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes());
+            assertTrue(
+                waitForCondition(() -> ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes() == 2, 5_000));
             assertEquals(1, ((MockStateMachine) node.getOptions().getFsm()).getOnStopFollowingTimes());
         }
 
@@ -2698,26 +2714,29 @@ public class ITNodeTest {
         List<Node> thirdFollowers = cluster.getFollowers();
         assertEquals(3, thirdFollowers.size());
         for (int i = 0; i < 3; i++) {
-            if (thirdFollowers.get(i).getNodeId().getPeerId().equals(secondLeader.getNodeId().getPeerId())) {
-                assertEquals(2,
-                    ((MockStateMachine) thirdFollowers.get(i).getOptions().getFsm()).getOnStartFollowingTimes());
+            Node follower = thirdFollowers.get(i);
+            if (follower.getNodeId().getPeerId().equals(secondLeader.getNodeId().getPeerId())) {
+                assertTrue(
+                    waitForCondition(() -> ((MockStateMachine) follower.getOptions().getFsm()).getOnStartFollowingTimes() == 2, 5_000));
                 assertEquals(1,
-                    ((MockStateMachine) thirdFollowers.get(i).getOptions().getFsm()).getOnStopFollowingTimes());
+                    ((MockStateMachine) follower.getOptions().getFsm()).getOnStopFollowingTimes());
                 continue;
             }
-            assertEquals(3, ((MockStateMachine) thirdFollowers.get(i).getOptions().getFsm()).getOnStartFollowingTimes());
-            assertEquals(2, ((MockStateMachine) thirdFollowers.get(i).getOptions().getFsm()).getOnStopFollowingTimes());
+
+            assertTrue(waitForCondition(() -> ((MockStateMachine) follower.getOptions().getFsm()).getOnStartFollowingTimes() == 3, 5_000));
+            assertEquals(2, ((MockStateMachine) follower.getOptions().getFsm()).getOnStopFollowingTimes());
         }
 
         cluster.ensureSame();
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15202")
     public void readCommittedUserLog() throws Exception {
         // setup cluster
         List<PeerId> peers = TestUtils.generatePeers(3);
 
-        cluster = new TestCluster("unitest", dataPath, peers, 1000);
+        cluster = new TestCluster("unitest", dataPath, peers, 1000, testInfo);
 
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint()));
@@ -2890,7 +2909,7 @@ public class ITNodeTest {
     @Test
     public void testChangePeers() throws Exception {
         PeerId peer0 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
-        cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0));
+        cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
         assertTrue(cluster.start(peer0.getEndpoint()));
 
         cluster.waitLeader();
@@ -2916,7 +2935,7 @@ public class ITNodeTest {
 
         cluster.waitLeader();
 
-        for (final MockStateMachine fsm : cluster.getFsms()) {
+        for (MockStateMachine fsm : cluster.getFsms()) {
             assertEquals(10, fsm.getLogs().size());
         }
     }
@@ -2924,7 +2943,7 @@ public class ITNodeTest {
     @Test
     public void testChangePeersAddMultiNodes() throws Exception {
         PeerId peer0 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
-        cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0));
+        cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
         assertTrue(cluster.start(peer0.getEndpoint()));
 
         cluster.waitLeader();
@@ -2974,7 +2993,7 @@ public class ITNodeTest {
 
         // start single cluster
         peers.add(peer0);
-        cluster = new TestCluster("testChangePeersStepsDownInJointConsensus", dataPath, peers);
+        cluster = new TestCluster("testChangePeersStepsDownInJointConsensus", dataPath, peers, testInfo);
         assertTrue(cluster.start(peer0.getEndpoint()));
 
         cluster.waitLeader();
@@ -3052,6 +3071,8 @@ public class ITNodeTest {
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
 
+        executors.add(executor);
+
         return Utils.runInThread(executor, () -> {
             try {
                 while (!arg.stop) {
@@ -3089,7 +3110,7 @@ public class ITNodeTest {
         // start cluster
         List<PeerId> peers = new ArrayList<>();
         peers.add(new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT));
-        cluster = new TestCluster("unittest", dataPath, peers, 1000);
+        cluster = new TestCluster("unittest", dataPath, peers, 1000, testInfo);
         assertTrue(cluster.start(peers.get(0).getEndpoint(), false, 2));
         // start other peers
         for (int i = 1; i < 10; i++) {
@@ -3136,7 +3157,7 @@ public class ITNodeTest {
         // start cluster
         List<PeerId> peers = new ArrayList<>();
         peers.add(new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT));
-        cluster = new TestCluster("unittest", dataPath, peers, 1000);
+        cluster = new TestCluster("unittest", dataPath, peers, 1000, testInfo);
         assertTrue(cluster.start(peers.get(0).getEndpoint(), false, 100000));
         // start other peers
         for (int i = 1; i < 10; i++) {
@@ -3185,7 +3206,7 @@ public class ITNodeTest {
         // start cluster
         List<PeerId> peers = new ArrayList<>();
         peers.add(new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT));
-        cluster = new TestCluster("unittest", dataPath, peers, 1000);
+        cluster = new TestCluster("unittest", dataPath, peers, 1000, testInfo);
         assertTrue(cluster.start(peers.get(0).getEndpoint(), false, 100000));
         // start other peers
         for (int i = 1; i < 10; i++) {
@@ -3199,7 +3220,9 @@ public class ITNodeTest {
         List<Future<?>> futures = new ArrayList<>();
         CountDownLatch latch = new CountDownLatch(threads);
 
-        Executor executor = Executors.newFixedThreadPool(threads);
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
+
+        executors.add(executor);
 
         for (int t = 0; t < threads; t++) {
             ChangeArg arg = new ChangeArg(cluster, peers, false, true);
@@ -3258,7 +3281,7 @@ public class ITNodeTest {
     @Test
     public void testBlockedElection() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
-        cluster = new TestCluster("unittest", dataPath, peers);
+        cluster = new TestCluster("unittest", dataPath, peers, testInfo);
 
         for (PeerId peer : peers)
             assertTrue(cluster.start(peer.getEndpoint()));
@@ -3267,7 +3290,7 @@ public class ITNodeTest {
 
         Node leader = cluster.getLeader();
 
-        LOG.warn("Current leader {}, electTimeout={}", leader.getNodeId().getPeerId(), ((NodeImpl) leader).getOptions().getElectionTimeoutMs());
+        LOG.warn("Current leader {}, electTimeout={}", leader.getNodeId().getPeerId(), leader.getOptions().getElectionTimeoutMs());
 
         List<Node> followers = cluster.getFollowers();
 
@@ -3279,7 +3302,7 @@ public class ITNodeTest {
                 if (msg instanceof RpcRequests.RequestVoteRequest) {
                     RpcRequests.RequestVoteRequest msg0 = (RpcRequests.RequestVoteRequest)msg;
 
-                    return !msg0.getPreVote();
+                    return !msg0.preVote();
                 }
 
                 return false;
@@ -3312,8 +3335,12 @@ public class ITNodeTest {
     private NodeOptions createNodeOptions() {
         NodeOptions options = new NodeOptions();
 
-        options.setCommonExecutor(JRaftUtils.createCommonExecutor(options));
-        options.setStripedExecutor(JRaftUtils.createAppendEntriesExecutor(options));
+        ExecutorService executor = JRaftUtils.createCommonExecutor(options);
+        executors.add(executor);
+        options.setCommonExecutor(executor);
+        FixedThreadsExecutorGroup appendEntriesExecutor = JRaftUtils.createAppendEntriesExecutor(options);
+        appendEntriesExecutors.add(appendEntriesExecutor);
+        options.setStripedExecutor(appendEntriesExecutor);
 
         return options;
     }
@@ -3391,21 +3418,61 @@ public class ITNodeTest {
      */
     private RaftGroupService createService(String groupId, PeerId peerId, NodeOptions nodeOptions) {
         Configuration initialConf = nodeOptions.getInitialConf();
+        nodeOptions.setStripes(1);
 
-        var servers = List.<NetworkAddress>of();
+        StripedDisruptor<FSMCallerImpl.ApplyTask> fsmCallerDusruptor;
+        StripedDisruptor<NodeImpl.LogEntryAndClosure> nodeDisruptor;
+        StripedDisruptor<ReadOnlyServiceImpl.ReadIndexEvent> readOnlyServiceDisruptor;
+        StripedDisruptor<LogManagerImpl.StableClosureEvent> logManagerDisruptor;
 
-        if (initialConf != null) {
-            servers = Stream.concat(initialConf.getPeers().stream(), initialConf.getLearners().stream())
-                .map(PeerId::getEndpoint)
-                .map(JRaftUtils::addressFromEndpoint)
-                .collect(Collectors.toList());
-        }
+        nodeOptions.setfSMCallerExecutorDisruptor(fsmCallerDusruptor = new StripedDisruptor<>(
+            "JRaft-FSMCaller-Disruptor_ITNodeTest",
+            nodeOptions.getRaftOptions().getDisruptorBufferSize(),
+            () -> new FSMCallerImpl.ApplyTask(),
+            nodeOptions.getStripes()));
+
+        nodeOptions.setNodeApplyDisruptor(nodeDisruptor = new StripedDisruptor<>(
+            "JRaft-NodeImpl-Disruptor_ITNodeTest",
+            nodeOptions.getRaftOptions().getDisruptorBufferSize(),
+            () -> new NodeImpl.LogEntryAndClosure(),
+            nodeOptions.getStripes()));
+
+        nodeOptions.setReadOnlyServiceDisruptor(readOnlyServiceDisruptor = new StripedDisruptor<>(
+            "JRaft-ReadOnlyService-Disruptor_ITNodeTest",
+            nodeOptions.getRaftOptions().getDisruptorBufferSize(),
+            () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
+            nodeOptions.getStripes()));
+
+        nodeOptions.setLogManagerDisruptor(logManagerDisruptor = new StripedDisruptor<>(
+            "JRaft-LogManager-Disruptor_ITNodeTest",
+            nodeOptions.getRaftOptions().getDisruptorBufferSize(),
+            () -> new LogManagerImpl.StableClosureEvent(),
+            nodeOptions.getStripes()));
+
+        Stream<PeerId> peers = initialConf == null ?
+            Stream.empty() :
+            Stream.concat(initialConf.getPeers().stream(), initialConf.getLearners().stream());
+
+        List<NetworkAddress> addressList = peers
+            .map(PeerId::getEndpoint)
+            .map(JRaftUtils::addressFromEndpoint)
+            .collect(toList());
 
         var nodeManager = new NodeManager();
 
-        ClusterService clusterService = createClusterService(peerId.getEndpoint(), servers);
+        ClusterService clusterService = ClusterServiceTestUtils.clusterService(
+            testInfo,
+            peerId.getEndpoint().getPort(),
+            new StaticNodeFinder(addressList),
+            new TestMessageSerializationRegistryImpl(),
+            new TestScaleCubeClusterServiceFactory()
+        );
 
-        IgniteRpcServer rpcServer = new TestIgniteRpcServer(clusterService, servers, nodeManager, nodeOptions);
+        ExecutorService requestExecutor = JRaftUtils.createRequestExecutor(nodeOptions);
+
+        executors.add(requestExecutor);
+
+        IgniteRpcServer rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions, requestExecutor);
 
         nodeOptions.setRpcClient(new IgniteRpcClient(clusterService));
 
@@ -3415,7 +3482,12 @@ public class ITNodeTest {
             @Override public synchronized void shutdown() {
                 super.shutdown();
 
-                clusterService.shutdown();
+                clusterService.stop();
+
+                fsmCallerDusruptor.shutdown();
+                nodeDisruptor.shutdown();
+                readOnlyServiceDisruptor.shutdown();
+                logManagerDisruptor.shutdown();
             }
         };
 
@@ -3427,56 +3499,56 @@ public class ITNodeTest {
     /**
      * Creates a non-started {@link ClusterService}.
      */
-    private static ClusterService createClusterService(Endpoint endpoint, List<NetworkAddress> members) {
-        var registry = new TestMessageSerializationRegistryImpl();
-
-        var clusterConfig = new ClusterLocalConfiguration(endpoint.toString(), endpoint.getPort(), members, registry);
-
-        var clusterServiceFactory = new TestScaleCubeClusterServiceFactory();
-
-        return clusterServiceFactory.createClusterService(clusterConfig);
+    private ClusterService createClusterService(Endpoint endpoint, NodeFinder nodeFinder) {
+       return ClusterServiceTestUtils.clusterService(
+            testInfo,
+            endpoint.getPort(),
+            nodeFinder,
+            new TestMessageSerializationRegistryImpl(),
+            new TestScaleCubeClusterServiceFactory()
+        );
     }
 
-    private void sendTestTaskAndWait(final Node node) throws InterruptedException {
+    private void sendTestTaskAndWait(Node node) throws InterruptedException {
         this.sendTestTaskAndWait(node, 0, 10, RaftError.SUCCESS);
     }
 
-    private void sendTestTaskAndWait(final Node node, int amount) throws InterruptedException {
+    private void sendTestTaskAndWait(Node node, int amount) throws InterruptedException {
         this.sendTestTaskAndWait(node, 0, amount, RaftError.SUCCESS);
     }
 
-    private void sendTestTaskAndWait(final Node node, final RaftError err) throws InterruptedException {
+    private void sendTestTaskAndWait(Node node, RaftError err) throws InterruptedException {
         this.sendTestTaskAndWait(node, 0, 10, err);
     }
 
-    private void sendTestTaskAndWait(final Node node, final int start, int amount,
-                                     final RaftError err) throws InterruptedException {
-        final CountDownLatch latch = new CountDownLatch(amount);
+    private void sendTestTaskAndWait(Node node, int start, int amount,
+                                     RaftError err) throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(amount);
         for (int i = start; i < start + amount; i++) {
-            final ByteBuffer data = ByteBuffer.wrap(("hello" + i).getBytes());
-            final Task task = new Task(data, new ExpectClosure(err, latch));
+            ByteBuffer data = ByteBuffer.wrap(("hello" + i).getBytes());
+            Task task = new Task(data, new ExpectClosure(err, latch));
             node.apply(task);
         }
         waitLatch(latch);
     }
 
-    private void sendTestTaskAndWait(final Node node, final int start,
-                                     final RaftError err) throws InterruptedException {
+    private void sendTestTaskAndWait(Node node, int start,
+                                     RaftError err) throws InterruptedException {
         sendTestTaskAndWait(node, start, 10, err);
     }
 
     @SuppressWarnings("SameParameterValue")
-    private void sendTestTaskAndWait(final String prefix, final Node node, final int code) throws InterruptedException {
+    private void sendTestTaskAndWait(String prefix, Node node, int code) throws InterruptedException {
         sendTestTaskAndWait(prefix, node, 10, code);
     }
 
     @SuppressWarnings("SameParameterValue")
-    private void sendTestTaskAndWait(final String prefix, final Node node, int amount,
-                                     final int code) throws InterruptedException {
-        final CountDownLatch latch = new CountDownLatch(10);
+    private void sendTestTaskAndWait(String prefix, Node node, int amount,
+                                     int code) throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(10);
         for (int i = 0; i < amount; i++) {
-            final ByteBuffer data = ByteBuffer.wrap((prefix + i).getBytes());
-            final Task task = new Task(data, new ExpectClosure(code, null, latch));
+            ByteBuffer data = ByteBuffer.wrap((prefix + i).getBytes());
+            Task task = new Task(data, new ExpectClosure(code, null, latch));
             node.apply(task);
         }
         waitLatch(latch);
@@ -3498,7 +3570,7 @@ public class ITNodeTest {
         assertEquals(snapshotTimes + 1, cluster.getLeaderFsm().getSaveSnapshotTimes());
     }
 
-    private void waitLatch(final CountDownLatch latch) throws InterruptedException {
+    private void waitLatch(CountDownLatch latch) throws InterruptedException {
         assertTrue(latch.await(30, TimeUnit.SECONDS));
     }
 

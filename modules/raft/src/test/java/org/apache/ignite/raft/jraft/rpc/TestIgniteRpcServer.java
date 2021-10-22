@@ -17,11 +17,8 @@
 
 package org.apache.ignite.raft.jraft.rpc;
 
-import java.util.List;
+import java.util.concurrent.ExecutorService;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
-import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
@@ -32,21 +29,19 @@ import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 public class TestIgniteRpcServer extends IgniteRpcServer {
     /**
      * @param clusterService Cluster service.
-     * @param servers Server list.
      * @param nodeManager Node manager.
      * @param nodeOptions Node options.
+     * @param requestExecutor Requests executor.
      */
-    public TestIgniteRpcServer(
-        ClusterService clusterService,
-        List<NetworkAddress> servers,
-        NodeManager nodeManager,
-        NodeOptions nodeOptions
-    ) {
+    public TestIgniteRpcServer(ClusterService clusterService, NodeManager nodeManager, NodeOptions nodeOptions,
+        ExecutorService requestExecutor) {
         super(
             clusterService,
             nodeManager,
-            new RaftClientMessagesFactory(),
-            JRaftUtils.createRequestExecutor(nodeOptions)
+            nodeOptions.getRaftMessagesFactory(),
+            requestExecutor
         );
+
+        clusterService.messagingService().addMessageHandler(TestMessageGroup.class, new RpcMessageHandler());
     }
 }

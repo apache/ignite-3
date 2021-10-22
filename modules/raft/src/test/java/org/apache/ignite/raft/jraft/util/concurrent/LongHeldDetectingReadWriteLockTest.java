@@ -20,9 +20,8 @@ import java.util.Collection;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
+import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -33,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  */
 public class LongHeldDetectingReadWriteLockTest {
-    private static final Logger LOG = LoggerFactory.getLogger(LongHeldDetectingReadWriteLockTest.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(LongHeldDetectingReadWriteLockTest.class);
 
     @Test
     public void testLongHeldWriteLock() throws InterruptedException {
@@ -56,37 +55,56 @@ public class LongHeldDetectingReadWriteLockTest {
         };
 
         final CountDownLatch latch = new CountDownLatch(1);
-        new Thread(() -> {
-            readWriteLock.writeLock().lock();
-            latch.countDown();
-            try {
-                Thread.sleep(2000);
-            }
-            catch (final InterruptedException e) {
-                LOG.error("Thread was interrupted", e);
-            }
-            finally {
-                readWriteLock.writeLock().unlock();
-            }
-        }, "write-lock-thread") //
-            .start();
+        Thread t1 = null;
+        Thread t2 = null;
+        Thread t3 = null;
+        try {
+            t1 = new Thread(() -> {
+                readWriteLock.writeLock().lock();
+                latch.countDown();
+                try {
+                    Thread.sleep(2000);
+                }
+                catch (final InterruptedException e) {
+                    LOG.error("Thread was interrupted", e);
+                }
+                finally {
+                    readWriteLock.writeLock().unlock();
+                }
+            }, "write-lock-thread");
 
-        latch.await();
+            t1.start();
 
-        final CountDownLatch latch1 = new CountDownLatch(2);
-        new Thread(() -> {
-            readWriteLock.readLock().lock();
-            readWriteLock.readLock().unlock();
-            latch1.countDown();
-        }, "read-lock-thread-1").start();
+            latch.await();
 
-        new Thread(() -> {
-            readWriteLock.readLock().lock();
-            readWriteLock.readLock().unlock();
-            latch1.countDown();
-        }, "read-lock-thread-2").start();
+            final CountDownLatch latch1 = new CountDownLatch(2);
+            t2 = new Thread(() -> {
+                readWriteLock.readLock().lock();
+                readWriteLock.readLock().unlock();
+                latch1.countDown();
+            }, "read-lock-thread-1");
 
-        latch1.await();
+            t2.start();
+
+            t3 = new Thread(() -> {
+                readWriteLock.readLock().lock();
+                readWriteLock.readLock().unlock();
+                latch1.countDown();
+            }, "read-lock-thread-2");
+
+            t3.start();
+
+            latch1.await();
+        } finally {
+            if (t1 != null)
+                t1.join();
+
+            if (t2 != null)
+                t2.join();
+
+            if (t3 != null)
+                t3.join();
+        }
     }
 
     @Test
@@ -110,36 +128,55 @@ public class LongHeldDetectingReadWriteLockTest {
         };
 
         final CountDownLatch latch = new CountDownLatch(1);
-        new Thread(() -> {
-            readWriteLock.readLock().lock();
-            latch.countDown();
-            try {
-                Thread.sleep(2000);
-            }
-            catch (final InterruptedException e) {
-                LOG.error("Thread was interrupted", e);
-            }
-            finally {
-                readWriteLock.readLock().unlock();
-            }
-        }, "read-lock-thread") //
-            .start();
+        Thread t1 = null;
+        Thread t2 = null;
+        Thread t3 = null;
+        try {
+            t1 = new Thread(() -> {
+                readWriteLock.readLock().lock();
+                latch.countDown();
+                try {
+                    Thread.sleep(2000);
+                }
+                catch (final InterruptedException e) {
+                    LOG.error("Thread was interrupted", e);
+                }
+                finally {
+                    readWriteLock.readLock().unlock();
+                }
+            }, "read-lock-thread");
 
-        latch.await();
+            t1.start();
 
-        final CountDownLatch latch1 = new CountDownLatch(2);
-        new Thread(() -> {
-            readWriteLock.writeLock().lock();
-            readWriteLock.writeLock().unlock();
-            latch1.countDown();
-        }, "write-lock-thread-1").start();
+            latch.await();
 
-        new Thread(() -> {
-            readWriteLock.writeLock().lock();
-            readWriteLock.writeLock().unlock();
-            latch1.countDown();
-        }, "write-lock-thread-2").start();
+            final CountDownLatch latch1 = new CountDownLatch(2);
+            t2 = new Thread(() -> {
+                readWriteLock.writeLock().lock();
+                readWriteLock.writeLock().unlock();
+                latch1.countDown();
+            }, "write-lock-thread-1");
 
-        latch1.await();
+            t2.start();
+
+            t3 = new Thread(() -> {
+                readWriteLock.writeLock().lock();
+                readWriteLock.writeLock().unlock();
+                latch1.countDown();
+            }, "write-lock-thread-2");
+
+            t3.start();
+
+            latch1.await();
+        } finally {
+            if (t1 != null)
+                t1.join();
+
+            if (t2 != null)
+                t2.join();
+
+            if (t3 != null)
+                t3.join();
+        }
     }
 }

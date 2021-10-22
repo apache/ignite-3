@@ -17,6 +17,7 @@
 
 package org.apache.ignite.rest.netty;
 
+import java.nio.charset.StandardCharsets;
 import com.google.gson.Gson;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
@@ -24,7 +25,6 @@ import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
-import java.nio.charset.StandardCharsets;
 
 /**
  * Simple wrapper of HTTP response with some helper methods for filling it with headers and content.
@@ -81,6 +81,8 @@ public class RestApiHttpResponse {
     }
 
     /**
+     * Returns content in a form of raw bytes.
+     *
      * @return Content.
      */
     public byte[] content() {
@@ -108,6 +110,8 @@ public class RestApiHttpResponse {
     }
 
     /**
+     * Returns protocol version.
+     *
      * @return Protocol version
      */
     public HttpVersion protocolVersion() {
@@ -126,6 +130,8 @@ public class RestApiHttpResponse {
     }
 
     /**
+     * Returns mutable response headers.
+     *
      * @return Mutable response headers.
      */
     public HttpHeaders headers() {

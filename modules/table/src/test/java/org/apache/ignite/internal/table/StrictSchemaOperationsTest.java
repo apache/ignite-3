@@ -21,9 +21,12 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -32,24 +35,48 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Check data by strict schema.
  */
 public class StrictSchemaOperationsTest {
-    /** Table ID test value. */
-    public final java.util.UUID tableId = java.util.UUID.randomUUID();
-
     /**
      *
      */
     @Test
     public void columnNotExist() {
         SchemaDescriptor schema = new SchemaDescriptor(
-            tableId,
             1,
             new Column[] {new Column("id", NativeTypes.INT64, false)},
-            new Column[] {new Column("val", NativeTypes.INT64, false)}
+            new Column[] {new Column("val", NativeTypes.INT64, true)}
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
+        RecordView<Tuple> recView = createTableImpl(schema).recordView();
 
-        assertThrows(ColumnNotFoundException.class, () -> tbl.tupleBuilder().set("invalidCol", 0));
+        assertThrows(SchemaMismatchException.class, () -> recView.insert(Tuple.create().set("id", 0L).set("invalidCol", 0)));
+    }
+
+    /**
+     *
+     */
+    @Test
+    public void schemaMismatch() {
+        SchemaDescriptor schema = new SchemaDescriptor(
+            1,
+            new Column[] {
+                new Column("id", NativeTypes.INT64, false),
+                new Column("affId", NativeTypes.INT64, false)
+            },
+            new Column[] {new Column("val", NativeTypes.INT64, true)}
+        );
+
+        Table tbl = createTableImpl(schema);
+
+        assertThrows(SchemaMismatchException.class, () -> tbl.recordView().get(Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L)));
+        assertThrows(SchemaMismatchException.class, () -> tbl.recordView().get(Tuple.create().set("id", 0L)));
+
+        assertThrows(SchemaMismatchException.class, () -> tbl.keyValueView().get(Tuple.create().set("id", 0L)));
+        assertThrows(SchemaMismatchException.class, () -> tbl.keyValueView().get(Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L)));
+
+        assertThrows(SchemaMismatchException.class, () -> tbl.keyValueView().put(Tuple.create().set("id", 0L), Tuple.create()));
+        assertThrows(SchemaMismatchException.class, () -> tbl.keyValueView().put(Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L), Tuple.create()));
+        assertThrows(SchemaMismatchException.class, () -> tbl.keyValueView().put(Tuple.create().set("id", 0L).set("affId", 1L),
+            Tuple.create().set("id", 0L).set("val", 0L)));
     }
 
     /**
@@ -58,7 +85,6 @@ public class StrictSchemaOperationsTest {
     @Test
     public void typeMismatch() {
         SchemaDescriptor schema = new SchemaDescriptor(
-            tableId,
             1,
             new Column[] {new Column("id", NativeTypes.INT64, false)},
             new Column[] {
@@ -67,16 +93,16 @@ public class StrictSchemaOperationsTest {
             }
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
+        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
 
         // Check not-nullable column.
-        assertThrows(IllegalArgumentException.class, () -> tbl.tupleBuilder().set("id", null));
+        assertThrows(IllegalArgumentException.class, () -> tbl.insert(Tuple.create().set("id", null)));
 
         // Check length of the string column
-        assertThrows(InvalidTypeException.class, () -> tbl.tupleBuilder().set("valString", "qweqwe"));
+        assertThrows(InvalidTypeException.class, () -> tbl.insert(Tuple.create().set("id", 0L).set("valString", "qweqwe")));
 
         // Check length of the string column
-        assertThrows(InvalidTypeException.class, () -> tbl.tupleBuilder().set("valBytes", new byte[] {0, 1, 2, 3}));
+        assertThrows(InvalidTypeException.class, () -> tbl.insert(Tuple.create().set("id", 0L).set("valBytes", new byte[]{0, 1, 2, 3})));
     }
 
     /**
@@ -85,7 +111,6 @@ public class StrictSchemaOperationsTest {
     @Test
     public void stringTypeMatch() {
         SchemaDescriptor schema = new SchemaDescriptor(
-            tableId,
             1,
             new Column[] {new Column("id", NativeTypes.INT64, false)},
             new Column[] {
@@ -93,16 +118,18 @@ public class StrictSchemaOperationsTest {
             }
         );
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
+        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
 
-        tbl.tupleBuilder().set("valString", "qwe");
-        tbl.tupleBuilder().set("valString", "qw");
-        tbl.tupleBuilder().set("valString", "q");
-        tbl.tupleBuilder().set("valString", "");
-        tbl.tupleBuilder().set("valString", null);
+        Tuple tuple = Tuple.create().set("id", 1L);
 
-        // Chek string 3 char length and 9 bytes.
-        tbl.tupleBuilder().set("valString", "我是谁");
+        tbl.insert(tuple.set("valString", "qwe"));
+        tbl.insert(tuple.set("valString", "qw"));
+        tbl.insert(tuple.set("valString", "q"));
+        tbl.insert(tuple.set("valString", ""));
+        tbl.insert(tuple.set("valString", null));
+
+        // Check string 3 char length and 9 bytes.
+        tbl.insert(tuple.set("valString", "我是谁"));
     }
 
     /**
@@ -111,7 +138,6 @@ public class StrictSchemaOperationsTest {
     @Test
     public void bytesTypeMatch() {
         SchemaDescriptor schema = new SchemaDescriptor(
-            tableId,
             1,
             new Column[] {new Column("id", NativeTypes.INT64, false)},
             new Column[] {
@@ -119,13 +145,21 @@ public class StrictSchemaOperationsTest {
                 new Column("valLimited", NativeTypes.blobOf(2), true)
             });
 
-        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
+        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
 
-        tbl.tupleBuilder().set("valUnlimited", null);
-        tbl.tupleBuilder().set("valLimited", null);
-        tbl.tupleBuilder().set("valUnlimited", new byte[2]);
-        tbl.tupleBuilder().set("valLimited", new byte[2]);
-        tbl.tupleBuilder().set("valUnlimited", new byte[3]);
-        assertThrows(InvalidTypeException.class, () -> tbl.tupleBuilder().set("valLimited", new byte[3]));
+        Tuple tuple = Tuple.create().set("id", 1L);
+
+        tbl.insert(tuple.set("valUnlimited", null));
+        tbl.insert(tuple.set("valLimited", null));
+        tbl.insert(tuple.set("valUnlimited", new byte[2]));
+        tbl.insert(tuple.set("valLimited", new byte[2]));
+        tbl.insert(tuple.set("valUnlimited", new byte[3]));
+
+        assertThrows(InvalidTypeException.class, () -> tbl.insert(tuple.set("valLimited", new byte[3])));
+
+    }
+
+    private TableImpl createTableImpl(SchemaDescriptor schema) {
+        return new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null);
     }
 }

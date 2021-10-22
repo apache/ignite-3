@@ -17,9 +17,9 @@
 
 package org.apache.ignite.rest.netty;
 
-import io.netty.handler.codec.http.FullHttpRequest;
 import java.util.Collections;
 import java.util.Map;
+import io.netty.handler.codec.http.FullHttpRequest;
 
 /**
  * HTTP request wrapper with GET query params if exists.
@@ -32,6 +32,8 @@ public class RestApiHttpRequest {
     private final Map<String, String> qryParams;
 
     /**
+     * Creates a new instance of http request.
+     *
      * @param req Request.
      * @param qryParams Query params.
      */

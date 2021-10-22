@@ -18,11 +18,13 @@ package org.apache.ignite.raft.jraft.storage;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.JRaftUtils;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.LoadSnapshotClosure;
 import org.apache.ignite.raft.jraft.closure.SaveSnapshotClosure;
@@ -30,12 +32,11 @@ import org.apache.ignite.raft.jraft.closure.SynchronizedClosure;
 import org.apache.ignite.raft.jraft.core.DefaultJRaftServiceFactory;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.TimerManager;
-import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter;
-import org.apache.ignite.raft.jraft.entity.RaftOutter;
 import org.apache.ignite.raft.jraft.option.CopyOptions;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.SnapshotExecutorOptions;
+import org.apache.ignite.raft.jraft.rpc.GetFileRequestBuilder;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftClientService;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
@@ -52,6 +53,7 @@ import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotWriter;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.Endpoint;
+import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -97,6 +99,7 @@ public class SnapshotExecutorTest extends BaseStorageTest {
     private LocalSnapshotStorage snapshotStorage;
     private TimerManager timerManager;
     private NodeOptions options;
+    private ExecutorService executorService;
 
     @BeforeEach
     public void setup() throws Exception {
@@ -110,8 +113,8 @@ public class SnapshotExecutorTest extends BaseStorageTest {
         Mockito.lenient().when(snapshotStorage.create(true)).thenReturn(writer);
 
         table = new LocalSnapshotMetaTable(raftOptions);
-        table.addFile("testFile", LocalFileMetaOutter.LocalFileMeta.newBuilder().setChecksum("test").build());
-        table.setMeta(RaftOutter.SnapshotMeta.newBuilder().setLastIncludedIndex(1).setLastIncludedTerm(1).build());
+        table.addFile("testFile", raftOptions.getRaftMessagesFactory().localFileMeta().checksum("test").build());
+        table.setMeta(raftOptions.getRaftMessagesFactory().snapshotMeta().lastIncludedIndex(1).lastIncludedTerm(1).build());
         uri = "remote://" + hostPort + "/" + readerId;
         copyOpts = new CopyOptions();
 
@@ -139,44 +142,51 @@ public class SnapshotExecutorTest extends BaseStorageTest {
         executor.shutdown();
         timerManager.shutdown();
         options.getCommonExecutor().shutdown();
+        ExecutorServiceHelper.shutdownAndAwaitTermination(executorService);
     }
 
     @Test
     public void testInstallSnapshot() throws Exception {
-        final RpcRequests.InstallSnapshotRequest.Builder irb = RpcRequests.InstallSnapshotRequest.newBuilder();
-        irb.setGroupId("test");
-        irb.setPeerId(addr.toString());
-        irb.setServerId("localhost:8080");
-        irb.setUri("remote://localhost:8080/99");
-        irb.setTerm(0);
-        irb.setMeta(RaftOutter.SnapshotMeta.newBuilder().setLastIncludedIndex(1).setLastIncludedTerm(2).build());
+        RaftMessagesFactory msgFactory = raftOptions.getRaftMessagesFactory();
+
+        final RpcRequests.InstallSnapshotRequest irb = msgFactory.installSnapshotRequest()
+            .groupId("test")
+            .peerId(addr.toString())
+            .serverId("localhost:8080")
+            .uri("remote://localhost:8080/99")
+            .term(0)
+            .meta(msgFactory.snapshotMeta().lastIncludedIndex(1).lastIncludedTerm(2).build())
+            .build();
 
         Mockito.when(raftClientService.connect(new Endpoint("localhost", 8080))).thenReturn(true);
 
         final CompletableFuture<Message> fut = new CompletableFuture<>();
-        final RpcRequests.GetFileRequest.Builder rb = RpcRequests.GetFileRequest.newBuilder().setReaderId(99)
-            .setFilename(Snapshot.JRAFT_SNAPSHOT_META_FILE).setCount(Integer.MAX_VALUE).setOffset(0)
-            .setReadPartly(true);
+        final GetFileRequestBuilder rb = msgFactory.getFileRequest()
+            .readerId(99)
+            .filename(Snapshot.JRAFT_SNAPSHOT_META_FILE)
+            .count(Integer.MAX_VALUE)
+            .offset(0)
+            .readPartly(true);
 
         // Mock get metadata
         ArgumentCaptor<RpcResponseClosure> argument = ArgumentCaptor.forClass(RpcResponseClosure.class);
         Mockito.when(raftClientService.getFile(eq(new Endpoint("localhost", 8080)), eq(rb.build()),
                 eq(copyOpts.getTimeoutMs()), argument.capture())).thenReturn(fut);
 
-        Future<?> snapFut = Utils.runInThread(ForkJoinPool.commonPool(), () -> executor.installSnapshot(irb.build(),
-            RpcRequests.InstallSnapshotResponse.newBuilder(), new RpcRequestClosure(asyncCtx)));
+        Future<?> snapFut = Utils.runInThread(ForkJoinPool.commonPool(), () -> executor.installSnapshot(irb,
+            msgFactory.installSnapshotResponse(), new RpcRequestClosure(asyncCtx, msgFactory)));
 
         assertTrue(TestUtils.waitForArgumentCapture(argument, 5_000));
 
         RpcResponseClosure<RpcRequests.GetFileResponse> closure = argument.getValue();
         final ByteBuffer metaBuf = table.saveToByteBufferAsRemote();
-        closure.setResponse(RpcRequests.GetFileResponse.newBuilder().setReadSize(metaBuf.remaining()).setEof(true)
-            .setData(new ByteString(metaBuf)).build());
+        closure.setResponse(msgFactory.getFileResponse().readSize(metaBuf.remaining()).eof(true)
+            .data(new ByteString(metaBuf)).build());
 
         // Mock get file
         argument = ArgumentCaptor.forClass(RpcResponseClosure.class);
-        rb.setFilename("testFile");
-        rb.setCount(raftOptions.getMaxByteCountPerRpc());
+        rb.filename("testFile");
+        rb.count(raftOptions.getMaxByteCountPerRpc());
         Mockito.when(raftClientService.getFile(eq(new Endpoint("localhost", 8080)), eq(rb.build()),
             eq(copyOpts.getTimeoutMs()), argument.capture())).thenReturn(fut);
 
@@ -186,8 +196,8 @@ public class SnapshotExecutorTest extends BaseStorageTest {
 
         closure = argument.getValue();
 
-        closure.setResponse(RpcRequests.GetFileResponse.newBuilder().setReadSize(100).setEof(true)
-            .setData(new ByteString(new byte[100])).build());
+        closure.setResponse(msgFactory.getFileResponse().readSize(100).eof(true)
+            .data(new ByteString(new byte[100])).build());
 
         ArgumentCaptor<LoadSnapshotClosure> loadSnapshotArg = ArgumentCaptor.forClass(LoadSnapshotClosure.class);
         Mockito.when(fSMCaller.onSnapshotLoad(loadSnapshotArg.capture())).thenReturn(true);
@@ -211,28 +221,39 @@ public class SnapshotExecutorTest extends BaseStorageTest {
 
     @Test
     public void testInterruptInstalling() throws Exception {
-        final RpcRequests.InstallSnapshotRequest.Builder irb = RpcRequests.InstallSnapshotRequest.newBuilder();
-        irb.setGroupId("test");
-        irb.setPeerId(addr.toString());
-        irb.setServerId("localhost:8080");
-        irb.setUri("remote://localhost:8080/99");
-        irb.setTerm(0);
-        irb.setMeta(RaftOutter.SnapshotMeta.newBuilder().setLastIncludedIndex(1).setLastIncludedTerm(1).build());
+        RaftMessagesFactory msgFactory = raftOptions.getRaftMessagesFactory();
+
+        final RpcRequests.InstallSnapshotRequest irb = msgFactory.installSnapshotRequest()
+            .groupId("test")
+            .peerId(addr.toString())
+            .serverId("localhost:8080")
+            .uri("remote://localhost:8080/99")
+            .term(0)
+            .meta(msgFactory.snapshotMeta().lastIncludedIndex(1).lastIncludedTerm(1).build())
+            .build();
 
         Mockito.lenient().when(raftClientService.connect(new Endpoint("localhost", 8080))).thenReturn(true);
 
         final CompletableFuture<Message> future = new CompletableFuture<>();
-        final RpcRequests.GetFileRequest.Builder rb = RpcRequests.GetFileRequest.newBuilder().setReaderId(99)
-            .setFilename(Snapshot.JRAFT_SNAPSHOT_META_FILE).setCount(Integer.MAX_VALUE).setOffset(0)
-            .setReadPartly(true);
+        final RpcRequests.GetFileRequest rb = msgFactory.getFileRequest()
+            .readerId(99)
+            .filename(Snapshot.JRAFT_SNAPSHOT_META_FILE)
+            .count(Integer.MAX_VALUE)
+            .offset(0)
+            .readPartly(true)
+            .build();
 
         // Mock get metadata
         final ArgumentCaptor<RpcResponseClosure> argument = ArgumentCaptor.forClass(RpcResponseClosure.class);
         Mockito.lenient().when(
-            raftClientService.getFile(eq(new Endpoint("localhost", 8080)), eq(rb.build()),
+            raftClientService.getFile(eq(new Endpoint("localhost", 8080)), eq(rb),
                 eq(copyOpts.getTimeoutMs()), argument.capture())).thenReturn(future);
-        Utils.runInThread(Executors.newSingleThreadExecutor(), () -> executor.installSnapshot(irb.build(), RpcRequests.InstallSnapshotResponse
-            .newBuilder(), new RpcRequestClosure(asyncCtx)));
+        ExecutorService singleThreadExecutor = Executors.newSingleThreadExecutor();
+        executorService = singleThreadExecutor;
+        Utils.runInThread(
+            singleThreadExecutor,
+            () -> executor.installSnapshot(irb, msgFactory.installSnapshotResponse(), new RpcRequestClosure(asyncCtx, msgFactory))
+        );
 
         executor.interruptDownloadingSnapshots(1);
         executor.join();
@@ -250,7 +271,7 @@ public class SnapshotExecutorTest extends BaseStorageTest {
         executor.doSnapshot(done);
         final SaveSnapshotClosure closure = saveSnapshotClosureArg.getValue();
         assertNotNull(closure);
-        closure.start(RaftOutter.SnapshotMeta.newBuilder().setLastIncludedIndex(2).setLastIncludedTerm(1).build());
+        closure.start(raftOptions.getRaftMessagesFactory().snapshotMeta().lastIncludedIndex(2).lastIncludedTerm(1).build());
         closure.run(Status.OK());
         done.await();
         executor.join();
@@ -263,7 +284,9 @@ public class SnapshotExecutorTest extends BaseStorageTest {
     public void testNotDoSnapshotWithIntervalDist() throws Exception {
         final NodeOptions nodeOptions = new NodeOptions();
         nodeOptions.setSnapshotLogIndexMargin(10);
-        nodeOptions.setCommonExecutor(JRaftUtils.createExecutor("test-executor", Utils.cpus()));
+        ExecutorService testExecutor = JRaftUtils.createExecutor("test-executor", Utils.cpus());
+        executorService = testExecutor;
+        nodeOptions.setCommonExecutor(testExecutor);
         Mockito.when(node.getOptions()).thenReturn(nodeOptions);
         Mockito.when(fSMCaller.getLastAppliedIndex()).thenReturn(1L);
         executor.doSnapshot(null);
@@ -277,7 +300,9 @@ public class SnapshotExecutorTest extends BaseStorageTest {
     public void testDoSnapshotWithIntervalDist() throws Exception {
         final NodeOptions nodeOptions = new NodeOptions();
         nodeOptions.setSnapshotLogIndexMargin(5);
-        nodeOptions.setCommonExecutor(JRaftUtils.createExecutor("test-executor", Utils.cpus()));
+        ExecutorService testExecutor = JRaftUtils.createExecutor("test-executor", Utils.cpus());
+        executorService = testExecutor;
+        nodeOptions.setCommonExecutor(testExecutor);
         Mockito.when(node.getOptions()).thenReturn(nodeOptions);
         Mockito.when(fSMCaller.getLastAppliedIndex()).thenReturn(6L);
 
@@ -288,7 +313,7 @@ public class SnapshotExecutorTest extends BaseStorageTest {
         executor.doSnapshot(done);
         final SaveSnapshotClosure closure = saveSnapshotClosureArg.getValue();
         assertNotNull(closure);
-        closure.start(RaftOutter.SnapshotMeta.newBuilder().setLastIncludedIndex(6).setLastIncludedTerm(1).build());
+        closure.start(raftOptions.getRaftMessagesFactory().snapshotMeta().lastIncludedIndex(6).lastIncludedTerm(1).build());
         closure.run(Status.OK());
         done.await();
         executor.join();

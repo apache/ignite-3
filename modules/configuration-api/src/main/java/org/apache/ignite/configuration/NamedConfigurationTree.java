@@ -26,11 +26,12 @@ import org.apache.ignite.configuration.notifications.ConfigurationNamedListListe
  * @param <VIEW> Value type of the underlying node.
  * @param <CHANGE> Type of the object that changes underlying nodes values.
  */
-public interface NamedConfigurationTree<T extends ConfigurationProperty<VIEW, CHANGE>, VIEW, CHANGE>
-    extends ConfigurationTree<NamedListView<VIEW>, NamedListChange<CHANGE>>
+public interface NamedConfigurationTree<T extends ConfigurationProperty<VIEW>, VIEW, CHANGE extends VIEW>
+    extends ConfigurationTree<NamedListView<VIEW>, NamedListChange<VIEW, CHANGE>>
 {
     /**
      * Get named configuration by name.
+     *
      * @param name Name.
      * @return Configuration.
      */
@@ -38,7 +39,25 @@ public interface NamedConfigurationTree<T extends ConfigurationProperty<VIEW, CH
 
     /**
      * Add named-list-specific configuration values listener.
+     *
      * @param listener Listener.
      */
-    void listen(ConfigurationNamedListListener<VIEW> listener);
+    void listenElements(ConfigurationNamedListListener<VIEW> listener);
+
+    /**
+     * Removes named-list-specific configuration values listener.
+     *
+     * @param listener Listener.
+     */
+    void stopListenElements(ConfigurationNamedListListener<VIEW> listener);
+
+    /**
+     * Returns a placeholder that allows you to add listeners for changing configuration value
+     * of any element of the named list and any of its nested configurations.
+     * <p>
+     * NOTE: {@link ConfigurationListenOnlyException} will be thrown when trying to get/update the configuration values.
+     *
+     * @return Placeholder to add listeners for any configuration.
+     */
+    T any();
 }

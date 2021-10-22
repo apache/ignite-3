@@ -19,12 +19,21 @@ package org.apache.ignite.internal.schema;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.NoSuchElementException;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * A set of columns representing a key or a value chunk in a row.
  * Provides necessary machinery to locate a column value in a concrete row.
+ * <p>
+ * <h3>Column ordering.</h3>
+ * Column instances are comparable in lexicographic order, native type first and then column name. Nullability
+ * flag is not taken into account when columns are compared.
+ * Native type order guarantees fixed-len columns will prior to varlen columns,
+ * column name order guarantees the same column order (for the same type) on all nodes.
+ *
+ * @see #COLUMN_COMPARATOR
  */
 public class Columns implements Serializable {
     /** */
@@ -59,6 +68,11 @@ public class Columns implements Serializable {
     private final int nullMapSize;
 
     /**
+     * Estimated max length of fixed-size columns.
+     */
+    private int fixedSizeMaxLen;
+
+    /**
      * Fixed-size column length folding table. The table is used to quickly calculate the offset of a fixed-length
      * column based on the nullability map.
      */
@@ -76,6 +90,11 @@ public class Columns implements Serializable {
         for (int i = 0; i < 255; i++)
             NULL_COLUMNS_LOOKUP[i] = Integer.bitCount(i);
     }
+
+    /**
+     * Column comparator.
+     */
+    public static final Comparator<Column> COLUMN_COMPARATOR = Comparator.comparing(Column::type).thenComparing(Column::name);
 
     /**
      * Gets a number of null columns for the given byte from the nullability map (essentially, the number of non-zero
@@ -184,6 +203,13 @@ public class Columns implements Serializable {
     }
 
     /**
+     * @return Fixsize columns size upper bound.
+     */
+    public int fixsizeMaxLen() {
+        return fixedSizeMaxLen;
+    }
+
+    /**
      * @param schemaBaseIdx Base index of this columns object in its schema.
      * @param cols User columns.
      * @return A copy of user columns array sorted in column order.
@@ -191,7 +217,7 @@ public class Columns implements Serializable {
     private Column[] sortedCopy(int schemaBaseIdx, Column[] cols) {
         Column[] cp = Arrays.copyOf(cols, cols.length);
 
-        Arrays.sort(cp);
+        Arrays.sort(cp, COLUMN_COMPARATOR);
 
         for (int i = 0; i < cp.length; i++) {
             Column c = cp[i];
@@ -235,11 +261,13 @@ public class Columns implements Serializable {
         if (numFixsize == 0) {
             foldingTbl = EMPTY_FOLDING_TABLE;
             foldingMask = EMPTY_FOLDING_MASK;
+            fixedSizeMaxLen = 0;
 
             return;
         }
 
         int fixsizeNullMapSize = (numFixsize + 7) / 8;
+        int maxLen = 0;
 
         int[][] res = new int[fixsizeNullMapSize][];
         int[] resMask = new int[fixsizeNullMapSize];
@@ -262,10 +290,13 @@ public class Columns implements Serializable {
 
                 mask++;
             }
+
+            maxLen += res[b][0];
         }
 
         foldingTbl = res;
         foldingMask = resMask;
+        fixedSizeMaxLen = maxLen;
     }
 
     /**

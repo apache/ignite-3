@@ -16,12 +16,18 @@
  */
 package org.apache.ignite.internal.configuration.processor;
 
+import java.util.Arrays;
 import com.google.testing.compile.Compilation;
+import com.google.testing.compile.JavaFileObjects;
 import com.squareup.javapoet.ClassName;
+import org.apache.ignite.configuration.annotation.DirectAccess;
 import org.junit.jupiter.api.Test;
 
+import static com.google.testing.compile.CompilationSubject.assertThat;
+import static com.google.testing.compile.Compiler.javac;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -32,7 +38,7 @@ public class ITProcessorTest extends AbstractProcessorTest {
      * The simplest test for code generation.
      */
     @Test
-    public void test() {
+    public void testPublicConfigCodeGeneration() {
         final String packageName = "org.apache.ignite.internal.configuration.processor";
 
         final ClassName testConfigurationSchema = ClassName.get(packageName, "TestConfigurationSchema");
@@ -48,5 +54,108 @@ public class ITProcessorTest extends AbstractProcessorTest {
         final ConfigSet classSet = batch.getBySchema(testConfigurationSchema);
 
         assertTrue(classSet.allGenerated());
+    }
+
+    /** */
+    @Test
+    void testSuccessInternalConfigCodeGeneration() {
+        String packageName = "org.apache.ignite.internal.configuration.processor.internal";
+
+        ClassName cls0 = ClassName.get(packageName, "SimpleRootConfigurationSchema");
+        ClassName cls1 = ClassName.get(packageName, "SimpleConfigurationSchema");
+        ClassName cls2 = ClassName.get(packageName, "ExtendedSimpleRootConfigurationSchema");
+        ClassName cls3 = ClassName.get(packageName, "ExtendedSimpleConfigurationSchema");
+
+        BatchCompilation batchCompile = batchCompile(cls0, cls1, cls2, cls3);
+
+        assertNotEquals(Compilation.Status.FAILURE, batchCompile.getCompilationStatus().status());
+
+        assertEquals(4 * 3, batchCompile.generated().size());
+
+        assertTrue(batchCompile.getBySchema(cls0).allGenerated());
+        assertTrue(batchCompile.getBySchema(cls1).allGenerated());
+        assertTrue(batchCompile.getBySchema(cls2).allGenerated());
+        assertTrue(batchCompile.getBySchema(cls3).allGenerated());
+    }
+
+    /** */
+    @Test
+    void testErrorInternalConfigCodeGeneration() {
+        String packageName = "org.apache.ignite.internal.configuration.processor.internal";
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> batchCompile(packageName, "ErrorInternal0ConfigurationSchema")
+        );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> batchCompile(packageName, "ErrorInternal1ConfigurationSchema")
+        );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> batchCompile(packageName, "ErrorInternal2ConfigurationSchema")
+        );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> batchCompile(
+                packageName,
+                "SimpleRootConfigurationSchema",
+                "SimpleConfigurationSchema",
+                "ExtendedSimpleRootConfigurationSchema",
+                "ErrorInternal3ConfigurationSchema"
+            )
+        );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> batchCompile(packageName, "ErrorInternal4ConfigurationSchema")
+        );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> batchCompile(
+                packageName,
+                "SimpleRootConfigurationSchema",
+                "SimpleConfigurationSchema",
+                "ErrorInternal5ConfigurationSchema"
+            )
+        );
+    }
+
+    /**
+     * Tests that placing the {@link DirectAccess} annotation on fields that represents sub-configurations results in
+     * an error.
+     */
+    @Test
+    void testDirectAccessConfiguration() {
+        String packageName = "org.apache.ignite.internal.configuration.processor.internal.";
+
+        String source = packageName.replace('.', '/') + "InvalidDirectAccessConfigurationSchema.java";
+
+        Compilation compilation = javac()
+            .withProcessors(new Processor())
+            .compile(JavaFileObjects.forResource(source));
+
+        assertThat(compilation).hadErrorContaining(
+            "@DirectAccess annotation must not be present on nested configuration fields"
+        );
+    }
+
+    /**
+     * Compile set of classes.
+     *
+     * @param packageName Package names.
+     * @param classNames Simple class names.
+     * @return Result of batch compilation.
+     */
+    private static BatchCompilation batchCompile(String packageName, String... classNames) {
+        ClassName[] classes = Arrays.stream(classNames)
+            .map(clsName -> ClassName.get(packageName, clsName))
+            .toArray(ClassName[]::new);
+
+        return batchCompile(classes);
     }
 }

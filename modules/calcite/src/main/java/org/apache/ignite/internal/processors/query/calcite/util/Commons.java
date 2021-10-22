@@ -18,16 +18,21 @@
 package org.apache.ignite.internal.processors.query.calcite.util;
 
 import java.io.StringReader;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -45,7 +50,6 @@ import org.apache.calcite.sql.fun.SqlLibrary;
 import org.apache.calcite.sql.fun.SqlLibraryOperatorTableFactory;
 import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.sql.util.SqlOperatorTables;
-import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.FrameworkConfig;
@@ -57,14 +61,24 @@ import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
+import org.apache.ignite.internal.processors.query.calcite.SqlCursor;
+import org.apache.ignite.internal.processors.query.calcite.SqlQueryType;
 import org.apache.ignite.internal.processors.query.calcite.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteCostFactory;
+import org.apache.ignite.internal.processors.query.calcite.prepare.AbstractMultiStepPlan;
+import org.apache.ignite.internal.processors.query.calcite.prepare.ExplainPlan;
+import org.apache.ignite.internal.processors.query.calcite.prepare.FieldsMetadata;
+import org.apache.ignite.internal.processors.query.calcite.prepare.MultiStepPlan;
 import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningContext;
+import org.apache.ignite.internal.processors.query.calcite.prepare.QueryPlan;
+import org.apache.ignite.internal.processors.query.calcite.sql.IgniteSqlConformance;
 import org.apache.ignite.internal.processors.query.calcite.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeSystem;
+import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteLogger;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
 import org.codehaus.commons.compiler.ICompilerFactory;
@@ -102,10 +116,10 @@ public final class Commons {
             SqlParser.config()
                 .withParserFactory(IgniteSqlParserImpl.FACTORY)
                 .withLex(Lex.ORACLE)
-                .withConformance(SqlConformanceEnum.DEFAULT))
+                .withConformance(IgniteSqlConformance.INSTANCE))
         .sqlValidatorConfig(SqlValidator.Config.DEFAULT
             .withIdentifierExpansion(true)
-            .withSqlConformance(SqlConformanceEnum.DEFAULT))
+            .withSqlConformance(IgniteSqlConformance.INSTANCE))
         // Dialects support.
         .operatorTable(SqlOperatorTables.chain(
             SqlLibraryOperatorTableFactory.INSTANCE
@@ -124,6 +138,44 @@ public final class Commons {
 
     /** */
     private Commons(){}
+
+    public static <T> SqlCursor<T> createCursor(Iterable<T> iterable, QueryPlan plan) {
+        return createCursor(iterable.iterator(), plan);
+    }
+
+    public static <T> SqlCursor<T> createCursor(Iterator<T> iter, QueryPlan plan) {
+        return new SqlCursor<>() {
+            @Override public SqlQueryType getQueryType() {
+                return SqlQueryType.mapPlanTypeToSqlType(plan.type());
+            }
+
+            @Override public FieldsMetadata getColumnMetadata() {
+                return plan instanceof AbstractMultiStepPlan ? ((MultiStepPlan)plan).fieldsMetadata()
+                    : ((ExplainPlan)plan).fieldsMeta();
+            }
+
+            @Override public void remove() {
+                iter.remove();
+            }
+
+            @Override public boolean hasNext() {
+                return iter.hasNext();
+            }
+
+            @Override public T next() {
+                return iter.next();
+            }
+
+            @NotNull @Override public Iterator<T> iterator() {
+                return iter;
+            }
+
+            @Override public void close() throws Exception {
+                if (iter instanceof AutoCloseable)
+                    ((AutoCloseable)iter).close();
+            }
+        };
+    }
 
     /**
      * Combines two lists.
@@ -254,13 +306,22 @@ public final class Commons {
             ((AutoCloseable) o).close();
     }
 
-//    /**
-//     * @param o Object to close.
-//     */
-//    public static void close(Object o, IgniteLogger log) {
-//        if (o instanceof AutoCloseable)
-//            U.close((AutoCloseable) o, log);
-//    }
+    /**
+     * Closes given resource logging possible checked exception.
+     *
+     * @param o Resource to close. If it's {@code null} - it's no-op.
+     * @param log Logger to log possible checked exception.
+     */
+    public static void close(Object o, @NotNull IgniteLogger log) {
+        if (o instanceof AutoCloseable) {
+            try {
+                ((AutoCloseable)o).close();
+            }
+            catch (Exception e) {
+                log.warn("Failed to close resource: " + e.getMessage(), e);
+            }
+        }
+    }
 //
 //    /**
 //     * @param o Object to close.
@@ -445,5 +506,62 @@ public final class Commons {
                 // No-op.
             }
         }
+    }
+
+    public static Class<?> nativeTypeToClass(NativeType type) {
+        assert type != null;
+
+        switch (type.spec()) {
+            case INT8:
+                return Byte.class;
+
+            case INT16:
+                return Short.class;
+
+            case INT32:
+                return Integer.class;
+
+            case INT64:
+                return Long.class;
+
+            case FLOAT:
+                return Float.class;
+
+            case DOUBLE:
+                return Double.class;
+
+            case DECIMAL:
+                return BigDecimal.class;
+
+            case UUID:
+                return UUID.class;
+
+            case STRING:
+                return String.class;
+
+            case BYTES:
+                return byte[].class;
+
+            case BITMASK:
+                return BitSet.class;
+
+            default:
+                throw new IllegalArgumentException("Unsupported type " + type.spec());
+        }
+    }
+
+    /** */
+    public static <T> Comparator<T> compoundComparator(Iterable<Comparator<T>> cmps) {
+        return (r1, r2) -> {
+            for (Comparator<T> cmp : cmps) {
+                int result = cmp.compare(r1, r2);
+
+                if (result != 0) {
+                    return result;
+                }
+            }
+
+            return 0;
+        };
     }
 }

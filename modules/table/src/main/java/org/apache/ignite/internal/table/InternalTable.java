@@ -18,10 +18,16 @@
 package org.apache.ignite.internal.table;
 
 import java.util.Collection;
-import java.util.UUID;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
+
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.schema.definition.SchemaManagementMode;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Internal table facade provides low-level methods for table operations.
@@ -33,7 +39,7 @@ public interface InternalTable {
      *
      * @return Table id as UUID.
      */
-    @NotNull UUID tableId();
+    @NotNull IgniteUuid tableId();
 
     /**
      * Gets a name of the table.
@@ -43,126 +49,173 @@ public interface InternalTable {
     @NotNull String tableName();
 
     /**
+     * Gets a schema mode of the table.
+     *
+     * @return Schema mode.
+     */
+    @NotNull SchemaManagementMode schemaMode();
+
+    /**
+     * Sets schema mode for the table.
+     */
+    void schema(SchemaManagementMode schemaMode);
+
+    /**
      * Asynchronously gets a row with same key columns values as given one from the table.
      *
      * @param keyRow Row with key columns set.
+     * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<BinaryRow> get(BinaryRow keyRow);
+    CompletableFuture<BinaryRow> get(BinaryRow keyRow, @Nullable Transaction tx);
 
     /**
      * Asynchronously get rows from the table.
      *
      * @param keyRows Rows with key columns set.
+     * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows);
+    CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows, @Nullable Transaction tx);
 
     /**
      * Asynchronously inserts a row into the table if does not exist or replaces the existed one.
      *
      * @param row Row to insert into the table.
+     * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Void> upsert(BinaryRow row);
+    CompletableFuture<Void> upsert(BinaryRow row, @Nullable Transaction tx);
 
     /**
      * Asynchronously inserts a row into the table if does not exist or replaces the existed one.
      *
      * @param rows Rows to insert into the table.
+     * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Void> upsertAll(Collection<BinaryRow> rows);
+    CompletableFuture<Void> upsertAll(Collection<BinaryRow> rows, @Nullable Transaction tx);
 
     /**
      * Asynchronously inserts a row into the table or replaces if exists and return replaced previous row.
      *
      * @param row Row to insert into the table.
+     * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<BinaryRow> getAndUpsert(BinaryRow row);
+    CompletableFuture<BinaryRow> getAndUpsert(BinaryRow row, @Nullable Transaction tx);
 
     /**
      * Asynchronously inserts a row into the table if not exists.
      *
      * @param row Row to insert into the table.
+     * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Boolean> insert(BinaryRow row);
+    CompletableFuture<Boolean> insert(BinaryRow row, @Nullable Transaction tx);
 
     /**
      * Asynchronously insert rows into the table which do not exist, skipping existed ones.
      *
      * @param rows Rows to insert into the table.
+     * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> rows);
+    CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> rows, @Nullable Transaction tx);
 
     /**
      * Asynchronously replaces an existed row associated with the same key columns values as the given one has.
      *
      * @param row Row to replace with.
+     * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Boolean> replace(BinaryRow row);
+    CompletableFuture<Boolean> replace(BinaryRow row, @Nullable Transaction tx);
 
     /**
      * Asynchronously replaces an expected row in the table with the given new one.
      *
      * @param oldRow Row to replace.
      * @param newRow Row to replace with.
+     * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Boolean> replace(BinaryRow oldRow, BinaryRow newRow);
+    CompletableFuture<Boolean> replace(BinaryRow oldRow, BinaryRow newRow, @Nullable Transaction tx);
 
     /**
      * Asynchronously gets an existed row associated with the same key columns values as the given one has,
      * then replaces with the given one.
      *
      * @param row Row to replace with.
+     * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<BinaryRow> getAndReplace(BinaryRow row);
+    CompletableFuture<BinaryRow> getAndReplace(BinaryRow row, @Nullable Transaction tx);
 
     /**
      * Asynchronously deletes a row with the same key columns values as the given one from the table.
      *
      * @param keyRow Row with key columns set.
+     * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Boolean> delete(BinaryRow keyRow);
+    CompletableFuture<Boolean> delete(BinaryRow keyRow, @Nullable Transaction tx);
 
     /**
      * Asynchronously deletes given row from the table.
      *
      * @param oldRow Row to delete.
+     * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Boolean> deleteExact(BinaryRow oldRow);
+    CompletableFuture<Boolean> deleteExact(BinaryRow oldRow, @Nullable Transaction tx);
 
     /**
      * Asynchronously gets then deletes a row with the same key columns values from the table.
      *
      * @param row Row with key columns set.
+     * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<BinaryRow> getAndDelete(BinaryRow row);
+    CompletableFuture<BinaryRow> getAndDelete(BinaryRow row, @Nullable Transaction tx);
 
     /**
      * Asynchronously remove rows with the same key columns values as the given one has from the table.
      *
      * @param rows Rows with key columns set.
+     * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows);
+    CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows, @Nullable Transaction tx);
 
     /**
      * Asynchronously remove given rows from the table.
      *
      * @param rows Rows to delete.
+     * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows);
+    CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows,
+        @Nullable Transaction tx);
 
-    //TODO: IGNTIE-14488. Add invoke() methods.
+    /**
+     * Scans given partition, providing {@link Publisher<BinaryRow>} that reactively notifies about partition rows.
+     *
+     * @param p The partition.
+     * @param tx The transaction.
+     * @return {@link Publisher<BinaryRow>} that reactively notifies about partition rows.
+     */
+    @NotNull Publisher<BinaryRow> scan(int p, @Nullable Transaction tx);
+
+    /**
+     * Gets a list of current table assignments.
+     *
+     * Returns a list where on the i-th place resides a node id that considered
+     * as a leader for the i-th partition on the moment of invocation.
+     *
+     * @return List of current assignments.
+     */
+    @NotNull List<String> assignments();
+
+    //TODO: IGNITE-14488. Add invoke() methods.
 }

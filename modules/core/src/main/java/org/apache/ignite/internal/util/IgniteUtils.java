@@ -24,15 +24,22 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
+import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -42,6 +49,9 @@ public class IgniteUtils {
     /** Byte bit-mask. */
     private static final int MASK = 0xf;
 
+    /** The moment will be used as a start monotonic time. */
+    private static final long BEGINNING_OF_TIME = System.nanoTime();
+
     /** Version of the JDK. */
     private static final String jdkVer = System.getProperty("java.specification.version");
 
@@ -49,6 +59,14 @@ public class IgniteUtils {
     private static final ClassLoader igniteClassLoader = IgniteUtils.class.getClassLoader();
 
     private static final boolean assertionsEnabled;
+
+    /**
+     * Gets the current monotonic time in milliseconds.
+     * This is the amount of milliseconds which passed from an arbitrary moment in the past.
+     */
+    public static long monotonicMs() {
+        return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - BEGINNING_OF_TIME);
+    }
 
     /** Primitive class map. */
     private static final Map<String, Class<?>> primitiveMap = Map.of(
@@ -371,6 +389,9 @@ public class IgniteUtils {
         try {
             Files.walkFileTree(path, new SimpleFileVisitor<>() {
                 @Override public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                    if (exc != null)
+                        throw exc;
+
                     Files.delete(dir);
 
                     return FileVisitResult.CONTINUE;
@@ -449,24 +470,76 @@ public class IgniteUtils {
      * thrown exception will be propagated to the caller, after all other objects are closed, similar to
      * the try-with-resources block.
      *
-     * @param closeables collection of objects to close
+     * @param closeables Stream of objects to close.
+     * @throws Exception If failed to close.
      */
-    public static void closeAll(Collection<? extends AutoCloseable> closeables) throws Exception {
-        Exception ex = null;
+    public static void closeAll(Stream<? extends AutoCloseable> closeables) throws Exception {
+        AtomicReference<Exception> ex = new AtomicReference<>();
 
-        for (AutoCloseable closeable : closeables) {
+        closeables.filter(Objects::nonNull).forEach(closeable -> {
             try {
                 closeable.close();
             }
             catch (Exception e) {
-                if (ex == null)
-                    ex = e;
-                else
-                    ex.addSuppressed(e);
+                if (!ex.compareAndSet(null, e))
+                    ex.get().addSuppressed(e);
             }
-        }
+        });
 
-        if (ex != null)
-            throw ex;
+        if (ex.get() != null)
+            throw ex.get();
+    }
+
+    /**
+     * Closes all provided objects. If any of the {@link AutoCloseable#close} methods throw an exception, only the first
+     * thrown exception will be propagated to the caller, after all other objects are closed, similar to
+     * the try-with-resources block.
+     *
+     * @param closeables Collection of objects to close.
+     * @throws Exception If failed to close.
+     */
+    public static void closeAll(Collection<? extends AutoCloseable> closeables) throws Exception {
+        closeAll(closeables.stream());
+    }
+
+    /**
+     * Closes all provided objects.
+     *
+     * @param closeables Array of closeable objects to close.
+     * @throws Exception If failed to close.
+     *
+     * @see #closeAll(Collection)
+     */
+    public static void closeAll(AutoCloseable... closeables) throws Exception {
+        closeAll(Arrays.stream(closeables));
+    }
+
+    /**
+     * Short date format pattern for log messages in "quiet" mode.
+     * Only time is included since we don't expect "quiet" mode to be used
+     * for longer runs.
+     */
+    private static final DateTimeFormatter SHORT_DATE_FMT = DateTimeFormatter.ofPattern("HH:mm:ss");
+
+    /**
+     * Prints stack trace of the current thread to provided logger.
+     *
+     * @param log Logger.
+     * @param msg Message to print with the stack.
+     *
+     * @deprecated Calls to this method should never be committed to master.
+     */
+    public static void dumpStack(IgniteLogger log, String msg) {
+        String reason = "Dumping stack.";
+
+        var err = new Exception(msg);
+
+        if (log != null)
+            log.error(reason, err);
+        else {
+            System.err.println("[" + LocalDateTime.now().format(SHORT_DATE_FMT) + "] (err) " + reason);
+
+            err.printStackTrace(System.err);
+        }
     }
 }

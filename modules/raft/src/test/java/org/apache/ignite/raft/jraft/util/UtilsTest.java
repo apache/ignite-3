@@ -18,11 +18,12 @@ package org.apache.ignite.raft.jraft.util;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.RaftError;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -36,7 +37,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  */
 public class UtilsTest {
-    private Executor executor = Executors.newSingleThreadExecutor();
+    private ExecutorService executor = Executors.newSingleThreadExecutor();
+
+    @AfterEach
+    public void teardown() throws Exception {
+        ExecutorServiceHelper.shutdownAndAwaitTermination(executor);
+    }
 
     @Test
     public void testRunThread() throws Exception {
@@ -62,11 +68,6 @@ public class UtilsTest {
     }
 
     @Test
-    public void tetsVerifyGroupId3() {
-        assertThrows(IllegalArgumentException.class, () -> Utils.verifyGroupId("1abc"));
-    }
-
-    @Test
     public void tetsVerifyGroupId4() {
         assertThrows(IllegalArgumentException.class, () -> Utils.verifyGroupId("*test"));
     }
@@ -80,6 +81,7 @@ public class UtilsTest {
         Utils.verifyGroupId("test-hello");
         Utils.verifyGroupId("test123");
         Utils.verifyGroupId("t_hello");
+        Utils.verifyGroupId("1abc");
     }
 
     @Test

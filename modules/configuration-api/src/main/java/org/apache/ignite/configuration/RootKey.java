@@ -19,19 +19,31 @@ package org.apache.ignite.configuration;
 
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.internal.tostring.S;
 
-/** */
+/**
+ * Configuration root selector.
+ *
+ * @param <T> Type of the configuration tree described by the root key.
+ * @param <VIEW> Type of the immutable snapshot view associated with the tree.
+ */
 public class RootKey<T extends ConfigurationTree<VIEW, ?>, VIEW> {
-    /** */
+    /** Name of the configuration root. */
     private final String rootName;
 
-    /** */
+    /** Configuration type of the root. */
     private final ConfigurationType storageType;
 
-    /** */
+    /** Schema class for the root. */
     private final Class<?> schemaClass;
 
+    /** Marked with {@link InternalConfiguration}. */
+    private final boolean internal;
+
     /**
+     * Constructor.
+     *
      * @param schemaClass Class of the configuration schema.
      */
     public RootKey(Class<?> schemaClass) {
@@ -43,9 +55,13 @@ public class RootKey<T extends ConfigurationTree<VIEW, ?>, VIEW> {
 
         this.rootName = rootAnnotation.rootName();
         this.storageType = rootAnnotation.type();
+
+        internal = schemaClass.isAnnotationPresent(InternalConfiguration.class);
     }
 
     /**
+     * Returns the name of the configuration root.
+     *
      * @return Name of the configuration root.
      */
     public String key() {
@@ -53,6 +69,8 @@ public class RootKey<T extends ConfigurationTree<VIEW, ?>, VIEW> {
     }
 
     /**
+     * Returns the configuration type of the root.
+     *
      * @return Configuration type of the root.
      */
     public ConfigurationType type() {
@@ -60,9 +78,25 @@ public class RootKey<T extends ConfigurationTree<VIEW, ?>, VIEW> {
     }
 
     /**
+     * Returns the schema class for the root.
+     *
      * @return Schema class for the root.
      */
     public Class<?> schemaClass() {
         return schemaClass;
+    }
+
+    /**
+     * Check if the root configuration is marked with {@link InternalConfiguration}.
+     *
+     * @return {@code true} if the root configuration is internal.
+     */
+    public boolean internal() {
+        return internal;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(RootKey.class, this);
     }
 }

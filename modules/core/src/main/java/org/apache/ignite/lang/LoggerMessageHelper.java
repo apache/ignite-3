@@ -90,6 +90,7 @@ public final class LoggerMessageHelper {
      *
      * @param messagePattern Message with formatting anchor.
      * @param params Parameters.
+     * @return A formatted message.
      */
     static String arrayFormat(final String messagePattern, final Object[] params) {
         if (messagePattern == null)
@@ -187,6 +188,8 @@ public final class LoggerMessageHelper {
     }
 
     /**
+     * Appends an object to string.
+     *
      * @param sbuf Builder that contains a string for append.
      * @param o Object to append.
      * @param seenSet Set of the objects that already appended.

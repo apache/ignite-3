@@ -18,13 +18,14 @@
 package org.apache.ignite.internal.metastorage.common.command;
 
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Range command for MetaStorageCommandListener that retrieves entries for the given
- * key range in lexicographic order. Entries will be filtered out by upper bound of given revision number.
+ * Range command for MetaStorageCommandListener that retrieves entries for the given key range in lexicographic order.
+ * Entries will be filtered out by upper bound of given revision number.
  */
 public final class RangeCommand implements WriteCommand {
     /** Start key of range (inclusive). Couldn't be {@code null}. */
@@ -36,27 +37,46 @@ public final class RangeCommand implements WriteCommand {
     /** The upper bound for entry revision. {@code -1} means latest revision. */
     @NotNull private final long revUpperBound;
 
+    /** Id of the node that requests range. */
+    @NotNull private final String requesterNodeId;
+
+    /** Id of cursor that is associated with the current command. */
+    @NotNull private final IgniteUuid cursorId;
+
     /**
      * @param keyFrom Start key of range (inclusive).
      * @param keyTo End key of range (exclusive).
+     * @param requesterNodeId Id of the node that requests range.
+     * @param cursorId Id of cursor that is associated with the current command.
      */
-    public RangeCommand(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo) {
-        this(keyFrom, keyTo, -1L);
+    public RangeCommand(
+        @NotNull ByteArray keyFrom,
+        @Nullable ByteArray keyTo,
+        @NotNull String requesterNodeId,
+        @NotNull IgniteUuid cursorId
+    ) {
+        this(keyFrom, keyTo, -1L, requesterNodeId, cursorId);
     }
 
     /**
      * @param keyFrom Start key of range (inclusive).
      * @param keyTo End key of range (exclusive).
      * @param revUpperBound The upper bound for entry revision. {@code -1} means latest revision.
+     * @param requesterNodeId Id of the node that requests range.
+     * @param cursorId Id of cursor that is associated with the current command.
      */
     public RangeCommand(
         @NotNull ByteArray keyFrom,
         @Nullable ByteArray keyTo,
-        long revUpperBound
+        long revUpperBound,
+        @NotNull String requesterNodeId,
+        @NotNull IgniteUuid cursorId
     ) {
         this.keyFrom = keyFrom.bytes();
         this.keyTo = keyTo == null ? null : keyTo.bytes();
         this.revUpperBound = revUpperBound;
+        this.requesterNodeId = requesterNodeId;
+        this.cursorId = cursorId;
     }
 
     /**
@@ -78,5 +98,19 @@ public final class RangeCommand implements WriteCommand {
      */
     public @NotNull long revUpperBound() {
         return revUpperBound;
+    }
+
+    /**
+     * @return Id of the node that requests range.
+     */
+    public @NotNull String requesterNodeId() {
+        return requesterNodeId;
+    }
+
+    /**
+     * @return Id of cursor that is associated with the current command.
+     */
+    @NotNull public IgniteUuid getCursorId() {
+        return cursorId;
     }
 }

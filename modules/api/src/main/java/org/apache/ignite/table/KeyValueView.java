@@ -22,7 +22,9 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.table.mapper.Mappers;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Key-Value view of table provides methods to access table records.
@@ -73,10 +75,19 @@ public interface KeyValueView<K, V> {
      * Determines if the table contains an entry for the specified key.
      *
      * @param key A key which presence is to be tested.
-     * The keys cannot be {@code null}.
+     * The key cannot be {@code null}.
      * @return {@code True} if a value exists for the specified key, {@code false} otherwise.
      */
     boolean contains(@NotNull K key);
+
+    /**
+     * Determines if the table contains an entry for the specified key.
+     *
+     * @param key A key which presence is to be tested.
+     * The key cannot be {@code null}.
+     * @return Future representing pending completion of the operation.
+     */
+    CompletableFuture<Boolean> containsAsync(@NotNull K key);
 
     /**
      * Puts value associated with given key into the table.
@@ -197,7 +208,7 @@ public interface KeyValueView<K, V> {
      *
      * @param keys Keys which mapping is to be removed from the table.
      * The keys cannot be {@code null}.
-     * @return Keys whose values were not existed.
+     * @return Keys which did not exist.
      */
     Collection<K> removeAll(@NotNull Collection<K> keys);
 
@@ -379,4 +390,19 @@ public interface KeyValueView<K, V> {
         @NotNull Collection<K> keys,
         InvokeProcessor<K, V, R> proc,
         Serializable... args);
+
+    /**
+     * Returns current transaction.
+     *
+     * @return Current transaction or null if the view is not enlisted in a transaction.
+     */
+    @Nullable Transaction transaction();
+
+    /**
+     * Enlists a view into the transaction.
+     *
+     * @param tx The transaction.
+     * @return Transactional view.
+     */
+    KeyValueView<K, V> withTransaction(Transaction tx);
 }

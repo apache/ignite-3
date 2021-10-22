@@ -23,14 +23,16 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.RecordSerializer;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.marshaller.RecordSerializer;
+import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.RecordMapper;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Record view implementation.
@@ -38,31 +40,13 @@ import org.jetbrains.annotations.NotNull;
 public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R> {
     /**
      * Constructor.
-     *
-     * @param tbl Table.
+     *  @param tbl Table.
      * @param schemaReg Schema registry.
      * @param mapper Record class mapper.
+     * @param tx The transaction.
      */
-    public RecordViewImpl(InternalTable tbl, SchemaRegistry schemaReg, RecordMapper<R> mapper) {
-        super(tbl, schemaReg);
-    }
-
-    /** {@inheritDoc} */
-    @Override public R fill(R recObjToFill) {
-        return sync(fillAsync(recObjToFill));
-    }
-
-    /** {@inheritDoc} */
-    @Override public CompletableFuture<R> fillAsync(R recObjToFill) {
-        Objects.requireNonNull(recObjToFill);
-
-        RecordSerializer<R> marsh = serializer();
-
-        Row kRow = marsh.serialize(recObjToFill);  // Convert to portable format to pass TX/storage layer.
-
-        return tbl.get(kRow)  // Load async.
-            .thenApply(this::wrap) // Binary -> schema-aware row
-            .thenApply(r -> marsh.deserialize(r, recObjToFill)); // Deserialize and fill record.
+    public RecordViewImpl(InternalTable tbl, SchemaRegistry schemaReg, RecordMapper<R> mapper, @Nullable Transaction tx) {
+        super(tbl, schemaReg, tx);
     }
 
     /** {@inheritDoc} */
@@ -78,7 +62,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
         Row kRow = marsh.serialize(keyRec);  // Convert to portable format to pass TX/storage layer.
 
-        return tbl.get(kRow)  // Load async.
+        return tbl.get(kRow, tx)  // Load async.
             .thenApply(this::wrap) // Binary -> schema-aware row
             .thenApply(marsh::deserialize); // Deserialize.
     }
@@ -249,6 +233,11 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         @NotNull Collection<R> keyRecs,
         InvokeProcessor<R, R, T> proc
     ) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /** {@inheritDoc} */
+    @Override public RecordViewImpl<R> withTransaction(Transaction tx) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 

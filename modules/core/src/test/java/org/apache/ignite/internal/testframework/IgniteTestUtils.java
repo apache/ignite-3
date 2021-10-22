@@ -18,12 +18,18 @@
 package org.apache.ignite.internal.testframework;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-
+import java.util.BitSet;
+import java.util.Random;
+import java.util.function.BooleanSupplier;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.LoggerMessageHelper;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.TestInfo;
 
+import static java.lang.Thread.sleep;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
@@ -156,7 +162,7 @@ public final class IgniteTestUtils {
      * @return {@code True} if one of the causing exception is an instance of passed in classes,
      *      {@code false} otherwise.
      */
-    private static boolean hasCause(
+    public static boolean hasCause(
         @NotNull Throwable t,
         @NotNull Class<?> cls,
         @Nullable String msg
@@ -183,5 +189,85 @@ public final class IgniteTestUtils {
         }
 
         return false;
+    }
+
+    /**
+     * Waits for the condition.
+     *
+     * @param cond Condition.
+     * @param timeoutMillis Timeout in milliseconds.
+     * @return {@code True} if the condition was satisfied within the timeout.
+     * @throws InterruptedException If waiting was interrupted.
+     */
+    @SuppressWarnings("BusyWait") public static boolean waitForCondition(BooleanSupplier cond, long timeoutMillis)
+        throws InterruptedException {
+        long stop = System.currentTimeMillis() + timeoutMillis;
+
+        while (System.currentTimeMillis() < stop) {
+            if (cond.getAsBoolean())
+                return true;
+
+            sleep(50);
+        }
+
+        return false;
+    }
+
+    /**
+     * @param rnd Random generator.
+     * @param bits Amount of bits in bitset.
+     * @return Random BitSet.
+     */
+    public static BitSet randomBitSet(Random rnd, int bits) {
+        BitSet set = new BitSet();
+
+        for (int i = 0; i < bits; i++) {
+            if (rnd.nextBoolean())
+                set.set(i);
+        }
+
+        return set;
+    }
+
+    /**
+     * @param rnd Random generator.
+     * @param len Byte array length.
+     * @return Random byte array.
+     */
+    public static byte[] randomBytes(Random rnd, int len) {
+        byte[] data = new byte[len];
+        rnd.nextBytes(data);
+
+        return data;
+    }
+
+    /**
+     * @param rnd Random generator.
+     * @param len String length.
+     * @return Random string.
+     */
+    public static String randomString(Random rnd, int len) {
+        StringBuilder sb = new StringBuilder();
+
+        while (sb.length() < len) {
+            char pt = (char)rnd.nextInt(Character.MAX_VALUE + 1);
+
+            if (Character.isDefined(pt) &&
+                Character.getType(pt) != Character.PRIVATE_USE &&
+                !Character.isSurrogate(pt))
+                sb.append(pt);
+        }
+
+        return sb.toString();
+    }
+
+    /**
+     * Creates a unique Ignite node name for the given test.
+     */
+    public static String testNodeName(TestInfo testInfo, int idx) {
+        return LoggerMessageHelper.format("{}_{}_{}",
+            testInfo.getTestClass().map(Class::getSimpleName).orElseGet(() -> "null"),
+            testInfo.getTestMethod().map(Method::getName).orElseGet(() -> "null"),
+            idx);
     }
 }

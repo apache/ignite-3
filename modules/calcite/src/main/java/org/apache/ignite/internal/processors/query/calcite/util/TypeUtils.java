@@ -29,7 +29,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import com.google.common.collect.ImmutableSet;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.DateTimeUtils;
 import org.apache.calcite.plan.RelOptSchema;
@@ -51,6 +50,7 @@ import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactor
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static org.apache.ignite.internal.processors.query.calcite.util.Commons.nativeTypeToClass;
 import static org.apache.ignite.internal.processors.query.calcite.util.Commons.transform;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -64,7 +64,7 @@ public class TypeUtils {
     );
 
     /** */
-    private static final Set<Type> CONVERTABLE_TYPES = ImmutableSet.of(
+    private static final Set<Type> CONVERTABLE_TYPES = Set.of(
         java.util.Date.class,
         java.sql.Date.class,
         java.sql.Time.class,
@@ -206,7 +206,7 @@ public class TypeUtils {
 
         assert fldDesc != null;
 
-        return fldDesc.storageType();
+        return nativeTypeToClass(fldDesc.storageType());
     }
 
     /** */

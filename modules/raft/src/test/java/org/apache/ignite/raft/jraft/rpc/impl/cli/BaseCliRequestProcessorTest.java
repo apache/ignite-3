@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.Status;
@@ -25,7 +26,6 @@ import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
-import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.PingRequest;
 import org.apache.ignite.raft.jraft.test.MockAsyncContext;
@@ -46,11 +46,11 @@ public class BaseCliRequestProcessorTest {
     private static class MockCliRequestProcessor extends BaseCliRequestProcessor<PingRequest> {
         private String peerId;
         private String groupId;
-        private RpcRequestClosure done;
+        private IgniteCliRpcRequestClosure done;
         private CliRequestContext ctx;
 
         MockCliRequestProcessor(String peerId, String groupId) {
-            super(null, null);
+            super(null, new RaftMessagesFactory());
             this.peerId = peerId;
             this.groupId = groupId;
         }
@@ -66,10 +66,10 @@ public class BaseCliRequestProcessorTest {
         }
 
         @Override
-        protected Message processRequest0(CliRequestContext ctx, PingRequest request, RpcRequestClosure done) {
+        protected Message processRequest0(CliRequestContext ctx, PingRequest request, IgniteCliRpcRequestClosure done) {
             this.ctx = ctx;
             this.done = done;
-            return RaftRpcFactory.DEFAULT.newResponse(null, Status.OK());
+            return RaftRpcFactory.DEFAULT.newResponse(msgFactory(), Status.OK());
         }
 
         @Override
@@ -104,7 +104,7 @@ public class BaseCliRequestProcessorTest {
         assertNotNull(this.processor.done);
         assertSame(this.processor.ctx.node, node);
         assertNotNull(resp);
-        assertEquals(0, resp.getErrorCode());
+        assertEquals(0, resp.errorCode());
     }
 
     @Test
@@ -114,8 +114,8 @@ public class BaseCliRequestProcessorTest {
         this.processor.handleRequest(asyncContext, TestUtils.createPingRequest());
         ErrorResponse resp = (ErrorResponse) asyncContext.getResponseObject();
         assertNotNull(resp);
-        assertEquals(RaftError.EACCES.getNumber(), resp.getErrorCode());
-        assertEquals("Cli service is not allowed to access node <test/localhost:8081>", resp.getErrorMsg());
+        assertEquals(RaftError.EACCES.getNumber(), resp.errorCode());
+        assertEquals("Cli service is not allowed to access node <test/localhost:8081>", resp.errorMsg());
     }
 
     private Node mockNode(boolean disableCli) {
@@ -135,8 +135,8 @@ public class BaseCliRequestProcessorTest {
         this.processor.handleRequest(asyncContext, TestUtils.createPingRequest());
         ErrorResponse resp = (ErrorResponse) asyncContext.getResponseObject();
         assertNotNull(resp);
-        assertEquals(RaftError.EINVAL.getNumber(), resp.getErrorCode());
-        assertEquals("Fail to parse peer: localhost", resp.getErrorMsg());
+        assertEquals(RaftError.EINVAL.getNumber(), resp.errorCode());
+        assertEquals("Fail to parse peer: localhost", resp.errorMsg());
     }
 
     @Test
@@ -145,8 +145,8 @@ public class BaseCliRequestProcessorTest {
         this.processor.handleRequest(asyncContext, TestUtils.createPingRequest());
         ErrorResponse resp = (ErrorResponse) asyncContext.getResponseObject();
         assertNotNull(resp);
-        assertEquals(RaftError.ENOENT.getNumber(), resp.getErrorCode());
-        assertEquals("Empty nodes in group test", resp.getErrorMsg());
+        assertEquals(RaftError.ENOENT.getNumber(), resp.errorCode());
+        assertEquals("Empty nodes in group test", resp.errorMsg());
     }
 
     @Test
@@ -165,8 +165,8 @@ public class BaseCliRequestProcessorTest {
         this.processor.handleRequest(asyncContext, TestUtils.createPingRequest());
         ErrorResponse resp = (ErrorResponse) asyncContext.getResponseObject();
         assertNotNull(resp);
-        assertEquals(RaftError.EINVAL.getNumber(), resp.getErrorCode());
-        assertEquals("Peer must be specified since there're 2 nodes in group test", resp.getErrorMsg());
+        assertEquals(RaftError.EINVAL.getNumber(), resp.errorCode());
+        assertEquals("Peer must be specified since there're 2 nodes in group test", resp.errorMsg());
     }
 
     @Test
@@ -178,7 +178,7 @@ public class BaseCliRequestProcessorTest {
         assertNotNull(resp);
         assertSame(this.processor.ctx.node, node);
         assertNotNull(resp);
-        assertEquals(0, resp.getErrorCode());
+        assertEquals(0, resp.errorCode());
     }
 
     @Test
@@ -186,7 +186,7 @@ public class BaseCliRequestProcessorTest {
         this.processor.handleRequest(asyncContext, TestUtils.createPingRequest());
         ErrorResponse resp = (ErrorResponse) asyncContext.getResponseObject();
         assertNotNull(resp);
-        assertEquals(RaftError.ENOENT.getNumber(), resp.getErrorCode());
-        assertEquals("Fail to find node localhost:8081 in group test", resp.getErrorMsg());
+        assertEquals(RaftError.ENOENT.getNumber(), resp.errorCode());
+        assertEquals("Fail to find node localhost:8081 in group test", resp.errorMsg());
     }
 }

@@ -21,11 +21,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
@@ -41,6 +42,7 @@ import org.apache.ignite.raft.jraft.util.Bits;
 import org.apache.ignite.raft.jraft.util.BytesUtil;
 import org.apache.ignite.raft.jraft.util.DebugStatistics;
 import org.apache.ignite.raft.jraft.util.Describer;
+import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.StorageOptionsFactory;
 import org.apache.ignite.raft.jraft.util.Utils;
@@ -57,15 +59,13 @@ import org.rocksdb.RocksIterator;
 import org.rocksdb.StringAppendOperator;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Log storage based on rocksdb.
  */
 public class RocksDBLogStorage implements LogStorage, Describer {
 
-    private static final Logger LOG = LoggerFactory.getLogger(RocksDBLogStorage.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(RocksDBLogStorage.class);
 
     static {
         RocksDB.loadLibrary();
@@ -146,7 +146,7 @@ public class RocksDBLogStorage implements LogStorage, Describer {
     private LogEntryEncoder logEntryEncoder;
     private LogEntryDecoder logEntryDecoder;
 
-    private Executor executor = Executors.newSingleThreadExecutor();
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     public RocksDBLogStorage(final String path, final RaftOptions raftOptions) {
         super();
@@ -196,7 +196,7 @@ public class RocksDBLogStorage implements LogStorage, Describer {
             return initAndLoad(opts.getConfigurationManager());
         }
         catch (final RocksDBException e) {
-            LOG.error("Fail to init RocksDBLogStorage, path={}.", this.path, e);
+            LOG.error("Fail to init RocksDBLogStorage, path={}.", e, this.path);
             return false;
         }
         finally {
@@ -288,7 +288,7 @@ public class RocksDBLogStorage implements LogStorage, Describer {
             return true;
         }
         catch (final RocksDBException e) {
-            LOG.error("Fail to save first log index {}.", firstLogIndex, e);
+            LOG.error("Fail to save first log index {}.", e, firstLogIndex);
             return false;
         }
         finally {
@@ -455,7 +455,7 @@ public class RocksDBLogStorage implements LogStorage, Describer {
             }
         }
         catch (final RocksDBException | IOException e) {
-            LOG.error("Fail to get log entry at index {}.", index, e);
+            LOG.error("Fail to get log entry at index {}.", e, index);
         }
         finally {
             this.readLock.unlock();
@@ -600,7 +600,7 @@ public class RocksDBLogStorage implements LogStorage, Describer {
                 this.db.deleteRange(this.confHandle, getKeyBytes(startIndex), getKeyBytes(firstIndexKept));
             }
             catch (final RocksDBException | IOException e) {
-                LOG.error("Fail to truncatePrefix {}.", firstIndexKept, e);
+                LOG.error("Fail to truncatePrefix {}.", e, firstIndexKept);
             }
             finally {
                 this.readLock.unlock();
@@ -624,7 +624,7 @@ public class RocksDBLogStorage implements LogStorage, Describer {
             return true;
         }
         catch (final RocksDBException | IOException e) {
-            LOG.error("Fail to truncateSuffix {}.", lastIndexKept, e);
+            LOG.error("Fail to truncateSuffix {}.", e, lastIndexKept);
         }
         finally {
             this.readLock.unlock();
@@ -680,6 +680,7 @@ public class RocksDBLogStorage implements LogStorage, Describer {
      * Called after closing db.
      */
     protected void onShutdown() {
+        ExecutorServiceHelper.shutdownAndAwaitTermination(executor);
     }
 
     /**

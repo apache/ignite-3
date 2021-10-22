@@ -17,24 +17,22 @@
 package org.apache.ignite.raft.jraft.util;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * Replicator id with lock.
  */
 public class ThreadId {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ThreadId.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ThreadId.class);
 
     private static final int TRY_LOCK_TIMEOUT_MS = 10;
 
     private final Object data;
     private final NonReentrantLock lock = new NonReentrantLock();
-    private final List<Integer> pendingErrors = Collections.synchronizedList(new ArrayList<>());
+    private final List<Integer> pendingErrors = new ArrayList<>();
     private final OnError onError;
     private volatile boolean destroyed;
 
@@ -156,18 +154,20 @@ public class ThreadId {
         if (this.destroyed) {
             return;
         }
-        if (this.lock.tryLock()) {
-            if (this.destroyed) {
-                this.lock.unlock();
-                return;
+        synchronized (pendingErrors) {
+            if (this.lock.tryLock()) {
+                if (this.destroyed) {
+                    this.lock.unlock();
+                    return;
+                }
+                if (this.onError != null) {
+                    // The lock will be unlocked in onError.
+                    this.onError.onError(this, this.data, errorCode);
+                }
             }
-            if (this.onError != null) {
-                // The lock will be unlocked in onError.
-                this.onError.onError(this, this.data, errorCode);
+            else {
+                this.pendingErrors.add(errorCode);
             }
-        }
-        else {
-            this.pendingErrors.add(errorCode);
         }
     }
 }

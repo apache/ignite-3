@@ -17,19 +17,28 @@
 
 package org.apache.ignite.raft.server;
 
+import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftServer;
-import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
+import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,6 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Single node raft server.
  */
+@ExtendWith(WorkDirectoryExtension.class)
 class ITSimpleCounterServerTest extends RaftServerAbstractTest {
     /**
      * The server implementation.
@@ -66,51 +76,50 @@ class ITSimpleCounterServerTest extends RaftServerAbstractTest {
      */
     private RaftGroupService client2;
 
+    /** */
+    @WorkDirectory
+    private Path dataPath;
+
+    /** Executor for raft group services. */
+    private ScheduledExecutorService executor;
+
     /**
-     * @param testInfo Test info.
+     * @throws Exception If failed.
      */
     @BeforeEach
-    void before(TestInfo testInfo) {
+    void before() throws Exception {
         LOG.info(">>>> Starting test {}", testInfo.getTestMethod().orElseThrow().getName());
 
         var addr = new NetworkAddress("localhost", PORT);
 
-        ClusterService service = clusterService(addr.toString(), PORT, List.of(), true);
+        ClusterService service = clusterService(PORT, List.of(), true);
 
-        server = new RaftServerImpl(service, FACTORY) {
-            @Override public synchronized void shutdown() throws Exception {
-                super.shutdown();
+        server = new JRaftServerImpl(service, dataPath) {
+            @Override public synchronized void stop() {
+                super.stop();
 
-                service.shutdown();
+                service.stop();
             }
         };
+
+        server.start();
 
         ClusterNode serverNode = server.clusterService().topologyService().localMember();
 
         server.startRaftGroup(COUNTER_GROUP_ID_0, new CounterListener(), List.of(new Peer(serverNode.address())));
         server.startRaftGroup(COUNTER_GROUP_ID_1, new CounterListener(), List.of(new Peer(serverNode.address())));
 
-        ClusterService clientNode1 = clusterService("localhost:" + (PORT + 1), PORT + 1, List.of(addr), true);
+        ClusterService clientNode1 = clusterService(PORT + 1, List.of(addr), true);
 
-        client1 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, clientNode1, FACTORY, 1000,
-            List.of(new Peer(serverNode.address())), false, 200) {
-            @Override public void shutdown() {
-                super.shutdown();
+        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
 
-                clientNode1.shutdown();
-            }
-        };
+        client1 = RaftGroupServiceImpl.start(COUNTER_GROUP_ID_0, clientNode1, FACTORY, 1000,
+            List.of(new Peer(serverNode.address())), false, 200, executor).get(3, TimeUnit.SECONDS);
 
-        ClusterService clientNode2 = clusterService("localhost:" + (PORT + 2), PORT + 2, List.of(addr), true);
+        ClusterService clientNode2 = clusterService(PORT + 2, List.of(addr), true);
 
-        client2 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_1, clientNode2, FACTORY, 1000,
-            List.of(new Peer(serverNode.address())), false, 200) {
-            @Override public void shutdown() {
-                super.shutdown();
-
-                clientNode2.shutdown();
-            }
-        };
+        client2 = RaftGroupServiceImpl.start(COUNTER_GROUP_ID_1, clientNode2, FACTORY, 1000,
+            List.of(new Peer(serverNode.address())), false, 200, executor).get(3, TimeUnit.SECONDS);
 
         assertTrue(waitForTopology(service, 2, 1000));
         assertTrue(waitForTopology(clientNode1, 2, 1000));
@@ -118,13 +127,17 @@ class ITSimpleCounterServerTest extends RaftServerAbstractTest {
     }
 
     /**
-     * @throws Exception
+     * @throws Exception If failed.
      */
     @AfterEach
-    void after() throws Exception {
-        server.shutdown();
+    @Override public void after() throws Exception {
+        server.stop();
         client1.shutdown();
         client2.shutdown();
+
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+
+        super.after();
     }
 
     /**
@@ -142,7 +155,7 @@ class ITSimpleCounterServerTest extends RaftServerAbstractTest {
     }
 
     /**
-     * @throws Exception
+     * @throws Exception If failed.
      */
     @Test
     public void testCounterCommandListener() throws Exception {

@@ -20,17 +20,16 @@ package org.apache.ignite.internal.table.distributed.raft;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
-import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.Row;
-import org.apache.ignite.internal.schema.RowAssembler;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteExactAllCommand;
@@ -51,7 +50,7 @@ import org.apache.ignite.internal.table.distributed.command.response.SingleRowRe
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -64,34 +63,32 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * There are a tests for a table command listener.
- * All rows should be removed before returning form each test.
+ * Tests for the table command listener.
  */
 public class PartitionCommandListenerTest {
     /** Key count. */
     public static final int KEY_COUNT = 100;
 
     /** Schema. */
-    public static SchemaDescriptor SCHEMA = new SchemaDescriptor(UUID.randomUUID(),
+    public static SchemaDescriptor SCHEMA = new SchemaDescriptor(
         1,
         new Column[] {new Column("key", NativeTypes.INT32, false)},
         new Column[] {new Column("value", NativeTypes.INT32, false)}
     );
 
     /** Table command listener. */
-    private static PartitionListener commandListener;
+    private PartitionListener commandListener;
 
     /**
      * Initializes a table listener before tests.
      */
-    @BeforeAll
-    public static void before() {
-        commandListener = new PartitionListener();
+    @BeforeEach
+    public void before() {
+        commandListener = new PartitionListener(new ConcurrentHashMapPartitionStorage());
     }
 
     /**
      * Inserts rows and checks them.
-     * All rows are removed before returning.
      */
     @Test
     public void testInsertCommands() {
@@ -110,7 +107,6 @@ public class PartitionCommandListenerTest {
 
     /**
      * Upserts rows and checks them.
-     * All rows are removed before returning.
      */
     @Test
     public void testUpsertValues() {
@@ -127,7 +123,6 @@ public class PartitionCommandListenerTest {
 
     /**
      * Adds rows, replaces and checks them.
-     * All rows are removed before returning.
      */
     @Test
     public void testReplaceCommand() {
@@ -150,7 +145,6 @@ public class PartitionCommandListenerTest {
 
     /**
      * The test checks PutIfExist command.
-     * All rows are removed before returning.
      */
     @Test
     public void testPutIfExistCommand() {
@@ -173,7 +167,6 @@ public class PartitionCommandListenerTest {
 
     /**
      * The test checks GetAndReplace command.
-     * All rows are removed before returning.
      */
     @Test
     public void testGetAndReplaceCommand() {
@@ -202,7 +195,6 @@ public class PartitionCommandListenerTest {
 
     /**
      * The test checks a batch upsert command.
-     * All rows are removed before returning.
      */
     @Test
     public void testUpsertRowsBatchedAndCheck() {
@@ -221,7 +213,6 @@ public class PartitionCommandListenerTest {
 
     /**
      * The test checks a batch insert command.
-     * All rows are removed before returning.
      */
     @Test
     public void testInsertRowsBatchedAndCheck() {
@@ -360,7 +351,7 @@ public class PartitionCommandListenerTest {
             doAnswer(invocation -> {
                 MultiRowsResponse resp = invocation.getArgument(0);
 
-                if (existed) {
+                if (!existed) {
                     assertEquals(KEY_COUNT, resp.getValues().size());
 
                     for (BinaryRow binaryRow : resp.getValues()) {
@@ -369,7 +360,6 @@ public class PartitionCommandListenerTest {
                         int keyVal = row.intValue(0);
 
                         assertTrue(keyVal < KEY_COUNT);
-                        assertEquals(keyVal, row.intValue(1));
                     }
                 }
                 else
@@ -522,7 +512,7 @@ public class PartitionCommandListenerTest {
             doAnswer(invocation -> {
                 MultiRowsResponse resp = invocation.getArgument(0);
 
-                if (existed) {
+                if (!existed) {
                     assertEquals(KEY_COUNT, resp.getValues().size());
 
                     for (BinaryRow binaryRow : resp.getValues()) {
@@ -677,11 +667,11 @@ public class PartitionCommandListenerTest {
      * @return Row.
      */
     @NotNull private Row getTestKey(int key) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 4096, 0, 0);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
 
         rowBuilder.appendInt(key);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.build()));
+        return new Row(SCHEMA, rowBuilder.build());
     }
 
     /**
@@ -690,11 +680,11 @@ public class PartitionCommandListenerTest {
      * @return Row.
      */
     @NotNull private Row getTestRow(int key, int val) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 4096, 0, 0);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
 
         rowBuilder.appendInt(key);
         rowBuilder.appendInt(val);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.build()));
+        return new Row(SCHEMA, rowBuilder.build());
     }
 }

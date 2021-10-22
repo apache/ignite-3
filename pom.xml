@@ -42,6 +42,9 @@
         <module>modules/calcite</module>
         <module>modules/cli</module>
         <module>modules/cli-common</module>
+        <module>modules/client</module>
+        <module>modules/client-common</module>
+        <module>modules/client-handler</module>
         <module>modules/configuration</module>
         <module>modules/configuration-annotation-processor</module>
         <module>modules/configuration-api</module>
@@ -56,6 +59,7 @@
         <module>modules/raft</module>
         <module>modules/raft-client</module>
         <module>modules/rest</module>
+        <module>modules/rocksdb-common</module>
         <module>modules/runner</module>
         <module>modules/schema</module>
         <module>modules/storage-api</module>
@@ -64,6 +68,55 @@
         <module>modules/transactions</module>
         <module>modules/vault</module>
     </modules>
+
+    <profiles>
+        <!--
+            This profile is used to check the code for coding guidelines.
+
+            It runs by default and can be skipped with either
+            -Dmaven.chechstyle.skip or -Dcheckstyle.skip flag.
+
+            It executes 2 times - first for generating report and second
+            for failing build if errors found.
+        -->
+        <profile>
+            <id>checkstyle</id>
+            <activation>
+                <property>
+                    <name>!maven.all-checks.skip</name>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-checkstyle-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>generate-report</id>
+                                <phase>validate</phase>
+                                <goals>
+                                    <goal>checkstyle-aggregate</goal>
+                                </goals>
+                            </execution>
+                            <execution>
+                                <id>fail-if-error</id>
+                                <phase>validate</phase>
+                                <configuration>
+                                    <failsOnError>true</failsOnError>
+                                    <consoleOutput>true</consoleOutput>
+                                    <logViolationsToConsole>true</logViolationsToConsole>
+                                </configuration>
+                                <goals>
+                                    <goal>checkstyle-aggregate</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
     <build>
         <plugins>
@@ -86,6 +139,17 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+
+            <!--
+                Reset sourcepath configuration from parent for fixing javadoc:aggregate
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <configuration>
+                    <sourcepath combine.self="override"></sourcepath>
+                </configuration>
             </plugin>
         </plugins>
     </build>

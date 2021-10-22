@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.client;
 
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
@@ -28,6 +29,7 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
 
@@ -74,7 +76,10 @@ public class CursorImpl<T> implements Cursor<T> {
                 cursorId -> metaStorageRaftGrpSvc.run(new CursorCloseCommand(cursorId))).get();
         }
         catch (InterruptedException | ExecutionException e) {
-            LOG.error("Unable to evaluate cursor close command", e);
+            if (e.getCause() != null && e.getCause().getClass().equals(NodeStoppingException.class))
+                return;
+
+            LOG.debug("Unable to evaluate cursor close command", e);
 
             throw new IgniteInternalException(e);
         }
@@ -99,7 +104,10 @@ public class CursorImpl<T> implements Cursor<T> {
                         cursorId -> metaStorageRaftGrpSvc.<Boolean>run(new CursorHasNextCommand(cursorId))).get();
             }
             catch (InterruptedException | ExecutionException e) {
-                LOG.error("Unable to evaluate cursor hasNext command", e);
+                if (e.getCause() != null && e.getCause().getClass().equals(NodeStoppingException.class))
+                    return false;
+
+                LOG.debug("Unable to evaluate cursor hasNext command", e);
 
                 throw new IgniteInternalException(e);
             }
@@ -108,11 +116,19 @@ public class CursorImpl<T> implements Cursor<T> {
         /** {@inheritDoc} */
         @Override public T next() {
             try {
-                return initOp.thenCompose(
-                        cursorId -> metaStorageRaftGrpSvc.run(new CursorNextCommand(cursorId))).thenApply(fn).get();
+                Object res = initOp.thenCompose(
+                    cursorId -> metaStorageRaftGrpSvc.run(new CursorNextCommand(cursorId))).get();
+
+                if (res instanceof NoSuchElementException)
+                    throw (NoSuchElementException)res;
+                else
+                    return fn.apply(res);
             }
             catch (InterruptedException | ExecutionException e) {
-                LOG.error("Unable to evaluate cursor hasNext command", e);
+                if (e.getCause() != null && e.getCause().getClass().equals(NodeStoppingException.class))
+                    throw new NoSuchElementException();
+
+                LOG.debug("Unable to evaluate cursor hasNext command", e);
 
                 throw new IgniteInternalException(e);
             }
