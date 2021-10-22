@@ -71,19 +71,6 @@ abstract class AbstractSchemaChangeTest {
     @WorkDirectory
     private Path workDir;
 
-    public static <T extends Throwable> void assertThrowsWithCause(Class<T> expectedType, Executable executable) {
-        Throwable ex = assertThrows(IgniteException.class, executable);
-
-        while (ex.getCause() != null) {
-            if (expectedType.isInstance(ex.getCause()))
-                return;
-
-            ex = ex.getCause();
-        }
-
-        fail("Expected cause wasn't found.");
-    }
-
     /** */
     @BeforeEach
     void setUp(TestInfo testInfo) {
@@ -323,5 +310,22 @@ abstract class AbstractSchemaChangeTest {
                 );
             })
         );
+    }
+
+    /**
+     * @param expectedType Expected cause type.
+     * @param executable Executable that throws exception.
+     */
+    public <T extends Throwable> void assertThrowsWithCause(Class<T> expectedType, Executable executable) {
+        Throwable ex = assertThrows(IgniteException.class, executable);
+
+        while (ex.getCause() != null) {
+            if (expectedType.isInstance(ex.getCause()))
+                return;
+
+            ex = ex.getCause();
+        }
+
+        fail("Expected cause wasn't found.");
     }
 }

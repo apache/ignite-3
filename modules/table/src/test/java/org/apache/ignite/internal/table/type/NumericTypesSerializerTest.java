@@ -25,7 +25,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
@@ -149,10 +148,10 @@ public class NumericTypesSerializerTest {
 
         final Tuple badTup = createTuple().set("key", rnd.nextLong());
 
-        assertThrows(InvalidTypeException.class, () -> marshaller.marshal(badTup.set("number1", BigInteger.valueOf(999991L))), "Column's type mismatch");
-        assertThrows(InvalidTypeException.class, () -> marshaller.marshal(badTup.set("number1", new BigInteger("111111"))), "Column's type mismatch");
-        assertThrows(InvalidTypeException.class, () -> marshaller.marshal(badTup.set("number1", BigInteger.valueOf(-999991L))), "Column's type mismatch");
-        assertThrows(InvalidTypeException.class, () -> marshaller.marshal(badTup.set("number1", new BigInteger("-111111"))), "Column's type mismatch");
+        assertThrows(TupleMarshallerException.class, () -> marshaller.marshal(badTup.set("number1", BigInteger.valueOf(999991L))), "Column's type mismatch");
+        assertThrows(TupleMarshallerException.class, () -> marshaller.marshal(badTup.set("number1", new BigInteger("111111"))), "Column's type mismatch");
+        assertThrows(TupleMarshallerException.class, () -> marshaller.marshal(badTup.set("number1", BigInteger.valueOf(-999991L))), "Column's type mismatch");
+        assertThrows(TupleMarshallerException.class, () -> marshaller.marshal(badTup.set("number1", new BigInteger("-111111"))), "Column's type mismatch");
     }
 
     /**
@@ -172,19 +171,19 @@ public class NumericTypesSerializerTest {
 
         TupleMarshaller marshaller = new TupleMarshallerImpl(null, tbl, new DummySchemaManagerImpl(schema));
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(TupleMarshallerException.class,
             () -> marshaller.marshal(badTup.set("decimalCol", new BigDecimal("123456789.0123"))),
             "Failed to set decimal value for column"
         );
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(TupleMarshallerException.class,
             () -> marshaller.marshal(badTup.set("decimalCol", new BigDecimal("-1234567890123"))),
             "Failed to set decimal value for column"
         );
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(TupleMarshallerException.class,
             () -> marshaller.marshal(badTup.set("decimalCol", new BigDecimal("1234567"))),
             "Failed to set decimal value for column"
         );
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(TupleMarshallerException.class,
             () -> marshaller.marshal(badTup.set("decimalCol", new BigDecimal("12345678.9"))),
             "Failed to set decimal value for column"
         );
