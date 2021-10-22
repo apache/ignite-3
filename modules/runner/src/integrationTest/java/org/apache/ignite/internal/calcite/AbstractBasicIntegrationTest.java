@@ -117,6 +117,8 @@ public class AbstractBasicIntegrationTest {
 
         IgniteUtils.closeAll(ITUtils.reverse(CLUSTER_NODES));
 
+        CLUSTER_NODES.clear();
+
         LOG.info("End tearDown()");
     }
 
