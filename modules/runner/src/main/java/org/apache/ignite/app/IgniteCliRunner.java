@@ -17,7 +17,6 @@
 
 package org.apache.ignite.app;
 
-
 import static picocli.CommandLine.Model.CommandSpec;
 import static picocli.CommandLine.Model.OptionSpec;
 import static picocli.CommandLine.Model.PositionalParamSpec;
