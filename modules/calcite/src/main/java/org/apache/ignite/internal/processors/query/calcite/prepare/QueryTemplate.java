@@ -18,12 +18,11 @@
 package org.apache.ignite.internal.processors.query.calcite.prepare;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
+import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.processors.query.calcite.metadata.FragmentMappingException;
 import org.apache.ignite.internal.processors.query.calcite.metadata.MappingService;
@@ -104,7 +103,7 @@ public class QueryTemplate {
     private List<Fragment> replace(List<Fragment> fragments, Fragment fragment, List<Fragment> replacement) {
         assert !nullOrEmpty(replacement);
 
-        Map<Long, Long> newTargets = new HashMap<>();
+        Long2LongOpenHashMap newTargets = new Long2LongOpenHashMap();
         for (Fragment fragment0 : replacement) {
             for (IgniteReceiver remote : fragment0.remotes())
                 newTargets.put(remote.exchangeId(), fragment0.fragmentId());

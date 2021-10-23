@@ -18,12 +18,11 @@
 package org.apache.ignite.internal.processors.query.calcite.rel;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollation;
@@ -304,9 +303,10 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
         ImmutableIntList sourceKeys = left2Right ? joinInfo.leftKeys : joinInfo.rightKeys;
         ImmutableIntList targetKeys = left2Right ? joinInfo.rightKeys : joinInfo.leftKeys;
 
-        Map<Integer, Integer> keyMap = new HashMap<>();
+        Int2IntOpenHashMap keyMap = new Int2IntOpenHashMap(joinInfo.leftKeys.size());
+
         for (int i = 0; i < joinInfo.leftKeys.size(); i++)
-            keyMap.put(sourceKeys.get(i), targetKeys.get(i));
+            keyMap.put((int)sourceKeys.get(i), (int)targetKeys.get(i));
 
         return Mappings.target(
             keyMap,

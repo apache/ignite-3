@@ -20,10 +20,10 @@ package org.apache.ignite.internal.processors.query.calcite.rel;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptPlanner;
@@ -39,6 +39,7 @@ import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.Pair;
+import org.apache.calcite.util.mapping.IntPair;
 import org.apache.ignite.internal.processors.query.calcite.externalize.RelInputEx;
 import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteCostFactory;
@@ -166,8 +167,13 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
 
         int rightOff = this.left.getRowType().getFieldCount();
 
-        Map<Integer, Integer> rightToLeft = joinInfo.pairs().stream()
-            .collect(Collectors.toMap(p -> p.target, p -> p.source));
+        List<IntPair> pairs = joinInfo.pairs();
+
+        Int2IntOpenHashMap rightToLeft = new Int2IntOpenHashMap(pairs.size());
+
+        for (IntPair pair : pairs) {
+            rightToLeft.put(pair.target, pair.source);
+        }
 
         List<Integer> collationLeftPrj = new ArrayList<>();
 
@@ -181,8 +187,11 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
 
         List<Integer> newLeftCollation, newRightCollation;
 
-        Map<Integer, Integer> leftToRight = joinInfo.pairs().stream()
-            .collect(Collectors.toMap(p -> p.source, p -> p.target));
+        Int2IntOpenHashMap leftToRight = new Int2IntOpenHashMap(pairs.size());
+
+        for (IntPair pair : pairs) {
+            leftToRight.put(pair.source, pair.target);
+        }
 
         if (isPrefix(collationLeftPrj, joinInfo.leftKeys)) { // preserve collation
             newLeftCollation = new ArrayList<>();

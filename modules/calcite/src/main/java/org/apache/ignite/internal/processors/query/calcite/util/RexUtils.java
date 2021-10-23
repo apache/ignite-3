@@ -21,12 +21,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPredicateList;
@@ -173,7 +172,7 @@ public class RexUtils {
 
         condition = RexUtil.toCnf(builder(cluster), condition);
 
-        Map<Integer, List<RexCall>> fieldsToPredicates = mapPredicatesToFields(condition, cluster);
+        Int2ObjectOpenHashMap<List<RexCall>> fieldsToPredicates = mapPredicatesToFields(condition, cluster);
 
         if (nullOrEmpty(fieldsToPredicates))
             return new IndexConditions();
@@ -291,7 +290,7 @@ public class RexUtils {
     ) {
         condition = RexUtil.toCnf(builder(cluster), condition);
 
-        Map<Integer, List<RexCall>> fieldsToPredicates = mapPredicatesToFields(condition, cluster);
+        Int2ObjectOpenHashMap<List<RexCall>> fieldsToPredicates = mapPredicatesToFields(condition, cluster);
 
         if (nullOrEmpty(fieldsToPredicates))
             return null;
@@ -328,10 +327,10 @@ public class RexUtils {
     }
 
     /** */
-    private static Map<Integer, List<RexCall>> mapPredicatesToFields(RexNode condition, RelOptCluster cluster) {
+    private static Int2ObjectOpenHashMap<List<RexCall>> mapPredicatesToFields(RexNode condition, RelOptCluster cluster) {
         List<RexNode> conjunctions = RelOptUtil.conjunctions(condition);
 
-        Map<Integer, List<RexCall>> res = new HashMap<>(conjunctions.size());
+        Int2ObjectOpenHashMap<List<RexCall>> res = new Int2ObjectOpenHashMap<>(conjunctions.size());
 
         for (RexNode rexNode : conjunctions) {
             if (!isBinaryComparison(rexNode))

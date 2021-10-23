@@ -18,11 +18,10 @@
 package org.apache.ignite.internal.processors.query.calcite.rel;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
@@ -135,7 +134,7 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
         if (fieldCollations.isEmpty())
             return Pair.of(nodeTraits, List.of(in.replace(RelCollations.EMPTY)));
 
-        Map<Integer, Integer> targets = new HashMap<>();
+        Int2IntOpenHashMap targets = new Int2IntOpenHashMap();
         for (Ord<RexNode> project : Ord.zip(getProjects())) {
             if (project.e instanceof RexInputRef)
                 targets.putIfAbsent(project.i, ((RexSlot)project.e).getIndex());

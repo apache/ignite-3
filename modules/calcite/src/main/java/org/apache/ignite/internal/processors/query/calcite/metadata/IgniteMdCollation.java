@@ -22,7 +22,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +31,7 @@ import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import com.google.common.collect.ImmutableList;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import org.apache.calcite.adapter.enumerable.EnumerableCorrelate;
 import org.apache.calcite.adapter.enumerable.EnumerableHashJoin;
 import org.apache.calcite.adapter.enumerable.EnumerableMergeJoin;
@@ -294,12 +294,13 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
         RelNode input, List<? extends RexNode> projects) {
         final SortedSet<RelCollation> collations = new TreeSet<>();
         final List<RelCollation> inputCollations = mq.collations(input);
-        if (inputCollations == null || inputCollations.isEmpty()) {
+
+        if (inputCollations == null || inputCollations.isEmpty())
             return List.of();
-        }
-        final Map<Integer, List<Integer>> targets = new HashMap<>();
-        final Map<Integer, SqlMonotonicity> targetsWithMonotonicity =
-            new HashMap<>();
+
+        Int2ObjectOpenHashMap<List<Integer>> targets = new Int2ObjectOpenHashMap<>();
+        Int2ObjectOpenHashMap<SqlMonotonicity> targetsWithMonotonicity = new Int2ObjectOpenHashMap<>();
+
         for (Ord<RexNode> project : Ord.<RexNode>zip(projects)) {
             if (project.e instanceof RexInputRef) {
                 targets.compute(((RexSlot)project.e).getIndex(), (k, v) -> {
