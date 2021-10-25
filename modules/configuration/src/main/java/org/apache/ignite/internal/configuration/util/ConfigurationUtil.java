@@ -169,7 +169,7 @@ public class ConfigurationUtil {
                 else {
                     String name = keys.get(i++);
 
-                    return visitInnerNode(name, node.get(name));
+                    return visitInnerNode(name, node.getInnerNode(name));
                 }
             }
         };
@@ -302,11 +302,11 @@ public class ConfigurationUtil {
                 namedList = node.traverseChild(key, namedListNodeVisitor(), true);
 
                 for (String namedListKey : namedList.namedListKeys()) {
-                    if (namedList.get(namedListKey) != null) {
+                    if (namedList.getInnerNode(namedListKey) != null) {
                         // Copy the element.
                         namedList.construct(namedListKey, EMPTY_CFG_SRC, true);
 
-                        addDefaults(namedList.get(namedListKey));
+                        addDefaults(namedList.getInnerNode(namedListKey));
                     }
                 }
 
@@ -330,7 +330,7 @@ public class ConfigurationUtil {
 
             @Override public Object visitNamedListNode(String key, NamedListNode<?> namedList) {
                 for (String namedListKey : namedList.namedListKeys()) {
-                    InnerNode element = namedList.get(namedListKey);
+                    InnerNode element = namedList.getInnerNode(namedListKey);
 
                     if (element == null)
                         namedList.forceDelete(namedListKey);

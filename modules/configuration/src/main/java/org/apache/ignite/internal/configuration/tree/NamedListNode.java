@@ -37,9 +37,9 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.ad
  * Configuration node implementation for the collection of named {@link InnerNode}s. Unlike implementations of
  * {@link InnerNode}, this class is used for every named list in configuration.
  *
- * @param <N> Type of the {@link InnerNode} that is stored in named list node object.
+ * @param <N> Type of the that is stored in named list node object.
  */
-public final class NamedListNode<N extends InnerNode> implements NamedListChange<N, N>, TraversableTreeNode, ConstructableTreeNode {
+public final class NamedListNode<N> implements NamedListChange<N, N>, TraversableTreeNode, ConstructableTreeNode {
     /** Name of a synthetic configuration property that describes the order of elements in a named list. */
     public static final String ORDER_IDX = "<order>";
 
@@ -50,10 +50,10 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
     private final String syntheticKeyName;
 
     /** Supplier of new node objects when new list element node has to be created. */
-    private final Supplier<N> valSupplier;
+    private final Supplier<InnerNode> valSupplier;
 
-    /** Internal container for named list element. Maps keys to named list elements nodes with their internal ids. */
-    private final OrderedMap<ElementDescriptor<N>> map;
+    /** Internal container for named list element. Map keys to named list elements nodes with their internal ids. */
+    private final OrderedMap<ElementDescriptor> map;
 
     /** Mapping from internal ids to public keys. */
     private final Map<String, String> reverseIdMap;
@@ -65,7 +65,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
      *      representation syntax.
      * @param valSupplier Closure to instantiate values.
      */
-    public NamedListNode(String syntheticKeyName, Supplier<N> valSupplier) {
+    public NamedListNode(String syntheticKeyName, Supplier<InnerNode> valSupplier) {
         this.syntheticKeyName = syntheticKeyName;
         this.valSupplier = valSupplier;
         map = new OrderedMap<>();
@@ -107,6 +107,18 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
         return view(map.get(index));
     }
 
+    /**
+     * Returns {@link InnerNode} associated with the passed key.
+     *
+     * @param key Key string.
+     * @return Requested value.
+     */
+    @Nullable public InnerNode getInnerNode(String key) {
+        ElementDescriptor element = map.get(key);
+
+        return element == null ? null : element.value;
+    }
+
     /** {@inheritDoc} */
     @Override public int size() {
         return map.size();
@@ -119,13 +131,13 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
 
         checkNewKey(key);
 
-        ElementDescriptor<N> element = newElementDescriptor();
+        ElementDescriptor element = newElementDescriptor();
 
         map.put(key, element);
 
         reverseIdMap.put(element.internalId, key);
 
-        valConsumer.accept(element.value);
+        valConsumer.accept((N)element.value);
 
         if (element.value instanceof PolymorphicInnerNode)
             addDefaults(element.value);
@@ -143,13 +155,13 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
 
         checkNewKey(key);
 
-        ElementDescriptor<N> element = newElementDescriptor();
+        ElementDescriptor element = newElementDescriptor();
 
         map.putByIndex(index, key, element);
 
         reverseIdMap.put(element.internalId, key);
 
-        valConsumer.accept(element.value);
+        valConsumer.accept((N)element.value);
 
         if (element.value instanceof PolymorphicInnerNode)
             addDefaults(element.value);
@@ -168,13 +180,13 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
 
         checkNewKey(key);
 
-        ElementDescriptor<N> element = newElementDescriptor();
+        ElementDescriptor element = newElementDescriptor();
 
         map.putAfter(precedingKey, key, element);
 
         reverseIdMap.put(element.internalId, key);
 
-        valConsumer.accept(element.value);
+        valConsumer.accept((N)element.value);
 
         if (element.value instanceof PolymorphicInnerNode)
             addDefaults(element.value);
@@ -200,7 +212,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
         if (!map.containsKey(oldKey))
             throw new IllegalArgumentException("Element with name " + oldKey + " does not exist.");
 
-        ElementDescriptor<N> element = map.get(oldKey);
+        ElementDescriptor element = map.get(oldKey);
 
         if (element.value == null) {
             throw new IllegalArgumentException(
@@ -259,7 +271,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
      * @param internalId New id to associate with the key.
      */
     public void setInternalId(String key, String internalId) {
-        ElementDescriptor<N> element = map.get(key);
+        ElementDescriptor element = map.get(key);
 
         if (element != null) {
             reverseIdMap.remove(element.internalId);
@@ -279,7 +291,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
      * @throws IllegalArgumentException If {@code key} is not found in the named list.
      */
     public String internalId(String key) {
-        ElementDescriptor<N> element = map.get(key);
+        ElementDescriptor element = map.get(key);
 
         if (element == null)
             throw new IllegalArgumentException("Element with name '" + key + "' does not exist.");
@@ -312,7 +324,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
      * @param key Element's key.
      */
     public void forceDelete(String key) {
-        ElementDescriptor<N> removed = map.remove(key);
+        ElementDescriptor removed = map.remove(key);
 
         if (removed != null)
             reverseIdMap.remove(removed.internalId);
@@ -347,12 +359,12 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
      *
      * @return New element instance with initialized defaults.
      */
-    private NamedListNode.ElementDescriptor<N> newElementDescriptor() {
-        N newElement = valSupplier.get();
+    private NamedListNode.ElementDescriptor newElementDescriptor() {
+        InnerNode newElement = valSupplier.get();
 
         addDefaults(newElement);
 
-        return new ElementDescriptor<>(newElement);
+        return new ElementDescriptor(newElement);
     }
 
     /**
@@ -378,7 +390,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
         if (map.containsKey(key) && map.get(key).value == null)
             throw new IllegalArgumentException("You can't create entity that has just been deleted [key=" + key + ']');
 
-        ElementDescriptor<N> element = map.get(key);
+        ElementDescriptor element = map.get(key);
         
         if (element == null) {
             element = newElementDescriptor();
@@ -414,7 +426,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
         map.put(key, element);
 
         if (valConsumer != null)
-            valConsumer.accept(element.value);
+            valConsumer.accept((N)element.value);
         else
             src.descend(element.value);
 
@@ -424,22 +436,20 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
 
     /**
      * Descriptor for internal named list element representation. Has node itself and its internal id.
-     *
-     * @param <N> Type of the node.
      */
-    private static class ElementDescriptor<N extends InnerNode> {
+    private static class ElementDescriptor {
         /** Element's internal id. */
         public String internalId;
 
         /** Element node value. */
-        public N value;
+        public InnerNode value;
 
         /**
          * Constructor.
          *
          * @param value Node instance.
          */
-        ElementDescriptor(N value) {
+        ElementDescriptor(InnerNode value) {
             this.value = value;
             // Remove dashes so that id would be a bit shorter and easier to validate in tests.
             // This string won't be visible by end users anyway.
@@ -452,7 +462,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
          * @param internalId Internal id.
          * @param value Node instance.
          */
-        private ElementDescriptor(String internalId, N value) {
+        private ElementDescriptor(String internalId, InnerNode value) {
             this.internalId = internalId;
             this.value = value;
         }
@@ -463,8 +473,8 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
          * @return New instance with the same internal id but copied node instance.
          * @see InnerNode#copy()
          */
-        public ElementDescriptor<N> copy() {
-            return new ElementDescriptor<>(internalId, (N)value.copy());
+        public ElementDescriptor copy() {
+            return new ElementDescriptor(internalId, value.copy());
         }
 
         /**
@@ -472,25 +482,24 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
          *
          * @return New instance with the same internal id and node instance.
          */
-        public ElementDescriptor<N> shallowCopy() {
-            return new ElementDescriptor<>(internalId, value);
+        public ElementDescriptor shallowCopy() {
+            return new ElementDescriptor(internalId, value);
         }
     }
 
     /**
-     * Returns view named list element.
+     * Returns named list element view.
      *
-     * @param element Internal named list element representation.
+     * @param element Internal named list element.
      * @return View.
      */
-    @Nullable private N view(@Nullable ElementDescriptor<N> element) {
+    @Nullable private N view(@Nullable ElementDescriptor element) {
         if (element == null)
             return null;
         else {
-            N value = element.value;
+            InnerNode node = element.value;
 
-            return value;
-//            return value instanceof PolymorphicInnerNode ? ((PolymorphicInnerNode)value).specificView() : value;
+            return node instanceof PolymorphicInnerNode ? ((PolymorphicInnerNode)node).specificView() : (N)node;
         }
     }
 }

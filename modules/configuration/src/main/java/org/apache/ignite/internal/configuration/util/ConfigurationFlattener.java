@@ -66,7 +66,7 @@ public class ConfigurationFlattener {
         int idx = 0;
 
         for (String key : node.namedListKeys()) {
-            if (node.get(key) != null)
+            if (node.getInnerNode(key) != null)
                 res.put(key, idx++);
         }
 
@@ -143,7 +143,7 @@ public class ConfigurationFlattener {
         }
 
         /** {@inheritDoc} */
-        @Override public <N extends InnerNode> Void doVisitNamedListNode(String key, NamedListNode<N> newNode) {
+        @Override public Void doVisitNamedListNode(String key, NamedListNode<?> newNode) {
             // Read same named list node from old tree.
             NamedListNode<?> oldNode = oldInnerNodesStack.peek().traverseChild(key, ConfigurationUtil.namedListNodeVisitor(), true);
 
@@ -163,10 +163,10 @@ public class ConfigurationFlattener {
                 String newNodeInternalId = newNode.internalId(newNodeKey);
 
                 withTracking(newNodeInternalId, false, false, () -> {
-                    InnerNode newNamedElement = newNode.get(newNodeKey);
+                    InnerNode newNamedElement = newNode.getInnerNode(newNodeKey);
 
                     String oldNodeKey = oldNode.keyByInternalId(newNodeInternalId);
-                    InnerNode oldNamedElement = oldNode.get(oldNodeKey);
+                    InnerNode oldNamedElement = oldNode.getInnerNode(oldNodeKey);
 
                     // Deletion of nonexistent element.
                     if (oldNamedElement == null && newNamedElement == null)

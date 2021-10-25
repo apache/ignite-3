@@ -185,9 +185,6 @@ public class ConfigurationAsmGenerator {
     /** {@code DynamicConfiguration#add} method. */
     private static final Method DYNAMIC_CONFIGURATION_ADD_MTD;
 
-    /** {@link Object#Object()}. */
-    private static final Constructor<?> OBJECT_CTOR;
-
     /** {@link Objects#requireNonNull(Object, String)} */
     private static final Method REQUIRE_NON_NULL;
 
@@ -294,8 +291,6 @@ public class ConfigurationAsmGenerator {
             );
 
             REQUIRE_NON_NULL = Objects.class.getDeclaredMethod("requireNonNull", Object.class, String.class);
-
-            OBJECT_CTOR = Object.class.getConstructor();
 
             CLASS_GET_NAME_MTD = Class.class.getDeclaredMethod("getName");
 
@@ -1932,7 +1927,7 @@ public class ConfigurationAsmGenerator {
                 parentInnerNodeFieldDef,
                 parentVar
             ))
-            .invokeConstructor(OBJECT_CTOR)
+            .invokeConstructor(Object.class)
             .ret();
 
         Map<String, FieldDefinition> fieldDefs = schemaInnerNodeClassDef.getFields().stream()
@@ -2611,7 +2606,7 @@ public class ConfigurationAsmGenerator {
                 // if(tmpStr != null) this.field.setPolymorphicTypeId(tmpStr);
                 // else {
                 //      this.field.constructDefault("typeId");
-                //      if(this.field.typeId == null) throw new RuntimeException();
+                //      if(this.field.typeId == null) throw new IllegalStateException();
                 // }
                 BytecodeBlock newInstanceWithChange = new BytecodeBlock()
                     .append(setThisFieldCode(constructMtd, newInstance(fieldDefType), schemaFieldDef))
@@ -2622,7 +2617,11 @@ public class ConfigurationAsmGenerator {
                             .append(thisField.invoke(CONSTRUCT_DEFAULT_MTD, constantString(polymorphicIdField.getName())))
                             .append(new IfStatement()
                                 .condition(isNull(thisField.getField(polymorphicIdField.getName(), String.class)))
-                                .ifTrue(throwException(RuntimeException.class))
+                                .ifTrue(throwException(
+                                    IllegalStateException.class,
+                                    constantString("Polymorphic configuration type is not defined: " +
+                                        polymorphicIdField.getDeclaringClass().getName())
+                                ))
                             )
                         )
                     );
