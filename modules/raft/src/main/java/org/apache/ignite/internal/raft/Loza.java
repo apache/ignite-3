@@ -48,9 +48,6 @@ import org.jetbrains.annotations.ApiStatus.Experimental;
  * Best raft manager ever since 1982.
  */
 public class Loza implements IgniteComponent {
-    /** Ignite logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteLogger.class);
-
     /** Factory. */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
