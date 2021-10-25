@@ -32,7 +32,6 @@ import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
