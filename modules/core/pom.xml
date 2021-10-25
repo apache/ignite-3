@@ -107,20 +107,20 @@
                                 <shadedPattern>it.unimi.dsi.shaded.fastutil</shadedPattern>
                             </relocation>
                         </relocations>
-                        <filters>
-                            <filter>
-                                <artifact>*:*</artifact>
-                                <excludes>
-                                    <exclude>it/unimi/dsi/fastutil/chars/**</exclude>
-                                    <exclude>it/unimi/dsi/fastutil/booleans/**</exclude>
-                                    <exclude>it/unimi/dsi/fastutil/doubles/**</exclude>
-                                    <exclude>it/unimi/dsi/fastutil/floats/**</exclude>
-                                    <exclude>it/unimi/dsi/fastutil/io/**</exclude>
-                                    <exclude>it/unimi/dsi/fastutil/objects/**</exclude>
-                                    <exclude>it/unimi/dsi/fastutil/shorts/**</exclude>
-                                </excludes>
-                            </filter>
-                        </filters>
+<!--                        <filters>-->
+<!--                            <filter>-->
+<!--                                <artifact>*:*</artifact>-->
+<!--                                <excludes>-->
+<!--                                    <exclude>it/unimi/dsi/fastutil/chars/**</exclude>-->
+<!--                                    <exclude>it/unimi/dsi/fastutil/booleans/**</exclude>-->
+<!--                                    <exclude>it/unimi/dsi/fastutil/doubles/**</exclude>-->
+<!--                                    <exclude>it/unimi/dsi/fastutil/floats/**</exclude>-->
+<!--                                    <exclude>it/unimi/dsi/fastutil/io/**</exclude>-->
+<!--                                    <exclude>it/unimi/dsi/fastutil/objects/**</exclude>-->
+<!--                                    <exclude>it/unimi/dsi/fastutil/shorts/**</exclude>-->
+<!--                                </excludes>-->
+<!--                            </filter>-->
+<!--                        </filters>-->
                     </configuration>
                     </execution>
                 </executions>
