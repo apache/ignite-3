@@ -251,8 +251,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         catch (Throwable t) {
             out.close();
 
-            LOG.warn("Send error message to client due to exception", t);
-
             writeError(requestId, t, ctx);
         }
     }

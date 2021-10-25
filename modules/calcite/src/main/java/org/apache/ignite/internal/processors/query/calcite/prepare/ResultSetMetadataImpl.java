@@ -21,7 +21,6 @@ import java.util.List;
 
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.processors.query.calcite.ResultFieldMetadata;
-import org.apache.ignite.internal.processors.query.calcite.ResultSetMetadata;
 
 /**
  * Results set metadata holder.

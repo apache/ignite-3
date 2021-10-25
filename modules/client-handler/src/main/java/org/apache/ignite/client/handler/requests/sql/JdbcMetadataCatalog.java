@@ -29,6 +29,7 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
 import org.apache.ignite.client.proto.query.event.JdbcColumnMeta;
 import org.apache.ignite.client.proto.query.event.JdbcPrimaryKeyMeta;
 import org.apache.ignite.client.proto.query.event.JdbcTableMeta;

@@ -26,7 +26,6 @@ import java.util.UUID;
 import org.apache.ignite.internal.processors.query.calcite.ResultSetMetadata;
 import org.apache.ignite.internal.processors.query.calcite.SqlCursor;
 import org.apache.ignite.internal.processors.query.calcite.SqlQueryType;
-import org.apache.ignite.internal.processors.query.calcite.prepare.FieldsMetadata;
 
 public class FakeCursor implements SqlCursor<List<?>> {
 
