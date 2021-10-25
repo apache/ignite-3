@@ -21,13 +21,13 @@ set -o nounset; set -o errexit; set -o pipefail; set -o errtrace; set -o functra
 ## VARS ##
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 PATH__RPM="${1}"
-FILE__RPM=$(basename ${$PATH__RPM})
+FILE__RPM=$(basename "${PATH__RPM}")
 
 
 ## START ##
-cd ${SCRIPT_DIR}
-mv -fv ${PATH__RPM} ./
-alien --scripts --verbose --keep-version --single ${FILE__RPM}
+cd "${SCRIPT_DIR}"
+mv -fv "${PATH__RPM}" ./
+alien --scripts --verbose --keep-version --single "${FILE__RPM}"
 cd apache-ignite-*
 fakeroot debian/rules binary
 mv -fv ../apache-ignite_*.deb ./
