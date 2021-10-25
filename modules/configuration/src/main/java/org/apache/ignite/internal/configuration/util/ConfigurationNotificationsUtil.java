@@ -115,6 +115,10 @@ public class ConfigurationNotificationsUtil {
             eventConfigs
         );
 
+        // Polymorphic configuration type has changed.
+        if (oldInnerNode.schemaType() != newInnerNode.schemaType())
+            return;
+
         oldInnerNode.traverseChildren(new ConfigurationVisitor<Void>() {
             /** {@inheritDoc} */
             @Override public Void visitLeafNode(String key, Serializable oldLeaf) {
