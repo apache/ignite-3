@@ -96,8 +96,6 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         try {
             cursors = processor.query(req.schemaName(), req.sqlQuery(), req.arguments() == null ? new Object[0] : req.arguments());
         } catch (Exception e) {
-            e.printStackTrace(System.err);
-
             StringWriter sw = getWriterWithStackTrace(e);
 
             return new QueryExecuteResult(Response.STATUS_FAILED,

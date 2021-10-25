@@ -604,7 +604,7 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
             );
         }
 
-        return new ResultSetMetadataImpl(sqlType, fields);
+        return new ResultSetMetadataImpl(resultType, fields);
     }
 
     /** */
