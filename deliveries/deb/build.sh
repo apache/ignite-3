@@ -28,6 +28,7 @@ FILE__RPM=$(basename "${PATH__RPM}")
 cd "${SCRIPT_DIR}"
 mv -fv "${PATH__RPM}" ./
 alien --scripts --verbose --keep-version --single "${FILE__RPM}"
+rm -rf "${FILE__RPM}"
 cd apache-ignite-*
 fakeroot debian/rules binary
 mv -fv ../apache-ignite_*.deb ./
