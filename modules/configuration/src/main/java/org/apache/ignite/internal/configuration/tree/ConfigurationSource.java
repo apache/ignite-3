@@ -19,7 +19,9 @@ package org.apache.ignite.internal.configuration.tree;
 
 import org.jetbrains.annotations.Nullable;
 
-/** */
+/**
+ * Configuration source.
+ */
 public interface ConfigurationSource {
     /**
      * Treat current configuration source as a leaf value and try to convert it to the specific class.

@@ -87,6 +87,7 @@ import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
+import org.apache.ignite.internal.configuration.tree.PolymorphicInnerNode;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Handle;
@@ -181,7 +182,7 @@ public class ConfigurationAsmGenerator {
     /** {@link ConstructableTreeNode#copy()} */
     private static final Method COPY;
 
-    /** {@link DynamicConfiguration#add} method. */
+    /** {@code DynamicConfiguration#add} method. */
     private static final Method DYNAMIC_CONFIGURATION_ADD_MTD;
 
     /** {@link Object#Object()}. */
@@ -189,9 +190,6 @@ public class ConfigurationAsmGenerator {
 
     /** {@link Objects#requireNonNull(Object, String)} */
     private static final Method REQUIRE_NON_NULL;
-
-    /** {@link DynamicProperty#value} method. */
-    private static final Method DYNAMIC_PROPERTY_VALUE_MTD;
 
     /** {@link Class#getName} method. */
     private static final Method CLASS_GET_NAME_MTD;
@@ -205,23 +203,26 @@ public class ConfigurationAsmGenerator {
     /** {@link InnerNode#constructDefault} method. */
     private static final Method CONSTRUCT_DEFAULT_MTD;
 
-    /** {@link ConfigurationNode#refreshValue} method. */
+    /** {@code ConfigurationNode#refreshValue} method. */
     private static final Method REFRESH_VALUE_MTD;
 
-    /** {@link PolymorphicDynamicConfiguration#addMember} method. */
+    /** {@code PolymorphicDynamicConfiguration#addMember} method. */
     private static final Method ADD_MEMBER_MTD;
 
-    /** {@link PolymorphicDynamicConfiguration#removeMember} method. */
+    /** {@code PolymorphicDynamicConfiguration#removeMember} method. */
     private static final Method REMOVE_MEMBER_MTD;
 
-    /** {@link InnerNode#specificView} method name. */
-    private static final String SPECIFIC_VIEW_MTD_NAME = "specificView";
+    /** {@link PolymorphicInnerNode#specificView} method. */
+    private static final Method SPECIFIC_VIEW_MTD;
 
-    /** {@link InnerNode#specificChange} method name. */
-    private static final String SPECIFIC_CHANGE_MTD_NAME = "specificChange";
+    /** {@link PolymorphicInnerNode#specificChange} method. */
+    private static final Method SPECIFIC_CHANGE_MTD;
 
-    /** {@link PolymorphicDynamicConfiguration#specificConfigTree} method name. */
-    private static final String SPECIFIC_CONFIG_TREE_MTD_NAME = "specificConfigTree";
+    /** {@link PolymorphicInnerNode#setPolymorphicTypeId} method. */
+    private static final Method SET_POLYMORPHIC_TYPE_ID_MTD;
+
+    /** {@link PolymorphicDynamicConfiguration#specificConfigTree} method. */
+    private static final Method SPECIFIC_CONFIG_TREE_MTD;
 
     /** {@code Node#convert} method name. */
     private static final String CONVERT_MTD_NAME = "convert";
@@ -296,8 +297,6 @@ public class ConfigurationAsmGenerator {
 
             OBJECT_CTOR = Object.class.getConstructor();
 
-            DYNAMIC_PROPERTY_VALUE_MTD = DynamicProperty.class.getDeclaredMethod("value");
-
             CLASS_GET_NAME_MTD = Class.class.getDeclaredMethod("getName");
 
             STRING_EQUALS_MTD = String.class.getDeclaredMethod("equals", Object.class);
@@ -311,6 +310,14 @@ public class ConfigurationAsmGenerator {
             ADD_MEMBER_MTD = PolymorphicDynamicConfiguration.class.getDeclaredMethod("addMember", Map.class, ConfigurationProperty.class);
 
             REMOVE_MEMBER_MTD = PolymorphicDynamicConfiguration.class.getDeclaredMethod("removeMember", Map.class, ConfigurationProperty.class);
+
+            SPECIFIC_VIEW_MTD = PolymorphicInnerNode.class.getDeclaredMethod("specificView");
+
+            SPECIFIC_CHANGE_MTD = PolymorphicInnerNode.class.getDeclaredMethod("specificChange");
+
+            SET_POLYMORPHIC_TYPE_ID_MTD = PolymorphicInnerNode.class.getDeclaredMethod("setPolymorphicTypeId", String.class);
+
+            SPECIFIC_CONFIG_TREE_MTD = PolymorphicDynamicConfiguration.class.getDeclaredMethod("specificConfigTree");
         }
         catch (NoSuchMethodException nsme) {
             throw new ExceptionInInitializerError(nsme);
@@ -526,7 +533,7 @@ public class ConfigurationAsmGenerator {
         ClassDefinition classDef = new ClassDefinition(
             of(PUBLIC, FINAL),
             internalName(schemaClassInfo.nodeClassName),
-            type(InnerNode.class),
+            type(isPolymorphicConfig(schemaClass) ? PolymorphicInnerNode.class : InnerNode.class),
             nodeClassInterfaces(schemaClass, internalExtensions)
         );
 
@@ -559,7 +566,7 @@ public class ConfigurationAsmGenerator {
         addNodeSchemaTypeMethod(classDef, schemaClass, polymorphicExtensions, specFields, polymorphicTypeIdFieldDef);
 
         // Constructor.
-        addNodeConstructor(classDef, specFields, fieldDefs, schemaFields, internalFields, polymorphicFields);
+        addNodeConstructor(classDef, schemaClass, specFields, fieldDefs, schemaFields, internalFields, polymorphicFields);
 
         // VIEW and CHANGE methods.
         for (Field schemaField : concat(schemaFields, internalFields)) {
@@ -580,8 +587,6 @@ public class ConfigurationAsmGenerator {
             addNodeChangeBridgeMethod(classDef, changeClassName(schemaField.getDeclaringClass()), changeMtd);
         }
 
-        MethodDefinition changePolymorphicTypeIdMtdDef = null;
-
         Map<Class<?>, List<Field>> polymorphicFieldsByExtension = Map.of();
 
         if (!polymorphicExtensions.isEmpty()) {
@@ -591,7 +596,11 @@ public class ConfigurationAsmGenerator {
 
             addNodeSpecificChangeMethod(classDef, polymorphicExtensions, polymorphicTypeIdFieldDef);
 
-            changePolymorphicTypeIdMtdDef = addNodeChangePolymorphicTypeIdMethod(
+            addNodeGetPolymorphicTypeIdFieldNameMethod(classDef, polymorphicTypeIdFieldDef);
+
+            addNodeGetPolymorphicTypeIdMethod(classDef, polymorphicTypeIdFieldDef);
+
+            addNodeSetPolymorphicTypeIdMethod(
                 classDef,
                 fieldDefs,
                 polymorphicExtensions,
@@ -599,7 +608,7 @@ public class ConfigurationAsmGenerator {
                 polymorphicTypeIdFieldDef
             );
 
-            addNodeConvertMethod(classDef, schemaClass, polymorphicExtensions, changePolymorphicTypeIdMtdDef);
+            addNodeConvertMethod(classDef, schemaClass, polymorphicExtensions);
 
             polymorphicFieldsByExtension = new LinkedHashMap<>();
 
@@ -641,8 +650,7 @@ public class ConfigurationAsmGenerator {
             schemaFields,
             internalFields,
             polymorphicFieldsByExtension,
-            polymorphicTypeIdFieldDef,
-            changePolymorphicTypeIdMtdDef
+            polymorphicTypeIdFieldDef
         );
 
         // constructDefault
@@ -746,6 +754,7 @@ public class ConfigurationAsmGenerator {
      * that represents named list configuration.
      *
      * @param classDef          Node class definition.
+     * @param schemaClass       Configuration schema class.
      * @param specFields        Definition of fields for the {@code _spec#} fields of the node class.
      *                          Mapping: configuration schema class -> {@code _spec#} field.
      * @param fieldDefs         Field definitions for all fields of node class excluding {@code _spec}.
@@ -755,6 +764,7 @@ public class ConfigurationAsmGenerator {
      */
     private void addNodeConstructor(
         ClassDefinition classDef,
+        Class<?> schemaClass,
         Map<Class<?>, FieldDefinition> specFields,
         Map<String, FieldDefinition> fieldDefs,
         Collection<Field> schemaFields,
@@ -764,7 +774,9 @@ public class ConfigurationAsmGenerator {
         MethodDefinition ctor = classDef.declareConstructor(of(PUBLIC));
 
         // super();
-        ctor.getBody().append(ctor.getThis()).invokeConstructor(InnerNode.class);
+        ctor.getBody()
+            .append(ctor.getThis())
+            .invokeConstructor(isPolymorphicConfig(schemaClass) ? PolymorphicInnerNode.class : InnerNode.class);
 
         // this._spec# = new MyConfigurationSchema();
         for (Map.Entry<Class<?>, FieldDefinition> e : specFields.entrySet())
@@ -835,13 +847,9 @@ public class ConfigurationAsmGenerator {
             // result = result.clone();
             viewMtd.getBody().invokeVirtual(schemaFieldType, "clone", Object.class).checkCast(schemaFieldType);
         }
-        else if (isPolymorphicConfig(schemaFieldType)) {
+        else if (isPolymorphicConfig(schemaFieldType) && isConfigValue(schemaField)) {
             // result = result.specificView();
-            viewMtd.getBody().invokeVirtual(
-                typeFromJavaClassName(schemaClassInfo.nodeClassName),
-                SPECIFIC_VIEW_MTD_NAME,
-                type(Object.class)
-            );
+            viewMtd.getBody().invokeVirtual(SPECIFIC_VIEW_MTD);
         }
 
         // return result;
@@ -907,9 +915,9 @@ public class ConfigurationAsmGenerator {
             // this.field;
             BytecodeExpression getFieldCode = getThisFieldCode(changeMtd, fieldDefs);
 
-            if (isPolymorphicConfig(schemaFieldType)) {
+            if (isPolymorphicConfig(schemaFieldType) && isConfigValue(schemaField)) {
                 // this.field.specificChange();
-                getFieldCode = getFieldCode.invoke(SPECIFIC_CHANGE_MTD_NAME, Object.class);
+                getFieldCode = getFieldCode.invoke(SPECIFIC_CHANGE_MTD);
             }
 
             // change.accept(this.field);
@@ -1021,7 +1029,11 @@ public class ConfigurationAsmGenerator {
                 switchBuilderTypeId.addCase(polymorphicInstanceId(e.getKey()), codeBlock);
             }
 
-            mtdBody.append(switchBuilderTypeId.build());
+            mtdBody.append(
+                new IfStatement()
+                    .condition(isNotNull(getThisFieldCode(traverseChildrenMtd, polymorphicTypeIdFieldDef)))
+                    .ifTrue(switchBuilderTypeId.build())
+            );
         }
 
         mtdBody.ret();
@@ -1155,8 +1167,6 @@ public class ConfigurationAsmGenerator {
      * @param internalFields                Fields of internal extensions of the configuration schema.
      * @param polymorphicFieldsByExtension  Fields of polymorphic configuration instances grouped by them.
      * @param polymorphicTypeIdFieldDef     Identification field for the polymorphic configuration instance.
-     * @param changePolymorphicTypeIdMtdDef Definition of a method for changing the type (identifier) of an instance of
-     *                                      a polymorphic configuration with resetting the corresponding fields.
      */
     private void addNodeConstructMethod(
         ClassDefinition classDef,
@@ -1164,8 +1174,7 @@ public class ConfigurationAsmGenerator {
         Collection<Field> schemaFields,
         Collection<Field> internalFields,
         Map<Class<?>, List<Field>> polymorphicFieldsByExtension,
-        @Nullable FieldDefinition polymorphicTypeIdFieldDef,
-        @Nullable MethodDefinition changePolymorphicTypeIdMtdDef
+        @Nullable FieldDefinition polymorphicTypeIdFieldDef
     ) {
         MethodDefinition constructMtd = classDef.declareMethod(
             of(PUBLIC),
@@ -1204,7 +1213,7 @@ public class ConfigurationAsmGenerator {
                         .append(constructMtd.getThis())
                         .append(tmpStrVar.set(getTypeIdFromSrcVar))
                         .append(tmpStrVar)
-                        .invokeVirtual(changePolymorphicTypeIdMtdDef)
+                        .invokeVirtual(SET_POLYMORPHIC_TYPE_ID_MTD)
                         .ret()
                 );
             }
@@ -1217,8 +1226,7 @@ public class ConfigurationAsmGenerator {
         }
 
         if (!internalFields.isEmpty()) {
-            StringSwitchBuilder switchBuilderAllFields =
-                new StringSwitchBuilder(constructMtd.getScope())
+            StringSwitchBuilder switchBuilderAllFields = new StringSwitchBuilder(constructMtd.getScope())
                 .expression(keyVar)
                 .defaultCase(throwException(NoSuchElementException.class, keyVar));
 
@@ -1239,7 +1247,6 @@ public class ConfigurationAsmGenerator {
         }
         else if (!polymorphicFieldsByExtension.isEmpty()) {
             assert polymorphicTypeIdFieldDef != null : classDef.getName();
-            assert changePolymorphicTypeIdMtdDef != null : classDef.getName();
 
             StringSwitchBuilder switchBuilderTypeId = typeIdSwitchBuilder(constructMtd, polymorphicTypeIdFieldDef);
 
@@ -1775,13 +1782,9 @@ public class ConfigurationAsmGenerator {
         // result = this.field;
         BytecodeBlock body = viewMtd.getBody().append(getThisFieldCode(viewMtd, fieldDefs));
 
-        if (isPolymorphicConfig(schemaFieldType)) {
+        if (isPolymorphicConfig(schemaFieldType) && isConfigValue(schemaField)) {
             // result = this.field.specificConfigTree();
-            body.invokeVirtual(
-                type(PolymorphicDynamicConfiguration.class),
-                SPECIFIC_CONFIG_TREE_MTD_NAME,
-                type(ConfigurationTree.class)
-            );
+            body.invokeVirtual(SPECIFIC_CONFIG_TREE_MTD);
         }
 
         // return result;
@@ -1920,12 +1923,14 @@ public class ConfigurationAsmGenerator {
             arg("parent", typeFromJavaClassName(schemaClassInfo.nodeClassName))
         );
 
+        Variable parentVar = constructorMtd.getScope().getVariable("parent");
+
         // Constructor body.
         constructorMtd.getBody()
             .append(constructorMtd.getThis())
             .append(constructorMtd.getThis().setField(
                 parentInnerNodeFieldDef,
-                constructorMtd.getScope().getVariable("parent")
+                parentVar
             ))
             .invokeConstructor(OBJECT_CTOR)
             .ret();
@@ -1971,11 +1976,13 @@ public class ConfigurationAsmGenerator {
             addNodeChangeBridgeMethod(classDef, polymorphicExtensionClassInfo.changeClassName, changeMtd);
         }
 
+        ParameterizedType returnType = typeFromJavaClassName(schemaClassInfo.changeClassName);
+
         // Creates {@code Node#convert}.
         MethodDefinition convertMtd = classDef.declareMethod(
             of(PUBLIC),
             CONVERT_MTD_NAME,
-            typeFromJavaClassName(schemaClassInfo.changeClassName),
+            returnType,
             arg("changeClass", Class.class)
         );
 
@@ -2040,16 +2047,18 @@ public class ConfigurationAsmGenerator {
             arg("parent", typeFromJavaClassName(schemaClassInfo.cfgImplClassName))
         );
 
+        Variable parentVar = constructorMtd.getScope().getVariable("parent");
+
         // Constructor body.
         // super(parent);
         // this.parent#cfgImpl = parent;
         constructorMtd.getBody()
             .append(constructorMtd.getThis())
-            .append(constructorMtd.getScope().getVariable("parent"))
+            .append(parentVar)
             .invokeConstructor(superClass, ConfigurationTree.class)
             .append(constructorMtd.getThis().setField(
                 parentCfgImplFieldDef,
-                constructorMtd.getScope().getVariable("parent")
+                parentVar
             ))
             .ret();
 
@@ -2073,7 +2082,7 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Adds a {@link InnerNode#specificView} override for the polymorphic configuration case.
+     * Adds a {@link PolymorphicInnerNode#specificView} override for the polymorphic configuration case.
      *
      * @param classDef Definition of a polymorphic configuration class (parent).
      * @param polymorphicExtensions Polymorphic configuration instance schemas (children).
@@ -2086,7 +2095,7 @@ public class ConfigurationAsmGenerator {
     ) {
         MethodDefinition specificViewMtd = classDef.declareMethod(
             of(PUBLIC),
-            SPECIFIC_VIEW_MTD_NAME,
+            SPECIFIC_VIEW_MTD.getName(),
             type(Object.class)
         );
 
@@ -2108,7 +2117,7 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Adds a {@link InnerNode#specificChange} override for the polymorphic configuration case.
+     * Adds a {@link PolymorphicInnerNode#specificChange} override for the polymorphic configuration case.
      *
      * @param classDef Definition of a polymorphic configuration class (parent).
      * @param polymorphicExtensions Polymorphic configuration instance schemas (children).
@@ -2121,7 +2130,7 @@ public class ConfigurationAsmGenerator {
     ) {
         MethodDefinition specificChangeMtd = classDef.declareMethod(
             of(PUBLIC),
-            SPECIFIC_CHANGE_MTD_NAME,
+            SPECIFIC_CHANGE_MTD.getName(),
             type(Object.class)
         );
 
@@ -2143,19 +2152,58 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
+     * Adds a {@link PolymorphicInnerNode#getPolymorphicTypeIdFieldName} override for the polymorphic configuration case.
+     *
+     * @param classDef Definition of a polymorphic configuration class (parent).
+     * @param polymorphicTypeIdFieldDef Identification field for the polymorphic configuration instance.
+     */
+    private void addNodeGetPolymorphicTypeIdFieldNameMethod(
+        ClassDefinition classDef,
+        FieldDefinition polymorphicTypeIdFieldDef
+    ) {
+        MethodDefinition getPolymorphicTypeIdFieldNameMtd = classDef.declareMethod(
+            of(PUBLIC),
+            "getPolymorphicTypeIdFieldName",
+            type(String.class)
+        );
+
+        getPolymorphicTypeIdFieldNameMtd.getBody()
+            .append(constantString(polymorphicTypeIdFieldDef.getName()))
+            .retObject();
+    }
+
+    /**
+     * Adds a {@link PolymorphicInnerNode#getPolymorphicTypeId} override for the polymorphic configuration case.
+     *
+     * @param classDef Definition of a polymorphic configuration class (parent).
+     * @param polymorphicTypeIdFieldDef Identification field for the polymorphic configuration instance.
+     */
+    private void addNodeGetPolymorphicTypeIdMethod(
+        ClassDefinition classDef,
+        FieldDefinition polymorphicTypeIdFieldDef
+    ) {
+        MethodDefinition getPolymorphicTypeIdMtd = classDef.declareMethod(
+            of(PUBLIC),
+            "getPolymorphicTypeId",
+            type(String.class)
+        );
+
+        getPolymorphicTypeIdMtd.getBody()
+            .append(getThisFieldCode(getPolymorphicTypeIdMtd, polymorphicTypeIdFieldDef))
+            .retObject();
+    }
+
+    /**
      * Adds a {@code *Node#convert} for the polymorphic configuration case.
      *
-     * @param classDef                      Definition of a polymorphic configuration class {@code schemaClass}.
-     * @param schemaClass                   Polymorphic configuration schema (parent).
-     * @param polymorphicExtensions         Polymorphic configuration instance schemas (children).
-     * @param changePolymorphicTypeIdMtdDef Definition of a method for changing the type (identifier) of an instance of
-     *      a polymorphic configuration with resetting the corresponding fields.
+     * @param classDef              Definition of a polymorphic configuration class {@code schemaClass}.
+     * @param schemaClass           Polymorphic configuration schema (parent).
+     * @param polymorphicExtensions Polymorphic configuration instance schemas (children).
      */
     private void addNodeConvertMethod(
         ClassDefinition classDef,
         Class<?> schemaClass,
-        Set<Class<?>> polymorphicExtensions,
-        MethodDefinition changePolymorphicTypeIdMtdDef
+        Set<Class<?>> polymorphicExtensions
     ) {
         SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaClass);
 
@@ -2184,7 +2232,7 @@ public class ConfigurationAsmGenerator {
                 polymorphicExtensionClassInfo.changeClassName,
                 new BytecodeBlock()
                     .append(constantString(polymorphicInstanceId(polymorphicExtension)))
-                    .invokeVirtual(changePolymorphicTypeIdMtdDef)
+                    .invokeVirtual(SET_POLYMORPHIC_TYPE_ID_MTD)
                     .append(newInstance(
                         typeFromJavaClassName(polymorphicExtensionClassInfo.nodeClassName),
                         convertMtd.getThis()
@@ -2200,8 +2248,7 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Adds a method for changing the type (identifier) of a polymorphic configuration instance
-     * with resetting fields that are related to other polymorphic configuration instances.
+     * Adds a {@link PolymorphicInnerNode#setPolymorphicTypeId} override for the polymorphic configuration case.
      *
      * @param classDef                  Definition of a polymorphic configuration class (parent).
      * @param fieldDefs                 Definitions for all fields in {@code classDef}.
@@ -2210,23 +2257,23 @@ public class ConfigurationAsmGenerator {
      * @param polymorphicTypeIdFieldDef Identification field for the polymorphic configuration instance.
      * @return Method for changing the type of instance of a polymorphic configuration.
      */
-    private MethodDefinition addNodeChangePolymorphicTypeIdMethod(
+    private void addNodeSetPolymorphicTypeIdMethod(
         ClassDefinition classDef,
         Map<String, FieldDefinition> fieldDefs,
         Set<Class<?>> polymorphicExtensions,
         Collection<Field> polymorphicFields,
         FieldDefinition polymorphicTypeIdFieldDef
     ) {
-        MethodDefinition changePolymorphicTypeIdMtd = classDef.declareMethod(
+        MethodDefinition setPolymorphicTypeIdMtd = classDef.declareMethod(
             of(PUBLIC),
-            changeMethodName(polymorphicTypeIdFieldDef.getName()),
+            "setPolymorphicTypeId",
             type(void.class),
             arg("typeId", String.class)
         );
 
-        Variable typeIdVar = changePolymorphicTypeIdMtd.getScope().getVariable("typeId");
+        Variable typeIdVar = setPolymorphicTypeIdMtd.getScope().getVariable("typeId");
 
-        StringSwitchBuilder switchBuilder = new StringSwitchBuilder(changePolymorphicTypeIdMtd.getScope())
+        StringSwitchBuilder switchBuilder = new StringSwitchBuilder(setPolymorphicTypeIdMtd.getScope())
             .expression(typeIdVar)
             .defaultCase(throwException(NoSuchElementException.class, typeIdVar));
 
@@ -2238,7 +2285,7 @@ public class ConfigurationAsmGenerator {
 
             // this.typeId = typeId;
             BytecodeBlock codeBlock = new BytecodeBlock()
-                .append(setThisFieldCode(changePolymorphicTypeIdMtd, typeIdVar, polymorphicTypeIdFieldDef));
+                .append(setThisFieldCode(setPolymorphicTypeIdMtd, typeIdVar, polymorphicTypeIdFieldDef));
 
             for (Field resetField : resetFields) {
                 FieldDefinition fieldDef = fieldDefs.get(fieldName(resetField));
@@ -2246,7 +2293,7 @@ public class ConfigurationAsmGenerator {
                 if (isValue(resetField) || isConfigValue(resetField)) {
                     // this.field = null;
                     codeBlock.append(setThisFieldCode(
-                        changePolymorphicTypeIdMtd,
+                        setPolymorphicTypeIdMtd,
                         constantNull(fieldDef.getType()),
                         fieldDef
                     ));
@@ -2258,7 +2305,7 @@ public class ConfigurationAsmGenerator {
 
                     // this.field = new NamedListNode<>(key, ValueNode::new);
                     codeBlock.append(setThisFieldCode(
-                        changePolymorphicTypeIdMtd,
+                        setPolymorphicTypeIdMtd,
                         newInstance(
                             NamedListNode.class,
                             constantString(namedCfgAnnotation.syntheticKeyName()),
@@ -2274,9 +2321,9 @@ public class ConfigurationAsmGenerator {
 
         // if(typeId.equals(this.typeId)) return;
         // else switch(typeId)...
-        changePolymorphicTypeIdMtd.getBody()
+        setPolymorphicTypeIdMtd.getBody()
             .append(typeIdVar)
-            .append(getThisFieldCode(changePolymorphicTypeIdMtd, polymorphicTypeIdFieldDef))
+            .append(getThisFieldCode(setPolymorphicTypeIdMtd, polymorphicTypeIdFieldDef))
             .append(
                 new IfStatement()
                     .condition(new BytecodeBlock().invokeVirtual(STRING_EQUALS_MTD))
@@ -2284,8 +2331,6 @@ public class ConfigurationAsmGenerator {
                     .ifFalse(switchBuilder.build().ret())
             )
             .ret();
-
-        return changePolymorphicTypeIdMtd;
     }
 
     /**
@@ -2304,7 +2349,7 @@ public class ConfigurationAsmGenerator {
     ) {
         MethodDefinition specificConfigMtd = classDef.declareMethod(
             of(PUBLIC),
-            SPECIFIC_CONFIG_TREE_MTD_NAME,
+            SPECIFIC_CONFIG_TREE_MTD.getName(),
             type(ConfigurationTree.class)
         );
 
@@ -2343,7 +2388,7 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Adds a {@link PolymorphicDynamicConfiguration#removeMembers} override for the polymorphic configuration case.
+     * Adds a {@code PolymorphicDynamicConfiguration#removeMembers} override for the polymorphic configuration case.
      *
      * @param classDef                  Definition of a polymorphic configuration class (parent).
      * @param schemaClass               Polymorphic configuration schema (parent).
@@ -2412,7 +2457,7 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Adds a {@link PolymorphicDynamicConfiguration#addMembers} override for the polymorphic configuration case.
+     * Adds a {@code PolymorphicDynamicConfiguration#addMembers} override for the polymorphic configuration case.
      *
      * @param classDef                  Definition of a polymorphic configuration class (parent).
      * @param schemaClass               Polymorphic configuration schema (parent).
@@ -2554,16 +2599,16 @@ public class ConfigurationAsmGenerator {
                 Variable tmpStrVar = constructMtd.getScope().createTempVariable(String.class);
 
                 // this.field = (FieldType) this.field.copy();
-                // if(tmpStr != null) this.field.changeTypeId(tmpStr);
+                // if(tmpStr != null) this.field.setPolymorphicTypeId(tmpStr);
                 BytecodeBlock copyWithChange = new BytecodeBlock()
                     .append(setThisFieldCode(constructMtd, thisField.invoke(COPY).cast(fieldDefType), schemaFieldDef))
                     .append(new IfStatement()
                         .condition(isNotNull(tmpStrVar))
-                        .ifTrue(thisField.invoke(changeMethodName(polymorphicIdField.getName()), void.class, tmpStrVar))
+                        .ifTrue(thisField.invoke(SET_POLYMORPHIC_TYPE_ID_MTD, tmpStrVar))
                     );
 
                 // this.field = new FieldType();
-                // if(tmpStr != null) this.field.changeTypeId(tmpStr);
+                // if(tmpStr != null) this.field.setPolymorphicTypeId(tmpStr);
                 // else {
                 //      this.field.constructDefault("typeId");
                 //      if(this.field.typeId == null) throw new RuntimeException();
@@ -2572,7 +2617,7 @@ public class ConfigurationAsmGenerator {
                     .append(setThisFieldCode(constructMtd, newInstance(fieldDefType), schemaFieldDef))
                     .append(new IfStatement()
                         .condition(isNotNull(tmpStrVar))
-                        .ifTrue(thisField.invoke(changeMethodName(polymorphicIdField.getName()), void.class, tmpStrVar))
+                        .ifTrue(thisField.invoke(SET_POLYMORPHIC_TYPE_ID_MTD, tmpStrVar))
                         .ifFalse(new BytecodeBlock()
                             .append(thisField.invoke(CONSTRUCT_DEFAULT_MTD, constantString(polymorphicIdField.getName())))
                             .append(new IfStatement()

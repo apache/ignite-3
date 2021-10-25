@@ -244,171 +244,6 @@ public class ConfigurationUtil {
      *      This will be fixed when method is actually used in configuration storage intergration.
      */
     public static void fillFromPrefixMap(InnerNode node, Map<String, ?> prefixMap) {
-        /** */
-        class LeafConfigurationSource implements ConfigurationSource {
-            /** */
-            private final Serializable val;
-
-            /**
-             * @param val Value.
-             */
-            private LeafConfigurationSource(Serializable val) {
-                this.val = val;
-            }
-
-            /** {@inheritDoc} */
-            @Override public <T> T unwrap(Class<T> clazz) {
-                assert val == null || clazz.isInstance(val);
-
-                return clazz.cast(val);
-            }
-
-            /** {@inheritDoc} */
-            @Override public void descend(ConstructableTreeNode node) {
-                throw new UnsupportedOperationException("descend");
-            }
-        }
-
-        /** */
-        class InnerConfigurationSource implements ConfigurationSource {
-            /** */
-            private final Map<String, ?> map;
-
-            /**
-             * @param map Prefix map.
-             */
-            private InnerConfigurationSource(Map<String, ?> map) {
-                this.map = map;
-            }
-
-            /** {@inheritDoc} */
-            @Override public <T> T unwrap(Class<T> clazz) {
-                throw new UnsupportedOperationException("unwrap");
-            }
-
-            /** {@inheritDoc} */
-            @Override public void descend(ConstructableTreeNode node) {
-                if (node instanceof NamedListNode) {
-                    descendToNamedListNode((NamedListNode<?>)node);
-
-                    return;
-                }
-
-                for (Map.Entry<String, ?> entry : map.entrySet()) {
-                    String key = entry.getKey();
-                    Object val = entry.getValue();
-
-                    assert val == null || val instanceof Map || val instanceof Serializable;
-
-                    // Ordering of indexes must be skipped here because they make no sense in this context.
-                    if (key.equals(NamedListNode.ORDER_IDX) || key.equals(NamedListNode.NAME))
-                        continue;
-
-                    if (val == null)
-                        node.construct(key, null, true);
-                    else if (val instanceof Map)
-                        node.construct(key, new InnerConfigurationSource((Map<String, ?>)val), true);
-                    else
-                        node.construct(key, new LeafConfigurationSource((Serializable)val), true);
-                }
-            }
-
-            /** {@inheritDoc} */
-            @Override public @Nullable String polymorphicTypeId(String fieldName) {
-                return (String)map.get(fieldName);
-            }
-
-            /**
-             * Specific implementation of {@link #descend(ConstructableTreeNode)} that descends into named list node and
-             * sets a proper ordering to named list elements.
-             *
-             * @param node Named list node under construction.
-             */
-            private void descendToNamedListNode(NamedListNode<?> node) {
-                // This list must be mutable and RandomAccess.
-                var orderedKeys = new ArrayList<>(((NamedListView<?>)node).namedListKeys());
-
-                for (Map.Entry<String, ?> entry : map.entrySet()) {
-                    String internalId = entry.getKey();
-                    Object val = entry.getValue();
-
-                    assert val == null || val instanceof Map || val instanceof Serializable;
-
-                    String oldKey = node.keyByInternalId(internalId);
-
-                    if (val == null) {
-                        // Given that this particular method is applied to modify existing trees rather than
-                        // creating new trees, a "hack" is required in this place. "construct" is designed to create
-                        // "change" objects, thus it would just nullify named list element instead of deleting it.
-                        node.forceDelete(oldKey);
-                    }
-                    else if (val instanceof Map) {
-                        Map<String, ?> map = (Map<String, ?>)val;
-                        int sizeDiff = 0;
-
-                        // For every named list entry modification we must take its index into account.
-                        // We do this by modifying "orderedKeys" when index is explicitly passed.
-                        Object idxObj = map.get(NamedListNode.ORDER_IDX);
-
-                        if (idxObj != null)
-                            sizeDiff++;
-
-                        String newKey = (String)map.get(NamedListNode.NAME);
-
-                        if (newKey != null)
-                            sizeDiff++;
-
-                        boolean construct = map.size() != sizeDiff;
-
-                        if (oldKey == null) {
-                            node.construct(newKey, new InnerConfigurationSource(map), true);
-
-                            node.setInternalId(newKey, internalId);
-                        }
-                        else if (newKey != null) {
-                            node.rename(oldKey, newKey);
-
-                            if (construct)
-                                node.construct(newKey, new InnerConfigurationSource(map), true);
-                        }
-                        else if (construct)
-                            node.construct(oldKey, new InnerConfigurationSource(map), true);
-                        // Else it's just index adjustment after new elements insertion.
-
-                        if (newKey == null)
-                            newKey = oldKey;
-
-                        if (idxObj != null) {
-                            assert idxObj instanceof Integer : val;
-
-                            int idx = (Integer)idxObj;
-
-                            if (idx >= orderedKeys.size()) {
-                                // Updates can come in arbitrary order. This means that array may be too small
-                                // during batch creation. In this case we have to insert enough nulls before
-                                // invoking "add" method for actual key.
-                                orderedKeys.ensureCapacity(idx + 1);
-
-                                while (idx != orderedKeys.size())
-                                    orderedKeys.add(null);
-
-                                orderedKeys.add(newKey);
-                            }
-                            else
-                                orderedKeys.set(idx, newKey);
-                        }
-                    }
-                    else
-                        node.construct(oldKey, new LeafConfigurationSource((Serializable)val), true);
-                }
-
-                node.reorderKeys(orderedKeys.size() > node.size()
-                    ? orderedKeys.subList(0, node.size())
-                    : orderedKeys
-                );
-            }
-        }
-
         new InnerConfigurationSource(prefixMap).descend(node);
     }
 
@@ -439,7 +274,7 @@ public class ConfigurationUtil {
         node.traverseChildren(new ConfigurationVisitor<>() {
             /** {@inheritDoc} */
             @Override public Object visitLeafNode(String key, Serializable val) {
-                // If source value is null then inititalise the same value on the destination node.
+                // If source value is null then initialise the same value on the destination node.
                 if (val == null)
                     node.constructDefault(key);
 
@@ -853,5 +688,178 @@ public class ConfigurationUtil {
         assert isPolymorphicConfigInstance(schemaClass) : schemaClass.getName();
 
         return schemaClass.getAnnotation(PolymorphicConfigInstance.class).id();
+    }
+
+    /**
+     * Leaf configuration source.
+     */
+    private static class LeafConfigurationSource implements ConfigurationSource {
+        /** Value. */
+        private final Serializable val;
+
+        /**
+         * Constructor.
+         *
+         * @param val Value.
+         */
+        private LeafConfigurationSource(Serializable val) {
+            this.val = val;
+        }
+
+        /** {@inheritDoc} */
+        @Override public <T> T unwrap(Class<T> clazz) {
+            assert val == null || clazz.isInstance(val);
+
+            return clazz.cast(val);
+        }
+
+        /** {@inheritDoc} */
+        @Override public void descend(ConstructableTreeNode node) {
+            throw new UnsupportedOperationException("descend");
+        }
+    }
+
+    /**
+     * Inner configuration source.
+     */
+    private static class InnerConfigurationSource implements ConfigurationSource {
+        /** Prefix map. */
+        private final Map<String, ?> map;
+
+        /**
+         * Constructor.
+         *
+         * @param map Prefix map.
+         */
+        private InnerConfigurationSource(Map<String, ?> map) {
+            this.map = map;
+        }
+
+        /** {@inheritDoc} */
+        @Override public <T> T unwrap(Class<T> clazz) {
+            throw new UnsupportedOperationException("unwrap");
+        }
+
+        /** {@inheritDoc} */
+        @Override public void descend(ConstructableTreeNode node) {
+            if (node instanceof NamedListNode) {
+                descendToNamedListNode((NamedListNode<?>)node);
+
+                return;
+            }
+
+            for (Map.Entry<String, ?> entry : map.entrySet()) {
+                String key = entry.getKey();
+                Object val = entry.getValue();
+
+                assert val == null || val instanceof Map || val instanceof Serializable;
+
+                // Ordering of indexes must be skipped here because they make no sense in this context.
+                if (key.equals(NamedListNode.ORDER_IDX) || key.equals(NamedListNode.NAME))
+                    continue;
+
+                if (val == null)
+                    node.construct(key, null, true);
+                else if (val instanceof Map)
+                    node.construct(key, new InnerConfigurationSource((Map<String, ?>)val), true);
+                else
+                    node.construct(key, new LeafConfigurationSource((Serializable)val), true);
+            }
+        }
+
+        /** {@inheritDoc} */
+        @Override public @Nullable String polymorphicTypeId(String fieldName) {
+            return (String)map.get(fieldName);
+        }
+
+        /**
+         * Specific implementation of {@link #descend(ConstructableTreeNode)} that descends into named list node and
+         * sets a proper ordering to named list elements.
+         *
+         * @param node Named list node under construction.
+         */
+        private void descendToNamedListNode(NamedListNode<?> node) {
+            // This list must be mutable and RandomAccess.
+            var orderedKeys = new ArrayList<>(((NamedListView<?>)node).namedListKeys());
+
+            for (Map.Entry<String, ?> entry : map.entrySet()) {
+                String internalId = entry.getKey();
+                Object val = entry.getValue();
+
+                assert val == null || val instanceof Map || val instanceof Serializable;
+
+                String oldKey = node.keyByInternalId(internalId);
+
+                if (val == null) {
+                    // Given that this particular method is applied to modify existing trees rather than
+                    // creating new trees, a "hack" is required in this place. "construct" is designed to create
+                    // "change" objects, thus it would just nullify named list element instead of deleting it.
+                    node.forceDelete(oldKey);
+                }
+                else if (val instanceof Map) {
+                    Map<String, ?> map = (Map<String, ?>)val;
+                    int sizeDiff = 0;
+
+                    // For every named list entry modification we must take its index into account.
+                    // We do this by modifying "orderedKeys" when index is explicitly passed.
+                    Object idxObj = map.get(NamedListNode.ORDER_IDX);
+
+                    if (idxObj != null)
+                        sizeDiff++;
+
+                    String newKey = (String)map.get(NamedListNode.NAME);
+
+                    if (newKey != null)
+                        sizeDiff++;
+
+                    boolean construct = map.size() != sizeDiff;
+
+                    if (oldKey == null) {
+                        node.construct(newKey, new InnerConfigurationSource(map), true);
+
+                        node.setInternalId(newKey, internalId);
+                    }
+                    else if (newKey != null) {
+                        node.rename(oldKey, newKey);
+
+                        if (construct)
+                            node.construct(newKey, new InnerConfigurationSource(map), true);
+                    }
+                    else if (construct)
+                        node.construct(oldKey, new InnerConfigurationSource(map), true);
+                    // Else it's just index adjustment after new elements insertion.
+
+                    if (newKey == null)
+                        newKey = oldKey;
+
+                    if (idxObj != null) {
+                        assert idxObj instanceof Integer : val;
+
+                        int idx = (Integer)idxObj;
+
+                        if (idx >= orderedKeys.size()) {
+                            // Updates can come in arbitrary order. This means that array may be too small
+                            // during batch creation. In this case we have to insert enough nulls before
+                            // invoking "add" method for actual key.
+                            orderedKeys.ensureCapacity(idx + 1);
+
+                            while (idx != orderedKeys.size())
+                                orderedKeys.add(null);
+
+                            orderedKeys.add(newKey);
+                        }
+                        else
+                            orderedKeys.set(idx, newKey);
+                    }
+                }
+                else
+                    node.construct(oldKey, new LeafConfigurationSource((Serializable)val), true);
+            }
+
+            node.reorderKeys(orderedKeys.size() > node.size()
+                ? orderedKeys.subList(0, node.size())
+                : orderedKeys
+            );
+        }
     }
 }

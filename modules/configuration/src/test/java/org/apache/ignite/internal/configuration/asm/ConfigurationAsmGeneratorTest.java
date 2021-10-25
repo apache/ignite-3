@@ -71,7 +71,9 @@ public class ConfigurationAsmGeneratorTest {
 
         Collection<Class<?>> polymorphicExtensions = List.of(
             FirstPolymorphicInstanceTestConfigurationSchema.class,
-            SecondPolymorphicInstanceTestConfigurationSchema.class
+            SecondPolymorphicInstanceTestConfigurationSchema.class,
+            FirstPolymorphicNamedInstanceTestConfigurationSchema.class,
+            SecondPolymorphicNamedInstanceTestConfigurationSchema.class
         );
 
         generator = new ConfigurationAsmGenerator();
@@ -301,6 +303,63 @@ public class ConfigurationAsmGeneratorTest {
         assertEquals(0, firstCfg.intVal().value());
     }
 
+    /** */
+    @Test
+    void testPolymorphicNamedConfiguration() throws Exception {
+        TestRootConfiguration rootConfig = (TestRootConfiguration)generator.instantiateCfg(TestRootConfiguration.KEY, changer);
+        
+        // Check add named polymorphic config.
+
+        rootConfig.polymorphicNamedCfg()
+            .change(c -> c.create("0", c1 -> c1.convert(FirstPolymorphicNamedInstanceTestChange.class))
+                .create("1", c1 -> c1.convert(SecondPolymorphicNamedInstanceTestChange.class)
+                    .changeIntVal(1)
+                    .changeLongVal(1)
+                    .changeStrVal("strVal1")
+                )
+            ).get(1, SECONDS);
+
+        FirstPolymorphicNamedInstanceTestConfiguration firstCfg =
+            (FirstPolymorphicNamedInstanceTestConfiguration)rootConfig.polymorphicNamedCfg().get("0");
+
+        assertEquals("strVal", firstCfg.strVal().value());
+        assertEquals(0, firstCfg.intVal().value());
+
+        SecondPolymorphicNamedInstanceTestConfiguration secondCfg =
+            (SecondPolymorphicNamedInstanceTestConfiguration)rootConfig.polymorphicNamedCfg().get("1");
+
+        assertEquals("strVal1", secondCfg.strVal().value());
+        assertEquals(1, secondCfg.intVal().value());
+        assertEquals(1L, secondCfg.longVal().value());
+
+        // Check config values.
+        FirstPolymorphicNamedInstanceTestView firstVal = (FirstPolymorphicNamedInstanceTestView)firstCfg.value();
+
+        assertEquals("strVal", firstVal.strVal());
+        assertEquals(0, firstVal.intVal());
+
+        firstVal = (FirstPolymorphicNamedInstanceTestView)rootConfig.polymorphicNamedCfg().value().get("0");
+
+        assertEquals("strVal", firstVal.strVal());
+        assertEquals(0, firstVal.intVal());
+
+        SecondPolymorphicNamedInstanceTestView secondVal = (SecondPolymorphicNamedInstanceTestView)secondCfg.value();
+
+        assertEquals("strVal1", secondVal.strVal());
+        assertEquals(1, secondVal.intVal());
+        assertEquals(1L, secondVal.longVal());
+
+        secondVal = (SecondPolymorphicNamedInstanceTestView)rootConfig.polymorphicNamedCfg().value().get("1");
+
+        assertEquals("strVal1", secondVal.strVal());
+        assertEquals(1, secondVal.intVal());
+        assertEquals(1L, secondVal.longVal());
+
+        // Check update named polymorphic config.
+
+        // TODO: continue.
+    }
+
     /**
      * Test root configuration schema.
      */
@@ -325,6 +384,10 @@ public class ConfigurationAsmGeneratorTest {
         /** Polymorphic sub configuration field. */
         @ConfigValue
         public PolymorphicTestConfigurationSchema polymorphicSubCfg;
+
+        /** Polymorphic named configuration field. */
+        @NamedConfigValue
+        public PolymorphicNamedTestConfigurationSchema polymorphicNamedCfg;
     }
 
     /**
@@ -410,6 +473,44 @@ public class ConfigurationAsmGeneratorTest {
      */
     @PolymorphicConfigInstance(id = "second")
     public static class SecondPolymorphicInstanceTestConfigurationSchema extends PolymorphicTestConfigurationSchema {
+        /** Integer value. */
+        @Value(hasDefault = true)
+        public int intVal = 0;
+
+        /** Long value. */
+        @Value(hasDefault = true)
+        public long longVal = 0;
+    }
+
+    /**
+     * Polymorphic named configuration scheme.
+     */
+    @PolymorphicConfig
+    public static class PolymorphicNamedTestConfigurationSchema {
+        /** Polymorphic type id field. */
+        @PolymorphicId(hasDefault = true)
+        public String typeId;
+
+        /** String value. */
+        @Value(hasDefault = true)
+        public String strVal = "strVal";
+    }
+
+    /**
+     * First instance of the named polymorphic configuration schema.
+     */
+    @PolymorphicConfigInstance(id = "first")
+    public static class FirstPolymorphicNamedInstanceTestConfigurationSchema extends PolymorphicNamedTestConfigurationSchema {
+        /** Integer value. */
+        @Value(hasDefault = true)
+        public int intVal = 0;
+    }
+
+    /**
+     * Second instance of the named polymorphic configuration schema.
+     */
+    @PolymorphicConfigInstance(id = "second")
+    public static class SecondPolymorphicNamedInstanceTestConfigurationSchema extends PolymorphicNamedTestConfigurationSchema {
         /** Integer value. */
         @Value(hasDefault = true)
         public int intVal = 0;

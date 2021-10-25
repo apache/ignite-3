@@ -29,6 +29,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
 
@@ -42,9 +43,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
     /** Name of a synthetic configuration property that describes the order of elements in a named list. */
     public static final String ORDER_IDX = "<order>";
 
-    /**
-     * Name of a synthetic configuration property that's used to store "key" of the named list element in the storage.
-     */
+    /** Name of a synthetic configuration property that's used to store "key" of the named list element in the storage. */
     public static final String NAME = "<name>";
 
     /** Configuration name for the synthetic key. */
@@ -94,22 +93,18 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
     }
 
     /** {@inheritDoc} */
-    @Override public final List<String> namedListKeys() {
+    @Override public List<String> namedListKeys() {
         return Collections.unmodifiableList(map.keys());
     }
 
     /** {@inheritDoc} */
-    @Override public final N get(String key) {
-        ElementDescriptor<N> element = map.get(key);
-
-        return element == null ? null : element.value;
+    @Override public N get(String key) {
+        return view(map.get(key));
     }
 
     /** {@inheritDoc} */
     @Override public N get(int index) throws IndexOutOfBoundsException {
-        ElementDescriptor<N> element = map.get(index);
-
-        return element == null ? null : element.value;
+        return view(map.get(index));
     }
 
     /** {@inheritDoc} */
@@ -132,6 +127,9 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
 
         valConsumer.accept(element.value);
 
+        if (element.value instanceof PolymorphicInnerNode)
+            addDefaults(element.value);
+
         return this;
     }
 
@@ -152,6 +150,9 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
         reverseIdMap.put(element.internalId, key);
 
         valConsumer.accept(element.value);
+
+        if (element.value instanceof PolymorphicInnerNode)
+            addDefaults(element.value);
 
         return this;
     }
@@ -175,30 +176,18 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
 
         valConsumer.accept(element.value);
 
+        if (element.value instanceof PolymorphicInnerNode)
+            addDefaults(element.value);
+
         return this;
     }
 
     /** {@inheritDoc} */
-    @Override public final NamedListChange<N, N> createOrUpdate(String key, Consumer<N> valConsumer) {
+    @Override public NamedListChange<N, N> createOrUpdate(String key, Consumer<N> valConsumer) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
 
-        if (map.containsKey(key) && map.get(key).value == null)
-            throw new IllegalArgumentException("You can't create entity that has just been deleted [key=" + key + ']');
-
-        ElementDescriptor<N> element = map.get(key);
-
-        if (element == null) {
-            element = newElementDescriptor();
-
-            reverseIdMap.put(element.internalId, key);
-        }
-        else
-            element = element.copy();
-
-        map.put(key, element);
-
-        valConsumer.accept(element.value);
+        createOrUpdate(key, valConsumer, null);
 
         return this;
     }
@@ -230,6 +219,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
 
     /**
      * Checks that this new key can be inserted into the map.
+     *
      * @param key New key.
      * @throws IllegalArgumentException If key already exists.
      */
@@ -263,7 +253,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
 
     /**
      * Sets an internal id for the value associated with the passed key. Should not be used in arbitrary code. Refer
-     * to {@link ConfigurationUtil#fillFromPrefixMap(ConstructableTreeNode, Map)} for further details on the usage.
+     * to {@link ConfigurationUtil#fillFromPrefixMap} for further details on the usage.
      *
      * @param key Key to update. Should be present in the named list. Nothing will happen if the key is missing.
      * @param internalId New id to associate with the key.
@@ -339,10 +329,12 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
 
     /** {@inheritDoc} */
     @Override public void construct(String key, ConfigurationSource src, boolean includeInternal) {
+        Objects.requireNonNull(key, "key");
+
         if (src == null)
             delete(key);
         else
-            createOrUpdate(key, src::descend);
+            createOrUpdate(key, null, src);
     }
 
     /** {@inheritDoc} */
@@ -361,6 +353,73 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
         addDefaults(newElement);
 
         return new ElementDescriptor<>(newElement);
+    }
+
+    /**
+     * Creates or updates a named configuration list element.
+     *
+     * @param key Key for the value to be updated.
+     * @param valConsumer Closure to modify the value associated with the key. Closure parameter must not be leaked
+     *      outside the scope of the closure.
+     * @param src Source that provides data for construction.
+     *
+     * @throws NullPointerException If one of parameters is null.
+     * @throws IllegalArgumentException If {@link #delete(String)} has been invoked with the same key previously.
+     * @throws IllegalStateException If no polymorphic configuration type is defined.
+     */
+    private void createOrUpdate(
+        String key,
+        @Nullable Consumer<N> valConsumer,
+        @Nullable ConfigurationSource src
+    ) {
+        assert key != null;
+        assert valConsumer != null ^ src != null : "Only one is allowed [valConsumer=" + valConsumer + ", src=" + src + ']';
+
+        if (map.containsKey(key) && map.get(key).value == null)
+            throw new IllegalArgumentException("You can't create entity that has just been deleted [key=" + key + ']');
+
+        ElementDescriptor<N> element = map.get(key);
+        
+        if (element == null) {
+            element = newElementDescriptor();
+
+            reverseIdMap.put(element.internalId, key);
+
+            if (src != null && element.value instanceof PolymorphicInnerNode) {
+                PolymorphicInnerNode polymorphicInnerNode = (PolymorphicInnerNode)element.value;
+
+                String polymorphicTypeId = src.polymorphicTypeId(polymorphicInnerNode.getPolymorphicTypeIdFieldName());
+
+                if (polymorphicTypeId != null)
+                    polymorphicInnerNode.setPolymorphicTypeId(polymorphicTypeId);
+                else if (polymorphicInnerNode.getPolymorphicTypeId() == null) {
+                    throw new IllegalStateException("Polymorphic configuration type is not defined: " +
+                        polymorphicInnerNode.getClass().getName());
+                }
+            }
+        }
+        else {
+            element = element.copy();
+
+            if (src != null && element.value instanceof PolymorphicInnerNode) {
+                PolymorphicInnerNode polymorphicInnerNode = (PolymorphicInnerNode)element.value;
+
+                String polymorphicTypeId = src.polymorphicTypeId(polymorphicInnerNode.getPolymorphicTypeIdFieldName());
+
+                if (polymorphicTypeId != null)
+                    polymorphicInnerNode.setPolymorphicTypeId(polymorphicTypeId);
+            }
+        }
+
+        map.put(key, element);
+
+        if (valConsumer != null)
+            valConsumer.accept(element.value);
+        else
+            src.descend(element.value);
+
+        if (element.value instanceof PolymorphicInnerNode)
+            addDefaults(element.value);
     }
 
     /**
@@ -415,6 +474,23 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
          */
         public ElementDescriptor<N> shallowCopy() {
             return new ElementDescriptor<>(internalId, value);
+        }
+    }
+
+    /**
+     * Returns view named list element.
+     *
+     * @param element Internal named list element representation.
+     * @return View.
+     */
+    @Nullable private N view(@Nullable ElementDescriptor<N> element) {
+        if (element == null)
+            return null;
+        else {
+            N value = element.value;
+
+            return value;
+//            return value instanceof PolymorphicInnerNode ? ((PolymorphicInnerNode)value).specificView() : value;
         }
     }
 }
