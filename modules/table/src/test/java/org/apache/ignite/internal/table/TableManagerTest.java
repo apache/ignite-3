@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -29,7 +28,6 @@ import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
-import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
@@ -46,13 +44,11 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -78,7 +74,6 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
-import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -100,12 +95,9 @@ import static org.mockito.Mockito.when;
 /**
  * Tests scenarios for table manager.
  */
-@ExtendWith({MockitoExtension.class, WorkDirectoryExtension.class})
+@ExtendWith({MockitoExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
-public class TableManagerTest {
-    /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(TableManagerTest.class);
-
+public class TableManagerTest extends IgniteAbstractTest {
     /** Public prefix for metastorage. */
     private static final String PUBLIC_PREFIX = "dst-cfg.table.tables.";
 
@@ -127,9 +119,6 @@ public class TableManagerTest {
     /** Count of replicas. */
     public static final int REPLICAS = 1;
 
-    /** Node configuration manager. */
-    private ConfigurationManager nodeCfgMgr;
-
     /** Cluster configuration manager. */
     private ConfigurationManager clusterCfgMgr;
 
@@ -149,9 +138,6 @@ public class TableManagerTest {
     @Mock(lenient = true)
     private Loza rm;
 
-    @WorkDirectory
-    private Path workDir;
-
     /** Test node. */
     private final ClusterNode node = new ClusterNode(
         UUID.randomUUID().toString(),
@@ -164,16 +150,9 @@ public class TableManagerTest {
 
     /** Before all test scenarios. */
     @BeforeEach
-    void setUp() {
+    void before() {
         try {
             tblManagerFut = new CompletableFuture<>();
-
-            nodeCfgMgr = new ConfigurationManager(
-                List.of(NodeConfiguration.KEY),
-                Map.of(),
-                new TestConfigurationStorage(LOCAL),
-                List.of()
-            );
 
             clusterCfgMgr = new ConfigurationManager(
                 List.of(ClusterConfiguration.KEY, TablesConfiguration.KEY, DataStorageConfiguration.KEY),
@@ -182,16 +161,12 @@ public class TableManagerTest {
                 Collections.singletonList(ExtendedTableConfigurationSchema.class)
             );
 
-            nodeCfgMgr.start();
-
-            nodeCfgMgr.bootstrap("node.metastorageNodes = [" + NODE_NAME + "]");
-
             clusterCfgMgr.start();
 
             clusterCfgMgr.configurationRegistry().initializeDefaults();
         }
         catch (Exception e) {
-            LOG.error("Failed to bootstrap the test configuration manager.", e);
+            log.error("Failed to bootstrap the test configuration manager.", e);
 
             fail("Failed to configure manager [err=" + e.getMessage() + ']');
         }
@@ -199,8 +174,7 @@ public class TableManagerTest {
 
     /** Stop configuration manager. */
     @AfterEach
-    void tearDown() {
-        nodeCfgMgr.stop();
+    void after() {
         clusterCfgMgr.stop();
 
         assertTrue(tblManagerFut.isDone());
@@ -532,7 +506,7 @@ public class TableManagerTest {
                     });
                 }
                 catch (NodeStoppingException e) {
-                    LOG.error("Node was stopped during table creation.", e);
+                    log.error("Node was stopped during table creation.", e);
 
                     fail();
                 }
@@ -553,7 +527,7 @@ public class TableManagerTest {
             assertEquals(tablesBeforeCreation + 1, tableManager.tables().size());
         }
         catch (NodeStoppingException e) {
-            LOG.error("Node was stopped during table creation.", e);
+            log.error("Node was stopped during table creation.", e);
 
             fail();
         }
