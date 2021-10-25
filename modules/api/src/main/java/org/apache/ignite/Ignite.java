@@ -64,11 +64,11 @@ public interface Ignite extends AutoCloseable {
      * @param baselineNodes Names of baseline nodes.
      * @throws IgniteException If an unspecified platform exception has happened internally.
      * Is thrown when:
-     * <lu>
+     * <ul>
      *     <li>the node is stopping,</li>
      *     <li>{@code baselineNodes} argument is empty or null,</li>
      *     <li>any node from {@code baselineNodes} is not alive.</li>
-     * </lu>
+     * </ul>
      */
     @Experimental
     void setBaseline(Set<String> baselineNodes);

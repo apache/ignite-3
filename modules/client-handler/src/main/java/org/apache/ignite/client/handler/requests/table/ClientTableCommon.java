@@ -348,9 +348,9 @@ class ClientTableCommon {
      * @return Table.
      * @throws IgniteException If an unspecified platform exception has happened internally.
      * Is thrown when:
-     * <lu>
+     * <ul>
      *     <li>the node is stopping.</li>
-     * </lu>
+     * </ul>
      */
     public static TableImpl readTable(ClientMessageUnpacker unpacker, IgniteTables tables) {
         IgniteUuid tableId = unpacker.unpackIgniteUuid();
