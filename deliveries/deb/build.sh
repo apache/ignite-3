@@ -31,4 +31,3 @@ alien --scripts --verbose --keep-version --single "${FILE__RPM}"
 rm -rf "${FILE__RPM}"
 cd apache-ignite-*
 fakeroot debian/rules binary
-mv -fv ../apache-ignite_*.deb ./
