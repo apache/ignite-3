@@ -255,12 +255,13 @@ public class JdbcMetadataCatalog {
         }
 
         return new JdbcColumnMeta(
+            col.name(),
             getTblSchema(tblName),
             getTblName(tblName),
             col.name(),
             Commons.nativeTypeToClass(col.type()),
-            precision,
-            scale,
+            Commons.nativeTypePrecision(col.type()),
+            Commons.nativeTypeScale(col.type()),
             col.nullable()
         );
     }

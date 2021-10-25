@@ -17,24 +17,37 @@
 
 package org.apache.ignite.internal.processors.query.calcite.prepare;
 
+import java.util.List;
+
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.processors.query.calcite.ResultFieldMetadata;
+import org.apache.ignite.internal.processors.query.calcite.ResultSetMetadata;
+
 /**
- * Distributed query plan.
+ * Results set metadata holder.
  */
-public class MultiStepQueryPlan extends AbstractMultiStepPlan {
-    /**
-     * @param meta Fields metadata.
-     */
-    public MultiStepQueryPlan(QueryTemplate queryTemplate, ResultSetMetadataInternal meta) {
-        super(queryTemplate, meta);
+public class ResultSetMetadataImpl implements ResultSetMetadataInternal {
+    /** Fields metadata. */
+    private final List<ResultFieldMetadata> fields;
+
+    /** Internal row type. */
+    private final RelDataType rowType;
+
+    public ResultSetMetadataImpl(
+        RelDataType rowType,
+        List<ResultFieldMetadata> fields
+    ) {
+        this.rowType = rowType;
+        this.fields = fields;
     }
 
     /** {@inheritDoc} */
-    @Override public Type type() {
-        return Type.QUERY;
+    @Override public List<ResultFieldMetadata> fields() {
+        return fields;
     }
 
     /** {@inheritDoc} */
-    @Override public QueryPlan copy() {
-        return new MultiStepQueryPlan(queryTemplate, meta);
+    @Override public RelDataType rowType() {
+        return rowType;
     }
 }

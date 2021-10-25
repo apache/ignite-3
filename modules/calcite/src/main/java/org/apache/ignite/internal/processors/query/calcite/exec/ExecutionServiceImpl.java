@@ -34,6 +34,7 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlExplainLevel;
@@ -43,6 +44,8 @@ import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.tools.ValidationException;
+import org.apache.ignite.internal.processors.query.calcite.ResultFieldMetadata;
+import org.apache.ignite.internal.processors.query.calcite.ResultSetMetadata;
 import org.apache.ignite.internal.processors.query.calcite.SqlCursor;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.Inbox;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.Node;
@@ -63,8 +66,6 @@ import org.apache.ignite.internal.processors.query.calcite.metadata.RemoteExcept
 import org.apache.ignite.internal.processors.query.calcite.prepare.CacheKey;
 import org.apache.ignite.internal.processors.query.calcite.prepare.DdlPlan;
 import org.apache.ignite.internal.processors.query.calcite.prepare.ExplainPlan;
-import org.apache.ignite.internal.processors.query.calcite.prepare.FieldsMetadata;
-import org.apache.ignite.internal.processors.query.calcite.prepare.FieldsMetadataImpl;
 import org.apache.ignite.internal.processors.query.calcite.prepare.Fragment;
 import org.apache.ignite.internal.processors.query.calcite.prepare.FragmentPlan;
 import org.apache.ignite.internal.processors.query.calcite.prepare.IgnitePlanner;
@@ -75,6 +76,9 @@ import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningConte
 import org.apache.ignite.internal.processors.query.calcite.prepare.QueryPlan;
 import org.apache.ignite.internal.processors.query.calcite.prepare.QueryPlanCache;
 import org.apache.ignite.internal.processors.query.calcite.prepare.QueryTemplate;
+import org.apache.ignite.internal.processors.query.calcite.prepare.ResultFieldMetadataImpl;
+import org.apache.ignite.internal.processors.query.calcite.prepare.ResultSetMetadataImpl;
+import org.apache.ignite.internal.processors.query.calcite.prepare.ResultSetMetadataInternal;
 import org.apache.ignite.internal.processors.query.calcite.prepare.Splitter;
 import org.apache.ignite.internal.processors.query.calcite.prepare.ValidationResult;
 import org.apache.ignite.internal.processors.query.calcite.prepare.ddl.DdlSqlToCommandConverter;
@@ -360,7 +364,7 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
 
         QueryTemplate template = new QueryTemplate(mappingSrvc, fragments);
 
-        return new MultiStepQueryPlan(template, queryFieldsMetadata(ctx, validated.dataType(), validated.origins()));
+        return new MultiStepQueryPlan(template, resultSetMetadata(ctx, validated.dataType(), validated.origins()));
     }
 
     /** */
@@ -378,7 +382,7 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
 
         QueryTemplate template = new QueryTemplate(mappingSrvc, fragments);
 
-        return new MultiStepDmlPlan(template, queryFieldsMetadata(ctx, igniteRel.getRowType(), null));
+        return new MultiStepDmlPlan(template, resultSetMetadata(ctx, igniteRel.getRowType(), null));
     }
 
     /** */
@@ -408,14 +412,14 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
     }
 
     /** */
-    private FieldsMetadata explainFieldsMetadata(PlanningContext ctx) {
+    private ResultSetMetadata explainFieldsMetadata(PlanningContext ctx) {
         IgniteTypeFactory factory = ctx.typeFactory();
         RelDataType planStrDataType =
             factory.createSqlType(SqlTypeName.VARCHAR, PRECISION_NOT_SPECIFIED);
         Map.Entry<String, RelDataType> planField = new IgniteBiTuple<>(ExplainPlan.PLAN_COL_NAME, planStrDataType);
         RelDataType planDataType = factory.createStructType(singletonList(planField));
 
-        return queryFieldsMetadata(ctx, planDataType, null);
+        return resultSetMetadata(ctx, planDataType, null);
     }
 
     /** */
@@ -579,11 +583,28 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
     }
 
     /** */
-    private FieldsMetadata queryFieldsMetadata(PlanningContext ctx, RelDataType sqlType,
+    private ResultSetMetadataInternal resultSetMetadata(PlanningContext ctx, RelDataType sqlType,
         @Nullable List<List<String>> origins) {
         RelDataType resultType = TypeUtils.getResultType(
             ctx.typeFactory(), ctx.catalogReader(), sqlType, origins);
-        return new FieldsMetadataImpl(resultType, origins);
+
+        List<ResultFieldMetadata> fields = new ArrayList<>(resultType.getFieldCount());
+
+        for (int i = 0; i < resultType.getFieldCount(); ++i) {
+            RelDataTypeField fld = resultType.getFieldList().get(i);
+
+            fields.add(
+                new ResultFieldMetadataImpl(
+                    fld.getName(),
+                    TypeUtils.nativeType(fld.getType()),
+                    fld.getIndex(),
+                    fld.getType().isNullable(),
+                    origins.get(i)
+                )
+            );
+        }
+
+        return new ResultSetMetadataImpl(sqlType, fields);
     }
 
     /** */
@@ -743,7 +764,7 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
         private QueryInfo(ExecutionContext<Row> ctx, MultiStepPlan plan, Node<Row> root) {
             this.ctx = ctx;
 
-            RootNode<Row> rootNode = new RootNode<>(ctx, plan.fieldsMetadata().rowType(), this::tryClose);
+            RootNode<Row> rootNode = new RootNode<>(ctx, plan.metadata().rowType(), this::tryClose);
             rootNode.register(root);
 
             this.root = rootNode;

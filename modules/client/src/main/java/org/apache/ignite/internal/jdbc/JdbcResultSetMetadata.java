@@ -85,7 +85,7 @@ public class JdbcResultSetMetadata implements ResultSetMetaData {
 
     /** {@inheritDoc} */
     @Override public String getColumnLabel(int col) throws SQLException {
-        return meta.get(col - 1).columnName();
+        return meta.get(col - 1).columnLabel();
     }
 
     /** {@inheritDoc} */
