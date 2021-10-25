@@ -31,6 +31,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -87,6 +88,7 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
@@ -154,6 +156,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
+    /** Prevents double stopping the component. */
+    AtomicBoolean stopGuard = new AtomicBoolean();
+
     /**
      * Creates a new table manager.
      *
@@ -205,14 +210,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     fireEvent(TableEvent.CREATE,
                         new TableEventParameters(tblId, tblName),
                         new NodeStoppingException());
+
+                    return CompletableFuture.completedFuture(new NodeStoppingException());
                 }
-                else {
-                    try {
-                        onTableCreateInternal(ctx);
-                    }
-                    finally {
-                        busyLock.leaveBusy();
-                    }
+
+                try {
+                    onTableCreateInternal(ctx);
+                }
+                finally {
+                    busyLock.leaveBusy();
                 }
 
                 return CompletableFuture.completedFuture(null);
@@ -240,22 +246,23 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 if (!busyLock.enterBusy()) {
                                     fireEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblName),
                                         new NodeStoppingException());
-                                }
-                                else {
-                                    try {
-                                        ((SchemaRegistryImpl)tables.get(tblName).schemaView()).
-                                            onSchemaRegistered(
-                                                SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema()))
-                                            );
 
-                                        fireEvent(TableEvent.ALTER, new TableEventParameters(tablesById.get(tblId)), null);
-                                    }
-                                    catch (Exception e) {
-                                        fireEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblName), e);
-                                    }
-                                    finally {
-                                        busyLock.leaveBusy();
-                                    }
+                                    return CompletableFuture.completedFuture(new NodeStoppingException());
+                                }
+
+                                try {
+                                    ((SchemaRegistryImpl)tables.get(tblName).schemaView()).
+                                        onSchemaRegistered(
+                                            SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema()))
+                                        );
+
+                                    fireEvent(TableEvent.ALTER, new TableEventParameters(tablesById.get(tblId)), null);
+                                }
+                                catch (Exception e) {
+                                    fireEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblName), e);
+                                }
+                                finally {
+                                    busyLock.leaveBusy();
                                 }
 
                                 return CompletableFuture.completedFuture(null);
@@ -316,17 +323,23 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     for (int i = 0; i < oldAssignments.size(); i++) {
                         int partId = i;
 
+                        List<ClusterNode> oldPartitionAssignment = oldAssignments.get(partId);
                         List<ClusterNode> newPartitionAssignment = newAssignments.get(partId);
+
+                        var toAdd = new HashSet<>(newPartitionAssignment);
+
+                        toAdd.removeAll(oldPartitionAssignment);
 
                         InternalTable internalTable = tablesById.get(tblId).internalTable();
 
                         // Create new raft nodes according to new assignments.
-                        futures[i] = raftMgr.prepareRaftGroup(
+                        futures[i] = raftMgr.updateRaftGroup(
                             raftGroupName(tblId, partId),
                             newPartitionAssignment,
+                            toAdd,
                             () -> new PartitionListener(internalTable.storage().getOrCreatePartition(partId))
                         ).thenAccept(
-                            updatedRaftGroupService -> internalTable.updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
+                            updatedRaftGroupService -> ((InternalTableImpl)internalTable).updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
                         ).exceptionally(th -> {
                                 LOG.error("Failed to update raft groups one the node", th);
 
@@ -355,18 +368,19 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         fireEvent(TableEvent.DROP, new TableEventParameters(tblId, tblName),
                             new NodeStoppingException());
+
+                        return CompletableFuture.completedFuture(new NodeStoppingException());
                     }
-                    else {
-                        try {
-                            dropTableLocally(
-                                ctx.oldValue().name(),
-                                IgniteUuid.fromString(((ExtendedTableView)ctx.oldValue()).id()),
-                                (List<List<ClusterNode>>)ByteUtils.fromBytes(((ExtendedTableView)ctx.oldValue()).assignments())
-                            );
-                        }
-                        finally {
-                            busyLock.leaveBusy();
-                        }
+
+                    try {
+                        dropTableLocally(
+                            ctx.oldValue().name(),
+                            IgniteUuid.fromString(((ExtendedTableView)ctx.oldValue()).id()),
+                            (List<List<ClusterNode>>)ByteUtils.fromBytes(((ExtendedTableView)ctx.oldValue()).assignments())
+                        );
+                    }
+                    finally {
+                        busyLock.leaveBusy();
                     }
 
                     return CompletableFuture.completedFuture(null);
@@ -387,16 +401,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override public void stop() {
-        if (!busyLock.enterBusy())
+        if (!stopGuard.compareAndSet(false, true))
             return;
-
-        busyLock.leaveBusy();
 
         busyLock.block();
 
         for (TableImpl table : tables.values()) {
             try {
-                table.close();
+                table.internalTable().storage().stop();
+                table.internalTable().close();
 
                 for (int p = 0; p < table.internalTable().partitions(); p++)
                     raftMgr.stopRaftGroup(raftGroupName(table.tableId(), p));
@@ -636,7 +649,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         tableAsync(name, true).thenAccept(tbl -> {
             if (tbl != null) {
                 if (exceptionWhenExist) {
-                    tblFut.completeExceptionally(new IgniteInternalCheckedException(
+                    tblFut.completeExceptionally(new TableAlreadyExistsException(
                         LoggerMessageHelper.format("Table already exists [name={}]", name)));
                 }
                 else
@@ -1181,8 +1194,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return tableNamesConfigured().contains(name);
     }
 
-    /** {@inheritDoc} */
-    @Override public void setBaseline(Set<String> nodes) throws NodeStoppingException {
+    /**
+     * Sets the nodes as baseline for all tables created by the manager.
+     *
+     * @param nodes New baseline nodes.
+     * @throws NodeStoppingException If an implementation stopped before the method was invoked.
+     */
+    public void setBaseline(Set<String> nodes) throws NodeStoppingException {
         if (!busyLock.enterBusy())
             throw new NodeStoppingException();
         try {

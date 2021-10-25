@@ -19,7 +19,6 @@ package org.apache.ignite.client.fakes;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,7 +31,6 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
@@ -174,10 +172,5 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
     /** {@inheritDoc} */
     @Override public CompletableFuture<TableImpl> tableAsync(IgniteUuid id) {
         return CompletableFuture.completedFuture(tablesById.get(id));
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setBaseline(Set<String> nodes) throws NodeStoppingException {
-        //Do nothing, because it is just a fake.
     }
 }

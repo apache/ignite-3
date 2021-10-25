@@ -38,6 +38,10 @@ public interface IgniteTables {
      * @return Newly created table.
      * @throws TableAlreadyExistsException If table with given name already exists.
      * @throws IgniteException If an unspecified platform exception has happened internally.
+     * Is thrown when:
+     * <lu>
+     *     <li>the node is stopping.</li>
+     * </lu>
      */
     Table createTable(String name, Consumer<TableChange> tableInitChange);
 
@@ -49,6 +53,10 @@ public interface IgniteTables {
      * @param tableInitChange Table changer.
      * @return Future representing pending completion of the operation.
      * @throws IgniteException If an unspecified platform exception has happened internally.
+     * Is thrown when:
+     * <lu>
+     *     <li>the node is stopping.</li>
+     * </lu>
      * @see TableAlreadyExistsException
      */
     CompletableFuture<Table> createTableAsync(String name, Consumer<TableChange> tableInitChange);
@@ -62,6 +70,10 @@ public interface IgniteTables {
      * @param tableInitChange Table changer.
      * @return Existing or newly created table.
      * @throws IgniteException If an unspecified platform exception has happened internally.
+     * Is thrown when:
+     * <lu>
+     *     <li>the node is stopping.</li>
+     * </lu>
      */
     Table createTableIfNotExists(String name, Consumer<TableChange> tableInitChange);
 
@@ -74,6 +86,10 @@ public interface IgniteTables {
      * @param tableInitChange Table changer.
      * @return Future representing pending completion of the operation.
      * @throws IgniteException If an unspecified platform exception has happened internally.
+     * Is thrown when:
+     * <lu>
+     *     <li>the node is stopping.</li>
+     * </lu>
      */
     CompletableFuture<Table> createTableIfNotExistsAsync(String name, Consumer<TableChange> tableInitChange);
 
@@ -83,6 +99,10 @@ public interface IgniteTables {
      * @param name Table name.
      * @param tableChange Table changer.
      * @throws IgniteException If an unspecified platform exception has happened internally.
+     * Is thrown when:
+     * <lu>
+     *     <li>the node is stopping.</li>
+     * </lu>
      */
     void alterTable(String name, Consumer<TableChange> tableChange);
 
@@ -93,6 +113,10 @@ public interface IgniteTables {
      * @param tableChange Table changer.
      * @return Future representing pending completion of the operation.
      * @throws IgniteException If an unspecified platform exception has happened internally.
+     * Is thrown when:
+     * <lu>
+     *     <li>the node is stopping.</li>
+     * </lu>
      */
     CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange);
 
@@ -102,6 +126,10 @@ public interface IgniteTables {
      *
      * @param name Table name.
      * @throws IgniteException If an unspecified platform exception has happened internally.
+     * Is thrown when:
+     * <lu>
+     *     <li>the node is stopping.</li>
+     * </lu>
      */
     void dropTable(String name);
 
@@ -112,6 +140,10 @@ public interface IgniteTables {
      * @param name Table name.
      * @return Future representing pending completion of the operation.
      * @throws IgniteException If an unspecified platform exception has happened internally.
+     * Is thrown when:
+     * <lu>
+     *     <li>the node is stopping.</li>
+     * </lu>
      */
     CompletableFuture<Void> dropTableAsync(String name);
 
@@ -120,6 +152,10 @@ public interface IgniteTables {
      *
      * @return List of tables.
      * @throws IgniteException If an unspecified platform exception has happened internally.
+     * Is thrown when:
+     * <lu>
+     *     <li>the node is stopping.</li>
+     * </lu>
      */
     List<Table> tables();
 
@@ -128,6 +164,10 @@ public interface IgniteTables {
      *
      * @return Future representing pending completion of the operation.
      * @throws IgniteException If an unspecified platform exception has happened internally.
+     * Is thrown when:
+     * <lu>
+     *     <li>the node is stopping.</li>
+     * </lu>
      */
     CompletableFuture<List<Table>> tablesAsync();
 
@@ -137,6 +177,10 @@ public interface IgniteTables {
      * @param name Name of the table.
      * @return Tables with corresponding name or {@code null} if table isn't created.
      * @throws IgniteException If an unspecified platform exception has happened internally.
+     * Is thrown when:
+     * <lu>
+     *     <li>the node is stopping.</li>
+     * </lu>
      */
     Table table(String name);
 
@@ -146,6 +190,10 @@ public interface IgniteTables {
      * @param name Name of the table.
      * @return Future representing pending completion of the operation.
      * @throws IgniteException If an unspecified platform exception has happened internally.
+     * Is thrown when:
+     * <lu>
+     *     <li>the node is stopping.</li>
+     * </lu>
      */
     CompletableFuture<Table> tableAsync(String name);
 }

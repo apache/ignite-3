@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -43,12 +42,4 @@ public interface IgniteTablesInternal {
      * @throws NodeStoppingException If an implementation stopped before the method was invoked.
      */
     CompletableFuture<TableImpl> tableAsync(IgniteUuid id) throws NodeStoppingException;
-
-    /**
-     * Sets the nodes as baseline for all tables created by the manager.
-     *
-     * @param nodes New baseline nodes.
-     * @throws NodeStoppingException If an implementation stopped before the method was invoked.
-     */
-    void setBaseline(Set<String> nodes) throws NodeStoppingException;
 }

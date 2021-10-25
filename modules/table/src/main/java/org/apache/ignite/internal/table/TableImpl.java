@@ -33,7 +33,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Table view implementation for binary objects.
  */
-public class TableImpl implements Table, AutoCloseable {
+public class TableImpl implements Table {
     /** Table manager. */
     private final TableManager tblMgr;
 
@@ -109,10 +109,5 @@ public class TableImpl implements Table, AutoCloseable {
      */
     public void schemaMode(SchemaManagementMode schemaMode) {
         this.tbl.schema(schemaMode);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void close() throws Exception {
-        tbl.close();
     }
 }

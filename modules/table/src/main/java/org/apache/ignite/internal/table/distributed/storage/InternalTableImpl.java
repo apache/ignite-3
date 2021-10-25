@@ -389,8 +389,13 @@ public class InternalTableImpl implements InternalTable {
                 });
     }
 
-    /** {@inheritDoc} */
-    @Override public void updateInternalTableRaftGroupService(int p, RaftGroupService raftGrpSvc) {
+    /**
+     * Updates internal table raft group service for given partition.
+     *
+     * @param p Partition.
+     * @param raftGrpSvc Raft group service.
+     */
+    public void updateInternalTableRaftGroupService(int p, RaftGroupService raftGrpSvc) {
         RaftGroupService oldSrvc = partitionMap.put(p, raftGrpSvc);
 
         if (oldSrvc != null)
@@ -548,7 +553,5 @@ public class InternalTableImpl implements InternalTable {
     @Override public void close() throws Exception {
         for (RaftGroupService srv : partitionMap.values())
             srv.shutdown();
-
-        tableStorage.stop();
     }
 }

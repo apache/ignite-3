@@ -335,12 +335,10 @@ public class TableManagerTest {
 
         IgniteUuid fakeTblId = new IgniteUuidGenerator(UUID.randomUUID(), 0).randomUuid();
 
-        IgniteTablesInternal igniteInternalTables = tableManager;
+        assertThrows(NodeStoppingException.class, () -> tableManager.table(fakeTblId));
+        assertThrows(NodeStoppingException.class, () -> tableManager.tableAsync(fakeTblId));
 
-        assertThrows(NodeStoppingException.class, () -> igniteInternalTables.table(fakeTblId));
-        assertThrows(NodeStoppingException.class, () -> igniteInternalTables.tableAsync(fakeTblId));
-
-        assertThrows(NodeStoppingException.class, () -> igniteInternalTables.setBaseline(Collections.singleton("fakeNode0")));
+        assertThrows(NodeStoppingException.class, () -> tableManager.setBaseline(Collections.singleton("fakeNode0")));
     }
 
     /**

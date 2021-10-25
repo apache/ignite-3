@@ -33,7 +33,6 @@ import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.schema.definition.SchemaManagementMode;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -99,11 +98,6 @@ public class DummyInternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override public int partitions() {
         return 1;
-    }
-
-    /** {@inheritDoc} */
-    @Override public void updateInternalTableRaftGroupService(int p, RaftGroupService raftGrpSvc) {
-        // No-op.
     }
 
     /** {@inheritDoc} */
